@@ -249,6 +249,84 @@ export const mentors: Mentor[] = [
   },
 ];
 
+  {
+    slug: "dr-aftab-alam",
+    name: "Dr. Aftab Alam",
+    title: "Entrepreneurship & Medication Counselling",
+    expertise: "Entrepreneurship",
+    shortBio: "CEO of Pharmacozyme with 5 years building pharmacy-focused ventures and mentoring professionals.",
+    fullBio: [
+      "Dr. Aftab Alam is the CEO of Pharmacozyme, a pharmacy-focused organization he has built over 5 years. His unique blend of clinical training and entrepreneurial execution gives him a perspective that few pharmacy mentors can offer.",
+      "His expertise spans medication counselling and entrepreneurship — helping students understand not just how to practice pharmacy, but how to build something around it. He has first-hand experience navigating the challenges of starting and scaling a health-focused business in Pakistan.",
+      "Dr. Aftab mentors aspiring pharmacist-entrepreneurs who want to go beyond traditional career paths and create their own opportunities in the pharmacy and healthcare space.",
+    ],
+    photo: "/mentor-aftab-alam.jpeg",
+    experience: "5 Years",
+    domain: "Pharmacy & Entrepreneurship",
+    language: "English / Urdu",
+    format: "Online via Google Meet",
+    pricePerSession: 3000,
+    packages: [
+      { name: "Single Session", sessions: 1, price: 3000 },
+      { name: "3-Session Pack", sessions: 3, price: 8000, savings: 1000 },
+      { name: "5-Session Pack", sessions: 5, price: 13000, savings: 2000 },
+    ],
+    availability: "Any Time",
+    leadTime: "24 hours advance",
+    credentials: [
+      { title: "Pharm-D", institution: "Pakistan", icon: "GraduationCap" },
+      { title: "CEO", institution: "Pharmacozyme", icon: "Award" },
+      { title: "Medication Counselling", institution: "Pakistan", icon: "BookOpen" },
+    ],
+    skills: [
+      "Pharmacy Entrepreneurship",
+      "Medication Counselling",
+      "Business Development",
+      "Healthcare Startups",
+      "Team Leadership",
+      "Career Pivoting for Pharmacists",
+    ],
+  },
+  {
+    slug: "dr-hamza-ansari",
+    name: "Dr. Hamza Ansari",
+    title: "Entrepreneurship, Digital Marketing & Agentic AI",
+    expertise: "Entrepreneurship",
+    shortBio: "COO of Pharmacozyme — pharmacist turned tech entrepreneur specialising in AI, branding, and digital marketing.",
+    fullBio: [
+      "Dr. Hamza Ansari is the COO of Pharmacozyme and one of the most multi-disciplinary pharmacists in Pakistan's emerging tech scene. With 5+ years of experience, he bridges the worlds of pharmacy, digital marketing, content creation, web & app development, and agentic AI.",
+      "His work at Pharmacozyme has put him at the intersection of healthcare and technology — building systems, brands, and workflows that leverage the latest in AI automation. He brings a rare combination of clinical understanding and deep tech execution.",
+      "Dr. Hamza mentors students who want to future-proof their pharmacy careers by developing skills in branding, digital presence, and AI-powered tools — the competencies that will define the next generation of healthcare professionals.",
+    ],
+    photo: "/mentor-hamza-ansari.jpeg",
+    experience: "5+ Years",
+    domain: "Pharmacy & Technology",
+    language: "English / Urdu",
+    format: "Online via Zoom",
+    pricePerSession: 6000,
+    packages: [
+      { name: "Single Session", sessions: 1, price: 6000 },
+      { name: "3-Session Pack", sessions: 3, price: 16000, savings: 2000 },
+      { name: "5-Session Pack", sessions: 5, price: 26000, savings: 4000 },
+    ],
+    availability: "12–2 PM & 8–11 PM",
+    leadTime: "24 hours advance",
+    credentials: [
+      { title: "Pharm-D", institution: "Pakistan", icon: "GraduationCap" },
+      { title: "COO", institution: "Pharmacozyme", icon: "Award" },
+      { title: "Agentic AI & Automations", institution: "Self-taught", icon: "BookOpen" },
+    ],
+    skills: [
+      "Entrepreneurship & Branding",
+      "Digital Marketing",
+      "Content Creation & Coaching",
+      "Web & App Development",
+      "Agentic AI & Automations",
+      "Career Development for Pharmacists",
+    ],
+  },
+];
+
 export function getMentorBySlug(slug: string): Mentor | undefined {
   return mentors.find((m) => m.slug === slug);
 }
