@@ -135,7 +135,7 @@ export default function MentorCard({ mentor, index }: MentorCardProps) {
         className="font-montserrat mb-5"
         style={{ fontWeight: 700, fontSize: "16px", color: "#C9A84C" }}
       >
-        From PKR XXXXX / session
+        From {formatPrice(mentor.pricePerSession)} / session
       </p>
 
       {/* CTA */}
