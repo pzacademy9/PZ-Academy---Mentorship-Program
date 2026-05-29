@@ -23,7 +23,7 @@ const sessionDetailRows = (mentor: Mentor) => [
   {
     icon: Banknote,
     label: "Single Session",
-    value: "PKR XXXXX",
+    value: formatPrice(mentor.pricePerSession),
     highlight: true,
   },
   {
@@ -31,7 +31,7 @@ const sessionDetailRows = (mentor: Mentor) => [
     label: "Packages",
     value: mentor.packages
       .filter((p) => p.sessions > 1)
-      .map((p) => `${p.sessions} session${p.sessions > 1 ? "s" : ""} – PKR XXXXX`)
+      .map((p) => `${p.sessions} session${p.sessions > 1 ? "s" : ""} – ${formatPrice(p.price)}`)
       .join(" | "),
   },
   { icon: Calendar, label: "Availability", value: mentor.availability },
@@ -156,7 +156,7 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                 className="flex items-baseline gap-2 mb-8"
               >
                 <span className="font-montserrat font-black text-3xl text-brand-green">
-                  {"PKR XXXXX"}
+                  {formatPrice(mentor.pricePerSession)}
                 </span>
                 <span className="font-poppins text-sm text-gray-400">/ session</span>
                 <span className="ml-2 font-poppins text-xs text-brand-gold bg-brand-gold/10 border border-brand-gold/30 px-2 py-0.5 rounded-full">
