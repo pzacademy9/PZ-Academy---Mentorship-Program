@@ -247,8 +247,6 @@ export const mentors: Mentor[] = [
       "Pharmaceutical Policy",
     ],
   },
-];
-
   {
     slug: "dr-aftab-alam",
     name: "Dr. Aftab Alam",
