@@ -69,8 +69,8 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
           aria-hidden="true"
         />
 
-        <div className="container-max px-6 md:px-8 py-16">
-          <div className="flex flex-col md:flex-row gap-12 lg:gap-16 items-start">
+        <div className="container-max px-4 md:px-8 py-8 md:py-16">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-12 lg:gap-16 items-start">
             {/* Photo */}
             <motion.div
               initial={{ opacity: 0, x: -40 }}
@@ -78,7 +78,7 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
               transition={{ duration: 0.7 }}
               className="w-full md:w-[38%] flex-shrink-0"
             >
-              <div className="relative w-full max-w-sm mx-auto aspect-[3/4] rounded-2xl overflow-hidden border-2 border-brand-gold/20 shadow-gold-md bg-gray-50">
+              <div className="relative w-full max-w-[280px] md:max-w-sm mx-auto aspect-[3/4] rounded-2xl overflow-hidden border-2 border-brand-gold/20 shadow-gold-md bg-gray-50">
                 <Image
                   src={mentor.photo}
                   alt={`${mentor.name} – ${mentor.expertise} mentor at PZ Academy`}
@@ -120,7 +120,7 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
 
               <motion.h1
                 variants={fadeUp}
-                className="font-montserrat font-black text-4xl md:text-5xl text-brand-black tracking-tight mb-2"
+                className="font-montserrat font-black text-3xl md:text-5xl text-brand-black tracking-tight mb-2"
               >
                 {mentor.name}
               </motion.h1>
@@ -153,13 +153,13 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
               {/* Price highlight */}
               <motion.div
                 variants={fadeUp}
-                className="flex items-baseline gap-2 mb-8"
+                className="flex flex-wrap items-baseline gap-2 mb-6 md:mb-8"
               >
-                <span className="font-montserrat font-black text-3xl text-brand-green">
+                <span className="font-montserrat font-black text-2xl md:text-3xl text-brand-green">
                   {formatPrice(mentor.pricePerSession)}
                 </span>
                 <span className="font-poppins text-sm text-gray-400">/ session</span>
-                <span className="ml-2 font-poppins text-xs text-brand-gold bg-brand-gold/10 border border-brand-gold/30 px-2 py-0.5 rounded-full">
+                <span className="font-poppins text-xs text-brand-gold bg-brand-gold/10 border border-brand-gold/30 px-2 py-0.5 rounded-full">
                   Packages available
                 </span>
               </motion.div>
@@ -204,7 +204,7 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm relative overflow-hidden"
+                className="bg-white rounded-2xl border border-gray-100 p-5 md:p-8 shadow-sm relative overflow-hidden"
               >
                 <div className="absolute left-0 top-0 w-1 h-full bg-brand-gold rounded-l-2xl" aria-hidden="true" />
                 <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-5">
@@ -260,7 +260,7 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                     return (
                       <div
                         key={cred.title}
-                        className="flex items-center gap-3 bg-gray-50 border border-brand-gold/20 hover:border-brand-gold/60 p-4 rounded-xl transition-colors min-w-[190px] cursor-default"
+                        className="flex items-center gap-3 bg-gray-50 border border-brand-gold/20 hover:border-brand-gold/60 p-4 rounded-xl transition-colors w-full sm:min-w-[190px] sm:w-auto cursor-default"
                       >
                         <Icon size={28} className="text-brand-gold flex-shrink-0" strokeWidth={1.5} />
                         <div>
