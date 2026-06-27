@@ -19,6 +19,7 @@ export interface Session {
 
 export interface PerQuestion {
   question: string;
+  type?: string;         // 'stars' | 'video'
   avg: number | null;
   count: number;
 }
@@ -27,6 +28,7 @@ export interface SessionResponse {
   name: string;
   email: string;
   stars: number[];
+  videos?: string[];     // video URL answers (one per video question answered)
   comments: string;
   submittedOn: string;
 }
@@ -41,6 +43,7 @@ export interface SessionDetail {
   avgRating: number | null;
   perQuestion: PerQuestion[];
   responses: SessionResponse[];
+  sheetUrl?: string;
 }
 
 async function gasGet<T>(action: string, key: string, extra: Record<string, string> = {}): Promise<T> {
@@ -58,13 +61,18 @@ async function gasGet<T>(action: string, key: string, extra: Record<string, stri
   return json.data as T;
 }
 
+export interface Question {
+  text: string;
+  type: string; // 'stars' | 'video'
+}
+
 export interface PublicSession {
   id: string;
   name: string;
   speaker: string;
   date: string;
   status: string;
-  questions: string[];
+  questions: Question[];
 }
 
 export function getSessions(key: string): Promise<Session[]> {
