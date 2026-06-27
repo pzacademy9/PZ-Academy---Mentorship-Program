@@ -200,6 +200,7 @@ export default function FeedbackClient({ session }: Props) {
                 onChange={(url) => setVideoAnswer(qi, url)}
                 sessionId={session.id}
                 sessionName={session.name}
+                participantName={name}
               />
             )}
             {step === COMMENTS_STEP && (
@@ -486,11 +487,11 @@ function RatingStep({
 type VState = "idle" | "recording" | "previewing" | "uploading" | "done";
 
 function VideoStep({
-  question, qNum, total, value, onChange, sessionId, sessionName,
+  question, qNum, total, value, onChange, sessionId, sessionName, participantName,
 }: {
   question: string; qNum: number; total: number;
   value: string; onChange: (url: string) => void;
-  sessionId: string; sessionName: string;
+  sessionId: string; sessionName: string; participantName: string;
 }) {
   const [vState,    setVState]    = useState<VState>(value ? "done" : "idle");
   const [countdown, setCountdown] = useState(30);
@@ -597,9 +598,10 @@ function VideoStep({
     try {
       const ext      = blob.type.includes("mp4") ? "mp4" : "webm";
       const formData = new FormData();
-      formData.append("video",       blob, `feedback.${ext}`);
-      formData.append("sessionId",   sessionId);
-      formData.append("sessionName", sessionName);
+      formData.append("video",           blob, `feedback.${ext}`);
+      formData.append("sessionId",       sessionId);
+      formData.append("sessionName",     sessionName);
+      formData.append("participantName", participantName);
 
       const res  = await fetch("/api/upload-video", { method: "POST", body: formData });
       const json: { ok: boolean; data?: { url: string }; error?: string } = await res.json();
@@ -697,20 +699,38 @@ function VideoStep({
 
       {/* UPLOADING */}
       {vState === "uploading" && (
-        <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginTop: 8 }}>
-          Uploading to Drive…
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          <span className="fb-spinner" aria-hidden="true" />
+          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, margin: 0 }}>
+            Saving your video…
+          </p>
+        </div>
       )}
 
       {/* DONE */}
       {vState === "done" && (
         <div>
           <p style={{ color: "rgba(201,168,76,0.9)", fontSize: 14, marginBottom: 12 }}>
-            ✓ Video saved to Drive
+            ✓ Video saved
           </p>
           <button onClick={reset} style={ghostSmallBtn}>Re-record / change</button>
         </div>
       )}
+
+      <style jsx>{`
+        .fb-spinner {
+          width: 20px;
+          height: 20px;
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          border-top-color: #c9a84c;
+          border-radius: 50%;
+          display: inline-block;
+          animation: fb-spin 0.7s linear infinite;
+        }
+        @keyframes fb-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

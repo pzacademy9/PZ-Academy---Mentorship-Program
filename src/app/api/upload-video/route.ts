@@ -16,8 +16,9 @@ export async function POST(req: NextRequest) {
   try {
     const form        = await req.formData();
     const file        = form.get("video") as File | null;
-    const sessionId   = String(form.get("sessionId")   ?? "");
-    const sessionName = String(form.get("sessionName") ?? "");
+    const sessionId       = String(form.get("sessionId")       ?? "");
+    const sessionName     = String(form.get("sessionName")     ?? "");
+    const participantName = String(form.get("participantName") ?? "");
 
     if (!file || file.size === 0) {
       return NextResponse.json({ ok: false, error: "No video file received." }, { status: 400 });
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
         action: "uploadVideo",
         sessionId,
         sessionName,
+        participantName,
         mimeType: file.type || "video/webm",
         base64,
         filename,
