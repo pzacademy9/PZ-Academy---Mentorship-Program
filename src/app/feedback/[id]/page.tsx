@@ -70,7 +70,7 @@ function ClosedState({ name, speaker }: { name: string; speaker?: string }) {
 }
 
 const fullscreen: React.CSSProperties = {
-  background: "#0F3D22",
+  background: "#1A4D2E",
   minHeight: "100vh",
   display: "flex",
   alignItems: "center",

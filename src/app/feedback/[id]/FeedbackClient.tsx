@@ -4,6 +4,13 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PublicSession } from "@/lib/gas";
 
+// Brand green (unified with the rest of the site: brand.green #1A4D2E).
+const GREEN     = "#1A4D2E";
+const GREEN_RGB = "26,77,46";
+
+/** Pragmatic email shape check, matched to the server-side rule. */
+const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+
 // Step layout:
 //   0              → Intro
 //   1              → Name
@@ -44,7 +51,7 @@ export default function FeedbackClient({ session }: Props) {
 
   const canNext = useCallback((): boolean => {
     if (step === 1) return name.trim().length > 0;
-    if (step === 2) return email.trim().length > 0;
+    if (step === 2) return emailOk(email);
     if (isRating)   return starAnswers[qi] != null;
     if (isVideo)    return true; // video URL is optional
     return true;
@@ -99,7 +106,7 @@ export default function FeedbackClient({ session }: Props) {
   return (
     <div
       style={{
-        background:    "#0F3D22",
+        background:    GREEN,
         minHeight:     "100vh",
         display:       "flex",
         flexDirection: "column",
@@ -120,7 +127,7 @@ export default function FeedbackClient({ session }: Props) {
             justifyContent: "center",
             gap:        6,
             zIndex:     10,
-            background: "linear-gradient(to bottom, rgba(15,61,34,0.95) 60%, transparent)",
+            background: `linear-gradient(to bottom, rgba(${GREEN_RGB},0.95) 60%, transparent)`,
           }}
         >
           {Array.from({ length: TOTAL_VISIBLE }).map((_, i) => (
@@ -212,7 +219,7 @@ export default function FeedbackClient({ session }: Props) {
             left:           0,
             right:          0,
             padding:        "16px 24px 28px",
-            background:     "linear-gradient(to top, rgba(15,61,34,1) 60%, transparent)",
+            background:     `linear-gradient(to top, rgba(${GREEN_RGB},1) 60%, transparent)`,
             display:        "flex",
             flexDirection:  "column",
             alignItems:     "center",
@@ -252,7 +259,7 @@ export default function FeedbackClient({ session }: Props) {
                   borderRadius: 26,
                   border:       "none",
                   background:   canNext() && !loading ? "#C9A84C" : "rgba(255,255,255,0.1)",
-                  color:        canNext() && !loading ? "#0F3D22" : "rgba(255,255,255,0.3)",
+                  color:        canNext() && !loading ? GREEN : "rgba(255,255,255,0.3)",
                   fontFamily:   "var(--font-montserrat)",
                   fontWeight:   700,
                   fontSize:     15,
@@ -275,6 +282,19 @@ export default function FeedbackClient({ session }: Props) {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .fb-input:focus-visible {
+          outline: none;
+          border-color: #C9A84C !important;
+          box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.35);
+        }
+        .fb-star:focus-visible {
+          outline: 2px solid #C9A84C;
+          outline-offset: 2px;
+          border-radius: 8px;
+        }
+      `}</style>
     </div>
   );
 }
@@ -336,6 +356,8 @@ function NameStep({ value, onChange }: { value: string; onChange: (v: string) =>
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && value.trim() && e.currentTarget.blur()}
         placeholder="Your name"
+        autoComplete="name"
+        className="fb-input"
         style={inputStyle}
       />
     </div>
@@ -348,6 +370,7 @@ function EmailStep({
   value: string; onChange: (v: string) => void;
   honeypot: string; onHoneypot: (v: string) => void;
 }) {
+  const invalid = value.trim().length > 0 && !emailOk(value);
   return (
     <div>
       <label style={stepLabelStyle}>Step 2 of 2</label>
@@ -362,16 +385,26 @@ function EmailStep({
         onChange={(e) => onHoneypot(e.target.value)}
         tabIndex={-1}
         aria-hidden="true"
+        autoComplete="off"
         style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
       />
       <input
         autoFocus
         type="email"
+        inputMode="email"
+        autoComplete="email"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="you@example.com"
-        style={inputStyle}
+        aria-invalid={invalid}
+        className="fb-input"
+        style={{ ...inputStyle, borderColor: invalid ? "rgba(252,165,165,0.6)" : inputStyle.border as string }}
       />
+      {invalid && (
+        <p style={{ color: "#FCA5A5", fontSize: 13, marginTop: 8 }}>
+          Please enter a valid email address.
+        </p>
+      )}
     </div>
   );
 }
@@ -411,7 +444,8 @@ function RatingStep({
             onMouseEnter={() => setHover(n)}
             onMouseLeave={() => setHover(null)}
             onClick={() => onSelect(n)}
-            aria-label={`${n} star${n !== 1 ? "s" : ""}`}
+            aria-label={`${n} star${n !== 1 ? "s" : ""} — ${labels[n]}`}
+            className="fb-star"
             style={{
               width:      52,
               height:     52,
@@ -621,12 +655,12 @@ function VideoStep({
             <span style={{ opacity: 0.7 }}>Optional — tap Continue to skip.</span>
           </p>
           <div style={{ display: "flex", gap: 12 }}>
-            <button onClick={startRecording} style={videoOptionBtnStyle}>
-              <span style={{ fontSize: 26 }}>🎥</span>
+            <button onClick={startRecording} style={videoOptionBtnStyle} aria-label="Record a video response with your camera">
+              <span style={{ fontSize: 26 }} aria-hidden="true">🎥</span>
               <span>Record</span>
             </button>
-            <label style={{ ...videoOptionBtnStyle, cursor: "pointer" }}>
-              <span style={{ fontSize: 26 }}>📁</span>
+            <label style={{ ...videoOptionBtnStyle, cursor: "pointer" }} aria-label="Upload a video file (max 20 MB)">
+              <span style={{ fontSize: 26 }} aria-hidden="true">📁</span>
               <span>Upload file</span>
               <input
                 type="file"
@@ -694,6 +728,7 @@ function CommentsStep({ value, onChange }: { value: string; onChange: (v: string
         onChange={(e) => onChange(e.target.value)}
         placeholder="Your comments…"
         rows={5}
+        className="fb-input"
         style={{ ...inputStyle, resize: "vertical", minHeight: 120, lineHeight: 1.6 }}
       />
     </div>
@@ -811,7 +846,7 @@ const primarySmallBtn: React.CSSProperties = {
   borderRadius: 10,
   border:       "none",
   background:   "#C9A84C",
-  color:        "#0F3D22",
+  color:        GREEN,
   fontWeight:   700,
   fontSize:     14,
   cursor:       "pointer",

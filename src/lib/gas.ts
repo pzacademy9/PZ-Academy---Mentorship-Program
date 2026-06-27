@@ -1,65 +1,13 @@
 /**
  * Server-side client for the GAS Feedback System JSON API.
- * All functions run exclusively on the Next.js server — the viewer key never
- * reaches the browser.
+ *
+ * Only the PUBLIC session lookup lives here now — the admin panel + viewer were
+ * moved fully into GAS (Admin.html, password-gated). This is used by the public
+ * Next.js feedback form to load a session's questions. It resolves either a raw
+ * session ID or a custom slug (GAS getSessionById_ handles both).
  */
 
 const GAS_URL = process.env.GAS_WEBAPP_URL ?? '';
-
-export interface Session {
-  id: string;
-  name: string;
-  speaker: string;
-  date: string;
-  status: string;
-  link: string;
-  responseCount: number;
-  avgRating: number | null;
-}
-
-export interface PerQuestion {
-  question: string;
-  type?: string;         // 'stars' | 'video'
-  avg: number | null;
-  count: number;
-}
-
-export interface SessionResponse {
-  name: string;
-  email: string;
-  stars: number[];
-  videos?: string[];     // video URL answers (one per video question answered)
-  comments: string;
-  submittedOn: string;
-}
-
-export interface SessionDetail {
-  id: string;
-  name: string;
-  speaker: string;
-  date: string;
-  status: string;
-  responseCount: number;
-  avgRating: number | null;
-  perQuestion: PerQuestion[];
-  responses: SessionResponse[];
-  sheetUrl?: string;
-}
-
-async function gasGet<T>(action: string, key: string, extra: Record<string, string> = {}): Promise<T> {
-  if (!GAS_URL) throw new Error('GAS_WEBAPP_URL is not configured.');
-  const url = new URL(GAS_URL);
-  url.searchParams.set('page', 'api');
-  url.searchParams.set('action', action);
-  url.searchParams.set('key', key);
-  for (const [k, v] of Object.entries(extra)) url.searchParams.set(k, v);
-
-  const res = await fetch(url.toString(), { next: { revalidate: 30 } });
-  if (!res.ok) throw new Error(`GAS responded ${res.status}`);
-  const json: { ok: boolean; data?: T; error?: string } = await res.json();
-  if (!json.ok) throw new Error(json.error ?? 'GAS API error');
-  return json.data as T;
-}
 
 export interface Question {
   text: string;
@@ -73,14 +21,6 @@ export interface PublicSession {
   date: string;
   status: string;
   questions: Question[];
-}
-
-export function getSessions(key: string): Promise<Session[]> {
-  return gasGet<Session[]>('sessions', key);
-}
-
-export function getSessionDetail(key: string, id: string): Promise<SessionDetail> {
-  return gasGet<SessionDetail>('detail', key, { id });
 }
 
 /** Public — no key required. Used by the Next.js feedback form page. */
