@@ -106,7 +106,8 @@ export default function FeedbackClient({ session }: Props) {
   return (
     <div
       style={{
-        background:    GREEN,
+        background:    (step === 0 && session.coverUrl) ? "transparent" : GREEN,
+        transition:    "background 0.4s ease-out",
         minHeight:     "100vh",
         display:       "flex",
         flexDirection: "column",
@@ -114,6 +115,24 @@ export default function FeedbackClient({ session }: Props) {
         fontFamily:    "var(--font-poppins)",
       }}
     >
+      {/* Ambient cover background — visible only on intro step when cover present */}
+      {step === 0 && session.coverUrl && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:           "fixed",
+            inset:              0,
+            zIndex:             0,
+            backgroundImage:    `url(${session.coverUrl})`,
+            backgroundSize:     "cover",
+            backgroundPosition: "center 20%",
+            filter:             "blur(28px) saturate(1.15)",
+            transform:          "scale(1.12)",
+            pointerEvents:      "none",
+          }}
+        />
+      )}
+
       {/* Progress dots */}
       {!done && (
         <div
@@ -303,44 +322,159 @@ export default function FeedbackClient({ session }: Props) {
 // ── Step components ────────────────────────────────────────────────────────────
 
 function IntroStep({ session }: { session: PublicSession }) {
+  const [heroLoaded, setHeroLoaded] = useState(false);
+
+  if (!session.coverUrl) {
+    return (
+      <div style={{ textAlign: "center" }}>
+        <div
+          style={{
+            width:          64,
+            height:         64,
+            borderRadius:   "50%",
+            background:     "rgba(201,168,76,0.15)",
+            border:         "2px solid rgba(201,168,76,0.3)",
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "center",
+            margin:         "0 auto 24px",
+            fontSize:       28,
+          }}
+        >
+          💬
+        </div>
+        <h1
+          style={{
+            fontFamily:   "var(--font-montserrat)",
+            fontWeight:   800,
+            fontSize:     "clamp(24px, 6vw, 32px)",
+            color:        "#fff",
+            lineHeight:   1.2,
+            marginBottom: 12,
+          }}
+        >
+          {session.name}
+        </h1>
+        {session.speaker && (
+          <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 20 }}>
+            Speaker · {session.speaker}
+          </p>
+        )}
+        <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 16, lineHeight: 1.65, maxWidth: 340, margin: "0 auto" }}>
+          Got a minute to share how it went? Your feedback helps us make every session better.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ textAlign: "center" }}>
+    <div style={{ position: "relative", margin: "-80px -24px 0", overflow: "hidden" }}>
+      {/* Hero image strip */}
+      <div style={{ position: "relative", height: 148, overflow: "hidden" }}>
+        {!heroLoaded && (
+          <div
+            aria-hidden="true"
+            style={{
+              position:           "absolute",
+              inset:              0,
+              background:         "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.06) 100%)",
+              backgroundSize:     "200% 100%",
+              animation:          "coverShimmer 1.4s ease-in-out infinite",
+            }}
+          />
+        )}
+        <img
+          src={session.coverUrl}
+          alt={session.name}
+          onLoad={() => setHeroLoaded(true)}
+          style={{
+            width:            "100%",
+            height:           "100%",
+            objectFit:        "cover",
+            objectPosition:   "center 15%",
+            display:          "block",
+            opacity:          heroLoaded ? 1 : 0,
+            transition:       "opacity 0.4s ease-out",
+          }}
+        />
+        {/* Warm feather gradient merging hero into ambient */}
+        <div
+          aria-hidden="true"
+          style={{
+            position:   "absolute",
+            bottom:     0,
+            left:       0,
+            right:      0,
+            height:     56,
+            background: "linear-gradient(to bottom, transparent 0%, oklch(94% 0.008 75 / .82) 100%)",
+          }}
+        />
+      </div>
+
+      {/* Content below hero */}
       <div
         style={{
-          width:          64,
-          height:         64,
-          borderRadius:   "50%",
-          background:     "rgba(201,168,76,0.15)",
-          border:         "2px solid rgba(201,168,76,0.3)",
-          display:        "flex",
-          alignItems:     "center",
-          justifyContent: "center",
-          margin:         "0 auto 24px",
-          fontSize:       28,
+          position:   "relative",
+          zIndex:     1,
+          padding:    "16px 24px 24px",
+          textAlign:  "center",
         }}
       >
-        💬
-      </div>
-      <h1
-        style={{
-          fontFamily:   "var(--font-montserrat)",
-          fontWeight:   800,
-          fontSize:     "clamp(24px, 6vw, 32px)",
-          color:        "#fff",
-          lineHeight:   1.2,
-          marginBottom: 12,
-        }}
-      >
-        {session.name}
-      </h1>
-      {session.speaker && (
-        <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 20 }}>
-          Speaker · {session.speaker}
+        <h1
+          style={{
+            fontFamily:    "var(--font-montserrat)",
+            fontWeight:    800,
+            fontSize:      "clamp(15px, 4vw, 20px)",
+            color:         "oklch(18% 0.05 145)",
+            lineHeight:    1.3,
+            marginBottom:  6,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {session.name}
+        </h1>
+        {session.speaker && (
+          <p
+            style={{
+              color:       "oklch(38% 0.06 145)",
+              fontSize:    12,
+              fontWeight:  500,
+              marginBottom: 12,
+              fontFamily:  "var(--font-poppins)",
+            }}
+          >
+            Speaker · {session.speaker}
+          </p>
+        )}
+        <div
+          style={{
+            width:        28,
+            height:       2,
+            background:   "oklch(64% 0.14 82)",
+            borderRadius: 1,
+            margin:       "0 auto 14px",
+          }}
+        />
+        <p
+          style={{
+            color:      "oklch(30% 0.04 145)",
+            fontSize:   12,
+            lineHeight: 1.65,
+            maxWidth:   280,
+            margin:     "0 auto",
+            fontFamily: "var(--font-poppins)",
+          }}
+        >
+          Got a minute to share how it went? Your feedback helps us make every session better.
         </p>
-      )}
-      <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 16, lineHeight: 1.65, maxWidth: 340, margin: "0 auto" }}>
-        Got a minute to share how it went? Your feedback helps us make every session better.
-      </p>
+      </div>
+
+      <style jsx>{`
+        @keyframes coverShimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export interface PublicSession {
   date: string;
   status: string;
   questions: Question[];
+  coverUrl?: string;
 }
 
 /** Public — no key required. Used by the Next.js feedback form page. */
