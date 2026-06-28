@@ -31,44 +31,60 @@ const GOLD_LIGHT= "#F3E5AB";
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
 /** Web Audio API sound synthesizer for instant zero-latency audio feedback */
-const playSound = (type: "pop" | "star" | "success") => {
+const playSound = (type: "pop" | "star" | "success" | "record") => {
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     if (ctx.state === "suspended") ctx.resume();
 
-    if (type === "pop" || type === "star") {
-      const osc = ctx.createOscillator();
+    if (type === "star") {
+      const osc  = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type  = "sine"; osc.frequency.value  = 880;
+      osc2.type = "sine"; osc2.frequency.value = 1320;
+      const g2 = ctx.createGain(); g2.gain.value = 0.4;
+      osc2.connect(g2); g2.connect(gain);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc2.start();
+      osc.stop(ctx.currentTime + 0.55); osc2.stop(ctx.currentTime + 0.55);
+    } else if (type === "pop") {
+      const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      const freq = type === "star" ? 587.33 : 440;
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.4, ctx.currentTime + 0.08);
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(660, ctx.currentTime + 0.18);
       gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.22);
     } else if (type === "success") {
-      const notes = [523.25, 659.25, 783.99, 1046.50];
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+      ([[523.25, 0], [659.25, 0.08], [783.99, 0.16]] as [number, number][]).forEach(([freq, delay]) => {
+        const osc  = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.07);
-        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.07);
-        gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + i * 0.07 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.07 + 0.3);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + i * 0.07);
-        osc.stop(ctx.currentTime + i * 0.07 + 0.3);
+        osc.type = "triangle"; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+        gain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + delay + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.65);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.65);
       });
+    } else if (type === "record") {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = 220;
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.14);
     }
   } catch {
-    // Ignore audio context blocks
+    // Ignore audio context errors
   }
 };
 
@@ -82,18 +98,21 @@ type VideoStates  = Record<number, "idle" | "recording" | "previewing" | "upload
 
 const slideVariants = {
   enter: (direction: number) => ({
-    x: direction > 0 ? 35 : -35,
+    x:       direction > 0 ? 40 : -40,
     opacity: 0,
+    scale:   0.97,
   }),
   center: {
-    x: 0,
+    x:       0,
     opacity: 1,
-    transition: { duration: 0.3, ease: "easeOut" as const },
+    scale:   1,
+    transition: { type: "spring" as const, stiffness: 400, damping: 30 },
   },
   exit: (direction: number) => ({
-    x: direction < 0 ? 35 : -35,
+    x:       direction < 0 ? 40 : -40,
     opacity: 0,
-    transition: { duration: 0.2, ease: "easeIn" as const },
+    scale:   0.97,
+    transition: { duration: 0.18, ease: "easeIn" as const },
   }),
 };
 
@@ -246,7 +265,12 @@ export default function FeedbackClient({ session }: Props) {
               <motion.div
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.3 }}
-                style={{ height: "100%", background: `linear-gradient(90deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)` }}
+                style={{
+                  height:       "100%",
+                  background:   `linear-gradient(90deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+                  animation:    progressPercent > 0 ? "fb-progress-glow 2s ease-in-out infinite" : "none",
+                  borderRadius: 3,
+                }}
               />
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: GOLD_LIGHT, fontFamily: "var(--font-montserrat)" }}>
@@ -395,8 +419,10 @@ export default function FeedbackClient({ session }: Props) {
                   borderRadius:   25,
                   border:         "none",
                   background:     canNext() && !loading
-                    ? `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`
+                    ? `linear-gradient(90deg, ${GOLD} 0%, ${GOLD_LIGHT} 40%, ${GOLD} 60%, ${GOLD_LIGHT} 80%, ${GOLD} 100%)`
                     : "rgba(255,255,255,0.1)",
+                  backgroundSize: canNext() && !loading ? "200% auto" : "100% auto",
+                  animation:      canNext() && !loading && !isRating ? "fb-btn-shimmer 2.8s linear infinite" : "none",
                   color:          canNext() && !loading ? DARK_BG : "rgba(255,255,255,0.35)",
                   fontFamily:     "var(--font-montserrat)",
                   fontWeight:     800,
@@ -460,6 +486,14 @@ export default function FeedbackClient({ session }: Props) {
         }
         @keyframes fb-spin {
           to { transform: rotate(360deg); }
+        }
+        @keyframes fb-btn-shimmer {
+          0%   { background-position: 200% center; }
+          100% { background-position: -200% center; }
+        }
+        @keyframes fb-progress-glow {
+          0%, 100% { box-shadow: 0 0 5px 1px rgba(201,168,76,0.45); }
+          50%       { box-shadow: 0 0 11px 3px rgba(201,168,76,0.8); }
         }
       `}</style>
     </div>
@@ -592,8 +626,8 @@ function RatingStep({
           return (
             <motion.button
               key={n}
-              whileHover={{ scale: 1.2, rotate: 4 }}
-              whileTap={{ scale: 1.25, rotate: -4 }}
+              whileHover={{ scale: 1.22, rotate: 5, transition: { type: "spring", stiffness: 500, damping: 18 } }}
+              whileTap={{ scale: 1.4, rotate: -6, transition: { type: "spring", stiffness: 600, damping: 14 } }}
               onMouseEnter={() => setHover(n)}
               onMouseLeave={() => setHover(null)}
               onClick={() => onSelect(n)}
@@ -712,6 +746,7 @@ function VideoStep({
       };
 
       recorderRef.current = recorder;
+      playSound("record");
       recorder.start(100);
       updateState("recording");
       setCountdown(30);
