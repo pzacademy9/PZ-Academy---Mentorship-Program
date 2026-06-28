@@ -13,13 +13,10 @@ import {
   Camera,
   ChevronRight,
   ChevronLeft,
-  Sparkles,
   AlertCircle,
   Square,
-  RotateCcw,
   Send,
   Award,
-  ShieldCheck,
   Check,
 } from "lucide-react";
 import type { PublicSession } from "@/lib/gas";
@@ -452,6 +449,18 @@ export default function FeedbackClient({ session }: Props) {
           border-color: #C9A84C !important;
           box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.3) !important;
         }
+        .fb-spinner-gold {
+          width: 18px;
+          height: 18px;
+          border: 2px solid rgba(201,168,76,0.3);
+          border-top-color: #c9a84c;
+          border-radius: 50%;
+          display: inline-block;
+          animation: fb-spin 0.7s linear infinite;
+        }
+        @keyframes fb-spin {
+          to { transform: rotate(360deg); }
+        }
       `}</style>
     </div>
   );
@@ -627,11 +636,12 @@ function VideoStep({
   value: string; onChange: (url: string, state: VState) => void;
   sessionId: string; sessionName: string; participantName: string;
 }) {
-  const [vState,    setVState]    = useState<VState>(value ? "done" : "idle");
-  const [countdown, setCountdown] = useState(30);
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const [blob,      setBlob]      = useState<Blob | null>(null);
-  const [errMsg,    setErrMsg]    = useState("");
+  const [vState,         setVState]         = useState<VState>(value ? "done" : "idle");
+  const [countdown,      setCountdown]      = useState(30);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [objectUrl,      setObjectUrl]      = useState<string | null>(null);
+  const [blob,           setBlob]           = useState<Blob | null>(null);
+  const [errMsg,         setErrMsg]         = useState("");
 
   const videoRef    = useRef<HTMLVideoElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -653,7 +663,6 @@ function VideoStep({
     onChange(url, st);
   };
 
-  /** Hardware-optimised camera stream auto-requesting 720p/1080p 30fps to avoid 4K file sizes */
   const startRecording = async () => {
     setErrMsg("");
     try {
@@ -680,7 +689,6 @@ function VideoStep({
         MediaRecorder.isTypeSupported("video/webm")                  ? "video/webm" :
                                                                        "video/mp4";
 
-      // 1.5 Mbps bitrate cap for compressed ~5MB 30-second clips
       const recorderOptions: MediaRecorderOptions = {
         mimeType,
         videoBitsPerSecond: 1500000,
@@ -745,6 +753,7 @@ function VideoStep({
   const doUpload = async () => {
     if (!blob) return;
     updateState("uploading");
+    setUploadProgress(0);
     setErrMsg("");
     try {
       const ext      = blob.type.includes("mp4") ? "mp4" : "webm";
@@ -754,8 +763,30 @@ function VideoStep({
       formData.append("sessionName",     sessionName);
       formData.append("participantName", participantName);
 
-      const res  = await fetch("/api/upload-video", { method: "POST", body: formData });
-      const json: { ok: boolean; data?: { url: string }; error?: string } = await res.json();
+      const json = await new Promise<{ ok: boolean; data?: { url: string }; error?: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/upload-video");
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(percent);
+          }
+        };
+
+        xhr.onload = () => {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            resolve(res);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Upload failed due to network error."));
+        xhr.send(formData);
+      });
+
       if (!json.ok || !json.data?.url) throw new Error(json.error ?? "Upload failed.");
 
       playSound("success");
@@ -789,7 +820,7 @@ function VideoStep({
         Optional video response (up to 30s). Tap Continue to skip.
       </p>
 
-      {/* Video Element Player */}
+      {/* Video Player */}
       <video
         ref={videoRef}
         playsInline
@@ -819,7 +850,7 @@ function VideoStep({
 
       {vState === "recording" && (
         <div style={{ textAlign: "center" }}>
-          <p style={{ color: GOLD, fontSize: 13, marginBottom: 12, fontWeight: 600 }}>⏺ Recording (1080p/720p 30fps): {countdown}s</p>
+          <p style={{ color: GOLD, fontSize: 13, marginBottom: 12, fontWeight: 600 }}>⏺ Recording: {countdown}s remaining</p>
           <button onClick={stopRecording} style={{ background: "#EF4444", color: "#fff", border: "none", padding: "10px 24px", borderRadius: 20, cursor: "pointer", fontWeight: 700 }}>
             Stop Recording
           </button>
@@ -836,8 +867,18 @@ function VideoStep({
       )}
 
       {vState === "uploading" && (
-        <div style={{ textAlign: "center", padding: "16px 0", color: GOLD }}>
-          Uploading & compressing video...
+        <div style={{ textAlign: "center", padding: "20px 16px", background: "rgba(201,168,76,0.1)", borderRadius: 16, border: "1px solid rgba(201,168,76,0.25)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 12 }}>
+            <span className="fb-spinner-gold" aria-hidden="true" />
+            <span style={{ fontWeight: 700, color: GOLD_LIGHT, fontSize: 14 }}>Uploading Video ({uploadProgress}%)</span>
+          </div>
+          <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 4, overflow: "hidden" }}>
+            <motion.div
+              animate={{ width: `${uploadProgress}%` }}
+              transition={{ duration: 0.2 }}
+              style={{ height: "100%", background: `linear-gradient(90deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`, borderRadius: 4 }}
+            />
+          </div>
         </div>
       )}
 
@@ -925,7 +966,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 14,
   padding:      "14px 16px",
   color:        "#fff",
-  fontSize:     15,
+  fontSize:     16,
   fontFamily:   "var(--font-poppins)",
   outline:      "none",
   boxSizing:    "border-box",
