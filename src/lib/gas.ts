@@ -85,10 +85,14 @@ export async function getShareView(token: string): Promise<ShareView | null> {
   url.searchParams.set('action', 'shareview');
   url.searchParams.set('token', token);
   try {
-    const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+    const res = await fetch(url.toString(), { cache: 'no-store' });
     if (!res.ok) return null;
     const json: { ok: boolean; data?: ShareView; error?: string } = await res.json();
-    return json.ok ? (json.data ?? null) : null;
+    if (!json.ok) {
+      console.error('GAS shareview error:', json.error);
+      return null;
+    }
+    return json.data ?? null;
   } catch {
     return null;
   }

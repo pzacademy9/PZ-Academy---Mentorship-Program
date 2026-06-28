@@ -354,7 +354,11 @@ export default function FeedbackClient({ session }: Props) {
               {step === COMMENTS_STEP && (
                 <CommentsStep value={comments} onChange={setComments} />
               )}
-              {done && <ThankyouStep name={name} />}
+              {done && <ThankyouStep name={name} avgRating={
+                Object.values(starAnswers).filter((v) => v >= 1 && v <= 5).length > 0
+                  ? Math.round((Object.values(starAnswers).filter((v) => v >= 1 && v <= 5).reduce((a, b) => a + b, 0) / Object.values(starAnswers).filter((v) => v >= 1 && v <= 5).length) * 10) / 10
+                  : null
+              } />}
             </div>
           </motion.div>
         </AnimatePresence>
@@ -954,7 +958,7 @@ function CommentsStep({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
-function ThankyouStep({ name }: { name: string }) {
+function ThankyouStep({ name, avgRating }: { name: string; avgRating: number | null }) {
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(201,168,76,0.2)", border: "2px solid #C9A84C", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", color: GOLD }}>
@@ -963,6 +967,14 @@ function ThankyouStep({ name }: { name: string }) {
       <h1 style={{ fontFamily: "var(--font-montserrat)", fontWeight: 800, fontSize: 26, color: "#fff", marginBottom: 8 }}>
         Thank You{name ? `, ${name.split(" ")[0]}` : ""}!
       </h1>
+      {avgRating !== null && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, margin: "12px 0 8px" }}>
+          {[1, 2, 3, 4, 5].map((s) => (
+            <Star key={s} size={22} fill={s <= Math.round(avgRating) ? GOLD : "none"} color={s <= Math.round(avgRating) ? GOLD : "rgba(255,255,255,0.25)"} />
+          ))}
+          <span style={{ color: GOLD, fontWeight: 700, fontSize: 18, marginLeft: 8 }}>{avgRating}</span>
+        </div>
+      )}
       <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 14 }}>
         Your review has been submitted. We appreciate your feedback!
       </p>
