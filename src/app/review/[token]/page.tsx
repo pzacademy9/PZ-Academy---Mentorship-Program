@@ -1,12 +1,16 @@
 import { getShareView } from '@/lib/gas';
 import ReviewClient from './ReviewClient';
 import type { Metadata } from 'next';
+import { cache } from 'react';
+
+// Per-request cache so generateMetadata and ReviewPage share one GAS call.
+const getView = cache(getShareView);
 
 interface Props { params: Promise<{ token: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
-  const view = await getShareView(token);
+  const view = await getView(token);
   const name = view
     ? view.type === 'session' ? view.session.name : view.program.name
     : 'Instructor Review';
@@ -15,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ReviewPage({ params }: Props) {
   const { token } = await params;
-  const view = await getShareView(token);
+  const view = await getView(token);
 
   if (!view) {
     return (
