@@ -40,3 +40,56 @@ export async function getPublicSession(id: string): Promise<PublicSession | null
     return null;
   }
 }
+
+export interface ShareResponse {
+  submittedOn: string;
+  stars: number[];
+  videos: string[];
+  comments: string;
+}
+
+export interface SharePerQuestion {
+  question: string;
+  type: 'stars' | 'video';
+  avg: number | null;
+  count: number;
+}
+
+export interface ShareSession {
+  id: string;
+  name: string;
+  speaker: string;
+  date: string;
+  coverUrl: string;
+  responseCount: number;
+  avgRating: number | null;
+  perQuestion: SharePerQuestion[];
+  responses: ShareResponse[];
+}
+
+export interface ShareProgram {
+  id: string;
+  name: string;
+  type: string;
+  coverUrl: string;
+}
+
+export type ShareView =
+  | { type: 'session'; session: ShareSession }
+  | { type: 'program'; program: ShareProgram; sessions: ShareSession[] };
+
+export async function getShareView(token: string): Promise<ShareView | null> {
+  if (!GAS_URL) return null;
+  const url = new URL(GAS_URL);
+  url.searchParams.set('page', 'api');
+  url.searchParams.set('action', 'shareview');
+  url.searchParams.set('token', token);
+  try {
+    const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    const json: { ok: boolean; data?: ShareView; error?: string } = await res.json();
+    return json.ok ? (json.data ?? null) : null;
+  } catch {
+    return null;
+  }
+}
