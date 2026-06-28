@@ -16,17 +16,20 @@ import {
   Sparkles,
   AlertCircle,
   ShieldCheck,
-  Play,
   Square,
   RotateCcw,
   Send,
+  GraduationCap,
+  Award,
+  HeartHandshake,
 } from "lucide-react";
 import type { PublicSession } from "@/lib/gas";
 
-// Brand colors
-const GREEN     = "#1A4D2E";
-const GREEN_RGB = "26,77,46";
+// Brand color palette
+const DARK_BG   = "#0A2214";
+const CARD_BG   = "rgba(10, 32, 20, 0.88)";
 const GOLD      = "#C9A84C";
+const GOLD_LIGHT= "#F3E5AB";
 
 /** Email shape validator */
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -40,25 +43,25 @@ type VideoAnswers = Record<number, string>;
 
 const slideVariants = {
   enter: (direction: number) => ({
-    x: direction > 0 ? 32 : -32,
+    x: direction > 0 ? 40 : -40,
     opacity: 0,
-    scale: 0.97,
+    scale: 0.96,
   }),
   center: {
     x: 0,
     opacity: 1,
     scale: 1,
     transition: {
-      duration: 0.38,
+      duration: 0.35,
       ease: [0.16, 1, 0.3, 1] as const,
     },
   },
   exit: (direction: number) => ({
-    x: direction < 0 ? 32 : -32,
+    x: direction < 0 ? 40 : -40,
     opacity: 0,
-    scale: 0.97,
+    scale: 0.96,
     transition: {
-      duration: 0.28,
+      duration: 0.25,
       ease: [0.7, 0, 0.84, 0] as const,
     },
   }),
@@ -68,7 +71,6 @@ export default function FeedbackClient({ session }: Props) {
   const N             = session.questions.length;
   const COMMENTS_STEP = 3 + N;
   const THANKYOU_STEP = COMMENTS_STEP + 1;
-  const TOTAL_VISIBLE = COMMENTS_STEP + 1;
 
   const [step,         setStep]         = useState(0);
   const [direction,    setDirection]    = useState(1);
@@ -112,7 +114,7 @@ export default function FeedbackClient({ session }: Props) {
   const setStar = (index: number, v: number) => {
     setStarAnswers((prev) => ({ ...prev, [index]: v }));
     setDirection(1);
-    setTimeout(() => setStep((s) => s + 1), 380);
+    setTimeout(() => setStep((s) => s + 1), 420);
   };
 
   const setVideoAnswer = (index: number, url: string) => {
@@ -155,20 +157,31 @@ export default function FeedbackClient({ session }: Props) {
   const isLastBeforeSubmit = step === COMMENTS_STEP;
   const progressPercent    = Math.round((Math.min(step, COMMENTS_STEP) / COMMENTS_STEP) * 100);
 
+  // Dynamic Impact Level Badges
+  const getImpactBadge = () => {
+    if (step === 0) return "🌟 YOUR VOICE MATTERS";
+    if (step === 1) return "👤 STEP 1: YOUR NAME";
+    if (step === 2) return "✉️ STEP 2: VERIFICATION";
+    if (isRating || isVideo) return `🔥 IMPACT MILESTONE ${qi + 1} OF ${N}`;
+    if (step === COMMENTS_STEP) return "💡 FINAL INSIGHTS";
+    return "🎉 COMPLETED";
+  };
+
   return (
     <div
       style={{
-        background:    step === 0 && session.coverUrl ? "transparent" : GREEN,
-        transition:    "background 0.5s ease-out",
+        background:    DARK_BG,
+        backgroundImage:"radial-gradient(circle at 50% 0%, #154228 0%, #0A2214 75%)",
         minHeight:     "100vh",
         display:       "flex",
         flexDirection: "column",
         overflowX:     "hidden",
         fontFamily:    "var(--font-poppins)",
         position:      "relative",
+        color:         "#fff",
       }}
     >
-      {/* Dynamic Ambient Background Lights */}
+      {/* Background Ambient Glow Orbs */}
       <div
         aria-hidden="true"
         style={{
@@ -182,66 +195,37 @@ export default function FeedbackClient({ session }: Props) {
         <div
           style={{
             position: "absolute",
-            top: "-10%",
-            right: "-10%",
-            width: "50vw",
-            height: "50vw",
+            top: "-15%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "80vw",
+            maxWidth: 800,
+            height: "400px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(201,168,76,0.12) 0%, rgba(201,168,76,0) 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "-10%",
-            left: "-10%",
-            width: "60vw",
-            height: "60vw",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(46,125,82,0.25) 0%, rgba(46,125,82,0) 70%)",
+            background: "radial-gradient(circle, rgba(201,168,76,0.15) 0%, rgba(201,168,76,0) 70%)",
             filter: "blur(70px)",
           }}
         />
       </div>
 
-      {/* Ambient cover background for step 0 when cover present */}
-      {step === 0 && session.coverUrl && (
-        <div
-          aria-hidden="true"
-          style={{
-            position:           "fixed",
-            inset:              0,
-            zIndex:             0,
-            backgroundImage:    `url(${session.coverUrl})`,
-            backgroundSize:     "cover",
-            backgroundPosition: "center 20%",
-            filter:             "blur(32px) saturate(1.2) brightness(0.85)",
-            transform:          "scale(1.12)",
-            pointerEvents:      "none",
-            transition:         "opacity 0.6s ease",
-          }}
-        />
-      )}
-
-      {/* Floating Header & Progress Bar */}
+      {/* Floating Header & Gamified Impact Dock */}
       {!done && (
         <header
           style={{
             position:       "fixed",
-            top:            20,
+            top:            16,
             left:           "50%",
             transform:      "translateX(-50%)",
-            width:          "calc(100% - 48px)",
-            maxWidth:       520,
-            zIndex:         20,
-            background:     "rgba(255, 255, 255, 0.07)",
+            width:          "calc(100% - 32px)",
+            maxWidth:       500,
+            zIndex:         30,
+            background:     "rgba(8, 26, 16, 0.92)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            border:         "1px solid rgba(255, 255, 255, 0.14)",
-            borderRadius:   18,
-            padding:        "12px 20px",
-            boxShadow:      "0 12px 32px rgba(0, 0, 0, 0.2)",
+            border:         "1px solid rgba(201, 168, 76, 0.3)",
+            borderRadius:   20,
+            padding:        "12px 18px",
+            boxShadow:      "0 12px 30px rgba(0, 0, 0, 0.4)",
             display:        "flex",
             flexDirection:  "column",
             gap:            8,
@@ -252,28 +236,28 @@ export default function FeedbackClient({ session }: Props) {
               style={{
                 fontSize:      11,
                 fontWeight:    700,
-                color:         "rgba(255,255,255,0.7)",
+                color:         GOLD_LIGHT,
                 textTransform: "uppercase",
-                letterSpacing: "0.1em",
+                letterSpacing: "0.08em",
                 fontFamily:    "var(--font-montserrat)",
                 display:       "flex",
                 alignItems:    "center",
                 gap:           6,
               }}
             >
-              <Sparkles size={13} color={GOLD} />
-              {step === 0 ? "Introduction" : step === COMMENTS_STEP ? "Final Step" : `Step ${step} of ${COMMENTS_STEP}`}
+              <Sparkles size={14} color={GOLD} />
+              {getImpactBadge()}
             </span>
             <span
               style={{
                 fontSize:     11,
                 fontWeight:   800,
-                color:        GOLD,
+                color:        DARK_BG,
                 fontFamily:   "var(--font-montserrat)",
-                background:   "rgba(201, 168, 76, 0.15)",
-                padding:      "2px 8px",
-                borderRadius: 10,
-                border:       "1px solid rgba(201, 168, 76, 0.25)",
+                background:   `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+                padding:      "2px 10px",
+                borderRadius: 12,
+                boxShadow:    "0 2px 8px rgba(201, 168, 76, 0.3)",
               }}
             >
               {progressPercent}%
@@ -284,8 +268,8 @@ export default function FeedbackClient({ session }: Props) {
           <div
             style={{
               width:        "100%",
-              height:       5,
-              background:   "rgba(255,255,255,0.12)",
+              height:       6,
+              background:   "rgba(255,255,255,0.1)",
               borderRadius: 3,
               overflow:     "hidden",
               position:     "relative",
@@ -297,9 +281,9 @@ export default function FeedbackClient({ session }: Props) {
               transition={{ duration: 0.4, ease: "easeOut" }}
               style={{
                 height:       "100%",
-                background:   `linear-gradient(90deg, ${GOLD} 0%, #E8C97A 100%)`,
+                background:   `linear-gradient(90deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
                 borderRadius: 3,
-                boxShadow:    `0 0 10px ${GOLD}`,
+                boxShadow:    `0 0 12px ${GOLD}`,
               }}
             />
           </div>
@@ -314,8 +298,8 @@ export default function FeedbackClient({ session }: Props) {
           flexDirection:  "column",
           alignItems:     "center",
           justifyContent: "center",
-          padding:        "110px 24px 120px",
-          maxWidth:       520,
+          padding:        "100px 16px 120px",
+          maxWidth:       500,
           margin:         "0 auto",
           width:          "100%",
           position:       "relative",
@@ -332,17 +316,17 @@ export default function FeedbackClient({ session }: Props) {
             exit="exit"
             style={{ width: "100%" }}
           >
-            {/* Frosted Glass Shell */}
+            {/* High-Contrast Frosted Glass Shell */}
             <div
               style={{
                 width:                "100%",
-                background:           "rgba(255, 255, 255, 0.06)",
-                backdropFilter:       "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
-                borderRadius:         28,
-                border:               "1px solid rgba(255, 255, 255, 0.14)",
-                boxShadow:            "0 30px 60px -12px rgba(0, 0, 0, 0.35), 0 0 40px rgba(201, 168, 76, 0.06)",
-                padding:              step === 0 && session.coverUrl ? 0 : "36px 32px",
+                background:           CARD_BG,
+                backdropFilter:       "blur(28px)",
+                WebkitBackdropFilter: "blur(28px)",
+                borderRadius:         24,
+                border:               "1px solid rgba(201, 168, 76, 0.35)",
+                boxShadow:            "0 24px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(201, 168, 76, 0.08)",
+                padding:              step === 0 && session.coverUrl ? "0 0 28px 0" : "32px 24px",
                 overflow:             "hidden",
                 position:             "relative",
               }}
@@ -395,15 +379,15 @@ export default function FeedbackClient({ session }: Props) {
             bottom:         0,
             left:           0,
             right:          0,
-            padding:        "20px 24px 28px",
-            background:     `linear-gradient(to top, rgba(${GREEN_RGB},0.98) 65%, transparent)`,
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
+            padding:        "16px 20px 24px",
+            background:     "linear-gradient(to top, rgba(8, 26, 16, 0.98) 70%, transparent)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
             display:        "flex",
             flexDirection:  "column",
             alignItems:     "center",
-            gap:            12,
-            zIndex:         20,
+            gap:            10,
+            zIndex:         30,
           }}
         >
           {error && (
@@ -414,8 +398,8 @@ export default function FeedbackClient({ session }: Props) {
                 display:      "flex",
                 alignItems:   "center",
                 gap:          8,
-                background:   "rgba(239, 68, 68, 0.15)",
-                border:       "1px solid rgba(239, 68, 68, 0.3)",
+                background:   "rgba(239, 68, 68, 0.2)",
+                border:       "1px solid rgba(239, 68, 68, 0.4)",
                 borderRadius: 12,
                 padding:      "8px 16px",
                 color:        "#FCA5A5",
@@ -440,14 +424,13 @@ export default function FeedbackClient({ session }: Props) {
                   flex:           "0 0 52px",
                   height:         52,
                   borderRadius:   26,
-                  border:         "1px solid rgba(255,255,255,0.18)",
-                  background:     "rgba(255,255,255,0.06)",
+                  border:         "1px solid rgba(255,255,255,0.2)",
+                  background:     "rgba(255,255,255,0.08)",
                   color:          "#fff",
                   cursor:         "pointer",
                   display:        "flex",
                   alignItems:     "center",
                   justifyContent: "center",
-                  transition:     "background 0.2s, border-color 0.2s",
                 }}
               >
                 <ChevronLeft size={22} />
@@ -466,20 +449,20 @@ export default function FeedbackClient({ session }: Props) {
                   borderRadius:   26,
                   border:         "none",
                   background:     canNext() && !loading
-                    ? `linear-gradient(135deg, ${GOLD} 0%, #E8C97A 100%)`
-                    : "rgba(255,255,255,0.08)",
-                  color:          canNext() && !loading ? GREEN : "rgba(255,255,255,0.35)",
+                    ? `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`
+                    : "rgba(255,255,255,0.1)",
+                  color:          canNext() && !loading ? DARK_BG : "rgba(255,255,255,0.35)",
                   fontFamily:     "var(--font-montserrat)",
-                  fontWeight:     700,
+                  fontWeight:     800,
                   fontSize:       15,
                   cursor:         canNext() && !loading ? "pointer" : "not-allowed",
-                  boxShadow:      canNext() && !loading ? `0 8px 24px rgba(201,168,76,0.3)` : "none",
+                  boxShadow:      canNext() && !loading ? `0 8px 24px rgba(201,168,76,0.35)` : "none",
                   letterSpacing:  "0.04em",
                   display:        "flex",
                   alignItems:     "center",
                   justifyContent: "center",
                   gap:            8,
-                  transition:     "all 0.25s ease",
+                  transition:     "all 0.2s ease",
                 }}
               >
                 {loading ? (
@@ -489,17 +472,17 @@ export default function FeedbackClient({ session }: Props) {
                   </>
                 ) : isLastBeforeSubmit ? (
                   <>
-                    <span>Submit Feedback</span>
+                    <span>Submit My Feedback</span>
                     <Send size={18} />
                   </>
                 ) : step === 0 ? (
                   <>
-                    <span>Get Started</span>
+                    <span>Share My Review ✨</span>
                     <ChevronRight size={18} />
                   </>
                 ) : (
                   <>
-                    <span>Continue</span>
+                    <span>Next Milestone</span>
                     <ChevronRight size={18} />
                   </>
                 )}
@@ -513,13 +496,13 @@ export default function FeedbackClient({ session }: Props) {
         .fb-input:focus-visible {
           outline: none;
           border-color: #C9A84C !important;
-          box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.3) !important;
+          box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.35) !important;
         }
         .fb-spinner-dark {
           width: 18px;
           height: 18px;
-          border: 2px solid rgba(26,77,46,0.3);
-          border-top-color: #1A4D2E;
+          border: 2px solid rgba(10,34,20,0.3);
+          border-top-color: #0A2214;
           border-radius: 50%;
           display: inline-block;
           animation: fb-spin 0.7s linear infinite;
@@ -536,130 +519,125 @@ export default function FeedbackClient({ session }: Props) {
 
 function IntroStep({ session }: { session: PublicSession }) {
   const [heroLoaded, setHeroLoaded] = useState(false);
+  const [heroError,  setHeroError]  = useState(false);
 
-  if (!session.coverUrl) {
-    return (
-      <div style={{ textAlign: "center" }}>
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
-          style={{
-            width:          72,
-            height:         72,
-            borderRadius:   "50%",
-            background:     "rgba(201,168,76,0.15)",
-            border:         "1.5px solid rgba(201,168,76,0.4)",
-            display:        "flex",
-            alignItems:     "center",
-            justifyContent: "center",
-            margin:         "0 auto 24px",
-            color:          GOLD,
-            boxShadow:      "0 0 24px rgba(201,168,76,0.2)",
-          }}
-        >
-          <Sparkles size={32} />
-        </motion.div>
-        <h1
-          style={{
-            fontFamily:   "var(--font-montserrat)",
-            fontWeight:   800,
-            fontSize:     "clamp(24px, 5vw, 30px)",
-            color:        "#fff",
-            lineHeight:   1.25,
-            marginBottom: 10,
-            letterSpacing:"-0.01em",
-          }}
-        >
-          {session.name}
-        </h1>
-        {session.speaker && (
-          <div
-            style={{
-              display:       "inline-block",
-              padding:       "4px 14px",
-              borderRadius:  12,
-              background:    "rgba(255,255,255,0.08)",
-              border:        "1px solid rgba(255,255,255,0.15)",
-              color:         "rgba(255,255,255,0.75)",
-              fontSize:      12,
-              fontWeight:    600,
-              marginBottom:  20,
-              fontFamily:    "var(--font-poppins)",
-            }}
-          >
-            Speaker · {session.speaker}
-          </div>
-        )}
-        <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, lineHeight: 1.65, maxWidth: 360, margin: "0 auto" }}>
-          We&apos;d love to hear your thoughts! Your quick feedback helps us make every PZ Academy mentorship session exceptional.
-        </p>
-      </div>
-    );
-  }
+  const showFallback = !session.coverUrl || heroError;
 
   return (
-    <div style={{ position: "relative" }}>
-      {/* Integrated Hero image strip */}
-      <div style={{ position: "relative", height: 160, overflow: "hidden" }}>
-        {!heroLoaded && (
+    <div style={{ textAlign: "center" }}>
+      {/* Magazine-Grade Hero Card Banner */}
+      {!showFallback ? (
+        <div style={{ position: "relative", width: "100%", height: 200, overflow: "hidden", background: "#061A0F" }}>
+          {!heroLoaded && (
+            <div
+              aria-hidden="true"
+              style={{
+                position:       "absolute",
+                inset:          0,
+                background:     "linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(201,168,76,0.15) 50%, rgba(255,255,255,0.05) 100%)",
+                backgroundSize: "200% 100%",
+                animation:      "coverShimmer 1.4s ease-in-out infinite",
+              }}
+            />
+          )}
+          <img
+            src={session.coverUrl}
+            alt={session.name}
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
+            onLoad={() => setHeroLoaded(true)}
+            onError={() => setHeroError(true)}
+            style={{
+              width:          "100%",
+              height:         "100%",
+              objectFit:      "cover",
+              objectPosition: "center 25%",
+              display:        "block",
+              opacity:        heroLoaded ? 1 : 0,
+              transition:     "opacity 0.4s ease-out",
+            }}
+          />
+          {/* Subtle gradient gradient overlay for high contrast text */}
           <div
             aria-hidden="true"
             style={{
-              position:       "absolute",
-              inset:          0,
-              background:     "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.06) 100%)",
-              backgroundSize: "200% 100%",
-              animation:      "coverShimmer 1.4s ease-in-out infinite",
+              position:   "absolute",
+              inset:      0,
+              background: "linear-gradient(to bottom, rgba(10,34,20,0.2) 0%, rgba(10,32,20,0.95) 100%)",
             }}
           />
-        )}
-        <img
-          src={session.coverUrl}
-          alt={session.name}
-          onLoad={() => setHeroLoaded(true)}
-          style={{
-            width:          "100%",
-            height:         "100%",
-            objectFit:      "cover",
-            objectPosition: "center 20%",
-            display:        "block",
-            opacity:        heroLoaded ? 1 : 0,
-            transition:     "opacity 0.4s ease-out",
-          }}
-        />
+        </div>
+      ) : (
+        /* Styled Branded Fallback Header when image fails or missing */
         <div
-          aria-hidden="true"
           style={{
-            position:   "absolute",
-            bottom:     0,
-            left:       0,
-            right:      0,
-            height:     60,
-            background: "linear-gradient(to bottom, transparent 0%, rgba(20, 50, 30, 0.95) 100%)",
+            padding:    "36px 20px 20px",
+            background: "linear-gradient(135deg, rgba(201,168,76,0.15) 0%, rgba(46,125,82,0.15) 100%)",
+            borderBottom: "1px solid rgba(201,168,76,0.2)",
           }}
-        />
-      </div>
+        >
+          <div
+            style={{
+              width:          64,
+              height:         64,
+              borderRadius:   "50%",
+              background:     "rgba(201,168,76,0.2)",
+              border:         "1.5px solid #C9A84C",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              margin:         "0 auto 16px",
+              color:          GOLD,
+              boxShadow:      "0 0 20px rgba(201,168,76,0.3)",
+            }}
+          >
+            <GraduationCap size={32} />
+          </div>
+        </div>
+      )}
 
-      <div style={{ padding: "24px 28px 32px", textAlign: "center" }}>
+      {/* Session Title & Speaker Info */}
+      <div style={{ padding: showFallback ? "16px 24px 8px" : "20px 24px 8px" }}>
+        <div
+          style={{
+            display:       "inline-flex",
+            alignItems:    "center",
+            gap:           6,
+            padding:       "4px 14px",
+            borderRadius:  20,
+            background:    "rgba(201,168,76,0.15)",
+            border:        "1px solid rgba(201,168,76,0.3)",
+            color:         GOLD_LIGHT,
+            fontSize:      11,
+            fontWeight:    700,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            marginBottom:  12,
+            fontFamily:    "var(--font-montserrat)",
+          }}
+        >
+          <Award size={14} color={GOLD} /> PZ Academy Mentorship Session
+        </div>
+
         <h1
           style={{
             fontFamily:    "var(--font-montserrat)",
             fontWeight:    800,
-            fontSize:      "clamp(20px, 4.5vw, 24px)",
+            fontSize:      "clamp(22px, 5vw, 28px)",
             color:         "#fff",
-            lineHeight:    1.3,
+            lineHeight:    1.25,
             marginBottom:  8,
             letterSpacing: "-0.01em",
           }}
         >
           {session.name}
         </h1>
+
         {session.speaker && (
           <p
             style={{
               color:        GOLD,
-              fontSize:     13,
+              fontSize:     14,
               fontWeight:   600,
               marginBottom: 16,
               fontFamily:   "var(--font-poppins)",
@@ -668,17 +646,29 @@ function IntroStep({ session }: { session: PublicSession }) {
             Speaker · {session.speaker}
           </p>
         )}
-        <p
+
+        <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "16px 0 20px" }} />
+
+        {/* Encouraging Value Proposition */}
+        <div
           style={{
-            color:      "rgba(255,255,255,0.75)",
-            fontSize:   14,
-            lineHeight: 1.65,
-            maxWidth:   340,
-            margin:     "0 auto",
+            background:   "rgba(255,255,255,0.04)",
+            borderRadius: 16,
+            padding:      "16px",
+            border:       "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          Got a minute to share how it went? Your insights help shape our future sessions.
-        </p>
+          <p
+            style={{
+              color:      "rgba(255,255,255,0.85)",
+              fontSize:   14,
+              lineHeight: 1.65,
+              margin:     0,
+            }}
+          >
+            🤝 <strong>Your feedback directly shapes PZ Academy!</strong> Take 60 seconds to share your thoughts and help our mentors refine future masterclasses.
+          </p>
+        </div>
       </div>
 
       <style jsx>{`
@@ -694,12 +684,30 @@ function IntroStep({ session }: { session: PublicSession }) {
 function NameStep({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label style={stepLabelStyle}>Step 1 of 2</label>
-      <h2 style={stepHeadingStyle}>What&apos;s your name?</h2>
+      <div
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           6,
+          color:         GOLD,
+          fontSize:      12,
+          fontWeight:    700,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom:  10,
+          fontFamily:    "var(--font-montserrat)",
+        }}
+      >
+        <HeartHandshake size={16} /> Welcome to the Reviewer Community
+      </div>
+      <h2 style={stepHeadingStyle}>What is your full name?</h2>
+      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 13.5, marginBottom: 20 }}>
+        We add your verified review to our mentor recognition program.
+      </p>
       <div style={{ position: "relative" }}>
         <User
           size={20}
-          color="rgba(255,255,255,0.4)"
+          color={GOLD}
           style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)" }}
         />
         <input
@@ -708,7 +716,7 @@ function NameStep({ value, onChange }: { value: string; onChange: (v: string) =>
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && value.trim() && e.currentTarget.blur()}
-          placeholder="Enter your full name"
+          placeholder="Enter your name"
           autoComplete="name"
           className="fb-input"
           style={{ ...inputStyle, paddingLeft: 48 }}
@@ -727,10 +735,25 @@ function EmailStep({
   const invalid = value.trim().length > 0 && !emailOk(value);
   return (
     <div>
-      <label style={stepLabelStyle}>Step 2 of 2</label>
-      <h2 style={stepHeadingStyle}>And your email address?</h2>
-      <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>
-        Used solely to prevent duplicate submissions. We respect your privacy and never spam.
+      <div
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           6,
+          color:         GOLD,
+          fontSize:      12,
+          fontWeight:    700,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom:  10,
+          fontFamily:    "var(--font-montserrat)",
+        }}
+      >
+        <ShieldCheck size={16} /> Verified Feedback Guard
+      </div>
+      <h2 style={stepHeadingStyle}>What is your email address?</h2>
+      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 13.5, marginBottom: 20, lineHeight: 1.5 }}>
+        Used solely to prevent duplicate reviews. We respect your privacy.
       </p>
       {/* Honeypot */}
       <input
@@ -745,7 +768,7 @@ function EmailStep({
       <div style={{ position: "relative" }}>
         <Mail
           size={20}
-          color="rgba(255,255,255,0.4)"
+          color={GOLD}
           style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)" }}
         />
         <input
@@ -761,7 +784,7 @@ function EmailStep({
           style={{
             ...inputStyle,
             paddingLeft: 48,
-            borderColor: invalid ? "rgba(252,165,165,0.6)" : (inputStyle.border as string),
+            borderColor: invalid ? "rgba(252,165,165,0.8)" : (inputStyle.border as string),
           }}
         />
       </div>
@@ -770,19 +793,6 @@ function EmailStep({
           <AlertCircle size={14} /> Please enter a valid email address.
         </p>
       )}
-      <div
-        style={{
-          display:    "flex",
-          alignItems: "center",
-          gap:        6,
-          marginTop:  20,
-          color:      "rgba(255,255,255,0.4)",
-          fontSize:   12,
-        }}
-      >
-        <ShieldCheck size={14} color={GOLD} />
-        <span>Secure & verified response</span>
-      </div>
     </div>
   );
 }
@@ -795,29 +805,51 @@ function RatingStep({
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const display = hover ?? value ?? 0;
-  const labels  = ["", "Poor", "Fair", "Good", "Great", "Excellent!"];
+  
+  const reactions = [
+    { label: "", emoji: "" },
+    { label: "Needs Improvement", emoji: "🙁" },
+    { label: "Fair Experience", emoji: "😐" },
+    { label: "Good Session", emoji: "🙂" },
+    { label: "Great Masterclass!", emoji: "🌟" },
+    { label: "Exceptional / Mindblowing!", emoji: "🔥" },
+  ];
 
   return (
     <div style={{ textAlign: "center" }}>
-      <label style={{ ...stepLabelStyle, display: "block", marginBottom: 8 }}>
-        Question {qNum} of {total}
-      </label>
+      <div
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           6,
+          color:         GOLD,
+          fontSize:      12,
+          fontWeight:    700,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom:  12,
+          fontFamily:    "var(--font-montserrat)",
+        }}
+      >
+        <Sparkles size={14} /> Question {qNum} of {total}
+      </div>
+
       <h2
         style={{
           fontFamily:   "var(--font-montserrat)",
-          fontWeight:   700,
+          fontWeight:   800,
           fontSize:     "clamp(18px, 4.5vw, 23px)",
           color:        "#fff",
           lineHeight:   1.38,
-          margin:       "0 auto 36px",
-          maxWidth:     380,
+          margin:       "0 auto 32px",
+          maxWidth:     400,
         }}
       >
         {question}
       </h2>
 
       {/* Dynamic Star Buttons */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 24 }}>
         {[1, 2, 3, 4, 5].map((n) => {
           const active = n <= display;
           return (
@@ -828,21 +860,21 @@ function RatingStep({
               onMouseEnter={() => setHover(n)}
               onMouseLeave={() => setHover(null)}
               onClick={() => onSelect(n)}
-              aria-label={`${n} star${n !== 1 ? "s" : ""} — ${labels[n]}`}
+              aria-label={`${n} star${n !== 1 ? "s" : ""} — ${reactions[n].label}`}
               className="fb-star"
               style={{
                 width:          54,
                 height:         54,
                 borderRadius:   16,
-                background:     active ? "rgba(201, 168, 76, 0.15)" : "rgba(255,255,255,0.05)",
-                border:         active ? "1.5px solid rgba(201, 168, 76, 0.5)" : "1px solid rgba(255,255,255,0.12)",
+                background:     active ? "rgba(201, 168, 76, 0.2)" : "rgba(255,255,255,0.06)",
+                border:         active ? "1.5px solid #C9A84C" : "1px solid rgba(255,255,255,0.15)",
                 cursor:         "pointer",
                 display:        "flex",
                 alignItems:     "center",
                 justifyContent: "center",
-                color:          active ? GOLD : "rgba(255,255,255,0.25)",
-                boxShadow:      active ? "0 0 20px rgba(201, 168, 76, 0.25)" : "none",
-                transition:     "background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s",
+                color:          active ? GOLD : "rgba(255,255,255,0.3)",
+                boxShadow:      active ? "0 0 24px rgba(201, 168, 76, 0.35)" : "none",
+                transition:     "all 0.15s ease",
                 padding:        0,
               }}
             >
@@ -856,31 +888,33 @@ function RatingStep({
         })}
       </div>
 
-      {/* Animated Label Pill */}
-      <div style={{ minHeight: 28 }}>
+      {/* Animated Reaction Badge Pill */}
+      <div style={{ minHeight: 36 }}>
         <AnimatePresence mode="wait">
           {display > 0 && (
-            <motion.span
+            <motion.div
               key={display}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
+              initial={{ opacity: 0, scale: 0.9, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -6 }}
               style={{
-                display:       "inline-block",
-                padding:       "4px 16px",
-                borderRadius:  20,
-                background:    "rgba(201, 168, 76, 0.18)",
-                border:        "1px solid rgba(201, 168, 76, 0.35)",
-                color:         GOLD,
+                display:       "inline-flex",
+                alignItems:    "center",
+                gap:           8,
+                padding:       "6px 18px",
+                borderRadius:  24,
+                background:    "rgba(201, 168, 76, 0.2)",
+                border:        "1.5px solid rgba(201, 168, 76, 0.4)",
+                color:         GOLD_LIGHT,
                 fontFamily:    "var(--font-montserrat)",
                 fontWeight:    700,
                 fontSize:      13,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
-              {labels[display]}
-            </motion.span>
+              <span style={{ fontSize: 16 }}>{reactions[display].emoji}</span>
+              <span>{reactions[display].label}</span>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -1035,10 +1069,25 @@ function VideoStep({
 
   return (
     <div>
-      <label style={{ ...stepLabelStyle, display: "block" }}>Question {qNum} of {total}</label>
+      <div
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           6,
+          color:         GOLD,
+          fontSize:      12,
+          fontWeight:    700,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom:  12,
+          fontFamily:    "var(--font-montserrat)",
+        }}
+      >
+        <Video size={16} /> Question {qNum} of {total} (Optional Studio Clip)
+      </div>
       <h2 style={{ ...stepHeadingStyle, marginBottom: 16 }}>{question}</h2>
 
-      {/* Studio Video Frame */}
+      {/* Video Studio Element */}
       <video
         ref={videoRef}
         playsInline
@@ -1046,20 +1095,19 @@ function VideoStep({
           width:        "100%",
           borderRadius: 16,
           background:   "#000",
-          border:       "1px solid rgba(255,255,255,0.2)",
+          border:       "1.5px solid rgba(201,168,76,0.3)",
           display:      vState === "recording" || vState === "previewing" ? "block" : "none",
           marginBottom: 20,
           maxHeight:    260,
           objectFit:    "cover",
-          boxShadow:    "0 12px 30px rgba(0,0,0,0.4)",
+          boxShadow:    "0 12px 30px rgba(0,0,0,0.5)",
         }}
       />
 
-      {/* IDLE state */}
       {vState === "idle" && (
         <>
-          <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 13.5, marginBottom: 24, lineHeight: 1.6 }}>
-            Share a short video response (up to 30s). <span style={{ opacity: 0.7 }}>Optional — tap Continue to skip.</span>
+          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13.5, marginBottom: 24, lineHeight: 1.6 }}>
+            Record a quick video shoutout for our mentors (up to 30s). <span style={{ opacity: 0.8, color: GOLD }}>Optional — tap Next Milestone to skip.</span>
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <motion.button
@@ -1071,7 +1119,7 @@ function VideoStep({
               <div style={iconBadgeStyle}>
                 <Camera size={22} color={GOLD} />
               </div>
-              <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Record Video</span>
+              <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Record Clip</span>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Camera & Mic</span>
             </motion.button>
 
@@ -1083,7 +1131,7 @@ function VideoStep({
               <div style={iconBadgeStyle}>
                 <UploadCloud size={22} color={GOLD} />
               </div>
-              <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Upload Clip</span>
+              <span style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Upload Video</span>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>MP4 or WebM</span>
               <input
                 type="file"
@@ -1097,7 +1145,6 @@ function VideoStep({
         </>
       )}
 
-      {/* RECORDING state */}
       {vState === "recording" && (
         <div style={{ textAlign: "center" }}>
           <div
@@ -1105,11 +1152,11 @@ function VideoStep({
               display:       "inline-flex",
               alignItems:    "center",
               gap:           8,
-              background:    "rgba(239,68,68,0.15)",
-              border:        "1px solid rgba(239,68,68,0.3)",
+              background:    "rgba(239,68,68,0.2)",
+              border:        "1px solid rgba(239,68,68,0.4)",
               borderRadius:  20,
               padding:       "6px 16px",
-              color:         countdown <= 5 ? "#FCA5A5" : "#fff",
+              color:         "#fff",
               fontSize:      13,
               fontWeight:    600,
               marginBottom:  16,
@@ -1126,12 +1173,11 @@ function VideoStep({
         </div>
       )}
 
-      {/* PREVIEWING state */}
       {vState === "previewing" && (
         <>
           <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
             <button onClick={doUpload} style={primarySmallBtn}>
-              <CheckCircle2 size={16} /> Use This Video
+              <CheckCircle2 size={16} /> Attach This Video
             </button>
             <button onClick={reset} style={ghostSmallBtn}>
               <RotateCcw size={16} /> Re-record
@@ -1141,7 +1187,6 @@ function VideoStep({
         </>
       )}
 
-      {/* UPLOADING state */}
       {vState === "uploading" && (
         <div
           style={{
@@ -1155,13 +1200,12 @@ function VideoStep({
           }}
         >
           <span className="fb-spinner-gold" aria-hidden="true" />
-          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, margin: 0, fontWeight: 500 }}>
-            Uploading & processing video…
+          <p style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, margin: 0, fontWeight: 500 }}>
+            Uploading your review video…
           </p>
         </div>
       )}
 
-      {/* DONE state */}
       {vState === "done" && (
         <div style={{ textAlign: "center", padding: "12px 0" }}>
           <div
@@ -1169,17 +1213,17 @@ function VideoStep({
               display:       "inline-flex",
               alignItems:    "center",
               gap:           8,
-              background:    "rgba(201,168,76,0.15)",
-              border:        "1px solid rgba(201,168,76,0.3)",
+              background:    "rgba(201,168,76,0.2)",
+              border:        "1px solid rgba(201,168,76,0.4)",
               borderRadius:  20,
               padding:       "8px 18px",
-              color:         GOLD,
+              color:         GOLD_LIGHT,
               fontSize:      14,
               fontWeight:    600,
               marginBottom:  16,
             }}
           >
-            <CheckCircle2 size={18} /> Video Attached Successfully
+            <CheckCircle2 size={18} color={GOLD} /> Video Review Attached!
           </div>
           <div>
             <button onClick={reset} style={{ ...ghostSmallBtn, maxWidth: 200, margin: "0 auto" }}>
@@ -1206,7 +1250,7 @@ function VideoStep({
         .fb-spinner-gold {
           width: 20px;
           height: 20px;
-          border: 2px solid rgba(201,168,76,0.25);
+          border: 2px solid rgba(201,168,76,0.3);
           border-top-color: #c9a84c;
           border-radius: 50%;
           display: inline-block;
@@ -1220,14 +1264,30 @@ function VideoStep({
 function CommentsStep({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <h2 style={{ ...stepHeadingStyle, marginBottom: 8 }}>Any final thoughts?</h2>
-      <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
-        Optional — share takeaways, suggestions, or highlights from the session.
+      <div
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           6,
+          color:         GOLD,
+          fontSize:      12,
+          fontWeight:    700,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom:  10,
+          fontFamily:    "var(--font-montserrat)",
+        }}
+      >
+        <MessageSquare size={16} /> Final Touch
+      </div>
+      <h2 style={{ ...stepHeadingStyle, marginBottom: 8 }}>Any final feedback or suggestions?</h2>
+      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 13.5, marginBottom: 22, lineHeight: 1.6 }}>
+        Optional — share takeaways or specific highlights you enjoyed!
       </p>
       <div style={{ position: "relative" }}>
         <MessageSquare
           size={20}
-          color="rgba(255,255,255,0.35)"
+          color={GOLD}
           style={{ position: "absolute", left: 18, top: 18 }}
         />
         <textarea
@@ -1247,7 +1307,7 @@ function CommentsStep({ value, onChange }: { value: string; onChange: (v: string
 function ThankyouStep({ name }: { name: string }) {
   const firstName = name ? name.split(" ")[0] : "";
   return (
-    <div style={{ textAlign: "center", padding: "12px 0" }}>
+    <div style={{ textAlign: "center", padding: "16px 0 8px" }}>
       <motion.div
         initial={{ scale: 0, rotate: -20 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -1256,17 +1316,17 @@ function ThankyouStep({ name }: { name: string }) {
           width:          88,
           height:         88,
           borderRadius:   "50%",
-          background:     "rgba(201, 168, 76, 0.15)",
+          background:     "rgba(201, 168, 76, 0.2)",
           border:         "2px solid #C9A84C",
           display:        "flex",
           alignItems:     "center",
           justifyContent: "center",
-          margin:         "0 auto 28px",
-          color:          GOLD,
-          boxShadow:      "0 0 30px rgba(201, 168, 76, 0.3)",
+          margin:         "0 auto 24px",
+          color:          GOLD_LIGHT,
+          boxShadow:      "0 0 35px rgba(201, 168, 76, 0.4)",
         }}
       >
-        <CheckCircle2 size={46} />
+        <Award size={46} color={GOLD} />
       </motion.div>
 
       <motion.h1
@@ -1282,46 +1342,56 @@ function ThankyouStep({ name }: { name: string }) {
           letterSpacing:"-0.01em",
         }}
       >
-        Thank You{firstName ? `, ${firstName}` : ""}!
+        You&apos;re Awesome{firstName ? `, ${firstName}` : ""}! 🎉
       </motion.h1>
 
       <motion.p
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, lineHeight: 1.7, maxWidth: 360, margin: "0 auto" }}
+        style={{ color: "rgba(255,255,255,0.8)", fontSize: 15, lineHeight: 1.7, maxWidth: 380, margin: "0 auto 24px" }}
       >
-        Your feedback has been submitted successfully. We appreciate your time and dedication to making PZ Academy sessions better.
+        Your review has been submitted successfully! Your feedback is immensely valuable in helping PZ Academy mentors deliver world-class training.
       </motion.p>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.45 }}
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          gap:           8,
+          padding:       "10px 20px",
+          borderRadius:  20,
+          background:    "rgba(255,255,255,0.06)",
+          border:        "1px solid rgba(255,255,255,0.15)",
+          color:         GOLD_LIGHT,
+          fontSize:      13,
+          fontWeight:    600,
+        }}
+      >
+        <GraduationCap size={18} color={GOLD} /> Verified Reviewer Status Granted
+      </motion.div>
     </div>
   );
 }
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
-const stepLabelStyle: React.CSSProperties = {
-  color:         GOLD,
-  fontSize:      11,
-  fontWeight:    700,
-  textTransform: "uppercase",
-  letterSpacing: "0.15em",
-  fontFamily:    "var(--font-montserrat)",
-  marginBottom:  12,
-};
-
 const stepHeadingStyle: React.CSSProperties = {
   fontFamily:    "var(--font-montserrat)",
   fontWeight:    800,
   fontSize:      "clamp(22px, 5vw, 27px)",
   color:         "#fff",
-  marginBottom:  24,
+  marginBottom:  20,
   letterSpacing: "-0.01em",
 };
 
 const inputStyle: React.CSSProperties = {
   width:        "100%",
-  background:   "rgba(255,255,255,0.06)",
-  border:       "1px solid rgba(255,255,255,0.16)",
+  background:   "rgba(255,255,255,0.08)",
+  border:       "1.5px solid rgba(201,168,76,0.3)",
   borderRadius: 16,
   padding:      "16px 20px",
   color:        "#fff",
@@ -1338,9 +1408,9 @@ const videoOptionBtnStyle: React.CSSProperties = {
   alignItems:     "center",
   justifyContent: "center",
   gap:            6,
-  padding:        "24px 16px",
+  padding:        "22px 16px",
   borderRadius:   18,
-  border:         "1px solid rgba(255,255,255,0.14)",
+  border:         "1.5px solid rgba(201,168,76,0.3)",
   background:     "rgba(255,255,255,0.05)",
   color:          "#fff",
   fontFamily:     "var(--font-poppins)",
@@ -1351,8 +1421,8 @@ const iconBadgeStyle: React.CSSProperties = {
   width:          44,
   height:         44,
   borderRadius:   12,
-  background:     "rgba(201,168,76,0.12)",
-  border:         "1px solid rgba(201,168,76,0.25)",
+  background:     "rgba(201,168,76,0.15)",
+  border:         "1px solid rgba(201,168,76,0.3)",
   display:        "flex",
   alignItems:     "center",
   justifyContent: "center",
@@ -1363,7 +1433,7 @@ const stopBtnStyle: React.CSSProperties = {
   display:        "inline-flex",
   alignItems:     "center",
   gap:            8,
-  background:     "rgba(239,68,68,0.18)",
+  background:     "rgba(239,68,68,0.25)",
   border:         "1px solid rgba(239,68,68,0.4)",
   borderRadius:   24,
   color:          "#FCA5A5",
@@ -1383,13 +1453,13 @@ const primarySmallBtn: React.CSSProperties = {
   padding:        "14px 18px",
   borderRadius:   14,
   border:         "none",
-  background:     `linear-gradient(135deg, ${GOLD} 0%, #E8C97A 100%)`,
-  color:          GREEN,
-  fontWeight:     700,
+  background:     `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+  color:          DARK_BG,
+  fontWeight:     800,
   fontSize:       14,
   cursor:         "pointer",
   fontFamily:     "var(--font-montserrat)",
-  boxShadow:      "0 4px 16px rgba(201,168,76,0.25)",
+  boxShadow:      "0 4px 16px rgba(201,168,76,0.3)",
 };
 
 const ghostSmallBtn: React.CSSProperties = {
@@ -1401,8 +1471,8 @@ const ghostSmallBtn: React.CSSProperties = {
   padding:        "14px 18px",
   borderRadius:   14,
   border:         "1px solid rgba(255,255,255,0.2)",
-  background:     "rgba(255,255,255,0.05)",
-  color:          "rgba(255,255,255,0.8)",
+  background:     "rgba(255,255,255,0.06)",
+  color:          "rgba(255,255,255,0.85)",
   fontSize:       14,
   cursor:         "pointer",
   fontFamily:     "var(--font-poppins)",
