@@ -13,17 +13,29 @@ async function fetchCoverBase64(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, { next: { revalidate: 3600 } });
     if (!res.ok) return null;
+    const ct = res.headers.get('content-type') ?? '';
+    if (!ct.startsWith('image/')) return null;
     const buf   = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    const type = res.headers.get('content-type') ?? 'image/jpeg';
-    return `data:${type};base64,${btoa(binary)}`;
+    return `data:${ct};base64,${btoa(binary)}`;
   } catch {
     return null;
   }
+}
+
+function StarPath({ filled, size }: { filled: boolean; size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block' }}>
+      <path
+        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        fill={filled ? GOLD : 'rgba(201,168,76,0.22)'}
+      />
+    </svg>
+  );
 }
 
 export async function GET(
@@ -96,7 +108,6 @@ export async function GET(
           <div style={{
             color: '#ffffff', fontSize: 60, fontWeight: 800, lineHeight: 1.15,
             marginBottom: 40,
-            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
           }}>
             {title}
           </div>
@@ -108,9 +119,11 @@ export async function GET(
                 {avg.toFixed(1)}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', marginBottom: 10 }}>
+                <div style={{ display: 'flex', marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((i, idx) => (
-                    <span key={i} style={{ color: i <= Math.round(avg) ? GOLD : 'rgba(201,168,76,0.22)', fontSize: 54, marginRight: idx < 4 ? 8 : 0 }}>★</span>
+                    <div key={i} style={{ display: 'flex', marginRight: idx < 4 ? 8 : 0 }}>
+                      <StarPath filled={i <= Math.round(avg)} size={54} />
+                    </div>
                   ))}
                 </div>
                 <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 27 }}>
