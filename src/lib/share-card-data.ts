@@ -1,7 +1,8 @@
 export interface ShareCardData {
-  title: string;
-  avg:   number | null;
-  count: number;
+  title:    string;
+  avg:      number | null;
+  count:    number;
+  coverUrl: string | null;
 }
 
 export async function fetchShareCardData(token: string): Promise<ShareCardData | null> {
@@ -18,15 +19,20 @@ export async function fetchShareCardData(token: string): Promise<ShareCardData |
       ok: boolean;
       data?: {
         type:      string;
-        session?:  { name: string; avgRating: number | null; responseCount: number };
-        program?:  { name: string };
+        session?:  { name: string; avgRating: number | null; responseCount: number; coverUrl?: string };
+        program?:  { name: string; coverUrl?: string };
         sessions?: { avgRating: number | null; responseCount: number }[];
       };
     };
     if (!json.ok || !json.data) return null;
     const d = json.data;
     if (d.type === 'session' && d.session) {
-      return { title: d.session.name, avg: d.session.avgRating, count: d.session.responseCount };
+      return {
+        title:    d.session.name,
+        avg:      d.session.avgRating,
+        count:    d.session.responseCount,
+        coverUrl: d.session.coverUrl ?? null,
+      };
     }
     if (d.type === 'program' && d.program && d.sessions) {
       const rated = d.sessions.filter(s => s.avgRating != null);
@@ -34,7 +40,12 @@ export async function fetchShareCardData(token: string): Promise<ShareCardData |
         ? Math.round((rated.reduce((a, s) => a + (s.avgRating ?? 0), 0) / rated.length) * 10) / 10
         : null;
       const count = d.sessions.reduce((a, s) => a + s.responseCount, 0);
-      return { title: d.program.name, avg, count };
+      return {
+        title:    d.program.name,
+        avg,
+        count,
+        coverUrl: d.program.coverUrl ?? null,
+      };
     }
     return null;
   } catch {

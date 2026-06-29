@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ShareView, ShareSession, SharePerQuestion, ShareResponse } from '@/lib/gas';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -478,6 +478,11 @@ export default function ReviewClient({ view, token }: { view: ShareView; token: 
   const [sortOrder,      setSortOrder]      = useState<SortOrder>('newest');
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [heroLoaded,     setHeroLoaded]     = useState(false);
+  const [isMember,       setIsMember]       = useState(false);
+
+  useEffect(() => {
+    setIsMember(new URLSearchParams(window.location.search).get('member') === '1');
+  }, []);
 
   const title    = view.type === 'session' ? view.session.name     : view.program.name;
   const coverUrl = view.type === 'session' ? view.session.coverUrl : view.program.coverUrl;
@@ -533,13 +538,15 @@ export default function ReviewClient({ view, token }: { view: ShareView; token: 
           <span style={{ color: MUTED, fontSize: 11 }}>Powered by PZ Academy Feedback</span>
         </div>
 
-        {/* ── Sticky bar ──────────────────────────────────────────── */}
-        <StickyBar
-          filterRating={filterRating} setFilterRating={setFilterRating}
-          searchQuery={searchQuery}   setSearchQuery={setSearchQuery}
-          sortOrder={sortOrder}       setSortOrder={setSortOrder}
-          onShare={() => setShareModalOpen(true)}
-        />
+        {/* ── Sticky bar (member only) ─────────────────────────────── */}
+        {isMember && (
+          <StickyBar
+            filterRating={filterRating} setFilterRating={setFilterRating}
+            searchQuery={searchQuery}   setSearchQuery={setSearchQuery}
+            sortOrder={sortOrder}       setSortOrder={setSortOrder}
+            onShare={() => setShareModalOpen(true)}
+          />
+        )}
 
         {/* ── Content ─────────────────────────────────────────────── */}
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px 56px' }}>
@@ -574,8 +581,8 @@ export default function ReviewClient({ view, token }: { view: ShareView; token: 
         </div>
       </div>
 
-      {/* ── Share modal ─────────────────────────────────────────────── */}
-      {shareModalOpen && <ShareModal token={token} onClose={() => setShareModalOpen(false)} />}
+      {/* ── Share modal (member only) ────────────────────────────────── */}
+      {isMember && shareModalOpen && <ShareModal token={token} onClose={() => setShareModalOpen(false)} />}
     </>
   );
 }

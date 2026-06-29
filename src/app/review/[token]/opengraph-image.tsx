@@ -9,40 +9,93 @@ const BRAND_GREEN = '#0F3D22';
 const BRAND_LIME  = '#7ED957';
 const GOLD        = '#C9A84C';
 
+async function fetchCoverBase64(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    const buf   = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const type = res.headers.get('content-type') ?? 'image/jpeg';
+    return `data:${type};base64,${btoa(binary)}`;
+  } catch {
+    return null;
+  }
+}
+
 interface Props { params: Promise<{ token: string }> }
 
 export default async function OGImage({ params }: Props) {
   const { token } = await params;
   const data       = await fetchShareCardData(token);
 
-  const title = data?.title ?? 'Instructor Feedback';
-  const avg   = data?.avg   ?? null;
-  const count = data?.count ?? 0;
+  const title        = data?.title    ?? 'Instructor Feedback';
+  const avg          = data?.avg      ?? null;
+  const count        = data?.count    ?? 0;
+  const coverDataUrl = data?.coverUrl ? await fetchCoverBase64(data.coverUrl) : null;
 
   return new ImageResponse(
     (
-      <div style={{ width: 1200, height: 630, background: BRAND_GREEN, display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif' }}>
-        {/* Accent bar */}
-        <div style={{ width: '100%', height: 8, background: BRAND_LIME }} />
+      <div style={{
+        width: 1200, height: 630,
+        position: 'relative',
+        display: 'flex', flexDirection: 'column',
+        fontFamily: 'sans-serif',
+        background: BRAND_GREEN,
+        overflow: 'hidden',
+      }}>
 
-        {/* Body */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 80px' }}>
-          <div style={{ color: BRAND_LIME, fontSize: 18, fontWeight: 700, letterSpacing: '0.12em', marginBottom: 32, textTransform: 'uppercase' }}>
+        {/* Full-bleed cover */}
+        {coverDataUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverDataUrl}
+            width={1200}
+            height={630}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            alt=""
+          />
+        )}
+
+        {/* Gradient overlay — dark from left, lighter to right (keeps text readable) */}
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: coverDataUrl
+            ? 'linear-gradient(to right, rgba(3,10,7,0.97) 0%, rgba(10,34,20,0.85) 45%, rgba(10,34,20,0.35) 100%)'
+            : 'linear-gradient(135deg, #0a2f18 0%, #030a07 100%)',
+        }} />
+
+        {/* Top accent bar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 8, background: BRAND_LIME }} />
+
+        {/* Left content */}
+        <div style={{
+          position: 'absolute',
+          top: 56, left: 72, bottom: 56,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          maxWidth: 680,
+        }}>
+          <div style={{ color: BRAND_LIME, fontSize: 18, fontWeight: 700, letterSpacing: '0.12em', marginBottom: 24, textTransform: 'uppercase' }}>
             PZ ACADEMY · FEEDBACK
           </div>
-          <div style={{ color: '#ffffff', fontSize: 54, fontWeight: 800, lineHeight: 1.2, marginBottom: 40, maxWidth: 900 }}>
+          <div style={{ color: '#ffffff', fontSize: 50, fontWeight: 800, lineHeight: 1.2, marginBottom: 32 }}>
             {title}
           </div>
           {avg != null ? (
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ color: GOLD, fontSize: 80, fontWeight: 800, lineHeight: 1, marginRight: 24 }}>{avg.toFixed(1)}</span>
+              <span style={{ color: GOLD, fontSize: 76, fontWeight: 800, lineHeight: 1, marginRight: 22 }}>{avg.toFixed(1)}</span>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', marginBottom: 10 }}>
+                <div style={{ display: 'flex', marginBottom: 8 }}>
                   {[1, 2, 3, 4, 5].map((i, idx) => (
-                    <span key={i} style={{ color: i <= Math.round(avg) ? GOLD : 'rgba(201,168,76,0.25)', fontSize: 40, marginRight: idx < 4 ? 8 : 0 }}>★</span>
+                    <span key={i} style={{ color: i <= Math.round(avg) ? GOLD : 'rgba(201,168,76,0.22)', fontSize: 38, marginRight: idx < 4 ? 6 : 0 }}>★</span>
                   ))}
                 </div>
-                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 22 }}>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 20 }}>
                   {count} {count === 1 ? 'feedback' : 'feedbacks'}
                 </span>
               </div>
@@ -54,8 +107,8 @@ export default async function OGImage({ params }: Props) {
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '0 80px 40px', display: 'flex', justifyContent: 'flex-end' }}>
+        {/* Bottom-right watermark */}
+        <div style={{ position: 'absolute', bottom: 28, right: 56 }}>
           <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>pz-academy.pharmacozyme.com</span>
         </div>
       </div>
