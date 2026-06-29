@@ -45,5 +45,5 @@ export default async function ReviewPage({ params }: Props) {
     );
   }
 
-  return <ReviewClient view={view} />;
+  return <ReviewClient view={view} token={token} />;
 }

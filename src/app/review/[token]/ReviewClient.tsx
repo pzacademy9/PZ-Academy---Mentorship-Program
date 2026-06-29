@@ -200,7 +200,7 @@ function ProgramOverallStats({ sessions }: { sessions: ShareSession[] }) {
   );
 }
 
-export default function ReviewClient({ view }: { view: ShareView }) {
+export default function ReviewClient({ view, token }: { view: ShareView; token: string }) {
   const title    = view.type === 'session' ? view.session.name     : view.program.name;
   const coverUrl = view.type === 'session' ? view.session.coverUrl : view.program.coverUrl;
   const [heroLoaded, setHeroLoaded] = useState(false);

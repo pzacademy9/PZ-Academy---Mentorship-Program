@@ -43,6 +43,7 @@ export async function getPublicSession(id: string): Promise<PublicSession | null
 
 export interface ShareResponse {
   submittedOn: string;
+  name: string;
   stars: number[];
   videos: string[];
   comments: string;
