@@ -1,7 +1,26 @@
 import { getShareView } from '@/lib/gas';
+import type { ShareView } from '@/lib/gas';
 import ReviewClient from './ReviewClient';
 import type { Metadata } from 'next';
 import { cache } from 'react';
+
+// Rewrite Drive coverUrls → /api/cover/{fileId} so the browser img tag
+// goes through our proxy (Drive thumbnail URLs require auth in browsers).
+function coverProxyUrl(url: string): string {
+  if (!url) return '';
+  const m = url.match(/[?&]id=([A-Za-z0-9_-]+)/) ?? url.match(/\/d\/([A-Za-z0-9_-]+)/);
+  return m ? `/api/cover/${m[1]}` : url;
+}
+function rewriteCoverUrls(view: ShareView): ShareView {
+  if (view.type === 'session') {
+    return { ...view, session: { ...view.session, coverUrl: coverProxyUrl(view.session.coverUrl) } };
+  }
+  return {
+    ...view,
+    program:  { ...view.program,  coverUrl: coverProxyUrl(view.program.coverUrl) },
+    sessions: view.sessions.map(s => ({ ...s, coverUrl: coverProxyUrl(s.coverUrl) })),
+  };
+}
 
 // Per-request cache so generateMetadata and ReviewPage share one GAS call.
 const getView = cache(getShareView);
@@ -45,5 +64,5 @@ export default async function ReviewPage({ params }: Props) {
     );
   }
 
-  return <ReviewClient view={view} token={token} />;
+  return <ReviewClient view={rewriteCoverUrls(view)} token={token} />;
 }
