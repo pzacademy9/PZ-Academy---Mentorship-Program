@@ -54,7 +54,7 @@ function calculateNextRetryTime(retryCount: number): Date {
 /**
  * Main handler function - processes pending emails from queue
  */
-export default async (req: Request): Promise<Response> => {
+Deno.serve(async (req: Request): Promise<Response> => {
   const stats: ProcessEmailQueueResponse = {
     processed: 0,
     sent: 0,
@@ -294,4 +294,4 @@ export default async (req: Request): Promise<Response> => {
       }
     );
   }
-};
+});

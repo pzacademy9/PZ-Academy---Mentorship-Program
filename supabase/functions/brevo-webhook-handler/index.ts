@@ -68,7 +68,7 @@ async function verifyBrevoSignature(
 /**
  * Main handler function
  */
-export default async (req: Request): Promise<Response> => {
+Deno.serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -243,4 +243,4 @@ export default async (req: Request): Promise<Response> => {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-};
+});

@@ -408,17 +408,18 @@ function getEmailTemplate(
 /**
  * Main handler function
  */
-export default async (
+Deno.serve(async (
   req: Request,
 ): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
-      status: 200,
+      status: 204,
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
       },
     });
   }
@@ -552,4 +553,4 @@ export default async (
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-};
+});
