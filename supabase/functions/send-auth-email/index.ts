@@ -345,23 +345,21 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RATE_LIMIT_MAX = 100;
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 
-interface AuthEmailRequest {
-  event: {
-    type: "user.invited" | "user.signed_up" | "passwordrecovery.created" | "user.email_change.confirmed";
-    user: {
-      id: string;
-      email: string;
-    };
-    action_link: string;
+// Supabase Send Email hook payload format
+interface AuthHookPayload {
+  user: {
+    id: string;
+    email: string;
   };
-}
-
-interface ErrorResponse {
-  error: string;
-}
-
-interface SuccessResponse {
-  ok: boolean;
+  email_data: {
+    token: string;
+    token_hash: string;
+    redirect_to: string;
+    email_action_type: string;
+    site_url: string;
+    token_new: string;
+    token_hash_new: string;
+  };
 }
 
 /**
@@ -372,7 +370,9 @@ function isValidEmail(email: string): boolean {
 }
 
 /**
- * Gets email template and subject based on event type
+ * Gets email template and subject based on event type.
+ * email_action_type values: invite, signup, recovery, email_change,
+ * email_change_current, email_change_new, magiclink, reauthentication
  */
 function getEmailTemplate(
   eventType: string,
@@ -380,25 +380,32 @@ function getEmailTemplate(
   actionLink: string
 ): { subject: string; html: string } | null {
   switch (eventType) {
-    case "user.invited":
+    case "invite":
       return {
         subject: "You're Invited to PZ Academy",
         html: inviteEmailHtml(email, actionLink),
       };
-    case "user.signed_up":
+    case "signup":
       return {
         subject: "Verify Your Email Address",
         html: signupConfirmEmailHtml(email, actionLink),
       };
-    case "passwordrecovery.created":
+    case "recovery":
       return {
         subject: "Reset Your Password",
         html: resetPasswordEmailHtml(email, actionLink),
       };
-    case "user.email_change.confirmed":
+    case "email_change":
+    case "email_change_current":
+    case "email_change_new":
       return {
         subject: "Confirm Your Email Change",
         html: emailChangeConfirmEmailHtml(email, actionLink),
+      };
+    case "magiclink":
+      return {
+        subject: "Your PZ Academy Sign-In Link",
+        html: inviteEmailHtml(email, actionLink),
       };
     default:
       return null;
@@ -433,63 +440,59 @@ Deno.serve(async (
   }
 
   try {
-    // Parse request body
-    const data: AuthEmailRequest = await req.json();
+    // Parse the Supabase Auth Hook payload
+    const payload: AuthHookPayload = await req.json();
 
-    // Validate required fields
-    if (!data.event || !data.event.type || !data.event.user || !data.event.action_link) {
+    if (!payload.user || !payload.email_data) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: { http_code: 400, message: "Missing user or email_data" } }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { event } = data;
-    const userEmail = event.user.email;
-    const userId = event.user.id;
-    const actionLink = event.action_link;
-    const eventType = event.type;
+    const { user, email_data } = payload;
+    const userEmail = user.email;
+    const userId = user.id;
+    const eventType = email_data.email_action_type;
 
     // Validate email
     if (!isValidEmail(userEmail)) {
       return new Response(
-        JSON.stringify({ error: "Invalid email address" }),
+        JSON.stringify({ error: { http_code: 400, message: "Invalid email address" } }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Validate action_link
-    if (!actionLink || typeof actionLink !== "string" || actionLink.trim() === "") {
-      return new Response(
-        JSON.stringify({ error: "Invalid or missing action_link" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Get email template
-    const emailTemplate = getEmailTemplate(eventType, userEmail, actionLink);
+    // Get email template — unknown event types (reauthentication, etc.) are silently skipped
+    const emailTemplate = getEmailTemplate(eventType, userEmail, "");
     if (!emailTemplate) {
-      return new Response(
-        JSON.stringify({ error: `Unknown event type: ${eventType}` }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      console.log(`Skipping unsupported email_action_type: ${eventType}`);
+      return new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Initialize Supabase client with service role
+    // Construct the action link from token_hash + redirect_to
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error("Missing Supabase credentials");
       return new Response(
-        JSON.stringify({ error: "Internal server error" }),
+        JSON.stringify({ error: { http_code: 500, message: "Internal server error" } }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
+    const actionLink = `${supabaseUrl}/auth/v1/verify?token=${email_data.token_hash}&type=${eventType}&redirect_to=${encodeURIComponent(email_data.redirect_to)}`;
+
+    // Re-render the template with the real action link
+    const templateWithLink = getEmailTemplate(eventType, userEmail, actionLink)!;
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Rate limit check: count emails sent in the last 60 seconds
+    // Rate limit check: count emails queued in the last 60 seconds
     const oneMinuteAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_SECONDS * 1000).toISOString();
 
     const { count, error: countError } = await supabase
@@ -500,14 +503,14 @@ Deno.serve(async (
     if (countError) {
       console.error("Rate limit check error:", countError);
       return new Response(
-        JSON.stringify({ error: "Failed to check rate limit" }),
+        JSON.stringify({ error: { http_code: 500, message: "Failed to check rate limit" } }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
     if ((count || 0) >= RATE_LIMIT_MAX) {
       return new Response(
-        JSON.stringify({ error: "Rate limit exceeded (100/min)" }),
+        JSON.stringify({ error: { http_code: 429, message: "Rate limit exceeded (100/min)" } }),
         { status: 429, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -515,14 +518,14 @@ Deno.serve(async (
     // Insert email into queue
     const createdMinute = new Date().toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
 
-    const { data: insertData, error: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from("email_queue")
       .insert({
         event_type: eventType,
         user_id: userId,
         user_email: userEmail,
-        subject: emailTemplate.subject,
-        html_content: emailTemplate.html,
+        subject: templateWithLink.subject,
+        html_content: templateWithLink.html,
         status: "pending",
         created_minute: createdMinute,
       });
@@ -530,26 +533,22 @@ Deno.serve(async (
     if (insertError) {
       console.error("Email queue insert error:", insertError);
       return new Response(
-        JSON.stringify({ error: "Failed to queue email" }),
+        JSON.stringify({ error: { http_code: 500, message: "Failed to queue email" } }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Success response
-    return new Response(
-      JSON.stringify({ ok: true }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
+    console.log(`Queued ${eventType} email for ${userEmail}`);
+
+    // Supabase Auth Hooks expect an empty JSON object on success
+    return new Response(JSON.stringify({}), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Unexpected error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ error: { http_code: 500, message: "Internal server error" } }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
