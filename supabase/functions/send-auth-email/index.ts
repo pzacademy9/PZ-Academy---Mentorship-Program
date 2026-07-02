@@ -522,7 +522,7 @@ Deno.serve(async (
       .from("email_queue")
       .insert({
         event_type: eventType,
-        user_id: userId,
+        user_id: null, // user may not be committed to auth.users yet when hook fires
         user_email: userEmail,
         subject: templateWithLink.subject,
         html_content: templateWithLink.html,
