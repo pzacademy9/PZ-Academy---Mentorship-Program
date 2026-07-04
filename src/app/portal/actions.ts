@@ -151,6 +151,10 @@ export async function saveNote(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  await saveLessonNote({ studentId: user.id, lessonId, courseId, html, text });
+  try {
+    await saveLessonNote({ studentId: user.id, lessonId, courseId, html, text });
+  } catch {
+    return { ok: false, error: "Failed to save note." };
+  }
   return { ok: true };
 }

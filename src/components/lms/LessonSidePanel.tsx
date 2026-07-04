@@ -13,13 +13,23 @@ import type { LessonResource } from "@/lib/data/lms";
 interface LessonSidePanelProps {
   lessonId: string;
   courseId: string;
+  lessonTitle: string;
   resources: LessonResource[];
   initialNoteHtml: string;
+}
+
+/** Builds a filename-safe slug, e.g. "Intro to React!" -> "intro-to-react". */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export function LessonSidePanel({
   lessonId,
   courseId,
+  lessonTitle,
   resources,
   initialNoteHtml,
 }: LessonSidePanelProps) {
@@ -42,8 +52,8 @@ export function LessonSidePanel({
       setSaved(false);
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        void saveNote(lessonId, courseId, editor.getHTML(), editor.getText()).then(() => {
-          setSaved(true);
+        void saveNote(lessonId, courseId, editor.getHTML(), editor.getText()).then((result) => {
+          if (result.ok) setSaved(true);
         });
       }, 500);
     },
@@ -126,7 +136,10 @@ export function LessonSidePanel({
               <button
                 type="button"
                 title="Export as PDF"
-                onClick={() => contentRef.current && exportNotePdf(contentRef.current, `lesson-notes`)}
+                onClick={() =>
+                  contentRef.current &&
+                  exportNotePdf(contentRef.current, `${slugify(lessonTitle)}-notes`)
+                }
                 className="p-1.5 rounded-md text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface transition-colors"
               >
                 <FileDown className="w-4 h-4" />
@@ -134,7 +147,9 @@ export function LessonSidePanel({
               <button
                 type="button"
                 title="Export as Word document"
-                onClick={() => editor && exportNoteDoc(editor.getHTML(), `lesson-notes`)}
+                onClick={() =>
+                  editor && exportNoteDoc(editor.getHTML(), `${slugify(lessonTitle)}-notes`)
+                }
                 className="p-1.5 rounded-md text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface transition-colors"
               >
                 <FileType2 className="w-4 h-4" />

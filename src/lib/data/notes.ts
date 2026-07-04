@@ -60,7 +60,7 @@ export async function saveLessonNote(input: {
   text: string;
 }): Promise<void> {
   const supabase = await createServerSupabase();
-  await supabase.from("lesson_notes").upsert(
+  const { error } = await supabase.from("lesson_notes").upsert(
     {
       student_id: input.studentId,
       lesson_id: input.lessonId,
@@ -70,6 +70,7 @@ export async function saveLessonNote(input: {
     },
     { onConflict: "student_id,lesson_id" },
   );
+  if (error) throw error;
 }
 
 /** Every note the caller has written, newest first, for the My Notes hub. */

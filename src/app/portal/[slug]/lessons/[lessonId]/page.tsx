@@ -165,8 +165,10 @@ export default async function LessonPage({
       {/* Resources & Quick Notes — sidebar on lg+, stacked card on mobile */}
       {!locked && (
         <LessonSidePanel
+          key={lesson.id}
           lessonId={lesson.id}
           courseId={course.id}
+          lessonTitle={lesson.title}
           resources={lesson.resources}
           initialNoteHtml={note?.contentHtml ?? ""}
         />
