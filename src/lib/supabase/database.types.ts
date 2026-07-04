@@ -66,6 +66,39 @@ export type Database = {
           },
         ]
       }
+      auth_email_logs: {
+        Row: {
+          created_at: string
+          error_details: Json | null
+          error_message: string
+          event_type: string
+          final_attempt_at: string | null
+          id: string
+          retry_count: number
+          user_email: string
+        }
+        Insert: {
+          created_at?: string
+          error_details?: Json | null
+          error_message: string
+          event_type: string
+          final_attempt_at?: string | null
+          id?: string
+          retry_count?: number
+          user_email: string
+        }
+        Update: {
+          created_at?: string
+          error_details?: Json | null
+          error_message?: string
+          event_type?: string
+          final_attempt_at?: string | null
+          id?: string
+          retry_count?: number
+          user_email?: string
+        }
+        Relationships: []
+      }
       banners: {
         Row: {
           active_from: string | null
@@ -213,6 +246,110 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_metrics: {
+        Row: {
+          bounce_type: string | null
+          brevo_message_id: string | null
+          complaint_type: string | null
+          created_at: string
+          email_queue_id: string | null
+          event_timestamp: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_email: string
+        }
+        Insert: {
+          bounce_type?: string | null
+          brevo_message_id?: string | null
+          complaint_type?: string | null
+          created_at?: string
+          email_queue_id?: string | null
+          event_timestamp: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_email: string
+        }
+        Update: {
+          bounce_type?: string | null
+          brevo_message_id?: string | null
+          complaint_type?: string | null
+          created_at?: string
+          email_queue_id?: string | null
+          event_timestamp?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_metrics_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_queue: {
+        Row: {
+          brevo_message_id: string | null
+          created_at: string
+          created_minute: string
+          event_type: string
+          html_content: string
+          id: string
+          last_error: string | null
+          last_error_at: string | null
+          next_retry_at: string | null
+          retry_count: number
+          sent_at: string | null
+          status: string
+          subject: string
+          user_email: string
+          user_id: string | null
+        }
+        Insert: {
+          brevo_message_id?: string | null
+          created_at?: string
+          created_minute: string
+          event_type: string
+          html_content: string
+          id?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          next_retry_at?: string | null
+          retry_count?: number
+          sent_at?: string | null
+          status?: string
+          subject: string
+          user_email: string
+          user_id?: string | null
+        }
+        Update: {
+          brevo_message_id?: string | null
+          created_at?: string
+          created_minute?: string
+          event_type?: string
+          html_content?: string
+          id?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          next_retry_at?: string | null
+          retry_count?: number
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          user_email?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       enrollments: {
         Row: {
@@ -365,6 +502,58 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_notes: {
+        Row: {
+          content_html: string
+          content_text: string
+          course_id: string
+          id: string
+          lesson_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          content_html?: string
+          content_text?: string
+          course_id: string
+          id?: string
+          lesson_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          content_html?: string
+          content_text?: string
+          course_id?: string
+          id?: string
+          lesson_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_notes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_notes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_progress: {
         Row: {
           completed_at: string | null
@@ -412,6 +601,7 @@ export type Database = {
           module_id: string
           order_index: number
           pdf_url: string | null
+          resource_urls: Json
           text_content: string | null
           title: string
           video_url: string | null
@@ -423,6 +613,7 @@ export type Database = {
           module_id: string
           order_index?: number
           pdf_url?: string | null
+          resource_urls?: Json
           text_content?: string | null
           title: string
           video_url?: string | null
@@ -434,6 +625,7 @@ export type Database = {
           module_id?: string
           order_index?: number
           pdf_url?: string | null
+          resource_urls?: Json
           text_content?: string | null
           title?: string
           video_url?: string | null
@@ -598,6 +790,92 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          id: string
+          lesson_id: string
+          passed: boolean
+          score: number
+          student_id: string
+          total: number
+        }
+        Insert: {
+          attempt_number: number
+          created_at?: string
+          id?: string
+          lesson_id: string
+          passed: boolean
+          score: number
+          student_id: string
+          total: number
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          passed?: boolean
+          score?: number
+          student_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          correct_index: number
+          created_at: string
+          id: string
+          lesson_id: string
+          options: Json
+          order_index: number
+          question: string
+        }
+        Insert: {
+          correct_index: number
+          created_at?: string
+          id?: string
+          lesson_id: string
+          options: Json
+          order_index?: number
+          question: string
+        }
+        Update: {
+          correct_index?: number
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          options?: Json
+          order_index?: number
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           booked_at: string
@@ -699,9 +977,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_quiz_answer: { Args: { p_question_id: string }; Returns: number }
+      complete_lesson: { Args: { p_lesson_id: string }; Returns: number }
+      course_curriculum: {
+        Args: { p_course_id: string }
+        Returns: {
+          content_type: Database["public"]["Enums"]["lesson_content_type"]
+          has_quiz: boolean
+          lesson_id: string
+          lesson_order: number
+          lesson_title: string
+          module_id: string
+          module_order: number
+          module_title: string
+          status: Database["public"]["Enums"]["progress_status"]
+        }[]
+      }
       get_my_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_quiz: {
+        Args: { p_lesson_id: string }
+        Returns: {
+          options: Json
+          order_index: number
+          question: string
+          question_id: string
+        }[]
+      }
+      submit_quiz_attempt: {
+        Args: { p_answers: number[]; p_lesson_id: string }
+        Returns: Json
       }
     }
     Enums: {
