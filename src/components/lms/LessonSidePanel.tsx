@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { FileText, ExternalLink, FileDown, FileType2 } from "lucide-react";
@@ -48,6 +48,12 @@ export function LessonSidePanel({
       }, 500);
     },
   });
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   return (
     <aside
