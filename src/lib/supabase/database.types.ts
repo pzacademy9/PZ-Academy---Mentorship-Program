@@ -196,43 +196,76 @@ export type Database = {
       }
       courses: {
         Row: {
+          banner_url: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          duration_weeks: number | null
+          features: string[]
           id: string
           is_published: boolean
+          level: string | null
+          mentor_avatar_url: string | null
+          mentor_bio: string | null
+          mentor_name: string | null
+          mentor_title: string | null
+          outcomes: string[]
           portal_url: string | null
           price_pkr: number
+          register_url: string | null
           slug: string
           status: Database["public"]["Enums"]["course_status"]
+          tagline: string | null
           thumbnail_url: string | null
           title: string
           type: Database["public"]["Enums"]["course_type"]
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duration_weeks?: number | null
+          features?: string[]
           id?: string
           is_published?: boolean
+          level?: string | null
+          mentor_avatar_url?: string | null
+          mentor_bio?: string | null
+          mentor_name?: string | null
+          mentor_title?: string | null
+          outcomes?: string[]
           portal_url?: string | null
           price_pkr?: number
+          register_url?: string | null
           slug: string
           status?: Database["public"]["Enums"]["course_status"]
+          tagline?: string | null
           thumbnail_url?: string | null
           title: string
           type?: Database["public"]["Enums"]["course_type"]
         }
         Update: {
+          banner_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duration_weeks?: number | null
+          features?: string[]
           id?: string
           is_published?: boolean
+          level?: string | null
+          mentor_avatar_url?: string | null
+          mentor_bio?: string | null
+          mentor_name?: string | null
+          mentor_title?: string | null
+          outcomes?: string[]
           portal_url?: string | null
           price_pkr?: number
+          register_url?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["course_status"]
+          tagline?: string | null
           thumbnail_url?: string | null
           title?: string
           type?: Database["public"]["Enums"]["course_type"]
