@@ -89,3 +89,46 @@
 @keyframes reviewLeft { 0%,100%{transform:translateY(0) rotate(-2deg)} 40%{transform:translateY(-14px) rotate(1deg)} 70%{transform:translateY(-6px) rotate(-1deg)} }
 @keyframes reviewRight{ 0%,100%{transform:translateY(0) rotate(2deg)}  40%{transform:translateY(-10px) rotate(-1deg)} 70%{transform:translateY(-5px) rotate(.5deg)} }
 @keyframes scrollLine { 0%{transform:scaleY(0);transform-origin:top} 49%{transform:scaleY(1);transform-origin:top} 50%{transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
+
+/* ── Quiz FX (QuizModal) ──────────────────────────────── */
+@keyframes fadeOut { 0%{opacity:1} 100%{opacity:0} }
+@keyframes popupDrift { 0%{opacity:0;transform:translate(-50%,0) scale(0.8)} 15%{opacity:1;transform:translate(-50%,-10px) scale(1.1)} 100%{opacity:0;transform:translate(-50%,-70px) scale(1)} }
+@keyframes ringBurst { 0%{opacity:0.8;transform:translate(-50%,-50%) scale(0.3)} 100%{opacity:0;transform:translate(-50%,-50%) scale(2.5)} }
+
+.lesson-note-content h2 {
+  font-family: var(--font-montserrat), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.lesson-note-content h3 {
+  font-family: var(--font-montserrat), sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.lesson-note-content ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+.lesson-note-content ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+.lesson-note-content strong {
+  font-weight: 700;
+}
+.lesson-note-content p {
+  margin: 0.5rem 0;
+}
+.lesson-note-content blockquote {
+  border-left: 3px solid var(--pz-outline-variant, #bfcab5);
+  padding-left: 0.75rem;
+  color: inherit;
+  opacity: 0.85;
+  margin: 0.5rem 0;
+}
