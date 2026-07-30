@@ -30,6 +30,11 @@ export interface CourseCard {
   pricePkr: number;
 }
 
+export interface CourseFaq {
+  question: string;
+  answer: string;
+}
+
 export interface CourseDetail extends CourseCard {
   description: string | null;
   bannerUrl: string | null;
@@ -40,6 +45,7 @@ export interface CourseDetail extends CourseCard {
   mentorTitle: string | null;
   mentorBio: string | null;
   mentorAvatarUrl: string | null;
+  faqs: CourseFaq[];
   isPublished: boolean;
 }
 
@@ -129,7 +135,7 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
   const { data } = await supabase
     .from("courses")
     .select(
-      "id, slug, title, type, description, price_pkr, thumbnail_url, banner_url, tagline, level, duration_weeks, features, outcomes, register_url, mentor_name, mentor_title, mentor_bio, mentor_avatar_url, is_published",
+      "id, slug, title, type, description, price_pkr, thumbnail_url, banner_url, tagline, level, duration_weeks, features, outcomes, register_url, mentor_name, mentor_title, mentor_bio, mentor_avatar_url, faqs, is_published",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -154,6 +160,7 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     mentorTitle: data.mentor_title,
     mentorBio: data.mentor_bio,
     mentorAvatarUrl: data.mentor_avatar_url,
+    faqs: (data.faqs as unknown as CourseFaq[] | null) ?? [],
     isPublished: data.is_published,
   };
 }
@@ -189,7 +196,7 @@ export async function getEnrollment(courseId: string, userId: string) {
   const supabase = await createServerSupabase();
   const { data } = await supabase
     .from("enrollments")
-    .select("id, status")
+    .select("id, status, payment_shortfall_pkr")
     .eq("course_id", courseId)
     .eq("student_id", userId)
     .maybeSingle();

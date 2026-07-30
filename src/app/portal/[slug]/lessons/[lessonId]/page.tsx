@@ -37,8 +37,9 @@ export default async function LessonPage({
   if (enrollment.status !== "active") {
     return (
       <EnrollmentStatusScreen
-        variant={enrollment.status === "pending" ? "pending" : "rejected"}
+        variant={enrollment.status}
         courseTitle={course.title}
+        shortfallPkr={enrollment.payment_shortfall_pkr}
       />
     );
   }
