@@ -20,9 +20,17 @@ import { pushStatusToSheet } from "@/lib/gas/sheets-sync-client";
  * unauthenticated caller must never cause a read or write.
  */
 export async function POST(req: NextRequest) {
+  try {
+    return await handlePost(req);
+  } catch (err) {
+    return NextResponse.json({ status: "error", message: String(err) });
+  }
+}
+
+async function handlePost(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  if (!body || body.token !== process.env.SHEETS_SYNC_SECRET) {
+  if (!body || !process.env.SHEETS_SYNC_SECRET || body.token !== process.env.SHEETS_SYNC_SECRET) {
     return NextResponse.json({ status: "error", message: "Wrong password." });
   }
 
@@ -30,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ status: "error", message: "Invalid input" });
   }
-  const { action, sheetId, row } = parsed.data;
+  const { sheetId, row } = parsed.data;
 
   const course = await getCourseBySheetId(sheetId);
   if (!course) {
@@ -66,7 +74,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminSupabase();
   const { data: existing } = await admin
     .from("enrollments")
-    .select("id, status")
+    .select("id, status, sheet_pending_status")
     .eq("student_id", studentId)
     .eq("course_id", course.id)
     .maybeSingle();
@@ -116,22 +124,28 @@ export async function POST(req: NextRequest) {
   // effectively a status-change event regardless of which `action` GAS sent,
   // so the same downgrade rule always applies.
   if (isDowngrade(existing.status, mapped.status)) {
+    // Captured before the update below overwrites it — this is the only way
+    // to know whether this exact downgrade was already parked, so admins
+    // aren't re-notified for the same pending request on every sheet poll.
+    const alreadyRequested = existing.sheet_pending_status === mapped.status;
+
     await admin
       .from("enrollments")
       .update({
         sheet_pending_status: mapped.status,
         sheet_pending_note: `Sheet requested: ${existing.status} → ${mapped.status}`,
       })
-      .eq("id", existing.id)
-      .neq("sheet_pending_status", mapped.status); // don't re-notify for the same pending request
+      .eq("id", existing.id);
 
-    await notifyAdminsOfSheetDowngrade({
-      enrollmentId: existing.id,
-      studentName: row.name || row.email,
-      courseTitle: course.title,
-      from: existing.status,
-      to: mapped.status,
-    });
+    if (!alreadyRequested) {
+      await notifyAdminsOfSheetDowngrade({
+        enrollmentId: existing.id,
+        studentName: row.name || row.email,
+        courseTitle: course.title,
+        from: existing.status,
+        to: mapped.status,
+      });
+    }
     return NextResponse.json({ status: "success", message: "Downgrade parked for admin confirmation" });
   }
 
@@ -146,7 +160,12 @@ export async function POST(req: NextRequest) {
     emailKind,
   });
 
-  if (!result.ok) {
+  // "already-in-status" still needs to fall through to the shortfall block
+  // below: an Underpaid row on an already-pending enrollment hits this guard
+  // inside applyEnrollmentStatus every time (mapSheetRow maps Underpaid to
+  // "pending", same as the existing status), but the shortfall amount itself
+  // can still have changed and must still be persisted and emailed.
+  if (!result.ok && result.reason !== "already-in-status") {
     return NextResponse.json({ status: "success", message: `No change (${result.reason})` });
   }
 
@@ -161,6 +180,7 @@ export async function POST(req: NextRequest) {
       courseSlug: course.slug,
       shortfallPkr: mapped.shortfallPkr,
     });
+    await pushStatusToSheet({ email: row.email, status: mapped.status, shortfallPkr: mapped.shortfallPkr });
   }
 
   return NextResponse.json({ status: "success", message: "Enrollment updated" });
