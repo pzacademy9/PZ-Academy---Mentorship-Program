@@ -302,7 +302,11 @@ export async function applyEnrollmentStatus(params: {
   }
 
   if (enrollment.course.sheetId && enrollment.student.email) {
-    await pushStatusToSheet({ email: enrollment.student.email, status: params.targetStatus });
+    await pushStatusToSheet({
+      sheetId: enrollment.course.sheetId,
+      email: enrollment.student.email,
+      status: params.targetStatus,
+    });
   }
 
   return { ok: true, id: updated.id, status: updated.status };

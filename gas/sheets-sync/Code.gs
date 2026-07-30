@@ -1,39 +1,58 @@
 /**
  * PZ Academy — Sheets Sync bridge.
  *
- * Bound to a single batch's Google Sheet (Extensions -> Apps Script from
- * within that sheet). Reacts to edits and keeps Supabase in sync in both
- * directions.
+ * ONE standalone script (not bound to any single sheet) serves every batch's
+ * Google Sheet. Onboarding a new sheet is a `registerSheet` call from the app
+ * — no visit to the Apps Script editor, no new deployment. This works because
+ * an installable trigger can be created programmatically for ANY spreadsheet
+ * the deploying account can edit, via ScriptApp.newTrigger(...).forSpreadsheet(id) —
+ * it does not need to live inside that spreadsheet's own bound-script project.
  *
- * One-time setup per sheet:
- *   1. Extensions -> Apps Script, paste this file in.
+ * One-time setup, ever (not per sheet):
+ *   1. script.google.com -> New project, paste this file in.
  *   2. Project Settings -> Script Properties, add:
- *        SYNC_SECRET            = <same value as SHEETS_SYNC_SECRET in .env.local>
- *        WEBHOOK_URL             = https://<your-domain>/api/webhooks/sheets-sync
- *        SHEET_ID                = <this sheet's spreadsheet ID>
- *        COL_EMAIL               = <exact header text of the email column>
- *        COL_NAME                = <exact header text of the name column>       (optional)
- *        COL_PHONE               = <exact header text of the phone column>      (optional)
+ *        SYNC_SECRET              = <same value as SHEETS_SYNC_SECRET in .env.local>
+ *        WEBHOOK_URL              = https://<your-domain>/api/webhooks/sheets-sync
+ *        COL_EMAIL                = <exact header text of the email column>
+ *        COL_NAME                 = <exact header text of the name column>       (optional)
+ *        COL_PHONE                = <exact header text of the phone column>      (optional)
  *        COL_PAYMENT_CONFIRMATION = <exact header text of the dropdown column>
- *        COL_AMOUNT              = <exact header text of the amount column>
- *   3. Triggers (clock icon in the left sidebar) -> Add Trigger -> onEdit ->
- *      From spreadsheet -> On edit -> Save. This MUST be an installable
- *      trigger, not the automatic simple trigger — UrlFetchApp calls are not
- *      allowed from simple triggers.
- *   4. Deploy -> New deployment -> Web app -> Execute as "Me", access
+ *        COL_AMOUNT               = <exact header text of the amount column>
+ *      These column headers are assumed IDENTICAL across every registered
+ *      sheet (they all come from the same WordPress form template). A sheet
+ *      with genuinely different headers needs a follow-up design, not
+ *      supported here.
+ *   3. Deploy -> New deployment -> Web app -> Execute as "Me", access
  *      "Anyone" -> copy the /exec URL into .env.local as GAS_SHEETS_SYNC_URL.
- *   5. This script auto-creates two tracking columns ("SyncedAt",
- *      "AppSyncValue") at the end of row 1 the first time it runs, if they
- *      don't already exist. Do not delete them — they are how the script
- *      tells "a fresh submission" apart from "our own outbound write landing
- *      back as an edit" (which must NOT re-fire the webhook).
+ *   4. The deploying Google account must have edit access to every sheet
+ *      that gets registered — same Drive/team as today's sheets.
+ *
+ * Per new batch sheet, from then on: the admin panel calls `registerSheet`
+ * with that sheet's ID, which installs the onEdit trigger on it. No manual
+ * GAS step at all. (GAS caps installable triggers at ~20 per script per
+ * user — comfortably enough for years of batches; an `unregisterSheet`
+ * action can be added later if a batch's sheet is retired and the cap is
+ * ever a concern.)
+ *
+ * This script auto-creates two tracking columns ("SyncedAt", "AppSyncValue")
+ * at the end of row 1 of each registered sheet the first time it reacts to
+ * an edit there, if they don't already exist. Do not delete them — they are
+ * how the script tells "a fresh submission" apart from "our own outbound
+ * write landing back as an edit" (which must NOT re-fire the webhook).
  */
 
 const TRACKING_COLUMNS = ["SyncedAt", "AppSyncValue"];
 
+/**
+ * Shared by every sheet's installable trigger — e.source/e.range always
+ * belong to whichever spreadsheet the edit actually happened in, so this one
+ * function serves all registered sheets without needing to know which sheet
+ * it's running for ahead of time.
+ */
 function onEdit(e) {
   try {
     const sheet = e.range.getSheet();
+    const sheetId = sheet.getParent().getId();
     const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const props = PropertiesService.getScriptProperties();
 
@@ -66,7 +85,7 @@ function onEdit(e) {
     const payload = {
       token: props.getProperty("SYNC_SECRET"),
       action: isNewRow ? "newSubmission" : "statusChange",
-      sheetId: props.getProperty("SHEET_ID"),
+      sheetId: sheetId,
       row: row,
     };
 
@@ -85,7 +104,11 @@ function onEdit(e) {
   }
 }
 
-/** Inbound: the Next.js app pushing a confirmed status back to this sheet. */
+/**
+ * Inbound: the Next.js app pushing a confirmed status back to a sheet
+ * (`applyStatus`), or asking this script to start watching a new sheet
+ * (`registerSheet`) so onboarding a batch never needs the Apps Script editor.
+ */
 function doPost(e) {
   let body;
   try {
@@ -99,12 +122,53 @@ function doPost(e) {
     return jsonResponse_({ status: "error", message: "Wrong password." });
   }
 
-  if (body.action !== "applyStatus") {
-    return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
+  if (body.action === "registerSheet") {
+    return handleRegisterSheet_(body);
+  }
+
+  if (body.action === "applyStatus") {
+    return handleApplyStatus_(body);
+  }
+
+  return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
+}
+
+/**
+ * Installs the onEdit watcher on a new sheet by ID. Idempotent — calling
+ * this again for a sheet that's already registered is a harmless no-op, so
+ * the app can safely call it every time a course's sheet_id is (re)saved.
+ */
+function handleRegisterSheet_(body) {
+  if (!body.sheetId) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId" });
   }
 
   try {
-    const sheet = SpreadsheetApp.openById(props.getProperty("SHEET_ID")).getSheets()[0];
+    const alreadyRegistered = ScriptApp.getProjectTriggers().some(
+      (t) => t.getHandlerFunction() === "onEdit" && t.getTriggerSourceId() === body.sheetId,
+    );
+    if (alreadyRegistered) {
+      return jsonResponse_({ status: "success", message: "Already registered" });
+    }
+
+    ScriptApp.newTrigger("onEdit").forSpreadsheet(body.sheetId).onEdit().create();
+    return jsonResponse_({ status: "success", message: "Sheet registered" });
+  } catch (err) {
+    // Most common cause: the deploying account doesn't have edit access to
+    // this spreadsheet ID — share the sheet with that account and retry.
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/** Writes a confirmed status back into whichever sheet the enrollment is linked to. */
+function handleApplyStatus_(body) {
+  if (!body.sheetId) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId" });
+  }
+
+  try {
+    const sheet = SpreadsheetApp.openById(body.sheetId).getSheets()[0];
+    const props = PropertiesService.getScriptProperties();
     const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const emailCol = headerIndex_(headerRow, props.getProperty("COL_EMAIL"));
     const confirmationCol = headerIndex_(headerRow, props.getProperty("COL_PAYMENT_CONFIRMATION"));

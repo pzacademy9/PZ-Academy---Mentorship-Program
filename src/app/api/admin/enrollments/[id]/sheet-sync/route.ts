@@ -46,7 +46,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     if (enrollment.course.sheetId && enrollment.student.email) {
-      await pushStatusToSheet({ email: enrollment.student.email, status: enrollment.status });
+      await pushStatusToSheet({
+        sheetId: enrollment.course.sheetId,
+        email: enrollment.student.email,
+        status: enrollment.status,
+      });
     }
     return NextResponse.json({ id, status: enrollment.status });
   }

@@ -116,7 +116,7 @@ async function handlePost(req: NextRequest) {
       });
     }
 
-    await pushStatusToSheet({ email: row.email, status: mapped.status, shortfallPkr: mapped.shortfallPkr });
+    await pushStatusToSheet({ sheetId, email: row.email, status: mapped.status, shortfallPkr: mapped.shortfallPkr });
     return NextResponse.json({ status: "success", message: "Enrollment created" });
   }
 
@@ -180,7 +180,7 @@ async function handlePost(req: NextRequest) {
       courseSlug: course.slug,
       shortfallPkr: mapped.shortfallPkr,
     });
-    await pushStatusToSheet({ email: row.email, status: mapped.status, shortfallPkr: mapped.shortfallPkr });
+    await pushStatusToSheet({ sheetId, email: row.email, status: mapped.status, shortfallPkr: mapped.shortfallPkr });
   }
 
   return NextResponse.json({ status: "success", message: "Enrollment updated" });

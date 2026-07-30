@@ -186,6 +186,35 @@ data, mark the lead `resolved_at`/`resolved_enrollment_id`, and let the normal e
 notification fire. This closes the loop the moment a lead actually signs up, with no manual admin
 step.
 
+## Multi-sheet onboarding (post-launch revision)
+
+Originally scoped as one GAS deployment per sheet, matching the "container-bound script" pattern.
+Changed to: **one standalone GAS project serves every batch's sheet.** An installable trigger can
+be created programmatically for any spreadsheet the deploying account can edit, via
+`ScriptApp.newTrigger(...).forSpreadsheet(sheetId)` — it does not need to live inside that
+spreadsheet's own bound-script project. This means onboarding a new batch is a `registerSheet`
+call, not a new deployment.
+
+- New `doPost` action `registerSheet({sheetId})`: idempotently installs the `onEdit` trigger on
+  that spreadsheet ID (checks `ScriptApp.getProjectTriggers()` first, so calling it twice for the
+  same sheet is a harmless no-op).
+- `onEdit` derives the sheet ID from the edit event itself (`e.range.getSheet().getParent().getId()`)
+  rather than a hardcoded script property — the same shared function already served every sheet
+  correctly, since GAS triggers dispatch to one shared handler regardless of which registered
+  spreadsheet fired them.
+- `applyStatus` now takes `sheetId` in its payload (opens that sheet by ID) instead of reading a
+  single `SHEET_ID` script property.
+- Column header names (`COL_EMAIL`, etc.) remain global script properties, shared across every
+  registered sheet — assumes all batch sheets come from the same WordPress form template. A sheet
+  with genuinely different headers is a follow-up, not supported here.
+- New admin UI, `src/app/dashboard/admin/sheet-sync/page.tsx` + `ConnectSheetForm.tsx`: pick a
+  course, paste a sheet ID, "Connect" — saves `courses.sheet_id` and calls `registerSheet` in one
+  action. New route `PATCH /api/admin/courses/[id]/connect-sheet` (service-role write, whitelisted
+  to `sheet_id` only, since the `courses` RLS write policy is `super_admin`-only but `requireAdmin`
+  also allows plain `admin`). `src/lib/gas/sheets-sync-client.ts` gains `registerSheet(sheetId)` —
+  unlike `pushStatusToSheet`, this one does NOT swallow its own errors, since the admin clicking
+  "Connect" needs a real success/failure signal, not silence.
+
 ## GAS script (new)
 
 New file group `gas/sheets-sync/` (mirrors the existing `gas/payment-screenshots/` layout):

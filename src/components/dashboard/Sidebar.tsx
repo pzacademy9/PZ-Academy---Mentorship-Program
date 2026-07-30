@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings,
-  GraduationCap, BarChart3, CreditCard, Video, NotebookPen,
+  GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
@@ -27,7 +27,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: "My Students", shortLabel: "Students", href: "/dashboard/mentor", icon: GraduationCap, roles: ["mentor"] },
   { label: "Students", href: "/dashboard/admin/students", icon: Users, roles: ["admin", "super_admin"] },
   { label: "Enrollments", href: "/dashboard/admin/enrollments", icon: CreditCard, roles: ["admin", "super_admin"] },
+  { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "super_admin"] },
+  { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "super_admin"] },
   { label: "Analytics", href: "/dashboard/admin", icon: BarChart3, roles: ["admin", "super_admin"] },
+  { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "super_admin"] },
   { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["student", "mentor", "admin", "super_admin"] },
 ];
 
@@ -39,6 +42,16 @@ export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
   const mobileItems = items.slice(0, 5);
+
+  /*
+   * Longest matching href wins. A plain startsWith lit up every ancestor —
+   * on /dashboard/admin/enrollments both "Analytics" (/dashboard/admin) and
+   * "Enrollments" highlighted at once. Matching on `href + "/"` also stops
+   * /dashboard/adminfoo from matching /dashboard/admin.
+   */
+  const activeHref = items
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
     <>
@@ -53,7 +66,7 @@ export function Sidebar({ role }: SidebarProps) {
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {items.map((item) => {
-            const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const active = item.href === activeHref;
             return (
               <Link
                 key={item.href}
@@ -76,7 +89,7 @@ export function Sidebar({ role }: SidebarProps) {
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 flex justify-around items-center px-2 py-2 bg-pz-surface-container-highest shadow-lg rounded-t-xl">
         {mobileItems.map((item) => {
-          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const active = item.href === activeHref;
           return (
             <Link
               key={item.href}
