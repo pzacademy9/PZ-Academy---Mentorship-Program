@@ -66,6 +66,121 @@ export type Database = {
           },
         ]
       }
+      attendance_events: {
+        Row: {
+          attendance_mode: string
+          attendance_tab: string
+          cover_image_file_id: string | null
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          live_session_number: number
+          logo_url: string | null
+          reg_email_col: number
+          reg_name_col: number
+          registration_link: string | null
+          registration_tab: string | null
+          require_registration: boolean
+          slug: string
+          spreadsheet_id: string
+          title: string
+          type: string
+          window_minutes: number
+        }
+        Insert: {
+          attendance_mode?: string
+          attendance_tab?: string
+          cover_image_file_id?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          live_session_number?: number
+          logo_url?: string | null
+          reg_email_col?: number
+          reg_name_col?: number
+          registration_link?: string | null
+          registration_tab?: string | null
+          require_registration?: boolean
+          slug: string
+          spreadsheet_id: string
+          title: string
+          type: string
+          window_minutes?: number
+        }
+        Update: {
+          attendance_mode?: string
+          attendance_tab?: string
+          cover_image_file_id?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          live_session_number?: number
+          logo_url?: string | null
+          reg_email_col?: number
+          reg_name_col?: number
+          registration_link?: string | null
+          registration_tab?: string | null
+          require_registration?: boolean
+          slug?: string
+          spreadsheet_id?: string
+          title?: string
+          type?: string
+          window_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_sessions: {
+        Row: {
+          close_label: string | null
+          countdown_target: string | null
+          event_id: string
+          id: string
+          open_label: string | null
+          session_date: string | null
+          session_number: number
+          time_label: string | null
+        }
+        Insert: {
+          close_label?: string | null
+          countdown_target?: string | null
+          event_id: string
+          id?: string
+          open_label?: string | null
+          session_date?: string | null
+          session_number: number
+          time_label?: string | null
+        }
+        Update: {
+          close_label?: string | null
+          countdown_target?: string | null
+          event_id?: string
+          id?: string
+          open_label?: string | null
+          session_date?: string | null
+          session_number?: number
+          time_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_email_logs: {
         Row: {
           created_at: string
@@ -201,7 +316,9 @@ export type Database = {
           created_by: string | null
           description: string | null
           duration_weeks: number | null
+          faqs: Json
           features: string[]
+          gas_webapp_url: string | null
           id: string
           is_published: boolean
           level: string | null
@@ -213,6 +330,7 @@ export type Database = {
           portal_url: string | null
           price_pkr: number
           register_url: string | null
+          sheet_id: string | null
           slug: string
           status: Database["public"]["Enums"]["course_status"]
           tagline: string | null
@@ -226,7 +344,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_weeks?: number | null
+          faqs?: Json
           features?: string[]
+          gas_webapp_url?: string | null
           id?: string
           is_published?: boolean
           level?: string | null
@@ -238,6 +358,7 @@ export type Database = {
           portal_url?: string | null
           price_pkr?: number
           register_url?: string | null
+          sheet_id?: string | null
           slug: string
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
@@ -251,7 +372,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_weeks?: number | null
+          faqs?: Json
           features?: string[]
+          gas_webapp_url?: string | null
           id?: string
           is_published?: boolean
           level?: string | null
@@ -263,6 +386,7 @@ export type Database = {
           portal_url?: string | null
           price_pkr?: number
           register_url?: string | null
+          sheet_id?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
@@ -393,7 +517,10 @@ export type Database = {
           id: string
           payment_amount_pkr: number | null
           payment_screenshot_url: string | null
+          payment_shortfall_pkr: number | null
           rejection_reason: string | null
+          sheet_pending_note: string | null
+          sheet_pending_status: Database["public"]["Enums"]["enrollment_status"] | null
           status: Database["public"]["Enums"]["enrollment_status"]
           student_id: string
           verified_at: string | null
@@ -407,7 +534,10 @@ export type Database = {
           id?: string
           payment_amount_pkr?: number | null
           payment_screenshot_url?: string | null
+          payment_shortfall_pkr?: number | null
           rejection_reason?: string | null
+          sheet_pending_note?: string | null
+          sheet_pending_status?: Database["public"]["Enums"]["enrollment_status"] | null
           status?: Database["public"]["Enums"]["enrollment_status"]
           student_id: string
           verified_at?: string | null
@@ -421,7 +551,10 @@ export type Database = {
           id?: string
           payment_amount_pkr?: number | null
           payment_screenshot_url?: string | null
+          payment_shortfall_pkr?: number | null
           rejection_reason?: string | null
+          sheet_pending_note?: string | null
+          sheet_pending_status?: Database["public"]["Enums"]["enrollment_status"] | null
           status?: Database["public"]["Enums"]["enrollment_status"]
           student_id?: string
           verified_at?: string | null
@@ -447,6 +580,66 @@ export type Database = {
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sheet_leads: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          payment_amount_pkr: number | null
+          payment_confirmation: string
+          raw_row: Json
+          resolved_at: string | null
+          resolved_enrollment_id: string | null
+          row_email: string
+          row_name: string | null
+          row_phone: string | null
+          sheet_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          payment_amount_pkr?: number | null
+          payment_confirmation: string
+          raw_row?: Json
+          resolved_at?: string | null
+          resolved_enrollment_id?: string | null
+          row_email: string
+          row_name?: string | null
+          row_phone?: string | null
+          sheet_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          payment_amount_pkr?: number | null
+          payment_confirmation?: string
+          raw_row?: Json
+          resolved_at?: string | null
+          resolved_enrollment_id?: string | null
+          row_email?: string
+          row_name?: string | null
+          row_phone?: string | null
+          sheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sheet_leads_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sheet_leads_resolved_enrollment_id_fkey"
+            columns: ["resolved_enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
             referencedColumns: ["id"]
           },
         ]
@@ -1039,6 +1232,10 @@ export type Database = {
           question_id: string
         }[]
       }
+      resync_course_progress: {
+        Args: { p_course_id: string }
+        Returns: undefined
+      }
       submit_quiz_attempt: {
         Args: { p_answers: number[]; p_lesson_id: string }
         Returns: Json
@@ -1048,7 +1245,12 @@ export type Database = {
       banner_slot: "hero" | "mid_page" | "sidebar" | "footer"
       course_status: "draft" | "open" | "closed" | "archived"
       course_type: "course" | "workshop" | "webinar" | "mentorship"
-      enrollment_status: "pending" | "active" | "rejected" | "expired"
+      enrollment_status:
+        | "pending"
+        | "reserved"
+        | "active"
+        | "rejected"
+        | "expired"
       featured_item_type: "course" | "webinar"
       lesson_content_type: "video" | "text" | "pdf"
       progress_status: "locked" | "unlocked" | "completed"
@@ -1190,7 +1392,7 @@ export const Constants = {
       banner_slot: ["hero", "mid_page", "sidebar", "footer"],
       course_status: ["draft", "open", "closed", "archived"],
       course_type: ["course", "workshop", "webinar", "mentorship"],
-      enrollment_status: ["pending", "active", "rejected", "expired"],
+      enrollment_status: ["pending", "reserved", "active", "rejected", "expired"],
       featured_item_type: ["course", "webinar"],
       lesson_content_type: ["video", "text", "pdf"],
       progress_status: ["locked", "unlocked", "completed"],
