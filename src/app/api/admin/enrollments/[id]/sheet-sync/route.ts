@@ -36,10 +36,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (parsed.data.decision === "dismiss") {
     const admin = createAdminSupabase();
-    await admin
+    const { error } = await admin
       .from("enrollments")
       .update({ sheet_pending_status: null, sheet_pending_note: null })
       .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: "Could not dismiss the sheet request" }, { status: 500 });
+    }
 
     if (enrollment.course.sheetId && enrollment.student.email) {
       await pushStatusToSheet({ email: enrollment.student.email, status: enrollment.status });
