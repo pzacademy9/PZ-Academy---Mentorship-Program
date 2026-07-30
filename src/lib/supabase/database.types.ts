@@ -584,66 +584,6 @@ export type Database = {
           },
         ]
       }
-      sheet_leads: {
-        Row: {
-          course_id: string
-          created_at: string
-          id: string
-          payment_amount_pkr: number | null
-          payment_confirmation: string
-          raw_row: Json
-          resolved_at: string | null
-          resolved_enrollment_id: string | null
-          row_email: string
-          row_name: string | null
-          row_phone: string | null
-          sheet_id: string
-        }
-        Insert: {
-          course_id: string
-          created_at?: string
-          id?: string
-          payment_amount_pkr?: number | null
-          payment_confirmation: string
-          raw_row?: Json
-          resolved_at?: string | null
-          resolved_enrollment_id?: string | null
-          row_email: string
-          row_name?: string | null
-          row_phone?: string | null
-          sheet_id: string
-        }
-        Update: {
-          course_id?: string
-          created_at?: string
-          id?: string
-          payment_amount_pkr?: number | null
-          payment_confirmation?: string
-          raw_row?: Json
-          resolved_at?: string | null
-          resolved_enrollment_id?: string | null
-          row_email?: string
-          row_name?: string | null
-          row_phone?: string | null
-          sheet_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sheet_leads_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sheet_leads_resolved_enrollment_id_fkey"
-            columns: ["resolved_enrollment_id"]
-            isOneToOne: false
-            referencedRelation: "enrollments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event_registrations: {
         Row: {
           event_name: string
@@ -1098,6 +1038,66 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sheet_leads: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          payment_amount_pkr: number | null
+          payment_confirmation: string
+          raw_row: Json
+          resolved_at: string | null
+          resolved_enrollment_id: string | null
+          row_email: string
+          row_name: string | null
+          row_phone: string | null
+          sheet_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          payment_amount_pkr?: number | null
+          payment_confirmation: string
+          raw_row?: Json
+          resolved_at?: string | null
+          resolved_enrollment_id?: string | null
+          row_email: string
+          row_name?: string | null
+          row_phone?: string | null
+          sheet_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          payment_amount_pkr?: number | null
+          payment_confirmation?: string
+          raw_row?: Json
+          resolved_at?: string | null
+          resolved_enrollment_id?: string | null
+          row_email?: string
+          row_name?: string | null
+          row_phone?: string | null
+          sheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sheet_leads_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sheet_leads_resolved_enrollment_id_fkey"
+            columns: ["resolved_enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
             referencedColumns: ["id"]
           },
         ]
