@@ -37,7 +37,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .select("id, title")
     .single();
 
-  if (error || !course) {
+  if (error) {
+    // 23505 = unique_violation. courses.sheet_id is unique (0019) precisely
+    // so a copy-paste mistake here can't silently double-connect a sheet to
+    // two courses — surface it instead of a generic failure.
+    if (error.code === "23505") {
+      return NextResponse.json(
+        { error: "That sheet is already connected to a different course." },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ error: "Could not connect this sheet" }, { status: 500 });
+  }
+  if (!course) {
     return NextResponse.json({ error: "Course not found" }, { status: 404 });
   }
 
