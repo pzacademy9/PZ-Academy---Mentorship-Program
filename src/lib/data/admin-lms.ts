@@ -631,7 +631,7 @@ export async function deleteModule(moduleId: string, confirm = false): Promise<M
   const { data: mod } = await admin.from("modules").select("id, course_id").eq("id", moduleId).maybeSingle();
   if (!mod) return { ok: false, reason: "not-found" };
 
-  const { data: lessons } = await admin.from("lessons").select("id").eq("module_id", moduleId);
+  const { data: lessons } = await admin.from("lessons").select("id, pdf_file_id, documents").eq("module_id", moduleId);
   const lessonIds = (lessons ?? []).map((l) => l.id);
   const recordCount = await countStudentRecords(lessonIds);
 
@@ -644,7 +644,17 @@ export async function deleteModule(moduleId: string, confirm = false): Promise<M
 
   const { error } = await admin.from("modules").delete().eq("id", moduleId);
   if (error) return { ok: false, reason: "db-error" };
-  return { ok: true, id: moduleId };
+
+  const warning = await trashDriveFiles(
+    collectLessonFileIds(
+      (lessons ?? []).map((l) => ({
+        pdfFileId: l.pdf_file_id,
+        documents: (l.documents as unknown as Array<{ fileId: string }>) ?? [],
+      })),
+    ),
+  );
+
+  return { ok: true, id: moduleId, warning };
 }
 
 export async function reorderModules(courseId: string, orderedIds: string[]): Promise<MutationResult> {
