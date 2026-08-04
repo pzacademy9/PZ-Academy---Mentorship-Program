@@ -145,11 +145,13 @@ function toRow(row: RawReviewRow, emails: Map<string, string>): EnrollmentReview
 /** The review queue. Admin RLS (0002) already permits reading every row. */
 export async function listEnrollmentsForReview(
   filter: StatusFilter = "pending",
+  courseId?: string,
 ): Promise<EnrollmentReviewRow[]> {
   const supabase = await createServerSupabase();
 
   let query = supabase.from("enrollments").select(LIST_SELECT);
   if (filter !== "all") query = query.eq("status", filter);
+  if (courseId) query = query.eq("course_id", courseId);
 
   const { data } = await query.order("enrolled_at", { ascending: false });
   if (!data) return [];
@@ -162,9 +164,18 @@ export async function listEnrollmentsForReview(
   return rows.map((row) => toRow(row, emails));
 }
 
-/** A single enrollment with every review-only field. Null when the id is unknown. */
+/**
+ * A single enrollment with every review-only field. Null when the id is unknown.
+ *
+ * Uses the admin client, not the session-scoped one: every caller already
+ * gates access at its own boundary (requireAdmin() on the admin routes, the
+ * SYNC_SECRET/SHEETS_SYNC_SECRET token check on the sheets-sync webhook)
+ * before reaching this function, and the webhook path has no user session at
+ * all — a session-scoped client there would fail every read under RLS
+ * regardless of the row's contents, since anon has no auth.uid() to match.
+ */
 export async function getEnrollmentForReview(id: string): Promise<EnrollmentReviewDetail | null> {
-  const supabase = await createServerSupabase();
+  const supabase = createAdminSupabase();
 
   const { data } = await supabase
     .from("enrollments")
@@ -192,11 +203,13 @@ export async function getEnrollmentForReview(id: string): Promise<EnrollmentRevi
  * queries — cheaper at this table size, and keeps the numbers consistent
  * with each other by coming from one snapshot.
  */
-export async function countEnrollmentsByStatus(): Promise<
+export async function countEnrollmentsByStatus(courseId?: string): Promise<
   Record<StatusFilter, number>
 > {
   const supabase = await createServerSupabase();
-  const { data } = await supabase.from("enrollments").select("status");
+  let query = supabase.from("enrollments").select("status");
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data } = await query;
 
   const counts = {
     pending: 0,

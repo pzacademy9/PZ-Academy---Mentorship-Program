@@ -17,17 +17,25 @@ export interface EnrolledCourse {
 }
 
 export type CourseType = Database["public"]["Enums"]["course_type"];
+export type CourseStatus = Database["public"]["Enums"]["course_status"];
 
 export interface CourseCard {
   id: string;
   slug: string;
   title: string;
   type: CourseType;
+  status: CourseStatus;
   tagline: string | null;
   thumbnailUrl: string | null;
   level: string | null;
-  durationWeeks: number | null;
+  /** Free-text label, e.g. "8 Weeks" / "4 Days" — see duration_text on courses. */
+  durationLabel: string | null;
   pricePkr: number;
+  mentorName: string | null;
+  mentorTitle: string | null;
+  mentorAvatarUrl: string | null;
+  /** Freely watchable preview/recording video — see the comment on courses.public_video_url. */
+  publicVideoUrl: string | null;
 }
 
 export interface CourseFaq {
@@ -41,12 +49,17 @@ export interface CourseDetail extends CourseCard {
   features: string[];
   outcomes: string[];
   registerUrl: string | null;
-  mentorName: string | null;
-  mentorTitle: string | null;
   mentorBio: string | null;
-  mentorAvatarUrl: string | null;
   faqs: CourseFaq[];
   isPublished: boolean;
+  timings: string | null;
+}
+
+/** duration_text is the admin-editable field; duration_weeks is a read-only fallback for rows not yet re-saved since migration 0022. */
+function durationLabel(durationText: string | null, durationWeeks: number | null): string | null {
+  if (durationText) return durationText;
+  if (durationWeeks != null) return `${durationWeeks} Weeks`;
+  return null;
 }
 
 export interface CurriculumLesson {
@@ -61,6 +74,12 @@ export interface CurriculumLesson {
 export interface LessonResource {
   label: string;
   url: string;
+}
+
+/** A Supporting Document — a PRIVATE Drive file streamed via /api/lessons/[id]/documents/[fileId]. */
+export interface LessonDocument {
+  name: string;
+  fileId: string;
 }
 
 export interface QuizQuestion {
@@ -84,7 +103,9 @@ export interface LessonView {
   videoUrl: string | null;
   textContent: string | null;
   pdfUrl: string | null;
+  pdfFileId: string | null;
   resources: LessonResource[];
+  documents: LessonDocument[];
   hasQuiz: boolean;
   status: ProgressStatus;
   courseId: string;
@@ -135,7 +156,7 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
   const { data } = await supabase
     .from("courses")
     .select(
-      "id, slug, title, type, description, price_pkr, thumbnail_url, banner_url, tagline, level, duration_weeks, features, outcomes, register_url, mentor_name, mentor_title, mentor_bio, mentor_avatar_url, faqs, is_published",
+      "id, slug, title, type, status, description, price_pkr, thumbnail_url, banner_url, tagline, level, duration_text, duration_weeks, timings, features, outcomes, register_url, mentor_name, mentor_title, mentor_bio, mentor_avatar_url, faqs, is_published, public_video_url",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -146,13 +167,15 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     slug: data.slug,
     title: data.title,
     type: data.type,
+    status: data.status,
     description: data.description,
     pricePkr: data.price_pkr,
     thumbnailUrl: data.thumbnail_url,
     bannerUrl: data.banner_url,
     tagline: data.tagline,
     level: data.level,
-    durationWeeks: data.duration_weeks,
+    durationLabel: durationLabel(data.duration_text, data.duration_weeks),
+    timings: data.timings,
     features: data.features,
     outcomes: data.outcomes,
     registerUrl: data.register_url,
@@ -162,20 +185,26 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     mentorAvatarUrl: data.mentor_avatar_url,
     faqs: (data.faqs as unknown as CourseFaq[] | null) ?? [],
     isPublished: data.is_published,
+    publicVideoUrl: data.public_video_url,
   };
 }
 
 /**
- * Every published course, for the public catalog grid. Anon-safe (same RLS
- * policy as getCourseBySlug).
+ * Every published course, for the public catalog grid — optionally narrowed
+ * to one CourseType so /courses, /workshops, and /webinars can each show only
+ * their own type from the same table. Anon-safe (same RLS policy as
+ * getCourseBySlug).
  */
-export async function getPublishedCourses(): Promise<CourseCard[]> {
+export async function getPublishedCourses(type?: CourseType): Promise<CourseCard[]> {
   const supabase = await createServerSupabase();
-  const { data } = await supabase
+  let query = supabase
     .from("courses")
-    .select("id, slug, title, type, tagline, thumbnail_url, level, duration_weeks, price_pkr")
-    .eq("is_published", true)
-    .order("created_at", { ascending: true });
+    .select(
+      "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url",
+    )
+    .eq("is_published", true);
+  if (type) query = query.eq("type", type);
+  const { data } = await query.order("created_at", { ascending: true });
 
   if (!data) return [];
   return data.map((c) => ({
@@ -183,11 +212,16 @@ export async function getPublishedCourses(): Promise<CourseCard[]> {
     slug: c.slug,
     title: c.title,
     type: c.type,
+    status: c.status,
     tagline: c.tagline,
     thumbnailUrl: c.thumbnail_url,
     level: c.level,
-    durationWeeks: c.duration_weeks,
+    durationLabel: durationLabel(c.duration_text, c.duration_weeks),
     pricePkr: c.price_pkr,
+    mentorName: c.mentor_name,
+    mentorTitle: c.mentor_title,
+    mentorAvatarUrl: c.mentor_avatar_url,
+    publicVideoUrl: c.public_video_url,
   }));
 }
 
@@ -265,7 +299,7 @@ export async function getLessonForStudent(
   // Content columns — gated by RLS on lesson status.
   const { data: lesson } = await supabase
     .from("lessons")
-    .select("id, title, content_type, video_url, text_content, pdf_url, resource_urls")
+    .select("id, title, content_type, video_url, text_content, pdf_url, pdf_file_id, resource_urls, documents")
     .eq("id", lessonId)
     .maybeSingle();
 
@@ -276,7 +310,9 @@ export async function getLessonForStudent(
     videoUrl: lesson?.video_url ?? null,
     textContent: lesson?.text_content ?? null,
     pdfUrl: lesson?.pdf_url ?? null,
+    pdfFileId: lesson?.pdf_file_id ?? null,
     resources: (lesson?.resource_urls as unknown as LessonResource[] | null) ?? [],
+    documents: (lesson?.documents as unknown as LessonDocument[] | null) ?? [],
     hasQuiz: meta.hasQuiz,
     status: meta.status,
     courseId: course.id,
