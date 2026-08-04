@@ -315,6 +315,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          duration_text: string | null
           duration_weeks: number | null
           faqs: Json
           features: string[]
@@ -329,12 +330,14 @@ export type Database = {
           outcomes: string[]
           portal_url: string | null
           price_pkr: number
+          public_video_url: string | null
           register_url: string | null
           sheet_id: string | null
           slug: string
           status: Database["public"]["Enums"]["course_status"]
           tagline: string | null
           thumbnail_url: string | null
+          timings: string | null
           title: string
           type: Database["public"]["Enums"]["course_type"]
         }
@@ -343,6 +346,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duration_text?: string | null
           duration_weeks?: number | null
           faqs?: Json
           features?: string[]
@@ -357,12 +361,14 @@ export type Database = {
           outcomes?: string[]
           portal_url?: string | null
           price_pkr?: number
+          public_video_url?: string | null
           register_url?: string | null
           sheet_id?: string | null
           slug: string
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
           thumbnail_url?: string | null
+          timings?: string | null
           title: string
           type?: Database["public"]["Enums"]["course_type"]
         }
@@ -371,6 +377,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duration_text?: string | null
           duration_weeks?: number | null
           faqs?: Json
           features?: string[]
@@ -385,12 +392,14 @@ export type Database = {
           outcomes?: string[]
           portal_url?: string | null
           price_pkr?: number
+          public_video_url?: string | null
           register_url?: string | null
           sheet_id?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
           thumbnail_url?: string | null
+          timings?: string | null
           title?: string
           type?: Database["public"]["Enums"]["course_type"]
         }
@@ -763,9 +772,11 @@ export type Database = {
         Row: {
           content_type: Database["public"]["Enums"]["lesson_content_type"]
           created_at: string
+          documents: Json
           id: string
           module_id: string
           order_index: number
+          pdf_file_id: string | null
           pdf_url: string | null
           resource_urls: Json
           text_content: string | null
@@ -775,9 +786,11 @@ export type Database = {
         Insert: {
           content_type?: Database["public"]["Enums"]["lesson_content_type"]
           created_at?: string
+          documents?: Json
           id?: string
           module_id: string
           order_index?: number
+          pdf_file_id?: string | null
           pdf_url?: string | null
           resource_urls?: Json
           text_content?: string | null
@@ -787,9 +800,11 @@ export type Database = {
         Update: {
           content_type?: Database["public"]["Enums"]["lesson_content_type"]
           created_at?: string
+          documents?: Json
           id?: string
           module_id?: string
           order_index?: number
+          pdf_file_id?: string | null
           pdf_url?: string | null
           resource_urls?: Json
           text_content?: string | null
