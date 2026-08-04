@@ -28,6 +28,10 @@ describe("extractDriveFileId", () => {
   it("returns null for a malformed URL", () => {
     expect(extractDriveFileId("not a url")).toBeNull();
   });
+
+  it("returns null for a non-https Drive thumbnail URL", () => {
+    expect(extractDriveFileId("http://drive.google.com/thumbnail?id=abc123")).toBeNull();
+  });
 });
 
 describe("diffCourseImageFileIds", () => {

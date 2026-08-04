@@ -19,7 +19,7 @@ export function extractDriveFileId(url: string | null | undefined): string | nul
   } catch {
     return null;
   }
-  if (parsed.hostname !== "drive.google.com" || parsed.pathname !== "/thumbnail") return null;
+  if (parsed.protocol !== "https:" || parsed.hostname !== "drive.google.com" || parsed.pathname !== "/thumbnail") return null;
   return parsed.searchParams.get("id");
 }
 
