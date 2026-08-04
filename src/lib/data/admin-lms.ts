@@ -14,7 +14,12 @@ import {
 import type { courseConfigSchema } from "@/lib/validations/admin-lms";
 import type { z } from "zod";
 import { sanitizeLessonHtml } from "@/lib/sanitize-html";
-import { diffCourseImageFileIds, diffLessonFileIds } from "@/lib/validations/drive-cleanup";
+import {
+  diffCourseImageFileIds,
+  diffLessonFileIds,
+  extractDriveFileId,
+  collectLessonFileIds,
+} from "@/lib/validations/drive-cleanup";
 import { trashDriveFiles } from "@/lib/data/drive-cleanup";
 
 /**
@@ -368,7 +373,7 @@ export async function updateCourseConfig(
 }
 
 export type DeleteCourseResult =
-  | { ok: true }
+  | { ok: true; warning: string | null }
   | { ok: false; reason: "not-found" | "has-enrollments" | "db-error"; enrollmentCount?: number };
 
 /**
@@ -388,10 +393,40 @@ export async function deleteCourse(id: string): Promise<DeleteCourseResult> {
     return { ok: false, reason: "has-enrollments", enrollmentCount: count ?? 0 };
   }
 
+  const { data: course } = await admin
+    .from("courses")
+    .select("thumbnail_url, banner_url, mentor_avatar_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { data: modules } = await admin.from("modules").select("id").eq("course_id", id);
+  const moduleIds = (modules ?? []).map((m) => m.id);
+  let lessons: Array<{ pdf_file_id: string | null; documents: unknown }> = [];
+  if (moduleIds.length > 0) {
+    const { data } = await admin.from("lessons").select("pdf_file_id, documents").in("module_id", moduleIds);
+    lessons = data ?? [];
+  }
+
   const { data, error } = await admin.from("courses").delete().eq("id", id).select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
-  return { ok: true };
+
+  const fileIdsToTrash = [
+    ...(course
+      ? [course.thumbnail_url, course.banner_url, course.mentor_avatar_url]
+          .map((url) => extractDriveFileId(url))
+          .filter((id): id is string => id !== null)
+      : []),
+    ...collectLessonFileIds(
+      lessons.map((l) => ({
+        pdfFileId: l.pdf_file_id,
+        documents: (l.documents as unknown as Array<{ fileId: string }>) ?? [],
+      })),
+    ),
+  ];
+  const warning = await trashDriveFiles(fileIdsToTrash);
+
+  return { ok: true, warning };
 }
 
 export type SetPublishedResult =

@@ -121,6 +121,8 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
         setDeleteOpen(false);
         return;
       }
+      const payload = (await res.json().catch(() => null)) as { warning?: string | null } | null;
+      if (payload?.warning) toast.warning(payload.warning);
       toast.success("Program deleted.");
       router.push("/dashboard/admin/courses");
     });
