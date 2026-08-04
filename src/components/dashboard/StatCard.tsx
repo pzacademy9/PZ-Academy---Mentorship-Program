@@ -9,16 +9,14 @@ interface StatCardProps {
   className?: string;
 }
 
-export function StatCard({ label, value, icon: Icon, iconBg = "bg-pz-sage/20", className }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, iconBg = "bg-pz-secondary/10", className }: StatCardProps) {
   return (
-    <div className={cn("bg-white rounded-xl shadow-card p-5 flex items-center gap-4", className)}>
-      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", iconBg)}>
-        <Icon className="w-6 h-6 text-pz-pine" />
+    <div className={cn("p-5 rounded-xl border border-pz-secondary/20 bg-pz-surface-container/50 hover:border-pz-secondary transition-all group", className)}>
+      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 mb-3", iconBg)}>
+        <Icon className="w-5 h-5 text-pz-secondary" />
       </div>
-      <div>
-        <p className="text-pz-muted text-xs font-medium uppercase tracking-wide">{label}</p>
-        <p className="font-montserrat font-bold text-2xl text-pz-forest mt-0.5">{value}</p>
-      </div>
+      <p className="text-pz-on-surface-variant text-[11px] font-label uppercase tracking-widest">{label}</p>
+      <p className="font-headline font-bold text-xl text-pz-on-surface mt-0.5 group-hover:translate-x-1 transition-transform">{value}</p>
     </div>
   );
 }

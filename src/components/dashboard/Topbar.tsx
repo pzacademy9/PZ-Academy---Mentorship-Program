@@ -13,13 +13,18 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "./NotificationBell";
 import { createBrowserSupabase } from "@/lib/supabase/client";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import type { AppNotification } from "@/lib/data/notifications";
 
 interface TopbarProps {
   fullName: string;
   role: string;
+  /** Server-rendered by the dashboard layout; see getNotificationSummary. */
+  notifications?: AppNotification[];
+  unreadCount?: number;
 }
 
-export function Topbar({ fullName, role }: TopbarProps) {
+export function Topbar({ fullName, role, notifications = [], unreadCount = 0 }: TopbarProps) {
   const router = useRouter();
   const initials = fullName
     .split(" ")
@@ -35,23 +40,27 @@ export function Topbar({ fullName, role }: TopbarProps) {
   }
 
   return (
-    <header className="h-14 border-b border-pz-border bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
-      <div />
+    <header className="h-16 border-b border-pz-outline-variant/20 dark:border-[#2a2f2c] bg-pz-surface dark:bg-[#1c211e] flex items-center justify-between px-4 sm:px-6 shrink-0 sticky top-0 z-30">
+      <div className="flex items-center gap-2 lg:hidden">
+        <span className="font-headline font-black text-pz-primary">PharmaZyme</span>
+      </div>
+      <div className="hidden lg:block" />
       <div className="flex items-center gap-2">
-        <NotificationBell count={0} />
+        <ThemeToggle />
+        <NotificationBell items={notifications} unreadCount={unreadCount} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">
-              <Avatar className="w-7 h-7">
-                <AvatarFallback className="bg-pz-lime text-pz-forest text-xs font-bold">{initials}</AvatarFallback>
+              <Avatar className="w-8 h-8 ring-2 ring-pz-primary/40">
+                <AvatarFallback className="bg-pz-bright text-pz-deep text-xs font-bold">{initials}</AvatarFallback>
               </Avatar>
-              <span className="hidden sm:block text-sm font-medium text-pz-forest max-w-[120px] truncate">{fullName}</span>
+              <span className="hidden sm:block text-sm font-label font-medium text-pz-on-surface max-w-[120px] truncate">{fullName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <div className="px-2 py-1.5">
-              <p className="text-xs font-medium text-pz-forest truncate">{fullName}</p>
-              <p className="text-xs text-pz-muted capitalize">{role.replace("_", " ")}</p>
+              <p className="text-xs font-medium text-pz-on-surface truncate">{fullName}</p>
+              <p className="text-xs text-pz-on-surface-variant capitalize">{role.replace("_", " ")}</p>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>

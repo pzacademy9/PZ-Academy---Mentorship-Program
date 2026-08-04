@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Montserrat, Poppins } from "next/font/google";
+import { Montserrat, Poppins, Fredoka, Handlee } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -14,6 +15,18 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-poppins",
+});
+
+const fredoka = Fredoka({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-fredoka",
+});
+
+const handlee = Handlee({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-handlee",
 });
 
 
@@ -34,10 +47,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={cn(montserrat.variable, poppins.variable, "font-poppins bg-white text-pz-ink antialiased")}>
-        {children}
-        <Toaster richColors position="bottom-right" />
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={cn(
+          montserrat.variable,
+          poppins.variable,
+          fredoka.variable,
+          handlee.variable,
+          "font-fredoka bg-white text-pz-ink dark:bg-[#101412] dark:text-[#e0e3df] antialiased",
+        )}
+      >
+        <ThemeProvider>
+          {children}
+          <Toaster richColors position="bottom-right" />
+        </ThemeProvider>
       </body>
     </html>
   );
