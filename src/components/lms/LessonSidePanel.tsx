@@ -8,13 +8,14 @@ import { cn } from "@/lib/utils";
 import { saveNote } from "@/app/portal/actions";
 import { NoteEditorToolbar } from "./NoteEditorToolbar";
 import { exportNotePdf, exportNoteDoc } from "@/lib/notes-export";
-import type { LessonResource } from "@/lib/data/lms";
+import type { LessonResource, LessonDocument } from "@/lib/data/lms";
 
 interface LessonSidePanelProps {
   lessonId: string;
   courseId: string;
   lessonTitle: string;
   resources: LessonResource[];
+  documents: LessonDocument[];
   initialNoteHtml: string;
 }
 
@@ -31,6 +32,7 @@ export function LessonSidePanel({
   courseId,
   lessonTitle,
   resources,
+  documents,
   initialNoteHtml,
 }: LessonSidePanelProps) {
   const [tab, setTab] = useState<"resources" | "notes">("resources");
@@ -100,26 +102,43 @@ export function LessonSidePanel({
 
       {tab === "resources" ? (
         <div className="p-4 flex-1 overflow-y-auto space-y-3">
-          {resources.length === 0 ? (
+          {resources.length === 0 && documents.length === 0 ? (
             <p className="text-sm font-body text-pz-on-surface-variant text-center py-8">
               No resources for this lesson yet.
             </p>
           ) : (
-            resources.map((r, i) => (
-              <a
-                key={i}
-                href={r.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
-                  <span className="font-body text-sm text-pz-on-surface truncate">{r.label}</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
-              </a>
-            ))
+            <>
+              {resources.map((r, i) => (
+                <a
+                  key={`link-${i}`}
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="font-body text-sm text-pz-on-surface truncate">{r.label}</span>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
+                </a>
+              ))}
+              {documents.map((doc) => (
+                <a
+                  key={doc.fileId}
+                  href={`/api/lessons/${lessonId}/documents/${doc.fileId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileType2 className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="font-body text-sm text-pz-on-surface truncate">{doc.name}</span>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
+                </a>
+              ))}
+            </>
           )}
         </div>
       ) : (

@@ -1,9 +1,12 @@
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { WebinarGrid } from "@/components/marketing/WebinarGrid";
+import { getPublishedCourses } from "@/lib/data/lms";
 import { Play } from "lucide-react";
 
-export default function WebinarsPage() {
+export default async function WebinarsPage() {
+  const webinars = await getPublishedCourses("webinar");
+
   return (
     <>
       <MarketingNav />
@@ -43,9 +46,9 @@ export default function WebinarsPage() {
           <div className="text-center mb-10">
             <span className="text-[.72rem] font-semibold tracking-[.14em] uppercase text-pz-mid font-poppins">Expert-Led Sessions</span>
             <h2 className="font-montserrat text-[clamp(1.8rem,4vw,2.8rem)] font-extrabold text-pz-deep leading-[1.15] mt-2 mb-3">Our Webinar <em className="not-italic text-pz-mid">Faculty</em></h2>
-            <p className="text-base text-pz-muted max-w-[560px] mx-auto leading-[1.7] font-poppins">Thirteen specialists. One platform. Register for upcoming sessions or revisit recorded webinars at your own pace.</p>
+            <p className="text-base text-pz-muted max-w-[560px] mx-auto leading-[1.7] font-poppins">Specialists from across the region. Register for upcoming sessions or revisit recorded webinars at your own pace.</p>
           </div>
-          <WebinarGrid />
+          <WebinarGrid webinars={webinars} />
         </div>
       </section>
 
