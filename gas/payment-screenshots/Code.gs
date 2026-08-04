@@ -159,12 +159,14 @@ function handleFetchPrivateDocument_(body) {
  * Moves a file to Drive's Trash rather than permanently deleting it — gives
  * a ~30-day recovery window inside Drive itself if an app-side delete (an
  * admin clearing/replacing an image, or deleting a lesson/course that owned
- * one) turns out to be a mistake. Idempotent by design: any failure inside
- * the try block (already trashed, already deleted, bad id, no permission,
- * etc.) is treated as success, since the end state the caller wants — the
- * file not being live — already holds. The caller only cares that the file
- * is no longer live, not whether this specific call was the one that
- * removed it.
+ * one) turns out to be a mistake. Scoped to the PZ Academy folder tree via
+ * isUnderPzAcademyRoot_ so this action can never reach files it wasn't meant
+ * to touch (e.g. payment screenshots) even though the caller supplies a bare
+ * fileId. Idempotent for the one case that's genuinely equivalent to
+ * success — the file is already gone (already trashed/deleted or a bad id) —
+ * but every other failure (permission denied, quota, transient Drive error)
+ * is reported back to the caller as `{ ok: false }` rather than swallowed, so
+ * the app's warning-toast system actually has real failures to surface.
  */
 function handleTrashFile_(body) {
   const expectedSecret = PropertiesService.getScriptProperties().getProperty("SHARED_SECRET");
@@ -178,14 +180,57 @@ function handleTrashFile_(body) {
   }
 
   try {
-    DriveApp.getFileById(fileId).setTrashed(true);
+    const file = DriveApp.getFileById(fileId);
+    if (!isUnderPzAcademyRoot_(file)) {
+      return jsonResponse_({ ok: false, error: "File is outside the PZ Academy folder tree" });
+    }
+    file.setTrashed(true);
     return jsonResponse_({ ok: true });
   } catch (err) {
-    // Any failure here means the end state (file not trashed/present) is
-    // moot for the caller's purposes — already gone, no permission, bad id,
-    // etc. all resolve to "the file isn't there to worry about."
-    return jsonResponse_({ ok: true });
+    const message = String(err);
+    // "No item with the given ID could be found" is Drive's real exception
+    // text for an already-deleted/never-existed file — that IS success from
+    // the caller's perspective (idempotent retry). Anything else (permission
+    // denied, quota, transient failure) is a real failure the caller needs
+    // to know about, so it's logged and reported, not swallowed.
+    if (message.indexOf("No item with the given ID could be found") !== -1) {
+      return jsonResponse_({ ok: true });
+    }
+    console.error("handleTrashFile_ failed for fileId=" + fileId + ": " + message);
+    return jsonResponse_({ ok: false, error: message });
   }
+}
+
+/**
+ * True if `file` has the PZ Academy root folder anywhere in its parent chain
+ * (walks up, not just immediate parent — files live in slug subfolders under
+ * Course Images/Lesson Documents, i.e. two levels under root).
+ */
+function isUnderPzAcademyRoot_(file) {
+  const root = DriveApp.getFolderById(getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME).getId());
+  let parents = file.getParents();
+  const visited = {};
+  while (parents.hasNext()) {
+    const parent = parents.next();
+    const id = parent.getId();
+    if (id === root.getId()) return true;
+    if (visited[id]) continue; // guard against any cyclic/duplicate parent edge cases
+    visited[id] = true;
+    parents = combineIterators_(parents, parent.getParents());
+  }
+  return false;
+}
+
+/** Chains a remaining Drive FolderIterator with a new one so the walk-up loop can keep consuming a single `parents` variable. */
+function combineIterators_(remaining, next) {
+  const items = [];
+  while (remaining.hasNext()) items.push(remaining.next());
+  while (next.hasNext()) items.push(next.next());
+  let i = 0;
+  return {
+    hasNext: function () { return i < items.length; },
+    next: function () { return items[i++]; },
+  };
 }
 
 /** Finds a child folder by exact name, creating it if it doesn't exist yet. */

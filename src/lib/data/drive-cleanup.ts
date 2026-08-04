@@ -20,16 +20,25 @@ export async function trashDriveFile(fileId: string): Promise<{ ok: boolean }> {
   }
 }
 
+const TRASH_CONCURRENCY = 5;
+
 /**
- * Runs trashDriveFile over every id in parallel. Returns null if the list
- * was empty or everything succeeded — the common case, meaning "nothing to
- * tell the admin." Returns a human-readable warning if anything failed, for
- * the caller to attach to its own result and surface as a toast.
+ * Runs trashDriveFile over every id, capped at TRASH_CONCURRENCY in flight at
+ * once — this hits the same shared GAS deployment that live payment-
+ * screenshot and course-image uploads use, so an unbounded Promise.all here
+ * could starve real traffic on a course with many files. Returns null if the
+ * list was empty or everything succeeded — the common case, meaning
+ * "nothing to tell the admin." Returns a human-readable warning if anything
+ * failed, for the caller to attach to its own result and surface as a toast.
  */
 export async function trashDriveFiles(fileIds: string[]): Promise<string | null> {
   if (fileIds.length === 0) return null;
-  const results = await Promise.all(fileIds.map((id) => trashDriveFile(id)));
+  const results: Array<{ ok: boolean }> = [];
+  for (let i = 0; i < fileIds.length; i += TRASH_CONCURRENCY) {
+    const batch = fileIds.slice(i, i + TRASH_CONCURRENCY);
+    results.push(...(await Promise.all(batch.map((id) => trashDriveFile(id)))));
+  }
   const failedCount = results.filter((r) => !r.ok).length;
   if (failedCount === 0) return null;
-  return `Saved, but ${failedCount} of ${fileIds.length} old file${fileIds.length === 1 ? "" : "s"} couldn't be removed from Drive.`;
+  return `${failedCount} of ${fileIds.length} old file${fileIds.length === 1 ? "" : "s"} couldn't be removed from Drive.`;
 }

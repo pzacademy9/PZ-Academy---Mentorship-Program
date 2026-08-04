@@ -415,7 +415,7 @@ export async function deleteCourse(id: string): Promise<DeleteCourseResult> {
     ...(course
       ? [course.thumbnail_url, course.banner_url, course.mentor_avatar_url]
           .map((url) => extractDriveFileId(url))
-          .filter((id): id is string => id !== null)
+          .filter((id): id is string => !!id)
       : []),
     ...collectLessonFileIds(
       lessons.map((l) => ({

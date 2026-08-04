@@ -8,8 +8,14 @@
  * Pulls the file id out of one of our own Drive thumbnail URLs
  * (`https://drive.google.com/thumbnail?id=<id>&sz=w1600`). Returns null for
  * anything else — a manually pasted external image URL, an empty/blank
- * value, or a malformed string — which is the safety boundary that keeps
- * the app from ever asking Drive to trash a file it didn't itself upload.
+ * value, a malformed string, or a well-formed thumbnail URL with an empty
+ * `id` param. This filters out obviously-foreign URLs before a fileId ever
+ * reaches the GAS relay, but it's necessary, not sufficient, on its own —
+ * it can't stop a spoofed or reused thumbnail URL that happens to carry
+ * someone else's real fileId. What actually closes that loop is the
+ * `isUnderPzAcademyRoot_` folder-scope check in GAS's handleTrashFile_,
+ * which is the last line of defense against trashing a file this app
+ * didn't itself upload.
  */
 export function extractDriveFileId(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -20,7 +26,7 @@ export function extractDriveFileId(url: string | null | undefined): string | nul
     return null;
   }
   if (parsed.protocol !== "https:" || parsed.hostname !== "drive.google.com" || parsed.pathname !== "/thumbnail") return null;
-  return parsed.searchParams.get("id");
+  return parsed.searchParams.get("id") || null;
 }
 
 export interface CourseImageUrls {
