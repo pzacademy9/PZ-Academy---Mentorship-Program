@@ -67,5 +67,5 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ l
     }
     return NextResponse.json({ error: "Could not delete this session" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, warning: result.warning ?? null });
 }

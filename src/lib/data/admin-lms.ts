@@ -743,7 +743,7 @@ export async function deleteLesson(lessonId: string, confirm = false): Promise<M
 
   const { data: lesson } = await admin
     .from("lessons")
-    .select("id, module_id, modules!lessons_module_id_fkey(course_id)")
+    .select("id, module_id, pdf_file_id, documents, modules!lessons_module_id_fkey(course_id)")
     .eq("id", lessonId)
     .maybeSingle();
   if (!lesson) return { ok: false, reason: "not-found" };
@@ -760,7 +760,14 @@ export async function deleteLesson(lessonId: string, confirm = false): Promise<M
 
   const { error } = await admin.from("lessons").delete().eq("id", lessonId);
   if (error) return { ok: false, reason: "db-error" };
-  return { ok: true, id: lessonId };
+
+  const documents = (lesson.documents as unknown as Array<{ fileId: string }>) ?? [];
+  const fileIdsToTrash = [lesson.pdf_file_id, ...documents.map((d) => d.fileId)].filter(
+    (id): id is string => !!id,
+  );
+  const warning = await trashDriveFiles(fileIdsToTrash);
+
+  return { ok: true, id: lessonId, warning };
 }
 
 export async function reorderLessons(moduleId: string, orderedIds: string[]): Promise<MutationResult> {
