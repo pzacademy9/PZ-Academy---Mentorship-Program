@@ -426,6 +426,111 @@
       "fileType": "code",
       "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\vitest.config.ts",
       "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\vitest.config.ts:1"
+    },
+    {
+      "id": "file::email_templates_test",
+      "label": "email-templates.test.ts",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\__tests__\\email-templates.test.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\__tests__\\email-templates.test.ts:1"
+    },
+    {
+      "id": "file::email_templates",
+      "label": "email-templates.ts",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:1"
+    },
+    {
+      "id": "email_templates::inviteemailhtml",
+      "label": "inviteEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:31"
+    },
+    {
+      "id": "email_templates::signupconfirmemailhtml",
+      "label": "signupConfirmEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:107"
+    },
+    {
+      "id": "email_templates::resetpasswordemailhtml",
+      "label": "resetPasswordEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:187"
+    },
+    {
+      "id": "email_templates::emailchangeconfirmemailhtml",
+      "label": "emailChangeConfirmEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:272"
+    },
+    {
+      "id": "index::calculatenextretrytime",
+      "label": "calculateNextRetryTime",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\process-email-queue\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\process-email-queue\\index.ts:48"
+    },
+    {
+      "id": "file::index",
+      "label": "index.ts",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\test-ping\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\test-ping\\index.ts:1"
+    },
+    {
+      "id": "index::verifybrevosignature",
+      "label": "verifyBrevoSignature",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\brevo-webhook-handler\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\brevo-webhook-handler\\index.ts:29"
+    },
+    {
+      "id": "index::inviteemailhtml",
+      "label": "inviteEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:27"
+    },
+    {
+      "id": "index::signupconfirmemailhtml",
+      "label": "signupConfirmEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:100"
+    },
+    {
+      "id": "index::resetpasswordemailhtml",
+      "label": "resetPasswordEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:177"
+    },
+    {
+      "id": "index::emailchangeconfirmemailhtml",
+      "label": "emailChangeConfirmEmailHtml",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:259"
+    },
+    {
+      "id": "index::isvalidemail",
+      "label": "isValidEmail",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:370"
+    },
+    {
+      "id": "index::getemailtemplate",
+      "label": "getEmailTemplate",
+      "fileType": "code",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:377"
     }
   ],
   "edges": [
@@ -653,12 +758,120 @@
       "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\middleware.ts",
       "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\middleware.ts:5",
       "weight": 1
+    },
+    {
+      "source": "file::email_templates",
+      "target": "email_templates::inviteemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:31",
+      "weight": 1
+    },
+    {
+      "source": "file::email_templates",
+      "target": "email_templates::signupconfirmemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:107",
+      "weight": 1
+    },
+    {
+      "source": "file::email_templates",
+      "target": "email_templates::resetpasswordemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:187",
+      "weight": 1
+    },
+    {
+      "source": "file::email_templates",
+      "target": "email_templates::emailchangeconfirmemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\src\\lib\\email-templates.ts:272",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::calculatenextretrytime",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\process-email-queue\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\process-email-queue\\index.ts:48",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::verifybrevosignature",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\brevo-webhook-handler\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\brevo-webhook-handler\\index.ts:29",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::inviteemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:27",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::signupconfirmemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:100",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::resetpasswordemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:177",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::emailchangeconfirmemailhtml",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:259",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::isvalidemail",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:370",
+      "weight": 1
+    },
+    {
+      "source": "file::index",
+      "target": "index::getemailtemplate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "sourceFile": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts",
+      "sourceLocation": "D:\\Claude Code workspace\\PZ Academy Mentorship Portal\\pz-academy-platform\\supabase\\functions\\send-auth-email\\index.ts:377",
+      "weight": 1
     }
   ],
   "metadata": {
-    "files": 51,
-    "nodes": 61,
-    "edges": 25,
-    "builtAt": "2026-07-01T16:45:35.167Z"
+    "files": 47,
+    "nodes": 76,
+    "edges": 37,
+    "builtAt": "2026-07-01T23:18:12.025Z"
   }
 }
