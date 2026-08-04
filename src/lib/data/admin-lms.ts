@@ -14,7 +14,7 @@ import {
 import type { courseConfigSchema } from "@/lib/validations/admin-lms";
 import type { z } from "zod";
 import { sanitizeLessonHtml } from "@/lib/sanitize-html";
-import { diffCourseImageFileIds } from "@/lib/validations/drive-cleanup";
+import { diffCourseImageFileIds, diffLessonFileIds } from "@/lib/validations/drive-cleanup";
 import { trashDriveFiles } from "@/lib/data/drive-cleanup";
 
 /**
@@ -654,6 +654,13 @@ export interface UpdateLessonInput {
 /** The autosave target for the Lesson Editor (Part D) — also used by Part C's plain rename. */
 export async function updateLesson(lessonId: string, input: UpdateLessonInput): Promise<MutationResult> {
   const admin = createAdminSupabase();
+
+  const { data: existing } = await admin
+    .from("lessons")
+    .select("pdf_file_id, documents")
+    .eq("id", lessonId)
+    .maybeSingle();
+
   const patch: Database["public"]["Tables"]["lessons"]["Update"] = {};
   if (input.title !== undefined) patch.title = input.title;
   if (input.contentType !== undefined) patch.content_type = input.contentType;
@@ -670,7 +677,20 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput): 
   const { data, error } = await admin.from("lessons").update(patch).eq("id", lessonId).select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
-  return { ok: true, id: data.id };
+
+  const warning = existing
+    ? await trashDriveFiles(
+        diffLessonFileIds(
+          {
+            pdfFileId: existing.pdf_file_id,
+            documents: (existing.documents as unknown as LessonDocument[]) ?? [],
+          },
+          { pdfFileId: input.pdfFileId, documents: input.documents },
+        ),
+      )
+    : null;
+
+  return { ok: true, id: data.id, warning };
 }
 
 export async function deleteLesson(lessonId: string, confirm = false): Promise<MutationResult> {
