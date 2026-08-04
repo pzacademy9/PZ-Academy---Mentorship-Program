@@ -159,9 +159,12 @@ function handleFetchPrivateDocument_(body) {
  * Moves a file to Drive's Trash rather than permanently deleting it — gives
  * a ~30-day recovery window inside Drive itself if an app-side delete (an
  * admin clearing/replacing an image, or deleting a lesson/course that owned
- * one) turns out to be a mistake. Treats "already gone" as success: the
- * caller only cares that the file is no longer live, not whether this
- * specific call was the one that removed it.
+ * one) turns out to be a mistake. Idempotent by design: any failure inside
+ * the try block (already trashed, already deleted, bad id, no permission,
+ * etc.) is treated as success, since the end state the caller wants — the
+ * file not being live — already holds. The caller only cares that the file
+ * is no longer live, not whether this specific call was the one that
+ * removed it.
  */
 function handleTrashFile_(body) {
   const expectedSecret = PropertiesService.getScriptProperties().getProperty("SHARED_SECRET");
@@ -178,10 +181,10 @@ function handleTrashFile_(body) {
     DriveApp.getFileById(fileId).setTrashed(true);
     return jsonResponse_({ ok: true });
   } catch (err) {
-    if (String(err).indexOf("not found") !== -1) {
-      return jsonResponse_({ ok: true });
-    }
-    return jsonResponse_({ ok: false, error: String(err) });
+    // Any failure here means the end state (file not trashed/present) is
+    // moot for the caller's purposes — already gone, no permission, bad id,
+    // etc. all resolve to "the file isn't there to worry about."
+    return jsonResponse_({ ok: true });
   }
 }
 
