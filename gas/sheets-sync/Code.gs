@@ -8,8 +8,17 @@
  * the deploying account can edit, via ScriptApp.newTrigger(...).forSpreadsheet(id) —
  * it does not need to live inside that spreadsheet's own bound-script project.
  *
+ * This file can live in its own Apps Script project, OR share one project
+ * with gas/payment-screenshots/Code.gs (both are pasted in as separate .gs
+ * files under one project) — either way there is only ONE doPost for the
+ * whole project, so this file's doPost also dispatches
+ * uploadPaymentScreenshot requests to that other file's handler. See the
+ * comment on doPost below.
+ *
  * One-time setup, ever (not per sheet):
- *   1. script.google.com -> New project, paste this file in.
+ *   1. script.google.com -> New project (or reuse the existing
+ *      payment-screenshots project), paste this file in as an additional
+ *      .gs file.
  *   2. Project Settings -> Script Properties, add:
  *        SYNC_SECRET              = <same value as SHEETS_SYNC_SECRET in .env.local>
  *        WEBHOOK_URL              = https://<your-domain>/api/webhooks/sheets-sync
@@ -18,12 +27,16 @@
  *        COL_PHONE                = <exact header text of the phone column>      (optional)
  *        COL_PAYMENT_CONFIRMATION = <exact header text of the dropdown column>
  *        COL_AMOUNT               = <exact header text of the amount column>
+ *      (If sharing the payment-screenshots project, its SHARED_SECRET
+ *      property stays as-is — different property name, no collision.)
  *      These column headers are assumed IDENTICAL across every registered
  *      sheet (they all come from the same WordPress form template). A sheet
  *      with genuinely different headers needs a follow-up design, not
  *      supported here.
  *   3. Deploy -> New deployment -> Web app -> Execute as "Me", access
  *      "Anyone" -> copy the /exec URL into .env.local as GAS_SHEETS_SYNC_URL.
+ *      If sharing the payment-screenshots project, this is the SAME /exec
+ *      URL as GAS_WEBAPP_URL — both env vars just point at one deployment now.
  *   4. The deploying Google account must have edit access to every sheet
  *      that gets registered — same Drive/team as today's sheets.
  *
@@ -105,9 +118,14 @@ function onEdit(e) {
 }
 
 /**
- * Inbound: the Next.js app pushing a confirmed status back to a sheet
- * (`applyStatus`), or asking this script to start watching a new sheet
- * (`registerSheet`) so onboarding a batch never needs the Apps Script editor.
+ * Single entry point for the whole "PZ Academy Platform" GAS project — a
+ * project has exactly one doPost, so this also dispatches the unrelated
+ * Drive-upload bridges (gas/payment-screenshots/Code.gs: payment screenshots,
+ * course images, AND private lesson documents) that share this project. Each
+ * action checks its own secret property (SYNC_SECRET here, SHARED_SECRET for
+ * uploadPaymentScreenshot/uploadCourseImage/uploadPrivateDocument/
+ * fetchPrivateDocument/trashFile) rather than one shared gate, since they're logically
+ * separate integrations that just happen to live behind one exec URL now.
  */
 function doPost(e) {
   let body;
@@ -115,6 +133,26 @@ function doPost(e) {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
     return jsonResponse_({ status: "error", message: "Invalid JSON body" });
+  }
+
+  if (body.action === "uploadPaymentScreenshot") {
+    return handleUploadPaymentScreenshot_(body);
+  }
+
+  if (body.action === "uploadCourseImage") {
+    return handleUploadCourseImage_(body);
+  }
+
+  if (body.action === "uploadPrivateDocument") {
+    return handleUploadPrivateDocument_(body);
+  }
+
+  if (body.action === "fetchPrivateDocument") {
+    return handleFetchPrivateDocument_(body);
+  }
+
+  if (body.action === "trashFile") {
+    return handleTrashFile_(body);
   }
 
   const props = PropertiesService.getScriptProperties();
