@@ -1,0 +1,27 @@
+-- ============================================================
+-- Migration 0014: 'reserved' enrollment status (Phase 6)
+-- Run AFTER 0013. SQL Editor → New query → Run
+-- ============================================================
+-- Phase 6 gives admins a review panel over pending enrollments.
+-- Approve and reject map onto the existing 'active' / 'rejected'
+-- values, but there is a third real-world outcome the enum could
+-- not express: the student has part-paid, or promised payment, and
+-- the seat is being HELD for them. Previously an admin had to
+-- either approve early (granting free course access) or reject
+-- (losing the student). 'reserved' is that middle state.
+--
+-- 'reserved' grants NO course access. The on_enrollment_activated
+-- trigger (0003) only fires on a transition INTO 'active', so a
+-- reserved row never unlocks lesson 1 — content stays gated at the
+-- DB layer without any policy change here.
+--
+-- Positioned AFTER 'pending' so the enum's natural sort order
+-- follows the real lifecycle: pending → reserved → active, then
+-- the terminal states rejected / expired.
+--
+-- ⚠ This statement MUST stay alone in its own migration. Postgres
+-- cannot use a newly added enum value inside the same transaction
+-- that adds it, so nothing below may reference 'reserved'. Any
+-- backfill or policy work touching it belongs in 0015+.
+
+alter type public.enrollment_status add value if not exists 'reserved' after 'pending';
