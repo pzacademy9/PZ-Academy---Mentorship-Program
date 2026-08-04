@@ -26,18 +26,18 @@ function parseFilter(value: string | undefined): StatusFilter {
 export default async function AdminEnrollmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; courseId?: string; courseTitle?: string }>;
 }) {
   // Duplicates the middleware role gate on purpose — the codebase's
   // defence-in-depth convention for every admin page.
   await requireAdminPage();
 
-  const { status } = await searchParams;
+  const { status, courseId, courseTitle } = await searchParams;
   const filter = parseFilter(status);
 
   const [enrollments, counts, approvedThisMonth] = await Promise.all([
-    listEnrollmentsForReview(filter),
-    countEnrollmentsByStatus(),
+    listEnrollmentsForReview(filter, courseId),
+    countEnrollmentsByStatus(courseId),
     countApprovedThisMonth(),
   ]);
 
@@ -50,6 +50,20 @@ export default async function AdminEnrollmentsPage({
         </p>
       </div>
 
+      {courseId && (
+        <div className="flex items-center gap-2 bg-pz-primary-container/20 border border-pz-primary-container rounded-lg px-4 py-2.5 text-sm">
+          <span className="font-body text-pz-on-surface">
+            Showing only <span className="font-bold">{courseTitle ?? "this program"}</span>
+          </span>
+          <Link
+            href={`/dashboard/admin/enrollments${status ? `?status=${status}` : ""}`}
+            className="font-body font-semibold text-pz-primary hover:underline ml-auto"
+          >
+            Clear filter
+          </Link>
+        </div>
+      )}
+
       <EnrollmentStatCards
         counts={{
           pending: counts.pending,
@@ -59,7 +73,7 @@ export default async function AdminEnrollmentsPage({
         }}
       />
 
-      <EnrollmentFilterTabs active={filter} counts={counts} />
+      <EnrollmentFilterTabs active={filter} counts={counts} courseId={courseId} courseTitle={courseTitle} />
 
       <h2 className="font-headline font-bold text-lg text-pz-on-surface">Manage Applications</h2>
 
