@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { label: "Mentorship", href: "/mentorship" },
 ];
 
-export function MarketingNav() {
+export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } = {}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -32,7 +32,7 @@ export function MarketingNav() {
   return (
     <nav className={cn(
       "fixed inset-x-0 top-0 z-50 h-[68px] flex items-center justify-between px-6 md:px-10 transition-all duration-300",
-      scrolled && !open && "bg-[rgba(10,28,17,0.96)] backdrop-blur-xl shadow-[0_2px_24px_rgba(0,0,0,.25)]"
+      (alwaysSolid || (scrolled && !open)) && "bg-[rgba(10,28,17,0.96)] backdrop-blur-xl shadow-[0_2px_24px_rgba(0,0,0,.25)]"
     )}>
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2.5 z-10 shrink-0">

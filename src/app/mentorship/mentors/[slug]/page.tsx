@@ -28,7 +28,7 @@ export default function MentorPage({ params }: Props) {
 
   return (
     <>
-      <MarketingNav />
+      <MarketingNav alwaysSolid />
       <main>
         {/* mentor is non-null here after notFound() above */}
         <MentorProfileClient mentor={mentor!} />

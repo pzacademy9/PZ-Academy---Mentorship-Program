@@ -8,6 +8,8 @@
  * a few of these classes.
  */
 
+@tailwind components;
+
 @layer components {
 
   /* Primary CTA — gold bg, dark green text, glow on hover */

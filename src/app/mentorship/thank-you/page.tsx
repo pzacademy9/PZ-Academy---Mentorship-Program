@@ -23,7 +23,7 @@ const fadeUp = {
 export default function ThankYouPage() {
   return (
     <>
-      <MarketingNav />
+      <MarketingNav alwaysSolid />
       <main className="min-h-screen bg-[#F0FAF4] flex flex-col items-center justify-center py-32 px-6">
         {/* Floating bg particles */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
