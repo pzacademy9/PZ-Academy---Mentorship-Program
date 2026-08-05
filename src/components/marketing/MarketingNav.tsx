@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { label: "Courses", href: "/courses" },
   { label: "Webinars", href: "/webinars" },
   { label: "Workshops", href: "/workshops" },
+  { label: "Mentorship", href: "/mentorship" },
 ];
 
 export function MarketingNav() {
