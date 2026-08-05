@@ -20,11 +20,16 @@ const config: Config = {
   			display:    ['var(--font-montserrat)', 'sans-serif'],
   			body:       ['var(--font-fredoka)', 'sans-serif'],
   			label:      ['var(--font-handlee)', 'cursive'],
+  			// Mentorship section only
+  			allura:     ['var(--font-allura)', 'cursive'],
   		},
   		boxShadow: {
   			card:    '0 4px 24px rgba(25,75,50,.10)',
   			'card-lg': '0 16px 48px rgba(25,75,50,.18)',
   			gold:    '0 4px 20px rgba(201,150,10,.25)',
+  			// Mentorship section only
+  			'gold-sm': '0 0 12px rgba(201,168,76,0.25)',
+  			'gold-md': '0 0 20px 4px rgba(201,168,76,0.35)',
   		},
   		backgroundImage: {
   			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -37,6 +42,18 @@ const config: Config = {
   			sm: 'calc(var(--radius) - 4px)',
   		},
   		colors: {
+  			// Mentorship section only — do not use elsewhere, use colors.pz instead
+  			brand: {
+  				green:       '#1A4D2E',
+  				'green-mid': '#2E7D52',
+  				gold:        '#C9A84C',
+  				'gold-light':'#E8C97A',
+  				black:       '#0D0D0D',
+  				'near-black':'#0D0D0D',
+  				'off-white': '#F8F6F1',
+  				'gray-text': '#6B7280',
+  				'card-border':'#E5E1D8',
+  			},
   			pz: {
   				// Primary greens
   				deep:       '#0F3D22', // hero/dark backgrounds

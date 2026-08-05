@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
-import { Montserrat, Poppins, Fredoka, Handlee } from "next/font/google";
+import { Montserrat, Poppins, Fredoka, Handlee, Allura } from "next/font/google";
 import "./globals.css";
+import "./mentorship/mentorship.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
-  weight: ["700", "800", "900"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-montserrat",
+});
+
+const allura = Allura({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-allura",
+  display: "swap",
 });
 
 const poppins = Poppins({
@@ -54,6 +62,7 @@ export default function RootLayout({
           poppins.variable,
           fredoka.variable,
           handlee.variable,
+          allura.variable,
           "font-fredoka bg-white text-pz-ink dark:bg-[#101412] dark:text-[#e0e3df] antialiased",
         )}
       >
