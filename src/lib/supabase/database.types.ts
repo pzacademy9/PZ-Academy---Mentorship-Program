@@ -821,6 +821,86 @@ export type Database = {
           },
         ]
       }
+      mentor_applications: {
+        Row: {
+          applicant_id: string | null
+          country: string | null
+          created_at: string
+          cv_url: string | null
+          email: string
+          expertise: string | null
+          full_name: string
+          id: string
+          linkedin_url: string | null
+          organization: string | null
+          phone: string
+          photo_urls: string[]
+          position: string | null
+          profession: string | null
+          rejection_reason: string | null
+          roles: string | null
+          status: Database["public"]["Enums"]["mentor_application_status"]
+          status_changed_at: string | null
+          value_provide: string | null
+          why_join: string | null
+          years_experience: string | null
+        }
+        Insert: {
+          applicant_id?: string | null
+          country?: string | null
+          created_at?: string
+          cv_url?: string | null
+          email: string
+          expertise?: string | null
+          full_name: string
+          id?: string
+          linkedin_url?: string | null
+          organization?: string | null
+          phone: string
+          photo_urls?: string[]
+          position?: string | null
+          profession?: string | null
+          rejection_reason?: string | null
+          roles?: string | null
+          status?: Database["public"]["Enums"]["mentor_application_status"]
+          status_changed_at?: string | null
+          value_provide?: string | null
+          why_join?: string | null
+          years_experience?: string | null
+        }
+        Update: {
+          applicant_id?: string | null
+          country?: string | null
+          created_at?: string
+          cv_url?: string | null
+          email?: string
+          expertise?: string | null
+          full_name?: string
+          id?: string
+          linkedin_url?: string | null
+          organization?: string | null
+          phone?: string
+          photo_urls?: string[]
+          position?: string | null
+          profession?: string | null
+          rejection_reason?: string | null
+          roles?: string | null
+          status?: Database["public"]["Enums"]["mentor_application_status"]
+          status_changed_at?: string | null
+          value_provide?: string | null
+          why_join?: string | null
+          years_experience?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_applications_applicant_id_fkey"
+            columns: ["applicant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mentors: {
         Row: {
           availability_json: Json | null
@@ -854,6 +934,65 @@ export type Database = {
             foreignKeyName: "mentors_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentorship_bookings: {
+        Row: {
+          cancellation_reason: string | null
+          created_at: string
+          email: string
+          full_name: string
+          goals: string | null
+          id: string
+          mentor_name: string
+          mentor_slug: string
+          package_name: string
+          payment_screenshot_url: string | null
+          phone: string
+          status: Database["public"]["Enums"]["mentorship_booking_status"]
+          status_changed_at: string | null
+          student_id: string | null
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          goals?: string | null
+          id?: string
+          mentor_name: string
+          mentor_slug: string
+          package_name: string
+          payment_screenshot_url?: string | null
+          phone: string
+          status?: Database["public"]["Enums"]["mentorship_booking_status"]
+          status_changed_at?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          cancellation_reason?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          goals?: string | null
+          id?: string
+          mentor_name?: string
+          mentor_slug?: string
+          package_name?: string
+          payment_screenshot_url?: string | null
+          phone?: string
+          status?: Database["public"]["Enums"]["mentorship_booking_status"]
+          status_changed_at?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentorship_bookings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1268,6 +1407,8 @@ export type Database = {
         | "expired"
       featured_item_type: "course" | "webinar"
       lesson_content_type: "video" | "text" | "pdf"
+      mentor_application_status: "pending" | "approved" | "rejected"
+      mentorship_booking_status: "pending" | "confirmed" | "cancelled"
       progress_status: "locked" | "unlocked" | "completed"
       session_status: "pending" | "confirmed" | "completed" | "cancelled"
       session_type:
@@ -1410,6 +1551,8 @@ export const Constants = {
       enrollment_status: ["pending", "reserved", "active", "rejected", "expired"],
       featured_item_type: ["course", "webinar"],
       lesson_content_type: ["video", "text", "pdf"],
+      mentor_application_status: ["pending", "approved", "rejected"],
+      mentorship_booking_status: ["pending", "confirmed", "cancelled"],
       progress_status: ["locked", "unlocked", "completed"],
       session_status: ["pending", "confirmed", "completed", "cancelled"],
       session_type: [
