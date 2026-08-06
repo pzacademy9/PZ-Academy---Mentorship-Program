@@ -31,10 +31,14 @@
  *      the onEdit watcher on both fixed sheets. Re-running is a harmless
  *      no-op.
  *
- * This script auto-creates a "SyncedAt" tracking column at the end of row 1
- * of each sheet the first time it reacts to an edit there — do not delete it,
- * it is how the script tells a fresh row apart from a hand-edit to Status.
+ * This script auto-creates "SyncedAt" and "AppSyncValue" tracking columns at
+ * the end of row 1 of each sheet the first time it reacts to an edit there —
+ * do not delete them. SyncedAt tells a fresh row apart from a hand-edit to
+ * Status; AppSyncValue is the loop-guard to prevent re-firing webhooks on the
+ * script's own outbound writes.
  */
+
+const TRACKING_COLUMNS = ["SyncedAt", "AppSyncValue"];
 
 function installTriggers() {
   const props = PropertiesService.getScriptProperties();
@@ -61,7 +65,7 @@ function onEdit(e) {
     if (!sheetKind) return; // an edit on a sheet this script doesn't watch
 
     const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    ensureTrackingColumn_(sheet, headerRow);
+    ensureTrackingColumns_(sheet, headerRow);
 
     const editedRow = e.range.getRow();
     if (editedRow === 1) return; // header row
@@ -69,6 +73,7 @@ function onEdit(e) {
     const statusCol = headerIndex_(headerRow, props.getProperty("COL_STATUS"));
     const emailCol = headerIndex_(headerRow, props.getProperty("COL_EMAIL"));
     const syncedAtCol = headerIndex_(headerRow, "SyncedAt");
+    const appSyncValueCol = headerIndex_(headerRow, "AppSyncValue");
     if (statusCol === -1 || emailCol === -1) return;
 
     const editedCol = e.range.getColumn();
@@ -79,6 +84,11 @@ function onEdit(e) {
     const statusValue = String(sheet.getRange(editedRow, statusCol + 1).getValue()).trim();
     const emailValue = String(sheet.getRange(editedRow, emailCol + 1).getValue()).trim();
     if (!statusValue || !emailValue) return;
+
+    // Loop guard: if this exact value is what the app itself last pushed via
+    // handleApplyStatus_, this edit IS our own outbound write echoing back.
+    const lastAppValue = sheet.getRange(editedRow, appSyncValueCol + 1).getValue();
+    if (!isNewRow && statusValue === lastAppValue) return;
 
     const payload = {
       secret: props.getProperty("MENTORSHIP_SYNC_SECRET"),
@@ -149,7 +159,9 @@ function handleApplyStatus_(body, props) {
       body.sheetKind === "booking"
         ? displayValueForBookingStatus_(body.status)
         : displayValueForApplicationStatus_(body.status);
+    const appSyncValueCol = headerIndex_(headerRow, "AppSyncValue");
     sheet.getRange(sheetRow, statusCol + 1).setValue(display);
+    sheet.getRange(sheetRow, appSyncValueCol + 1).setValue(display);
 
     return jsonResponse_({ status: "success", message: "Sheet updated" });
   } catch (err) {
@@ -180,12 +192,18 @@ function headerIndex_(headerRow, headerText) {
   return headerRow.indexOf(headerText);
 }
 
-function ensureTrackingColumn_(sheet, headerRow) {
-  if (headerRow.indexOf("SyncedAt") !== -1) return;
-  const lastCol = sheet.getLastColumn() + 1;
-  sheet.getRange(1, lastCol).setValue("SyncedAt");
-  headerRow.push("SyncedAt");
-  SpreadsheetApp.flush();
+function ensureTrackingColumns_(sheet, headerRow) {
+  let lastCol = sheet.getLastColumn();
+  let changed = false;
+  for (const name of TRACKING_COLUMNS) {
+    if (headerRow.indexOf(name) === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue(name);
+      headerRow.push(name);
+      changed = true;
+    }
+  }
+  if (changed) SpreadsheetApp.flush();
 }
 
 function jsonResponse_(obj) {
