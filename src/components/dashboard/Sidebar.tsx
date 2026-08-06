@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
-  Handshake,
+  Handshake, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "My Courses", shortLabel: "Courses", href: "/dashboard/courses", icon: BookOpen, roles: ["student"] },
   { label: "My Notes", shortLabel: "Notes", href: "/dashboard/notes", icon: NotebookPen, roles: ["student"] },
   { label: "Sessions", href: "/dashboard/sessions", icon: Calendar, roles: ["student", "mentor"] },
+  { label: "My Application", href: "/dashboard/mentor-application", icon: UserCheck, roles: ["student"] },
   { label: "Certificates", href: "/dashboard/certificates", icon: Award, roles: ["student"] },
   { label: "Webinars", href: "/webinars", icon: Video, roles: ["student", "mentor"] },
   { label: "My Students", shortLabel: "Students", href: "/dashboard/mentor", icon: GraduationCap, roles: ["mentor"] },

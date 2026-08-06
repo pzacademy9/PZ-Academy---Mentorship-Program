@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { EnrolledCourseCard } from "@/components/lms/EnrolledCourseCard";
 import { getEnrolledCourses } from "@/lib/data/lms";
+import { countMyBookings } from "@/lib/data/mentorship-bookings";
 import { BookOpen, Calendar, Award, BarChart3 } from "lucide-react";
 
 export const metadata = { title: "Dashboard — PZ Academy" };
@@ -27,6 +28,7 @@ export default async function StudentDashboard() {
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "there";
   const courses = await getEnrolledCourses(user.id);
+  const sessionsBooked = await countMyBookings(user.id);
 
   return (
     <div className="space-y-6">
@@ -45,7 +47,7 @@ export default async function StudentDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Enrolled Courses" value={courses.length} icon={BookOpen} />
-        <StatCard label="Sessions Booked" value={0} icon={Calendar} />
+        <StatCard label="Sessions Booked" value={sessionsBooked} icon={Calendar} />
         <StatCard label="Certificates" value={0} icon={Award} />
         <StatCard label="Attendance %" value="—" icon={BarChart3} />
       </div>
