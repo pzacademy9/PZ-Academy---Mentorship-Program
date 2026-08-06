@@ -139,6 +139,10 @@ function doPost(e) {
     return handleUploadPaymentScreenshot_(body);
   }
 
+  if (body.action === "uploadMentorshipFile") {
+    return handleUploadMentorshipFile_(body);
+  }
+
   if (body.action === "uploadCourseImage") {
     return handleUploadCourseImage_(body);
   }

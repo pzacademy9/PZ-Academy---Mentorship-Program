@@ -18,6 +18,7 @@ const ROOT_FOLDER_NAME = "PZ Academy";
 const SCREENSHOTS_FOLDER_NAME = "Payment Screenshots";
 const COURSE_IMAGES_FOLDER_NAME = "Course Images";
 const LESSON_DOCUMENTS_FOLDER_NAME = "Lesson Documents";
+const MENTORSHIP_UPLOADS_FOLDER_NAME = "Mentorship Uploads";
 
 function handleUploadPaymentScreenshot_(body) {
   const expectedSecret = PropertiesService.getScriptProperties().getProperty("SHARED_SECRET");
@@ -120,6 +121,45 @@ function handleUploadPrivateDocument_(body) {
     const file = courseFolder.createFile(blob);
 
     return jsonResponse_({ ok: true, fileId: file.getId() });
+  } catch (err) {
+    return jsonResponse_({ ok: false, error: String(err) });
+  }
+}
+
+/**
+ * Uploads a mentorship booking/application file (payment screenshot, CV,
+ * applicant photo) to Drive. `folder` is "Bookings" or "Applications" — the
+ * caller picks it, this handler doesn't infer it from mimeType. Public,
+ * shareable link, same sharing level as payment screenshots and course
+ * images — these are review artifacts an admin needs to view via a link, not
+ * protected student content.
+ */
+function handleUploadMentorshipFile_(body) {
+  const expectedSecret = PropertiesService.getScriptProperties().getProperty("SHARED_SECRET");
+  if (!expectedSecret || body.secret !== expectedSecret) {
+    return jsonResponse_({ ok: false, error: "Unauthorized" });
+  }
+
+  const { folder, mimeType, base64, filename } = body;
+  if (!folder || !mimeType || !base64 || !filename) {
+    return jsonResponse_({ ok: false, error: "Missing required fields" });
+  }
+  if (folder !== "Bookings" && folder !== "Applications") {
+    return jsonResponse_({ ok: false, error: "Invalid folder" });
+  }
+
+  try {
+    const bytes = Utilities.base64Decode(base64);
+    const blob = Utilities.newBlob(bytes, mimeType, filename);
+
+    const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+    const uploadsRoot = getOrCreateFolder_(root, MENTORSHIP_UPLOADS_FOLDER_NAME);
+    const targetFolder = getOrCreateFolder_(uploadsRoot, folder);
+
+    const file = targetFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return jsonResponse_({ ok: true, url: file.getUrl() });
   } catch (err) {
     return jsonResponse_({ ok: false, error: String(err) });
   }
