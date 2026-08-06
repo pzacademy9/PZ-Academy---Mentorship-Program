@@ -69,40 +69,68 @@ function handleTrashFile_(body) {
     return jsonResponse_({ ok: false, error: "Missing fileId" });
   }
   try {
-    DriveApp.getFileById(fileId).setTrashed(true);
+    const file = DriveApp.getFileById(fileId);
+    if (!isUnderPzAcademyRoot_(file)) {
+      return jsonResponse_({ ok: false, error: "File is outside the PZ Academy folder tree" });
+    }
+    file.setTrashed(true);
     return jsonResponse_({ ok: true });
   } catch (err) {
-    // Already trashed or already gone is not a failure from the caller's
-    // perspective — the end state (file not present) is what was asked for.
-    if (String(err).indexOf("not found") !== -1) {
+    const message = String(err);
+    // "No item with the given ID could be found" is Drive's real exception
+    // text for an already-deleted/never-existed file — idempotent success.
+    // Anything else (permission denied, quota, transient) is logged and
+    // reported, not swallowed.
+    if (message.indexOf("No item with the given ID could be found") !== -1) {
       return jsonResponse_({ ok: true });
     }
-    return jsonResponse_({ ok: false, error: String(err) });
+    console.error("handleTrashFile_ failed for fileId=" + fileId + ": " + message);
+    return jsonResponse_({ ok: false, error: message });
   }
 }
 ```
 
-## 2. Next.js: helper module
+Post-review addition: `isUnderPzAcademyRoot_` folder-scope check (walks the file's
+parent chain up to the `PZ Academy` root folder) — a second line of defense so
+`trashFile` can never touch a Drive file outside the app's own tree, even if a
+`fileId` were spoofed or reused. Landed alongside this spec, not shown in the
+original draft above.
 
-New `src/lib/drive-cleanup.ts`:
+## 2. Next.js: helper modules
+
+Split across two files, same boundary the rest of the codebase uses
+(pure/testable vs. server-only/networked):
+
+`src/lib/validations/drive-cleanup.ts` (pure, no network, no `server-only`
+import — unit-testable):
 
 - `extractDriveFileId(url: string | null | undefined): string | null` —
   parses the `id` query param out of a `drive.google.com/thumbnail?...`
   URL via `new URL(url).searchParams.get("id")`. Returns `null` for
   anything that isn't recognizably one of our own Drive thumbnail URLs
   (a manually pasted external image link, empty string, malformed URL) —
-  this is the safety boundary that guarantees the app only ever asks Drive
-  to trash files it actually uploaded itself.
-- `trashDriveFile(fileId: string): Promise<{ok: boolean; error?: string}>` —
-  POSTs `{action: "trashFile", secret: GAS_SHARED_SECRET, fileId}` to
-  `GAS_WEBAPP_URL`, same fetch shape as the existing upload calls.
+  this is the first safety boundary, closed by GAS's `isUnderPzAcademyRoot_`
+  check on the other end.
+- `diffCourseImageFileIds` / `diffLessonFileIds` / `collectLessonFileIds` —
+  pure old-vs-new diffing, given old/new field values, produce the list of
+  fileIds to trash.
+
+`src/lib/data/drive-cleanup.ts` (`server-only`, the networked half):
+
+- `trashDriveFile(fileId: string): Promise<{ok: boolean}>` — POSTs
+  `{action: "trashFile", secret: GAS_SHARED_SECRET, fileId}` to
+  `GAS_WEBAPP_URL`, same fetch shape as the existing upload calls. Never
+  throws — a network/parse failure resolves `{ok: false}`, same as a
+  reported GAS-side failure.
 - `trashDriveFiles(fileIds: string[]): Promise<string | null>` — runs
-  `trashDriveFile` over a list in parallel, returns `null` if all succeeded
-  or a human-readable warning string listing how many failed (e.g. "Saved,
-  but 1 of 3 old files couldn't be removed from Drive.").
+  `trashDriveFile` over the list capped at 5 in flight at once (shares the
+  GAS deployment with live payment-screenshot/course-image uploads, so an
+  unbounded `Promise.all` here could starve real traffic), returns `null`
+  if all succeeded or a human-readable warning string listing how many
+  failed (e.g. "1 of 3 old files couldn't be removed from Drive.").
 
 Pure-function unit tests cover `extractDriveFileId` (valid thumbnail URL →
-id, external URL → null, empty/malformed → null).
+id, external URL → null, empty/malformed → null) and the diff helpers.
 
 ## 3. Edit-time trigger (field-level)
 
