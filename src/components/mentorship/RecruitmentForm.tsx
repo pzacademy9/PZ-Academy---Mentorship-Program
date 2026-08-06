@@ -4,8 +4,6 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, ChevronRight, ChevronLeft, Send, FileText, Camera } from "lucide-react";
 
-const MENTOR_SCRIPT_URL = process.env.NEXT_PUBLIC_MENTOR_SCRIPT_URL;
-
 const STEPS = [
   { number: 1, title: "Basic Information" },
   { number: 2, title: "Professional Background" },
@@ -206,33 +204,32 @@ export default function RecruitmentForm() {
     setLoading(true);
     setError("");
     try {
-      if (MENTOR_SCRIPT_URL) {
-        const cvBase64 = cvFile ? await toBase64(cvFile) : "";
-        const encodedPhotos = await Promise.all(
-          photos.map(async p => ({ name: p.name, base64: await toBase64(p) }))
-        );
-        await fetch(MENTOR_SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            fullName: form.fullName,
-            email: form.email,
-            phone: form.phone,
-            country: form.country,
-            profession: form.profession,
-            position: form.position,
-            expertise: form.expertise,
-            organization: form.organization,
-            years: form.years,
-            linkedin: form.linkedin,
-            roles: form.roles.join(", "),
-            whyJoin: form.whyJoin,
-            valueProvide: form.valueProvide,
-            cvBase64,
-            cvFileName: cvFile?.name ?? "",
-            photos: encodedPhotos,
-          }),
-        });
-      }
+      const cvBase64 = cvFile ? await toBase64(cvFile) : "";
+      const encodedPhotos = await Promise.all(
+        photos.map(async p => ({ name: p.name, base64: await toBase64(p) }))
+      );
+      await fetch("/api/mentorship/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          email: form.email,
+          phone: form.phone,
+          country: form.country,
+          profession: form.profession,
+          position: form.position,
+          expertise: form.expertise,
+          organization: form.organization,
+          years: form.years,
+          linkedin: form.linkedin,
+          roles: form.roles.join(", "),
+          whyJoin: form.whyJoin,
+          valueProvide: form.valueProvide,
+          cvBase64,
+          cvFileName: cvFile?.name ?? "",
+          photos: encodedPhotos,
+        }),
+      });
       setSubmitted(true);
       // Record submission timestamp
       lastSubmitRef.current = Date.now();

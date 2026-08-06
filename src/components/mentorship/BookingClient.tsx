@@ -1,8 +1,5 @@
 "use client";
 
-// Paste your deployed Apps Script URL here after following AppScript_BookingForm.js guide
-const BOOKING_SCRIPT_URL = process.env.NEXT_PUBLIC_BOOKING_SCRIPT_URL;
-
 import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -100,7 +97,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     // Rate limiting: prevent submissions within 30 seconds
     const now = Date.now();
     if (now - lastSubmitRef.current < 30_000) {
@@ -111,36 +108,38 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
     setLoading(true);
 
     try {
-      if (BOOKING_SCRIPT_URL) {
-        let screenshotBase64 = "";
-        let screenshotName = "";
-        if (form.screenshot) {
-          screenshotName = form.screenshot.name;
-          screenshotBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const result = reader.result as string;
-              resolve(result.split(",")[1] ?? "");
-            };
-            reader.readAsDataURL(form.screenshot!);
-          });
-        }
-
-        await fetch(BOOKING_SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            name:             form.fullName,
-            email:            form.email,
-            phone:            form.phone,
-            mentorName:       mentor.name,
-            packageName:      form.package,
-            goals:            form.notes,
-            paymentRef:       screenshotName,
-            screenshotBase64: screenshotBase64,
-            screenshotName:   screenshotName,
-          }),
+      let screenshotBase64 = "";
+      let screenshotName = "";
+      let screenshotMimeType = "";
+      if (form.screenshot) {
+        screenshotName = form.screenshot.name;
+        screenshotMimeType = form.screenshot.type;
+        screenshotBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1] ?? "");
+          };
+          reader.readAsDataURL(form.screenshot!);
         });
       }
+
+      await fetch("/api/mentorship/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          email: form.email,
+          phone: form.phone,
+          mentorSlug: mentor.slug,
+          mentorName: mentor.name,
+          packageName: form.package,
+          goals: form.notes,
+          screenshotBase64: screenshotBase64 || undefined,
+          screenshotName: screenshotName || undefined,
+          screenshotMimeType: screenshotMimeType || undefined,
+        }),
+      });
     } catch {
       // Still redirect — don't block user on network error
     }
