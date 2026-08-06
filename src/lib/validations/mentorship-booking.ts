@@ -9,7 +9,10 @@ export const mentorshipBookingSchema = z
     mentorName: z.string().trim().min(1),
     packageName: z.string().trim().min(1),
     goals: z.string().trim().max(2000).optional(),
-    screenshotBase64: z.string().optional(),
+    // Base64 is ~4/3 the size of raw bytes, so ~7,000,000 chars corresponds
+    // to the same ~5MB cap already enforced client-side in BookingClient's
+    // handleFile.
+    screenshotBase64: z.string().max(7_000_000, "Screenshot is too large").optional(),
     screenshotName: z.string().optional(),
     screenshotMimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]).optional(),
   })

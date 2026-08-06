@@ -208,7 +208,7 @@ export default function RecruitmentForm() {
       const encodedPhotos = await Promise.all(
         photos.map(async p => ({ name: p.name, base64: await toBase64(p) }))
       );
-      await fetch("/api/mentorship/applications", {
+      const res = await fetch("/api/mentorship/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -230,6 +230,12 @@ export default function RecruitmentForm() {
           photos: encodedPhotos,
         }),
       });
+
+      if (!res.ok) {
+        setError("Something went wrong. Please try again or reach out via WhatsApp.");
+        return;
+      }
+
       setSubmitted(true);
       // Record submission timestamp
       lastSubmitRef.current = Date.now();
@@ -474,6 +480,7 @@ export default function RecruitmentForm() {
                                 <textarea
                                   className={inputCls + " resize-none"}
                                   rows={4}
+                                  maxLength={2000}
                                   placeholder="Answer in 3–5 lines..."
                                   value={form.whyJoin}
                                   onChange={e => set("whyJoin", e.target.value)}
@@ -484,6 +491,7 @@ export default function RecruitmentForm() {
                                 <textarea
                                   className={inputCls + " resize-none"}
                                   rows={4}
+                                  maxLength={2000}
                                   placeholder="Answer in 3–5 lines..."
                                   value={form.valueProvide}
                                   onChange={e => set("valueProvide", e.target.value)}

@@ -16,8 +16,14 @@
  *        WEBHOOK_URL            = https://<your-domain>/api/webhooks/mentorship-sync
  *        BOOKING_SHEET_ID       = <the booking Sheet's spreadsheet ID>
  *        APPLICATION_SHEET_ID   = <the application Sheet's spreadsheet ID>
- *        COL_EMAIL              = <exact header text of the email column, both sheets>
- *        COL_STATUS             = <exact header text of the Status column, both sheets>
+ *        BOOKING_COL_EMAIL      = <exact header text of the email column, booking sheet>
+ *        BOOKING_COL_STATUS     = <exact header text of the Status column, booking sheet>
+ *        APPLICATION_COL_EMAIL  = <exact header text of the email column, application sheet>
+ *        APPLICATION_COL_STATUS = <exact header text of the Status column, application sheet>
+ *      The booking and application sheets come from two different, unrelated
+ *      Apps Script forms — unlike the course-enrollment sheets (all sharing
+ *      one WordPress template), their headers are not guaranteed to match, so
+ *      each sheet gets its own email/status column property.
  *      Both sheets need a "Status" column added by hand if they don't already
  *      have one, with values Pending / Confirmed / Cancelled (booking sheet)
  *      or Pending / Approved / Rejected (application sheet) — exact wording
@@ -70,8 +76,10 @@ function onEdit(e) {
     const editedRow = e.range.getRow();
     if (editedRow === 1) return; // header row
 
-    const statusCol = headerIndex_(headerRow, props.getProperty("COL_STATUS"));
-    const emailCol = headerIndex_(headerRow, props.getProperty("COL_EMAIL"));
+    const colEmailProp = sheetKind === "booking" ? "BOOKING_COL_EMAIL" : "APPLICATION_COL_EMAIL";
+    const colStatusProp = sheetKind === "booking" ? "BOOKING_COL_STATUS" : "APPLICATION_COL_STATUS";
+    const statusCol = headerIndex_(headerRow, props.getProperty(colStatusProp));
+    const emailCol = headerIndex_(headerRow, props.getProperty(colEmailProp));
     const syncedAtCol = headerIndex_(headerRow, "SyncedAt");
     const appSyncValueCol = headerIndex_(headerRow, "AppSyncValue");
     if (statusCol === -1 || emailCol === -1) return;
@@ -143,13 +151,23 @@ function handleApplyStatus_(body, props) {
         : props.getProperty("APPLICATION_SHEET_ID");
     const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
     const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const emailCol = headerIndex_(headerRow, props.getProperty("COL_EMAIL"));
-    const statusCol = headerIndex_(headerRow, props.getProperty("COL_STATUS"));
+    const colEmailProp = body.sheetKind === "booking" ? "BOOKING_COL_EMAIL" : "APPLICATION_COL_EMAIL";
+    const colStatusProp = body.sheetKind === "booking" ? "BOOKING_COL_STATUS" : "APPLICATION_COL_STATUS";
+    const emailCol = headerIndex_(headerRow, props.getProperty(colEmailProp));
+    const statusCol = headerIndex_(headerRow, props.getProperty(colStatusProp));
 
     const emails = sheet.getRange(2, emailCol + 1, sheet.getLastRow() - 1, 1).getValues();
-    const targetRow = emails.findIndex(
-      (r) => String(r[0]).trim().toLowerCase() === String(body.email).trim().toLowerCase(),
-    );
+    // Match the LAST occurrence (most-recently-submitted row for that
+    // email), consistent with the webhook route's
+    // .order("created_at", { ascending: false }).limit(1) — for a repeat
+    // mentee/applicant, both directions must act on the same row.
+    let targetRow = -1;
+    for (let i = emails.length - 1; i >= 0; i--) {
+      if (String(emails[i][0]).trim().toLowerCase() === String(body.email).trim().toLowerCase()) {
+        targetRow = i;
+        break;
+      }
+    }
     if (targetRow === -1) {
       return jsonResponse_({ status: "error", message: "No row found for that email" });
     }

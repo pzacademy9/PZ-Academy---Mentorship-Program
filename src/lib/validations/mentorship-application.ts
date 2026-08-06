@@ -2,7 +2,9 @@ import { z } from "zod";
 
 const photoSchema = z.object({
   name: z.string().min(1),
-  base64: z.string().min(1),
+  // Base64 is ~4/3 the size of raw bytes, so ~7,000,000 chars corresponds to
+  // a ~5MB-per-file cap, matching the same convention used elsewhere.
+  base64: z.string().min(1).max(7_000_000, "Photo is too large"),
 });
 
 export const mentorshipApplicationSchema = z.object({
@@ -19,7 +21,9 @@ export const mentorshipApplicationSchema = z.object({
   roles: z.string().trim().max(200).optional(),
   whyJoin: z.string().trim().max(2000).optional(),
   valueProvide: z.string().trim().max(2000).optional(),
-  cvBase64: z.string().min(1, "CV is required"),
+  // Base64 is ~4/3 the size of raw bytes, so ~7,000,000 chars corresponds to
+  // a ~5MB cap, matching the same convention used elsewhere.
+  cvBase64: z.string().min(1, "CV is required").max(7_000_000, "CV is too large"),
   cvFileName: z.string().min(1, "CV filename is required"),
   photos: z.array(photoSchema).min(1, "At least one photo is required"),
 });

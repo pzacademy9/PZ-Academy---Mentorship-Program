@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(roleHome(role), request.url));
     }
 
-    if (path.startsWith("/dashboard/mentor") && role !== "mentor" && role !== "admin" && role !== "super_admin") {
+    if ((path === "/dashboard/mentor" || path.startsWith("/dashboard/mentor/")) && role !== "mentor" && role !== "admin" && role !== "super_admin") {
       return NextResponse.redirect(new URL(roleHome(role), request.url));
     }
   }

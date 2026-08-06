@@ -69,6 +69,7 @@ export default async function AdminMentorshipPage({
                     <th className="py-4 px-6 font-headline font-semibold">Student</th>
                     <th className="py-4 px-6 font-headline font-semibold">Mentor</th>
                     <th className="py-4 px-6 font-headline font-semibold">Package</th>
+                    <th className="py-4 px-6 font-headline font-semibold">Receipt</th>
                     <th className="py-4 px-6 font-headline font-semibold">Submitted</th>
                     <th className="py-4 px-6 font-headline font-semibold">Status</th>
                     <th className="py-4 px-6 font-headline font-semibold text-right">Actions</th>
@@ -90,6 +91,20 @@ export default async function AdminMentorshipPage({
                       </td>
                       <td className="py-4 px-6 font-body">{b.mentorName}</td>
                       <td className="py-4 px-6 font-body">{b.packageName}</td>
+                      <td className="py-4 px-6">
+                        {b.paymentScreenshotUrl ? (
+                          <a
+                            href={b.paymentScreenshotUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-body text-pz-primary text-xs font-bold hover:underline"
+                          >
+                            View
+                          </a>
+                        ) : (
+                          <span className="font-body text-xs text-pz-on-surface-variant/60">—</span>
+                        )}
+                      </td>
                       <td className="py-4 px-6 whitespace-nowrap">
                         <span className="block font-body">{formatDate(b.createdAt)}</span>
                         <span className="block font-body text-[11px] font-semibold text-pz-on-surface-variant">{relativeTime(b.createdAt)}</span>
@@ -120,6 +135,7 @@ export default async function AdminMentorshipPage({
                   <th className="py-4 px-6 font-headline font-semibold">Applicant</th>
                   <th className="py-4 px-6 font-headline font-semibold">Profession</th>
                   <th className="py-4 px-6 font-headline font-semibold">Experience</th>
+                  <th className="py-4 px-6 font-headline font-semibold">Documents</th>
                   <th className="py-4 px-6 font-headline font-semibold">Submitted</th>
                   <th className="py-4 px-6 font-headline font-semibold">Status</th>
                   <th className="py-4 px-6 font-headline font-semibold text-right">Actions</th>
@@ -141,6 +157,35 @@ export default async function AdminMentorshipPage({
                     </td>
                     <td className="py-4 px-6 font-body">{a.profession ?? "—"}</td>
                     <td className="py-4 px-6 font-body">{a.yearsExperience ?? "—"}</td>
+                    <td className="py-4 px-6">
+                      {a.cvUrl || a.photoUrls.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {a.cvUrl && (
+                            <a
+                              href={a.cvUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-body text-pz-primary text-xs font-bold hover:underline block"
+                            >
+                              CV
+                            </a>
+                          )}
+                          {a.photoUrls.map((url, i) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-body text-pz-primary text-xs font-bold hover:underline block"
+                            >
+                              {a.photoUrls.length > 1 ? `Photo ${i + 1}` : "Photo"}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="font-body text-xs text-pz-on-surface-variant/60">—</span>
+                      )}
+                    </td>
                     <td className="py-4 px-6 whitespace-nowrap">
                       <span className="block font-body">{formatDate(a.createdAt)}</span>
                       <span className="block font-body text-[11px] font-semibold text-pz-on-surface-variant">{relativeTime(a.createdAt)}</span>

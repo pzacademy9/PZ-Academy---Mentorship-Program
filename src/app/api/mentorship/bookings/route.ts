@@ -3,10 +3,14 @@ import { mentorshipBookingSchema } from "@/lib/validations/mentorship-booking";
 import { findStudentIdByEmail } from "@/lib/data/sheet-sync";
 import { insertBooking } from "@/lib/data/mentorship-bookings";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 
 const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
 const BOOKING_SCRIPT_URL = process.env.NEXT_PUBLIC_BOOKING_SCRIPT_URL ?? "";
+
+// Screenshot upload + GAS forward can take a while on a slow connection.
+export const maxDuration = 60;
 
 /**
  * Public — no auth, matching the booking form's own public nature (same
@@ -21,6 +25,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
   const input = parsed.data;
+
+  // Rate limit: the Supabase table itself is the store (no shared
+  // in-memory state across serverless invocations, and no existing
+  // Redis/Upstash dependency to add one for).
+  const admin = createAdminSupabase();
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { count: recentCount } = await admin
+    .from("mentorship_bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("email", input.email)
+    .gte("created_at", tenMinutesAgo);
+  if ((recentCount ?? 0) >= 3) {
+    return NextResponse.json(
+      { error: "Too many submissions. Please wait a few minutes and try again, or contact us on WhatsApp." },
+      { status: 429 },
+    );
+  }
 
   let screenshotUrl: string | null = null;
   if (input.screenshotBase64 && GAS_URL) {
@@ -46,17 +67,27 @@ export async function POST(req: NextRequest) {
 
   const studentId = await findStudentIdByEmail(input.email);
 
-  const { id } = await insertBooking({
-    studentId,
-    fullName: input.fullName,
-    email: input.email,
-    phone: input.phone,
-    mentorSlug: input.mentorSlug,
-    mentorName: input.mentorName,
-    packageName: input.packageName,
-    goals: input.goals ?? null,
-    paymentScreenshotUrl: screenshotUrl,
-  });
+  // The Sheet is still the team's operational system of record — a
+  // Supabase insert failure must not skip the GAS forward below, so it's
+  // never lost from both systems at once.
+  let id: string | null = null;
+  try {
+    id = (
+      await insertBooking({
+        studentId,
+        fullName: input.fullName,
+        email: input.email,
+        phone: input.phone,
+        mentorSlug: input.mentorSlug,
+        mentorName: input.mentorName,
+        packageName: input.packageName,
+        goals: input.goals ?? null,
+        paymentScreenshotUrl: screenshotUrl,
+      })
+    ).id;
+  } catch (error) {
+    console.error("[mentorship-bookings] Supabase insert failed:", error);
+  }
 
   if (BOOKING_SCRIPT_URL) {
     try {

@@ -124,7 +124,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
         });
       }
 
-      await fetch("/api/mentorship/bookings", {
+      const res = await fetch("/api/mentorship/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,8 +140,16 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
           screenshotMimeType: screenshotMimeType || undefined,
         }),
       });
+
+      if (!res.ok) {
+        setLoading(false);
+        alert("Something went wrong submitting your booking. Please try again or send your screenshot via WhatsApp instead.");
+        return;
+      }
     } catch {
-      // Still redirect — don't block user on network error
+      setLoading(false);
+      alert("Something went wrong submitting your booking. Please try again or send your screenshot via WhatsApp instead.");
+      return;
     }
 
     setLoading(false);
@@ -518,7 +526,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
                     Additional Notes (Optional)
                   </label>
                   <textarea
-                    id="notes" name="notes" rows={3}
+                    id="notes" name="notes" rows={3} maxLength={2000}
                     value={form.notes} onChange={handleChange}
                     placeholder="Any specific topics you'd like to cover, preferred time slot, or message to the mentor..."
                     className="input-underline resize-none"

@@ -3,10 +3,14 @@ import { mentorshipApplicationSchema } from "@/lib/validations/mentorship-applic
 import { findStudentIdByEmail } from "@/lib/data/sheet-sync";
 import { insertApplication } from "@/lib/data/mentorship-applications";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 
 const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
 const MENTOR_SCRIPT_URL = process.env.NEXT_PUBLIC_MENTOR_SCRIPT_URL ?? "";
+
+// CV + photo upload and GAS forward can take a while on a slow connection.
+export const maxDuration = 60;
 
 async function uploadMentorshipFile(mimeType: string, base64: string, filename: string): Promise<string | null> {
   if (!GAS_URL) return null;
@@ -45,6 +49,24 @@ export async function POST(req: NextRequest) {
   }
   const input = parsed.data;
 
+  // Rate limit: the Supabase table itself is the store (no shared
+  // in-memory state across serverless invocations, and no existing
+  // Redis/Upstash dependency to add one for). Applications are rarer than
+  // bookings, so the threshold is tighter.
+  const admin = createAdminSupabase();
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { count: recentCount } = await admin
+    .from("mentor_applications")
+    .select("id", { count: "exact", head: true })
+    .eq("email", input.email)
+    .gte("created_at", tenMinutesAgo);
+  if ((recentCount ?? 0) >= 2) {
+    return NextResponse.json(
+      { error: "Too many submissions. Please wait a few minutes and try again, or contact us on WhatsApp." },
+      { status: 429 },
+    );
+  }
+
   const cvUrl = await uploadMentorshipFile("application/octet-stream", input.cvBase64, input.cvFileName);
   const photoUrls: string[] = [];
   for (const photo of input.photos) {
@@ -54,24 +76,34 @@ export async function POST(req: NextRequest) {
 
   const applicantId = await findStudentIdByEmail(input.email);
 
-  const { id } = await insertApplication({
-    applicantId,
-    fullName: input.fullName,
-    email: input.email,
-    phone: input.phone,
-    country: input.country ?? null,
-    profession: input.profession ?? null,
-    position: input.position ?? null,
-    expertise: input.expertise ?? null,
-    organization: input.organization ?? null,
-    yearsExperience: input.years ?? null,
-    linkedinUrl: input.linkedin ?? null,
-    roles: input.roles ?? null,
-    whyJoin: input.whyJoin ?? null,
-    valueProvide: input.valueProvide ?? null,
-    cvUrl,
-    photoUrls,
-  });
+  // The Sheet is still the team's operational system of record — a
+  // Supabase insert failure must not skip the GAS forward below, so it's
+  // never lost from both systems at once.
+  let id: string | null = null;
+  try {
+    id = (
+      await insertApplication({
+        applicantId,
+        fullName: input.fullName,
+        email: input.email,
+        phone: input.phone,
+        country: input.country ?? null,
+        profession: input.profession ?? null,
+        position: input.position ?? null,
+        expertise: input.expertise ?? null,
+        organization: input.organization ?? null,
+        yearsExperience: input.years ?? null,
+        linkedinUrl: input.linkedin ?? null,
+        roles: input.roles ?? null,
+        whyJoin: input.whyJoin ?? null,
+        valueProvide: input.valueProvide ?? null,
+        cvUrl,
+        photoUrls,
+      })
+    ).id;
+  } catch (error) {
+    console.error("[mentorship-applications] Supabase insert failed:", error);
+  }
 
   if (MENTOR_SCRIPT_URL) {
     try {

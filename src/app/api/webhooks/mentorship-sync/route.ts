@@ -11,14 +11,18 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 /**
  * Receives status-change events from gas/mentorship-sync/Code.gs.
  *
- * "newSubmission" is a no-op here: unlike the course-enrollment Sheets (fed
- * directly by a separate WordPress form), the mentorship Sheets are only
- * ever written to by this platform's own write-path routes
- * (/api/mentorship/bookings, /api/mentorship/applications), which already
- * insert the Supabase row before forwarding to GAS — so by the time GAS's
- * onEdit fires for a brand-new row, the row already exists. Only a later
- * hand-edit to the Status column ("statusChange") needs this webhook to do
- * anything.
+ * Unlike the course-enrollment Sheets (where "newSubmission" is a genuinely
+ * distinct event fed by a separate WordPress form), the mentorship Sheets'
+ * Status column starts out empty for every row and is only ever populated
+ * by a human typing a value into it. gas/mentorship-sync/Code.gs's onEdit
+ * classifies a row as "newSubmission" until its SyncedAt tracking column is
+ * stamped — which only happens the first time onEdit fires for that row —
+ * so the very first status a human enters gets labelled "newSubmission" and
+ * every edit after that gets labelled "statusChange". Since onEdit already
+ * guards against firing on an empty Status value, both action values here
+ * represent the same thing: a real status a human just entered. So both
+ * flow through the same status-update logic below — there is no "new row,
+ * nothing to do yet" case to no-op on.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -39,11 +43,7 @@ async function handlePost(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ status: "error", message: "Invalid input" });
   }
-  const { action, sheetKind, row } = parsed.data;
-
-  if (action === "newSubmission") {
-    return NextResponse.json({ status: "success", message: "Acknowledged" });
-  }
+  const { sheetKind, row } = parsed.data;
 
   const admin = createAdminSupabase();
 

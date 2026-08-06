@@ -17,6 +17,7 @@ export interface MentorshipBookingRow {
   packageName: string;
   goals: string | null;
   hasScreenshot: boolean;
+  paymentScreenshotUrl: string | null;
   status: MentorshipBookingStatus;
   cancellationReason: string | null;
   createdAt: string;
@@ -48,6 +49,7 @@ function toRow(row: RawBookingRow): MentorshipBookingRow {
     packageName: row.package_name,
     goals: row.goals,
     hasScreenshot: Boolean(row.payment_screenshot_url),
+    paymentScreenshotUrl: row.payment_screenshot_url,
     status: row.status,
     cancellationReason: row.cancellation_reason,
     createdAt: row.created_at,
