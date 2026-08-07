@@ -3,7 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
-import { pushMentorshipStatusToSheet } from "@/lib/gas/mentorship-sync-client";
+import { pushMentorshipStatusToSheet, pushMentorshipDelete } from "@/lib/gas/mentorship-sync-client";
 
 export type MentorshipBookingStatus = Database["public"]["Enums"]["mentorship_booking_status"];
 
@@ -169,4 +169,37 @@ export async function applyBookingStatus(params: {
   await pushMentorshipStatusToSheet({ sheetKind: "booking", email: existing.email, status: updated.status });
 
   return { ok: true, id: updated.id, status: updated.status };
+}
+
+export type DeleteBookingResult =
+  | { ok: true; sheetDeleted: boolean }
+  | { ok: false; reason: "not-found" | "db-error" };
+
+/**
+ * Deletes the booking from Supabase first — that's the authoritative delete
+ * from the admin's perspective. The Sheet-side delete is attempted
+ * regardless of whether the Supabase delete already succeeded (it always
+ * has, by this point), and its outcome is reported back so the admin knows
+ * if the Sheet row needs manual cleanup.
+ */
+export async function deleteBooking(bookingId: string): Promise<DeleteBookingResult> {
+  const admin = createAdminSupabase();
+  const { data: existing } = await admin
+    .from("mentorship_bookings")
+    .select("id, email, created_at")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, reason: "not-found" };
+
+  const { error } = await admin.from("mentorship_bookings").delete().eq("id", bookingId);
+  if (error) return { ok: false, reason: "db-error" };
+
+  const sheetDeleted = await pushMentorshipDelete({
+    sheetKind: "booking",
+    email: existing.email,
+    timestamp: existing.created_at,
+  });
+
+  return { ok: true, sheetDeleted };
 }

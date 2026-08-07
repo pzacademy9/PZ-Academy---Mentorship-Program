@@ -3,7 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
-import { pushMentorshipStatusToSheet } from "@/lib/gas/mentorship-sync-client";
+import { pushMentorshipStatusToSheet, pushMentorshipDelete } from "@/lib/gas/mentorship-sync-client";
 
 export type MentorApplicationStatus = Database["public"]["Enums"]["mentor_application_status"];
 
@@ -188,4 +188,31 @@ export async function applyApplicationStatus(params: {
   await pushMentorshipStatusToSheet({ sheetKind: "application", email: existing.email, status: updated.status });
 
   return { ok: true, id: updated.id, status: updated.status };
+}
+
+export type DeleteApplicationResult =
+  | { ok: true; sheetDeleted: boolean }
+  | { ok: false; reason: "not-found" | "db-error" };
+
+/** Mirrors deleteBooking in mentorship-bookings.ts — see its comment. */
+export async function deleteApplication(applicationId: string): Promise<DeleteApplicationResult> {
+  const admin = createAdminSupabase();
+  const { data: existing } = await admin
+    .from("mentor_applications")
+    .select("id, email, created_at")
+    .eq("id", applicationId)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, reason: "not-found" };
+
+  const { error } = await admin.from("mentor_applications").delete().eq("id", applicationId);
+  if (error) return { ok: false, reason: "db-error" };
+
+  const sheetDeleted = await pushMentorshipDelete({
+    sheetKind: "application",
+    email: existing.email,
+    timestamp: existing.created_at,
+  });
+
+  return { ok: true, sheetDeleted };
 }
