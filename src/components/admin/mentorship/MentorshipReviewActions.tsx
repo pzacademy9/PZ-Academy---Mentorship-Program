@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -73,10 +73,13 @@ export function MentorshipReviewActions({
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const actions = kind === "booking" ? BOOKING_ACTIONS : APPLICATION_ACTIONS;
   const targetStatus: Record<Action, string> =
     kind === "booking" ? { primary: "confirmed", secondary: "cancelled" } : { primary: "approved", secondary: "rejected" };
+  const recordLabel = kind === "booking" ? "booking" : "application";
+  const apiPath = `/api/admin/mentorship/${kind === "booking" ? "bookings" : "applications"}/${id}`;
 
   const config = open ? actions[open] : null;
   const isAvailable = (action: Action) => targetStatus[action] !== status;
@@ -86,7 +89,7 @@ export function MentorshipReviewActions({
     const action = open;
 
     startTransition(async () => {
-      const res = await fetch(`/api/admin/mentorship/${kind === "booking" ? "bookings" : "applications"}/${id}`, {
+      const res = await fetch(apiPath, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -104,6 +107,28 @@ export function MentorshipReviewActions({
       setOpen(null);
       setReason("");
       toast.success(`${name} — ${actions[action].label.toLowerCase()} applied.`);
+      router.refresh();
+    });
+  }
+
+  function submitDelete() {
+    startTransition(async () => {
+      const res = await fetch(apiPath, { method: "DELETE" });
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? `Could not delete this ${recordLabel}.`);
+        return;
+      }
+
+      const payload = (await res.json().catch(() => null)) as { sheetDeleted?: boolean } | null;
+      setDeleteOpen(false);
+
+      if (payload?.sheetDeleted) {
+        toast.success(`${name} deleted.`);
+      } else {
+        toast.warning(`${name} deleted from the database, but the Sheet row needs manual cleanup.`);
+      }
       router.refresh();
     });
   }
@@ -132,6 +157,15 @@ export function MentorshipReviewActions({
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setDeleteOpen(true)}
+          disabled={isPending}
+          title={`Delete this ${recordLabel}`}
+          className="inline-flex items-center justify-center rounded-lg p-1.5 text-pz-danger hover:bg-pz-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       <Dialog open={open !== null} onOpenChange={(next) => !next && setOpen(null)}>
@@ -182,6 +216,40 @@ export function MentorshipReviewActions({
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-pz-on-surface">
+              Delete this {recordLabel}?
+            </DialogTitle>
+            <DialogDescription className="font-body text-pz-on-surface-variant">{name}</DialogDescription>
+          </DialogHeader>
+
+          <p className="font-body text-sm text-pz-on-surface-variant">
+            This permanently removes it from the database and the Google Sheet. This cannot be undone.
+          </p>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(false)}
+              disabled={isPending}
+              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitDelete}
+              disabled={isPending}
+              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPending ? "Working…" : "Delete"}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
