@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { applyApplicationStatus } from "@/lib/data/mentorship-applications";
+import { applyApplicationStatus, deleteApplication } from "@/lib/data/mentorship-applications";
 
 const bodySchema = z.object({
   status: z.enum(["approved", "rejected"]),
@@ -35,4 +35,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ id: result.id, status: result.status });
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
+  const { id } = await params;
+  const result = await deleteApplication(id);
+
+  if (!result.ok) {
+    if (result.reason === "not-found") return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    return NextResponse.json({ error: "Could not delete application" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, sheetDeleted: result.sheetDeleted });
 }
