@@ -46,6 +46,28 @@
 
 const TRACKING_COLUMNS = ["SyncedAt", "AppSyncValue"];
 
+/**
+ * One-time setup helper — sets every Script Property in one shot instead of
+ * typing them by hand into the Script Properties UI, which is exactly the
+ * kind of place a stray typo/space in a column header name goes unnoticed
+ * (headerIndex_ then returns -1 and every write throws "starting column of
+ * the range is too small"). Fill in MENTORSHIP_SYNC_SECRET below (same value
+ * as .env.local's MENTORSHIP_SYNC_SECRET) before running. Run once from the
+ * function dropdown, then delete/ignore — safe to re-run.
+ */
+function setup() {
+  PropertiesService.getScriptProperties().setProperties({
+    MENTORSHIP_SYNC_SECRET: "<same value as .env.local's MENTORSHIP_SYNC_SECRET>",
+    WEBHOOK_URL: "https://pz-academy.pharmacozyme.com/api/webhooks/mentorship-sync",
+    BOOKING_SHEET_ID: "1rGo2t8WP4bTPXzuZMv3GV-h6TG4sw66n-ZOdgcs941w",
+    APPLICATION_SHEET_ID: "1fueGz-guKKSgU_oIL_PnXaEEgmKlctDjYiNlVWm4oFQ",
+    BOOKING_COL_EMAIL: "Email",
+    BOOKING_COL_STATUS: "Status",
+    APPLICATION_COL_EMAIL: "Email",
+    APPLICATION_COL_STATUS: "Status",
+  });
+}
+
 function installTriggers() {
   const props = PropertiesService.getScriptProperties();
   installTriggerFor_(props.getProperty("BOOKING_SHEET_ID"));
