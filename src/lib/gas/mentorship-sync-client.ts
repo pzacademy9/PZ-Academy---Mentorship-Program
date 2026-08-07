@@ -35,3 +35,42 @@ export async function pushMentorshipStatusToSheet(params: {
     console.error(`[mentorship-sync] failed to push status for ${params.email}:`, error);
   }
 }
+
+/**
+ * Permanently deletes the matching Sheet row for a deleted booking/
+ * application. Unlike pushMentorshipStatusToSheet, this checks the GAS
+ * response — a delete is destructive and rarer than a status change, so the
+ * extra round-trip is worth surfacing a real failure to the admin instead
+ * of silently leaving the Sheet row behind.
+ */
+export async function pushMentorshipDelete(params: {
+  sheetKind: "booking" | "application";
+  email: string;
+  timestamp: string;
+}): Promise<boolean> {
+  const url = process.env.MENTORSHIP_SYNC_URL;
+  const secret = process.env.MENTORSHIP_SYNC_SECRET;
+  if (!url || !secret) {
+    console.warn("[mentorship-sync] delete skipped: MENTORSHIP_SYNC_URL or MENTORSHIP_SYNC_SECRET not set");
+    return false;
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret,
+        action: "deleteRow",
+        sheetKind: params.sheetKind,
+        email: params.email,
+        timestamp: params.timestamp,
+      }),
+    });
+    const json: { status?: string } = await res.json();
+    return json.status === "success";
+  } catch (error) {
+    console.error(`[mentorship-sync] failed to delete row for ${params.email}:`, error);
+    return false;
+  }
+}
