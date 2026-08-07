@@ -157,6 +157,10 @@ function doPost(e) {
     return handleApplyStatus_(body, props);
   }
 
+  if (body.action === "deleteRow") {
+    return handleDeleteRow_(body, props);
+  }
+
   return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
 }
 
@@ -204,6 +208,69 @@ function handleApplyStatus_(body, props) {
     sheet.getRange(sheetRow, appSyncValueCol + 1).setValue(display);
 
     return jsonResponse_({ status: "success", message: "Sheet updated" });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/**
+ * Permanently deletes the Sheet row matching sheetKind/email whose
+ * Timestamp falls within 5 minutes of `timestamp` (the Supabase row's
+ * created_at) — tighter than handleApplyStatus_'s email-only match because
+ * a wrong row delete, unlike a wrong status write, can't be corrected by a
+ * later edit. Refuses (returns an error) rather than guessing if zero or
+ * more than one row qualifies.
+ */
+function handleDeleteRow_(body, props) {
+  if (!body.sheetKind || !body.email || !body.timestamp) {
+    return jsonResponse_({ status: "error", message: "Missing sheetKind, email, or timestamp" });
+  }
+
+  try {
+    const sheetId =
+      body.sheetKind === "booking"
+        ? props.getProperty("BOOKING_SHEET_ID")
+        : props.getProperty("APPLICATION_SHEET_ID");
+    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
+    const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const colEmailProp = body.sheetKind === "booking" ? "BOOKING_COL_EMAIL" : "APPLICATION_COL_EMAIL";
+    const emailCol = headerIndex_(headerRow, props.getProperty(colEmailProp));
+    const timestampCol = headerIndex_(headerRow, "Timestamp");
+    if (emailCol === -1 || timestampCol === -1) {
+      return jsonResponse_({ status: "error", message: "Could not resolve email or Timestamp column" });
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return jsonResponse_({ status: "error", message: "No data rows" });
+    }
+
+    const targetTime = new Date(body.timestamp).getTime();
+    const TOLERANCE_MS = 5 * 60 * 1000;
+    const emails = sheet.getRange(2, emailCol + 1, lastRow - 1, 1).getValues();
+    const timestamps = sheet.getRange(2, timestampCol + 1, lastRow - 1, 1).getValues();
+
+    const matchedRows = [];
+    for (let i = 0; i < emails.length; i++) {
+      const rowEmail = String(emails[i][0]).trim().toLowerCase();
+      if (rowEmail !== String(body.email).trim().toLowerCase()) continue;
+
+      const cellValue = timestamps[i][0];
+      const cellTime = cellValue instanceof Date ? cellValue.getTime() : new Date(cellValue).getTime();
+      if (Math.abs(cellTime - targetTime) <= TOLERANCE_MS) {
+        matchedRows.push(i + 2); // +2: 0-index -> 1-index, +1 for header row
+      }
+    }
+
+    if (matchedRows.length === 0) {
+      return jsonResponse_({ status: "error", message: "No row found within the timestamp tolerance" });
+    }
+    if (matchedRows.length > 1) {
+      return jsonResponse_({ status: "error", message: "Multiple matching rows found — refusing to guess" });
+    }
+
+    sheet.deleteRow(matchedRows[0]);
+    return jsonResponse_({ status: "success", message: "Row deleted" });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });
   }
