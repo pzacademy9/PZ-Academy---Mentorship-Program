@@ -4,6 +4,8 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
 import { pushMentorshipStatusToSheet, pushMentorshipDelete } from "@/lib/gas/mentorship-sync-client";
+import { extractDriveFileIdFromViewUrl } from "@/lib/validations/drive-cleanup";
+import { trashDriveFiles } from "@/lib/data/drive-cleanup";
 
 export type MentorshipBookingStatus = Database["public"]["Enums"]["mentorship_booking_status"];
 
@@ -172,21 +174,23 @@ export async function applyBookingStatus(params: {
 }
 
 export type DeleteBookingResult =
-  | { ok: true; sheetDeleteMessage: string | null }
+  | { ok: true; warnings: string[] }
   | { ok: false; reason: "not-found" | "db-error" };
 
 /**
  * Deletes the booking from Supabase first — that's the authoritative delete
- * from the admin's perspective. The Sheet-side delete is attempted
- * regardless of whether the Supabase delete already succeeded (it always
- * has, by this point), and its outcome is reported back so the admin knows
- * if the Sheet row needs manual cleanup, and why.
+ * from the admin's perspective. The Sheet-row delete and the Drive-file
+ * cleanup (payment screenshot) are both attempted afterward regardless of
+ * whether the Supabase delete already succeeded (it always has, by this
+ * point), run in parallel since they're independent of each other, and
+ * each failure is reported back as its own entry in `warnings` so the
+ * admin knows what still needs manual cleanup, and why.
  */
 export async function deleteBooking(bookingId: string): Promise<DeleteBookingResult> {
   const admin = createAdminSupabase();
   const { data: existing, error: readError } = await admin
     .from("mentorship_bookings")
-    .select("id, email, created_at")
+    .select("id, email, created_at, payment_screenshot_url")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -196,11 +200,22 @@ export async function deleteBooking(bookingId: string): Promise<DeleteBookingRes
   const { error } = await admin.from("mentorship_bookings").delete().eq("id", bookingId);
   if (error) return { ok: false, reason: "db-error" };
 
-  const sheetResult = await pushMentorshipDelete({
-    sheetKind: "booking",
-    email: existing.email,
-    timestamp: existing.created_at,
-  });
+  const fileIds = [extractDriveFileIdFromViewUrl(existing.payment_screenshot_url)].filter(
+    (id): id is string => id !== null,
+  );
 
-  return { ok: true, sheetDeleteMessage: sheetResult.ok ? null : (sheetResult.message ?? "Unknown error") };
+  const [sheetResult, driveWarning] = await Promise.all([
+    pushMentorshipDelete({
+      sheetKind: "booking",
+      email: existing.email,
+      timestamp: existing.created_at,
+    }),
+    trashDriveFiles(fileIds),
+  ]);
+
+  const warnings: string[] = [];
+  if (!sheetResult.ok) warnings.push(sheetResult.message ?? "Unknown error");
+  if (driveWarning) warnings.push(driveWarning);
+
+  return { ok: true, warnings };
 }

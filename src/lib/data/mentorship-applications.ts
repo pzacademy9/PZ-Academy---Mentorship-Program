@@ -4,6 +4,8 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
 import { pushMentorshipStatusToSheet, pushMentorshipDelete } from "@/lib/gas/mentorship-sync-client";
+import { extractDriveFileIdFromViewUrl } from "@/lib/validations/drive-cleanup";
+import { trashDriveFiles } from "@/lib/data/drive-cleanup";
 
 export type MentorApplicationStatus = Database["public"]["Enums"]["mentor_application_status"];
 
@@ -191,7 +193,7 @@ export async function applyApplicationStatus(params: {
 }
 
 export type DeleteApplicationResult =
-  | { ok: true; sheetDeleteMessage: string | null }
+  | { ok: true; warnings: string[] }
   | { ok: false; reason: "not-found" | "db-error" };
 
 /** Mirrors deleteBooking in mentorship-bookings.ts — see its comment. */
@@ -199,7 +201,7 @@ export async function deleteApplication(applicationId: string): Promise<DeleteAp
   const admin = createAdminSupabase();
   const { data: existing, error: readError } = await admin
     .from("mentor_applications")
-    .select("id, email, created_at")
+    .select("id, email, created_at, cv_url, photo_urls")
     .eq("id", applicationId)
     .maybeSingle();
 
@@ -209,11 +211,22 @@ export async function deleteApplication(applicationId: string): Promise<DeleteAp
   const { error } = await admin.from("mentor_applications").delete().eq("id", applicationId);
   if (error) return { ok: false, reason: "db-error" };
 
-  const sheetResult = await pushMentorshipDelete({
-    sheetKind: "application",
-    email: existing.email,
-    timestamp: existing.created_at,
-  });
+  const fileIds = [existing.cv_url, ...(existing.photo_urls ?? [])]
+    .map((url) => extractDriveFileIdFromViewUrl(url))
+    .filter((id): id is string => id !== null);
 
-  return { ok: true, sheetDeleteMessage: sheetResult.ok ? null : (sheetResult.message ?? "Unknown error") };
+  const [sheetResult, driveWarning] = await Promise.all([
+    pushMentorshipDelete({
+      sheetKind: "application",
+      email: existing.email,
+      timestamp: existing.created_at,
+    }),
+    trashDriveFiles(fileIds),
+  ]);
+
+  const warnings: string[] = [];
+  if (!sheetResult.ok) warnings.push(sheetResult.message ?? "Unknown error");
+  if (driveWarning) warnings.push(driveWarning);
+
+  return { ok: true, warnings };
 }
