@@ -49,5 +49,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Could not delete booking" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, sheetDeleteMessage: result.sheetDeleteMessage });
+  return NextResponse.json({ ok: true, warnings: result.warnings });
 }
