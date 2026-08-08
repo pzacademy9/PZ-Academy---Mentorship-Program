@@ -126,13 +126,13 @@ export function MentorshipReviewActions({
           return;
         }
 
-        const payload = (await res.json().catch(() => null)) as { sheetDeleteMessage?: string | null } | null;
+        const payload = (await res.json().catch(() => null)) as { warnings?: string[] } | null;
         setDeleteOpen(false);
 
-        if (!payload?.sheetDeleteMessage) {
+        if (!payload?.warnings || payload.warnings.length === 0) {
           toast.success(`${name} deleted.`);
         } else {
-          toast.warning(`${name} deleted from the database, but the Sheet row needs manual cleanup: ${payload.sheetDeleteMessage}`);
+          toast.warning(`${name} deleted from the database. ${payload.warnings.join(" ")}`);
         }
         router.refresh();
       } catch {
