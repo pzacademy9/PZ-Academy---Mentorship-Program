@@ -89,47 +89,55 @@ export function MentorshipReviewActions({
     const action = open;
 
     startTransition(async () => {
-      const res = await fetch(apiPath, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: targetStatus[action],
-          reason: action === "secondary" ? reason.trim() || undefined : undefined,
-        }),
-      });
+      try {
+        const res = await fetch(apiPath, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: targetStatus[action],
+            reason: action === "secondary" ? reason.trim() || undefined : undefined,
+          }),
+        });
 
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not update this record.");
-        return;
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+          toast.error(payload?.error ?? "Could not update this record.");
+          return;
+        }
+
+        setOpen(null);
+        setReason("");
+        toast.success(`${name} — ${actions[action].label.toLowerCase()} applied.`);
+        router.refresh();
+      } catch {
+        toast.error("Network error — could not reach the server.");
       }
-
-      setOpen(null);
-      setReason("");
-      toast.success(`${name} — ${actions[action].label.toLowerCase()} applied.`);
-      router.refresh();
     });
   }
 
   function submitDelete() {
     startTransition(async () => {
-      const res = await fetch(apiPath, { method: "DELETE" });
+      try {
+        const res = await fetch(apiPath, { method: "DELETE" });
 
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? `Could not delete this ${recordLabel}.`);
-        return;
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+          toast.error(payload?.error ?? `Could not delete this ${recordLabel}.`);
+          return;
+        }
+
+        const payload = (await res.json().catch(() => null)) as { sheetDeleteMessage?: string | null } | null;
+        setDeleteOpen(false);
+
+        if (!payload?.sheetDeleteMessage) {
+          toast.success(`${name} deleted.`);
+        } else {
+          toast.warning(`${name} deleted from the database, but the Sheet row needs manual cleanup: ${payload.sheetDeleteMessage}`);
+        }
+        router.refresh();
+      } catch {
+        toast.error("Network error — could not reach the server.");
       }
-
-      const payload = (await res.json().catch(() => null)) as { sheetDeleted?: boolean } | null;
-      setDeleteOpen(false);
-
-      if (payload?.sheetDeleted) {
-        toast.success(`${name} deleted.`);
-      } else {
-        toast.warning(`${name} deleted from the database, but the Sheet row needs manual cleanup.`);
-      }
-      router.refresh();
     });
   }
 
@@ -162,6 +170,7 @@ export function MentorshipReviewActions({
           onClick={() => setDeleteOpen(true)}
           disabled={isPending}
           title={`Delete this ${recordLabel}`}
+          aria-label={`Delete this ${recordLabel}`}
           className="inline-flex items-center justify-center rounded-lg p-1.5 text-pz-danger hover:bg-pz-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -229,8 +238,15 @@ export function MentorshipReviewActions({
           </DialogHeader>
 
           <p className="font-body text-sm text-pz-on-surface-variant">
-            This permanently removes it from the database and the Google Sheet. This cannot be undone.
+            This permanently removes it from the database and, where it can be matched, the Google Sheet. This
+            cannot be undone.
           </p>
+
+          {status !== "pending" && (
+            <p className="font-body text-sm font-semibold text-pz-danger">
+              This {recordLabel} is currently {status} — the student will not be notified of this deletion.
+            </p>
+          )}
 
           <DialogFooter className="gap-2 sm:gap-2">
             <button

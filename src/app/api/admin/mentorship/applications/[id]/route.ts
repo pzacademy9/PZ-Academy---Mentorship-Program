@@ -49,5 +49,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Could not delete application" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, sheetDeleted: result.sheetDeleted });
+  return NextResponse.json({ ok: true, sheetDeleteMessage: result.sheetDeleteMessage });
 }

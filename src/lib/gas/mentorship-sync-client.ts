@@ -47,12 +47,13 @@ export async function pushMentorshipDelete(params: {
   sheetKind: "booking" | "application";
   email: string;
   timestamp: string;
-}): Promise<boolean> {
+}): Promise<{ ok: boolean; message?: string }> {
   const url = process.env.MENTORSHIP_SYNC_URL;
   const secret = process.env.MENTORSHIP_SYNC_SECRET;
   if (!url || !secret) {
-    console.warn("[mentorship-sync] delete skipped: MENTORSHIP_SYNC_URL or MENTORSHIP_SYNC_SECRET not set");
-    return false;
+    const message = "MENTORSHIP_SYNC_URL or MENTORSHIP_SYNC_SECRET not set";
+    console.warn(`[mentorship-sync] delete skipped: ${message}`);
+    return { ok: false, message };
   }
 
   try {
@@ -67,10 +68,15 @@ export async function pushMentorshipDelete(params: {
         timestamp: params.timestamp,
       }),
     });
-    const json: { status?: string } = await res.json();
-    return json.status === "success";
+    const json: { status?: string; message?: string } = await res.json();
+    if (json.status === "success") return { ok: true };
+
+    const message = json.message ?? "GAS returned an unsuccessful response with no message";
+    console.warn(`[mentorship-sync] delete row failed for ${params.email}: ${message}`);
+    return { ok: false, message };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error(`[mentorship-sync] failed to delete row for ${params.email}:`, error);
-    return false;
+    return { ok: false, message };
   }
 }

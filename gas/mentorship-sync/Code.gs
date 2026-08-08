@@ -235,9 +235,14 @@ function handleDeleteRow_(body, props) {
     const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const colEmailProp = body.sheetKind === "booking" ? "BOOKING_COL_EMAIL" : "APPLICATION_COL_EMAIL";
     const emailCol = headerIndex_(headerRow, props.getProperty(colEmailProp));
-    const timestampCol = headerIndex_(headerRow, "Timestamp");
-    if (emailCol === -1 || timestampCol === -1) {
-      return jsonResponse_({ status: "error", message: "Could not resolve email or Timestamp column" });
+    // Every sheet in this project has Timestamp as column A (see this file's
+    // header comment) — fall back to it if the header text doesn't match
+    // exactly, instead of silently degrading every delete to the
+    // "no row found" path forever with no diagnostic.
+    let timestampCol = headerIndex_(headerRow, "Timestamp");
+    if (timestampCol === -1) timestampCol = 0;
+    if (emailCol === -1) {
+      return jsonResponse_({ status: "error", message: "Could not resolve email column" });
     }
 
     const lastRow = sheet.getLastRow();
@@ -266,7 +271,10 @@ function handleDeleteRow_(body, props) {
       return jsonResponse_({ status: "error", message: "No row found within the timestamp tolerance" });
     }
     if (matchedRows.length > 1) {
-      return jsonResponse_({ status: "error", message: "Multiple matching rows found — refusing to guess" });
+      return jsonResponse_({
+        status: "error",
+        message: "Multiple matching rows found (rows " + matchedRows.join(", ") + ") — refusing to guess",
+      });
     }
 
     sheet.deleteRow(matchedRows[0]);

@@ -191,28 +191,29 @@ export async function applyApplicationStatus(params: {
 }
 
 export type DeleteApplicationResult =
-  | { ok: true; sheetDeleted: boolean }
+  | { ok: true; sheetDeleteMessage: string | null }
   | { ok: false; reason: "not-found" | "db-error" };
 
 /** Mirrors deleteBooking in mentorship-bookings.ts — see its comment. */
 export async function deleteApplication(applicationId: string): Promise<DeleteApplicationResult> {
   const admin = createAdminSupabase();
-  const { data: existing } = await admin
+  const { data: existing, error: readError } = await admin
     .from("mentor_applications")
     .select("id, email, created_at")
     .eq("id", applicationId)
     .maybeSingle();
 
+  if (readError) return { ok: false, reason: "db-error" };
   if (!existing) return { ok: false, reason: "not-found" };
 
   const { error } = await admin.from("mentor_applications").delete().eq("id", applicationId);
   if (error) return { ok: false, reason: "db-error" };
 
-  const sheetDeleted = await pushMentorshipDelete({
+  const sheetResult = await pushMentorshipDelete({
     sheetKind: "application",
     email: existing.email,
     timestamp: existing.created_at,
   });
 
-  return { ok: true, sheetDeleted };
+  return { ok: true, sheetDeleteMessage: sheetResult.ok ? null : (sheetResult.message ?? "Unknown error") };
 }

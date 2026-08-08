@@ -172,7 +172,7 @@ export async function applyBookingStatus(params: {
 }
 
 export type DeleteBookingResult =
-  | { ok: true; sheetDeleted: boolean }
+  | { ok: true; sheetDeleteMessage: string | null }
   | { ok: false; reason: "not-found" | "db-error" };
 
 /**
@@ -180,26 +180,27 @@ export type DeleteBookingResult =
  * from the admin's perspective. The Sheet-side delete is attempted
  * regardless of whether the Supabase delete already succeeded (it always
  * has, by this point), and its outcome is reported back so the admin knows
- * if the Sheet row needs manual cleanup.
+ * if the Sheet row needs manual cleanup, and why.
  */
 export async function deleteBooking(bookingId: string): Promise<DeleteBookingResult> {
   const admin = createAdminSupabase();
-  const { data: existing } = await admin
+  const { data: existing, error: readError } = await admin
     .from("mentorship_bookings")
     .select("id, email, created_at")
     .eq("id", bookingId)
     .maybeSingle();
 
+  if (readError) return { ok: false, reason: "db-error" };
   if (!existing) return { ok: false, reason: "not-found" };
 
   const { error } = await admin.from("mentorship_bookings").delete().eq("id", bookingId);
   if (error) return { ok: false, reason: "db-error" };
 
-  const sheetDeleted = await pushMentorshipDelete({
+  const sheetResult = await pushMentorshipDelete({
     sheetKind: "booking",
     email: existing.email,
     timestamp: existing.created_at,
   });
 
-  return { ok: true, sheetDeleted };
+  return { ok: true, sheetDeleteMessage: sheetResult.ok ? null : (sheetResult.message ?? "Unknown error") };
 }
