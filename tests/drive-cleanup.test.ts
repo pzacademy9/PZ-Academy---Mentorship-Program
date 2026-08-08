@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   extractDriveFileId,
+  extractDriveFileIdFromViewUrl,
   diffCourseImageFileIds,
   diffLessonFileIds,
   collectLessonFileIds,
@@ -31,6 +32,34 @@ describe("extractDriveFileId", () => {
 
   it("returns null for a non-https Drive thumbnail URL", () => {
     expect(extractDriveFileId("http://drive.google.com/thumbnail?id=abc123")).toBeNull();
+  });
+});
+
+describe("extractDriveFileIdFromViewUrl", () => {
+  it("extracts the id from a Drive view URL", () => {
+    expect(extractDriveFileIdFromViewUrl("https://drive.google.com/file/d/abc123/view?usp=drivesdk")).toBe("abc123");
+  });
+
+  it("returns null for a non-Drive URL", () => {
+    expect(extractDriveFileIdFromViewUrl("https://example.com/file.pdf")).toBeNull();
+  });
+
+  it("returns null for a Drive URL that isn't the /file/d/ shape", () => {
+    expect(extractDriveFileIdFromViewUrl("https://drive.google.com/thumbnail?id=abc123&sz=w1600")).toBeNull();
+  });
+
+  it("returns null for null, undefined, and empty string", () => {
+    expect(extractDriveFileIdFromViewUrl(null)).toBeNull();
+    expect(extractDriveFileIdFromViewUrl(undefined)).toBeNull();
+    expect(extractDriveFileIdFromViewUrl("")).toBeNull();
+  });
+
+  it("returns null for a malformed URL", () => {
+    expect(extractDriveFileIdFromViewUrl("not a url")).toBeNull();
+  });
+
+  it("returns null for a non-https Drive view URL", () => {
+    expect(extractDriveFileIdFromViewUrl("http://drive.google.com/file/d/abc123/view")).toBeNull();
   });
 });
 

@@ -29,6 +29,33 @@ export function extractDriveFileId(url: string | null | undefined): string | nul
   return parsed.searchParams.get("id") || null;
 }
 
+/**
+ * Pulls the file id out of one of our own Drive "view" URLs
+ * (`https://drive.google.com/file/d/<id>/view?usp=drivesdk`) — the shape
+ * handleUploadMentorshipFile_ returns via file.getUrl() for payment
+ * screenshots, CVs, and applicant photos. Distinct from the `/thumbnail?id=`
+ * shape extractDriveFileId parses (course images) — kept as a separate
+ * function rather than widening extractDriveFileId, so each stays a narrow
+ * safety boundary for its own upload path. Returns null for anything else:
+ * a manually pasted external URL, an empty/blank value, a malformed string,
+ * a Drive URL that isn't this specific shape, or a well-formed URL with an
+ * empty fileId segment.
+ */
+export function extractDriveFileIdFromViewUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "drive.google.com") return null;
+  const prefix = "/file/d/";
+  if (!parsed.pathname.startsWith(prefix)) return null;
+  const fileId = parsed.pathname.slice(prefix.length).split("/")[0];
+  return fileId || null;
+}
+
 export interface CourseImageUrls {
   thumbnailUrl: string | null;
   bannerUrl: string | null;
