@@ -214,7 +214,7 @@ export async function deleteBooking(bookingId: string): Promise<DeleteBookingRes
   ]);
 
   const warnings: string[] = [];
-  if (!sheetResult.ok) warnings.push(sheetResult.message ?? "Unknown error");
+  if (!sheetResult.ok) warnings.push(`The Sheet row needs manual cleanup: ${sheetResult.message ?? "Unknown error"}.`);
   if (driveWarning) warnings.push(driveWarning);
 
   return { ok: true, warnings };
