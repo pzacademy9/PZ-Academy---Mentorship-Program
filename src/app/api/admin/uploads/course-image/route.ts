@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireMentor } from "@/lib/auth/require-mentor";
 
 const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
@@ -17,7 +17,7 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
  * content.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireMentor();
   if (!auth.ok) return auth.response;
 
   if (!GAS_URL || !GAS_SHARED_SECRET) {
