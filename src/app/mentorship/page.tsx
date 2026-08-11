@@ -5,7 +5,7 @@ import HeroSection from "@/components/mentorship/HeroSection";
 import TrustBar from "@/components/mentorship/TrustBar";
 import MentorCard, { ComingSoonCard } from "@/components/mentorship/MentorCard";
 import RecruitmentForm from "@/components/mentorship/RecruitmentForm";
-import { mentors } from "@/lib/mentorship/mentors";
+import { getPublishedMentors, type Mentor } from "@/lib/data/mentors";
 
 export const metadata: Metadata = {
   title: "PZ Academy Mentorship – Find Your Expert Mentor",
@@ -13,14 +13,16 @@ export const metadata: Metadata = {
     "Connect with Pakistan's verified industry experts for 1-on-1 mentorship. Browse mentor profiles and book your session today.",
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const mentors = await getPublishedMentors();
+
   return (
     <>
       <MarketingNav />
       <main>
         <HeroSection />
         <TrustBar />
-        <MentorsSection />
+        <MentorsSection mentors={mentors} />
         <HowItWorksSection />
         <RecruitmentForm />
       </main>
@@ -30,7 +32,7 @@ export default function HomePage() {
 }
 
 /* ── Mentors Grid ─────────────────────────────────────── */
-function MentorsSection() {
+function MentorsSection({ mentors }: { mentors: Mentor[] }) {
   return (
     <section
       id="mentors"

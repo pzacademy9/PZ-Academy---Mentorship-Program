@@ -3,18 +3,16 @@ import { notFound } from "next/navigation";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import BookingClient from "@/components/mentorship/BookingClient";
-import { getMentorBySlug, mentors } from "@/lib/mentorship/mentors";
+import { getPublicMentorBySlug } from "@/lib/data/mentors";
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  return mentors.map((m) => ({ slug: m.slug }));
-}
-
+// See mentors/[slug]/page.tsx for why there's no generateStaticParams here.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const mentor = getMentorBySlug(params.slug);
+  const { slug } = await params;
+  const mentor = await getPublicMentorBySlug(slug);
   if (!mentor) return {};
   return {
     title: `Book a Session – ${mentor.name} | PZ Academy`,
@@ -23,15 +21,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function BookPage({ params }: Props) {
-  const mentor = getMentorBySlug(params.slug);
+export default async function BookPage({ params }: Props) {
+  const { slug } = await params;
+  const mentor = await getPublicMentorBySlug(slug);
   if (!mentor) notFound();
 
   return (
     <>
       <MarketingNav />
       <main>
-        <BookingClient mentor={mentor!} />
+        <BookingClient mentor={mentor} />
       </main>
       <MarketingFooter />
     </>

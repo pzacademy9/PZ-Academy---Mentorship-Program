@@ -5,6 +5,7 @@ import {
   diffCourseImageFileIds,
   diffLessonFileIds,
   collectLessonFileIds,
+  diffSingleImageFileId,
 } from "@/lib/validations/drive-cleanup";
 
 describe("extractDriveFileId", () => {
@@ -151,6 +152,31 @@ describe("diffLessonFileIds", () => {
       { pdfFileId: "new-pdf", documents: [] },
     );
     expect(result.sort()).toEqual(["doc1", "old-pdf"]);
+  });
+});
+
+describe("diffSingleImageFileId", () => {
+  const drive = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w1600`;
+
+  it("returns [] when the value is unchanged", () => {
+    expect(diffSingleImageFileId(drive("same"), drive("same"))).toEqual([]);
+  });
+
+  it("returns [] for a seeded local mentor photo path — never sent to the trash relay", () => {
+    expect(diffSingleImageFileId("/mentor-dr-roha.png", null)).toEqual([]);
+    expect(diffSingleImageFileId("/mentor-dr-roha.png", drive("new"))).toEqual([]);
+  });
+
+  it("returns the old fileId when replaced with a different Drive file", () => {
+    expect(diffSingleImageFileId(drive("old"), drive("new"))).toEqual(["old"]);
+  });
+
+  it("returns the old fileId when cleared", () => {
+    expect(diffSingleImageFileId(drive("old"), null)).toEqual(["old"]);
+  });
+
+  it("returns [] for a foreign (non-Drive) URL", () => {
+    expect(diffSingleImageFileId("https://example.com/pic.png", null)).toEqual([]);
   });
 });
 

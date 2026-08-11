@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { type Mentor, formatPrice } from "@/lib/mentorship/mentors";
+import type { Mentor } from "@/lib/data/mentors";
+import { formatPrice, initials } from "@/lib/format";
 
 interface MentorCardProps {
   mentor: Mentor;
@@ -47,14 +47,26 @@ export default function MentorCard({ mentor, index }: MentorCardProps) {
             border: "3px solid #C9A84C",
           }}
         >
-          <Image
-            src={mentor.photo}
-            alt={`${mentor.name} – ${mentor.expertise}`}
-            width={100}
-            height={100}
-            className="object-cover object-top w-full h-full"
-            style={{ transition: "transform 0.4s ease" }}
-          />
+          {mentor.photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mentor.photo}
+              alt={`${mentor.name} – ${mentor.expertise}`}
+              referrerPolicy="no-referrer"
+              className="object-cover object-top w-full h-full"
+              style={{ transition: "transform 0.4s ease" }}
+            />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ background: "#E8F5EE" }}
+              aria-hidden="true"
+            >
+              <span className="font-montserrat font-bold" style={{ fontSize: "28px", color: "#1A4D2E" }}>
+                {initials(mentor.name)}
+              </span>
+            </div>
+          )}
         </div>
         {/* Verified badge */}
         <div

@@ -1,23 +1,32 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   CheckCircle, Clock, Video, Globe, Banknote,
   Package, Calendar, Timer, ArrowRight, MessageCircle,
   GraduationCap, Award, BookOpen, Lightbulb, TrendingUp,
+  Quote,
   type LucideIcon,
 } from "lucide-react";
-import { type Mentor, formatPrice } from "@/lib/mentorship/mentors";
+import type { Mentor } from "@/lib/data/mentors";
+import { formatPrice, initials } from "@/lib/format";
+import { formatSessionDuration } from "@/lib/validations/admin-mentor";
 import { whatsappLink } from "@/lib/mentorship/whatsapp";
+import { toEmbedUrl } from "@/lib/video-embed";
+import { LinkedInIcon, BRAND_ICON_BY_PLATFORM } from "./BrandIcons";
+import { detectSocialPlatform, SOCIAL_PLATFORM_LABELS } from "@/lib/social-platforms";
 
 const iconMap: Record<string, LucideIcon> = {
   GraduationCap, Award, BookOpen, Lightbulb, TrendingUp,
 };
 
 const sessionDetailRows = (mentor: Mentor) => [
-  { icon: Clock, label: "Duration", value: "60 Minutes" },
+  {
+    icon: Clock,
+    label: "Duration",
+    value: mentor.sessionDurationText || formatSessionDuration(mentor.sessionDurationMinutes),
+  },
   { icon: Video, label: "Format", value: mentor.format },
   { icon: Globe, label: "Languages", value: mentor.language },
   {
@@ -79,14 +88,19 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
               className="w-full md:w-[38%] flex-shrink-0"
             >
               <div className="relative w-full max-w-[280px] md:max-w-sm mx-auto aspect-[3/4] rounded-2xl overflow-hidden border-2 border-brand-gold/20 shadow-gold-md bg-gray-50">
-                <Image
-                  src={mentor.photo}
-                  alt={`${mentor.name} – ${mentor.expertise} mentor at PZ Academy`}
-                  fill
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 90vw, 400px"
-                  priority
-                />
+                {mentor.photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={mentor.photo}
+                    alt={`${mentor.name} – ${mentor.expertise} mentor at PZ Academy`}
+                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-brand-green/5" aria-hidden="true">
+                    <span className="font-montserrat font-black text-5xl text-brand-green/40">{initials(mentor.name)}</span>
+                  </div>
+                )}
                 {/* Verified badge */}
                 <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-brand-gold text-brand-green px-3 py-1.5 rounded-full shadow-lg text-xs font-montserrat font-bold uppercase tracking-wider">
                   <CheckCircle size={14} strokeWidth={2.5} />
@@ -139,7 +153,10 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                   { label: mentor.domain, icon: "🌐" },
                   { label: mentor.language, icon: "💬" },
                   { label: "Online", icon: "🖥️" },
-                ].map(({ label, icon }) => (
+                  ...(mentor.timezone ? [{ label: mentor.timezone, icon: "🕒" }] : []),
+                ]
+                  .filter((b) => b.label)
+                  .map(({ label, icon }) => (
                   <span
                     key={label}
                     className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 border border-gray-200 text-gray-700 font-poppins text-xs rounded-full"
@@ -276,6 +293,92 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                   })}
                 </div>
               </motion.div>
+
+              {/* Intro Video */}
+              {mentor.introVideoUrl && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-5">Introduction</h2>
+                  <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black shadow-sm border border-gray-100">
+                    <iframe
+                      src={toEmbedUrl(mentor.introVideoUrl)}
+                      title={`${mentor.name} introduction`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Testimonials */}
+              {mentor.testimonials.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.05 }}
+                >
+                  <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-5">What Mentees Say</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {mentor.testimonials.map((t, i) => (
+                      <div key={i} className="bg-gray-50 border border-gray-100 rounded-xl p-5 relative">
+                        <Quote size={20} className="text-brand-gold/40 mb-2" aria-hidden="true" />
+                        <p className="font-poppins text-sm text-gray-700 leading-relaxed mb-3">{t.quote}</p>
+                        <p className="font-montserrat font-bold text-xs text-brand-black">
+                          {t.author}
+                          {t.role && <span className="font-poppins font-normal text-gray-400"> — {t.role}</span>}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Connect */}
+              {(mentor.linkedinUrl || mentor.socialLinks.length > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
+                >
+                  <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-5">Connect</h2>
+                  <div className="flex flex-wrap gap-3">
+                    {mentor.linkedinUrl && (
+                      <a
+                        href={mentor.linkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 hover:border-brand-gold/40 rounded-full font-poppins text-xs text-gray-700 transition-colors"
+                      >
+                        <LinkedInIcon size={14} className="text-brand-gold" />
+                        LinkedIn
+                      </a>
+                    )}
+                    {mentor.socialLinks.map((link) => {
+                      const platform = detectSocialPlatform(link.url);
+                      const Icon = platform ? BRAND_ICON_BY_PLATFORM[platform] : Globe;
+                      return (
+                        <a
+                          key={link.url}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 hover:border-brand-gold/40 rounded-full font-poppins text-xs text-gray-700 transition-colors"
+                        >
+                          <Icon size={14} className="text-brand-gold" />
+                          {platform ? SOCIAL_PLATFORM_LABELS[platform] : link.label}
+                        </a>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
 
               {/* How It Works Timeline */}
               <HowItWorksTimeline />

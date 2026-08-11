@@ -48,7 +48,14 @@ const slug = z
   .min(1, "Slug is required")
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers, and hyphens only");
 
-const url = z.string().trim().url().optional().or(z.literal("")).transform((v) => (v ? v : undefined));
+/** Exported so other admin schemas (e.g. admin-mentor.ts) share the same "empty string -> undefined" URL coercion instead of redefining it. */
+export const url = z
+  .string()
+  .trim()
+  .url("Must be a full URL starting with https://")
+  .optional()
+  .or(z.literal(""))
+  .transform((v) => (v ? v : undefined));
 
 export const courseCreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),

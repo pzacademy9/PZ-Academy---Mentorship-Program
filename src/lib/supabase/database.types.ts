@@ -904,30 +904,105 @@ export type Database = {
       mentors: {
         Row: {
           availability_json: Json | null
+          availability_text: string | null
           created_at: string
+          credentials: Json
+          domain: string | null
+          expertise: string | null
+          experience: string | null
+          format: string | null
+          full_bio: string[]
           id: string
-          is_active: boolean
-          profile_id: string
-          specializations: string[]
+          intro_video_url: string | null
+          language: string | null
+          lead_time: string | null
+          linkedin_url: string | null
+          name: string
+          order_index: number
+          packages: Json
+          photo_url: string | null
+          price_per_session_pkr: number
+          profile_id: string | null
+          session_duration_minutes: number
+          session_duration_text: string | null
+          short_bio: string | null
+          skills: string[]
+          slug: string
+          social_links: Json
+          testimonials: Json
+          timezone: string | null
+          title: string | null
           total_sessions: number
+          updated_at: string
+          visibility: Database["public"]["Enums"]["mentor_visibility"]
         }
         Insert: {
           availability_json?: Json | null
+          availability_text?: string | null
           created_at?: string
+          credentials?: Json
+          domain?: string | null
+          expertise?: string | null
+          experience?: string | null
+          format?: string | null
+          full_bio?: string[]
           id?: string
-          is_active?: boolean
-          profile_id: string
-          specializations?: string[]
+          intro_video_url?: string | null
+          language?: string | null
+          lead_time?: string | null
+          linkedin_url?: string | null
+          name?: string
+          order_index?: number
+          packages?: Json
+          photo_url?: string | null
+          price_per_session_pkr?: number
+          profile_id?: string | null
+          session_duration_minutes?: number
+          session_duration_text?: string | null
+          short_bio?: string | null
+          skills?: string[]
+          slug: string
+          social_links?: Json
+          testimonials?: Json
+          timezone?: string | null
+          title?: string | null
           total_sessions?: number
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["mentor_visibility"]
         }
         Update: {
           availability_json?: Json | null
+          availability_text?: string | null
           created_at?: string
+          credentials?: Json
+          domain?: string | null
+          expertise?: string | null
+          experience?: string | null
+          format?: string | null
+          full_bio?: string[]
           id?: string
-          is_active?: boolean
-          profile_id?: string
-          specializations?: string[]
+          intro_video_url?: string | null
+          language?: string | null
+          lead_time?: string | null
+          linkedin_url?: string | null
+          name?: string
+          order_index?: number
+          packages?: Json
+          photo_url?: string | null
+          price_per_session_pkr?: number
+          profile_id?: string | null
+          session_duration_minutes?: number
+          session_duration_text?: string | null
+          short_bio?: string | null
+          skills?: string[]
+          slug?: string
+          social_links?: Json
+          testimonials?: Json
+          timezone?: string | null
+          title?: string | null
           total_sessions?: number
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["mentor_visibility"]
         }
         Relationships: [
           {
@@ -1408,6 +1483,7 @@ export type Database = {
       featured_item_type: "course" | "webinar"
       lesson_content_type: "video" | "text" | "pdf"
       mentor_application_status: "pending" | "approved" | "rejected"
+      mentor_visibility: "draft" | "published" | "hidden"
       mentorship_booking_status: "pending" | "confirmed" | "cancelled"
       progress_status: "locked" | "unlocked" | "completed"
       session_status: "pending" | "confirmed" | "completed" | "cancelled"
@@ -1552,6 +1628,7 @@ export const Constants = {
       featured_item_type: ["course", "webinar"],
       lesson_content_type: ["video", "text", "pdf"],
       mentor_application_status: ["pending", "approved", "rejected"],
+      mentor_visibility: ["draft", "published", "hidden"],
       mentorship_booking_status: ["pending", "confirmed", "cancelled"],
       progress_status: ["locked", "unlocked", "completed"],
       session_status: ["pending", "confirmed", "completed", "cancelled"],

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +8,8 @@ import {
   Info, Copy, CheckCircle, CloudUpload, X,
   MessageCircle, ArrowRight, Shield,
 } from "lucide-react";
-import { type Mentor, formatPrice } from "@/lib/mentorship/mentors";
+import type { Mentor } from "@/lib/data/mentors";
+import { formatPrice, initials } from "@/lib/format";
 import { whatsappLink } from "@/lib/mentorship/whatsapp";
 import { cn } from "@/lib/utils";
 
@@ -174,13 +174,19 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
             className="flex items-center gap-4 mb-6"
           >
             <div className="w-14 h-14 rounded-full border-2 border-brand-gold overflow-hidden flex-shrink-0">
-              <Image
-                src={mentor.photo}
-                alt={mentor.name}
-                width={56}
-                height={56}
-                className="w-full h-full object-cover object-top"
-              />
+              {mentor.photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={mentor.photo}
+                  alt={mentor.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover object-top"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-brand-gold/10" aria-hidden="true">
+                  <span className="font-montserrat font-bold text-sm text-brand-gold">{initials(mentor.name)}</span>
+                </div>
+              )}
             </div>
             <div>
               <p className="font-poppins text-xs text-brand-gold uppercase tracking-widest mb-0.5">

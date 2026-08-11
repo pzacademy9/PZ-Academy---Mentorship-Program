@@ -53,6 +53,18 @@ export function formatPkr(amount: number | null): string | null {
   return `PKR ${amount.toLocaleString("en-GB")}`;
 }
 
+/**
+ * Mentor pricing display, moved here from src/lib/mentorship/mentors.ts
+ * verbatim (including its en-PK locale, distinct from formatPkr's en-GB
+ * above — both are pinned locales so there's no hydration-mismatch risk,
+ * they just disagree cosmetically; unifying them is a separate decision).
+ * Amount is never null here — a mentor's price is always a real number,
+ * unlike formatPkr's self-declared student amounts.
+ */
+export function formatPrice(price: number): string {
+  return `PKR ${price.toLocaleString("en-PK")}`;
+}
+
 export function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";

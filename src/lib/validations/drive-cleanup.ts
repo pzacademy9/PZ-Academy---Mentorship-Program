@@ -78,6 +78,19 @@ export function diffCourseImageFileIds(oldUrls: CourseImageUrls, newUrls: Course
   return toTrash;
 }
 
+/**
+ * Single-image variant of diffCourseImageFileIds, for a field that isn't
+ * part of a larger group (mentors.photo_url). Returns [] when the value is
+ * unchanged, or when the old value isn't one of our own Drive thumbnails —
+ * which is also what keeps the seeded local /mentor-*.png paths (see
+ * 0028_mentor_registry.sql) from ever reaching the GAS trash relay.
+ */
+export function diffSingleImageFileId(oldUrl: string | null, newUrl: string | null): string[] {
+  if (oldUrl === newUrl) return [];
+  const fileId = extractDriveFileId(oldUrl);
+  return fileId ? [fileId] : [];
+}
+
 export interface LessonFileState {
   pdfFileId: string | null;
   documents: Array<{ fileId: string }>;

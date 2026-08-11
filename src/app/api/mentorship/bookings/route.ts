@@ -4,6 +4,8 @@ import { findStudentIdByEmail } from "@/lib/data/sheet-sync";
 import { insertBooking } from "@/lib/data/mentorship-bookings";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { getBookableMentor } from "@/lib/data/mentors";
+import { isKnownPackageName } from "@/lib/validations/admin-mentor";
 
 const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
@@ -25,6 +27,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
   const input = parsed.data;
+
+  // The registry now exists (supabase/migrations/0028_mentor_registry.sql) —
+  // mentorSlug/mentorName/packageName were previously trusted verbatim from
+  // the client and written straight into the DB, the admin review screen,
+  // the confirmation email, and the team's Sheet. Validate against it before
+  // any of that: mentor.name (DB-sourced) replaces input.mentorName below,
+  // so a spoofed mentorName in the request body never reaches any of those
+  // four surfaces.
+  const mentor = await getBookableMentor(input.mentorSlug);
+  if (!mentor) {
+    return NextResponse.json({ error: "That mentor is not available for booking right now." }, { status: 400 });
+  }
+  if (!isKnownPackageName(mentor.packages, input.packageName)) {
+    return NextResponse.json({ error: "That package is no longer offered." }, { status: 400 });
+  }
 
   // Rate limit: the Supabase table itself is the store (no shared
   // in-memory state across serverless invocations, and no existing
@@ -79,7 +96,7 @@ export async function POST(req: NextRequest) {
         email: input.email,
         phone: input.phone,
         mentorSlug: input.mentorSlug,
-        mentorName: input.mentorName,
+        mentorName: mentor.name,
         packageName: input.packageName,
         goals: input.goals ?? null,
         paymentScreenshotUrl: screenshotUrl,
@@ -97,7 +114,7 @@ export async function POST(req: NextRequest) {
           name: input.fullName,
           email: input.email,
           phone: input.phone,
-          mentorName: input.mentorName,
+          mentorName: mentor.name,
           packageName: input.packageName,
           goals: input.goals ?? "",
           paymentRef: input.screenshotName ?? "",
@@ -112,7 +129,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await sendMentorshipEmail("bookingReceived", input.email, { fullName: input.fullName, mentorName: input.mentorName });
+  await sendMentorshipEmail("bookingReceived", input.email, { fullName: input.fullName, mentorName: mentor.name });
 
   return NextResponse.json({ ok: true, id });
 }
