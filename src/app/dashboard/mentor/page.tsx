@@ -1,26 +1,18 @@
-import { createServerSupabase } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { requireMentorPage } from "@/lib/auth/require-mentor";
+import { getOwnMentorProfile } from "@/lib/data/mentor-self";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { MentorSelfProfileForm } from "@/components/mentor/MentorSelfProfileForm";
 import { GraduationCap, Calendar, DollarSign, Clock } from "lucide-react";
 
 export const metadata = { title: "Mentor Dashboard — PZ Academy" };
 
 export default async function MentorDashboard() {
-  const supabase = await createServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { user, supabase } = await requireMentorPage();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "mentor" && profile?.role !== "admin" && profile?.role !== "super_admin") {
-    redirect("/dashboard");
-  }
-
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
   const firstName = profile?.full_name?.split(" ")[0] ?? "Mentor";
+
+  const mentor = await getOwnMentorProfile(user.id);
 
   return (
     <div className="space-y-6">
@@ -35,6 +27,16 @@ export default async function MentorDashboard() {
         <StatCard label="Earnings (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-lime/20" />
         <StatCard label="Availability Slots" value={0} icon={Clock} iconBg="bg-pz-frost" />
       </div>
+
+      {mentor ? (
+        <MentorSelfProfileForm mentor={mentor} />
+      ) : (
+        <div className="bg-white rounded-xl shadow-card p-6">
+          <p className="text-pz-muted text-sm">
+            No mentor profile is linked to your account yet. Contact an admin to get set up.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow-card p-6">
