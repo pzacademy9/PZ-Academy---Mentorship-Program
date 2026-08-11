@@ -1473,6 +1473,22 @@ export type Database = {
         Args: { p_answers: number[]; p_lesson_id: string }
         Returns: Json
       }
+      update_own_mentor_profile: {
+        Args: {
+          p_short_bio: string | null
+          p_full_bio: string[] | null
+          p_photo_url: string | null
+          p_availability_text: string | null
+          p_intro_video_url: string | null
+          p_linkedin_url: string | null
+          p_social_links: Json | null
+          p_skills: string[] | null
+          p_credentials: Json | null
+          p_timezone: string | null
+          p_session_duration_text: string | null
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       banner_slot: "hero" | "mid_page" | "sidebar" | "footer"
