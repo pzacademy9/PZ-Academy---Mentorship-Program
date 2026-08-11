@@ -1448,6 +1448,10 @@ export type Database = {
           status: Database["public"]["Enums"]["progress_status"]
         }[]
       }
+      find_user_id_by_email: {
+        Args: { p_email: string }
+        Returns: string | null
+      }
       get_my_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
