@@ -58,7 +58,7 @@ export const mentorCreateSchema = z.object({
  * reusing `url`. introVideoUrl/linkedinUrl/social links keep the strict
  * `url` schema since those are always real external links.
  */
-const photoUrl = z
+export const photoUrl = z
   .string()
   .trim()
   .max(2000)
