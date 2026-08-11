@@ -36,5 +36,10 @@ describe("mentorSelfEditSchema", () => {
     expect(shape).not.toHaveProperty("name");
     expect(shape).not.toHaveProperty("slug");
     expect(shape).not.toHaveProperty("packages");
+    expect(shape).not.toHaveProperty("title");
+    expect(shape).not.toHaveProperty("domain");
+    expect(shape).not.toHaveProperty("expertise");
+    expect(shape).not.toHaveProperty("orderIndex");
+    expect(shape).not.toHaveProperty("testimonials");
   });
 });
