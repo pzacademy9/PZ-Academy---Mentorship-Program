@@ -6,8 +6,16 @@ import { photoUrl, mentorSocialLinkSchema, mentorCredentialSchema, MENTOR_TIMEZO
  * The self-service whitelist from migration 0029's update_own_mentor_profile
  * RPC, mirrored here for form validation. Content/marketing fields only —
  * no slug, name, title, domain, expertise, visibility,
- * price_per_session_pkr, packages, order_index, or testimonials. Every
- * field is optional so a mentor can save a partial edit.
+ * price_per_session_pkr, packages, order_index, or testimonials.
+ *
+ * Every field is optional in the Zod sense only — so a caller isn't forced
+ * to supply a value it has nothing to set. This is NOT partial-edit/merge
+ * semantics: update_own_mentor_profile assigns all 11 whitelisted columns
+ * unconditionally on every call, so any field omitted from the payload is
+ * written as null/[] on the row, not left unchanged. MentorSelfProfileForm
+ * always sends the complete set of 11 keys for exactly this reason — a
+ * future caller that sends a partial payload (e.g. a single-field inline
+ * editor) would silently wipe the other columns.
  */
 export const mentorSelfEditSchema = z.object({
   shortBio: z.string().trim().max(500).optional(),

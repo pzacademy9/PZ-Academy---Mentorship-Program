@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { isAdminRole } from "@/lib/auth/require-admin";
 
 /**
  * Admin-facing mentor account linking (subsystem B). Mirrors the
@@ -82,6 +83,12 @@ export type ConfirmLinkResult =
  * is an existing account (e.g. a student) with its own real name already
  * set; overwriting it with the mentor registry's marketing name would be
  * wrong.
+ *
+ * Also deliberately does NOT touch role if the account is already an
+ * admin/super_admin — isMentorRole() (require-mentor.ts) already admits
+ * those roles, so no role change is needed for them to use the mentor
+ * dashboard, and demoting an admin to 'mentor' here would lock them out of
+ * /dashboard/admin with no in-app way back.
  */
 export async function confirmLinkExistingAccount(mentorId: string, email: string): Promise<ConfirmLinkResult> {
   const admin = createAdminSupabase();
@@ -92,8 +99,12 @@ export async function confirmLinkExistingAccount(mentorId: string, email: string
   const accountId = await findAccountIdByEmail(email);
   if (!accountId) return { ok: false, reason: "account-not-found" };
 
-  const { error: profileError } = await admin.from("profiles").update({ role: "mentor" }).eq("id", accountId);
-  if (profileError) return { ok: false, reason: "db-error" };
+  const { data: account } = await admin.from("profiles").select("role").eq("id", accountId).maybeSingle();
+
+  if (!isAdminRole(account?.role)) {
+    const { error: profileError } = await admin.from("profiles").update({ role: "mentor" }).eq("id", accountId);
+    if (profileError) return { ok: false, reason: "db-error" };
+  }
 
   const { error: mentorError } = await admin.from("mentors").update({ profile_id: accountId }).eq("id", mentorId);
   if (mentorError) return { ok: false, reason: "db-error" };
@@ -108,6 +119,13 @@ export type UnlinkResult = { ok: true } | { ok: false; reason: "not-found" | "db
  * leaving it as 'mentor' with no linked mentor row would be an orphaned
  * account that can still reach /dashboard/mentor (per middleware.ts) with
  * nothing to show.
+ *
+ * Only reverts role when it's currently exactly 'mentor'. If the linked
+ * account is admin/super_admin (e.g. linked via confirmLinkExistingAccount
+ * without a role change, or any other reason), demoting all the way to
+ * 'student' here would strip their admin access — and if
+ * STUDENT_ACCESS_LOCKED is on, strand them on /coming-soon — with no
+ * in-app way back.
  */
 export async function unlinkMentorAccount(mentorId: string): Promise<UnlinkResult> {
   const admin = createAdminSupabase();
@@ -119,11 +137,19 @@ export async function unlinkMentorAccount(mentorId: string): Promise<UnlinkResul
   if (mentorError) return { ok: false, reason: "db-error" };
 
   if (mentor.profile_id) {
-    const { error: profileError } = await admin
+    const { data: account } = await admin
       .from("profiles")
-      .update({ role: "student" })
-      .eq("id", mentor.profile_id);
-    if (profileError) return { ok: false, reason: "db-error" };
+      .select("role")
+      .eq("id", mentor.profile_id)
+      .maybeSingle();
+
+    if (account?.role === "mentor") {
+      const { error: profileError } = await admin
+        .from("profiles")
+        .update({ role: "student" })
+        .eq("id", mentor.profile_id);
+      if (profileError) return { ok: false, reason: "db-error" };
+    }
   }
 
   return { ok: true };
