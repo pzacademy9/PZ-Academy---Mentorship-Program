@@ -21,6 +21,7 @@ export interface MentorshipBookingRow {
   hasScreenshot: boolean;
   paymentScreenshotUrl: string | null;
   status: MentorshipBookingStatus;
+  sessionsTotal: number | null;
   cancellationReason: string | null;
   createdAt: string;
 }
@@ -36,6 +37,7 @@ interface RawBookingRow {
   goals: string | null;
   payment_screenshot_url: string | null;
   status: MentorshipBookingStatus;
+  sessions_total: number | null;
   cancellation_reason: string | null;
   created_at: string;
 }
@@ -53,13 +55,14 @@ function toRow(row: RawBookingRow): MentorshipBookingRow {
     hasScreenshot: Boolean(row.payment_screenshot_url),
     paymentScreenshotUrl: row.payment_screenshot_url,
     status: row.status,
+    sessionsTotal: row.sessions_total,
     cancellationReason: row.cancellation_reason,
     createdAt: row.created_at,
   };
 }
 
 const SELECT =
-  "id, full_name, email, phone, mentor_slug, mentor_name, package_name, goals, payment_screenshot_url, status, cancellation_reason, created_at";
+  "id, full_name, email, phone, mentor_slug, mentor_name, package_name, goals, payment_screenshot_url, status, sessions_total, cancellation_reason, created_at";
 
 /** The admin review list — reads via the admin client, mirroring listEnrollmentsForReview's role. */
 export async function listBookingsForReview(): Promise<MentorshipBookingRow[]> {
@@ -218,4 +221,25 @@ export async function deleteBooking(bookingId: string): Promise<DeleteBookingRes
   if (driveWarning) warnings.push(driveWarning);
 
   return { ok: true, warnings };
+}
+
+export interface MyBookingWithScheduling extends MentorshipBookingRow {
+  scheduledCount: number;
+}
+
+/** listMyBookings plus each booking's scheduled-session count, for the "Book Your Sessions" CTA on /dashboard/sessions. */
+export async function listMyBookingsWithScheduling(studentId: string): Promise<MyBookingWithScheduling[]> {
+  const bookings = await listMyBookings(studentId);
+  const admin = createAdminSupabase();
+
+  const results: MyBookingWithScheduling[] = [];
+  for (const booking of bookings) {
+    const { count } = await admin
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("booking_id", booking.id)
+      .not("scheduled_at", "is", null);
+    results.push({ ...booking, scheduledCount: count ?? 0 });
+  }
+  return results;
 }
