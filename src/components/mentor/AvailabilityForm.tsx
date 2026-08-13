@@ -214,7 +214,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
           </p>
           <div className="p-6 overflow-y-auto flex-1">
             {preview.length === 0 ? (
-              <p className="font-body text-sm text-pz-on-surface-variant italic">No slots yet — turn on the days you're available.</p>
+              <p className="font-body text-sm text-pz-on-surface-variant italic">No slots yet — turn on the days you&apos;re available.</p>
             ) : (
               preview.map(([date, times]) => (
                 <div key={date} className="mb-6 last:mb-0">
