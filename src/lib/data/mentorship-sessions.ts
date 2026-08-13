@@ -146,7 +146,8 @@ export async function listUpcomingSessionsForMentor(mentorProfileId: string): Pr
     .eq("mentor_id", mentorProfileId)
     .eq("status", "confirmed")
     .not("scheduled_at", "is", null)
-    .gte("scheduled_at", new Date().toISOString())
+    // 30-day lookback (not now()) so recently-due confirmed sessions still surface for "Mark Completed" — see UpcomingSessionsList's isPast check
+    .gte("scheduled_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
     .order("scheduled_at", { ascending: true })
     .limit(20);
 
