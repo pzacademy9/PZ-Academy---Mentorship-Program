@@ -111,9 +111,17 @@ export async function createSessionForBooking(params: {
 
 export type SetSessionStatusResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
 
-export async function setSessionStatus(sessionId: string, status: "completed" | "cancelled"): Promise<SetSessionStatusResult> {
+export async function setSessionStatus(
+  sessionId: string,
+  status: "completed" | "cancelled",
+  scopeToMentorId?: string,
+): Promise<SetSessionStatusResult> {
   const admin = createAdminSupabase();
-  const { data, error } = await admin.from("sessions").update({ status }).eq("id", sessionId).select("id").maybeSingle();
+  let query = admin.from("sessions").update({ status }).eq("id", sessionId);
+  if (scopeToMentorId !== undefined) {
+    query = query.eq("mentor_id", scopeToMentorId);
+  }
+  const { data, error } = await query.select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
   return { ok: true };

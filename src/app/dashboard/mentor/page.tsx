@@ -1,8 +1,15 @@
 import { requireMentorPage } from "@/lib/auth/require-mentor";
 import { getOwnMentorProfile } from "@/lib/data/mentor-self";
+import {
+  getMentorDashboardStats,
+  listUpcomingSessionsForMentor,
+  listStudentsForMentor,
+} from "@/lib/data/mentorship-sessions";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { MentorSelfProfileForm } from "@/components/mentor/MentorSelfProfileForm";
-import { GraduationCap, Calendar, DollarSign, Clock } from "lucide-react";
+import { UpcomingSessionsList } from "@/components/mentor/UpcomingSessionsList";
+import { MyStudentsList } from "@/components/mentor/MyStudentsList";
+import { GraduationCap, Calendar, DollarSign, Clock3 } from "lucide-react";
 
 export const metadata = { title: "Mentor Dashboard — PZ Academy" };
 
@@ -13,6 +20,9 @@ export default async function MentorDashboard() {
   const firstName = profile?.full_name?.split(" ")[0] ?? "Mentor";
 
   const mentor = await getOwnMentorProfile(user.id);
+  const stats = mentor ? await getMentorDashboardStats(mentor.slug, user.id) : null;
+  const upcomingSessions = mentor ? await listUpcomingSessionsForMentor(user.id) : [];
+  const students = mentor ? await listStudentsForMentor(user.id) : [];
 
   return (
     <div className="space-y-6">
@@ -22,10 +32,10 @@ export default async function MentorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Active Students" value={0} icon={GraduationCap} />
-        <StatCard label="Sessions This Month" value={0} icon={Calendar} iconBg="bg-pz-pine/10" />
+        <StatCard label="Active Students" value={stats?.activeStudents ?? 0} icon={GraduationCap} />
+        <StatCard label="Sessions This Month" value={stats?.sessionsThisMonth ?? 0} icon={Calendar} iconBg="bg-pz-pine/10" />
         <StatCard label="Earnings (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-lime/20" />
-        <StatCard label="Availability Slots" value={0} icon={Clock} iconBg="bg-pz-frost" />
+        <StatCard label="Pending Bookings" value={stats?.pendingBookings ?? 0} icon={Clock3} iconBg="bg-pz-frost" />
       </div>
 
       {mentor ? (
@@ -41,17 +51,11 @@ export default async function MentorDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow-card p-6">
           <h2 className="font-montserrat font-bold text-pz-forest text-base mb-4">Upcoming Sessions</h2>
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <Calendar className="w-10 h-10 text-pz-border mb-3" />
-            <p className="text-pz-muted text-sm">No sessions scheduled.</p>
-          </div>
+          <UpcomingSessionsList sessions={upcomingSessions} />
         </div>
         <div className="bg-white rounded-xl shadow-card p-6">
           <h2 className="font-montserrat font-bold text-pz-forest text-base mb-4">My Students</h2>
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <GraduationCap className="w-10 h-10 text-pz-border mb-3" />
-            <p className="text-pz-muted text-sm">No active students yet.</p>
-          </div>
+          <MyStudentsList students={students} />
         </div>
       </div>
     </div>
