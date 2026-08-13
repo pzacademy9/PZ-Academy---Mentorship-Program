@@ -916,6 +916,7 @@ export type Database = {
           intro_video_url: string | null
           language: string | null
           lead_time: string | null
+          lead_time_hours: number
           linkedin_url: string | null
           name: string
           order_index: number
@@ -950,6 +951,7 @@ export type Database = {
           intro_video_url?: string | null
           language?: string | null
           lead_time?: string | null
+          lead_time_hours?: number
           linkedin_url?: string | null
           name?: string
           order_index?: number
@@ -984,6 +986,7 @@ export type Database = {
           intro_video_url?: string | null
           language?: string | null
           lead_time?: string | null
+          lead_time_hours?: number
           linkedin_url?: string | null
           name?: string
           order_index?: number
@@ -1027,6 +1030,7 @@ export type Database = {
           package_name: string
           payment_screenshot_url: string | null
           phone: string
+          sessions_total: number | null
           status: Database["public"]["Enums"]["mentorship_booking_status"]
           status_changed_at: string | null
           student_id: string | null
@@ -1043,6 +1047,7 @@ export type Database = {
           package_name: string
           payment_screenshot_url?: string | null
           phone: string
+          sessions_total?: number | null
           status?: Database["public"]["Enums"]["mentorship_booking_status"]
           status_changed_at?: string | null
           student_id?: string | null
@@ -1059,6 +1064,7 @@ export type Database = {
           package_name?: string
           payment_screenshot_url?: string | null
           phone?: string
+          sessions_total?: number | null
           status?: Database["public"]["Enums"]["mentorship_booking_status"]
           status_changed_at?: string | null
           student_id?: string | null
@@ -1334,6 +1340,7 @@ export type Database = {
       sessions: {
         Row: {
           booked_at: string
+          booking_id: string | null
           duration_min: number | null
           id: string
           mentor_id: string
@@ -1347,6 +1354,7 @@ export type Database = {
         }
         Insert: {
           booked_at?: string
+          booking_id?: string | null
           duration_min?: number | null
           id?: string
           mentor_id: string
@@ -1360,6 +1368,7 @@ export type Database = {
         }
         Update: {
           booked_at?: string
+          booking_id?: string | null
           duration_min?: number | null
           id?: string
           mentor_id?: string
@@ -1372,6 +1381,13 @@ export type Database = {
           student_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sessions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "mentorship_bookings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sessions_mentor_id_fkey"
             columns: ["mentor_id"]
@@ -1432,6 +1448,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      book_mentorship_sessions: {
+        Args: { p_booking_id: string; p_slots: string[] }
+        Returns: number
+      }
       check_quiz_answer: { Args: { p_question_id: string }; Returns: number }
       complete_lesson: { Args: { p_lesson_id: string }; Returns: number }
       course_curriculum: {
@@ -1472,6 +1492,10 @@ export type Database = {
       submit_quiz_attempt: {
         Args: { p_answers: number[]; p_lesson_id: string }
         Returns: Json
+      }
+      update_own_mentor_availability: {
+        Args: { p_timezone: string | null; p_weekly_ranges: Json | null }
+        Returns: boolean
       }
       update_own_mentor_profile: {
         Args: {
