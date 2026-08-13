@@ -22,7 +22,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     .select("scheduled_at")
     .eq("mentor_id", mentor.profile_id)
     .not("status", "eq", "cancelled")
-    .not("scheduled_at", "is", null);
+    .not("scheduled_at", "is", null)
+    // Past sessions can never collide with a future-only slot search, and
+    // without a lower bound this query has no limit — it would eventually
+    // hit PostgREST's default 1000-row cap in an undefined row order,
+    // potentially truncating future booked slots out of the exclusion list.
+    .gte("scheduled_at", new Date().toISOString());
 
   const availability = (mentor.availability_json as { weeklyRanges?: { day: number; start: string; end: string }[] } | null) ?? {
     weeklyRanges: [],

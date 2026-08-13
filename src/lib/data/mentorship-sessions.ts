@@ -137,21 +137,41 @@ export interface UpcomingSession {
   packageName: string;
 }
 
-/** Upcoming (confirmed, future) sessions for a mentor's own dashboard, newest-first by date ascending. */
+/**
+ * Upcoming (confirmed) sessions for a mentor's own dashboard, plus a small
+ * trailing window of overdue-but-still-confirmed sessions so "Mark
+ * Completed" stays reachable — see UpcomingSessionsList's isPast check.
+ *
+ * This is deliberately two bounded queries merged, not one query with a
+ * single limit: a mentor with more than `limit` confirmed sessions in the
+ * trailing 30 days would, under a single ascending-order query, have the
+ * *oldest* (most overdue) rows win the limit and every genuinely upcoming
+ * (future) session would be cut off entirely. Splitting into a small "due"
+ * window and a separate "upcoming" window guarantees both categories always
+ * have room.
+ */
 export async function listUpcomingSessionsForMentor(mentorProfileId: string): Promise<UpcomingSession[]> {
   const admin = createAdminSupabase();
-  const { data } = await admin
-    .from("sessions")
-    .select("id, student_id, scheduled_at, booking_id, profiles!sessions_student_id_fkey(full_name)")
-    .eq("mentor_id", mentorProfileId)
-    .eq("status", "confirmed")
-    .not("scheduled_at", "is", null)
-    // 30-day lookback (not now()) so recently-due confirmed sessions still surface for "Mark Completed" — see UpcomingSessionsList's isPast check
-    .gte("scheduled_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-    .order("scheduled_at", { ascending: true })
-    .limit(20);
+  const nowIso = new Date().toISOString();
+  const baseQuery = () =>
+    admin
+      .from("sessions")
+      .select("id, student_id, scheduled_at, booking_id, profiles!sessions_student_id_fkey(full_name)")
+      .eq("mentor_id", mentorProfileId)
+      .eq("status", "confirmed")
+      .not("scheduled_at", "is", null);
 
-  if (!data || data.length === 0) return [];
+  const [{ data: due }, { data: upcoming }] = await Promise.all([
+    baseQuery()
+      .gte("scheduled_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .lt("scheduled_at", nowIso)
+      .order("scheduled_at", { ascending: true })
+      .limit(10),
+    baseQuery().gte("scheduled_at", nowIso).order("scheduled_at", { ascending: true }).limit(20),
+  ]);
+
+  const data = [...(due ?? []), ...(upcoming ?? [])];
+  if (data.length === 0) return [];
 
   const bookingIds = Array.from(new Set(data.map((s) => s.booking_id).filter((id): id is string => id !== null)));
   const { data: bookings } = await admin.from("mentorship_bookings").select("id, package_name, sessions_total").in("id", bookingIds);

@@ -34,8 +34,9 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
   const [activeDay, setActiveDay] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch(`/api/mentors/${mentorSlug}/slots`)
+  function loadSlots() {
+    setLoading(true);
+    return fetch(`/api/mentors/${mentorSlug}/slots`)
       .then(async (r) => {
         if (!r.ok) throw new Error("Could not load available slots.");
         return r.json() as Promise<{ slots: string[]; timezone: string }>;
@@ -49,6 +50,11 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
         toast.error("Could not load available slots.");
         setLoading(false);
       });
+  }
+
+  useEffect(() => {
+    loadSlots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentorSlug]);
 
   const remaining = useMemo(() => allSlots.filter((s) => !selected.includes(s)), [allSlots, selected]);
@@ -77,7 +83,12 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { error?: string } | null;
         toast.error(payload?.error ?? "Could not book these sessions.");
+        // Refetch availability: a slot may have just been taken by someone
+        // else, and (before Fix 1) every retry of a multi-session package
+        // failed identically — either way, stale picks against stale
+        // availability just reproduce the same failure on retry.
         setSelected([]);
+        await loadSlots();
         return;
       }
       toast.success("All sessions booked.");

@@ -6,6 +6,8 @@ import { sendMentorshipEmail } from "@/lib/emails/mentorship";
 import { pushMentorshipStatusToSheet, pushMentorshipDelete } from "@/lib/gas/mentorship-sync-client";
 import { extractDriveFileIdFromViewUrl } from "@/lib/validations/drive-cleanup";
 import { trashDriveFiles } from "@/lib/data/drive-cleanup";
+import { resolveSessionsTotal } from "@/lib/data/session-slots";
+import type { MentorPackage } from "@/lib/data/mentors";
 
 export type MentorshipBookingStatus = Database["public"]["Enums"]["mentorship_booking_status"];
 
@@ -133,6 +135,14 @@ export type ApplyBookingStatusResult =
  * The single place that commits a booking status transition — the admin
  * PATCH route and the mentorship-sync webhook's status-change path both call
  * this, mirroring applyEnrollmentStatus in src/lib/data/admin-enrollments.ts.
+ *
+ * This is also the single commit point that freezes `sessions_total` before
+ * the student ever reaches the booking stepper: the stepper's
+ * `sessionsNeeded` calculation and book_mentorship_sessions's own slot-count
+ * check both depend on this column being non-null by the time the student
+ * sees "confirmed". Resolving it here (mentor's packages + the booking's own
+ * package_name) rather than in a read path means it's set exactly once, at
+ * the moment both pieces of data are authoritative.
  */
 export async function applyBookingStatus(params: {
   bookingId: string;
@@ -143,20 +153,34 @@ export async function applyBookingStatus(params: {
   const admin = createAdminSupabase();
   const { data: existing } = await admin
     .from("mentorship_bookings")
-    .select("id, status, full_name, email, mentor_name")
+    .select("id, status, full_name, email, mentor_name, mentor_slug, package_name, sessions_total")
     .eq("id", params.bookingId)
     .maybeSingle();
 
   if (!existing) return { ok: false, reason: "not-found" };
   if (existing.status === params.targetStatus) return { ok: false, reason: "already-in-status" };
 
+  const updatePayload: Database["public"]["Tables"]["mentorship_bookings"]["Update"] = {
+    status: params.targetStatus,
+    cancellation_reason: params.targetStatus === "cancelled" ? (params.cancellationReason ?? null) : null,
+    status_changed_at: new Date().toISOString(),
+  };
+
+  if (params.targetStatus === "confirmed" && existing.sessions_total === null) {
+    const { data: mentor } = await admin
+      .from("mentors")
+      .select("packages")
+      .eq("slug", existing.mentor_slug)
+      .maybeSingle();
+    updatePayload.sessions_total = resolveSessionsTotal(
+      existing.package_name,
+      (mentor?.packages as MentorPackage[] | null) ?? [],
+    );
+  }
+
   const { data: updated, error } = await admin
     .from("mentorship_bookings")
-    .update({
-      status: params.targetStatus,
-      cancellation_reason: params.targetStatus === "cancelled" ? (params.cancellationReason ?? null) : null,
-      status_changed_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", params.bookingId)
     .select("id, status")
     .single();
@@ -238,7 +262,12 @@ export async function listMyBookingsWithScheduling(studentId: string): Promise<M
       .from("sessions")
       .select("id", { count: "exact", head: true })
       .eq("booking_id", booking.id)
-      .not("scheduled_at", "is", null);
+      .not("scheduled_at", "is", null)
+      // Cancelled sessions must not block rebooking — the partial unique
+      // index (migration 0031) excludes cancelled rows for exactly this
+      // reason, so a mentor-cancelled session should free the slot for the
+      // student to rebook, not keep counting toward "already scheduled".
+      .not("status", "eq", "cancelled");
     results.push({ ...booking, scheduledCount: count ?? 0 });
   }
   return results;
