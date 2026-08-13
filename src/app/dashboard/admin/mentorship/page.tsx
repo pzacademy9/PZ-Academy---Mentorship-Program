@@ -5,6 +5,7 @@ import { listBookingsForReview } from "@/lib/data/mentorship-bookings";
 import { listApplicationsForReview } from "@/lib/data/mentorship-applications";
 import { MentorshipStatusBadge } from "@/components/admin/mentorship/MentorshipStatusBadge";
 import { MentorshipReviewActions } from "@/components/admin/mentorship/MentorshipReviewActions";
+import { ScheduleSessionModal } from "@/components/admin/mentorship/ScheduleSessionModal";
 import { formatDate, relativeTime, initials } from "@/lib/format";
 
 export const metadata = { title: "Mentorship Review — PZ Academy" };
@@ -113,7 +114,15 @@ export default async function AdminMentorshipPage({
                         <MentorshipStatusBadge kind="booking" status={b.status} />
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end items-center gap-2">
+                          {b.status === "confirmed" && (
+                            <ScheduleSessionModal
+                              bookingId={b.id}
+                              studentName={b.fullName}
+                              mentorName={b.mentorName}
+                              packageName={b.packageName}
+                            />
+                          )}
                           <MentorshipReviewActions kind="booking" id={b.id} status={b.status} name={b.fullName} />
                         </div>
                       </td>
