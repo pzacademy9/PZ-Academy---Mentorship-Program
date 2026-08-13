@@ -258,3 +258,27 @@ export async function getMentorDashboardStats(mentorSlug: string, mentorProfileI
     pendingBookings,
   };
 }
+
+import type { createServerSupabase } from "@/lib/supabase/server";
+import type { BookSessionsInput } from "@/lib/validations/mentorship-sessions";
+
+export type BookSessionsResult = { ok: true; created: number } | { ok: false; message: string };
+
+/**
+ * The student's own self-serve booking commit. Goes through the caller's
+ * own session client (not admin) so book_mentorship_sessions's
+ * `student_id = auth.uid()` ownership check resolves to the real caller —
+ * same convention as updateOwnMentorProfile/updateOwnMentorAvailability.
+ */
+export async function bookMentorshipSessions(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  input: BookSessionsInput,
+): Promise<BookSessionsResult> {
+  const { data, error } = await supabase.rpc("book_mentorship_sessions", {
+    p_booking_id: input.bookingId,
+    p_slots: input.slots,
+  });
+
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, created: data ?? 0 };
+}
