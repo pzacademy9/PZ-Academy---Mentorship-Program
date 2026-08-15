@@ -54,9 +54,13 @@ export async function saveQuestionBank(
     }))
     .filter((e) => e.text.length > 0);
 
-  await admin.from("feedback_question_bank").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  const { error: deleteError } = await admin.from("feedback_question_bank").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (deleteError) throw new Error(deleteError.message);
+
   if (clean.length > 0) {
-    await admin.from("feedback_question_bank").insert(clean);
+    const { error: insertError } = await admin.from("feedback_question_bank").insert(clean);
+    if (insertError) throw new Error(insertError.message);
   }
+
   await logFeedbackAudit({ action: "saveQuestionBank", detail: `${clean.length} questions`, actorProfileId });
 }
