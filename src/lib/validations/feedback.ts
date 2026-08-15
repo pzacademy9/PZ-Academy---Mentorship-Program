@@ -70,3 +70,22 @@ export function csvCell(v: unknown): string {
   if (/[",\r\n]/.test(s)) s = `"${s.replace(/"/g, '""')}"`;
   return s;
 }
+
+export function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sum = values.reduce((a, b) => a + b, 0);
+  return Math.round((sum / values.length) * 10) / 10;
+}
+
+export function withinRateLimit(recentCount: number, max: number): boolean {
+  return recentCount < max;
+}
+
+export function isDuplicateSubmission(
+  lastSubmittedAt: string | null,
+  windowMs: number,
+  now: number = Date.now(),
+): boolean {
+  if (!lastSubmittedAt) return false;
+  return now - new Date(lastSubmittedAt).getTime() < windowMs;
+}
