@@ -647,6 +647,275 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_answers: {
+        Row: {
+          id: string
+          question_id: string
+          response_id: string
+          star_value: number | null
+          video_url: string | null
+        }
+        Insert: {
+          id?: string
+          question_id: string
+          response_id: string
+          star_value?: number | null
+          video_url?: string | null
+        }
+        Update: {
+          id?: string
+          question_id?: string
+          response_id?: string
+          star_value?: number | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_audit_log: {
+        Row: {
+          action: string
+          actor_profile_id: string | null
+          created_at: string
+          detail: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_profile_id?: string | null
+          created_at?: string
+          detail?: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_profile_id?: string | null
+          created_at?: string
+          detail?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_audit_log_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_programs: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          id: string
+          name: string
+          share_token: string | null
+          type: Database["public"]["Enums"]["feedback_program_type"]
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          share_token?: string | null
+          type: Database["public"]["Enums"]["feedback_program_type"]
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          share_token?: string | null
+          type?: Database["public"]["Enums"]["feedback_program_type"]
+        }
+        Relationships: []
+      }
+      feedback_question_bank: {
+        Row: {
+          default_order: number
+          id: string
+          is_mentorship_default: boolean
+          text: string
+          type: Database["public"]["Enums"]["feedback_question_type"]
+        }
+        Insert: {
+          default_order: number
+          id?: string
+          is_mentorship_default?: boolean
+          text: string
+          type?: Database["public"]["Enums"]["feedback_question_type"]
+        }
+        Update: {
+          default_order?: number
+          id?: string
+          is_mentorship_default?: boolean
+          text?: string
+          type?: Database["public"]["Enums"]["feedback_question_type"]
+        }
+        Relationships: []
+      }
+      feedback_questions: {
+        Row: {
+          feedback_session_id: string
+          id: string
+          question_order: number
+          text: string
+          type: Database["public"]["Enums"]["feedback_question_type"]
+        }
+        Insert: {
+          feedback_session_id: string
+          id?: string
+          question_order: number
+          text: string
+          type?: Database["public"]["Enums"]["feedback_question_type"]
+        }
+        Update: {
+          feedback_session_id?: string
+          id?: string
+          question_order?: number
+          text?: string
+          type?: Database["public"]["Enums"]["feedback_question_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_questions_feedback_session_id_fkey"
+            columns: ["feedback_session_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_responses: {
+        Row: {
+          comments: string
+          feedback_session_id: string
+          id: string
+          participant_email: string | null
+          participant_name: string
+          participant_profile_id: string | null
+          submitted_at: string
+        }
+        Insert: {
+          comments?: string
+          feedback_session_id: string
+          id?: string
+          participant_email?: string | null
+          participant_name?: string
+          participant_profile_id?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          comments?: string
+          feedback_session_id?: string
+          id?: string
+          participant_email?: string | null
+          participant_name?: string
+          participant_profile_id?: string | null
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_responses_feedback_session_id_fkey"
+            columns: ["feedback_session_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_responses_participant_profile_id_fkey"
+            columns: ["participant_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_sessions: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          id: string
+          mentor_id: string | null
+          mentorship_session_id: string | null
+          name: string
+          program_id: string | null
+          program_order: number | null
+          session_date: string | null
+          share_token: string | null
+          slug: string
+          speaker_name: string
+          status: Database["public"]["Enums"]["feedback_session_status"]
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          mentor_id?: string | null
+          mentorship_session_id?: string | null
+          name: string
+          program_id?: string | null
+          program_order?: number | null
+          session_date?: string | null
+          share_token?: string | null
+          slug: string
+          speaker_name: string
+          status?: Database["public"]["Enums"]["feedback_session_status"]
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          mentor_id?: string | null
+          mentorship_session_id?: string | null
+          name?: string
+          program_id?: string | null
+          program_order?: number | null
+          session_date?: string | null
+          share_token?: string | null
+          slug?: string
+          speaker_name?: string
+          status?: Database["public"]["Enums"]["feedback_session_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_sessions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_sessions_mentorship_session_id_fkey"
+            columns: ["mentorship_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_sessions_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gas_sync_log: {
         Row: {
           course_slug: string
@@ -1525,6 +1794,9 @@ export type Database = {
         | "rejected"
         | "expired"
       featured_item_type: "course" | "webinar"
+      feedback_program_type: "workshop" | "course"
+      feedback_question_type: "stars" | "video"
+      feedback_session_status: "active" | "closed"
       lesson_content_type: "video" | "text" | "pdf"
       mentor_application_status: "pending" | "approved" | "rejected"
       mentor_visibility: "draft" | "published" | "hidden"
@@ -1670,6 +1942,9 @@ export const Constants = {
       course_type: ["course", "workshop", "webinar", "mentorship"],
       enrollment_status: ["pending", "reserved", "active", "rejected", "expired"],
       featured_item_type: ["course", "webinar"],
+      feedback_program_type: ["workshop", "course"],
+      feedback_question_type: ["stars", "video"],
+      feedback_session_status: ["active", "closed"],
       lesson_content_type: ["video", "text", "pdf"],
       mentor_application_status: ["pending", "approved", "rejected"],
       mentor_visibility: ["draft", "published", "hidden"],
