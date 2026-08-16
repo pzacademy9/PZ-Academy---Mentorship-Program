@@ -35,9 +35,10 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
   const comments = cleanText(input.comments, MAX_COMMENTS_LEN);
   if (email && !isValidEmail(email)) return { ok: false, message: "Please enter a valid email address." };
 
-  const cleanAnswers = input.answers.slice(0, 5).map((a) => ({
-    question: cleanText(a.question, 300),
-    answer: sanitizeAnswer(a.answer),
+  const answersInput = Array.isArray(input.answers) ? input.answers : [];
+  const cleanAnswers = answersInput.slice(0, 5).map((a) => ({
+    question: cleanText(a?.question, 300),
+    answer: sanitizeAnswer(a?.answer),
   }));
   if (!cleanAnswers.some((a) => a.answer !== "")) return { ok: false, message: "Please rate at least one question." };
 
@@ -96,7 +97,8 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
   if (answerRows.length > 0) {
-    await admin.from("feedback_answers").insert(answerRows);
+    const { error: answersError } = await admin.from("feedback_answers").insert(answerRows);
+    if (answersError) return { ok: false, message: "Could not save your answers. Please try again." };
   }
 
   return { ok: true };
