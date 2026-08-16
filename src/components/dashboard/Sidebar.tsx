@@ -48,7 +48,16 @@ interface SidebarProps {
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
-  const mobileItems = items.slice(0, 5);
+  /*
+   * 6, not 5 — the mentor role's filtered list is Dashboard, Sessions,
+   * Webinars, My Students, Availability, Feedback (6 items before
+   * Notifications/Settings). At slice(0, 5), Feedback fell off the mobile
+   * bottom nav entirely with no way to reach it except typing the URL.
+   * Bumping to 6 is purely additive for every role — no role's filtered
+   * list order changed, so this can only add an item to a role's mobile
+   * nav, never remove one that was reachable before.
+   */
+  const mobileItems = items.slice(0, 6);
 
   /*
    * Longest matching href wins. A plain startsWith lit up every ancestor —
