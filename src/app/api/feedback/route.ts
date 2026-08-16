@@ -15,24 +15,34 @@ interface SubmitBody {
 }
 
 export async function POST(req: NextRequest) {
-  const body: SubmitBody = await req.json();
+  let body: SubmitBody;
+  try {
+    body = await req.json();
 
-  const native = await getNativePublicSession(body.id);
-  if (native) {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const native = await getNativePublicSession(body.id);
+    if (native) {
+      const supabase = await createServerSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
 
-    const result = await submitFeedbackResponse({
-      sessionId: body.id,
-      name: body.name,
-      email: user?.email ?? body.email,
-      website: body.website,
-      comments: body.comments,
-      answers: body.answers,
-      participantProfileId: user?.id ?? null,
-    });
-    if (!result.ok) return NextResponse.json({ ok: false, error: result.message });
-    return NextResponse.json({ ok: true });
+      const result = await submitFeedbackResponse({
+        sessionId: body.id,
+        name: body.name,
+        email: user?.email ?? body.email,
+        website: body.website,
+        comments: body.comments,
+        answers: body.answers,
+        participantProfileId: user?.id ?? null,
+      });
+      if (!result.ok) return NextResponse.json({ ok: false, error: result.message });
+      return NextResponse.json({ ok: true });
+    }
+  } catch (e) {
+    // Malformed JSON body, or an unexpected failure in the native-session path —
+    // degrade gracefully instead of letting Next.js's default 500 page handle it.
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "Invalid request." },
+      { status: 400 }
+    );
   }
 
   // Legacy session — unchanged pass-through to GAS.
