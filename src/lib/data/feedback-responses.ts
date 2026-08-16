@@ -196,19 +196,22 @@ export async function deleteFeedbackResponse(responseId: string, sessionId: stri
 }
 
 export async function exportFeedbackSessionCsv(id: string): Promise<{ filename: string; csv: string } | null> {
-  const detail = await getFeedbackSessionDetail(id);
-  if (!detail) return null;
-  const { session, responses } = detail;
+  const session = await getFeedbackSessionBySlug(id);
+  if (!session) return null;
+  const rawResponses = await loadResponses(session.id);
 
   const header = ["Submitted On", "Participant Name", "Email", ...session.questions.map((q) => q.text + (q.type === "video" ? " (video)" : "")), "Comments"];
   const rows = [header];
-  for (const r of responses) {
-    const line = [r.submittedAt, r.name, r.email];
-    let starIdx = 0;
-    let videoIdx = 0;
+  for (const r of rawResponses) {
+    // Key answers by question_id so each column reflects that exact question — never a
+    // positional index into a compacted array, which would misattribute answers when a
+    // response skips a question of the same type earlier in the question list.
+    const byQuestion = new Map(r.feedback_answers.map((a) => [a.question_id, a]));
+    const line = [r.submitted_at, r.participant_name || "—", r.participant_email ?? ""];
     for (const q of session.questions) {
-      if (q.type === "video") line.push(r.videos[videoIdx++] ?? "");
-      else line.push(String(r.stars[starIdx++] ?? ""));
+      const a = byQuestion.get(q.id);
+      if (q.type === "video") line.push(a?.video_url ?? "");
+      else line.push(a?.star_value !== null && a?.star_value !== undefined ? String(a.star_value) : "");
     }
     line.push(r.comments);
     rows.push(line);
