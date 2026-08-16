@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Inbox, Star } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listFeedbackSessions } from "@/lib/data/feedback-sessions";
@@ -58,13 +59,17 @@ export default async function AdminFeedbackPage() {
                 {sessions.map((s) => (
                   <tr key={s.id} className="hover:bg-pz-surface-container/40 transition-colors">
                     <td className="py-4 px-6 max-w-xs">
-                      <div className="font-headline font-semibold text-pz-on-surface truncate">{s.name}</div>
-                      {s.programId && (
-                        <div className="font-body text-xs text-pz-on-surface-variant mt-0.5 truncate">
-                          {programNameById.get(s.programId) ?? "Program"}
-                          {s.programOrder != null ? ` · Part ${s.programOrder}` : ""}
+                      <Link href={`/dashboard/admin/feedback/${s.id}`} className="group block">
+                        <div className="font-headline font-semibold text-pz-on-surface truncate group-hover:text-pz-primary transition-colors">
+                          {s.name}
                         </div>
-                      )}
+                        {s.programId && (
+                          <div className="font-body text-xs text-pz-on-surface-variant mt-0.5 truncate">
+                            {programNameById.get(s.programId) ?? "Program"}
+                            {s.programOrder != null ? ` · Part ${s.programOrder}` : ""}
+                          </div>
+                        )}
+                      </Link>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
