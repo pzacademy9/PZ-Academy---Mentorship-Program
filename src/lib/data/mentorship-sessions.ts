@@ -3,6 +3,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { resolveSessionsTotal } from "@/lib/data/session-slots";
 import type { MentorPackage } from "@/lib/data/mentors";
+import { freezeMentorshipFeedbackSession } from "@/lib/data/feedback-mentorship-sync";
 
 export type SessionStatus = Database["public"]["Enums"]["session_status"];
 
@@ -124,6 +125,11 @@ export async function setSessionStatus(
   const { data, error } = await query.select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
+
+  if (status === "completed") {
+    await freezeMentorshipFeedbackSession(sessionId);
+  }
+
   return { ok: true };
 }
 

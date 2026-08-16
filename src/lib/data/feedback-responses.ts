@@ -103,6 +103,10 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
     if (answersError) return { ok: false, message: "Could not save your answers. Please try again." };
   }
 
+  // Dynamic import avoids a circular import: feedback-mentorship-sync.ts already imports from this file.
+  const { syncMentorshipFeedbackToSession } = await import("@/lib/data/feedback-mentorship-sync");
+  await syncMentorshipFeedbackToSession(session.id);
+
   return { ok: true };
 }
 
