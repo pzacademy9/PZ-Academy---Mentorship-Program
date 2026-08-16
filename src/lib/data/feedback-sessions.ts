@@ -106,14 +106,30 @@ export async function listFeedbackSessions(): Promise<FeedbackSessionRow[]> {
   return rows.map((r) => toRow(r, stats.get(r.id) ?? { count: 0, avg: null }));
 }
 
-/** Resolves either the raw id or the custom slug — mirrors the old getSessionById_'s dual lookup. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True when `value` is shaped like a Postgres uuid literal (feedback_sessions.id's column type). */
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/**
+ * Resolves either the raw id or the custom slug — mirrors the old getSessionById_'s dual lookup.
+ *
+ * `feedback_sessions.id` is `uuid` and `feedback_sessions.slug` is `text`. A single
+ * `.or("slug.eq.x,id.eq.x")` filter asks PostgREST to evaluate BOTH clauses against
+ * the same string, and Postgres tries to cast `x` to `uuid` for the `id.eq.` clause
+ * even when the caller only intended to match on slug. A non-UUID slug fails that
+ * cast with `22P02 invalid input syntax for type uuid`, which fails the WHOLE query
+ * (not just that clause) — so we branch on the input's shape instead and only ever
+ * send a UUID-shaped string into the `id` comparison.
+ */
 export async function getFeedbackSessionBySlug(slugOrId: string): Promise<FeedbackSessionRow | null> {
   const admin = createAdminSupabase();
-  const { data } = await admin
-    .from("feedback_sessions")
-    .select(SESSION_SELECT)
-    .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
-    .maybeSingle();
+  const query = admin.from("feedback_sessions").select(SESSION_SELECT);
+  const { data } = isUuid(slugOrId)
+    ? await query.eq("id", slugOrId).maybeSingle()
+    : await query.eq("slug", slugOrId).maybeSingle();
   if (!data) return null;
   const stats = await hydrateStats(admin, [data.id]);
   return toRow(data, stats.get(data.id) ?? { count: 0, avg: null });
