@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getNativePublicSession } from "@/lib/data/feedback-sessions";
+import { uploadFeedbackVideo } from "@/lib/gas/feedback-upload-client";
 
 const GAS_URL = process.env.MENTORSHIP_GAS_WEBAPP_URL ?? "";
 
@@ -6,13 +8,6 @@ const GAS_URL = process.env.MENTORSHIP_GAS_WEBAPP_URL ?? "";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  if (!GAS_URL) {
-    return NextResponse.json(
-      { ok: false, error: "MENTORSHIP_GAS_WEBAPP_URL not configured." },
-      { status: 500 }
-    );
-  }
-
   try {
     const form        = await req.formData();
     const file        = form.get("video") as File | null;
@@ -33,11 +28,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert to base64 for GAS (GAS cannot receive multipart directly)
+    // Convert to base64 (both the native upload proxy and legacy GAS expect base64, not multipart)
     const arrayBuffer = await file.arrayBuffer();
     const base64      = Buffer.from(arrayBuffer).toString("base64");
     const ext         = file.type.includes("mp4") ? "mp4" : "webm";
     const filename    = `${sessionId}_${Date.now()}.${ext}`;
+
+    // Native sessions upload through the new Drive-upload proxy client.
+    const native = await getNativePublicSession(sessionId);
+    if (native) {
+      const result = await uploadFeedbackVideo({
+        sessionId,
+        sessionName,
+        mimeType: file.type || "video/webm",
+        base64,
+        filename,
+      });
+      return NextResponse.json(
+        result.ok ? { ok: true, data: { url: result.url } } : { ok: false, error: result.error }
+      );
+    }
+
+    // Legacy session — unchanged pass-through to the old GAS Feedback System.
+    if (!GAS_URL) {
+      return NextResponse.json(
+        { ok: false, error: "MENTORSHIP_GAS_WEBAPP_URL not configured." },
+        { status: 500 }
+      );
+    }
 
     const gasRes = await fetch(GAS_URL, {
       method:  "POST",
