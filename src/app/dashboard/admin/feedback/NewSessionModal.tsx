@@ -45,8 +45,23 @@ interface CustomQuestion {
   type: QuestionType;
 }
 
+interface ProgramSessionRow {
+  localId: string;
+  title: string;
+  speaker: string;
+  date: string;
+}
+
 const MIN_QUESTIONS = 3;
 const MAX_QUESTIONS = 5;
+const MIN_PROGRAM_SESSIONS = 2;
+
+function makeEmptyProgramSessions(): ProgramSessionRow[] {
+  return [
+    { localId: crypto.randomUUID(), title: "", speaker: "", date: "" },
+    { localId: crypto.randomUUID(), title: "", speaker: "", date: "" },
+  ];
+}
 
 /** Small star/video segmented toggle used inside each question row. */
 function TypeToggle({
@@ -94,6 +109,44 @@ function TypeToggle({
   );
 }
 
+/** One copyable session link row shown on the program-creation success screen. */
+function ProgramSessionLinkRow({ index, slug }: { index: number; slug: string }) {
+  const [copied, setCopied] = useState(false);
+  const link = typeof window !== "undefined" ? `${window.location.origin}/feedback/${slug}` : `/feedback/${slug}`;
+
+  function copy() {
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => toast.error("Could not copy the link."));
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="font-body text-xs text-pz-on-surface-variant">Session {index + 1}</p>
+      <div className="flex items-center bg-pz-surface-container rounded-lg border border-pz-outline-variant overflow-hidden">
+        <input
+          type="text"
+          readOnly
+          value={link}
+          className="flex-1 bg-transparent border-none px-3 py-2 font-body text-sm text-pz-on-surface truncate outline-none"
+        />
+        <button
+          type="button"
+          onClick={copy}
+          className="flex items-center gap-1.5 px-3 py-2 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
+        >
+          {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function NewSessionModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -112,6 +165,10 @@ export function NewSessionModal() {
 
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const [isProgram, setIsProgram] = useState(false);
+  const [programSessions, setProgramSessions] = useState<ProgramSessionRow[]>(() => makeEmptyProgramSessions());
+  const [createdProgramSessions, setCreatedProgramSessions] = useState<{ id: string; slug: string }[] | null>(null);
 
   useEffect(() => {
     if (!open || bank !== null || bankLoading) return;
@@ -165,6 +222,18 @@ export function NewSessionModal() {
     setCustomQuestions((prev) => prev.filter((q) => q.localId !== localId));
   }
 
+  function addProgramSession() {
+    setProgramSessions((prev) => [...prev, { localId: crypto.randomUUID(), title: "", speaker: "", date: "" }]);
+  }
+
+  function removeProgramSession(localId: string) {
+    setProgramSessions((prev) => (prev.length <= MIN_PROGRAM_SESSIONS ? prev : prev.filter((s) => s.localId !== localId)));
+  }
+
+  function updateProgramSession(localId: string, patch: Partial<ProgramSessionRow>) {
+    setProgramSessions((prev) => prev.map((s) => (s.localId === localId ? { ...s, ...patch } : s)));
+  }
+
   function resetForm() {
     setName("");
     setSpeakerName("");
@@ -175,10 +244,17 @@ export function NewSessionModal() {
     setStep("form");
     setCreatedSlug(null);
     setCopied(false);
+    setIsProgram(false);
+    setProgramSessions(makeEmptyProgramSessions());
+    setCreatedProgramSessions(null);
   }
 
   function submit() {
-    if (!name.trim() || !speakerName.trim()) {
+    if (!name.trim()) {
+      toast.error(isProgram ? "Program name is required." : "Session name and speaker are required.");
+      return;
+    }
+    if (!isProgram && !speakerName.trim()) {
       toast.error("Session name and speaker are required.");
       return;
     }
@@ -197,6 +273,37 @@ export function NewSessionModal() {
     }
     if (questions.length > MAX_QUESTIONS) {
       toast.error(`Pick at most ${MAX_QUESTIONS} questions.`);
+      return;
+    }
+
+    if (isProgram) {
+      const sessions = programSessions
+        .map((s) => ({ title: s.title.trim(), speaker: s.speaker.trim(), date: s.date || null }))
+        .filter((s) => s.title.length > 0 && s.speaker.length > 0);
+
+      if (sessions.length < MIN_PROGRAM_SESSIONS) {
+        toast.error(`A program needs at least ${MIN_PROGRAM_SESSIONS} sessions, each with a title and speaker.`);
+        return;
+      }
+
+      startTransition(async () => {
+        const res = await fetch("/api/admin/feedback/programs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), questions, sessions }),
+        });
+
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+          toast.error(payload?.error ?? "Could not create this program.");
+          return;
+        }
+
+        const payload = (await res.json()) as { id: string; sessions: { id: string; slug: string }[] };
+        setCreatedProgramSessions(payload.sessions);
+        setStep("success");
+        router.refresh();
+      });
       return;
     }
 
@@ -268,45 +375,136 @@ export function NewSessionModal() {
 
               <div className="space-y-1.5">
                 <label htmlFor="session-name" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
-                  Session Name
+                  {isProgram ? "Program Name" : "Session Name"}
                 </label>
                 <input
                   id="session-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Advanced Cardiology Trends"
+                  placeholder={isProgram ? "e.g. Advanced Cardiology Series" : "e.g. Advanced Cardiology Trends"}
                   className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="speaker-name" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
-                    Speaker Name
-                  </label>
-                  <input
-                    id="speaker-name"
-                    type="text"
-                    value={speakerName}
-                    onChange={(e) => setSpeakerName(e.target.value)}
-                    placeholder="Dr. Jane Doe"
-                    className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
-                  />
+              <div className="flex items-center justify-between gap-4 bg-pz-surface-container p-3 rounded-lg border border-pz-outline-variant/40">
+                <div>
+                  <p className="font-headline text-sm font-semibold text-pz-on-surface">Make this a program</p>
+                  <p className="font-body text-xs text-pz-on-surface-variant mt-0.5">
+                    Bundle {MIN_PROGRAM_SESSIONS}+ linked sessions under one name, sharing the same questions.
+                  </p>
                 </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="session-date" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
-                    Date
-                  </label>
-                  <input
-                    id="session-date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isProgram}
+                  aria-label="Make this a program"
+                  onClick={() => setIsProgram((v) => !v)}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
+                    isProgram ? "bg-pz-primary" : "bg-pz-surface-variant",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                      isProgram ? "translate-x-6" : "translate-x-1",
+                    )}
                   />
-                </div>
+                </button>
               </div>
+
+              {!isProgram ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="speaker-name" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
+                      Speaker Name
+                    </label>
+                    <input
+                      id="speaker-name"
+                      type="text"
+                      value={speakerName}
+                      onChange={(e) => setSpeakerName(e.target.value)}
+                      placeholder="Dr. Jane Doe"
+                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="session-date" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
+                      Date
+                    </label>
+                    <input
+                      id="session-date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-headline font-semibold text-sm text-pz-on-surface">Sessions</h3>
+                    <span className="font-body text-xs text-pz-on-surface-variant">
+                      {programSessions.length} sessions · min {MIN_PROGRAM_SESSIONS}
+                    </span>
+                  </div>
+
+                  {programSessions.map((s, i) => (
+                    <div
+                      key={s.localId}
+                      className="bg-pz-surface-container p-3 rounded-xl border border-pz-outline-variant/40 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-headline text-xs font-semibold text-pz-on-surface-variant">
+                          Session {i + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeProgramSession(s.localId)}
+                          disabled={programSessions.length <= MIN_PROGRAM_SESSIONS}
+                          aria-label={`Remove session ${i + 1}`}
+                          className="p-1 rounded text-pz-on-surface-variant hover:text-pz-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={s.title}
+                        onChange={(e) => updateProgramSession(s.localId, { title: e.target.value })}
+                        placeholder="Session title"
+                        className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={s.speaker}
+                          onChange={(e) => updateProgramSession(s.localId, { speaker: e.target.value })}
+                          placeholder="Speaker name"
+                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                        />
+                        <input
+                          type="date"
+                          value={s.date}
+                          onChange={(e) => updateProgramSession(s.localId, { date: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={addProgramSession}
+                    className="inline-flex items-center gap-1.5 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Session
+                  </button>
+                </div>
+              )}
 
               <div className="border-t border-pz-outline-variant pt-4">
                 <div className="flex items-end justify-between mb-2">
@@ -393,7 +591,7 @@ export function NewSessionModal() {
                   disabled={isPending}
                   className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isPending ? "Creating…" : "Create Session"}
+                  {isPending ? "Creating…" : isProgram ? "Create Program" : "Create Session"}
                 </button>
               </DialogFooter>
             </>
@@ -406,37 +604,47 @@ export function NewSessionModal() {
                   </div>
                   <div>
                     <DialogTitle className="font-headline text-pz-on-surface">
-                      Success! Your feedback session is live.
+                      {createdProgramSessions
+                        ? `Success! Your program is live with ${createdProgramSessions.length} sessions.`
+                        : "Success! Your feedback session is live."}
                     </DialogTitle>
                     <p className="font-body text-sm text-pz-on-surface-variant mt-1">
-                      Share the link below for attendees to begin.
+                      Share the link{createdProgramSessions ? "s" : ""} below for attendees to begin.
                     </p>
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="space-y-1.5">
-                <label htmlFor="session-link" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
-                  Direct Session Link
-                </label>
-                <div className="flex items-center bg-pz-surface-container rounded-lg border border-pz-outline-variant overflow-hidden">
-                  <input
-                    id="session-link"
-                    type="text"
-                    readOnly
-                    value={link}
-                    className="flex-1 bg-transparent border-none px-3 py-2.5 font-body text-sm text-pz-on-surface truncate outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={copyLink}
-                    className="flex items-center gap-1.5 px-4 py-2.5 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? "Copied" : "Copy"}
-                  </button>
+              {createdProgramSessions ? (
+                <div className="space-y-3">
+                  {createdProgramSessions.map((s, i) => (
+                    <ProgramSessionLinkRow key={s.id} index={i} slug={s.slug} />
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label htmlFor="session-link" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
+                    Direct Session Link
+                  </label>
+                  <div className="flex items-center bg-pz-surface-container rounded-lg border border-pz-outline-variant overflow-hidden">
+                    <input
+                      id="session-link"
+                      type="text"
+                      readOnly
+                      value={link}
+                      className="flex-1 bg-transparent border-none px-3 py-2.5 font-body text-sm text-pz-on-surface truncate outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      className="flex items-center gap-1.5 px-4 py-2.5 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2 items-start bg-pz-surface-container p-3 rounded-lg">
                 <Info className="w-4 h-4 text-pz-tertiary shrink-0 mt-0.5" />
@@ -577,6 +785,70 @@ export function SessionRowActions({
           </DialogHeader>
           <p className="font-body text-sm text-pz-on-surface-variant">
             {name} — this permanently removes the session and all its responses. This cannot be undone.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(false)}
+              disabled={isPending}
+              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitDelete}
+              disabled={isPending}
+              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPending ? "Working…" : "Delete"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/** Row-level delete action for the Programs table — sessions survive as standalone (program_id set to null). */
+export function ProgramRowActions({ id, name }: { id: string; name: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  function submitDelete() {
+    startTransition(async () => {
+      const res = await fetch(`/api/admin/feedback/programs/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? "Could not delete this program.");
+        return;
+      }
+      setDeleteOpen(false);
+      toast.success(`${name} deleted — its sessions remain, no longer grouped.`);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setDeleteOpen(true)}
+        aria-label={`Delete ${name}`}
+        className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-danger/10 transition-colors"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-pz-on-surface">Delete this program?</DialogTitle>
+          </DialogHeader>
+          <p className="font-body text-sm text-pz-on-surface-variant">
+            {name} — this removes the program grouping only. Its sessions and their responses are not deleted; they
+            remain in the session list as standalone sessions.
           </p>
           <DialogFooter className="gap-2 sm:gap-2">
             <button

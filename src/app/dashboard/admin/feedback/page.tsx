@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Inbox, Star } from "lucide-react";
+import { Inbox, Star, ListChecks, Layers } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listFeedbackSessions } from "@/lib/data/feedback-sessions";
 import { listFeedbackPrograms } from "@/lib/data/feedback-programs";
 import { formatDate, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { NewSessionModal, SessionRowActions } from "./NewSessionModal";
+import { NewSessionModal, SessionRowActions, ProgramRowActions } from "./NewSessionModal";
 
 export const metadata = { title: "Feedback Sessions — PZ Academy" };
 
@@ -35,7 +35,16 @@ export default async function AdminFeedbackPage() {
             Create sessions and track how attendees are rating them.
           </p>
         </div>
-        <NewSessionModal />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/admin/feedback/question-bank"
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+          >
+            <ListChecks className="w-4 h-4" />
+            Question Bank
+          </Link>
+          <NewSessionModal />
+        </div>
       </div>
 
       {sessions.length === 0 ? (
@@ -117,6 +126,55 @@ export default async function AdminFeedbackPage() {
           </div>
         </div>
       )}
+
+      <div>
+        <div className="mb-3">
+          <h2 className="font-headline font-bold text-xl text-pz-secondary">Programs</h2>
+          <p className="font-body text-pz-on-surface-variant text-sm mt-1">
+            Multi-session bundles — create one via the &ldquo;Make this a program&rdquo; toggle in New Session.
+          </p>
+        </div>
+
+        {programs.length === 0 ? (
+          <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-8 flex flex-col items-center text-center">
+            <Layers className="w-8 h-8 text-pz-outline-variant mb-2" />
+            <p className="font-body text-pz-on-surface-variant text-sm">No programs yet.</p>
+          </div>
+        ) : (
+          <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[36rem]">
+                <thead>
+                  <tr className="border-b border-pz-outline-variant/40 text-pz-on-surface text-left">
+                    <th className="py-4 px-6 font-headline font-semibold">Program</th>
+                    <th className="py-4 px-6 font-headline font-semibold text-center">Type</th>
+                    <th className="py-4 px-6 font-headline font-semibold text-right">Sessions</th>
+                    <th className="py-4 px-6 font-headline font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pz-outline-variant/30 text-pz-on-surface">
+                  {programs.map((p) => (
+                    <tr key={p.id} className="hover:bg-pz-surface-container/40 transition-colors">
+                      <td className="py-4 px-6 font-headline font-semibold text-pz-on-surface">{p.name}</td>
+                      <td className="py-4 px-6 text-center">
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider font-headline bg-pz-surface-variant text-pz-on-surface-variant">
+                          {p.type}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 font-body text-right tabular-nums">{p.sessionCount}</td>
+                      <td className="py-4 px-6">
+                        <div className="flex justify-end">
+                          <ProgramRowActions id={p.id} name={p.name} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
