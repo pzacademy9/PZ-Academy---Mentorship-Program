@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getPublicSession } from "@/lib/mentorship/gas";
+import { getPublicSession, type PublicSession } from "@/lib/mentorship/gas";
+import { getNativePublicSession } from "@/lib/data/feedback-sessions";
 import FeedbackClient from "./FeedbackClient";
 import { Lock, CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -11,8 +12,14 @@ interface Props {
   params: { id: string };
 }
 
+async function resolveSession(id: string): Promise<PublicSession | null> {
+  const native = await getNativePublicSession(id);
+  if (native) return native;
+  return getPublicSession(id);
+}
+
 export default async function FeedbackPage({ params }: Props) {
-  const session = await getPublicSession(params.id);
+  const session = await resolveSession(params.id);
 
   if (!session) {
     return <ErrorState title="Link not found" message="This feedback link is not valid or has expired." />;
