@@ -1,5 +1,6 @@
 import { getShareView } from '@/lib/mentorship/gas';
 import type { ShareView } from '@/lib/mentorship/gas';
+import { getNativeShareView } from '@/lib/data/feedback-share';
 import ReviewClient from './ReviewClient';
 import type { Metadata } from 'next';
 import { cache } from 'react';
@@ -22,8 +23,15 @@ function rewriteCoverUrls(view: ShareView): ShareView {
   };
 }
 
-// Per-request cache so generateMetadata and ReviewPage share one GAS call.
-const getView = cache(getShareView);
+// Try native share view first, fall back to GAS
+async function resolveView(token: string): Promise<ShareView | null> {
+  const native = await getNativeShareView(token);
+  if (native) return native;
+  return getShareView(token);
+}
+
+// Per-request cache so generateMetadata and ReviewPage share one lookup.
+const getView = cache(resolveView);
 
 interface Props { params: Promise<{ token: string }> }
 
