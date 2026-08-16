@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
-  Handshake, UserCheck,
+  Handshake, UserCheck, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Webinars", href: "/webinars", icon: Video, roles: ["student", "mentor"] },
   { label: "My Students", shortLabel: "Students", href: "/dashboard/mentor", icon: GraduationCap, roles: ["mentor"] },
   { label: "Availability", href: "/dashboard/mentor/availability", icon: Clock, roles: ["mentor"] },
+  { label: "Feedback", href: "/dashboard/mentor/feedback", icon: Star, roles: ["mentor"] },
   { label: "Students", href: "/dashboard/admin/students", icon: Users, roles: ["admin", "super_admin"] },
   { label: "Enrollments", href: "/dashboard/admin/enrollments", icon: CreditCard, roles: ["admin", "super_admin"] },
   { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "super_admin"] },
