@@ -1,11 +1,13 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { getFeedbackSessionBySlug } from "@/lib/data/feedback-sessions";
+import { getFeedbackSessionBySlug, type FeedbackSessionRow } from "@/lib/data/feedback-sessions";
 import {
   cleanText, isValidEmail, sanitizeAnswer, isHttpUrl,
   MAX_NAME_LEN, MAX_EMAIL_LEN, MAX_COMMENTS_LEN,
   withinRateLimit, isDuplicateSubmission,
+  average, csvCell,
 } from "@/lib/validations/feedback";
+import { logFeedbackAudit } from "@/lib/data/feedback-audit";
 
 const RATE_MAX_SUBMITS = 3;
 const RATE_WINDOW_MS = 60_000;
@@ -102,4 +104,116 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
   }
 
   return { ok: true };
+}
+
+export interface PerQuestionStat {
+  question: string;
+  type: "stars" | "video";
+  avg: number | null;
+  count: number;
+}
+
+export interface ResponseDetail {
+  id: string;
+  submittedAt: string;
+  name: string;
+  email: string;
+  stars: number[];
+  videos: string[];
+  comments: string;
+}
+
+interface RawAnswer {
+  question_id: string;
+  star_value: number | null;
+  video_url: string | null;
+}
+interface RawResponse {
+  id: string;
+  submitted_at: string;
+  participant_name: string;
+  participant_email: string | null;
+  comments: string;
+  feedback_answers: RawAnswer[];
+}
+
+async function loadResponses(sessionId: string): Promise<RawResponse[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("feedback_responses")
+    .select("id, submitted_at, participant_name, participant_email, comments, feedback_answers(question_id, star_value, video_url)")
+    .eq("feedback_session_id", sessionId)
+    .order("submitted_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function getFeedbackSessionDetail(
+  id: string,
+): Promise<{ session: FeedbackSessionRow; perQuestion: PerQuestionStat[]; responses: ResponseDetail[] } | null> {
+  const session = await getFeedbackSessionBySlug(id);
+  if (!session) return null;
+  const rawResponses = await loadResponses(session.id);
+
+  const perQuestion: PerQuestionStat[] = session.questions.map((q) => {
+    const values = rawResponses
+      .flatMap((r) => r.feedback_answers)
+      .filter((a) => a.question_id === q.id);
+    if (q.type === "video") {
+      return { question: q.text, type: "video", avg: null, count: values.filter((v) => v.video_url).length };
+    }
+    const stars = values.map((v) => v.star_value).filter((v): v is number => v !== null);
+    return { question: q.text, type: "stars", avg: average(stars), count: stars.length };
+  });
+
+  const responses: ResponseDetail[] = rawResponses.map((r) => {
+    const stars: number[] = [];
+    const videos: string[] = [];
+    for (const q of session.questions) {
+      const a = r.feedback_answers.find((x) => x.question_id === q.id);
+      if (!a) continue;
+      if (q.type === "video" && a.video_url) videos.push(a.video_url);
+      else if (a.star_value !== null) stars.push(a.star_value);
+    }
+    return {
+      id: r.id,
+      submittedAt: r.submitted_at,
+      name: r.participant_name || "—",
+      email: r.participant_email ?? "",
+      stars,
+      videos,
+      comments: r.comments,
+    };
+  });
+
+  return { session, perQuestion, responses };
+}
+
+export async function deleteFeedbackResponse(responseId: string, sessionId: string, actorProfileId: string | null): Promise<void> {
+  const admin = createAdminSupabase();
+  const { error } = await admin.from("feedback_responses").delete().eq("id", responseId).eq("feedback_session_id", sessionId);
+  if (error) throw new Error(error.message);
+  await logFeedbackAudit({ action: "deleteResponse", detail: `${sessionId} · ${responseId}`, actorProfileId });
+}
+
+export async function exportFeedbackSessionCsv(id: string): Promise<{ filename: string; csv: string } | null> {
+  const detail = await getFeedbackSessionDetail(id);
+  if (!detail) return null;
+  const { session, responses } = detail;
+
+  const header = ["Submitted On", "Participant Name", "Email", ...session.questions.map((q) => q.text + (q.type === "video" ? " (video)" : "")), "Comments"];
+  const rows = [header];
+  for (const r of responses) {
+    const line = [r.submittedAt, r.name, r.email];
+    let starIdx = 0;
+    let videoIdx = 0;
+    for (const q of session.questions) {
+      if (q.type === "video") line.push(r.videos[videoIdx++] ?? "");
+      else line.push(String(r.stars[starIdx++] ?? ""));
+    }
+    line.push(r.comments);
+    rows.push(line);
+  }
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const safeName = (session.name || "session").replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "session";
+  return { filename: `${safeName}.csv`, csv };
 }
