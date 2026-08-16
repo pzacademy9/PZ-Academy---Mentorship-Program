@@ -6,6 +6,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  await deleteFeedbackProgram(id, auth.user.id);
-  return NextResponse.json({ ok: true });
+  try {
+    await deleteFeedbackProgram(id, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not delete program." }, { status: 400 });
+  }
 }

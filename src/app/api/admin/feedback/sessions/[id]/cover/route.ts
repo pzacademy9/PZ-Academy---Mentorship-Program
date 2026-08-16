@@ -15,14 +15,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const result = await uploadFeedbackCover({ sessionId: id, mimeType: file.type || "image/jpeg", base64, filename: file.name });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
 
-  await setFeedbackSessionCover(id, result.url, auth.user.id);
-  return NextResponse.json({ coverUrl: result.url });
+  try {
+    await setFeedbackSessionCover(id, result.url, auth.user.id);
+    return NextResponse.json({ coverUrl: result.url });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not save cover image." }, { status: 400 });
+  }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  await setFeedbackSessionCover(id, null, auth.user.id);
-  return NextResponse.json({ ok: true });
+  try {
+    await setFeedbackSessionCover(id, null, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not remove cover image." }, { status: 400 });
+  }
 }

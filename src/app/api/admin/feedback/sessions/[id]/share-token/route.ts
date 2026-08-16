@@ -6,6 +6,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  const result = await generateFeedbackShareToken("session", id, auth.user.id);
-  return NextResponse.json(result);
+  try {
+    const result = await generateFeedbackShareToken("session", id, auth.user.id);
+    return NextResponse.json(result);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Could not generate share link.";
+    const status = message.includes("not found") ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

@@ -6,6 +6,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id, responseId } = await params;
-  await deleteFeedbackResponse(responseId, id, auth.user.id);
-  return NextResponse.json({ ok: true });
+  try {
+    await deleteFeedbackResponse(responseId, id, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not delete response." }, { status: 400 });
+  }
 }

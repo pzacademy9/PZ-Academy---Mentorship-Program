@@ -11,14 +11,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  await setFeedbackSessionStatus(id, parsed.data.status, auth.user.id);
-  return NextResponse.json({ ok: true });
+  try {
+    await setFeedbackSessionStatus(id, parsed.data.status, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not update session." }, { status: 400 });
+  }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  await deleteFeedbackSession(id, auth.user.id);
-  return NextResponse.json({ ok: true });
+  try {
+    await deleteFeedbackSession(id, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not delete session." }, { status: 400 });
+  }
 }

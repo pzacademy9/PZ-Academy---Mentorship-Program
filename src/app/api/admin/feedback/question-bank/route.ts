@@ -21,6 +21,10 @@ export async function PUT(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const parsed = saveSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  await saveQuestionBank(parsed.data, auth.user.id);
-  return NextResponse.json({ ok: true });
+  try {
+    await saveQuestionBank(parsed.data, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not save question bank." }, { status: 400 });
+  }
 }
