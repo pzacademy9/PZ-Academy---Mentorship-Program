@@ -10,12 +10,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Mentor } from "@/lib/data/mentors";
+import type { MentorReview, MentorReviewSummary } from "@/lib/data/mentor-reviews";
 import { formatPrice, initials } from "@/lib/format";
 import { formatSessionDuration } from "@/lib/validations/admin-mentor";
 import { whatsappLink } from "@/lib/mentorship/whatsapp";
 import { toEmbedUrl } from "@/lib/video-embed";
 import { LinkedInIcon, BRAND_ICON_BY_PLATFORM } from "./BrandIcons";
 import { detectSocialPlatform, SOCIAL_PLATFORM_LABELS } from "@/lib/social-platforms";
+import { MentorReviews } from "./MentorReviews";
 
 const iconMap: Record<string, LucideIcon> = {
   GraduationCap, Award, BookOpen, Lightbulb, TrendingUp,
@@ -57,7 +59,15 @@ const stagger = {
   show: { transition: { staggerChildren: 0.1 } },
 };
 
-export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
+export default function MentorProfileClient({
+  mentor,
+  reviewSummary,
+  reviews,
+}: {
+  mentor: Mentor;
+  reviewSummary: MentorReviewSummary;
+  reviews: MentorReview[];
+}) {
   const waMsg = `Hi! I'd like to book a session with ${mentor.name} on PZ Academy.`;
   const rows = sessionDetailRows(mentor);
 
@@ -315,7 +325,26 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                 </motion.div>
               )}
 
-              {/* Testimonials */}
+              {/* Real submitted reviews — sourced from feedback_responses (see
+                  src/lib/data/mentor-reviews.ts), independent of the
+                  hand-authored Editor's Picks block below. Renders its own
+                  empty state internally when reviewSummary.count === 0, and
+                  nothing at all when the mentor has show_reviews off (page.tsx
+                  already returns an empty summary/list in that case). */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.05 }}
+              >
+                <MentorReviews summary={reviewSummary} reviews={reviews} />
+              </motion.div>
+
+              {/* Editor's Picks — admin-authored testimonials (mentor.testimonials,
+                  a jsonb field on the mentor row), distinct from the real
+                  submitted feedback rendered by MentorReviews above. Kept
+                  as its own block (not deleted) but relabeled so a reader
+                  doesn't mistake curated admin copy for verified feedback. */}
               {mentor.testimonials.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -323,7 +352,7 @@ export default function MentorProfileClient({ mentor }: { mentor: Mentor }) {
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: 0.05 }}
                 >
-                  <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-5">What Mentees Say</h2>
+                  <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-5">Editor&apos;s Picks</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {mentor.testimonials.map((t, i) => (
                       <div key={i} className="bg-gray-50 border border-gray-100 rounded-xl p-5 relative">

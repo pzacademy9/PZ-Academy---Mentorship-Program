@@ -149,6 +149,8 @@ export interface ResponseDetail {
   email: string;
   answers: Record<string, KeyedAnswer>;
   comments: string;
+  isPublic: boolean;
+  isFeatured: boolean;
 }
 
 interface RawAnswer {
@@ -184,6 +186,8 @@ interface RawResponse {
   participant_name: string;
   participant_email: string | null;
   comments: string;
+  is_public: boolean;
+  is_featured: boolean;
   feedback_answers: RawAnswer[];
 }
 
@@ -191,7 +195,9 @@ async function loadResponses(sessionId: string): Promise<RawResponse[]> {
   const admin = createAdminSupabase();
   const { data } = await admin
     .from("feedback_responses")
-    .select("id, submitted_at, participant_name, participant_email, comments, feedback_answers(question_id, star_value, video_url)")
+    .select(
+      "id, submitted_at, participant_name, participant_email, comments, is_public, is_featured, feedback_answers(question_id, star_value, video_url)",
+    )
     .eq("feedback_session_id", sessionId)
     .order("submitted_at", { ascending: false });
   return data ?? [];
@@ -222,6 +228,8 @@ export async function getFeedbackSessionDetail(
     email: r.participant_email ?? "",
     answers: keyAnswersByQuestionId(r.feedback_answers),
     comments: r.comments,
+    isPublic: r.is_public,
+    isFeatured: r.is_featured,
   }));
 
   return { session, perQuestion, responses };
@@ -232,6 +240,35 @@ export async function deleteFeedbackResponse(responseId: string, sessionId: stri
   const { error } = await admin.from("feedback_responses").delete().eq("id", responseId).eq("feedback_session_id", sessionId);
   if (error) throw new Error(error.message);
   await logFeedbackAudit({ action: "deleteResponse", detail: `${sessionId} · ${responseId}`, actorProfileId });
+}
+
+/**
+ * Per-response mentor-profile visibility, admin-controlled from the session
+ * detail page. Deliberately does NOT affect exportFeedbackSessionCsv or
+ * feedback-share.ts's toShareSession/getNativeShareView — those are the
+ * session's own admin CSV export and /review/{token} public page, both
+ * scoped to a single feedback session and already gated by the admin's own
+ * share-token generation. "Hidden" only removes a response from the
+ * cross-session mentor-profile aggregation (src/lib/data/mentor-reviews.ts).
+ */
+export async function setResponseVisibility(
+  responseId: string,
+  sessionId: string,
+  isPublic: boolean,
+  actorProfileId: string | null,
+): Promise<void> {
+  const admin = createAdminSupabase();
+  const { error } = await admin
+    .from("feedback_responses")
+    .update({ is_public: isPublic })
+    .eq("id", responseId)
+    .eq("feedback_session_id", sessionId);
+  if (error) throw new Error(error.message);
+  await logFeedbackAudit({
+    action: isPublic ? "showResponse" : "hideResponse",
+    detail: `${sessionId} · ${responseId}`,
+    actorProfileId,
+  });
 }
 
 export async function exportFeedbackSessionCsv(id: string): Promise<{ filename: string; csv: string } | null> {

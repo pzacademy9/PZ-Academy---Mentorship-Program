@@ -806,6 +806,8 @@ export type Database = {
           comments: string
           feedback_session_id: string
           id: string
+          is_featured: boolean
+          is_public: boolean
           participant_email: string | null
           participant_name: string
           participant_profile_id: string | null
@@ -815,6 +817,8 @@ export type Database = {
           comments?: string
           feedback_session_id: string
           id?: string
+          is_featured?: boolean
+          is_public?: boolean
           participant_email?: string | null
           participant_name?: string
           participant_profile_id?: string | null
@@ -824,6 +828,8 @@ export type Database = {
           comments?: string
           feedback_session_id?: string
           id?: string
+          is_featured?: boolean
+          is_public?: boolean
           participant_email?: string | null
           participant_name?: string
           participant_profile_id?: string | null
@@ -1196,6 +1202,7 @@ export type Database = {
           session_duration_minutes: number
           session_duration_text: string | null
           short_bio: string | null
+          show_reviews: boolean
           skills: string[]
           slug: string
           social_links: Json
@@ -1231,6 +1238,7 @@ export type Database = {
           session_duration_minutes?: number
           session_duration_text?: string | null
           short_bio?: string | null
+          show_reviews?: boolean
           skills?: string[]
           slug: string
           social_links?: Json
@@ -1266,6 +1274,7 @@ export type Database = {
           session_duration_minutes?: number
           session_duration_text?: string | null
           short_bio?: string | null
+          show_reviews?: boolean
           skills?: string[]
           slug?: string
           social_links?: Json

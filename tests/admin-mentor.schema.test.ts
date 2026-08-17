@@ -34,6 +34,7 @@ const valid = {
   sessionDurationText: undefined,
   timezone: "Asia/Karachi",
   visibility: "published",
+  showReviews: true,
 };
 
 describe("mentorConfigSchema", () => {
@@ -47,6 +48,7 @@ describe("mentorConfigSchema", () => {
       pricePerSessionPkr: 0,
       sessionDurationMinutes: 60,
       visibility: "draft",
+      showReviews: true,
     });
     expect(result.success).toBe(true);
   });

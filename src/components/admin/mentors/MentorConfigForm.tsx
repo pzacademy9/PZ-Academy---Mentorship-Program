@@ -48,6 +48,7 @@ type FormState = {
   sessionDurationText: string;
   timezone: string;
   visibility: MentorConfigDetail["visibility"];
+  showReviews: boolean;
 };
 
 function toFormState(mentor: MentorConfigDetail): FormState {
@@ -76,6 +77,7 @@ function toFormState(mentor: MentorConfigDetail): FormState {
     sessionDurationText: mentor.sessionDurationText,
     timezone: mentor.timezone,
     visibility: mentor.visibility,
+    showReviews: mentor.showReviews,
   };
 }
 
@@ -123,6 +125,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
           sessionDurationText: form.sessionDurationText.trim() || undefined,
           timezone: form.timezone || undefined,
           visibility: form.visibility,
+          showReviews: form.showReviews,
         }),
       });
 
@@ -222,6 +225,20 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className={labelClass}>Reviews on Public Profile</label>
+            <label className="flex items-center gap-2.5 border border-pz-outline-variant rounded-lg px-3 py-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.showReviews}
+                onChange={(e) => set("showReviews", e.target.checked)}
+                className="w-4 h-4 rounded border-pz-outline-variant text-pz-primary focus:ring-2 focus:ring-pz-primary/20"
+              />
+              <span className="font-body text-sm text-pz-on-surface">
+                {form.showReviews ? "Shown — mentee feedback appears on this profile" : "Hidden — the reviews section is not rendered"}
+              </span>
+            </label>
           </div>
         </div>
       </section>

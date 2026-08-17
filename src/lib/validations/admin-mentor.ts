@@ -100,6 +100,7 @@ export const mentorConfigSchema = z
     sessionDurationText: z.string().trim().max(50).optional(),
     timezone: z.enum(MENTOR_TIMEZONES).optional(),
     visibility: z.enum(MENTOR_VISIBILITIES),
+    showReviews: z.boolean(),
   })
   .superRefine((data, ctx) => {
     // BookingClient.tsx keys its package <option> on p.name and posts that

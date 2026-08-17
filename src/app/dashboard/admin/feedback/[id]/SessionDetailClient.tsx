@@ -20,6 +20,8 @@ import {
   Image as ImageIcon,
   X,
   Inbox,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, initials } from "@/lib/format";
@@ -83,12 +85,16 @@ function ResponseRow({
   r,
   starQuestions,
   videoQuestions,
+  isPending,
   onRequestDelete,
+  onToggleVisibility,
 }: {
   r: ResponseDetail;
   starQuestions: PerQuestionStat[];
   videoQuestions: PerQuestionStat[];
+  isPending: boolean;
   onRequestDelete: (r: ResponseDetail) => void;
+  onToggleVisibility: (r: ResponseDetail) => void;
 }) {
   const [open, setOpen] = useState(false);
   const stars = Object.values(r.answers)
@@ -97,7 +103,7 @@ function ResponseRow({
   const avg = personAvg(stars);
 
   return (
-    <div className="border-b border-pz-outline-variant/30 last:border-b-0">
+    <div className={cn("border-b border-pz-outline-variant/30 last:border-b-0", !r.isPublic && "opacity-60 hover:opacity-100 transition-opacity")}>
       <div
         role="button"
         tabIndex={0}
@@ -118,6 +124,11 @@ function ResponseRow({
                 {avg.toFixed(1)}
               </span>
             )}
+            {!r.isPublic && (
+              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-pz-surface-container-highest text-pz-on-surface-variant border border-pz-outline-variant/50 uppercase tracking-wide font-headline font-bold">
+                Hidden
+              </span>
+            )}
           </div>
           {r.comments ? (
             <p className={cn("font-body text-xs text-pz-on-surface-variant mt-0.5", !open && "truncate")}>
@@ -130,6 +141,18 @@ function ResponseRow({
         <span className="font-body text-xs text-pz-on-surface-variant whitespace-nowrap hidden sm:inline">
           {formatDateTime(r.submittedAt)}
         </span>
+        <button
+          type="button"
+          aria-label={r.isPublic ? "Hide response from mentor profile" : "Show response on mentor profile"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility(r);
+          }}
+          disabled={isPending}
+          className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-primary/10 transition-colors shrink-0 disabled:opacity-50"
+        >
+          {r.isPublic ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+        </button>
         <button
           type="button"
           aria-label="Delete response"
@@ -289,6 +312,24 @@ export function SessionDetailClient({
         return;
       }
       toast.success("Cover image removed.");
+      router.refresh();
+    });
+  }
+
+  function toggleVisibility(r: ResponseDetail) {
+    const nextIsPublic = !r.isPublic;
+    startTransition(async () => {
+      const res = await fetch(`/api/admin/feedback/sessions/${session.id}/responses/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: nextIsPublic }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? "Could not update this response.");
+        return;
+      }
+      toast.success(nextIsPublic ? "Response shown on the mentor profile." : "Response hidden from the mentor profile.");
       router.refresh();
     });
   }
@@ -497,7 +538,15 @@ export function SessionDetailClient({
         ) : (
           <div>
             {responses.map((r) => (
-              <ResponseRow key={r.id} r={r} starQuestions={starQuestions} videoQuestions={videoQuestions} onRequestDelete={setDeleteTarget} />
+              <ResponseRow
+                key={r.id}
+                r={r}
+                starQuestions={starQuestions}
+                videoQuestions={videoQuestions}
+                isPending={isPending}
+                onRequestDelete={setDeleteTarget}
+                onToggleVisibility={toggleVisibility}
+              />
             ))}
           </div>
         )}

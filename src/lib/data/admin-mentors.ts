@@ -81,9 +81,10 @@ export interface MentorConfigDetail extends Mentor {
   orderIndex: number;
   bookingCount: number;
   profileId: string | null;
+  showReviews: boolean;
 }
 
-const ADMIN_SELECT = `${MENTOR_SELECT}, visibility, order_index, profile_id`;
+const ADMIN_SELECT = `${MENTOR_SELECT}, visibility, order_index, profile_id, show_reviews`;
 
 /** Full detail for the Configuration page: mentor fields + booking count, nothing else. */
 export async function getMentorConfig(id: string): Promise<MentorConfigDetail | null> {
@@ -102,6 +103,7 @@ export async function getMentorConfig(id: string): Promise<MentorConfigDetail | 
     orderIndex: data.order_index,
     bookingCount: count ?? 0,
     profileId: data.profile_id,
+    showReviews: data.show_reviews,
   };
 }
 
@@ -176,6 +178,7 @@ export async function updateMentorConfig(id: string, input: MentorConfigInput): 
     session_duration_text: input.sessionDurationText ?? null,
     timezone: input.timezone ?? null,
     visibility: input.visibility,
+    show_reviews: input.showReviews,
   };
 
   const { data, error } = await admin.from("mentors").update(patch).eq("id", id).select("id").maybeSingle();

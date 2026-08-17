@@ -4,6 +4,7 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import MentorProfileClient from "@/components/mentorship/MentorProfileClient";
 import { getPublicMentorBySlug } from "@/lib/data/mentors";
+import { getMentorReviewSummary, listMentorReviews } from "@/lib/data/mentor-reviews";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -30,11 +31,19 @@ export default async function MentorPage({ params }: Props) {
   const mentor = await getPublicMentorBySlug(slug);
   if (!mentor) notFound();
 
+  // Fetched here (Server Component) and passed down as props — MentorProfileClient
+  // is a "use client" tree, so getMentorReviewSummary/listMentorReviews (both
+  // server-only) can't be called directly inside it. See task-4-brief.md Step 7.
+  const [reviewSummary, reviews] = await Promise.all([
+    getMentorReviewSummary(mentor.id),
+    listMentorReviews(mentor.id, { limit: 8 }),
+  ]);
+
   return (
     <>
       <MarketingNav alwaysSolid />
       <main>
-        <MentorProfileClient mentor={mentor} />
+        <MentorProfileClient mentor={mentor} reviewSummary={reviewSummary} reviews={reviews} />
       </main>
       <MarketingFooter />
     </>
