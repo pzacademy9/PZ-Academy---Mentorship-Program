@@ -350,8 +350,12 @@ export function NewSessionModal() {
     if (!coverFile) return;
     const form = new FormData();
     form.append("cover", coverFile);
-    const res = await fetch(`/api/admin/feedback/sessions/${sessionId}/cover`, { method: "POST", body: form });
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/admin/feedback/sessions/${sessionId}/cover`, { method: "POST", body: form });
+      if (!res.ok) {
+        toast.warning("Session created, but the cover image could not be uploaded. You can add it from the session page.");
+      }
+    } catch {
       toast.warning("Session created, but the cover image could not be uploaded. You can add it from the session page.");
     }
   }
