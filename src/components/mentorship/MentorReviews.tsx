@@ -141,7 +141,13 @@ function EmptyState() {
 export function MentorReviews({ summary, reviews }: { summary: MentorReviewSummary; reviews: MentorReview[] }) {
   const [showAll, setShowAll] = useState(false);
 
-  if (summary.count === 0) return <EmptyState />;
+  // Gated on the actual rendered content (reviews.length), not summary.count:
+  // a public, commented response with zero star answers (e.g. an all-video
+  // question bank) still appears as a review card below but contributes
+  // nothing to summary.count's star math in older semantics — count is now
+  // fixed to match, but gating on reviews.length directly is the more
+  // robust invariant regardless.
+  if (reviews.length === 0) return <EmptyState />;
 
   const visible = showAll ? reviews : reviews.slice(0, INITIAL_VISIBLE);
   const stars = [5, 4, 3, 2, 1] as const;

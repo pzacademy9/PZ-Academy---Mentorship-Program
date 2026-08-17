@@ -15,12 +15,28 @@ describe("summarizeStarValues", () => {
     });
   });
 
-  it("skips a response with zero star answers", () => {
+  it("still counts a response with zero star answers, but contributes nothing to its avg/distribution", () => {
+    // A comment-only response (e.g. an all-video question bank, or a
+    // respondent who skipped the star questions) is still a real review —
+    // count must match listMentorReviews's inclusion rule (any public
+    // commented response), it just has no stars to average or bucket.
     expect(summarizeStarValues([[]])).toEqual({
       avg: null,
-      count: 0,
+      count: 1,
       distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     });
+  });
+
+  it("counts a star-less response alongside starred responses without polluting the average/distribution", () => {
+    // Regression for the bug where summary.count undercounted (or zeroed
+    // out) whenever any public commented response had no star answers,
+    // causing MentorReviews to hide real reviews or show "No reviews yet"
+    // even though listMentorReviews had reviews to render.
+    const result = summarizeStarValues([[5], [], [3]]);
+    expect(result.count).toBe(3);
+    // Overall avg only averages the two responses that actually have stars: (5 + 3) / 2 = 4
+    expect(result.avg).toBe(4);
+    expect(result.distribution).toEqual({ 1: 0, 2: 0, 3: 1, 4: 0, 5: 1 });
   });
 
   it("averages a single response's multiple star answers before bucketing", () => {

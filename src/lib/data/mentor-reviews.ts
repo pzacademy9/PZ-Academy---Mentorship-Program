@@ -26,8 +26,12 @@ export interface MentorReviewSummary {
  * `perResponseStarLists` is one entry per feedback_responses row already
  * filtered to "public + has a non-empty comment" — each entry is that row's
  * own star values (a response can answer more than one stars-type
- * question). A row that answered zero stars questions contributes an empty
- * array and is skipped, matching the original per-response-average logic.
+ * question). `count` reflects every entry in this list (i.e. every public
+ * commented response), matching listMentorReviews's inclusion rule exactly
+ * — a response that answered zero stars questions (e.g. an all-video
+ * question bank, or a respondent who skipped the star questions) still
+ * counts as a review, it just contributes nothing to the star distribution
+ * or the average, since there's nothing to average.
  */
 export function summarizeStarValues(perResponseStarLists: number[][]): MentorReviewSummary {
   const perResponseAvgs: number[] = [];
@@ -45,7 +49,7 @@ export function summarizeStarValues(perResponseStarLists: number[][]): MentorRev
     ? Math.round((perResponseAvgs.reduce((a, b) => a + b, 0) / perResponseAvgs.length) * 10) / 10
     : null;
 
-  return { avg, count: perResponseAvgs.length, distribution };
+  return { avg, count: perResponseStarLists.length, distribution };
 }
 
 /**
