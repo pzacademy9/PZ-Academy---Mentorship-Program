@@ -93,14 +93,19 @@ function PerQuestionBar({ q }: { q: PerQuestionStat }) {
 function ResponseRow({
   r,
   starQuestions,
+  videoQuestions,
   onRequestDelete,
 }: {
   r: ResponseDetail;
   starQuestions: PerQuestionStat[];
+  videoQuestions: PerQuestionStat[];
   onRequestDelete: (r: ResponseDetail) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const avg = personAvg(r.stars);
+  const stars = Object.values(r.answers)
+    .map((a) => a.starValue)
+    .filter((v): v is number => v != null);
+  const avg = personAvg(stars);
 
   return (
     <div className="border-b border-pz-outline-variant/30 last:border-b-0">
@@ -158,35 +163,41 @@ function ResponseRow({
 
           {starQuestions.length > 0 && (
             <div className="space-y-2">
-              {starQuestions.map((q, i) =>
-                r.stars[i] != null ? (
-                  <div key={i} className="flex items-center justify-between gap-3">
+              {starQuestions.map((q) => {
+                const a = r.answers[q.id];
+                if (a?.starValue == null) return null;
+                return (
+                  <div key={q.id} className="flex items-center justify-between gap-3">
                     <span className="font-body text-xs text-pz-on-surface-variant flex-1">{q.question}</span>
-                    <StarRow value={r.stars[i]} />
+                    <StarRow value={a.starValue} />
                   </div>
-                ) : null,
-              )}
+                );
+              })}
             </div>
           )}
 
-          {r.videos.length > 0 && (
+          {videoQuestions.length > 0 && (
             <div className="space-y-3">
-              {r.videos.map((v, j) => (
-                <div
-                  key={j}
-                  className="rounded-lg overflow-hidden border border-pz-outline-variant/40 bg-black relative"
-                  style={{ paddingBottom: "56.25%" }}
-                >
-                  <iframe
-                    src={v}
-                    title={`Video feedback ${j + 1}`}
-                    sandbox="allow-scripts allow-same-origin"
-                    allow=""
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full border-0"
-                  />
-                </div>
-              ))}
+              {videoQuestions.map((q) => {
+                const a = r.answers[q.id];
+                if (!a?.videoUrl) return null;
+                return (
+                  <div
+                    key={q.id}
+                    className="rounded-lg overflow-hidden border border-pz-outline-variant/40 bg-black relative"
+                    style={{ paddingBottom: "56.25%" }}
+                  >
+                    <iframe
+                      src={a.videoUrl}
+                      title={`Video feedback — ${q.question}`}
+                      sandbox="allow-scripts allow-same-origin"
+                      allow=""
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full border-0"
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -213,7 +224,8 @@ export function SessionDetailClient({
   const [deleteTarget, setDeleteTarget] = useState<ResponseDetail | null>(null);
 
   const starQuestions = perQuestion.filter((q) => q.type === "stars");
-  const videoResponseCount = perQuestion.filter((q) => q.type === "video").reduce((sum, q) => sum + q.count, 0);
+  const videoQuestions = perQuestion.filter((q) => q.type === "video");
+  const videoResponseCount = videoQuestions.reduce((sum, q) => sum + q.count, 0);
   const exportUrl = `/api/admin/feedback/sessions/${session.id}/export`;
   const absoluteShareUrl =
     shareUrl != null ? (typeof window !== "undefined" ? `${window.location.origin}${shareUrl}` : shareUrl) : null;
@@ -491,7 +503,7 @@ export function SessionDetailClient({
         ) : (
           <div>
             {responses.map((r) => (
-              <ResponseRow key={r.id} r={r} starQuestions={starQuestions} onRequestDelete={setDeleteTarget} />
+              <ResponseRow key={r.id} r={r} starQuestions={starQuestions} videoQuestions={videoQuestions} onRequestDelete={setDeleteTarget} />
             ))}
           </div>
         )}

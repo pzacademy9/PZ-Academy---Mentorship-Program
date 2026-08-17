@@ -5,7 +5,6 @@ import { average } from "@/lib/validations/feedback";
 import { logFeedbackAudit } from "@/lib/data/feedback-audit";
 import type { ShareView, ShareSession, ShareResponse } from "@/lib/mentorship/gas";
 
-type Admin = ReturnType<typeof createAdminSupabase>;
 type SessionDetail = NonNullable<Awaited<ReturnType<typeof getFeedbackSessionDetail>>>;
 
 function randomToken(): string {
@@ -31,38 +30,22 @@ export async function generateFeedbackShareToken(
 }
 
 /**
- * Loads every feedback_answers row for the given response ids, keyed by
- * response_id -> question_id. This gives us the raw per-question answers we
- * need to build correctly-aligned stars/videos arrays — ResponseDetail.stars/
- * videos (from getFeedbackSessionDetail) are compacted (only pushed when
- * answered), so a response that skips a non-last stars/video question would
- * otherwise shift every later answer of that type into the wrong slot.
+ * Builds the share view's per-response shape from getFeedbackSessionDetail's
+ * output. Used to run its own loadAnswersByResponse() query here (see the
+ * Important-5 fix ledger note) because ResponseDetail.stars/videos were
+ * compacted push-based arrays unusable for this purpose — a response that
+ * skipped a non-last stars/video question would shift every later answer of
+ * that type into the wrong slot. Now that ResponseDetail.answers is keyed by
+ * question_id (never positional), this can build the same sparse-by-type-
+ * position stars[]/videos[] arrays ShareResponse expects directly from
+ * `session`, with no extra query.
  */
-async function loadAnswersByResponse(
-  admin: Admin,
-  responseIds: string[],
-): Promise<Map<string, Map<string, { star_value: number | null; video_url: string | null }>>> {
-  const map = new Map<string, Map<string, { star_value: number | null; video_url: string | null }>>();
-  if (responseIds.length === 0) return map;
-  const { data } = await admin
-    .from("feedback_answers")
-    .select("response_id, question_id, star_value, video_url")
-    .in("response_id", responseIds);
-  for (const a of data ?? []) {
-    if (!map.has(a.response_id)) map.set(a.response_id, new Map());
-    map.get(a.response_id)!.set(a.question_id, { star_value: a.star_value, video_url: a.video_url });
-  }
-  return map;
-}
-
-async function toShareSession(admin: Admin, session: SessionDetail): Promise<ShareSession> {
+function toShareSession(session: SessionDetail): ShareSession {
   const { perQuestion, responses } = session;
   const questions = session.session.questions; // ordered by question_order — same order perQuestion was built from
   const starQuestions = questions.filter((q) => q.type === "stars");
   const videoQuestions = questions.filter((q) => q.type === "video");
   const starAvgs = perQuestion.filter((q) => q.type !== "video" && q.avg != null).map((q) => q.avg as number);
-
-  const answersByResponse = await loadAnswersByResponse(admin, responses.map((r) => r.id));
 
   return {
     id: session.session.id,
@@ -74,21 +57,19 @@ async function toShareSession(admin: Admin, session: SessionDetail): Promise<Sha
     avgRating: average(starAvgs),
     perQuestion: perQuestion.map((q) => ({ question: q.question, type: q.type, avg: q.avg, count: q.count })),
     responses: responses.map((r): ShareResponse => {
-      const byQuestion = answersByResponse.get(r.id);
-
       // Sparse-index by position among stars-type (resp. video-type) questions
       // specifically, so stars[i]/videos[i] always corresponds to the i-th
       // question of that type — with a genuine hole (undefined), not a shift,
       // for any question this response didn't answer.
       const stars: number[] = [];
       starQuestions.forEach((q, i) => {
-        const a = byQuestion?.get(q.id);
-        if (a && a.star_value !== null) stars[i] = a.star_value;
+        const a = r.answers[q.id];
+        if (a && a.starValue !== null) stars[i] = a.starValue;
       });
       const videos: string[] = [];
       videoQuestions.forEach((q, i) => {
-        const a = byQuestion?.get(q.id);
-        if (a && a.video_url) videos[i] = a.video_url;
+        const a = r.answers[q.id];
+        if (a && a.videoUrl) videos[i] = a.videoUrl;
       });
 
       return {
@@ -109,7 +90,7 @@ export async function getNativeShareView(token: string): Promise<ShareView | nul
   if (session) {
     const detail = await getFeedbackSessionDetail(session.id);
     if (!detail) return null;
-    return { type: "session", session: await toShareSession(admin, detail) };
+    return { type: "session", session: toShareSession(detail) };
   }
 
   const { data: program } = await admin.from("feedback_programs").select("id, name, type, cover_url").eq("share_token", token).maybeSingle();
@@ -122,7 +103,7 @@ export async function getNativeShareView(token: string): Promise<ShareView | nul
     const sessions: ShareSession[] = [];
     for (const m of members ?? []) {
       const detail = await getFeedbackSessionDetail(m.id);
-      if (detail) sessions.push(await toShareSession(admin, detail));
+      if (detail) sessions.push(toShareSession(detail));
     }
     return {
       type: "program",
