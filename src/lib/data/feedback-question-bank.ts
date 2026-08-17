@@ -54,12 +54,26 @@ export async function saveQuestionBank(
     }))
     .filter((e) => e.text.length > 0);
 
-  const { error: deleteError } = await admin.from("feedback_question_bank").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  if (deleteError) throw new Error(deleteError.message);
+  // Insert-then-delete, not delete-then-insert: capture the currently-live
+  // row ids up front, insert the new set, and only delete the old rows once
+  // the insert has actually succeeded. If the insert throws partway (or the
+  // request drops), the old rows are still there — the bank is never left
+  // empty by a failed write. A wiped bank silently disables the mentorship
+  // feedback tie-in (freezeMentorshipFeedbackSession skips freezing once
+  // is_mentorship_default rows drop below 3), so leaving stale rows behind
+  // on failure is strictly safer than a transient empty table.
+  const { data: existingRows, error: existingError } = await admin.from("feedback_question_bank").select("id");
+  if (existingError) throw new Error(existingError.message);
+  const existingIds = (existingRows ?? []).map((r) => r.id);
 
   if (clean.length > 0) {
     const { error: insertError } = await admin.from("feedback_question_bank").insert(clean);
     if (insertError) throw new Error(insertError.message);
+  }
+
+  if (existingIds.length > 0) {
+    const { error: deleteError } = await admin.from("feedback_question_bank").delete().in("id", existingIds);
+    if (deleteError) throw new Error(deleteError.message);
   }
 
   await logFeedbackAudit({ action: "saveQuestionBank", detail: `${clean.length} questions`, actorProfileId });

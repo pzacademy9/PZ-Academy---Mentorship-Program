@@ -73,6 +73,11 @@ export function QuestionBankEditor({ initialQuestions }: { initialQuestions: Que
       })),
   );
 
+  // Live count for the inline warning banner below — mirrors the check in
+  // save(), only counting rows with actual text since blank rows are
+  // dropped before saving.
+  const mentorshipDefaultCount = rows.filter((r) => r.isMentorshipDefault && r.text.trim().length > 0).length;
+
   function addRow() {
     setRows((prev) => [...prev, { localId: newLocalId(), text: "", type: "stars", isMentorshipDefault: false }]);
   }
@@ -100,6 +105,20 @@ export function QuestionBankEditor({ initialQuestions }: { initialQuestions: Que
     if (clean.length === 0) {
       toast.error("Add at least one question before saving.");
       return;
+    }
+
+    // Not a hard block — there can be legitimate reasons to go below 3 — but
+    // freezeMentorshipFeedbackSession silently skips creating a feedback
+    // session for every completed 1:1 mentorship session once the bank has
+    // fewer than 3 is_mentorship_default questions, with only a server
+    // console.warn. Surface that consequence here, before the admin commits
+    // to the save, instead of letting it fail silently downstream.
+    const mentorshipDefaultCount = clean.filter((r) => r.isMentorshipDefault).length;
+    if (mentorshipDefaultCount < 3) {
+      const proceed = window.confirm(
+        `Only ${mentorshipDefaultCount} question${mentorshipDefaultCount === 1 ? "" : "s"} ${mentorshipDefaultCount === 1 ? "is" : "are"} flagged "Mentorship default". Mentorship sessions need at least 3 to auto-create a feedback session when they complete — saving now will silently stop that until you flag more. Save anyway?`,
+      );
+      if (!proceed) return;
     }
 
     startTransition(async () => {
@@ -168,6 +187,17 @@ export function QuestionBankEditor({ initialQuestions }: { initialQuestions: Que
           unaffected.
         </p>
       </div>
+
+      {mentorshipDefaultCount < 3 && (
+        <div className="flex gap-2 items-start bg-pz-danger/10 p-3 rounded-lg border border-pz-danger/30">
+          <Info className="w-4 h-4 text-pz-danger shrink-0 mt-0.5" />
+          <p className="font-body text-xs text-pz-danger leading-relaxed">
+            Only {mentorshipDefaultCount} question{mentorshipDefaultCount === 1 ? "" : "s"} currently flagged
+            &ldquo;Mentorship default&rdquo; — 1:1 mentorship sessions need at least 3 to auto-create a feedback
+            session when they complete. Below that, completions silently stop generating feedback links.
+          </p>
+        </div>
+      )}
 
       <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 p-4 sm:p-6">
         {rows.length === 0 ? (
