@@ -19,25 +19,14 @@ import {
   RotateCcw,
   Image as ImageIcon,
   X,
-  Pencil,
   Inbox,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import type { FeedbackSessionRow } from "@/lib/data/feedback-sessions";
 import type { PerQuestionStat, ResponseDetail } from "@/lib/data/feedback-responses";
-
-/**
- * Rewrites a Drive-hosted cover URL through /api/cover/{fileId} so the
- * browser <img> tag doesn't hit Drive's thumbnail endpoint directly — same
- * proxy the public /review pages already rely on (raw Drive URLs get
- * CORP-blocked in the browser).
- */
-function coverProxyUrl(url: string): string {
-  const m = url.match(/[?&]id=([A-Za-z0-9_-]+)/) ?? url.match(/\/d\/([A-Za-z0-9_-]+)/);
-  return m ? `/api/cover/${m[1]}` : url;
-}
 
 function personAvg(stars: number[]): number | null {
   if (!stars.length) return null;
@@ -332,95 +321,100 @@ export function SessionDetailClient({
           <ArrowLeft className="w-4 h-4" /> Back to sessions
         </Link>
 
-        <div className="flex items-start justify-between gap-4 flex-wrap mt-3">
-          <div className="flex items-start gap-4 min-w-0">
-            {/* Cover thumbnail — upload/remove */}
-            <div className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-pz-outline-variant/40 bg-pz-surface-container group">
-              {session.coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={coverProxyUrl(session.coverUrl)} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full grid place-items-center">
-                  <ImageIcon className="w-6 h-6 text-pz-outline-variant" />
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isPending}
-                aria-label="Upload cover image"
-                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center disabled:cursor-not-allowed"
-              >
-                <Pencil className="w-4 h-4 text-white" />
-              </button>
-              {session.coverUrl && (
+        {/* Cover hero — 16:9, upload/remove on hover, ported from Stitch screen B-session-detail
+            (fixed to a semantic-token scrim and a constant aspect-video, per Task 2 brief). */}
+        <div className="relative w-full aspect-video rounded-xl overflow-hidden mt-3 border border-pz-outline-variant/30 bg-pz-surface-container group">
+          {session.coverUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={coverProxyUrl(session.coverUrl)}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-pz-surface-dim via-pz-surface/80 to-transparent" />
+              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-2 bg-pz-surface/70 hover:bg-pz-surface backdrop-blur-md border border-pz-outline-variant/40 text-pz-on-surface px-3 py-1.5 rounded-lg font-headline text-xs font-semibold transition-colors disabled:cursor-not-allowed shadow-sm"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Change cover
+                </button>
                 <button
                   type="button"
                   onClick={removeCover}
                   disabled={isPending}
                   aria-label="Remove cover image"
-                  className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white hover:bg-pz-danger transition-colors disabled:cursor-not-allowed"
+                  className="bg-pz-surface/70 hover:bg-pz-danger backdrop-blur-md border border-pz-outline-variant/40 text-pz-on-surface hover:text-white px-2 py-1.5 rounded-lg flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                 </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleCoverChange}
-                className="hidden"
-              />
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="font-headline font-bold text-2xl text-pz-secondary truncate">{session.name}</h1>
-                <span
-                  className={cn(
-                    "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
-                    session.status === "active"
-                      ? "bg-pz-primary-container/30 text-pz-on-primary-container"
-                      : "bg-pz-surface-variant text-pz-on-surface-variant",
-                  )}
-                >
-                  {session.status === "active" ? "Active" : "Closed"}
-                </span>
               </div>
-              <p className="font-body text-pz-on-surface-variant text-sm mt-1">
-                {session.speakerName}
-                {session.sessionDate ? ` · ${new Date(session.sessionDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-              </p>
-            </div>
-          </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isPending}
+              aria-label="Upload cover image"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-pz-on-surface-variant hover:text-pz-primary transition-colors disabled:cursor-not-allowed"
+            >
+              <ImageIcon className="w-8 h-8" />
+              <span className="font-headline text-xs font-semibold">Add cover image</span>
+            </button>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={toggleStatus}
-              disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-surface-container transition-colors disabled:opacity-50"
+          <div className="absolute bottom-0 left-0 w-full p-5 sm:p-6 flex flex-col justify-end">
+            <span
+              className={cn(
+                "self-start inline-block px-3 py-1 mb-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
+                session.status === "active"
+                  ? "bg-pz-primary-container/30 text-pz-on-primary-container"
+                  : "bg-pz-surface-variant text-pz-on-surface-variant",
+              )}
             >
-              {session.status === "active" ? <Ban className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
-              {session.status === "active" ? "Close Session" : "Reopen Session"}
-            </button>
-            <a
-              href={exportUrl}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </a>
-            <button
-              type="button"
-              onClick={generateShareLink}
-              disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50"
-            >
-              <Link2 className="w-4 h-4" />
-              {shareUrl ? "Share Link" : "Generate Share Link"}
-            </button>
+              {session.status === "active" ? "Active" : "Closed"}
+            </span>
+            <h1 className="font-headline font-bold text-2xl sm:text-3xl text-pz-on-surface leading-tight truncate">
+              {session.name}
+            </h1>
+            <p className="font-body text-pz-on-surface-variant text-sm mt-1.5">
+              {session.speakerName}
+              {session.sessionDate ? ` · ${new Date(session.sessionDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+            </p>
           </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 flex-wrap mt-4">
+          <button
+            type="button"
+            onClick={toggleStatus}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-surface-container transition-colors disabled:opacity-50"
+          >
+            {session.status === "active" ? <Ban className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+            {session.status === "active" ? "Close Session" : "Reopen Session"}
+          </button>
+          <a
+            href={exportUrl}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </a>
+          <button
+            type="button"
+            onClick={generateShareLink}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50"
+          >
+            <Link2 className="w-4 h-4" />
+            {shareUrl ? "Share Link" : "Generate Share Link"}
+          </button>
         </div>
 
         {shareUrl && (

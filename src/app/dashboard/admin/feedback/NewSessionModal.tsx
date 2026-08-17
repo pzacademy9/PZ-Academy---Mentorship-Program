@@ -19,6 +19,7 @@ import {
   Download,
   Pencil,
   Trash2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -61,6 +62,62 @@ function makeEmptyProgramSessions(): ProgramSessionRow[] {
     { localId: crypto.randomUUID(), title: "", speaker: "", date: "" },
     { localId: crypto.randomUUID(), title: "", speaker: "", date: "" },
   ];
+}
+
+const COVER_MAX_BYTES = 5 * 1024 * 1024;
+const COVER_TARGET_ASPECT = 16 / 9;
+const COVER_ASPECT_TOLERANCE = 0.02;
+
+/**
+ * Center-crops an image to 16:9 on an offscreen canvas when its native
+ * aspect ratio falls outside a small tolerance. Returns the original file
+ * untouched when it's already close enough to 16:9.
+ */
+function cropToWidescreen(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      const aspect = img.width / img.height;
+      if (Math.abs(aspect - COVER_TARGET_ASPECT) <= COVER_ASPECT_TOLERANCE) {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+        return;
+      }
+
+      let cropWidth = img.width;
+      let cropHeight = img.height;
+      if (aspect > COVER_TARGET_ASPECT) {
+        cropWidth = Math.round(img.height * COVER_TARGET_ASPECT);
+      } else {
+        cropHeight = Math.round(img.width / COVER_TARGET_ASPECT);
+      }
+      const sx = Math.round((img.width - cropWidth) / 2);
+      const sy = Math.round((img.height - cropHeight) / 2);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = cropWidth;
+      canvas.height = cropHeight;
+      const ctx = canvas.getContext("2d");
+      URL.revokeObjectURL(objectUrl);
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, sx, sy, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+      const outType = file.type === "image/png" ? "image/png" : "image/jpeg";
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], file.name, { type: blob.type || outType }) : file),
+        outType,
+        0.92,
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not read that image."));
+    };
+    img.src = objectUrl;
+  });
 }
 
 /** Small star/video segmented toggle used inside each question row. */
@@ -157,6 +214,9 @@ export function NewSessionModal() {
   const [speakerName, setSpeakerName] = useState("");
   const [date, setDate] = useState("");
 
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+
   const [bank, setBank] = useState<BankEntry[] | null>(null);
   const [bankLoading, setBankLoading] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -186,6 +246,37 @@ export function NewSessionModal() {
       .catch(() => toast.error("Could not load the question bank."))
       .finally(() => setBankLoading(false));
   }, [open, bank, bankLoading]);
+
+  // Object URL for the cover preview — revoked whenever the file changes or the modal unmounts.
+  useEffect(() => {
+    if (!coverFile) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(coverFile);
+    setCoverPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [coverFile]);
+
+  async function handleCoverSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > COVER_MAX_BYTES) {
+      toast.error("File is too large (max 5 MB). Please choose a smaller image.");
+      return;
+    }
+    try {
+      const cropped = await cropToWidescreen(file);
+      setCoverFile(cropped);
+    } catch {
+      toast.error("Could not read that image. Please try a different file.");
+    }
+  }
+
+  function removeCoverSelection() {
+    setCoverFile(null);
+  }
 
   const selectedBankCount = Object.values(selected).filter(Boolean).length;
   const totalSelected = selectedBankCount + customQuestions.length;
@@ -238,6 +329,7 @@ export function NewSessionModal() {
     setName("");
     setSpeakerName("");
     setDate("");
+    setCoverFile(null);
     setSelected({});
     setTypeOverrides({});
     setCustomQuestions([]);
@@ -247,6 +339,21 @@ export function NewSessionModal() {
     setIsProgram(false);
     setProgramSessions(makeEmptyProgramSessions());
     setCreatedProgramSessions(null);
+  }
+
+  /**
+   * Uploads the selected cover onto a just-created session. Non-fatal: the
+   * session already exists, so a failed cover upload only earns a warning
+   * toast, never blocks the success step.
+   */
+  async function uploadCoverFor(sessionId: string) {
+    if (!coverFile) return;
+    const form = new FormData();
+    form.append("cover", coverFile);
+    const res = await fetch(`/api/admin/feedback/sessions/${sessionId}/cover`, { method: "POST", body: form });
+    if (!res.ok) {
+      toast.warning("Session created, but the cover image could not be uploaded. You can add it from the session page.");
+    }
   }
 
   function submit() {
@@ -300,6 +407,7 @@ export function NewSessionModal() {
         }
 
         const payload = (await res.json()) as { id: string; sessions: { id: string; slug: string }[] };
+        if (payload.sessions[0]) await uploadCoverFor(payload.sessions[0].id);
         setCreatedProgramSessions(payload.sessions);
         setStep("success");
         router.refresh();
@@ -326,6 +434,7 @@ export function NewSessionModal() {
       }
 
       const payload = (await res.json()) as { id: string; slug: string };
+      await uploadCoverFor(payload.id);
       setCreatedSlug(payload.slug);
       setStep("success");
       router.refresh();
@@ -372,6 +481,41 @@ export function NewSessionModal() {
               <DialogHeader>
                 <DialogTitle className="font-headline text-pz-on-surface">New Session</DialogTitle>
               </DialogHeader>
+
+              {/* Cover image — ported from Stitch screen A (New Session modal). Optional; uploaded
+                  onto the created session right after it exists (see uploadCoverFor). */}
+              {coverFile && coverPreviewUrl ? (
+                <div className="w-full aspect-video rounded-xl border-2 border-dashed border-pz-outline-variant relative overflow-hidden group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={coverPreviewUrl} alt="Cover preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={removeCoverSelection}
+                    aria-label="Remove cover image"
+                    className="absolute top-2 right-2 bg-pz-surface-container-highest/80 backdrop-blur text-pz-on-surface p-1 rounded-full hover:bg-pz-danger hover:text-white transition-colors shadow-lg z-10"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <label
+                    htmlFor="cover-input"
+                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer"
+                  >
+                    <ImageIcon className="w-7 h-7 text-white mb-1" />
+                    <span className="font-headline text-xs font-semibold text-white">Click to change cover</span>
+                  </label>
+                  <input id="cover-input" type="file" accept="image/*" onChange={handleCoverSelect} className="hidden" />
+                </div>
+              ) : (
+                <label
+                  htmlFor="cover-input"
+                  className="w-full aspect-video rounded-xl border-2 border-dashed border-pz-outline-variant flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-pz-primary hover:bg-pz-surface-container transition-colors"
+                >
+                  <ImageIcon className="w-7 h-7 text-pz-on-surface-variant" />
+                  <span className="font-headline text-sm font-semibold text-pz-on-surface-variant">Add a cover image</span>
+                  <span className="font-body text-xs text-pz-on-surface-variant/70">16:9 recommended · up to 5 MB</span>
+                  <input id="cover-input" type="file" accept="image/*" onChange={handleCoverSelect} className="hidden" />
+                </label>
+              )}
 
               <div className="space-y-1.5">
                 <label htmlFor="session-name" className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">

@@ -1,11 +1,25 @@
 import Link from "next/link";
-import { Inbox, Star, ListChecks, Layers } from "lucide-react";
+import { Inbox, Star, ListChecks, Layers, Image as ImageIcon } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listFeedbackSessions } from "@/lib/data/feedback-sessions";
 import { listFeedbackPrograms } from "@/lib/data/feedback-programs";
 import { formatDate, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import { NewSessionModal, SessionRowActions, ProgramRowActions } from "./NewSessionModal";
+
+function SessionThumb({ coverUrl }: { coverUrl: string | null }) {
+  return (
+    <div className="w-12 h-8 shrink-0 rounded-md overflow-hidden border border-pz-outline-variant/40 bg-pz-surface-container grid place-items-center">
+      {coverUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={coverProxyUrl(coverUrl)} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <ImageIcon className="w-3.5 h-3.5 text-pz-outline-variant" />
+      )}
+    </div>
+  );
+}
 
 export const metadata = { title: "Feedback Sessions — PZ Academy" };
 
@@ -68,16 +82,19 @@ export default async function AdminFeedbackPage() {
                 {sessions.map((s) => (
                   <tr key={s.id} className="hover:bg-pz-surface-container/40 transition-colors">
                     <td className="py-4 px-6 max-w-xs">
-                      <Link href={`/dashboard/admin/feedback/${s.id}`} className="group block">
-                        <div className="font-headline font-semibold text-pz-on-surface truncate group-hover:text-pz-primary transition-colors">
-                          {s.name}
-                        </div>
-                        {s.programId && (
-                          <div className="font-body text-xs text-pz-on-surface-variant mt-0.5 truncate">
-                            {programNameById.get(s.programId) ?? "Program"}
-                            {s.programOrder != null ? ` · Part ${s.programOrder}` : ""}
+                      <Link href={`/dashboard/admin/feedback/${s.id}`} className="group flex items-center gap-3">
+                        <SessionThumb coverUrl={s.coverUrl} />
+                        <div className="min-w-0">
+                          <div className="font-headline font-semibold text-pz-on-surface truncate group-hover:text-pz-primary transition-colors">
+                            {s.name}
                           </div>
-                        )}
+                          {s.programId && (
+                            <div className="font-body text-xs text-pz-on-surface-variant mt-0.5 truncate">
+                              {programNameById.get(s.programId) ?? "Program"}
+                              {s.programOrder != null ? ` · Part ${s.programOrder}` : ""}
+                            </div>
+                          )}
+                        </div>
                       </Link>
                     </td>
                     <td className="py-4 px-6">

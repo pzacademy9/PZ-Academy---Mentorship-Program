@@ -85,6 +85,13 @@ export async function createFeedbackProgram(
   return { id: program.id, sessions: created };
 }
 
+export async function setFeedbackProgramCover(id: string, coverUrl: string | null, actorProfileId: string | null): Promise<void> {
+  const admin = createAdminSupabase();
+  const { error } = await admin.from("feedback_programs").update({ cover_url: coverUrl }).eq("id", id);
+  if (error) throw new Error(error.message);
+  await logFeedbackAudit({ action: coverUrl ? "setCoverImage" : "removeCoverImage", detail: id, actorProfileId });
+}
+
 /** Deletes the program row; member sessions cascade-delete via feedback_sessions.program_id ON DELETE SET NULL — sessions survive as standalone, matching "deleting a booking never destroys history" convention. Explicit delete-with-sessions is a future admin action, not this task's scope. */
 export async function deleteFeedbackProgram(id: string, actorProfileId: string | null): Promise<void> {
   const admin = createAdminSupabase();

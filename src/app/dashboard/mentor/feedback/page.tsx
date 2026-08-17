@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Inbox, Star } from "lucide-react";
+import { ArrowRight, Inbox, Star, Image as ImageIcon } from "lucide-react";
 import { requireMentorPage } from "@/lib/auth/require-mentor";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { listFeedbackSessionsForMentor } from "@/lib/data/feedback-sessions";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { coverProxyUrl } from "@/lib/feedback/cover-url";
 
 export const metadata = { title: "My Feedback — PZ Academy" };
 
@@ -53,28 +54,38 @@ export default async function MentorFeedbackPage() {
               href={`/dashboard/mentor/feedback/${s.id}`}
               className="group flex flex-col md:flex-row md:items-center justify-between gap-3 bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 hover:border-pz-primary/40 hover:shadow-card transition-all p-5"
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3 flex-wrap mb-1.5">
-                  <span
-                    className={cn(
-                      "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
-                      s.status === "active"
-                        ? "bg-pz-primary-container/30 text-pz-on-primary-container"
-                        : "bg-pz-surface-variant text-pz-on-surface-variant",
-                    )}
-                  >
-                    {s.status === "active" ? "Active" : "Closed"}
-                  </span>
-                  {s.sessionDate && (
-                    <span className="font-body text-xs text-pz-on-surface-variant">{formatDate(s.sessionDate)}</span>
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <div className="w-16 h-10 shrink-0 rounded-lg overflow-hidden border border-pz-outline-variant/40 bg-pz-surface-container grid place-items-center">
+                  {s.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={coverProxyUrl(s.coverUrl)} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="w-4 h-4 text-pz-outline-variant" />
                   )}
                 </div>
-                <h2 className="font-headline font-semibold text-pz-on-surface truncate group-hover:text-pz-primary transition-colors">
-                  {s.name}
-                </h2>
-                <p className="font-body text-xs text-pz-on-surface-variant mt-0.5 truncate">
-                  {s.responseCount} {s.responseCount === 1 ? "response" : "responses"}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3 flex-wrap mb-1.5">
+                    <span
+                      className={cn(
+                        "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
+                        s.status === "active"
+                          ? "bg-pz-primary-container/30 text-pz-on-primary-container"
+                          : "bg-pz-surface-variant text-pz-on-surface-variant",
+                      )}
+                    >
+                      {s.status === "active" ? "Active" : "Closed"}
+                    </span>
+                    {s.sessionDate && (
+                      <span className="font-body text-xs text-pz-on-surface-variant">{formatDate(s.sessionDate)}</span>
+                    )}
+                  </div>
+                  <h2 className="font-headline font-semibold text-pz-on-surface truncate group-hover:text-pz-primary transition-colors">
+                    {s.name}
+                  </h2>
+                  <p className="font-body text-xs text-pz-on-surface-variant mt-0.5 truncate">
+                    {s.responseCount} {s.responseCount === 1 ? "response" : "responses"}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {s.avgRating != null ? (
