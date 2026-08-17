@@ -46,6 +46,24 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
 
   const admin = createAdminSupabase();
 
+  // Session-scoped rate limit — applies to EVERY submission unconditionally,
+  // independent of whether an email was supplied. participant_email is
+  // nullable and this endpoint is unauthenticated, so the email-keyed check
+  // below (kept as an additional layer when email IS present) was the only
+  // guard on this path — a POST with email: "" faced no rate limit or
+  // duplicate check at all. This uses the existing feedback_responses_
+  // session_id_idx index, so it's cheap even at higher submission volume.
+  // Reuses RATE_MAX_SUBMITS/RATE_WINDOW_MS as-is (no new tuning constant).
+  const sinceSession = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
+  const { count: sessionCount } = await admin
+    .from("feedback_responses")
+    .select("id", { count: "exact", head: true })
+    .eq("feedback_session_id", session.id)
+    .gte("submitted_at", sinceSession);
+  if (!withinRateLimit(sessionCount ?? 0, RATE_MAX_SUBMITS)) {
+    return { ok: false, message: "Too many submissions. Please wait a moment and try again." };
+  }
+
   if (email) {
     const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
     const { count } = await admin
@@ -111,10 +129,17 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
 }
 
 export interface PerQuestionStat {
+  id: string;
   question: string;
   type: "stars" | "video";
   avg: number | null;
   count: number;
+}
+
+/** A response's answer to one question, keyed by that question's id — see KeyedAnswer/keyAnswersByQuestionId. */
+export interface KeyedAnswer {
+  starValue: number | null;
+  videoUrl: string | null;
 }
 
 export interface ResponseDetail {
@@ -122,8 +147,7 @@ export interface ResponseDetail {
   submittedAt: string;
   name: string;
   email: string;
-  stars: number[];
-  videos: string[];
+  answers: Record<string, KeyedAnswer>;
   comments: string;
 }
 
@@ -132,6 +156,28 @@ interface RawAnswer {
   star_value: number | null;
   video_url: string | null;
 }
+
+/**
+ * Keys a response's raw feedback_answers rows by question_id.
+ *
+ * Replaces the old push-based `stars: number[]` / `videos: string[]` shape,
+ * which only grew an entry when an answer existed. That compaction silently
+ * misattributed answers: a response that skipped a non-last question of a
+ * given type shifted every later same-type answer into the wrong slot when
+ * rendered against `starQuestions.map((q, i) => r.stars[i])`. Callers look
+ * up `answers[question.id]` directly instead of by array position, so a
+ * missing answer is a genuine gap, never a shift. This exact bug class was
+ * already fixed twice elsewhere in this system (exportFeedbackSessionCsv's
+ * question_id-keyed Map, and feedback-share.ts's toShareSession).
+ */
+export function keyAnswersByQuestionId(answers: RawAnswer[]): Record<string, KeyedAnswer> {
+  const out: Record<string, KeyedAnswer> = {};
+  for (const a of answers) {
+    out[a.question_id] = { starValue: a.star_value, videoUrl: a.video_url };
+  }
+  return out;
+}
+
 interface RawResponse {
   id: string;
   submitted_at: string;
@@ -163,31 +209,20 @@ export async function getFeedbackSessionDetail(
       .flatMap((r) => r.feedback_answers)
       .filter((a) => a.question_id === q.id);
     if (q.type === "video") {
-      return { question: q.text, type: "video", avg: null, count: values.filter((v) => v.video_url).length };
+      return { id: q.id, question: q.text, type: "video", avg: null, count: values.filter((v) => v.video_url).length };
     }
     const stars = values.map((v) => v.star_value).filter((v): v is number => v !== null);
-    return { question: q.text, type: "stars", avg: average(stars), count: stars.length };
+    return { id: q.id, question: q.text, type: "stars", avg: average(stars), count: stars.length };
   });
 
-  const responses: ResponseDetail[] = rawResponses.map((r) => {
-    const stars: number[] = [];
-    const videos: string[] = [];
-    for (const q of session.questions) {
-      const a = r.feedback_answers.find((x) => x.question_id === q.id);
-      if (!a) continue;
-      if (q.type === "video" && a.video_url) videos.push(a.video_url);
-      else if (a.star_value !== null) stars.push(a.star_value);
-    }
-    return {
-      id: r.id,
-      submittedAt: r.submitted_at,
-      name: r.participant_name || "—",
-      email: r.participant_email ?? "",
-      stars,
-      videos,
-      comments: r.comments,
-    };
-  });
+  const responses: ResponseDetail[] = rawResponses.map((r) => ({
+    id: r.id,
+    submittedAt: r.submitted_at,
+    name: r.participant_name || "—",
+    email: r.participant_email ?? "",
+    answers: keyAnswersByQuestionId(r.feedback_answers),
+    comments: r.comments,
+  }));
 
   return { session, perQuestion, responses };
 }
@@ -200,22 +235,24 @@ export async function deleteFeedbackResponse(responseId: string, sessionId: stri
 }
 
 export async function exportFeedbackSessionCsv(id: string): Promise<{ filename: string; csv: string } | null> {
-  const session = await getFeedbackSessionBySlug(id);
-  if (!session) return null;
-  const rawResponses = await loadResponses(session.id);
+  // Reuses getFeedbackSessionDetail's already-keyed-by-question_id answers
+  // instead of re-deriving them here — this file used to run its own
+  // loadResponses() + per-response Map build (see the Important-5 fix ledger
+  // note in the final-review-fix-report), which was itself already correct
+  // (keyed by question_id, not positional) but duplicated getFeedbackSessionDetail's
+  // work now that ResponseDetail.answers is keyed the same way.
+  const detail = await getFeedbackSessionDetail(id);
+  if (!detail) return null;
+  const { session, responses } = detail;
 
   const header = ["Submitted On", "Participant Name", "Email", ...session.questions.map((q) => q.text + (q.type === "video" ? " (video)" : "")), "Comments"];
   const rows = [header];
-  for (const r of rawResponses) {
-    // Key answers by question_id so each column reflects that exact question — never a
-    // positional index into a compacted array, which would misattribute answers when a
-    // response skips a question of the same type earlier in the question list.
-    const byQuestion = new Map(r.feedback_answers.map((a) => [a.question_id, a]));
-    const line = [r.submitted_at, r.participant_name || "—", r.participant_email ?? ""];
+  for (const r of responses) {
+    const line: string[] = [r.submittedAt, r.name, r.email];
     for (const q of session.questions) {
-      const a = byQuestion.get(q.id);
-      if (q.type === "video") line.push(a?.video_url ?? "");
-      else line.push(a?.star_value !== null && a?.star_value !== undefined ? String(a.star_value) : "");
+      const a = r.answers[q.id];
+      if (q.type === "video") line.push(a?.videoUrl ?? "");
+      else line.push(a?.starValue != null ? String(a.starValue) : "");
     }
     line.push(r.comments);
     rows.push(line);
