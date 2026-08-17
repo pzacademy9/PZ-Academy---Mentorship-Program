@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { ShareReviewModal } from "./ShareReviewModal";
 
 type QuestionType = "stars" | "video";
 
@@ -1101,11 +1102,12 @@ export function SessionRowActions({
   );
 }
 
-/** Row-level delete action for the Programs table — sessions survive as standalone (program_id set to null). */
+/** Row-level actions for the Programs table — Share link and delete (sessions survive delete as standalone, program_id set to null). */
 export function ProgramRowActions({ id, name }: { id: string; name: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   function submitDelete() {
     startTransition(async () => {
@@ -1123,14 +1125,36 @@ export function ProgramRowActions({ id, name }: { id: string; name: string }) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setDeleteOpen(true)}
-        aria-label={`Delete ${name}`}
-        className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-danger/10 transition-colors"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          aria-label={`Share ${name}`}
+          className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-primary/10 transition-colors"
+        >
+          <Link2 className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setDeleteOpen(true)}
+          aria-label={`Delete ${name}`}
+          className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-danger/10 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Program-level share token isn't fetched into the row list — the modal
+          always finds/generates it itself on open (idempotent) via the
+          programs/[id]/share-token route, same as a never-shared session would. */}
+      <ShareReviewModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        targetType="program"
+        targetId={id}
+        targetName={name}
+        shareToken={null}
+      />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">

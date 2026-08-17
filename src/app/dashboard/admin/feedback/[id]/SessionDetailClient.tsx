@@ -13,8 +13,6 @@ import {
   Trash2,
   Download,
   Link2,
-  Copy,
-  Check,
   Ban,
   RotateCcw,
   Image as ImageIcon,
@@ -29,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import type { FeedbackSessionRow } from "@/lib/data/feedback-sessions";
 import type { PerQuestionStat, ResponseDetail } from "@/lib/data/feedback-responses";
+import { ShareReviewModal } from "../ShareReviewModal";
 
 function personAvg(stars: number[]): number | null {
   if (!stars.length) return null;
@@ -231,16 +230,13 @@ export function SessionDetailClient({
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [shareUrl, setShareUrl] = useState<string | null>(session.shareToken ? `/review/${session.shareToken}` : null);
-  const [shareCopied, setShareCopied] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ResponseDetail | null>(null);
 
   const starQuestions = perQuestion.filter((q) => q.type === "stars");
   const videoQuestions = perQuestion.filter((q) => q.type === "video");
   const videoResponseCount = videoQuestions.reduce((sum, q) => sum + q.count, 0);
   const exportUrl = `/api/admin/feedback/sessions/${session.id}/export`;
-  const absoluteShareUrl =
-    shareUrl != null ? (typeof window !== "undefined" ? `${window.location.origin}${shareUrl}` : shareUrl) : null;
 
   function toggleStatus() {
     const target = session.status === "active" ? "closed" : "active";
@@ -258,31 +254,6 @@ export function SessionDetailClient({
       toast.success(`Session marked ${target}.`);
       router.refresh();
     });
-  }
-
-  function generateShareLink() {
-    startTransition(async () => {
-      const res = await fetch(`/api/admin/feedback/sessions/${session.id}/share-token`, { method: "POST" });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not generate a share link.");
-        return;
-      }
-      const payload = (await res.json()) as { shareUrl: string };
-      setShareUrl(payload.shareUrl);
-      toast.success("Share link ready.");
-    });
-  }
-
-  function copyShareLink() {
-    if (!absoluteShareUrl) return;
-    navigator.clipboard
-      .writeText(absoluteShareUrl)
-      .then(() => {
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-      })
-      .catch(() => toast.error("Could not copy the link."));
   }
 
   function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -449,33 +420,14 @@ export function SessionDetailClient({
           </a>
           <button
             type="button"
-            onClick={generateShareLink}
+            onClick={() => setShareModalOpen(true)}
             disabled={isPending}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50"
           >
             <Link2 className="w-4 h-4" />
-            {shareUrl ? "Share Link" : "Generate Share Link"}
+            {session.shareToken ? "Share Link" : "Generate Share Link"}
           </button>
         </div>
-
-        {shareUrl && (
-          <div className="mt-4 flex items-center bg-pz-surface-container rounded-lg border border-pz-outline-variant overflow-hidden max-w-xl">
-            <input
-              type="text"
-              readOnly
-              value={absoluteShareUrl ?? shareUrl}
-              className="flex-1 bg-transparent border-none px-3 py-2.5 font-body text-sm text-pz-on-surface truncate outline-none"
-            />
-            <button
-              type="button"
-              onClick={copyShareLink}
-              className="flex items-center gap-1.5 px-4 py-2.5 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
-            >
-              {shareCopied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
-              {shareCopied ? "Copied" : "Copy"}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Stat cards */}
@@ -551,6 +503,15 @@ export function SessionDetailClient({
           </div>
         )}
       </div>
+
+      <ShareReviewModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        targetType="session"
+        targetId={session.id}
+        targetName={session.name}
+        shareToken={session.shareToken}
+      />
 
       <Dialog open={deleteTarget != null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">

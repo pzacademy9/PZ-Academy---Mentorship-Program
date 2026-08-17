@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { logFeedbackAudit } from "@/lib/data/feedback-audit";
+import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
 import { cleanText, MAX_NAME_LEN, uniqueSlug, randomSlugSuffix } from "@/lib/validations/feedback";
 import type { PublicSession } from "@/lib/mentorship/gas";
 
@@ -224,6 +225,13 @@ export async function createFeedbackSession(
   );
 
   await logFeedbackAudit({ action: "createFeedbackSession", detail: `${session.id} · ${name}`, actorProfileId });
+
+  // Every session gets a public review link from the moment it exists, not only
+  // after an admin later clicks "Generate Share Link". generateFeedbackShareToken
+  // is idempotent (reuses an existing token), so calling it unconditionally here
+  // is safe even though nothing about this session's token could exist yet.
+  await generateFeedbackShareToken("session", session.id, actorProfileId);
+
   return { id: session.id, slug };
 }
 
