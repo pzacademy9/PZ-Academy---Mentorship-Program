@@ -34,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "super_admin"] },
   { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "super_admin"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },
+  { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
   { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "super_admin"] },
   { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "super_admin"] },
   { label: "Analytics", href: "/dashboard/admin", icon: BarChart3, roles: ["admin", "super_admin"] },
@@ -56,6 +57,14 @@ export function Sidebar({ role }: SidebarProps) {
    * Bumping to 6 is purely additive for every role — no role's filtered
    * list order changed, so this can only add an item to a role's mobile
    * nav, never remove one that was reachable before.
+   *
+   * Admin's new Feedback entry lands at index 6 (Dashboard, Students,
+   * Enrollments, Mentorship, Programs, Mentors, Feedback, ...) — past this
+   * same slice(0, 6) bound, so it doesn't appear on mobile either. That's
+   * not a regression: Sheet Sync, Send Notice, Analytics, Notifications,
+   * and Settings were already past index 6 for admin before this change,
+   * so no previously-reachable admin item becomes unreachable — Feedback
+   * simply joins that same already-desktop-only group.
    */
   const mobileItems = items.slice(0, 6);
 
