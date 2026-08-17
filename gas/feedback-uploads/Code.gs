@@ -44,7 +44,12 @@ function uploadVideo_(body) {
   const file = sessionFolder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-  return { ok: true, url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w1600" };
+  // Embeddable player URL, NOT the /thumbnail?id= form used below for cover
+  // images. /thumbnail?id= returns a static JPEG (proven by /api/cover's own
+  // content-type check) — feeding that into the <iframe src> that renders
+  // video answers produces a broken player end-to-end. /file/d/<id>/preview
+  // is Drive's actual embeddable viewer.
+  return { ok: true, url: "https://drive.google.com/file/d/" + file.getId() + "/preview" };
 }
 
 function uploadCover_(body) {
