@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  cleanText, isValidEmail, clampStar, sanitizeAnswer, slugify, uniqueSlug, csvCell,
+  cleanText, isValidEmail, clampStar, sanitizeAnswer, slugify, uniqueSlug, csvCell, randomSlugSuffix,
 } from "@/lib/validations/feedback";
 
 describe("cleanText", () => {
@@ -42,6 +42,18 @@ describe("slugify / uniqueSlug", () => {
   });
   it("ignores the row's own id when renaming", () => {
     expect(uniqueSlug("Day 1", [{ id: "self", slug: "day-1" }], "self")).toBe("day-1");
+  });
+});
+
+describe("randomSlugSuffix", () => {
+  it("returns a 6-character lowercase hex string", () => {
+    const suffix = randomSlugSuffix();
+    expect(suffix).toMatch(/^[0-9a-f]{6}$/);
+  });
+  it("is not derivable/deterministic — two calls differ", () => {
+    // Astronomically unlikely to collide (UUID-derived); a flake here would
+    // itself be evidence of missing randomness.
+    expect(randomSlugSuffix()).not.toBe(randomSlugSuffix());
   });
 });
 

@@ -65,6 +65,19 @@ export function uniqueSlug(
   return `${root}-${Date.now()}`;
 }
 
+/**
+ * Short random suffix for slugs that must not be derivable from their
+ * source data — e.g. a mentorship-derived feedback session slug built from
+ * `scheduled_at` (see freezeMentorshipFeedbackSession), which would
+ * otherwise slugify to a guessable `mentorship-session-<iso-timestamp>`.
+ * Uses crypto.randomUUID(), the same randomness primitive already used for
+ * feedback share tokens (see randomToken() in feedback-share.ts) — no new
+ * randomness scheme.
+ */
+export function randomSlugSuffix(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+}
+
 export function csvCell(v: unknown): string {
   let s = String(v ?? "");
   if (/[",\r\n]/.test(s)) s = `"${s.replace(/"/g, '""')}"`;

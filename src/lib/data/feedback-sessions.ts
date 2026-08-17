@@ -2,8 +2,7 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { logFeedbackAudit } from "@/lib/data/feedback-audit";
-import { cleanText, MAX_NAME_LEN, uniqueSlug } from "@/lib/validations/feedback";
-import { average } from "@/lib/validations/feedback";
+import { cleanText, MAX_NAME_LEN, uniqueSlug, randomSlugSuffix } from "@/lib/validations/feedback";
 import type { PublicSession } from "@/lib/mentorship/gas";
 
 export type FeedbackSessionStatus = Database["public"]["Enums"]["feedback_session_status"];
@@ -37,33 +36,27 @@ export interface FeedbackSessionRow {
 const SESSION_SELECT =
   "id, name, speaker_name, session_date, status, slug, program_id, program_order, cover_url, share_token, mentorship_session_id, mentor_id, feedback_questions(id, text, type, question_order)";
 
+/**
+ * Computed in Postgres via feedback_session_stats (migration 0034), not
+ * fetched-then-averaged in JS. The old version pulled every
+ * feedback_responses row and every star-valued feedback_answers row across
+ * all requested sessions into JS to average there — past PostgREST's row
+ * cap (commonly 1000 via db-max-rows), those computed averages went wrong
+ * with no error. One row per session comes back regardless of how many
+ * responses/answers sit underneath it.
+ */
 async function hydrateStats(admin: ReturnType<typeof createAdminSupabase>, sessionIds: string[]) {
-  if (sessionIds.length === 0) return new Map<string, { count: number; avg: number | null }>();
-  const { data: responses } = await admin
-    .from("feedback_responses")
-    .select("id, feedback_session_id")
-    .in("feedback_session_id", sessionIds);
-  const { data: answers } = await admin
-    .from("feedback_answers")
-    .select("star_value, response_id, feedback_responses!inner(feedback_session_id)")
-    .in("feedback_responses.feedback_session_id", sessionIds)
-    .not("star_value", "is", null);
-
-  const countBySession = new Map<string, number>();
-  for (const r of responses ?? []) {
-    countBySession.set(r.feedback_session_id, (countBySession.get(r.feedback_session_id) ?? 0) + 1);
-  }
-  const starsBySession = new Map<string, number[]>();
-  for (const a of answers ?? []) {
-    const sid = (a.feedback_responses as unknown as { feedback_session_id: string }).feedback_session_id;
-    const list = starsBySession.get(sid) ?? [];
-    list.push(a.star_value as number);
-    starsBySession.set(sid, list);
-  }
-
   const result = new Map<string, { count: number; avg: number | null }>();
-  for (const id of sessionIds) {
-    result.set(id, { count: countBySession.get(id) ?? 0, avg: average(starsBySession.get(id) ?? []) });
+  for (const id of sessionIds) result.set(id, { count: 0, avg: null });
+  if (sessionIds.length === 0) return result;
+
+  const { data, error } = await admin.rpc("feedback_session_stats", { p_session_ids: sessionIds });
+  if (error) return result; // fall back to zeroed stats rather than throwing on a list page
+  for (const row of data ?? []) {
+    result.set(row.feedback_session_id, {
+      count: Number(row.response_count),
+      avg: row.avg_star != null ? Number(row.avg_star) : null,
+    });
   }
   return result;
 }
@@ -101,6 +94,25 @@ function toRow(
 export async function listFeedbackSessions(): Promise<FeedbackSessionRow[]> {
   const admin = createAdminSupabase();
   const { data } = await admin.from("feedback_sessions").select(SESSION_SELECT).order("created_at", { ascending: false });
+  const rows = data ?? [];
+  const stats = await hydrateStats(admin, rows.map((r) => r.id));
+  return rows.map((r) => toRow(r, stats.get(r.id) ?? { count: 0, avg: null }));
+}
+
+/**
+ * Mentor-scoped listing — filters `feedback_sessions.mentor_id` in the query
+ * itself instead of the old pattern of `(await listFeedbackSessions()).filter(s
+ * => s.mentorId === mentor.id)`, which fetched every session's stats (all
+ * sessions, not just this mentor's) before throwing most of it away in JS.
+ * Used by both the mentor feedback list page and its API route.
+ */
+export async function listFeedbackSessionsForMentor(mentorId: string): Promise<FeedbackSessionRow[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("feedback_sessions")
+    .select(SESSION_SELECT)
+    .eq("mentor_id", mentorId)
+    .order("created_at", { ascending: false });
   const rows = data ?? [];
   const stats = await hydrateStats(admin, rows.map((r) => r.id));
   return rows.map((r) => toRow(r, stats.get(r.id) ?? { count: 0, avg: null }));
@@ -159,6 +171,15 @@ export interface CreateFeedbackSessionInput {
   programOrder?: number | null;
   mentorshipSessionId?: string | null;
   mentorId?: string | null;
+  /**
+   * Appends a short crypto-random suffix to the generated slug (see
+   * randomSlugSuffix()) instead of leaving it fully derived from `name`.
+   * Set by freezeMentorshipFeedbackSession — a mentorship-derived session's
+   * name is built from `scheduled_at`, so its slug would otherwise slugify
+   * to a guessable `mentorship-session-<iso-timestamp>` with no auth gate
+   * of its own (the slug IS the access token for /feedback/[id]).
+   */
+  randomizeSlug?: boolean;
 }
 
 export async function createFeedbackSession(
@@ -174,7 +195,8 @@ export async function createFeedbackSession(
   if (questions.length < 3) throw new Error("Pick at least 3 questions.");
 
   const { data: existing } = await admin.from("feedback_sessions").select("id, slug");
-  const slug = uniqueSlug(name, existing ?? [], null);
+  let slug = uniqueSlug(name, existing ?? [], null);
+  if (input.randomizeSlug) slug = `${slug}-${randomSlugSuffix()}`;
 
   const { data: session, error } = await admin
     .from("feedback_sessions")

@@ -54,6 +54,10 @@ export async function freezeMentorshipFeedbackSession(mentorshipSessionId: strin
         questions: questions.map((q) => ({ text: q.text, type: q.type })),
         mentorshipSessionId: session.id,
         mentorId: mentorRow.id,
+        // The display name above is derived from scheduled_at — without this,
+        // the slug (this session's only access gate at /feedback/[id]) would
+        // slugify to a guessable mentorship-session-<iso-timestamp>.
+        randomizeSlug: true,
       },
       null,
     );

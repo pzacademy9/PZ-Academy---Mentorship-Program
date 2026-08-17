@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Inbox, Star } from "lucide-react";
 import { requireMentorPage } from "@/lib/auth/require-mentor";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { listFeedbackSessions } from "@/lib/data/feedback-sessions";
+import { listFeedbackSessionsForMentor } from "@/lib/data/feedback-sessions";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -19,10 +19,10 @@ function EmptyState({ message }: { message: string }) {
 
 /**
  * Mentor's own read-only feedback list. Scoped by resolving the caller's
- * `mentors` row (profile_id = auth user) and filtering listFeedbackSessions()
- * to that mentor_id directly, in-page — mirrors the API route in
- * src/app/api/mentor/feedback/sessions/route.ts but skips the round trip,
- * same pattern as the admin feedback pages (Tasks 17/18).
+ * `mentors` row (profile_id = auth user) and querying
+ * listFeedbackSessionsForMentor(mentor.id) directly, in-page — mirrors the
+ * API route in src/app/api/mentor/feedback/sessions/route.ts but skips the
+ * round trip, same pattern as the admin feedback pages (Tasks 17/18).
  */
 export default async function MentorFeedbackPage() {
   const { user } = await requireMentorPage();
@@ -30,7 +30,7 @@ export default async function MentorFeedbackPage() {
   const admin = createAdminSupabase();
   const { data: mentor } = await admin.from("mentors").select("id").eq("profile_id", user.id).maybeSingle();
 
-  const sessions = mentor ? (await listFeedbackSessions()).filter((s) => s.mentorId === mentor.id) : [];
+  const sessions = mentor ? await listFeedbackSessionsForMentor(mentor.id) : [];
 
   return (
     <div className="space-y-6">

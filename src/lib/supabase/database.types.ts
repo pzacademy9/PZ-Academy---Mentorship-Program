@@ -1737,6 +1737,14 @@ export type Database = {
           status: Database["public"]["Enums"]["progress_status"]
         }[]
       }
+      feedback_session_stats: {
+        Args: { p_session_ids: string[] }
+        Returns: {
+          avg_star: number | null
+          feedback_session_id: string
+          response_count: number
+        }[]
+      }
       find_user_id_by_email: {
         Args: { p_email: string }
         Returns: string | null
