@@ -22,6 +22,7 @@ export interface MentorListRow {
   visibility: MentorVisibility;
   orderIndex: number;
   bookingCount: number;
+  hasLinkedAccount: boolean;
 }
 
 export interface MentorListStats {
@@ -43,7 +44,7 @@ export async function listMentorsForAdmin(): Promise<{ rows: MentorListRow[]; st
   const [{ data: mentors }, { data: bookings }] = await Promise.all([
     admin
       .from("mentors")
-      .select("id, slug, name, expertise, price_per_session_pkr, visibility, order_index")
+      .select("id, slug, name, expertise, price_per_session_pkr, visibility, order_index, profile_id")
       .order("order_index", { ascending: true }),
     admin.from("mentorship_bookings").select("mentor_slug"),
   ]);
@@ -62,6 +63,7 @@ export async function listMentorsForAdmin(): Promise<{ rows: MentorListRow[]; st
     visibility: m.visibility,
     orderIndex: m.order_index,
     bookingCount: bookingCountBySlug.get(m.slug) ?? 0,
+    hasLinkedAccount: m.profile_id != null,
   }));
 
   const stats: MentorListStats = {
@@ -222,6 +224,39 @@ export async function deleteMentor(id: string): Promise<DeleteMentorResult> {
   const warning = await trashDriveFiles(fileId ? [fileId] : []);
 
   return { ok: true, warning };
+}
+
+export interface MentorLinkOption {
+  id: string;
+  slug: string;
+  name: string;
+  title: string;
+  photo: string;
+  hasLinkedAccount: boolean;
+}
+
+/**
+ * Lightweight mentor listing for "link this to a mentor" pickers (the
+ * feedback session-creation modal's combobox today) — every mentor
+ * regardless of visibility, ordered the same as the registry table, with
+ * just enough shape to render a searchable dropdown row and flag mentors
+ * with no linked login account (profile_id null).
+ */
+export async function listMentorsForLinking(): Promise<MentorLinkOption[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("mentors")
+    .select("id, slug, name, title, photo_url, profile_id")
+    .order("order_index", { ascending: true });
+
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    slug: m.slug,
+    name: m.name,
+    title: m.title ?? "",
+    photo: m.photo_url ?? "",
+    hasLinkedAccount: m.profile_id != null,
+  }));
 }
 
 export type ReorderMentorsResult = { ok: true } | { ok: false; reason: "db-error" };

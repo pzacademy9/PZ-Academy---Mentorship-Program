@@ -8,6 +8,7 @@ const createSchema = z.object({
   speakerName: z.string().min(1),
   sessionDate: z.string().nullable().optional(),
   questions: z.array(z.object({ text: z.string().min(1), type: z.enum(["stars", "video"]) })).min(3).max(5),
+  mentorId: z.string().uuid().nullable().optional(),
 });
 
 export async function GET() {

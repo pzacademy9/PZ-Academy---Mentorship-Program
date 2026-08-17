@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Search, Download, ChevronRight, GripVertical } from "lucide-react";
+import { Search, Download, ChevronRight, GripVertical, AlertTriangle } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -183,7 +183,18 @@ function MentorRow({ row, dragDisabled }: { row: MentorListRow; dragDisabled: bo
         )}
       </td>
       <td className="px-6 py-4">
-        <p className="font-headline font-bold text-pz-on-surface">{row.name}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="font-headline font-bold text-pz-on-surface">{row.name}</p>
+          {!row.hasLinkedAccount && (
+            <span
+              title="No linked account — mentorship feedback won't auto-create."
+              aria-label="No linked account — mentorship feedback won't auto-create."
+              className="inline-flex shrink-0"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-pz-danger" />
+            </span>
+          )}
+        </div>
         <span className="text-xs text-pz-on-surface-variant font-mono">{row.slug}</span>
         {row.expertise && <span className="block text-xs text-pz-on-surface-variant mt-0.5">{row.expertise}</span>}
       </td>

@@ -238,6 +238,17 @@ export async function setFeedbackSessionStatus(
   await logFeedbackAudit({ action: "setFeedbackSessionStatus", detail: `${id} -> ${status}`, actorProfileId });
 }
 
+export async function setFeedbackSessionMentor(
+  id: string,
+  mentorId: string | null,
+  actorProfileId: string | null,
+): Promise<void> {
+  const admin = createAdminSupabase();
+  const { error } = await admin.from("feedback_sessions").update({ mentor_id: mentorId }).eq("id", id);
+  if (error) throw new Error(error.message);
+  await logFeedbackAudit({ action: "setFeedbackSessionMentor", detail: `${id} -> ${mentorId ?? "none"}`, actorProfileId });
+}
+
 export async function setFeedbackSessionCover(id: string, coverUrl: string | null, actorProfileId: string | null): Promise<void> {
   const admin = createAdminSupabase();
   const { error } = await admin.from("feedback_sessions").update({ cover_url: coverUrl }).eq("id", id);

@@ -20,6 +20,8 @@ import {
   Pencil,
   Trash2,
   Image as ImageIcon,
+  Search,
+  AlertTriangle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -51,6 +53,15 @@ interface ProgramSessionRow {
   title: string;
   speaker: string;
   date: string;
+}
+
+interface MentorOption {
+  id: string;
+  slug: string;
+  name: string;
+  title: string;
+  photo: string;
+  hasLinkedAccount: boolean;
 }
 
 const MIN_QUESTIONS = 3;
@@ -230,6 +241,12 @@ export function NewSessionModal() {
   const [programSessions, setProgramSessions] = useState<ProgramSessionRow[]>(() => makeEmptyProgramSessions());
   const [createdProgramSessions, setCreatedProgramSessions] = useState<{ id: string; slug: string }[] | null>(null);
 
+  const [mentors, setMentors] = useState<MentorOption[] | null>(null);
+  const [mentorsLoading, setMentorsLoading] = useState(false);
+  const [mentorQuery, setMentorQuery] = useState("");
+  const [mentorDropdownOpen, setMentorDropdownOpen] = useState(false);
+  const [selectedMentorId, setSelectedMentorId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!open || bank !== null || bankLoading) return;
     setBankLoading(true);
@@ -246,6 +263,16 @@ export function NewSessionModal() {
       .catch(() => toast.error("Could not load the question bank."))
       .finally(() => setBankLoading(false));
   }, [open, bank, bankLoading]);
+
+  useEffect(() => {
+    if (!open || mentors !== null || mentorsLoading) return;
+    setMentorsLoading(true);
+    fetch("/api/admin/mentors")
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((payload: { mentors: MentorOption[] }) => setMentors(payload.mentors))
+      .catch(() => toast.error("Could not load mentors."))
+      .finally(() => setMentorsLoading(false));
+  }, [open, mentors, mentorsLoading]);
 
   // Object URL for the cover preview — revoked whenever the file changes or the modal unmounts.
   useEffect(() => {
@@ -277,6 +304,9 @@ export function NewSessionModal() {
   function removeCoverSelection() {
     setCoverFile(null);
   }
+
+  const selectedMentor = mentors?.find((m) => m.id === selectedMentorId) ?? null;
+  const filteredMentors = (mentors ?? []).filter((m) => m.name.toLowerCase().includes(mentorQuery.trim().toLowerCase()));
 
   const selectedBankCount = Object.values(selected).filter(Boolean).length;
   const totalSelected = selectedBankCount + customQuestions.length;
@@ -339,6 +369,9 @@ export function NewSessionModal() {
     setIsProgram(false);
     setProgramSessions(makeEmptyProgramSessions());
     setCreatedProgramSessions(null);
+    setMentorQuery("");
+    setMentorDropdownOpen(false);
+    setSelectedMentorId(null);
   }
 
   /**
@@ -428,6 +461,7 @@ export function NewSessionModal() {
           speakerName: speakerName.trim(),
           sessionDate: date || null,
           questions,
+          mentorId: selectedMentorId,
         }),
       });
 
@@ -561,6 +595,115 @@ export function NewSessionModal() {
                   />
                 </button>
               </div>
+
+              {/* Link to mentor — combobox ported from Stitch screen A (New Session modal).
+                  Optional; feeds feedback_sessions.mentor_id so this session's reviews roll
+                  up onto that mentor's dashboard. Not offered for programs — a program's
+                  sessions each have their own speaker, with no single mentor to link. */}
+              {!isProgram && (
+                <div className="space-y-1.5">
+                  <label className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
+                    Link to mentor
+                  </label>
+                  {selectedMentor ? (
+                    <div className="w-full bg-white p-2 rounded-lg border border-pz-outline-variant flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {selectedMentor.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={selectedMentor.photo}
+                            alt={selectedMentor.name}
+                            className="w-10 h-10 rounded-full object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-pz-primary-container flex items-center justify-center font-headline text-sm font-semibold text-pz-on-primary-container shrink-0">
+                            {selectedMentor.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-body text-sm text-pz-on-surface truncate">{selectedMentor.name}</span>
+                          {selectedMentor.title && (
+                            <span className="font-body text-xs text-pz-on-surface-variant truncate">{selectedMentor.title}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMentorId(null)}
+                        aria-label="Clear linked mentor"
+                        className="p-1 rounded-full text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-variant transition-colors shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pz-on-surface-variant pointer-events-none" />
+                      <input
+                        type="text"
+                        value={mentorQuery}
+                        onChange={(e) => {
+                          setMentorQuery(e.target.value);
+                          setMentorDropdownOpen(true);
+                        }}
+                        onFocus={() => setMentorDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setMentorDropdownOpen(false), 150)}
+                        placeholder={mentorsLoading ? "Loading mentors…" : "Search mentors by name…"}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                      />
+                      {mentorDropdownOpen && mentorQuery.trim().length > 0 && (
+                        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-pz-outline-variant rounded-lg shadow-lg">
+                          {mentorsLoading && (
+                            <p className="px-3 py-2 font-body text-sm text-pz-on-surface-variant">Loading mentors…</p>
+                          )}
+                          {!mentorsLoading && filteredMentors.length === 0 && (
+                            <p className="px-3 py-2 font-body text-sm text-pz-on-surface-variant">
+                              No mentors match &quot;{mentorQuery}&quot;.
+                            </p>
+                          )}
+                          {filteredMentors.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setSelectedMentorId(m.id);
+                                setMentorQuery("");
+                                setMentorDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-pz-surface-container text-left transition-colors"
+                            >
+                              {m.photo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={m.photo} alt={m.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-pz-primary-container flex items-center justify-center font-headline text-xs font-semibold text-pz-on-primary-container shrink-0">
+                                  {m.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-body text-sm text-pz-on-surface truncate">{m.name}</span>
+                                {m.title && (
+                                  <span className="font-body text-xs text-pz-on-surface-variant truncate">{m.title}</span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <p className="font-body text-xs text-pz-on-surface-variant/70">
+                    Optional — links this session&apos;s reviews to a public mentor profile
+                  </p>
+                  {selectedMentor && !selectedMentor.hasLinkedAccount && (
+                    <p className="flex items-start gap-1.5 font-body text-xs text-pz-danger">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      No linked account — mentorship feedback won&apos;t auto-create for this mentor.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {!isProgram ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
