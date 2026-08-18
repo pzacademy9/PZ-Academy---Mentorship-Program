@@ -22,6 +22,7 @@ import {
   EyeOff,
   User,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, initials } from "@/lib/format";
@@ -77,6 +78,7 @@ function ResponseRow({
   isPending,
   onRequestDelete,
   onToggleVisibility,
+  onToggleFeatured,
 }: {
   r: ResponseDetail;
   starQuestions: PerQuestionStat[];
@@ -84,6 +86,7 @@ function ResponseRow({
   isPending: boolean;
   onRequestDelete: (r: ResponseDetail) => void;
   onToggleVisibility: (r: ResponseDetail) => void;
+  onToggleFeatured: (r: ResponseDetail) => void;
 }) {
   const [open, setOpen] = useState(false);
   const stars = Object.values(r.answers)
@@ -118,6 +121,11 @@ function ResponseRow({
                 Hidden
               </span>
             )}
+            {r.isFeatured && (
+              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-pz-primary-container text-pz-on-primary-container uppercase tracking-wide font-headline font-bold">
+                Featured
+              </span>
+            )}
           </div>
           {r.comments ? (
             <p className={cn("font-body text-xs text-pz-on-surface-variant mt-0.5", !open && "truncate")}>
@@ -141,6 +149,23 @@ function ResponseRow({
           className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-primary/10 transition-colors shrink-0 disabled:opacity-50"
         >
           {r.isPublic ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+        </button>
+        <button
+          type="button"
+          aria-label={r.isFeatured ? "Unfeature response" : "Feature response"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFeatured(r);
+          }}
+          disabled={isPending}
+          className={cn(
+            "p-1.5 rounded-full transition-colors shrink-0 disabled:opacity-50",
+            r.isFeatured
+              ? "text-pz-primary bg-pz-primary/10 hover:bg-pz-primary/20"
+              : "text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-primary/10",
+          )}
+        >
+          <Sparkles className="w-4 h-4" />
         </button>
         <button
           type="button"
@@ -424,6 +449,24 @@ export function SessionDetailClient({
     });
   }
 
+  function toggleFeatured(r: ResponseDetail) {
+    const nextIsFeatured = !r.isFeatured;
+    startTransition(async () => {
+      const res = await fetch(`/api/admin/feedback/sessions/${session.id}/responses/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFeatured: nextIsFeatured }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? "Could not update this response.");
+        return;
+      }
+      toast.success(nextIsFeatured ? "Response featured." : "Response unfeatured.");
+      router.refresh();
+    });
+  }
+
   function confirmDeleteResponse() {
     if (!deleteTarget) return;
     const target = deleteTarget;
@@ -622,6 +665,7 @@ export function SessionDetailClient({
                 isPending={isPending}
                 onRequestDelete={setDeleteTarget}
                 onToggleVisibility={toggleVisibility}
+                onToggleFeatured={toggleFeatured}
               />
             ))}
           </div>

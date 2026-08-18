@@ -271,6 +271,32 @@ export async function setResponseVisibility(
   });
 }
 
+/**
+ * Per-response "Featured" flag on the public mentor-profile reviews section.
+ * Purely cosmetic (border+pill treatment in MentorReviews.tsx) — does not
+ * affect ordering or inclusion, and is independent of is_public (a hidden
+ * response can still be featured; it just won't show until unhidden).
+ */
+export async function setResponseFeatured(
+  responseId: string,
+  sessionId: string,
+  isFeatured: boolean,
+  actorProfileId: string | null,
+): Promise<void> {
+  const admin = createAdminSupabase();
+  const { error } = await admin
+    .from("feedback_responses")
+    .update({ is_featured: isFeatured })
+    .eq("id", responseId)
+    .eq("feedback_session_id", sessionId);
+  if (error) throw new Error(error.message);
+  await logFeedbackAudit({
+    action: isFeatured ? "featureResponse" : "unfeatureResponse",
+    detail: `${sessionId} · ${responseId}`,
+    actorProfileId,
+  });
+}
+
 export async function exportFeedbackSessionCsv(id: string): Promise<{ filename: string; csv: string } | null> {
   // Reuses getFeedbackSessionDetail's already-keyed-by-question_id answers
   // instead of re-deriving them here — this file used to run its own
