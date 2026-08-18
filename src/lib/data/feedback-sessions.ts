@@ -235,6 +235,68 @@ export async function createFeedbackSession(
   return { id: session.id, slug };
 }
 
+export interface ExistingQuestion {
+  id: string;
+  text: string;
+  type: FeedbackQuestionType;
+  hasRealAnswer: boolean;
+}
+
+export interface IncomingQuestion {
+  id?: string;
+  text: string;
+  type: FeedbackQuestionType;
+}
+
+export interface QuestionDiff {
+  toDelete: string[];
+  toUpdate: { id: string; text: string; type: FeedbackQuestionType; order: number }[];
+  toInsert: { text: string; type: FeedbackQuestionType; order: number }[];
+}
+
+/**
+ * Pure decision logic for editing a session's questions, pulled out of
+ * updateFeedbackSessionQuestions so it can be unit-tested directly — this
+ * repo's convention is no DB mocking (see mentor-reviews.test.ts), so the
+ * DB-touching wrapper around this gets no test coverage of its own, same
+ * as every other write function in this file.
+ *
+ * Never removes or retypes a question with a real answer
+ * (feedback_answers.question_id cascades on delete, and a stars-valued
+ * answer under a question retyped to "video" would be silently
+ * meaningless) — throws instead, naming the question, so the caller
+ * writes nothing rather than writing a partial result.
+ */
+export function diffFeedbackQuestions(existing: ExistingQuestion[], incoming: IncomingQuestion[]): QuestionDiff {
+  const existingById = new Map(existing.map((q) => [q.id, q]));
+  const incomingIds = new Set(incoming.filter((q) => q.id).map((q) => q.id as string));
+
+  const toDelete: string[] = [];
+  for (const q of existing) {
+    if (incomingIds.has(q.id)) continue;
+    if (q.hasRealAnswer) throw new Error(`"${q.text}" already has responses and can't be removed.`);
+    toDelete.push(q.id);
+  }
+
+  const toUpdate: QuestionDiff["toUpdate"] = [];
+  const toInsert: QuestionDiff["toInsert"] = [];
+  incoming.forEach((q, i) => {
+    const order = i + 1;
+    if (!q.id) {
+      toInsert.push({ text: q.text, type: q.type, order });
+      return;
+    }
+    const current = existingById.get(q.id);
+    if (!current) throw new Error(`Question ${q.id} does not belong to this session.`);
+    if (current.type !== q.type && current.hasRealAnswer) {
+      throw new Error(`"${current.text}" already has responses — its type can't change.`);
+    }
+    toUpdate.push({ id: q.id, text: q.text, type: q.type, order });
+  });
+
+  return { toDelete, toUpdate, toInsert };
+}
+
 export async function setFeedbackSessionStatus(
   id: string,
   status: FeedbackSessionStatus,
