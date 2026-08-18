@@ -77,7 +77,6 @@ export function EditSessionModal({
 
   // Reset every field from props each time the modal opens, so a previous
   // edit session (opened, changed, cancelled) never leaks into the next.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     const answered = computeAnsweredQuestionIds(responses);
@@ -96,6 +95,7 @@ export function EditSessionModal({
           hasRealAnswer: answered.has(q.id),
         })),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const totalQuestions = rows.length;
