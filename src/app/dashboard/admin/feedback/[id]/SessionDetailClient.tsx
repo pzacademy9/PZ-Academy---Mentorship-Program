@@ -23,6 +23,7 @@ import {
   User,
   Search,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, initials } from "@/lib/format";
@@ -33,6 +34,7 @@ import type { PerQuestionStat, ResponseDetail } from "@/lib/data/feedback-respon
 import type { MentorLinkOption } from "@/lib/data/admin-mentors";
 import { ShareReviewModal } from "../ShareReviewModal";
 import { StarRating } from "@/components/ui/StarRating";
+import { EditSessionModal } from "./EditSessionModal";
 
 function personAvg(stars: number[]): number | null {
   if (!stars.length) return null;
@@ -358,6 +360,7 @@ export function SessionDetailClient({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ResponseDetail | null>(null);
 
   const starQuestions = perQuestion.filter((q) => q.type === "stars");
@@ -571,6 +574,15 @@ export function SessionDetailClient({
         <div className="flex items-center justify-end gap-2 flex-wrap mt-4">
           <button
             type="button"
+            onClick={() => setEditModalOpen(true)}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-surface-container transition-colors disabled:opacity-50"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit Details
+          </button>
+          <button
+            type="button"
             onClick={toggleStatus}
             disabled={isPending}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-headline text-sm font-semibold border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-surface-container transition-colors disabled:opacity-50"
@@ -679,6 +691,17 @@ export function SessionDetailClient({
         targetId={session.id}
         targetName={session.name}
         shareToken={session.shareToken}
+      />
+
+      <EditSessionModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        sessionId={session.id}
+        name={session.name}
+        speakerName={session.speakerName}
+        sessionDate={session.sessionDate}
+        questions={session.questions}
+        responses={responses}
       />
 
       <Dialog open={deleteTarget != null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
