@@ -954,6 +954,9 @@ function CommentsStep({ value, onChange }: { value: string; onChange: (v: string
           style={{ ...inputStyle, paddingLeft: 44, resize: "vertical" }}
         />
       </div>
+      <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, marginTop: 10 }}>
+        Your name and comments may appear on your mentor&apos;s public profile.
+      </p>
     </div>
   );
 }
