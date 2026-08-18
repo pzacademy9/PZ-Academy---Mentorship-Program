@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -20,6 +20,8 @@ import {
   Inbox,
   Eye,
   EyeOff,
+  User,
+  Search,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, initials } from "@/lib/format";
@@ -27,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import type { FeedbackSessionRow } from "@/lib/data/feedback-sessions";
 import type { PerQuestionStat, ResponseDetail } from "@/lib/data/feedback-responses";
+import type { MentorLinkOption } from "@/lib/data/admin-mentors";
 import { ShareReviewModal } from "../ShareReviewModal";
 import { StarRating } from "@/components/ui/StarRating";
 
@@ -204,14 +207,126 @@ function ResponseRow({
   );
 }
 
+/**
+ * Small inline mentor-attribution combobox for the session detail hero —
+ * shows the currently linked mentor (or "Not linked") and lets the admin
+ * pick/change/clear it, reusing the same searchable-list pattern
+ * NewSessionModal.tsx uses for its own mentor picker. `mentors` is fetched
+ * server-side once by page.tsx (listMentorsForLinking) rather than
+ * client-fetched from GET /api/admin/mentors, since this page already does
+ * its own server-side data fetch and the list is small.
+ */
+function MentorLinkRow({
+  mentorId,
+  mentors,
+  isPending,
+  onSelect,
+}: {
+  mentorId: string | null;
+  mentors: MentorLinkOption[];
+  isPending: boolean;
+  onSelect: (mentorId: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const linkedMentor = mentors.find((m) => m.id === mentorId) ?? null;
+  const filteredMentors = mentors.filter((m) => m.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  function choose(id: string | null) {
+    onSelect(id);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div ref={containerRef} className="relative mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={isPending}
+        className="inline-flex items-center gap-1.5 font-body text-xs text-pz-on-surface-variant hover:text-pz-primary transition-colors disabled:opacity-50"
+      >
+        <User className="w-3.5 h-3.5" />
+        {linkedMentor ? (
+          <>
+            Mentor: <span className="font-headline font-semibold text-pz-on-surface">{linkedMentor.name}</span>
+          </>
+        ) : (
+          "Mentor: Not linked"
+        )}
+        <ChevronDown className={cn("w-3 h-3 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-72 max-h-64 overflow-y-auto bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg shadow-lg p-2 space-y-1">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-pz-on-surface-variant pointer-events-none" />
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search mentors…"
+              className="w-full pl-8 pr-2 py-1.5 rounded-md border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-xs text-pz-on-surface"
+            />
+          </div>
+          {linkedMentor && (
+            <button
+              type="button"
+              onClick={() => choose(null)}
+              disabled={isPending}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-pz-surface-container text-left transition-colors font-body text-xs text-pz-danger disabled:opacity-50"
+            >
+              <X className="w-3.5 h-3.5" /> Clear linked mentor
+            </button>
+          )}
+          {filteredMentors.length === 0 ? (
+            <p className="px-2 py-1.5 font-body text-xs text-pz-on-surface-variant">No mentors match.</p>
+          ) : (
+            filteredMentors.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => choose(m.id)}
+                disabled={isPending}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-pz-surface-container text-left transition-colors font-body text-xs disabled:opacity-50",
+                  m.id === mentorId ? "text-pz-primary font-semibold" : "text-pz-on-surface",
+                )}
+              >
+                {m.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SessionDetailClient({
   session,
   perQuestion,
   responses,
+  mentors,
 }: {
   session: FeedbackSessionRow;
   perQuestion: PerQuestionStat[];
   responses: ResponseDetail[];
+  mentors: MentorLinkOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -270,6 +385,23 @@ export function SessionDetailClient({
         return;
       }
       toast.success("Cover image removed.");
+      router.refresh();
+    });
+  }
+
+  function setMentor(mentorId: string | null) {
+    startTransition(async () => {
+      const res = await fetch(`/api/admin/feedback/sessions/${session.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mentorId }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? "Could not update the linked mentor.");
+        return;
+      }
+      toast.success(mentorId ? "Mentor linked." : "Mentor unlinked.");
       router.refresh();
     });
   }
@@ -387,6 +519,11 @@ export function SessionDetailClient({
             </p>
           </div>
         </div>
+
+        {/* Mentor attribution/link — sits just below the cover hero (not inside it,
+            since the hero's overflow-hidden would clip this row's popover) but still
+            visually adjacent to the speakerName/date attribution rendered above it. */}
+        <MentorLinkRow mentorId={session.mentorId} mentors={mentors} isPending={isPending} onSelect={setMentor} />
 
         <div className="flex items-center justify-end gap-2 flex-wrap mt-4">
           <button
