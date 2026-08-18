@@ -53,15 +53,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     if (parsed.data.status !== undefined) await setFeedbackSessionStatus(id, parsed.data.status, auth.user.id);
     if (parsed.data.mentorId !== undefined) await setFeedbackSessionMentor(id, parsed.data.mentorId, auth.user.id);
+    if (parsed.data.questions !== undefined) {
+      await updateFeedbackSessionQuestions(id, parsed.data.questions, auth.user.id);
+    }
     if (parsed.data.name !== undefined) {
       await updateFeedbackSessionDetails(
         id,
         { name: parsed.data.name, speakerName: parsed.data.speakerName!, sessionDate: parsed.data.sessionDate ?? null },
         auth.user.id,
       );
-    }
-    if (parsed.data.questions !== undefined) {
-      await updateFeedbackSessionQuestions(id, parsed.data.questions, auth.user.id);
     }
     return NextResponse.json({ ok: true });
   } catch (e) {
