@@ -84,7 +84,10 @@ export interface MentorConfigDetail extends Mentor {
   showReviews: boolean;
 }
 
-const ADMIN_SELECT = `${MENTOR_SELECT}, visibility, order_index, profile_id, show_reviews`;
+// show_reviews is already part of MENTOR_SELECT (src/lib/data/mentors.ts) as
+// of the show_reviews public-profile fix — not repeated here to avoid
+// selecting the same column twice in one PostgREST query.
+const ADMIN_SELECT = `${MENTOR_SELECT}, visibility, order_index, profile_id`;
 
 /** Full detail for the Configuration page: mentor fields + booking count, nothing else. */
 export async function getMentorConfig(id: string): Promise<MentorConfigDetail | null> {

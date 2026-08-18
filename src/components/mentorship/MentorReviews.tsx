@@ -138,8 +138,22 @@ function EmptyState() {
   );
 }
 
-export function MentorReviews({ summary, reviews }: { summary: MentorReviewSummary; reviews: MentorReview[] }) {
+export function MentorReviews({
+  summary,
+  reviews,
+  showReviews,
+}: {
+  summary: MentorReviewSummary;
+  reviews: MentorReview[];
+  showReviews: boolean;
+}) {
   const [showAll, setShowAll] = useState(false);
+
+  // When the mentor has turned the section off, render nothing at all — not
+  // the zero-reviews EmptyState, which would falsely assert "no reviews yet"
+  // to the public even when real reviews exist behind the flag. This is
+  // distinct from the genuine "reviews are on but count is zero" case below.
+  if (!showReviews) return null;
 
   // Gated on the actual rendered content (reviews.length), not summary.count:
   // a public, commented response with zero star answers (e.g. an all-video

@@ -329,15 +329,20 @@ export default function MentorProfileClient({
                   src/lib/data/mentor-reviews.ts), independent of the
                   hand-authored Editor's Picks block below. Renders its own
                   empty state internally when reviewSummary.count === 0, and
-                  nothing at all when the mentor has show_reviews off (page.tsx
-                  already returns an empty summary/list in that case). */}
+                  nothing at all when the mentor has show_reviews off — the
+                  `mentor.showReviews` flag is threaded down explicitly so
+                  MentorReviews can tell "off" apart from "on but zero
+                  reviews": page.tsx's summary/review queries return empty
+                  data for both cases, so gating on data alone would have
+                  rendered the "No reviews yet" empty state even when a
+                  mentor with real reviews has simply turned the section off. */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.05 }}
               >
-                <MentorReviews summary={reviewSummary} reviews={reviews} />
+                <MentorReviews summary={reviewSummary} reviews={reviews} showReviews={mentor.showReviews} />
               </motion.div>
 
               {/* Editor's Picks — admin-authored testimonials (mentor.testimonials,

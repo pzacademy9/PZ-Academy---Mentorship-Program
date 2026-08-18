@@ -64,13 +64,14 @@ export interface Mentor {
   sessionDurationMinutes: number;
   sessionDurationText: string;
   timezone: string;
+  showReviews: boolean;
 }
 
 // A single (non-concatenated) string literal, so Supabase's typed client can
 // statically parse the selected columns — string concatenation (`"a" +
 // "b"`) widens to plain `string` and silently degrades every field below to
 // GenericStringError.
-export const MENTOR_SELECT = `id, slug, name, title, expertise, short_bio, full_bio, photo_url, experience, domain, language, format, price_per_session_pkr, packages, availability_text, lead_time, credentials, skills, intro_video_url, linkedin_url, social_links, testimonials, session_duration_minutes, session_duration_text, timezone`;
+export const MENTOR_SELECT = `id, slug, name, title, expertise, short_bio, full_bio, photo_url, experience, domain, language, format, price_per_session_pkr, packages, availability_text, lead_time, credentials, skills, intro_video_url, linkedin_url, social_links, testimonials, session_duration_minutes, session_duration_text, timezone, show_reviews`;
 
 /**
  * Shared by the public read functions below and by admin-mentors.ts's
@@ -106,6 +107,7 @@ export function mapMentorRow(row: {
   session_duration_minutes: number;
   session_duration_text: string | null;
   timezone: string | null;
+  show_reviews: boolean;
 }): Mentor {
   return {
     id: row.id,
@@ -133,6 +135,7 @@ export function mapMentorRow(row: {
     sessionDurationMinutes: row.session_duration_minutes,
     sessionDurationText: row.session_duration_text ?? "",
     timezone: row.timezone ?? "",
+    showReviews: row.show_reviews,
   };
 }
 
