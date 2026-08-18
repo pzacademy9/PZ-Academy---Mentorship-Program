@@ -9,10 +9,19 @@ import { useSearchParams } from "next/navigation";
 /* ─── Config ─────────────────────────────────────────────── */
 const NAV_HEIGHT = 72;
 
+/*
+ * "Avg Rating" used to hardcode a fabricated "4.9★" — the live Supabase
+ * project has zero real public reviews right now (only an orphaned test
+ * row from an earlier task's verification), so a specific number would be
+ * just as fabricated as the one it replaces. Swapped for honest
+ * qualitative copy instead, matching the "Trusted across Pakistan" phrasing
+ * already used elsewhere on this page. Revisit once real review volume
+ * exists (see getMentorReviewSummaries in src/lib/data/mentor-reviews.ts).
+ */
 const STATS = [
-  { icon: Users,      value: "50+",  label: "Sessions Booked",  cls: "levitate-1" },
-  { icon: Star,       value: "4.9★", label: "Avg Rating",       cls: "levitate-2" },
-  { icon: BadgeCheck, value: "100%", label: "Verified Experts", cls: "levitate-3" },
+  { icon: Users,      value: "50+",     label: "Sessions Booked",  cls: "levitate-1" },
+  { icon: Star,       value: "Trusted", label: "Across Pakistan",  cls: "levitate-2" },
+  { icon: BadgeCheck, value: "100%",    label: "Verified Experts", cls: "levitate-3" },
 ];
 
 const ROLES = ["Doctors", "Engineers", "Pharmacists", "Scientists", "Professionals"];

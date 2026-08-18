@@ -28,24 +28,11 @@ import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import type { FeedbackSessionRow } from "@/lib/data/feedback-sessions";
 import type { PerQuestionStat, ResponseDetail } from "@/lib/data/feedback-responses";
 import { ShareReviewModal } from "../ShareReviewModal";
+import { StarRating } from "@/components/ui/StarRating";
 
 function personAvg(stars: number[]): number | null {
   if (!stars.length) return null;
   return Math.round((stars.reduce((a, b) => a + b, 0) / stars.length) * 10) / 10;
-}
-
-function StarRow({ value, size = 14 }: { value: number; size?: number }) {
-  return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${value} out of 5 stars`}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star
-          key={i}
-          style={{ width: size, height: size }}
-          className={i < Math.round(value) ? "fill-pz-secondary text-pz-secondary" : "text-pz-outline-variant"}
-        />
-      ))}
-    </span>
-  );
 }
 
 function PerQuestionBar({ q }: { q: PerQuestionStat }) {
@@ -180,7 +167,7 @@ function ResponseRow({
                 return (
                   <div key={q.id} className="flex items-center justify-between gap-3">
                     <span className="font-body text-xs text-pz-on-surface-variant flex-1">{q.question}</span>
-                    <StarRow value={a.starValue} />
+                    <StarRating value={a.starValue} />
                   </div>
                 );
               })}

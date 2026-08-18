@@ -33,15 +33,22 @@ export default function TrustBar() {
               color: "#6B7280",
             }}
           >
-            Average Rating
+            Mentee Feedback
           </p>
 
+          {/*
+           * Was a hardcoded "4.9★" — the live project has zero real public
+           * mentor reviews right now, so a specific rating would be
+           * fabricated. Qualitative copy instead of a stat, until real
+           * review volume exists (see mentor-reviews.ts).
+           */}
           <p
             className="font-montserrat"
-            style={{ fontSize: "clamp(48px, 5vw, 64px)", fontWeight: 900, color: "#1A4D2E", lineHeight: 1 }}
+            style={{ fontSize: "clamp(36px, 4vw, 48px)", fontWeight: 900, color: "#1A4D2E", lineHeight: 1.15 }}
           >
-            4.9
-            <span style={{ color: "#C9A84C", fontSize: "0.55em", verticalAlign: "super", marginLeft: "4px" }}>★</span>
+            Verified
+            <br />
+            Reviews Only
           </p>
         </div>
 

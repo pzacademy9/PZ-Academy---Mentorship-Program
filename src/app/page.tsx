@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
-import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Star } from "lucide-react";
+import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Quote } from "lucide-react";
 
 const STATS = [
   { icon: Video,    number: "12+",  label: "Live Webinars",     badge: null },
@@ -57,7 +57,11 @@ export default function HomePage() {
           <div key={r.initials} className={`absolute hidden xl:block max-w-[210px] z-[3] pointer-events-none ${r.side === "left" ? "left-[3%] top-[30%]" : "right-[3%] top-[40%]"}`}
             style={{ background:"rgba(255,255,255,.09)", backdropFilter:"blur(18px)", border:"1px solid rgba(255,255,255,.14)", borderRadius:16, padding:"0.9rem 1.1rem",
               animation: r.side === "left" ? "reviewLeft 11s ease-in-out infinite" : "reviewRight 13s 2s ease-in-out infinite" }}>
-            <div className="flex gap-0.5 mb-1.5">{[...Array(5)].map((_,i)=><Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400"/>)}</div>
+            {/* Was 5 hardcoded filled stars, implying a perfect verified rating —
+                the live project has zero real public reviews right now, so any
+                star claim here would be fabricated. A quote mark just marks
+                this as a testimonial, no rating asserted. */}
+            <Quote className="w-3.5 h-3.5 text-pz-bright mb-1.5" aria-hidden="true" />
             <p className="text-[.72rem] text-[rgba(255,255,255,.82)] italic leading-relaxed mb-2">{r.text}</p>
             <div className="flex items-center gap-1.5">
               <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[.6rem] font-bold text-white" style={{background:"linear-gradient(135deg,#7ED957,#196432)"}}>{r.initials}</div>

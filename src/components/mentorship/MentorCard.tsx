@@ -4,14 +4,17 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { Mentor } from "@/lib/data/mentors";
+import type { MentorReviewSummary } from "@/lib/data/mentor-reviews";
 import { formatPrice, initials } from "@/lib/format";
+import { StarRating } from "@/components/ui/StarRating";
 
 interface MentorCardProps {
   mentor: Mentor;
   index: number;
+  ratingSummary?: MentorReviewSummary;
 }
 
-export default function MentorCard({ mentor, index }: MentorCardProps) {
+export default function MentorCard({ mentor, index, ratingSummary }: MentorCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 36 }}
@@ -113,6 +116,21 @@ export default function MentorCard({ mentor, index }: MentorCardProps) {
       >
         {mentor.expertise}
       </span>
+
+      {/* Rating — only when this mentor has at least one real public review; an
+          unreviewed mentor shows no line at all rather than a fake "No ratings
+          yet" placeholder that implies the feature is broken. */}
+      {ratingSummary && ratingSummary.count > 0 && ratingSummary.avg != null && (
+        <div className="flex items-center gap-1.5 mb-3">
+          <StarRating value={ratingSummary.avg} size={13} />
+          <span className="font-poppins" style={{ fontSize: "13px", fontWeight: 600, color: "#0D0D0D" }}>
+            {ratingSummary.avg.toFixed(1)}
+          </span>
+          <span className="font-poppins" style={{ fontSize: "12px", color: "#9CA3AF" }}>
+            ({ratingSummary.count})
+          </span>
+        </div>
+      )}
 
       {/* Bio */}
       <p

@@ -6,6 +6,7 @@ import TrustBar from "@/components/mentorship/TrustBar";
 import MentorCard, { ComingSoonCard } from "@/components/mentorship/MentorCard";
 import RecruitmentForm from "@/components/mentorship/RecruitmentForm";
 import { getPublishedMentors, type Mentor } from "@/lib/data/mentors";
+import { getMentorReviewSummaries, type MentorReviewSummary } from "@/lib/data/mentor-reviews";
 
 export const metadata: Metadata = {
   title: "PZ Academy Mentorship – Find Your Expert Mentor",
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const mentors = await getPublishedMentors();
+  const ratingSummaries = await getMentorReviewSummaries(mentors.map((m) => m.id));
 
   return (
     <>
@@ -22,7 +24,7 @@ export default async function HomePage() {
       <main>
         <HeroSection />
         <TrustBar />
-        <MentorsSection mentors={mentors} />
+        <MentorsSection mentors={mentors} ratingSummaries={ratingSummaries} />
         <HowItWorksSection />
         <RecruitmentForm />
       </main>
@@ -32,7 +34,13 @@ export default async function HomePage() {
 }
 
 /* ── Mentors Grid ─────────────────────────────────────── */
-function MentorsSection({ mentors }: { mentors: Mentor[] }) {
+function MentorsSection({
+  mentors,
+  ratingSummaries,
+}: {
+  mentors: Mentor[];
+  ratingSummaries: Record<string, MentorReviewSummary>;
+}) {
   return (
     <section
       id="mentors"
@@ -73,7 +81,7 @@ function MentorsSection({ mentors }: { mentors: Mentor[] }) {
           style={{ gap: "32px" }}
         >
           {mentors.map((mentor, i) => (
-            <MentorCard key={mentor.slug} mentor={mentor} index={i} />
+            <MentorCard key={mentor.slug} mentor={mentor} index={i} ratingSummary={ratingSummaries[mentor.id]} />
           ))}
           <ComingSoonCard index={mentors.length} />
         </div>

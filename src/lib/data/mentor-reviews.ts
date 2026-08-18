@@ -85,6 +85,47 @@ export async function getMentorReviewSummary(mentorId: string): Promise<MentorRe
   return summarizeStarValues(perResponseStarLists);
 }
 
+/**
+ * Batch variant of getMentorReviewSummary for list views (the /mentorship
+ * grid) — 2 queries total instead of N, reusing the same reviewsEnabledFor
+ * + summarizeStarValues logic per mentor rather than N+1-querying per
+ * MentorCard. Mentors with show_reviews off, or with no public commented
+ * responses, come back with the same `empty` summary getMentorReviewSummary
+ * would give them (never omitted from the returned map).
+ */
+export async function getMentorReviewSummaries(mentorIds: string[]): Promise<Record<string, MentorReviewSummary>> {
+  const empty: MentorReviewSummary = { avg: null, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+  const result: Record<string, MentorReviewSummary> = {};
+  for (const id of mentorIds) result[id] = empty;
+  if (!mentorIds.length) return result;
+
+  const admin = createAdminSupabase();
+  const { data: mentorRows } = await admin.from("mentors").select("id, show_reviews").in("id", mentorIds);
+  const enabledIds = (mentorRows ?? []).filter((m) => m.show_reviews).map((m) => m.id);
+  if (!enabledIds.length) return result;
+
+  const { data } = await admin
+    .from("feedback_responses")
+    .select("id, comments, feedback_sessions!inner(mentor_id), feedback_answers(star_value)")
+    .in("feedback_sessions.mentor_id", enabledIds)
+    .eq("is_public", true);
+
+  const perMentorStarLists = new Map<string, number[][]>();
+  for (const id of enabledIds) perMentorStarLists.set(id, []);
+
+  for (const r of data ?? []) {
+    if (!r.comments?.trim()) continue;
+    const mentorId = (r.feedback_sessions as unknown as { mentor_id: string }).mentor_id;
+    const stars = (r.feedback_answers ?? []).map((a) => a.star_value).filter((v): v is number => v != null);
+    perMentorStarLists.get(mentorId)?.push(stars);
+  }
+
+  perMentorStarLists.forEach((lists, id) => {
+    result[id] = summarizeStarValues(lists);
+  });
+  return result;
+}
+
 export async function listMentorReviews(mentorId: string, opts: { limit?: number } = {}): Promise<MentorReview[]> {
   if (!(await reviewsEnabledFor(mentorId))) return [];
 
