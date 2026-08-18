@@ -376,22 +376,43 @@ export function NewSessionModal() {
   }
 
   /**
-   * Uploads the selected cover onto a just-created session. Non-fatal: the
-   * session already exists, so a failed cover upload only earns a warning
-   * toast, never blocks the success step.
+   * Posts the selected cover to `url`. Non-fatal: the session/program already
+   * exists, so a failed cover upload only earns a warning toast, never
+   * blocks the success step.
    */
-  async function uploadCoverFor(sessionId: string) {
+  async function uploadCoverTo(url: string, warningMessage: string) {
     if (!coverFile) return;
     const form = new FormData();
     form.append("cover", coverFile);
     try {
-      const res = await fetch(`/api/admin/feedback/sessions/${sessionId}/cover`, { method: "POST", body: form });
-      if (!res.ok) {
-        toast.warning("Session created, but the cover image could not be uploaded. You can add it from the session page.");
-      }
+      const res = await fetch(url, { method: "POST", body: form });
+      if (!res.ok) toast.warning(warningMessage);
     } catch {
-      toast.warning("Session created, but the cover image could not be uploaded. You can add it from the session page.");
+      toast.warning(warningMessage);
     }
+  }
+
+  /** Uploads the selected cover onto a just-created standalone session or (as the first-session convenience copy) a program's member session. */
+  async function uploadCoverForSession(sessionId: string) {
+    await uploadCoverTo(
+      `/api/admin/feedback/sessions/${sessionId}/cover`,
+      "Session created, but the cover image could not be uploaded. You can add it from the session page.",
+    );
+  }
+
+  /**
+   * Uploads the selected cover onto a just-created program's own cover_url —
+   * distinct from uploadCoverForSession above. This is the cover the share
+   * card / OG image for the program's own share link actually reads
+   * (flattenShareView / getNativeShareView, program branch), so without this
+   * call feedback_programs.cover_url stays permanently null even though a
+   * cover was picked in this modal.
+   */
+  async function uploadCoverForProgram(programId: string) {
+    await uploadCoverTo(
+      `/api/admin/feedback/programs/${programId}/cover`,
+      "Program created, but the cover image could not be uploaded.",
+    );
   }
 
   function submit() {
@@ -445,7 +466,8 @@ export function NewSessionModal() {
         }
 
         const payload = (await res.json()) as { id: string; sessions: { id: string; slug: string }[] };
-        if (payload.sessions[0]) await uploadCoverFor(payload.sessions[0].id);
+        await uploadCoverForProgram(payload.id);
+        if (payload.sessions[0]) await uploadCoverForSession(payload.sessions[0].id);
         setCreatedProgramSessions(payload.sessions);
         setStep("success");
         router.refresh();
@@ -473,7 +495,7 @@ export function NewSessionModal() {
       }
 
       const payload = (await res.json()) as { id: string; slug: string };
-      await uploadCoverFor(payload.id);
+      await uploadCoverForSession(payload.id);
       setCreatedSlug(payload.slug);
       setStep("success");
       router.refresh();
