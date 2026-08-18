@@ -1,0 +1,205 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Share Review Page</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#6750a4",
+                        "tertiary-container": "#c9a74d",
+                        "tertiary-fixed-dim": "#e7c365",
+                        "outline": "#948e9c",
+                        "surface-bright": "#3b383e",
+                        "primary-fixed-dim": "#cfbcff",
+                        "inverse-surface": "#e6e0e9",
+                        "on-error": "#690005",
+                        "primary-fixed": "#e9ddff",
+                        "secondary": "#cdc0e9",
+                        "surface-variant": "#36343a",
+                        "on-tertiary-fixed": "#241a00",
+                        "secondary-fixed-dim": "#cdc0e9",
+                        "surface-container-lowest": "#0f0d13",
+                        "error-container": "#93000a",
+                        "tertiary-fixed": "#ffdf93",
+                        "background": "#141218",
+                        "on-secondary-fixed": "#1f1635",
+                        "on-tertiary": "#3e2e00",
+                        "surface-container-low": "#1d1b20",
+                        "on-primary-fixed": "#22005d",
+                        "surface-tint": "#cfbcff",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#36343a",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#e7c365",
+                        "surface": "#141218",
+                        "on-secondary-container": "#bfb2da",
+                        "surface-dim": "#141218",
+                        "error": "#ffb4ab",
+                        "primary": "#cfbcff",
+                        "on-background": "#e6e0e9",
+                        "on-tertiary-fixed-variant": "#594400",
+                        "on-primary": "#381e72",
+                        "secondary-container": "#4d4465",
+                        "outline-variant": "#494551",
+                        "surface-container-high": "#2b292f",
+                        "on-surface-variant": "#cbc4d2",
+                        "surface-container": "#211f24",
+                        "inverse-on-surface": "#322f35",
+                        "on-primary-fixed-variant": "#4f378a",
+                        "inverse-primary": "#6750a4",
+                        "on-surface": "#e6e0e9",
+                        "on-tertiary-container": "#503d00",
+                        "on-primary-container": "#e0d2ff",
+                        "on-secondary-fixed-variant": "#4b4263",
+                        "on-secondary": "#342b4b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "gutter": "24px",
+                        "lg": "24px",
+                        "xl": "48px",
+                        "sm": "8px",
+                        "md": "12px",
+                        "margin": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Montserrat"],
+                        "headline-md-mobile": ["Montserrat"],
+                        "display-lg": ["Montserrat"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"],
+                        "headline-md": ["Montserrat"],
+                        "label-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "headline-md-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex items-center justify-center font-body-md">
+<!-- Scrim & Modal Container -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-sm sm:p-gutter bg-black/60 backdrop-blur-sm">
+<!-- Modal -->
+<div class="relative w-full max-w-xl bg-surface rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+<!-- Close Button -->
+<button aria-label="Close" class="absolute top-md right-md p-sm rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+<!-- Header -->
+<div class="p-gutter pb-sm">
+<h2 class="text-headline-md font-headline-md text-on-surface">Share Review Page</h2>
+<p class="text-body-md font-body-md text-on-surface-variant mt-sm">Choose how you want to share these reviews with your audience.</p>
+</div>
+<!-- Content Area -->
+<div class="p-gutter flex flex-col gap-lg">
+<!-- Link Cards Stack -->
+<div class="flex flex-col gap-md">
+<!-- Card 1: Public Link -->
+<div class="border border-outline-variant rounded-lg p-md bg-surface-container flex flex-col gap-sm">
+<div class="flex items-start gap-md">
+<span class="material-symbols-outlined text-on-surface-variant mt-xs">public</span>
+<div class="flex-1">
+<h3 class="text-label-lg font-label-lg text-on-surface">Public Link</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-xs">Viewers see reviews only — no filter, search, or share controls</p>
+</div>
+</div>
+<div class="flex items-center gap-sm mt-sm">
+<input class="flex-1 bg-surface-container-highest border border-outline-variant rounded-DEFAULT px-md py-sm text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary h-[40px]" readonly="" type="text" value="https://pz-academy.edu/reviews/pub-7x2j">
+<button class="p-sm text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-highest rounded-DEFAULT flex items-center justify-center h-[40px] w-[40px]" title="Copy link">
+<span class="material-symbols-outlined">content_copy</span>
+</button>
+<button class="px-md py-sm text-primary hover:bg-primary/10 transition-colors rounded-DEFAULT text-label-lg font-label-lg h-[40px]">
+                                Open
+                            </button>
+</div>
+</div>
+<!-- Card 2: Members Link (Emphasized) -->
+<div class="border border-primary/40 rounded-lg p-md bg-surface-container-low flex flex-col gap-sm relative overflow-hidden">
+<div class="absolute top-md right-md bg-primary-container text-on-primary-container px-sm py-xs rounded-full text-label-sm font-label-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">star</span>
+                             Recommended
+                         </div>
+<div class="flex items-start gap-md pr-[120px]">
+<span class="material-symbols-outlined text-primary mt-xs" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<div class="flex-1">
+<h3 class="text-label-lg font-label-lg text-on-surface">Members Link</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-xs">Includes filter, search, sort, and social share-card download</p>
+</div>
+</div>
+<div class="flex items-center gap-sm mt-sm">
+<input class="flex-1 bg-surface-container-highest border border-outline-variant rounded-DEFAULT px-md py-sm text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary h-[40px]" readonly="" type="text" value="https://pz-academy.edu/reviews/mem-9k4p">
+<button class="p-sm text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-highest rounded-DEFAULT flex items-center justify-center h-[40px] w-[40px]" title="Copy link">
+<span class="material-symbols-outlined">content_copy</span>
+</button>
+<button class="px-md py-sm text-primary hover:bg-primary/10 transition-colors rounded-DEFAULT text-label-lg font-label-lg h-[40px]">
+                                Open
+                            </button>
+</div>
+</div>
+</div>
+<!-- Social Share Card Section -->
+<div class="border border-outline-variant rounded-lg p-md bg-surface-container flex flex-col sm:flex-row gap-md items-center sm:items-start">
+<!-- Preview Thumbnail -->
+<div class="w-full sm:w-[120px] aspect-square rounded-DEFAULT overflow-hidden border border-outline-variant shrink-0 bg-surface-container-lowest">
+<img alt="Session Feedback Social Media Card preview showing a 4.8 star rating and a 99% recommendation stat overlaid on a dark, laboratory-themed background with elegant gold typography." class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7KaUHLc2CIkb973sr-pBLZYuL8WyHBowXVIRr3B6I7XMURuO5shDbmQNY_GK2jyBwBdS1ssZI02NzP2DgsbuFVo__LcNNEQBSstfAoY-dkqCMMVGoLkq0IYeRaTjzCbdPS6O-lCUEJwfsywPK0BTStUx_dL-jbgMWtVpKsw29D7WgrJDHzV2RruqeJ0hjTujHGIHjLNZdVKLrw_2nfH-nGpPNFV2qB0FEtfjm6ZQJ8F8_7radLCFGlQ">
+</div>
+<!-- Details & Download -->
+<div class="flex-1 flex flex-col justify-center text-center sm:text-left gap-sm">
+<div>
+<h4 class="text-label-lg font-label-lg text-on-surface">Session Summary Share Card</h4>
+<p class="text-label-sm font-label-sm text-on-surface-variant">1080 × 1080 • PNG</p>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant hidden sm:block">Perfect for sharing on LinkedIn, Twitter, or Instagram to highlight recent feedback.</p>
+<div class="mt-xs">
+<button class="inline-flex items-center justify-center gap-sm bg-primary-container text-on-primary-container hover:bg-primary-container/90 transition-colors rounded-lg px-lg py-sm text-label-lg font-label-lg">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                                Download image
+                            </button>
+</div>
+</div>
+</div>
+<!-- Footer / QR Section -->
+<div class="pt-md border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-lg">
+<div class="flex flex-col items-center gap-sm">
+<!-- QR Placeholder -->
+<div class="w-[120px] h-[120px] bg-white rounded-lg p-sm flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-surface-container-highest text-[64px]">qr_code_2</span>
+</div>
+<button class="text-primary hover:text-primary-fixed-dim text-label-lg font-label-lg transition-colors underline-offset-4 hover:underline">
+                            Download QR
+                        </button>
+</div>
+<div class="flex-1 text-center sm:text-right hidden sm:block">
+<p class="text-label-sm font-label-sm text-on-surface-variant max-w-[200px] ml-auto">
+                            Print this QR code to place on physical materials or display on screens during events.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

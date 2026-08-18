@@ -1,0 +1,451 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>MedAcademy Admin - New Session</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-lowest": "#0f0d14",
+                      "on-primary-container": "#594983",
+                      "on-error-container": "#ffdad6",
+                      "surface": "#14121a",
+                      "on-tertiary-fixed-variant": "#633b48",
+                      "surface-container-low": "#1c1a22",
+                      "on-surface": "#e6e0eb",
+                      "primary-fixed-dim": "#d0bcff",
+                      "tertiary": "#ffd9e3",
+                      "outline-variant": "#49454f",
+                      "on-error": "#690005",
+                      "surface-dim": "#14121a",
+                      "tertiary-fixed-dim": "#efb8c8",
+                      "on-primary-fixed": "#210f48",
+                      "surface-container": "#201e26",
+                      "surface-tint": "#d0bcff",
+                      "primary-fixed": "#e9ddff",
+                      "surface-bright": "#3a3840",
+                      "inverse-on-surface": "#312f37",
+                      "secondary-fixed": "#e9def9",
+                      "on-tertiary-container": "#704654",
+                      "secondary-container": "#4a4359",
+                      "on-primary": "#37265e",
+                      "on-background": "#e6e0eb",
+                      "background": "#14121a",
+                      "surface-container-highest": "#36343c",
+                      "secondary-fixed-dim": "#ccc2dc",
+                      "inverse-surface": "#e6e0eb",
+                      "error-container": "#93000a",
+                      "error": "#ffb4ab",
+                      "surface-variant": "#36343c",
+                      "on-primary-fixed-variant": "#4d3d76",
+                      "primary-container": "#d0bcff",
+                      "on-secondary": "#332d41",
+                      "tertiary-fixed": "#ffd9e3",
+                      "tertiary-container": "#efb8c8",
+                      "on-tertiary": "#492532",
+                      "on-secondary-container": "#bab1ca",
+                      "primary": "#e9ddff",
+                      "inverse-primary": "#665590",
+                      "on-secondary-fixed-variant": "#4a4359",
+                      "on-surface-variant": "#cac4d0",
+                      "secondary": "#ccc2dc",
+                      "on-secondary-fixed": "#1e182b",
+                      "surface-container-high": "#2b2931",
+                      "on-tertiary-fixed": "#31111d",
+                      "outline": "#948f9a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "lg": "24px",
+                      "container-padding": "24px",
+                      "sm": "8px",
+                      "xl": "48px",
+                      "md": "12px",
+                      "gutter": "12px"
+              },
+              "fontFamily": {
+                      "title-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg": [
+                              "Montserrat"
+                      ],
+                      "headline-sm": [
+                              "Montserrat"
+                      ],
+                      "label-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg-mobile": [
+                              "Montserrat"
+                      ],
+                      "body-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-md": [
+                              "Montserrat"
+                      ],
+                      "display-lg": [
+                              "Montserrat"
+                      ],
+                      "body-md": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "title-lg": [
+                              "22px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-sm": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.5px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "letterSpacing": "0.5px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.1px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "57px",
+                              {
+                                      "lineHeight": "64px",
+                                      "letterSpacing": "-0.25px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.25px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md antialiased overflow-hidden h-screen flex">
+<!-- Shell: Sidebar -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-full p-md border-r border-outline-variant bg-surface-container-low w-64 shrink-0 z-10">
+<div class="flex items-center gap-md px-md py-sm mb-lg">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-primary font-bold leading-none">MedAcademy</div>
+<div class="font-label-md text-label-md text-on-surface-variant">Admin Portal</div>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-sm">
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Overview</span>
+</a>
+<a class="flex items-center gap-md bg-secondary-container text-on-secondary-container rounded-lg px-md py-sm cursor-pointer transition-all" href="#">
+<span class="material-symbols-outlined">event_note</span>
+<span class="font-body-md text-body-md font-medium">Session Management</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md text-body-md">Mentor Directory</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Curriculum</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</div>
+<div class="flex flex-col gap-sm mt-auto pt-lg border-t border-outline-variant">
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Help Center</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm hover:bg-surface-bright transition-all rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Logout</span>
+</a>
+</div>
+</nav>
+<!-- Shell: Topbar (Mobile Only) -->
+<header class="md:hidden flex justify-between items-center w-full px-container-padding h-16 bg-surface-dim border-b border-outline-variant fixed top-0 left-0 z-10">
+<div class="font-headline-sm text-headline-sm font-bold text-primary">MedAcademy Admin</div>
+<div class="flex gap-md">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors text-on-surface-variant">notifications</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors text-on-surface-variant">settings</span>
+</div>
+</header>
+<!-- Main Content Canvas (Background) -->
+<main class="flex-1 ml-0 md:ml-64 mt-16 md:mt-0 p-container-padding overflow-y-auto bg-surface-container-lowest">
+<!-- Dashboard Content Placeholder to show context under the modal -->
+<div class="flex justify-between items-end mb-xl">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-sm">Session Management</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Review and manage educational sessions.</p>
+</div>
+<button class="bg-primary-container text-on-primary-container px-lg py-md rounded-[12px] flex items-center gap-sm font-label-lg text-label-lg hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">add</span>
+                New Session
+            </button>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg mb-xl">
+<div class="bg-surface-container rounded-lg p-lg border border-outline-variant">
+<div class="text-on-surface-variant font-label-md text-label-md mb-xs">Active Sessions</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">24</div>
+</div>
+<div class="bg-surface-container rounded-lg p-lg border border-outline-variant">
+<div class="text-on-surface-variant font-label-md text-label-md mb-xs">Pending Reviews</div>
+<div class="font-headline-lg text-headline-lg text-on-surface">128</div>
+</div>
+<div class="bg-surface-container rounded-lg p-lg border border-outline-variant">
+<div class="text-on-surface-variant font-label-md text-label-md mb-xs">Avg Mentor Rating</div>
+<div class="font-headline-lg text-headline-lg text-on-surface text-primary">4.8</div>
+</div>
+</div>
+</main>
+<!-- MODAL OVERLAY -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-lg">
+<!-- Backdrop Scrim -->
+<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
+<!-- Modal Container -->
+<div class="relative w-full max-w-2xl bg-surface-container-high rounded-[16px] shadow-2xl border border-outline-variant flex flex-col max-h-[90vh] overflow-hidden transform transition-all">
+<!-- Modal Header -->
+<div class="flex justify-between items-center px-lg py-md border-b border-outline-variant shrink-0 bg-surface-container">
+<h2 class="font-title-lg text-title-lg text-on-surface">New Session</h2>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors rounded-full p-xs hover:bg-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body (Scrollable) -->
+<div class="p-lg overflow-y-auto flex flex-col gap-xl">
+<!-- 1. Cover Image Uploader (Filled State) -->
+<div class="w-full aspect-video rounded-[12px] border-2 border-dashed border-outline-variant relative overflow-hidden group">
+<img alt="Cover image preview" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD633iQnpimaS9i53VOoZpsnTbsnzxUGDwHFielzHMk2EHN2P5O8bQFNyro2Kbh73Fjs4udMZ4AOfZZ-gAiE5s4wphUWDY1PhJhFix99ILehO_4DFAPZscI5UODwayKu6KDfRrxZIkmprPcDk-qhyaF_QLu9vUIGbbb6TIWkj0YfqsrYId2esp1dkvrpji1gKXeEb3DcTnjxCBGGTkq0F3QnwUE-hJ3EnjXmqibmPfMf-nITjX4MknZ1w">
+<button class="absolute top-sm right-sm bg-surface-container-highest/80 backdrop-blur text-on-surface p-xs rounded-full hover:bg-error-container hover:text-on-error-container transition-colors shadow-lg z-10">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<!-- Hover overlay for replacement hint -->
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-[32px] text-white mb-sm">add_photo_alternate</span>
+<span class="font-label-lg text-label-lg text-white">Click to change cover</span>
+</div>
+</div>
+<!-- 2. Session Name -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant ml-xs">Session Name</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-[12px] px-md py-sm font-body-lg text-body-lg text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="e.g. Advanced Pharmacokinetics Q&amp;A" type="text">
+</div>
+<!-- 3. Speaker & Date Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-lg">
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant ml-xs">Speaker Name</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-[12px] px-md py-sm font-body-lg text-body-lg text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Enter speaker name" type="text">
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant ml-xs">Date</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant">calendar_today</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-[12px] pl-[44px] pr-md py-sm font-body-lg text-body-lg text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-colors [color-scheme:dark]" type="date">
+</div>
+</div>
+</div>
+<!-- 4. Link to mentor Combobox (Selected State) -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant ml-xs">Link to mentor</label>
+<div class="w-full bg-surface-container-lowest border border-outline-variant rounded-[12px] p-sm flex items-center justify-between focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors cursor-pointer hover:bg-surface-container-high">
+<div class="flex items-center gap-md">
+<img alt="Dr. Sarah Vance" class="w-10 h-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsNS9CmrlPpxrA3PwrdkZiJGLQbowpuPxYf6UrRBSdxPgPHo9mJJWGhNLlXjdRAiFPfH1Olu_-bSRZyJDoc2TtCPbi-hqIFRlCOPWW6k3e7eJSG9QZ-K6eENTgV7GYT_yLkuwh72QJGGVK6QMvhyq7tIqPj6dp_VY7vXQMzjNGP5gPVPfLXB-9QQFbgE7-_6E-TWGrvioMGBD3VAkhyX4kzNfw3oP78b5xTINqkm9CWIEradscaXqmgQ">
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg text-on-surface">Dr. Sarah Vance</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Senior Clinical Pharmacologist</span>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface p-xs rounded-full hover:bg-surface-variant transition-colors mr-xs">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant/70 ml-xs">Optional — links this session's reviews to a public mentor profile</span>
+</div>
+<!-- 5. Make this a program Toggle -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-md flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg text-on-surface">Make this a program</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Group multiple sessions under one curriculum</span>
+</div>
+<!-- Custom Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-outline after:border-outline after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container peer-checked:after:bg-on-primary-container peer-checked:after:border-on-primary-container"></div>
+</label>
+</div>
+<!-- 6. Questions block -->
+<div class="flex flex-col gap-md">
+<div class="flex justify-between items-end border-b border-outline-variant pb-sm">
+<h3 class="font-title-lg text-title-lg text-on-surface">Questions</h3>
+<span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-[2px] rounded-full">3 of 5 selected · min 3</span>
+</div>
+<div class="flex flex-col gap-sm">
+<!-- Row 1 -->
+<div class="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-[12px] p-sm group hover:border-primary/50 transition-colors">
+<div class="flex items-center gap-md flex-1">
+<input checked="" class="w-5 h-5 rounded-[4px] border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface-container-high bg-surface-container-lowest" type="checkbox">
+<input class="bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface w-full p-0" type="text" value="Clarity of content">
+</div>
+<div class="flex bg-surface-container-highest rounded-lg p-[2px] ml-sm shrink-0">
+<button class="px-sm py-xs rounded-md bg-secondary-container text-on-secondary-container flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</button>
+<button class="px-sm py-xs rounded-md text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+</button>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-[12px] p-sm group hover:border-primary/50 transition-colors">
+<div class="flex items-center gap-md flex-1">
+<input checked="" class="w-5 h-5 rounded-[4px] border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface-container-high bg-surface-container-lowest" type="checkbox">
+<input class="bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface w-full p-0" type="text" value="Clinical relevance">
+</div>
+<div class="flex bg-surface-container-highest rounded-lg p-[2px] ml-sm shrink-0">
+<button class="px-sm py-xs rounded-md bg-secondary-container text-on-secondary-container flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</button>
+<button class="px-sm py-xs rounded-md text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+</button>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-[12px] p-sm group hover:border-primary/50 transition-colors">
+<div class="flex items-center gap-md flex-1">
+<input checked="" class="w-5 h-5 rounded-[4px] border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface-container-high bg-surface-container-lowest" type="checkbox">
+<input class="bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface w-full p-0" type="text" value="Practical application">
+</div>
+<div class="flex bg-surface-container-highest rounded-lg p-[2px] ml-sm shrink-0">
+<button class="px-sm py-xs rounded-md text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">star</span>
+</button>
+<button class="px-sm py-xs rounded-md bg-secondary-container text-on-secondary-container flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">videocam</span>
+</button>
+</div>
+</div>
+<!-- Row 4 -->
+<div class="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-[12px] p-sm group hover:border-primary/50 transition-colors opacity-60">
+<div class="flex items-center gap-md flex-1">
+<input class="w-5 h-5 rounded-[4px] border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface-container-high bg-surface-container-lowest" type="checkbox">
+<input class="bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface-variant w-full p-0 line-through" type="text" value="Supporting materials">
+</div>
+<div class="flex bg-surface-container-highest rounded-lg p-[2px] ml-sm shrink-0">
+<button class="px-sm py-xs rounded-md text-on-surface-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">star</span>
+</button>
+<button class="px-sm py-xs rounded-md text-on-surface-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+</button>
+</div>
+</div>
+<!-- Row 5 -->
+<div class="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-[12px] p-sm group hover:border-primary/50 transition-colors opacity-60">
+<div class="flex items-center gap-md flex-1">
+<input class="w-5 h-5 rounded-[4px] border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface-container-high bg-surface-container-lowest" type="checkbox">
+<input class="bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface-variant w-full p-0 line-through" type="text" value="Speaker engagement">
+</div>
+<div class="flex bg-surface-container-highest rounded-lg p-[2px] ml-sm shrink-0">
+<button class="px-sm py-xs rounded-md text-on-surface-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">star</span>
+</button>
+<button class="px-sm py-xs rounded-md text-on-surface-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+</button>
+</div>
+</div>
+</div>
+<button class="self-start text-primary hover:text-primary-fixed font-label-lg text-label-lg flex items-center gap-xs px-sm py-xs rounded-md hover:bg-surface-variant transition-colors mt-xs">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Add custom question
+                    </button>
+</div>
+</div>
+<!-- 7. Footer -->
+<div class="flex justify-end items-center gap-md px-lg py-md border-t border-outline-variant bg-surface-container shrink-0">
+<button class="px-lg py-md rounded-[12px] font-label-lg text-label-lg text-primary hover:bg-surface-variant transition-colors">
+                    Cancel
+                </button>
+<button class="bg-primary-container text-on-primary-container px-lg py-md rounded-full flex items-center gap-sm font-label-lg text-label-lg hover:opacity-90 transition-opacity font-medium">
+                    Create Session
+                    <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</body></html>
