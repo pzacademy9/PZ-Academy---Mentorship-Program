@@ -3,7 +3,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { logFeedbackAudit } from "@/lib/data/feedback-audit";
 import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
-import { cleanText, MAX_NAME_LEN, uniqueSlug, randomSlugSuffix } from "@/lib/validations/feedback";
+import { cleanText, MAX_NAME_LEN, MAX_QUESTION_LEN, uniqueSlug, randomSlugSuffix } from "@/lib/validations/feedback";
 import type { PublicSession } from "@/lib/mentorship/gas";
 
 export type FeedbackSessionStatus = Database["public"]["Enums"]["feedback_session_status"];
@@ -295,6 +295,95 @@ export function diffFeedbackQuestions(existing: ExistingQuestion[], incoming: In
   });
 
   return { toDelete, toUpdate, toInsert };
+}
+
+export async function updateFeedbackSessionDetails(
+  id: string,
+  input: { name: string; speakerName: string; sessionDate: string | null },
+  actorProfileId: string | null,
+): Promise<void> {
+  const admin = createAdminSupabase();
+  const name = cleanText(input.name, MAX_NAME_LEN);
+  const speakerName = cleanText(input.speakerName, MAX_NAME_LEN);
+  if (!name) throw new Error("Session name is required.");
+  if (!speakerName) throw new Error("Speaker name is required.");
+
+  const { error } = await admin
+    .from("feedback_sessions")
+    .update({ name, speaker_name: speakerName, session_date: input.sessionDate })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  await logFeedbackAudit({ action: "updateFeedbackSessionDetails", detail: `${id} · ${name}`, actorProfileId });
+}
+
+/**
+ * Diffs the incoming question list against the DB via diffFeedbackQuestions
+ * (which throws before anything is written if a guard fails), then applies
+ * the result as delete/update/insert. Sequential, non-transactional writes
+ * — matches createFeedbackSession's existing session-then-questions pattern
+ * in this same file.
+ */
+export async function updateFeedbackSessionQuestions(
+  sessionId: string,
+  questions: IncomingQuestion[],
+  actorProfileId: string | null,
+): Promise<void> {
+  const admin = createAdminSupabase();
+
+  const { data: existingRows } = await admin
+    .from("feedback_questions")
+    .select("id, text, type")
+    .eq("feedback_session_id", sessionId);
+  const rows = existingRows ?? [];
+
+  let answeredIds = new Set<string>();
+  if (rows.length > 0) {
+    const { data: answerRows } = await admin
+      .from("feedback_answers")
+      .select("question_id, star_value, video_url")
+      .in("question_id", rows.map((r) => r.id));
+    answeredIds = new Set(
+      (answerRows ?? []).filter((a) => a.star_value != null || a.video_url != null).map((a) => a.question_id),
+    );
+  }
+
+  const existing: ExistingQuestion[] = rows.map((r) => ({
+    id: r.id,
+    text: r.text,
+    type: r.type,
+    hasRealAnswer: answeredIds.has(r.id),
+  }));
+  const cleanedIncoming: IncomingQuestion[] = questions.map((q) => ({
+    id: q.id,
+    text: cleanText(q.text, MAX_QUESTION_LEN),
+    type: q.type,
+  }));
+
+  const diff = diffFeedbackQuestions(existing, cleanedIncoming);
+
+  if (diff.toDelete.length > 0) {
+    const { error } = await admin.from("feedback_questions").delete().in("id", diff.toDelete);
+    if (error) throw new Error(error.message);
+  }
+  for (const u of diff.toUpdate) {
+    const { error } = await admin
+      .from("feedback_questions")
+      .update({ text: u.text, type: u.type, question_order: u.order })
+      .eq("id", u.id);
+    if (error) throw new Error(error.message);
+  }
+  if (diff.toInsert.length > 0) {
+    const { error } = await admin.from("feedback_questions").insert(
+      diff.toInsert.map((q) => ({ feedback_session_id: sessionId, text: q.text, type: q.type, question_order: q.order })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  await logFeedbackAudit({
+    action: "updateFeedbackSessionQuestions",
+    detail: `${sessionId} · +${diff.toInsert.length} -${diff.toDelete.length} ~${diff.toUpdate.length}`,
+    actorProfileId,
+  });
 }
 
 export async function setFeedbackSessionStatus(
