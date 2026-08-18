@@ -17,7 +17,6 @@ import {
   RotateCcw,
   Link2,
   Download,
-  Pencil,
   Trash2,
   Image as ImageIcon,
   Search,
@@ -133,7 +132,7 @@ function cropToWidescreen(file: File): Promise<File> {
 }
 
 /** Small star/video segmented toggle used inside each question row. */
-function TypeToggle({
+export function TypeToggle({
   value,
   onChange,
   disabled,
@@ -1066,10 +1065,6 @@ export function SessionRowActions({
           <MoreVertical className="w-5 h-5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-48">
-          <DropdownMenuItem disabled className="gap-2 font-body opacity-50 cursor-not-allowed">
-            <Pencil className="w-4 h-4" />
-            Edit (coming soon)
-          </DropdownMenuItem>
           <DropdownMenuItem onSelect={toggleStatus} className="gap-2 font-body cursor-pointer">
             {status === "active" ? <Ban className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
             {status === "active" ? "Close session" : "Reopen session"}
