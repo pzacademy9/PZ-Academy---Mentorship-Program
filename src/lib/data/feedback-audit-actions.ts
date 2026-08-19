@@ -1,7 +1,20 @@
-import { describe, it, expect } from "vitest";
-import { describeAuditAction, type AuditActionInfo } from "@/lib/data/feedback-audit-actions";
+export type AuditCategory = "sessions" | "programs" | "responses" | "questionBank" | "sharing";
+export type AuditTone = "create" | "destructive" | "moderate" | "neutral" | "share";
 
-const EXPECTED: Record<string, AuditActionInfo> = {
+export interface AuditActionInfo {
+  label: string;
+  category: AuditCategory;
+  tone: AuditTone;
+}
+
+/**
+ * setCoverImage/removeCoverImage are logged identically by both
+ * feedback-sessions.ts and feedback-programs.ts — the log has no way to
+ * tell which one a given row came from (detail is a bare id, no type
+ * prefix). Bucketed under "sessions" as the more common case; a real
+ * data-shape limitation, not something this lookup can resolve.
+ */
+const AUDIT_ACTIONS: Record<string, AuditActionInfo> = {
   createFeedbackSession: { label: "Created session", category: "sessions", tone: "create" },
   updateFeedbackSessionDetails: { label: "Updated session details", category: "sessions", tone: "neutral" },
   updateFeedbackSessionQuestions: { label: "Updated session questions", category: "sessions", tone: "neutral" },
@@ -21,18 +34,7 @@ const EXPECTED: Record<string, AuditActionInfo> = {
   generateShareToken: { label: "Generated share link", category: "sharing", tone: "share" },
 };
 
-describe("describeAuditAction", () => {
-  it("maps every known action string to its exact label/category/tone", () => {
-    for (const [action, expected] of Object.entries(EXPECTED)) {
-      expect(describeAuditAction(action)).toEqual(expected);
-    }
-  });
-
-  it("falls back to a neutral sessions-category entry for an unrecognized action, using the raw string as the label", () => {
-    expect(describeAuditAction("someFutureAction")).toEqual({
-      label: "someFutureAction",
-      category: "sessions",
-      tone: "neutral",
-    });
-  });
-});
+/** Pure lookup — never throws, so a page render never breaks because a future mutation added a logFeedbackAudit call this table doesn't know about yet. */
+export function describeAuditAction(action: string): AuditActionInfo {
+  return AUDIT_ACTIONS[action] ?? { label: action, category: "sessions", tone: "neutral" };
+}

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { CirclePlus, Trash2, EyeOff, Pencil, Share2, Inbox } from "lucide-react";
 import { relativeTime, formatDateTime } from "@/lib/format";
-import { describeAuditAction, type AuditLogEntry, type AuditCategory, type AuditTone } from "@/lib/data/feedback-audit";
+import { describeAuditAction, type AuditCategory, type AuditTone } from "@/lib/data/feedback-audit-actions";
+import type { AuditLogEntry } from "@/lib/data/feedback-audit";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_TABS: { value: AuditCategory | "all"; label: string }[] = [
