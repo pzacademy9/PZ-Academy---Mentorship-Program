@@ -268,6 +268,17 @@ export interface QuestionDiff {
  * writes nothing rather than writing a partial result.
  */
 export function diffFeedbackQuestions(existing: ExistingQuestion[], incoming: IncomingQuestion[]): QuestionDiff {
+  // Reject duplicate incoming ids before anything else: without this, e.g. the same id
+  // three times passes the route's .min(3) question-count check but resolves to a single
+  // update applied three times, silently collapsing the session down to fewer than 3
+  // real questions once rows missing from `incoming` get deleted below.
+  const seenIds = new Set<string>();
+  for (const q of incoming) {
+    if (!q.id) continue;
+    if (seenIds.has(q.id)) throw new Error(`Question ${q.id} appears more than once in the request.`);
+    seenIds.add(q.id);
+  }
+
   const existingById = new Map(existing.map((q) => [q.id, q]));
   const incomingIds = new Set(incoming.filter((q) => q.id).map((q) => q.id as string));
 
@@ -330,21 +341,28 @@ export async function updateFeedbackSessionQuestions(
 ): Promise<void> {
   const admin = createAdminSupabase();
 
-  const { data: existingRows } = await admin
+  const { data: existingRows, error: questionsError } = await admin
     .from("feedback_questions")
     .select("id, text, type")
     .eq("feedback_session_id", sessionId);
+  if (questionsError) throw new Error(questionsError.message);
   const rows = existingRows ?? [];
 
-  let answeredIds = new Set<string>();
-  if (rows.length > 0) {
-    const { data: answerRows } = await admin
+  // Per-question bounded existence checks instead of one bulk `.in(...)` select — `rows`
+  // is at most 5 (route schema caps `questions` to 3-5), so this stays cheap, and it sidesteps
+  // PostgREST's db-max-rows cap that a bulk select over feedback_answers could silently hit
+  // (see hydrateStats's doc comment above and migration 0034_feedback_session_stats.sql, which
+  // exists because that exact truncation bug already hit this same table pair once). Any error
+  // here throws rather than reading as "no answers" — an integrity guard must fail closed, not open.
+  const answeredIds = new Set<string>();
+  for (const r of rows) {
+    const { count, error } = await admin
       .from("feedback_answers")
-      .select("question_id, star_value, video_url")
-      .in("question_id", rows.map((r) => r.id));
-    answeredIds = new Set(
-      (answerRows ?? []).filter((a) => a.star_value != null || a.video_url != null).map((a) => a.question_id),
-    );
+      .select("id", { count: "exact", head: true })
+      .eq("question_id", r.id)
+      .or("star_value.not.is.null,video_url.not.is.null");
+    if (error) throw new Error(error.message);
+    if ((count ?? 0) > 0) answeredIds.add(r.id);
   }
 
   const existing: ExistingQuestion[] = rows.map((r) => ({
@@ -361,10 +379,11 @@ export async function updateFeedbackSessionQuestions(
 
   const diff = diffFeedbackQuestions(existing, cleanedIncoming);
 
-  if (diff.toDelete.length > 0) {
-    const { error } = await admin.from("feedback_questions").delete().in("id", diff.toDelete);
-    if (error) throw new Error(error.message);
-  }
+  // Update, then insert, then delete last: these are separate, non-transactional
+  // statements (deliberately no transaction — see the doc comment above), so ordering
+  // is the only safety net against a mid-sequence failure. Deleting last means a failure
+  // partway through leaves at worst extra rows (an admin can just re-save), never rows
+  // silently destroyed before a later step failed.
   for (const u of diff.toUpdate) {
     const { error } = await admin
       .from("feedback_questions")
@@ -376,6 +395,10 @@ export async function updateFeedbackSessionQuestions(
     const { error } = await admin.from("feedback_questions").insert(
       diff.toInsert.map((q) => ({ feedback_session_id: sessionId, text: q.text, type: q.type, question_order: q.order })),
     );
+    if (error) throw new Error(error.message);
+  }
+  if (diff.toDelete.length > 0) {
+    const { error } = await admin.from("feedback_questions").delete().in("id", diff.toDelete);
     if (error) throw new Error(error.message);
   }
 

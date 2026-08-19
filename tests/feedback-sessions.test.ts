@@ -126,4 +126,15 @@ describe("diffFeedbackQuestions", () => {
     ]);
     expect(diff.toDelete).toEqual(["q2"]);
   });
+
+  it("throws when the same incoming id appears more than once, naming it in the message", () => {
+    const existing = [q("q1", "How was the pacing?", "stars", false)];
+    const incoming: IncomingQuestion[] = [
+      { id: "q1", text: "How was the pacing?", type: "stars" },
+      { id: "q1", text: "How was the pacing? (dup)", type: "stars" },
+    ];
+    expect(() => diffFeedbackQuestions(existing, incoming)).toThrow(
+      "Question q1 appears more than once in the request.",
+    );
+  });
 });

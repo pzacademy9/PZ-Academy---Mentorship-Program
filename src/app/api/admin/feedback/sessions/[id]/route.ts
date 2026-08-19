@@ -51,11 +51,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   try {
-    if (parsed.data.status !== undefined) await setFeedbackSessionStatus(id, parsed.data.status, auth.user.id);
-    if (parsed.data.mentorId !== undefined) await setFeedbackSessionMentor(id, parsed.data.mentorId, auth.user.id);
+    // questions is the only branch that can reject (an answered question can't be
+    // removed/retyped) — it must run first, or a rejection here would leave an
+    // earlier branch's write already committed.
     if (parsed.data.questions !== undefined) {
       await updateFeedbackSessionQuestions(id, parsed.data.questions, auth.user.id);
     }
+    if (parsed.data.status !== undefined) await setFeedbackSessionStatus(id, parsed.data.status, auth.user.id);
+    if (parsed.data.mentorId !== undefined) await setFeedbackSessionMentor(id, parsed.data.mentorId, auth.user.id);
     if (parsed.data.name !== undefined) {
       await updateFeedbackSessionDetails(
         id,

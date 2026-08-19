@@ -100,6 +100,7 @@ export function EditSessionModal({
 
   const totalQuestions = rows.length;
   const atMax = totalQuestions >= MAX_QUESTIONS;
+  const hasBlankText = rows.some((r) => !r.text.trim());
 
   function addRow() {
     if (atMax) {
@@ -132,8 +133,11 @@ export function EditSessionModal({
       toast.error("Session name and speaker are required.");
       return;
     }
-    const clean = rows.filter((r) => r.text.trim().length > 0);
-    if (clean.length < MIN_QUESTIONS) {
+    if (hasBlankText) {
+      toast.error("Every question needs text.");
+      return;
+    }
+    if (rows.length < MIN_QUESTIONS) {
       toast.error(`Pick at least ${MIN_QUESTIONS} questions.`);
       return;
     }
@@ -146,7 +150,7 @@ export function EditSessionModal({
           name: name.trim(),
           speakerName: speakerName.trim(),
           sessionDate: date || null,
-          questions: clean.map((r) => ({ id: r.id, text: r.text.trim(), type: r.type })),
+          questions: rows.map((r) => ({ id: r.id, text: r.text.trim(), type: r.type })),
         }),
       });
       if (!res.ok) {
@@ -295,7 +299,7 @@ export function EditSessionModal({
           <button
             type="button"
             onClick={save}
-            disabled={isPending}
+            disabled={isPending || hasBlankText}
             className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? "Saving…" : "Save Changes"}
