@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox, Star, ListChecks, Layers, Image as ImageIcon } from "lucide-react";
+import { Inbox, Star, ListChecks, Layers, History, Image as ImageIcon } from "lucide-react";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listFeedbackSessions } from "@/lib/data/feedback-sessions";
 import { listFeedbackPrograms } from "@/lib/data/feedback-programs";
@@ -56,6 +56,13 @@ export default async function AdminFeedbackPage() {
           >
             <ListChecks className="w-4 h-4" />
             Question Bank
+          </Link>
+          <Link
+            href="/dashboard/admin/feedback/audit-log"
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+          >
+            <History className="w-4 h-4" />
+            Audit Log
           </Link>
           <NewSessionModal />
         </div>
