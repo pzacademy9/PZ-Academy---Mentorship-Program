@@ -84,10 +84,19 @@ export function MessageThread({
         toast.error("Could not send that message.");
         return;
       }
+      const data = (await res.json()) as { message: MessageRow };
+      // Appended directly from the response, not left to the realtime
+      // subscription -- a brand-new thread has no open subscription yet at
+      // send time (conversationId was null), and the subscription this
+      // triggers via router.refresh() below only catches inserts that
+      // happen AFTER it opens, never backfilling the one just sent. The
+      // dedup guard means this is also safe if realtime *does* independently
+      // deliver the same row (an existing thread, subscription already open).
+      setMessages((prev) => (prev.some((m) => m.id === data.message.id) ? prev : [...prev, data.message]));
       setDraft("");
       // Picks up the real conversationId when this was the first message in
-      // a brand-new thread; otherwise a harmless no-op re-render, since the
-      // message itself already arrived via the realtime subscription above.
+      // a brand-new thread, which opens the realtime subscription for any
+      // later messages in this thread.
       router.refresh();
     });
   }

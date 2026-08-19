@@ -27,5 +27,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ stu
     );
   }
 
-  return NextResponse.json({ ok: true, conversationId: result.conversationId });
+  return NextResponse.json({ ok: true, conversationId: result.conversationId, message: result.message });
 }
