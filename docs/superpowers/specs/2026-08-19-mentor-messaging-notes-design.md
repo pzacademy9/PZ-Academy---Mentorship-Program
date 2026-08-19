@@ -52,19 +52,37 @@ screen instances, mostly course/lesson/homepage content) that subsystem C
 already drew its four dashboard screens from — no screen there is labeled
 or evidently themed for chat/inbox/messaging either.
 
-**No existing screen covers this subsystem's UI.** Per the standing rule,
-new screens must be generated before any UI code is written. Design
-systems to reuse (same mapping C established):
+**No existing screen covered this subsystem's UI**, so new screens were
+generated in a fresh project, `PZ Academy Platform 2`
+(`projects/4651274386787527431`), from four prompts covering mentor
+inbox, mentor thread, student inbox, student thread. The batch landed in
+three different color themes rather than the two originally requested
+(desktop and mobile sometimes drifted independently) — reviewed all
+variants directly as rendered screenshots and confirmed with the user
+that the drift doesn't block extraction, since this codebase's
+established convention (used throughout A/B/C) is to implement against
+the app's real `pz-*` design tokens, never Stitch's literal hex values.
+What's taken from each screen is the layout pattern (inbox row structure,
+message bubble shape/alignment, composer bar), not its colors. Canonical
+screens:
 
-| Surface | Design system | Rationale |
+| Surface | Screen | Note |
 |---|---|---|
-| Mentor: Messages inbox + thread (`/dashboard/mentor/messages`) | PZ Academy (`assets/574b02af36ab45bb8c20118ab51a3930`) | Matches live forest/lime `/dashboard/mentor` theme |
-| Student: Messages inbox + thread (`/dashboard/messages`) | Clinical Excellence Admin (`assets/77a4b1b5e619499ebed8faefbeeb0b8b`) | Matches live M3 tokens on `/dashboard/sessions` |
+| Mentor: Messages inbox (desktop) | `projects/4651274386787527431/screens/e78da2d2b7f04f2588c74bb2e30db8f1` | "PZ Academy" theme — primary reference |
+| Mentor: Messages inbox (mobile) | `projects/4651274386787527431/screens/89e1e6deda38465bb27e13b410bf6e29` | "PZ Academy" theme — primary reference |
+| Mentor: Message thread (desktop) | `projects/4651274386787527431/screens/d0311c6cb8b149a28e528a5a8847918f` | "PZ Academy" theme — primary reference |
+| Mentor: Message thread (mobile) | `projects/4651274386787527431/screens/9de113e8d5bc4acdb3ab0744c615d183` | Color drifted to the "PharmaZyme" theme — layout-only reference |
+| Student: Messages inbox (desktop) | `projects/4651274386787527431/screens/70046659533e4c34826754dce7f8d50f` | "Clinical Excellence" theme — primary reference (hidden in Stitch UI, still valid) |
+| Student: Messages inbox (mobile) | `projects/4651274386787527431/screens/4a332fefb54940cfbdd9fc74d3d9589b` | "Clinical Excellence" theme — primary reference |
+| Student: Message thread (desktop) | `projects/4651274386787527431/screens/6a34ce2dca7d4592be4b332c1a386377` | "Clinical Excellence" theme — primary reference (hidden in Stitch UI, still valid) |
+| Student: Message thread (mobile) | `projects/4651274386787527431/screens/a8bb4f76cfdb4d9e8c3cb642387fb7e5` | Color drifted to the "PharmaZyme" theme — layout-only reference |
 
-Generation prompts for these four screens (mentor inbox, mentor thread,
-student inbox, student thread) will be handed to the user once this spec
-is approved — implementation does not start until real screens exist to
-extract from.
+Two extra screens generated in the same batch
+(`0240019547764f2fb042cab321e28cb5`, `5f0be79696644cb59aac42c3deccf017`,
+and their `(v2)` variant `34ada3569fa943ebad34598049d1eadc` — all titled
+"Student Conversation - Alex Johnson") are a duplicate mentor-thread
+attempt in the "PharmaZyme" theme, fully superseded by the canonical rows
+above. Not used.
 
 ## Data model
 
