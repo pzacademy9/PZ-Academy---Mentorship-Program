@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookSessionsSchema, scheduleSessionSchema } from "@/lib/validations/mentorship-sessions";
+import { bookSessionsSchema, scheduleSessionSchema, updateMentorNotesSchema } from "@/lib/validations/mentorship-sessions";
 
 describe("bookSessionsSchema", () => {
   it("accepts a booking id with one or more ISO slots", () => {
@@ -43,6 +43,23 @@ describe("scheduleSessionSchema", () => {
 
   it("rejects a missing scheduledAt", () => {
     const r = scheduleSessionSchema.safeParse({ bookingId: "11111111-1111-4111-8111-111111111111" });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe("updateMentorNotesSchema", () => {
+  it("accepts normal notes text", () => {
+    const r = updateMentorNotesSchema.safeParse({ notes: "Struggling with dosage calculations, review next session." });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts an empty string, to allow clearing notes", () => {
+    const r = updateMentorNotesSchema.safeParse({ notes: "" });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects notes over 5000 characters", () => {
+    const r = updateMentorNotesSchema.safeParse({ notes: "a".repeat(5001) });
     expect(r.success).toBe(false);
   });
 });

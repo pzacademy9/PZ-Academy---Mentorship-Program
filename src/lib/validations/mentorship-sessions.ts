@@ -16,3 +16,8 @@ export const sessionStatusUpdateSchema = z.object({
   status: z.enum(["completed", "cancelled"]),
 });
 export type SessionStatusUpdateInput = z.infer<typeof sessionStatusUpdateSchema>;
+
+export const updateMentorNotesSchema = z.object({
+  notes: z.string().max(5000),
+});
+export type UpdateMentorNotesInput = z.infer<typeof updateMentorNotesSchema>;
