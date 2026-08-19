@@ -1,3 +1,7 @@
+// No `import "server-only"` here on purpose — AuditLogClient.tsx ("use client")
+// value-imports describeAuditAction from this file. Adding server-only would
+// break the client build the same way it did before this file existed.
+
 export type AuditCategory = "sessions" | "programs" | "responses" | "questionBank" | "sharing";
 export type AuditTone = "create" | "destructive" | "moderate" | "neutral" | "share";
 

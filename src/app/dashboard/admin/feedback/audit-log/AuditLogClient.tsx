@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CirclePlus, Trash2, EyeOff, Pencil, Share2, Inbox } from "lucide-react";
+import Link from "next/link";
+import { CirclePlus, Trash2, EyeOff, Pencil, Share2, Inbox, ArrowLeft } from "lucide-react";
 import { relativeTime, formatDateTime } from "@/lib/format";
 import { describeAuditAction, type AuditCategory, type AuditTone } from "@/lib/data/feedback-audit-actions";
 import type { AuditLogEntry } from "@/lib/data/feedback-audit";
@@ -56,6 +57,13 @@ export function AuditLogClient({ entries }: { entries: AuditLogEntry[] }) {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/dashboard/admin/feedback"
+        className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back to sessions
+      </Link>
+
       <div>
         <h1 className="font-headline font-bold text-2xl text-pz-secondary">Audit Log</h1>
         <p className="font-body text-pz-on-surface-variant text-sm mt-1">
@@ -84,7 +92,9 @@ export function AuditLogClient({ entries }: { entries: AuditLogEntry[] }) {
       {visible.length === 0 ? (
         <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 flex flex-col items-center text-center">
           <Inbox className="w-10 h-10 text-pz-outline-variant mb-3" />
-          <p className="font-body text-pz-on-surface-variant text-sm">No activity yet.</p>
+          <p className="font-body text-pz-on-surface-variant text-sm">
+            {category === "all" ? "No activity yet." : "No activity in this category."}
+          </p>
         </div>
       ) : (
         <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
