@@ -70,3 +70,8 @@ export function initials(fullName: string): string {
   if (parts.length === 0) return "?";
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
+
+/** Bubble timestamps in a message thread -- HH:MM only, same en-GB pin as the rest of this file. */
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
