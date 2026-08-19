@@ -95,6 +95,14 @@ export async function sendMentorMessage(params: {
   senderId: string;
   body: string;
 }): Promise<SendMessageResult> {
+  // Defense in depth: every current caller derives senderId from the
+  // authenticated session and it always equals mentorId or studentId, but
+  // this function is the actual security boundary for the mutation, so it
+  // shouldn't rely on caller discipline alone.
+  if (params.senderId !== params.mentorId && params.senderId !== params.studentId) {
+    return { ok: false, reason: "no-booking" };
+  }
+
   const eligible = await hasBookingBetween(params.mentorId, params.studentId);
   if (!eligible) return { ok: false, reason: "no-booking" };
 
@@ -179,7 +187,7 @@ export async function listConversationsForStudent(studentId: string): Promise<Co
   });
 }
 
-/** Most recent message body per conversation, for inbox row previews -- one bounded query plus a JS reduction, mirroring listUpcomingSessionsForMentor's join style rather than an N+1 query per row. */
+/** Most recent message body per conversation, for inbox row previews -- one bounded query plus a JS reduction, mirroring listUpcomingSessionsForMentor's join style rather than an N+1 query per row. Capped at 500 rows across the whole batch: a generous recency budget for finding each conversation's true latest message without an unbounded scan of the viewer's entire message history. */
 async function latestMessagePreviewsByConversation(conversationIds: string[]): Promise<Map<string, string>> {
   if (conversationIds.length === 0) return new Map();
   const admin = createAdminSupabase();
@@ -187,7 +195,8 @@ async function latestMessagePreviewsByConversation(conversationIds: string[]): P
     .from("mentor_messages")
     .select("conversation_id, body, created_at")
     .in("conversation_id", conversationIds)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   const map = new Map<string, string>();
   for (const row of data ?? []) {
@@ -220,13 +229,19 @@ async function getConversationThread(params: { mentorId: string; studentId: stri
 
   if (!conversation) return { conversationId: null, messages: [], canMessage };
 
+  // Newest 200 first (bounded), then reversed for ascending display order --
+  // an unbounded thread history is a real scalability risk this review
+  // caught; 200 is enough for any realistic mentorship conversation, and a
+  // longer one shows its most recent 200 rather than getting stuck loading
+  // its oldest 200 forever. Real pagination is out of scope for now.
   const { data: messages } = await admin
     .from("mentor_messages")
     .select("id, conversation_id, sender_id, body, created_at")
     .eq("conversation_id", conversation.id)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
-  return { conversationId: conversation.id, messages: (messages ?? []).map(toMessageRow), canMessage };
+  return { conversationId: conversation.id, messages: (messages ?? []).map(toMessageRow).reverse(), canMessage };
 }
 
 /** Bumps the viewer's own read-marker -- service-role, called from the thread page itself right after loading, not from a client action. */

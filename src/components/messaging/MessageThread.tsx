@@ -8,6 +8,12 @@ import { createBrowserSupabase } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/format";
 import type { MessageRow } from "@/lib/data/mentor-messaging";
 
+/** Inserts a message if its id isn't already present, keeping the array sorted by createdAt -- shared by the realtime handler, the direct-append-from-response path, and the reconciliation effect below, so a message can never appear twice or out of order regardless of which path delivered it first. */
+function upsertMessage(prev: MessageRow[], next: MessageRow): MessageRow[] {
+  if (prev.some((m) => m.id === next.id)) return prev;
+  return [...prev, next].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 export function MessageThread({
   conversationId,
   initialMessages,
@@ -29,11 +35,26 @@ export function MessageThread({
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Reconciles state with fresh server props on every render where
+  // initialMessages changed -- the only way router.refresh() can actually
+  // repair a thread that went stale (subscription never opened, dropped,
+  // or errored silently). useState(initialMessages) only consumes its
+  // argument on mount, so without this merge a refresh's fresh message
+  // list would otherwise be silently discarded.
+  useEffect(() => {
+    setMessages((prev) => initialMessages.reduce(upsertMessage, prev));
+  }, [initialMessages]);
+
   // The only client-side Supabase Realtime subscription in this codebase --
   // every other data flow goes through a server route. Only subscribes once
   // a real conversationId exists; a brand-new thread (nobody has sent a
   // message yet) has nothing to subscribe to until the first send, at which
-  // point router.refresh() below re-renders this component with the real id.
+  // point router.refresh() re-renders this component with the real id and
+  // this effect re-runs. If the subscription ever fails to establish or
+  // drops later (network blip, backgrounded tab), the status callback
+  // triggers a server refresh so the reconciliation effect above can
+  // recover -- otherwise a dropped channel would leave the thread looking
+  // quiet with no error shown.
   useEffect(() => {
     if (!conversationId) return;
     const supabase = createBrowserSupabase();
@@ -51,21 +72,24 @@ export function MessageThread({
             created_at: string;
           };
           setMessages((prev) =>
-            prev.some((m) => m.id === row.id)
-              ? prev
-              : [
-                  ...prev,
-                  { id: row.id, conversationId: row.conversation_id, senderId: row.sender_id, body: row.body, createdAt: row.created_at },
-                ],
+            upsertMessage(prev, {
+              id: row.id,
+              conversationId: row.conversation_id,
+              senderId: row.sender_id,
+              body: row.body,
+              createdAt: row.created_at,
+            }),
           );
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") router.refresh();
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, router]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -84,15 +108,24 @@ export function MessageThread({
         toast.error("Could not send that message.");
         return;
       }
-      const data = (await res.json()) as { message: MessageRow };
+      const data = (await res.json().catch(() => null)) as { message: MessageRow } | null;
+      if (!data?.message) {
+        // Response was ok but malformed -- fall back to a server refresh
+        // rather than silently no-oping; the reconciliation effect above
+        // will pick up the message once the server has it.
+        setDraft("");
+        router.refresh();
+        return;
+      }
       // Appended directly from the response, not left to the realtime
       // subscription -- a brand-new thread has no open subscription yet at
       // send time (conversationId was null), and the subscription this
       // triggers via router.refresh() below only catches inserts that
       // happen AFTER it opens, never backfilling the one just sent. The
-      // dedup guard means this is also safe if realtime *does* independently
-      // deliver the same row (an existing thread, subscription already open).
-      setMessages((prev) => (prev.some((m) => m.id === data.message.id) ? prev : [...prev, data.message]));
+      // shared upsertMessage guard means this is also safe if realtime
+      // *does* independently deliver the same row (an existing thread,
+      // subscription already open).
+      setMessages((prev) => upsertMessage(prev, data.message));
       setDraft("");
       // Picks up the real conversationId when this was the first message in
       // a brand-new thread, which opens the realtime subscription for any

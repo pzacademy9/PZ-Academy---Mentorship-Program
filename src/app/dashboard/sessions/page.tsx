@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { Calendar } from "lucide-react";
-import { MessageCircle } from "lucide-react";
+import { Calendar, MessageCircle } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { listMyBookingsWithScheduling } from "@/lib/data/mentorship-bookings";
 import { MentorshipStatusBadge } from "@/components/admin/mentorship/MentorshipStatusBadge";

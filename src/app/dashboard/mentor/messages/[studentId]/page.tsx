@@ -15,6 +15,7 @@ export default async function MentorMessageThreadPage({ params }: { params: Prom
   if (!student) notFound();
 
   const thread = await getConversationForMentor(user.id, studentId);
+  if (!thread.canMessage && !thread.conversationId) notFound();
   if (thread.conversationId) {
     await markConversationRead(thread.conversationId, "mentor");
   }
