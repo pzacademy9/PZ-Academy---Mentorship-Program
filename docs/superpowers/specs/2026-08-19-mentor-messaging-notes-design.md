@@ -26,13 +26,23 @@ Status: approved. Final piece of the mentorship system's 4-subsystem rebuild
   UI, and — checked directly — **zero Supabase Realtime usage anywhere in
   this codebase**. Every existing data flow is server component / server
   action / service-role, with the browser never querying a table directly.
-- **No table in this repo has Row Level Security enabled** (confirmed: zero
-  `ENABLE ROW LEVEL SECURITY` statements across all migrations). The
-  established security model is "service-role data layer + route-level auth
-  gate as the only boundary" (see [[pz-academy-mentorship-subsystem-status]]),
-  which works today only because the browser never talks to a table
-  directly. Live chat breaks that assumption for the first time in this
-  codebase — see Security below.
+- **Correction from an earlier draft of this spec:** an initial pass claimed
+  no table in this repo has RLS enabled — that was wrong, caught by a
+  case-sensitive grep that missed `enable row level security` (lowercase)
+  and a directory listing that only checked the last 5 migration files,
+  skipping `0002_rls_policies.sql`. RLS is in fact applied broadly and
+  consistently every time a table is added that needs direct
+  participant-scoped access: migration `0002` (16 original tables,
+  including `sessions` and `mentors`), `0025` (`mentorship_bookings`,
+  `mentor_applications`), and as recently as `0033` (all seven feedback
+  tables). The app's own server-rendered code still mostly reads/writes via
+  service-role + route-level gates rather than relying on RLS for its own
+  queries (see [[pz-academy-mentorship-subsystem-status]]) — that part of
+  the framing was correct — but RLS itself is a well-established backstop
+  in this schema, not a new pattern. What *is* still new: no table's RLS
+  policies have ever had to serve a **live client-side Realtime
+  subscription** before, which is a stricter bar than the existing
+  policies were written for (see Security below).
 - Mentor-side session views today are two dashboard list widgets only
   (`UpcomingSessionsList`, `MyStudentsList` in `src/components/mentor/`,
   rendered from `/dashboard/mentor/page.tsx`) — there is no per-session
@@ -86,7 +96,7 @@ above. Not used.
 
 ## Data model
 
-New migration (next number after `0032`, e.g. `0033_mentor_messaging.sql`):
+New migration (next number after the feedback-system migrations, `0036_mentor_messaging.sql` — `0033`-`0035` landed after subsystem C, for the native Feedback Phase 2 system):
 
 ```sql
 create table public.mentor_conversations (
@@ -114,18 +124,21 @@ create table public.mentor_messages (
 identity convention B and C already established for anything that needs
 `auth.uid()` to resolve directly against a participant column.
 
-## Security: the first RLS in this codebase, deliberately scoped
+## Security: RLS sized for a live Realtime subscription, not just a REST fallback
 
 Realtime chat requires the browser to subscribe to `postgres_changes`
 directly using the user's own session — this is the one surface in the
 whole app where the client talks to a table without a server route in
 between. Supabase Realtime authorizes `postgres_changes` subscriptions via
-each table's RLS policies; with RLS off (the repo default), any
-authenticated user could subscribe to and read every conversation, not
-just their own.
+each table's RLS policies, same as it authorizes any other direct client
+read — so this isn't a new *mechanism* for this repo, just a new
+*consumer* of one: every existing RLS policy here only ever had to hold up
+against an occasional direct REST call, never a subscription a client
+keeps open and expects to keep receiving correctly-scoped rows from.
 
-**Both new tables get `ENABLE ROW LEVEL SECURITY`, and only these two.**
-Nothing else in the schema changes. Policies:
+**Both new tables get `ENABLE ROW LEVEL SECURITY`**, following the exact
+pattern `0002`/`0025`/`0033` already established (participant columns
+checked against `auth.uid()`). Policies:
 
 ```sql
 alter table public.mentor_conversations enable row level security;
@@ -193,6 +206,13 @@ paint, same as everywhere else in the app). On mount, the client opens a
 using the browser's own authenticated Supabase client (not service-role)
 and appends new rows as they arrive — this is the only place in the
 codebase a client component holds a live Supabase subscription.
+
+`postgres_changes` only fires for tables added to the `supabase_realtime`
+publication — a step independent of RLS and easy to forget silently (the
+feature would compile, build, and even pass a cursory click-through where
+you refresh the page, while simply never delivering a live update). The
+migration must explicitly run
+`alter publication supabase_realtime add table public.mentor_messages;`.
 
 ## UI
 
