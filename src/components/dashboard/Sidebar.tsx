@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
-  Handshake, UserCheck, Star,
+  Handshake, UserCheck, Star, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
@@ -23,6 +23,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "My Courses", shortLabel: "Courses", href: "/dashboard/courses", icon: BookOpen, roles: ["student"] },
   { label: "My Notes", shortLabel: "Notes", href: "/dashboard/notes", icon: NotebookPen, roles: ["student"] },
   { label: "Sessions", href: "/dashboard/sessions", icon: Calendar, roles: ["student", "mentor"] },
+  { label: "Messages", href: "/dashboard/messages", icon: MessageCircle, roles: ["student"] },
+  { label: "Messages", href: "/dashboard/mentor/messages", icon: MessageCircle, roles: ["mentor"] },
   { label: "My Application", href: "/dashboard/mentor-application", icon: UserCheck, roles: ["student"] },
   { label: "Certificates", href: "/dashboard/certificates", icon: Award, roles: ["student"] },
   { label: "Webinars", href: "/webinars", icon: Video, roles: ["student", "mentor"] },
@@ -50,23 +52,20 @@ export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
   /*
-   * 6, not 5 — the mentor role's filtered list is Dashboard, Sessions,
-   * Webinars, My Students, Availability, Feedback (6 items before
-   * Notifications/Settings). At slice(0, 5), Feedback fell off the mobile
-   * bottom nav entirely with no way to reach it except typing the URL.
-   * Bumping to 6 is purely additive for every role — no role's filtered
-   * list order changed, so this can only add an item to a role's mobile
-   * nav, never remove one that was reachable before.
-   *
-   * Admin's new Feedback entry lands at index 6 (Dashboard, Students,
-   * Enrollments, Mentorship, Programs, Mentors, Feedback, ...) — past this
-   * same slice(0, 6) bound, so it doesn't appear on mobile either. That's
-   * not a regression: Sheet Sync, Send Notice, Analytics, Notifications,
-   * and Settings were already past index 6 for admin before this change,
-   * so no previously-reachable admin item becomes unreachable — Feedback
-   * simply joins that same already-desktop-only group.
+   * 7, not 6 -- adding "Messages" to both the student and mentor filtered
+   * lists shifted every item after Sessions down by one. At the old
+   * slice(0, 6), mentor's list would have dropped "Feedback" off the
+   * mobile bottom nav again (the exact regression the previous 5->6 bump
+   * fixed) and student's list would have excluded the new "Messages" item
+   * itself. Bumping to 7 restores both roles to the same *set* of items
+   * they had reachable before this change, now including Messages:
+   * mentor = Dashboard, Sessions, Messages, Webinars, My Students,
+   * Availability, Feedback (7); student = Dashboard, My Courses, My
+   * Notes, Sessions, Messages, My Application, Certificates (7, Webinars
+   * still excluded -- it already was at the old bound too). Purely
+   * additive for every role, same as the previous bump.
    */
-  const mobileItems = items.slice(0, 6);
+  const mobileItems = items.slice(0, 7);
 
   /*
    * Longest matching href wins. A plain startsWith lit up every ancestor —

@@ -1,4 +1,5 @@
-import { GraduationCap } from "lucide-react";
+import Link from "next/link";
+import { GraduationCap, MessageCircle } from "lucide-react";
 import { initials } from "@/lib/format";
 import type { MentorStudent } from "@/lib/data/mentorship-sessions";
 
@@ -25,6 +26,13 @@ export function MyStudentsList({ students }: { students: MentorStudent[] }) {
               {s.completedCount} of {s.totalCount} sessions done
             </p>
           </div>
+          <Link
+            href={`/dashboard/mentor/messages/${s.studentId}`}
+            className="shrink-0 w-8 h-8 rounded-full grid place-items-center text-pz-forest hover:bg-pz-surface-container-low transition-colors"
+            title={`Message ${s.studentName}`}
+          >
+            <MessageCircle className="w-4 h-4" />
+          </Link>
         </div>
       ))}
     </div>

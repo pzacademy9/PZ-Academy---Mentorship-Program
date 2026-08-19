@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Calendar } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { listMyBookingsWithScheduling } from "@/lib/data/mentorship-bookings";
 import { MentorshipStatusBadge } from "@/components/admin/mentorship/MentorshipStatusBadge";
@@ -49,7 +50,16 @@ export default async function MySessionsPage() {
                       <p className="font-body text-xs text-pz-danger mt-1">{b.cancellationReason}</p>
                     )}
                   </div>
-                  <MentorshipStatusBadge kind="booking" status={b.status} />
+                  <div className="flex items-center gap-3 shrink-0">
+                    <a
+                      href={`/dashboard/messages/${b.mentorSlug}`}
+                      className="inline-flex items-center gap-1.5 font-label text-xs font-bold text-pz-primary hover:underline"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Message
+                    </a>
+                    <MentorshipStatusBadge kind="booking" status={b.status} />
+                  </div>
                 </div>
                 {needsScheduling && (
                   <BookSessionsStepper
