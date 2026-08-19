@@ -133,6 +133,28 @@ export async function setSessionStatus(
   return { ok: true };
 }
 
+export type UpdateMentorNotesResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
+
+/** Full-column-replace, not a merge -- same convention as update_own_mentor_profile/update_own_mentor_availability. Mentor-private: no student-facing surface ever reads sessions.mentor_notes. */
+export async function updateSessionMentorNotes(
+  sessionId: string,
+  mentorId: string,
+  notes: string,
+): Promise<UpdateMentorNotesResult> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("sessions")
+    .update({ mentor_notes: notes })
+    .eq("id", sessionId)
+    .eq("mentor_id", mentorId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { ok: false, reason: "db-error" };
+  if (!data) return { ok: false, reason: "not-found" };
+  return { ok: true };
+}
+
 export interface UpcomingSession {
   id: string;
   studentId: string;
@@ -141,6 +163,7 @@ export interface UpcomingSession {
   sessionNumber: number;
   sessionsTotal: number;
   packageName: string;
+  mentorNotes: string | null;
 }
 
 /**
@@ -162,7 +185,7 @@ export async function listUpcomingSessionsForMentor(mentorProfileId: string): Pr
   const baseQuery = () =>
     admin
       .from("sessions")
-      .select("id, student_id, scheduled_at, booking_id, profiles!sessions_student_id_fkey(full_name)")
+      .select("id, student_id, scheduled_at, booking_id, mentor_notes, profiles!sessions_student_id_fkey(full_name)")
       .eq("mentor_id", mentorProfileId)
       .eq("status", "confirmed")
       .not("scheduled_at", "is", null);
@@ -197,6 +220,7 @@ export async function listUpcomingSessionsForMentor(mentorProfileId: string): Pr
       sessionNumber,
       sessionsTotal: booking?.sessions_total ?? 1,
       packageName: booking?.package_name ?? "",
+      mentorNotes: row.mentor_notes,
     });
   }
   return results;
