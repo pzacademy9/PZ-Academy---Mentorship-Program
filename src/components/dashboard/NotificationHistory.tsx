@@ -7,7 +7,6 @@ import { CheckCheck, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { resolveNotificationStyle } from "./notification-style";
-import { useBroadcastChannel } from "@/lib/realtime/useBroadcastChannel";
 import type { AppNotification } from "@/lib/data/notifications";
 
 /**
@@ -26,12 +25,6 @@ export function NotificationHistory({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-
-  // Same live-refresh as NotificationBell -- see its useBroadcastChannel call
-  // for why no local upsert is needed here either.
-  useBroadcastChannel<unknown>(`notifications:${currentUserId}`, "INSERT", () => {
-    router.refresh();
-  });
 
   function post(body: Record<string, string>) {
     return fetch("/api/notifications/read", {
