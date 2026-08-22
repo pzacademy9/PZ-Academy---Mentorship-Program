@@ -44,6 +44,13 @@ export function useBroadcastChannel<R>(
         "broadcast",
         { event },
         (msg: { payload: BroadcastChangePayload<R> }) => {
+          if (!msg.payload || !("record" in msg.payload)) {
+            console.error(
+              `[useBroadcastChannel] malformed broadcast payload on topic "${topic}", event "${event}" -- expected { record: ... }, got:`,
+              msg.payload,
+            );
+            return;
+          }
           onInsertRef.current(msg.payload.record);
         },
       )
