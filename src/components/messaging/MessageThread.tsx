@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
-import { createBrowserSupabase } from "@/lib/supabase/client";
+import { useBroadcastChannel } from "@/lib/realtime/useBroadcastChannel";
 import { formatTime } from "@/lib/format";
 import type { MessageRow } from "@/lib/data/mentor-messaging";
 
@@ -13,6 +13,15 @@ function upsertMessage(prev: MessageRow[], next: MessageRow): MessageRow[] {
   if (prev.some((m) => m.id === next.id)) return prev;
   return [...prev, next].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
+
+/** Shape of the row broadcast by migration 0042's trigger on mentor_messages. */
+type BroadcastMessageRow = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
 
 export function MessageThread({
   conversationId,
@@ -50,46 +59,24 @@ export function MessageThread({
   // a real conversationId exists; a brand-new thread (nobody has sent a
   // message yet) has nothing to subscribe to until the first send, at which
   // point router.refresh() re-renders this component with the real id and
-  // this effect re-runs. If the subscription ever fails to establish or
-  // drops later (network blip, backgrounded tab), the status callback
-  // triggers a server refresh so the reconciliation effect above can
-  // recover -- otherwise a dropped channel would leave the thread looking
-  // quiet with no error shown.
-  useEffect(() => {
-    if (!conversationId) return;
-    const supabase = createBrowserSupabase();
-    const channel = supabase
-      .channel(`mentor_messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "mentor_messages", filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const row = payload.new as {
-            id: string;
-            conversation_id: string;
-            sender_id: string;
-            body: string;
-            created_at: string;
-          };
-          setMessages((prev) =>
-            upsertMessage(prev, {
-              id: row.id,
-              conversationId: row.conversation_id,
-              senderId: row.sender_id,
-              body: row.body,
-              createdAt: row.created_at,
-            }),
-          );
-        },
-      )
-      .subscribe((status) => {
-        if (status !== "SUBSCRIBED") router.refresh();
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [conversationId, router]);
+  // the hook picks up the new topic. Broadcast, not postgres_changes -- see
+  // docs/superpowers/specs/2026-08-22-realtime-broadcast-migration-design.md
+  // for why postgres_changes never delivers on this project.
+  useBroadcastChannel<BroadcastMessageRow>(
+    conversationId ? `mentor_messages:${conversationId}` : null,
+    "INSERT",
+    (row) => {
+      setMessages((prev) =>
+        upsertMessage(prev, {
+          id: row.id,
+          conversationId: row.conversation_id,
+          senderId: row.sender_id,
+          body: row.body,
+          createdAt: row.created_at,
+        }),
+      );
+    },
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
