@@ -86,4 +86,29 @@ export async function syncMentorshipFeedbackToSession(feedbackSessionId: string)
     .from("sessions")
     .update({ rating: overall != null ? Math.round(overall) : null, student_feedback: latestComment })
     .eq("id", fs.mentorship_session_id);
+
+  await notifyMentorOfFeedback(fs.mentorship_session_id, detail.responses[0]?.name ?? null);
+}
+
+/**
+ * Best-effort — mirrors notifyAdminsOfSheetDowngrade's insert shape (same
+ * notifications table, no new infra). Must never throw back into the caller:
+ * the rating/student_feedback write above already committed.
+ */
+async function notifyMentorOfFeedback(mentorshipSessionId: string, participantName: string | null): Promise<void> {
+  const admin = createAdminSupabase();
+  try {
+    const { data: session } = await admin.from("sessions").select("mentor_id").eq("id", mentorshipSessionId).maybeSingle();
+    if (!session?.mentor_id) return;
+
+    await admin.from("notifications").insert({
+      user_id: session.mentor_id,
+      type: "mentorship_feedback_received",
+      title: "New feedback received",
+      body: participantName ? `${participantName} left feedback for your session.` : "A mentee left feedback for your session.",
+      link: "/dashboard/mentor",
+    });
+  } catch (error) {
+    console.error(`[feedback-mentorship-sync] failed to notify mentor for session ${mentorshipSessionId}:`, error);
+  }
 }

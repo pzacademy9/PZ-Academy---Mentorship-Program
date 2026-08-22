@@ -5,6 +5,7 @@ import {
   Armchair,
   Unlock,
   Megaphone,
+  MessageSquareText,
   Info,
   type LucideIcon,
 } from "lucide-react";
@@ -33,6 +34,10 @@ const TYPE_STYLES: Record<string, { icon: LucideIcon; circle: string }> = {
   },
   lesson_unlocked: { icon: Unlock, circle: "bg-pz-primary/15 text-pz-primary" },
   admin_message: { icon: Megaphone, circle: "bg-pz-secondary-container/40 text-pz-secondary" },
+  mentorship_feedback_received: {
+    icon: MessageSquareText,
+    circle: "bg-pz-primary/15 text-pz-primary",
+  },
 };
 
 const FALLBACK: { icon: LucideIcon; circle: string } = {
