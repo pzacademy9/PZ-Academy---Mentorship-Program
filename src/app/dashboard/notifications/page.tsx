@@ -39,7 +39,7 @@ export default async function NotificationsPage() {
           </p>
         </div>
       ) : (
-        <NotificationHistory notifications={notifications} unreadCount={unreadCount} />
+        <NotificationHistory currentUserId={user.id} notifications={notifications} unreadCount={unreadCount} />
       )}
     </div>
   );
