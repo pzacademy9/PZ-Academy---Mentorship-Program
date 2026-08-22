@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +66,21 @@ export function NotificationBell({
     });
   }
 
+  function handleDelete(id: string) {
+    startTransition(async () => {
+      const res = await fetch("/api/notifications", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        toast.error("Could not delete notification.");
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -104,40 +119,53 @@ export function NotificationBell({
             items.map((notification) => {
               const { icon: Icon, circle } = resolveNotificationStyle(notification.type);
               return (
-                <button
+                <div
                   key={notification.id}
-                  type="button"
-                  onClick={() => handleOpen(notification)}
-                  disabled={isPending}
                   className={cn(
-                    "w-full text-left p-4 flex gap-3 border-b border-pz-outline-variant/30 last:border-0 transition-colors hover:bg-pz-surface-container-high disabled:opacity-60",
+                    "flex gap-1 border-b border-pz-outline-variant/30 last:border-0",
                     !notification.isRead && "bg-pz-primary/[0.04]",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
-                      circle,
-                    )}
+                  <button
+                    type="button"
+                    onClick={() => handleOpen(notification)}
+                    disabled={isPending}
+                    className="min-w-0 flex-1 text-left p-4 flex gap-3 transition-colors hover:bg-pz-surface-container-high disabled:opacity-60"
                   >
-                    <Icon className="w-5 h-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-body text-sm text-pz-on-surface">
-                      <span className="font-bold">{notification.title}</span>
-                      {notification.body ? ` — ${notification.body}` : ""}
-                    </span>
-                    <span className="block font-label text-[10px] text-pz-on-surface-variant mt-1">
-                      {relativeTime(notification.createdAt)}
-                    </span>
-                  </span>
-                  {!notification.isRead && (
                     <span
-                      aria-hidden
-                      className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-pz-primary"
-                    />
-                  )}
-                </button>
+                      className={cn(
+                        "shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
+                        circle,
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-body text-sm text-pz-on-surface">
+                        <span className="font-bold">{notification.title}</span>
+                        {notification.body ? ` — ${notification.body}` : ""}
+                      </span>
+                      <span className="block font-label text-[10px] text-pz-on-surface-variant mt-1">
+                        {relativeTime(notification.createdAt)}
+                      </span>
+                    </span>
+                    {!notification.isRead && (
+                      <span
+                        aria-hidden
+                        className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-pz-primary"
+                      />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Delete notification"
+                    onClick={() => handleDelete(notification.id)}
+                    disabled={isPending}
+                    className="shrink-0 self-start mt-3 mr-2 p-1.5 rounded-full text-pz-on-surface-variant/60 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               );
             })
           )}

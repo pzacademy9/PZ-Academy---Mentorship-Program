@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCheck, ChevronRight } from "lucide-react";
+import { CheckCheck, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { resolveNotificationStyle } from "./notification-style";
@@ -54,6 +54,21 @@ export function NotificationHistory({
     });
   }
 
+  function handleDelete(id: string) {
+    startTransition(async () => {
+      const res = await fetch("/api/notifications", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        toast.error("Could not delete notification.");
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-4">
       {unreadCount > 0 && (
@@ -73,15 +88,15 @@ export function NotificationHistory({
         {notifications.map((notification) => {
           const { icon: Icon, circle } = resolveNotificationStyle(notification.type);
           return (
-            <li key={notification.id}>
+            <li
+              key={notification.id}
+              className={cn("flex items-start", !notification.isRead && "bg-pz-primary/[0.04]")}
+            >
               <button
                 type="button"
                 onClick={() => handleOpen(notification)}
                 disabled={isPending}
-                className={cn(
-                  "w-full text-left p-5 flex gap-4 items-start transition-colors hover:bg-pz-surface-container-high disabled:opacity-60",
-                  !notification.isRead && "bg-pz-primary/[0.04]",
-                )}
+                className="min-w-0 flex-1 text-left p-5 flex gap-4 items-start transition-colors hover:bg-pz-surface-container-high disabled:opacity-60"
               >
                 <span
                   className={cn(
@@ -116,6 +131,15 @@ export function NotificationHistory({
                 {notification.link && (
                   <ChevronRight className="shrink-0 w-4 h-4 mt-1 text-pz-on-surface-variant/60" />
                 )}
+              </button>
+              <button
+                type="button"
+                aria-label="Delete notification"
+                onClick={() => handleDelete(notification.id)}
+                disabled={isPending}
+                className="shrink-0 self-start mt-4 mr-4 p-2 rounded-full text-pz-on-surface-variant/60 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
               </button>
             </li>
           );

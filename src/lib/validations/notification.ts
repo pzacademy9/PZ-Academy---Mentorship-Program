@@ -65,6 +65,16 @@ export const markNotificationsReadSchema = z.object({
   id: z.string().uuid().optional(),
 });
 
+/** Deletes one of the caller's own notifications — unlike marking read, always a single row. */
+export const deleteNotificationSchema = z.object({
+  id: z.string().uuid("Invalid notification id"),
+});
+
+/** Admin bulk purge: deletes read notifications older than the cutoff, across all users. */
+export const purgeNotificationsSchema = z.object({
+  olderThanDays: z.coerce.number().int().min(1).max(3650).default(30),
+});
+
 export const AUDIENCE_LABELS: Record<NotificationAudience, string> = {
   student: "One student",
   course: "Everyone on a course",

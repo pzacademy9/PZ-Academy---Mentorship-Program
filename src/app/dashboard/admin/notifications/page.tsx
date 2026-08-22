@@ -1,5 +1,6 @@
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { ComposeNotificationForm } from "@/components/admin/ComposeNotificationForm";
+import { PurgeNotificationsCard } from "@/components/admin/PurgeNotificationsCard";
 
 export const metadata = { title: "Send Notice — PZ Academy" };
 
@@ -28,6 +29,8 @@ export default async function AdminNotificationsPage() {
           name: s.full_name?.trim() || "Unnamed student",
         }))}
       />
+
+      <PurgeNotificationsCard />
     </div>
   );
 }
