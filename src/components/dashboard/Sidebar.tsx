@@ -29,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Certificates", href: "/dashboard/certificates", icon: Award, roles: ["student"] },
   { label: "Webinars", href: "/webinars", icon: Video, roles: ["student", "mentor"] },
   { label: "My Students", shortLabel: "Students", href: "/dashboard/mentor", icon: GraduationCap, roles: ["mentor"] },
+  { label: "Edit Profile", shortLabel: "Profile", href: "/dashboard/mentor/profile", icon: UserCheck, roles: ["mentor"] },
   { label: "Availability", href: "/dashboard/mentor/availability", icon: Clock, roles: ["mentor"] },
   { label: "Feedback", href: "/dashboard/mentor/feedback", icon: Star, roles: ["mentor"] },
   { label: "Students", href: "/dashboard/admin/students", icon: Users, roles: ["admin", "super_admin"] },
@@ -52,20 +53,17 @@ export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
   /*
-   * 7, not 6 -- adding "Messages" to both the student and mentor filtered
-   * lists shifted every item after Sessions down by one. At the old
-   * slice(0, 6), mentor's list would have dropped "Feedback" off the
-   * mobile bottom nav again (the exact regression the previous 5->6 bump
-   * fixed) and student's list would have excluded the new "Messages" item
-   * itself. Bumping to 7 restores both roles to the same *set* of items
-   * they had reachable before this change, now including Messages:
-   * mentor = Dashboard, Sessions, Messages, Webinars, My Students,
-   * Availability, Feedback (7); student = Dashboard, My Courses, My
-   * Notes, Sessions, Messages, My Application, Certificates (7, Webinars
-   * still excluded -- it already was at the old bound too). Purely
-   * additive for every role, same as the previous bump.
+   * 8, not 7 -- adding "Edit Profile" to the mentor-filtered list shifted
+   * "Availability" and "Feedback" down by one. At the old slice(0, 7),
+   * mentor's list would have dropped "Feedback" off the mobile bottom nav
+   * again (the same regression the previous 6->7 bump fixed). Bumping to 8
+   * restores mentor to its full set, now including Edit Profile: mentor =
+   * Dashboard, Sessions, Messages, Webinars, My Students, Edit Profile,
+   * Availability, Feedback (8); student is still only 7 items so this bump
+   * is a no-op for it. Purely additive for every role, same as the
+   * previous bump.
    */
-  const mobileItems = items.slice(0, 7);
+  const mobileItems = items.slice(0, 8);
 
   /*
    * Longest matching href wins. A plain startsWith lit up every ancestor —

@@ -6,7 +6,6 @@ import {
   listStudentsForMentor,
 } from "@/lib/data/mentorship-sessions";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { MentorSelfProfileForm } from "@/components/mentor/MentorSelfProfileForm";
 import { UpcomingSessionsList } from "@/components/mentor/UpcomingSessionsList";
 import { MyStudentsList } from "@/components/mentor/MyStudentsList";
 import { GraduationCap, Calendar, DollarSign, Clock3 } from "lucide-react";
@@ -31,22 +30,20 @@ export default async function MentorDashboard() {
         <p className="text-pz-muted text-sm mt-1">Manage your students and sessions from here.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Active Students" value={stats?.activeStudents ?? 0} icon={GraduationCap} />
-        <StatCard label="Sessions This Month" value={stats?.sessionsThisMonth ?? 0} icon={Calendar} iconBg="bg-pz-pine/10" />
-        <StatCard label="Earnings (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-lime/20" />
-        <StatCard label="Pending Bookings" value={stats?.pendingBookings ?? 0} icon={Clock3} iconBg="bg-pz-frost" />
-      </div>
-
-      {mentor ? (
-        <MentorSelfProfileForm mentor={mentor} />
-      ) : (
+      {!mentor && (
         <div className="bg-white rounded-xl shadow-card p-6">
           <p className="text-pz-muted text-sm">
             No mentor profile is linked to your account yet. Contact an admin to get set up.
           </p>
         </div>
       )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard label="Active Students" value={stats?.activeStudents ?? 0} icon={GraduationCap} />
+        <StatCard label="Sessions This Month" value={stats?.sessionsThisMonth ?? 0} icon={Calendar} iconBg="bg-pz-pine/10" />
+        <StatCard label="Earnings (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-lime/20" />
+        <StatCard label="Pending Bookings" value={stats?.pendingBookings ?? 0} icon={Clock3} iconBg="bg-pz-frost" />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow-card p-6">
