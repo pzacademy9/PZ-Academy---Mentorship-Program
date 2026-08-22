@@ -48,7 +48,7 @@ export default async function PortalLayout({
                 {progress.pct}% complete
               </span>
             )}
-            <NotificationBell items={items} unreadCount={unreadCount} />
+            <NotificationBell currentUserId={user.id} items={items} unreadCount={unreadCount} />
             <ThemeToggle />
           </div>
         </div>

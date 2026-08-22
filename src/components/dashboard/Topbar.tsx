@@ -19,12 +19,13 @@ import type { AppNotification } from "@/lib/data/notifications";
 interface TopbarProps {
   fullName: string;
   role: string;
+  currentUserId: string;
   /** Server-rendered by the dashboard layout; see getNotificationSummary. */
   notifications?: AppNotification[];
   unreadCount?: number;
 }
 
-export function Topbar({ fullName, role, notifications = [], unreadCount = 0 }: TopbarProps) {
+export function Topbar({ fullName, role, currentUserId, notifications = [], unreadCount = 0 }: TopbarProps) {
   const router = useRouter();
   const initials = fullName
     .split(" ")
@@ -47,7 +48,7 @@ export function Topbar({ fullName, role, notifications = [], unreadCount = 0 }: 
       <div className="hidden lg:block" />
       <div className="flex items-center gap-2">
         <ThemeToggle />
-        <NotificationBell items={notifications} unreadCount={unreadCount} />
+        <NotificationBell currentUserId={currentUserId} items={notifications} unreadCount={unreadCount} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">

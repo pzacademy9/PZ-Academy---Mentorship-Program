@@ -13,17 +13,29 @@ import {
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/format";
 import { resolveNotificationStyle } from "./notification-style";
+import { useBroadcastChannel } from "@/lib/realtime/useBroadcastChannel";
 import type { AppNotification } from "@/lib/data/notifications";
 
 export function NotificationBell({
+  currentUserId,
   items = [],
   unreadCount = 0,
 }: {
+  currentUserId: string;
   items?: AppNotification[];
   unreadCount?: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // A new notification (from any source: enrollment triggers, admin
+  // broadcast, mentorship feedback, sheet-sync) refreshes this component's
+  // server props so the bell updates without waiting for the user's next
+  // navigation. No local upsert needed -- items/unreadCount already flow
+  // purely from server props plus router.refresh(), same as handleMarkAll.
+  useBroadcastChannel<unknown>(`notifications:${currentUserId}`, "INSERT", () => {
+    router.refresh();
+  });
 
   function markRead(id?: string) {
     return fetch("/api/notifications/read", {

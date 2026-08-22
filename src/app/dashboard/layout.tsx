@@ -28,6 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Topbar
           fullName={fullName}
           role={role}
+          currentUserId={user.id}
           notifications={items}
           unreadCount={unreadCount}
         />
