@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { useBroadcastChannel } from "@/lib/realtime/useBroadcastChannel";
 import { formatTime } from "@/lib/format";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { MessageRow } from "@/lib/data/mentor-messaging";
 
 /** Inserts a message if its id isn't already present, keeping the array sorted by createdAt -- shared by the realtime handler, the direct-append-from-response path, and the reconciliation effect below, so a message can never appear twice or out of order regardless of which path delivered it first. */
@@ -23,11 +24,40 @@ type BroadcastMessageRow = {
   created_at: string;
 };
 
+/** Where a message sits within a run of consecutive same-sender messages -- drives spacing, corner rounding, and whether the avatar/timestamp show. Matches the Stitch "Message Thread" reference: only the last bubble in a cluster carries a timestamp (and, for the counterpart's side, the avatar). */
+function clusterPosition(messages: MessageRow[], index: number): { isFirst: boolean; isLast: boolean } {
+  const prev = messages[index - 1];
+  const next = messages[index + 1];
+  const current = messages[index];
+  return {
+    isFirst: !prev || prev.senderId !== current.senderId,
+    isLast: !next || next.senderId !== current.senderId,
+  };
+}
+
+/** Tail-side corner rounding for a bubble at a given cluster position -- side is "l" for the counterpart's left-aligned bubbles, "r" for the current user's right-aligned ones. Singleton and first-in-cluster share one shape (matches the reference exactly); middle messages sharpen both tail corners; the last message closes the cluster with a medium round. */
+function bubbleCorners(side: "l" | "r", isFirst: boolean, isLast: boolean): string {
+  if (isFirst && isLast) return `rounded-2xl rounded-b${side}-sm`;
+  if (isFirst) return `rounded-2xl rounded-b${side}-sm`;
+  if (isLast) return `rounded-2xl rounded-t${side}-sm rounded-b${side}-md`;
+  return `rounded-2xl rounded-t${side}-sm rounded-b${side}-sm`;
+}
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
 export function MessageThread({
   conversationId,
   initialMessages,
   currentUserId,
   counterpartName,
+  counterpartAvatarUrl,
   canMessage,
   sendUrl,
 }: {
@@ -35,6 +65,7 @@ export function MessageThread({
   initialMessages: MessageRow[];
   currentUserId: string;
   counterpartName: string;
+  counterpartAvatarUrl?: string | null;
   canMessage: boolean;
   sendUrl: string;
 }) {
@@ -123,26 +154,32 @@ export function MessageThread({
 
   return (
     <div className="flex flex-col h-[70vh] bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
-      <div className="px-5 py-4 border-b border-pz-outline-variant/40">
+      <div className="px-5 py-4 border-b border-pz-outline-variant/40 flex items-center gap-3">
+        <Avatar className="w-8 h-8">
+          <AvatarImage src={counterpartAvatarUrl ?? undefined} alt={counterpartName} />
+          <AvatarFallback className="text-xs">{initials(counterpartName)}</AvatarFallback>
+        </Avatar>
         <p className="font-headline font-bold text-pz-on-surface">{counterpartName}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
         {messages.length === 0 ? (
           <p className="font-body text-sm text-pz-on-surface-variant text-center mt-8">No messages yet. Say hello!</p>
         ) : (
-          messages.map((m) => {
+          messages.map((m, index) => {
             const mine = m.senderId === currentUserId;
-            return (
-              <div key={m.id} className={mine ? "flex justify-end" : "flex justify-start"}>
-                <div
-                  className={
-                    mine
-                      ? "max-w-[75%] rounded-2xl rounded-br-sm bg-pz-primary text-pz-on-primary px-4 py-2"
-                      : "max-w-[75%] rounded-2xl rounded-bl-sm bg-pz-surface-container px-4 py-2 text-pz-on-surface"
-                  }
-                >
-                  <p className="font-body text-sm whitespace-pre-wrap break-words">{m.body}</p>
+            const { isFirst, isLast } = clusterPosition(messages, index);
+            const corners = bubbleCorners(mine ? "r" : "l", isFirst, isLast);
+            const bubble = (
+              <div
+                className={
+                  mine
+                    ? `max-w-[75%] ${corners} bg-pz-primary text-pz-on-primary px-4 py-2`
+                    : `max-w-[75%] ${corners} bg-pz-surface-container px-4 py-2 text-pz-on-surface`
+                }
+              >
+                <p className="font-body text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                {isLast && (
                   <p
                     className={
                       mine
@@ -152,7 +189,27 @@ export function MessageThread({
                   >
                     {formatTime(m.createdAt)}
                   </p>
-                </div>
+                )}
+              </div>
+            );
+
+            return (
+              <div key={m.id} className={isFirst ? "mt-3 first:mt-0" : "mt-1"}>
+                {mine ? (
+                  <div className="flex justify-end">{bubble}</div>
+                ) : (
+                  <div className="flex justify-start items-end gap-2">
+                    {isLast ? (
+                      <Avatar className="w-6 h-6 shrink-0">
+                        <AvatarImage src={counterpartAvatarUrl ?? undefined} alt={counterpartName} />
+                        <AvatarFallback className="text-[10px]">{initials(counterpartName)}</AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="w-6 h-6 shrink-0" aria-hidden />
+                    )}
+                    {bubble}
+                  </div>
+                )}
               </div>
             );
           })

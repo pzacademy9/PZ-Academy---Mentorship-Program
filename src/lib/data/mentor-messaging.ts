@@ -67,20 +67,24 @@ export async function hasBookingBetween(mentorId: string, studentId: string): Pr
   return (count ?? 0) > 0;
 }
 
-/** Resolves a mentor's public slug to their messaging identity (linked profiles.id) -- a mentor with no linked account can't be messaged. */
-export async function resolveMentorForMessaging(slug: string): Promise<{ profileId: string; name: string } | null> {
+/** Resolves a mentor's public slug to their messaging identity (linked profiles.id) -- a mentor with no linked account can't be messaged. photoUrl is the mentor's curated public-profile photo (mentors.photo_url), not profiles.avatar_url. */
+export async function resolveMentorForMessaging(
+  slug: string,
+): Promise<{ profileId: string; name: string; photoUrl: string | null } | null> {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("mentors").select("profile_id, name").eq("slug", slug).maybeSingle();
+  const { data } = await admin.from("mentors").select("profile_id, name, photo_url").eq("slug", slug).maybeSingle();
   if (!data || !data.profile_id) return null;
-  return { profileId: data.profile_id, name: data.name };
+  return { profileId: data.profile_id, name: data.name, photoUrl: data.photo_url };
 }
 
-/** Student display name for the mentor-side thread header -- a plain profiles lookup, since a mentor has no other path to a student's name outside an existing session/booking relationship. */
-export async function resolveStudentDisplay(studentId: string): Promise<{ name: string } | null> {
+/** Student display name + avatar for the mentor-side thread header -- a plain profiles lookup, since a mentor has no other path to a student's identity outside an existing session/booking relationship. */
+export async function resolveStudentDisplay(
+  studentId: string,
+): Promise<{ name: string; avatarUrl: string | null } | null> {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("profiles").select("full_name").eq("id", studentId).maybeSingle();
+  const { data } = await admin.from("profiles").select("full_name, avatar_url").eq("id", studentId).maybeSingle();
   if (!data) return null;
-  return { name: data.full_name || "Student" };
+  return { name: data.full_name || "Student", avatarUrl: data.avatar_url };
 }
 
 /**

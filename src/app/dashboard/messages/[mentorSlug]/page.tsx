@@ -37,6 +37,7 @@ export default async function StudentMessageThreadPage({ params }: { params: Pro
         initialMessages={thread.messages}
         currentUserId={user.id}
         counterpartName={mentor.name}
+        counterpartAvatarUrl={mentor.photoUrl}
         canMessage={thread.canMessage}
         sendUrl={`/api/messages/${mentorSlug}`}
       />
