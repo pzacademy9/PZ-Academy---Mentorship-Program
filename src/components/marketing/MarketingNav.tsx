@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { X, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createBrowserSupabase } from "@/lib/supabase/client";
+import { roleHome, type Role } from "@/lib/roles";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -17,6 +19,21 @@ const NAV_LINKS = [
 export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } = {}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  // null = not logged in / not yet known; a Role once resolved. Marketing
+  // pages (mentorship, booking, thank-you, courses) sit outside /dashboard,
+  // so this is the only nav a logged-in student sees while booking or
+  // enrolling -- without this check it always said "Start Learning" -> /login
+  // with no way back to the portal.
+  const [homeHref, setHomeHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabase();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      setHomeHref(roleHome((profile?.role as Role) ?? "student"));
+    });
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -64,10 +81,10 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
         ))}
         <li>
           <Link
-            href="/login"
+            href={homeHref ?? "/login"}
             className="bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-5 py-2 rounded-full transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(126,217,87,.35)]"
           >
-            Start Learning
+            {homeHref ? "Go to Portal" : "Start Learning"}
           </Link>
         </li>
       </ul>
@@ -99,11 +116,11 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
         ))}
         <div className="mt-6">
           <Link
-            href="/login"
+            href={homeHref ?? "/login"}
             onClick={() => setOpen(false)}
             className="bg-pz-bright text-pz-forest font-poppins font-bold px-10 py-3 rounded-full text-base"
           >
-            Start Learning
+            {homeHref ? "Go to Portal" : "Start Learning"}
           </Link>
         </div>
       </div>
