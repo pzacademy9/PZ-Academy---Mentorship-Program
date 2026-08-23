@@ -209,16 +209,32 @@ async function latestMessagePreviewsByConversation(conversationIds: string[]): P
   return map;
 }
 
+/** Just the conversation id between a mentor and student, for delete/clear routes that don't need the full thread. Null if nobody has messaged yet. */
+export async function resolveConversationId(mentorId: string, studentId: string): Promise<string | null> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("mentor_conversations")
+    .select("id")
+    .eq("mentor_id", mentorId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 /** A single thread's full message history plus whether messaging is even allowed -- conversationId is null when nobody has sent a message yet (lazy creation), which is a normal, expected state, not an error. */
 export async function getConversationForMentor(mentorId: string, studentId: string): Promise<ConversationThread> {
-  return getConversationThread({ mentorId, studentId });
+  return getConversationThread({ mentorId, studentId, viewerRole: "mentor" });
 }
 
 export async function getConversationForStudent(studentId: string, mentorId: string): Promise<ConversationThread> {
-  return getConversationThread({ mentorId, studentId });
+  return getConversationThread({ mentorId, studentId, viewerRole: "student" });
 }
 
-async function getConversationThread(params: { mentorId: string; studentId: string }): Promise<ConversationThread> {
+async function getConversationThread(params: {
+  mentorId: string;
+  studentId: string;
+  viewerRole: "mentor" | "student";
+}): Promise<ConversationThread> {
   const admin = createAdminSupabase();
 
   const [{ data: conversation }, canMessage] = await Promise.all([
@@ -242,10 +258,72 @@ async function getConversationThread(params: { mentorId: string; studentId: stri
     .from("mentor_messages")
     .select("id, conversation_id, sender_id, body, created_at")
     .eq("conversation_id", conversation.id)
+    .eq(params.viewerRole === "mentor" ? "hidden_for_mentor" : "hidden_for_student", false)
     .order("created_at", { ascending: false })
     .limit(200);
 
   return { conversationId: conversation.id, messages: (messages ?? []).map(toMessageRow).reverse(), canMessage };
+}
+
+/** Confirms viewerId is one of the two participants in conversationId -- the shared ownership check behind every delete/hide/clear action below. */
+async function assertParticipant(conversationId: string, viewerId: string): Promise<{ mentorId: string; studentId: string } | null> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("mentor_conversations")
+    .select("mentor_id, student_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.mentor_id !== viewerId && data.student_id !== viewerId) return null;
+  return { mentorId: data.mentor_id, studentId: data.student_id };
+}
+
+/** "Delete for me" -- hides one message from the viewer's own side only. The other participant's view is untouched, so no broadcast is needed. */
+export async function hideMessageForViewer(params: {
+  conversationId: string;
+  messageId: string;
+  viewerId: string;
+}): Promise<boolean> {
+  const participants = await assertParticipant(params.conversationId, params.viewerId);
+  if (!participants) return false;
+
+  const admin = createAdminSupabase();
+  const update = participants.mentorId === params.viewerId ? { hidden_for_mentor: true } : { hidden_for_student: true };
+  const { error } = await admin
+    .from("mentor_messages")
+    .update(update)
+    .eq("id", params.messageId)
+    .eq("conversation_id", params.conversationId);
+  return !error;
+}
+
+/** "Delete for everyone" -- hard delete, sender-only (ownership check is the query itself). The broadcast DELETE trigger (0044) propagates this to the other party's open thread. */
+export async function deleteMessageForEveryone(params: {
+  conversationId: string;
+  messageId: string;
+  senderId: string;
+}): Promise<boolean> {
+  const admin = createAdminSupabase();
+  const { error, count } = await admin
+    .from("mentor_messages")
+    .delete({ count: "exact" })
+    .eq("id", params.messageId)
+    .eq("conversation_id", params.conversationId)
+    .eq("sender_id", params.senderId);
+  return !error && (count ?? 0) > 0;
+}
+
+/** Hard-deletes every message in a conversation -- either participant may clear it, matching the notifications-purge precedent (real deletion, not a tombstone). Resets last_message_at so the conversation shows as empty. */
+export async function clearConversation(conversationId: string, viewerId: string): Promise<boolean> {
+  const participants = await assertParticipant(conversationId, viewerId);
+  if (!participants) return false;
+
+  const admin = createAdminSupabase();
+  const { error } = await admin.from("mentor_messages").delete().eq("conversation_id", conversationId);
+  if (error) return false;
+
+  await admin.from("mentor_conversations").update({ last_message_at: null }).eq("id", conversationId);
+  return true;
 }
 
 /** Bumps the viewer's own read-marker -- service-role, called from the thread page itself right after loading, not from a client action. */

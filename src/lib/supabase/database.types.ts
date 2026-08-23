@@ -1226,6 +1226,8 @@ export type Database = {
           body: string
           conversation_id: string
           created_at: string
+          hidden_for_mentor: boolean
+          hidden_for_student: boolean
           id: string
           sender_id: string
         }
@@ -1233,6 +1235,8 @@ export type Database = {
           body: string
           conversation_id: string
           created_at?: string
+          hidden_for_mentor?: boolean
+          hidden_for_student?: boolean
           id?: string
           sender_id: string
         }
@@ -1240,6 +1244,8 @@ export type Database = {
           body?: string
           conversation_id?: string
           created_at?: string
+          hidden_for_mentor?: boolean
+          hidden_for_student?: boolean
           id?: string
           sender_id?: string
         }

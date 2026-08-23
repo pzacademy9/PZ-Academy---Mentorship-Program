@@ -3,10 +3,16 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Send } from "lucide-react";
+import { Send, MoreVertical, Trash2 } from "lucide-react";
 import { useBroadcastChannel } from "@/lib/realtime/useBroadcastChannel";
 import { formatTime } from "@/lib/format";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { MessageRow } from "@/lib/data/mentor-messaging";
 
 /** Inserts a message if its id isn't already present, keeping the array sorted by createdAt -- shared by the realtime handler, the direct-append-from-response path, and the reconciliation effect below, so a message can never appear twice or out of order regardless of which path delivered it first. */
@@ -15,7 +21,7 @@ function upsertMessage(prev: MessageRow[], next: MessageRow): MessageRow[] {
   return [...prev, next].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-/** Shape of the row broadcast by migration 0042's trigger on mentor_messages. */
+/** Shape of the row broadcast by migration 0042/0044's trigger on mentor_messages -- INSERT sends the new row, DELETE sends the deleted row (see 0044's function). */
 type BroadcastMessageRow = {
   id: string;
   conversation_id: string;
@@ -74,6 +80,13 @@ export function MessageThread({
   const [draft, setDraft] = useState("");
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Ids removed locally (delete-for-me / delete-for-everyone / clear) that
+  // must never come back. NotificationBell's own realtime hook lives on
+  // this same page and calls router.refresh() independently of anything
+  // here -- if that refresh's server fetch was in flight before a delete
+  // committed, it hands back a stale initialMessages that still contains
+  // the row, and the additive merge below would otherwise resurrect it.
+  const removedIdsRef = useRef<Set<string>>(new Set());
 
   // Reconciles state with fresh server props on every render where
   // initialMessages changed -- the only way router.refresh() can actually
@@ -82,7 +95,9 @@ export function MessageThread({
   // argument on mount, so without this merge a refresh's fresh message
   // list would otherwise be silently discarded.
   useEffect(() => {
-    setMessages((prev) => initialMessages.reduce(upsertMessage, prev));
+    setMessages((prev) =>
+      initialMessages.reduce(upsertMessage, prev).filter((m) => !removedIdsRef.current.has(m.id)),
+    );
   }, [initialMessages]);
 
   // The only client-side Supabase Realtime subscription in this codebase --
@@ -95,17 +110,25 @@ export function MessageThread({
   // for why postgres_changes never delivers on this project.
   useBroadcastChannel<BroadcastMessageRow>(
     conversationId ? `mentor_messages:${conversationId}` : null,
-    "INSERT",
-    (row) => {
-      setMessages((prev) =>
-        upsertMessage(prev, {
-          id: row.id,
-          conversationId: row.conversation_id,
-          senderId: row.sender_id,
-          body: row.body,
-          createdAt: row.created_at,
-        }),
-      );
+    {
+      INSERT: (row) => {
+        setMessages((prev) =>
+          upsertMessage(prev, {
+            id: row.id,
+            conversationId: row.conversation_id,
+            senderId: row.sender_id,
+            body: row.body,
+            createdAt: row.created_at,
+          }),
+        );
+      },
+      // Covers both "delete for everyone" (one row) and "clear chat" (one
+      // event per row) -- the other participant's open thread updates live
+      // either way, no special-casing needed here.
+      DELETE: (row) => {
+        removedIdsRef.current.add(row.id);
+        setMessages((prev) => prev.filter((m) => m.id !== row.id));
+      },
     },
   );
 
@@ -152,14 +175,68 @@ export function MessageThread({
     });
   }
 
+  function messageAction(body: Record<string, unknown>) {
+    return fetch(sendUrl, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  function hideForMe(messageId: string) {
+    // Optimistic: this only ever affects the local viewer's own state, so
+    // there's nothing to reconcile against a broadcast from the other side.
+    removedIdsRef.current.add(messageId);
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    messageAction({ action: "hide", messageId }).then((res) => {
+      if (!res.ok) toast.error("Could not delete that message.");
+    });
+  }
+
+  function deleteForEveryone(messageId: string) {
+    if (!window.confirm("Delete this message for everyone? This cannot be undone.")) return;
+    removedIdsRef.current.add(messageId);
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    messageAction({ action: "delete", messageId }).then((res) => {
+      if (!res.ok) toast.error("Could not delete that message.");
+    });
+  }
+
+  function clearChat() {
+    if (!window.confirm("Clear this entire conversation for both of you? This cannot be undone.")) return;
+    for (const m of messages) removedIdsRef.current.add(m.id);
+    startTransition(async () => {
+      const res = await messageAction({ action: "clear" });
+      if (!res.ok) {
+        toast.error("Could not clear this conversation.");
+        return;
+      }
+      setMessages([]);
+    });
+  }
+
   return (
     <div className="flex flex-col h-[70vh] bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
-      <div className="px-5 py-4 border-b border-pz-outline-variant/40 flex items-center gap-3">
-        <Avatar className="w-8 h-8">
-          <AvatarImage src={counterpartAvatarUrl ?? undefined} alt={counterpartName} />
-          <AvatarFallback className="text-xs">{initials(counterpartName)}</AvatarFallback>
-        </Avatar>
-        <p className="font-headline font-bold text-pz-on-surface">{counterpartName}</p>
+      <div className="px-5 py-4 border-b border-pz-outline-variant/40 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar className="w-8 h-8">
+            <AvatarImage src={counterpartAvatarUrl ?? undefined} alt={counterpartName} />
+            <AvatarFallback className="text-xs">{initials(counterpartName)}</AvatarFallback>
+          </Avatar>
+          <p className="font-headline font-bold text-pz-on-surface truncate">{counterpartName}</p>
+        </div>
+        {messages.length > 0 && (
+          <button
+            type="button"
+            onClick={clearChat}
+            disabled={isPending}
+            aria-label="Clear chat"
+            title="Clear chat"
+            className="shrink-0 p-2 rounded-full text-pz-on-surface-variant/60 hover:text-pz-danger hover:bg-pz-surface-container-high transition-colors disabled:opacity-50"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -193,12 +270,34 @@ export function MessageThread({
               </div>
             );
 
+            const menu = (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label="Message actions"
+                  className="shrink-0 self-end mb-1 p-1 rounded-full text-pz-on-surface-variant/50 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-all"
+                >
+                  <MoreVertical className="w-3.5 h-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align={mine ? "end" : "start"}>
+                  <DropdownMenuItem onSelect={() => hideForMe(m.id)}>Delete for me</DropdownMenuItem>
+                  {mine && (
+                    <DropdownMenuItem onSelect={() => deleteForEveryone(m.id)} className="text-pz-danger">
+                      Delete for everyone
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+
             return (
               <div key={m.id} className={isFirst ? "mt-3 first:mt-0" : "mt-1"}>
                 {mine ? (
-                  <div className="flex justify-end">{bubble}</div>
+                  <div className="flex justify-end items-end gap-1 group">
+                    {menu}
+                    {bubble}
+                  </div>
                 ) : (
-                  <div className="flex justify-start items-end gap-2">
+                  <div className="flex justify-start items-end gap-2 group">
                     {isLast ? (
                       <Avatar className="w-6 h-6 shrink-0">
                         <AvatarImage src={counterpartAvatarUrl ?? undefined} alt={counterpartName} />
@@ -208,6 +307,7 @@ export function MessageThread({
                       <div className="w-6 h-6 shrink-0" aria-hidden />
                     )}
                     {bubble}
+                    {menu}
                   </div>
                 )}
               </div>

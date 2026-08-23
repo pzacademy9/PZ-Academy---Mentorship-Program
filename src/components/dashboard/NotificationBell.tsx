@@ -33,8 +33,8 @@ export function NotificationBell({
   // server props so the bell updates without waiting for the user's next
   // navigation. No local upsert needed -- items/unreadCount already flow
   // purely from server props plus router.refresh(), same as handleMarkAll.
-  useBroadcastChannel<unknown>(`notifications:${currentUserId}`, "INSERT", () => {
-    router.refresh();
+  useBroadcastChannel<unknown>(`notifications:${currentUserId}`, {
+    INSERT: () => router.refresh(),
   });
 
   function markRead(id?: string) {
