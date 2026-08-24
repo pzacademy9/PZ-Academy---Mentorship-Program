@@ -36,12 +36,13 @@ export function SettingsForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName: trimmedName, avatarUrl }),
       });
+      const payload = (await res.json().catch(() => null)) as { error?: string; warning?: string | null } | null;
       if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
         toast.error(payload?.error ?? "Could not save changes.");
         return;
       }
       toast.success("Profile updated.");
+      if (payload?.warning) toast.warning(payload.warning);
       router.refresh();
     });
   }
