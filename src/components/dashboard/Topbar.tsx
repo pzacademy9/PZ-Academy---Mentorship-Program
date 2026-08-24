@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationBell } from "./NotificationBell";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -20,12 +20,13 @@ interface TopbarProps {
   fullName: string;
   role: string;
   currentUserId: string;
+  avatarUrl?: string | null;
   /** Server-rendered by the dashboard layout; see getNotificationSummary. */
   notifications?: AppNotification[];
   unreadCount?: number;
 }
 
-export function Topbar({ fullName, role, currentUserId, notifications = [], unreadCount = 0 }: TopbarProps) {
+export function Topbar({ fullName, role, currentUserId, avatarUrl, notifications = [], unreadCount = 0 }: TopbarProps) {
   const router = useRouter();
   const initials = fullName
     .split(" ")
@@ -53,6 +54,7 @@ export function Topbar({ fullName, role, currentUserId, notifications = [], unre
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">
               <Avatar className="w-8 h-8 ring-2 ring-pz-primary/40">
+                <AvatarImage src={avatarUrl ?? undefined} alt={fullName} />
                 <AvatarFallback className="bg-pz-bright text-pz-deep text-xs font-bold">{initials}</AvatarFallback>
               </Avatar>
               <span className="hidden sm:block text-sm font-label font-medium text-pz-on-surface max-w-[120px] truncate">{fullName}</span>

@@ -26,6 +26,7 @@ export function ImageUploadField({
   inputClassName,
   shape = "circle",
   icon: Icon = ImagePlus,
+  uploadUrl = "/api/admin/uploads/course-image",
 }: {
   value: string;
   onChange: (url: string) => void;
@@ -34,6 +35,8 @@ export function ImageUploadField({
   inputClassName: string;
   shape?: "circle" | "square";
   icon?: LucideIcon;
+  /** Which route the file POSTs to -- defaults to the admin course-image relay; pass a different route for non-admin callers (e.g. /api/uploads/avatar). */
+  uploadUrl?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -46,7 +49,7 @@ export function ImageUploadField({
       form.append("courseSlug", courseSlug);
       form.append("kind", kind);
 
-      const res = await fetch("/api/admin/uploads/course-image", { method: "POST", body: form });
+      const res = await fetch(uploadUrl, { method: "POST", body: form });
       const payload = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
 
       if (!res.ok || !payload?.url) {
