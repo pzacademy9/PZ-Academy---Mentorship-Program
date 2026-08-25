@@ -1297,6 +1297,14 @@ export type Database = {
           slug: string
           social_links: Json
           testimonials: Json
+          tier: Database["public"]["Enums"]["mentor_tier"]
+          tier_computed: Database["public"]["Enums"]["mentor_tier"]
+          tier_computed_at: string | null
+          tier_override: Database["public"]["Enums"]["mentor_tier"] | null
+          tier_rating_avg: number | null
+          tier_review_count: number
+          tier_score: number
+          tier_session_count: number
           timezone: string | null
           title: string | null
           total_sessions: number
@@ -1333,6 +1341,13 @@ export type Database = {
           slug: string
           social_links?: Json
           testimonials?: Json
+          tier_computed?: Database["public"]["Enums"]["mentor_tier"]
+          tier_computed_at?: string | null
+          tier_override?: Database["public"]["Enums"]["mentor_tier"] | null
+          tier_rating_avg?: number | null
+          tier_review_count?: number
+          tier_score?: number
+          tier_session_count?: number
           timezone?: string | null
           title?: string | null
           total_sessions?: number
@@ -1369,6 +1384,13 @@ export type Database = {
           slug?: string
           social_links?: Json
           testimonials?: Json
+          tier_computed?: Database["public"]["Enums"]["mentor_tier"]
+          tier_computed_at?: string | null
+          tier_override?: Database["public"]["Enums"]["mentor_tier"] | null
+          tier_rating_avg?: number | null
+          tier_review_count?: number
+          tier_score?: number
+          tier_session_count?: number
           timezone?: string | null
           title?: string | null
           total_sessions?: number
@@ -1861,6 +1883,15 @@ export type Database = {
           question_id: string
         }[]
       }
+      mentor_tier_inputs: {
+        Args: { p_mentor_ids: string[] }
+        Returns: {
+          mentor_id: string
+          rating_avg: number | null
+          review_count: number
+          session_count: number
+        }[]
+      }
       resync_course_progress: {
         Args: { p_course_id: string }
         Returns: undefined
@@ -1906,6 +1937,7 @@ export type Database = {
       feedback_session_status: "active" | "closed"
       lesson_content_type: "video" | "text" | "pdf"
       mentor_application_status: "pending" | "approved" | "rejected"
+      mentor_tier: "standard" | "premium" | "platinum" | "elite"
       mentor_visibility: "draft" | "published" | "hidden"
       mentorship_booking_status: "pending" | "confirmed" | "cancelled"
       progress_status: "locked" | "unlocked" | "completed"
@@ -2054,6 +2086,7 @@ export const Constants = {
       feedback_session_status: ["active", "closed"],
       lesson_content_type: ["video", "text", "pdf"],
       mentor_application_status: ["pending", "approved", "rejected"],
+      mentor_tier: ["standard", "premium", "platinum", "elite"],
       mentor_visibility: ["draft", "published", "hidden"],
       mentorship_booking_status: ["pending", "confirmed", "cancelled"],
       progress_status: ["locked", "unlocked", "completed"],

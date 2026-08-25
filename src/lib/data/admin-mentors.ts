@@ -5,6 +5,8 @@ import { slugify, reorderIndexes } from "@/lib/validations/admin-lms";
 import { mentorPackageWarnings, type MentorConfigInput, type MentorVisibility } from "@/lib/validations/admin-mentor";
 import { diffSingleImageFileId, extractDriveFileId } from "@/lib/validations/drive-cleanup";
 import { trashDriveFiles } from "@/lib/data/drive-cleanup";
+import { recomputeMentorTiers } from "@/lib/data/mentor-tiers";
+import { mentorTierPriceWarnings, type MentorTier } from "@/lib/mentor-tier";
 
 /**
  * Admin data layer for the Mentor Registry. Mirrors the conventions in
@@ -23,6 +25,7 @@ export interface MentorListRow {
   orderIndex: number;
   bookingCount: number;
   hasLinkedAccount: boolean;
+  tier: MentorTier;
 }
 
 export interface MentorListStats {
@@ -44,7 +47,7 @@ export async function listMentorsForAdmin(): Promise<{ rows: MentorListRow[]; st
   const [{ data: mentors }, { data: bookings }] = await Promise.all([
     admin
       .from("mentors")
-      .select("id, slug, name, expertise, price_per_session_pkr, visibility, order_index, profile_id")
+      .select("id, slug, name, expertise, price_per_session_pkr, visibility, order_index, profile_id, tier")
       .order("order_index", { ascending: true }),
     admin.from("mentorship_bookings").select("mentor_slug"),
   ]);
@@ -64,6 +67,7 @@ export async function listMentorsForAdmin(): Promise<{ rows: MentorListRow[]; st
     orderIndex: m.order_index,
     bookingCount: bookingCountBySlug.get(m.slug) ?? 0,
     hasLinkedAccount: m.profile_id != null,
+    tier: m.tier,
   }));
 
   const stats: MentorListStats = {
@@ -82,12 +86,21 @@ export interface MentorConfigDetail extends Mentor {
   bookingCount: number;
   profileId: string | null;
   showReviews: boolean;
+  tierComputed: MentorTier;
+  tierOverride: MentorTier | null;
+  tierScore: number;
+  tierRatingAvg: number | null;
+  tierReviewCount: number;
+  tierSessionCount: number;
+  tierComputedAt: string | null;
 }
 
 // show_reviews is already part of MENTOR_SELECT (src/lib/data/mentors.ts) as
 // of the show_reviews public-profile fix — not repeated here to avoid
-// selecting the same column twice in one PostgREST query.
-const ADMIN_SELECT = `${MENTOR_SELECT}, visibility, order_index, profile_id`;
+// selecting the same column twice in one PostgREST query. Same for `tier`
+// (the effective, generated value) — the admin-only tier_* columns below
+// are the computed/override/score/counters that only the admin form reads.
+const ADMIN_SELECT = `${MENTOR_SELECT}, visibility, order_index, profile_id, tier_computed, tier_override, tier_score, tier_rating_avg, tier_review_count, tier_session_count, tier_computed_at`;
 
 /** Full detail for the Configuration page: mentor fields + booking count, nothing else. */
 export async function getMentorConfig(id: string): Promise<MentorConfigDetail | null> {
@@ -107,6 +120,13 @@ export async function getMentorConfig(id: string): Promise<MentorConfigDetail | 
     bookingCount: count ?? 0,
     profileId: data.profile_id,
     showReviews: data.show_reviews,
+    tierComputed: data.tier_computed,
+    tierOverride: data.tier_override,
+    tierScore: data.tier_score,
+    tierRatingAvg: data.tier_rating_avg,
+    tierReviewCount: data.tier_review_count,
+    tierSessionCount: data.tier_session_count,
+    tierComputedAt: data.tier_computed_at,
   };
 }
 
@@ -182,11 +202,23 @@ export async function updateMentorConfig(id: string, input: MentorConfigInput): 
     timezone: input.timezone ?? null,
     visibility: input.visibility,
     show_reviews: input.showReviews,
+    tier_override: input.tierOverride ?? null,
   };
 
-  const { data, error } = await admin.from("mentors").update(patch).eq("id", id).select("id").maybeSingle();
+  const { data, error } = await admin.from("mentors").update(patch).eq("id", id).select("id, tier").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
+
+  // Save doubles as a free "refresh my tier" — also guarantees tier_computed
+  // is fresh before the price-guidance warning below is generated against
+  // the effective tier. If the admin pinned a tier, `data.tier` from the
+  // update above already reflects it; otherwise re-read after recompute.
+  await recomputeMentorTiers([id]);
+  let effectiveTier: MentorTier = data.tier;
+  if (!input.tierOverride) {
+    const { data: fresh } = await admin.from("mentors").select("tier").eq("id", id).maybeSingle();
+    effectiveTier = fresh?.tier ?? data.tier;
+  }
 
   const warnings: string[] = [];
   if (existing) {
@@ -194,6 +226,7 @@ export async function updateMentorConfig(id: string, input: MentorConfigInput): 
     if (driveWarning) warnings.push(driveWarning);
   }
   warnings.push(...mentorPackageWarnings(input.packages ?? [], input.pricePerSessionPkr));
+  warnings.push(...mentorTierPriceWarnings(effectiveTier, input.pricePerSessionPkr));
 
   return { ok: true, warning: warnings.length > 0 ? warnings.join(" ") : null };
 }
@@ -239,6 +272,7 @@ export interface MentorLinkOption {
   title: string;
   photo: string;
   hasLinkedAccount: boolean;
+  tier: MentorTier;
 }
 
 /**
@@ -252,7 +286,8 @@ export async function listMentorsForLinking(): Promise<MentorLinkOption[]> {
   const admin = createAdminSupabase();
   const { data } = await admin
     .from("mentors")
-    .select("id, slug, name, title, photo_url, profile_id")
+    .select("id, slug, name, title, photo_url, profile_id, tier")
+    .order("tier", { ascending: false })
     .order("order_index", { ascending: true });
 
   return (data ?? []).map((m) => ({
@@ -262,6 +297,7 @@ export async function listMentorsForLinking(): Promise<MentorLinkOption[]> {
     title: m.title ?? "",
     photo: m.photo_url ?? "",
     hasLinkedAccount: m.profile_id != null,
+    tier: m.tier,
   }));
 }
 

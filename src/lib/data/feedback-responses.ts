@@ -8,6 +8,7 @@ import {
   average, csvCell,
 } from "@/lib/validations/feedback";
 import { logFeedbackAudit } from "@/lib/data/feedback-audit";
+import { recomputeTierForFeedbackSession } from "@/lib/data/mentor-tiers";
 
 const RATE_MAX_SUBMITS = 3;
 const RATE_WINDOW_MS = 60_000;
@@ -125,6 +126,9 @@ export async function submitFeedbackResponse(input: SubmitFeedbackInput): Promis
   const { syncMentorshipFeedbackToSession } = await import("@/lib/data/feedback-mentorship-sync");
   await syncMentorshipFeedbackToSession(session.id);
 
+  // A new public review moves both reviewCount and ratingAvg. Never throws.
+  await recomputeTierForFeedbackSession(session.id);
+
   return { ok: true };
 }
 
@@ -240,6 +244,8 @@ export async function deleteFeedbackResponse(responseId: string, sessionId: stri
   const { error } = await admin.from("feedback_responses").delete().eq("id", responseId).eq("feedback_session_id", sessionId);
   if (error) throw new Error(error.message);
   await logFeedbackAudit({ action: "deleteResponse", detail: `${sessionId} · ${responseId}`, actorProfileId });
+  // A review was removed. Never throws.
+  await recomputeTierForFeedbackSession(sessionId);
 }
 
 /**
@@ -269,6 +275,8 @@ export async function setResponseVisibility(
     detail: `${sessionId} · ${responseId}`,
     actorProfileId,
   });
+  // is_public is the sole moderation gate in the tier rollup. Never throws.
+  await recomputeTierForFeedbackSession(sessionId);
 }
 
 /**

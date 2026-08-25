@@ -3,6 +3,7 @@ import {
   mentorConfigSchema,
   mentorCreateSchema,
   MENTOR_VISIBILITIES,
+  MENTOR_TIERS,
 } from "@/lib/validations/admin-mentor";
 import { Constants } from "@/lib/supabase/database.types";
 
@@ -133,6 +134,26 @@ describe("mentorConfigSchema", () => {
       expect((result.data as Record<string, unknown>).slug).toBeUndefined();
     }
   });
+
+  it("accepts a payload with tierOverride omitted (Auto)", () => {
+    const result = mentorConfigSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.tierOverride).toBeUndefined();
+  });
+
+  it("accepts a valid tierOverride", () => {
+    const result = mentorConfigSchema.safeParse({ ...valid, tierOverride: "elite" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.tierOverride).toBe("elite");
+  });
+
+  it("rejects a tierOverride value outside MENTOR_TIERS", () => {
+    expect(mentorConfigSchema.safeParse({ ...valid, tierOverride: "gold" }).success).toBe(false);
+  });
+
+  it("rejects a null tierOverride — omit the field for Auto instead", () => {
+    expect(mentorConfigSchema.safeParse({ ...valid, tierOverride: null }).success).toBe(false);
+  });
 });
 
 describe("mentorCreateSchema", () => {
@@ -166,5 +187,18 @@ describe("mentorCreateSchema", () => {
 describe("MENTOR_VISIBILITIES", () => {
   it("matches Constants.public.Enums.mentor_visibility exactly", () => {
     expect([...MENTOR_VISIBILITIES].sort()).toEqual([...Constants.public.Enums.mentor_visibility].sort());
+  });
+});
+
+/**
+ * MENTOR_TIERS additionally asserts DECLARATION ORDER, not just set
+ * equality — getPublishedMentors' `.order("tier", { ascending: false })`
+ * relies on the Postgres enum's declaration order (standard < premium <
+ * platinum < elite), so a set-equality check alone would miss an enum
+ * declared in the wrong order.
+ */
+describe("MENTOR_TIERS", () => {
+  it("matches Constants.public.Enums.mentor_tier exactly, in declaration order", () => {
+    expect([...MENTOR_TIERS]).toEqual([...Constants.public.Enums.mentor_tier]);
   });
 });

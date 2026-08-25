@@ -8,6 +8,7 @@ import {
   type MentorVisibility,
 } from "@/lib/validations/admin-mentor";
 import { slugify } from "@/lib/validations/admin-lms";
+import { mentorTierPriceWarnings, TIER_PRICE_GUIDANCE, MENTOR_TIERS, type MentorTier } from "@/lib/mentor-tier";
 
 describe("isMentorPubliclyVisible", () => {
   it("is true only for published", () => {
@@ -96,6 +97,56 @@ describe("mentorPackageWarnings", () => {
       3500,
     );
     expect(warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe("mentorTierPriceWarnings", () => {
+  it("returns no warnings for a price inside the tier band", () => {
+    expect(mentorTierPriceWarnings("premium", 6000)).toEqual([]);
+  });
+
+  it("returns no warnings at exactly the band's min or max (inclusive)", () => {
+    expect(mentorTierPriceWarnings("premium", TIER_PRICE_GUIDANCE.premium.min)).toEqual([]);
+    expect(mentorTierPriceWarnings("premium", TIER_PRICE_GUIDANCE.premium.max)).toEqual([]);
+  });
+
+  it("warns exactly once when priced below the band", () => {
+    const warnings = mentorTierPriceWarnings("premium", TIER_PRICE_GUIDANCE.premium.min - 1);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("below");
+  });
+
+  it("warns exactly once when priced above the band", () => {
+    const warnings = mentorTierPriceWarnings("premium", TIER_PRICE_GUIDANCE.premium.max + 1);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("above");
+  });
+
+  it("every warning states it is guidance only, never a block", () => {
+    const below = mentorTierPriceWarnings("elite", 0);
+    const above = mentorTierPriceWarnings("standard", 1_000_000);
+    expect(below[0]).toContain("guidance only");
+    expect(above[0]).toContain("guidance only");
+  });
+
+  it("every tier has a non-empty band with min < max", () => {
+    for (const tier of MENTOR_TIERS) {
+      expect(TIER_PRICE_GUIDANCE[tier].min).toBeLessThan(TIER_PRICE_GUIDANCE[tier].max);
+    }
+  });
+
+  it("adjacent tier bands overlap", () => {
+    const order: MentorTier[] = [...MENTOR_TIERS];
+    for (let i = 1; i < order.length; i++) {
+      const lower = TIER_PRICE_GUIDANCE[order[i - 1]];
+      const higher = TIER_PRICE_GUIDANCE[order[i]];
+      expect(higher.min).toBeLessThan(lower.max);
+    }
+  });
+
+  it("the two seeded prices (3000, 6000) never warn at standard", () => {
+    expect(mentorTierPriceWarnings("standard", 3000)).toEqual([]);
+    expect(mentorTierPriceWarnings("standard", 6000)).toEqual([]);
   });
 });
 

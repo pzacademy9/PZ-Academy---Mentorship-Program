@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { resolveSessionsTotal } from "@/lib/data/session-slots";
 import type { MentorPackage } from "@/lib/data/mentors";
 import { freezeMentorshipFeedbackSession } from "@/lib/data/feedback-mentorship-sync";
+import { recomputeTierForMentorshipSession } from "@/lib/data/mentor-tiers";
 
 export type SessionStatus = Database["public"]["Enums"]["session_status"];
 
@@ -129,6 +130,11 @@ export async function setSessionStatus(
   if (status === "completed") {
     await freezeMentorshipFeedbackSession(sessionId);
   }
+
+  // Unconditional: sessionCount (a tier input) changes on ->completed, and
+  // ->cancelled on an already-completed row decrements it. Recomputing on
+  // both is one branch fewer and always correct. Never throws.
+  await recomputeTierForMentorshipSession(sessionId);
 
   return { ok: true };
 }

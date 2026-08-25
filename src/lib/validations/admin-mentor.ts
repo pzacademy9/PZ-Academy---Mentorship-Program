@@ -1,10 +1,16 @@
 import { z } from "zod";
 import type { Database } from "@/lib/supabase/database.types";
 import { url } from "@/lib/validations/admin-lms";
+import { MENTOR_TIERS } from "@/lib/mentor-tier";
 
 export type MentorVisibility = Database["public"]["Enums"]["mentor_visibility"];
 
 export const MENTOR_VISIBILITIES = ["draft", "published", "hidden"] as const satisfies readonly MentorVisibility[];
+
+// Re-exported so form/admin code can import the tier tuple from the same
+// place as MENTOR_VISIBILITIES, without pulling zod into mentor-tier.ts.
+export { MENTOR_TIERS };
+export type { MentorTier } from "@/lib/mentor-tier";
 
 /** The exact keys MentorProfileClient's iconMap supports (src/components/mentorship/MentorProfileClient.tsx). Anything else silently renders Award there — reject it here instead. */
 export const CREDENTIAL_ICONS = ["GraduationCap", "Award", "BookOpen", "Lightbulb", "TrendingUp"] as const;
@@ -101,6 +107,7 @@ export const mentorConfigSchema = z
     timezone: z.enum(MENTOR_TIMEZONES).optional(),
     visibility: z.enum(MENTOR_VISIBILITIES),
     showReviews: z.boolean(),
+    tierOverride: z.enum(MENTOR_TIERS).optional(),
   })
   .superRefine((data, ctx) => {
     // BookingClient.tsx keys its package <option> on p.name and posts that
