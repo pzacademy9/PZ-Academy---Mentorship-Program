@@ -1883,6 +1883,19 @@ export type Database = {
           question_id: string
         }[]
       }
+      mentor_review_stats: {
+        Args: { p_mentor_ids: string[] }
+        Returns: {
+          mentor_id: string
+          response_count: number
+          avg_star: number | null
+          star_1: number
+          star_2: number
+          star_3: number
+          star_4: number
+          star_5: number
+        }[]
+      }
       mentor_tier_inputs: {
         Args: { p_mentor_ids: string[] }
         Returns: {

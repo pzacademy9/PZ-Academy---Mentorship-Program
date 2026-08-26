@@ -1,77 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { summarizeStarValues } from "@/lib/data/mentor-reviews";
+import { getMentorReviewSummary, getMentorReviewSummaries } from "@/lib/data/mentor-reviews";
 
-// getMentorReviewSummary/listMentorReviews are DB-touching (createAdminSupabase),
-// and this repo's convention is pure-function unit tests only — no DB mocking
-// (see average()/clampStar() in validations/feedback.ts). summarizeStarValues
-// is the pure aggregation core both functions build on, so it's tested here
-// directly instead of the DB-touching wrappers.
-describe("summarizeStarValues", () => {
-  it("returns an empty summary for no responses", () => {
-    expect(summarizeStarValues([])).toEqual({
-      avg: null,
-      count: 0,
-      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-    });
-  });
-
-  it("still counts a response with zero star answers, but contributes nothing to its avg/distribution", () => {
-    // A comment-only response (e.g. an all-video question bank, or a
-    // respondent who skipped the star questions) is still a real review —
-    // count must match listMentorReviews's inclusion rule (any public
-    // commented response), it just has no stars to average or bucket.
-    expect(summarizeStarValues([[]])).toEqual({
-      avg: null,
-      count: 1,
-      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-    });
-  });
-
-  it("counts a star-less response alongside starred responses without polluting the average/distribution", () => {
-    // Regression for the bug where summary.count undercounted (or zeroed
-    // out) whenever any public commented response had no star answers,
-    // causing MentorReviews to hide real reviews or show "No reviews yet"
-    // even though listMentorReviews had reviews to render.
-    const result = summarizeStarValues([[5], [], [3]]);
-    expect(result.count).toBe(3);
-    // Overall avg only averages the two responses that actually have stars: (5 + 3) / 2 = 4
-    expect(result.avg).toBe(4);
-    expect(result.distribution).toEqual({ 1: 0, 2: 0, 3: 1, 4: 0, 5: 1 });
-  });
-
-  it("averages a single response's multiple star answers before bucketing", () => {
-    // 5 and 4 average to 4.5, rounds to 5 for the distribution bucket.
-    const result = summarizeStarValues([[5, 4]]);
-    expect(result.count).toBe(1);
-    expect(result.avg).toBe(4.5);
-    expect(result.distribution[5]).toBe(1);
-  });
-
-  it("computes the overall avg as the mean of each response's own avg, rounded to one decimal", () => {
-    // Response A: avg 5. Response B: avg 3. Response C: avg 4.
-    // Overall = (5 + 3 + 4) / 3 = 4.0
-    const result = summarizeStarValues([[5], [3], [4]]);
-    expect(result.avg).toBe(4);
-    expect(result.count).toBe(3);
-  });
-
-  it("buckets each response into its rounded-average star, clamped to 1..5", () => {
-    const result = summarizeStarValues([[5, 5], [3], [1], [4, 5]]);
-    // [5,5] -> 5, [3] -> 3, [1] -> 1, [4,5] -> 4.5 rounds to 5
-    expect(result.distribution).toEqual({ 1: 1, 2: 0, 3: 1, 4: 0, 5: 2 });
-    expect(result.count).toBe(4);
-  });
-
-  it("rounds .5 averages up via Math.round when bucketing (banker's-rounding-free)", () => {
-    // 2 and 3 average to 2.5 -> Math.round(2.5) = 3
-    const result = summarizeStarValues([[2, 3]]);
-    expect(result.distribution[3]).toBe(1);
-  });
-
-  it("mixes multi-question responses with single-question responses correctly", () => {
-    const result = summarizeStarValues([[5, 5, 5], [2], [4, 3]]);
-    // avgs: 5, 2, 3.5 -> overall = (5 + 2 + 3.5) / 3 = 3.5
-    expect(result.avg).toBe(3.5);
-    expect(result.count).toBe(3);
+// summarizeStarValues (the pure per-response-average reducer this file used
+// to test) was removed in migration 0046: its logic now lives in the
+// mentor_review_stats SQL function so results can't be silently truncated
+// by PostgREST's db-max-rows cap. getMentorReviewSummary(ies) are DB-touching
+// (createAdminSupabase) and this repo's convention is pure-function tests
+// only, no DB mocking — same reason there's no test file for hydrateStats
+// after 0034 made the equivalent move for feedback session stats.
+describe("mentor-reviews module", () => {
+  it("exports the DB-backed summary functions", () => {
+    expect(typeof getMentorReviewSummary).toBe("function");
+    expect(typeof getMentorReviewSummaries).toBe("function");
   });
 });

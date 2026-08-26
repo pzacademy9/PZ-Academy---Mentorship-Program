@@ -18,41 +18,6 @@ export interface MentorReviewSummary {
 }
 
 /**
- * Pure aggregation math, pulled out of getMentorReviewSummary so it can be
- * unit-tested directly without touching a DB — this repo's convention
- * (average()/clampStar() in validations/feedback.ts) is pure-function tests
- * only, never DB mocking.
- *
- * `perResponseStarLists` is one entry per feedback_responses row already
- * filtered to "public + has a non-empty comment" — each entry is that row's
- * own star values (a response can answer more than one stars-type
- * question). `count` reflects every entry in this list (i.e. every public
- * commented response), matching listMentorReviews's inclusion rule exactly
- * — a response that answered zero stars questions (e.g. an all-video
- * question bank, or a respondent who skipped the star questions) still
- * counts as a review, it just contributes nothing to the star distribution
- * or the average, since there's nothing to average.
- */
-export function summarizeStarValues(perResponseStarLists: number[][]): MentorReviewSummary {
-  const perResponseAvgs: number[] = [];
-  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<1 | 2 | 3 | 4 | 5, number>;
-
-  for (const stars of perResponseStarLists) {
-    if (!stars.length) continue;
-    const avg = stars.reduce((a, b) => a + b, 0) / stars.length;
-    perResponseAvgs.push(avg);
-    const rounded = Math.min(5, Math.max(1, Math.round(avg))) as 1 | 2 | 3 | 4 | 5;
-    distribution[rounded] += 1;
-  }
-
-  const avg = perResponseAvgs.length
-    ? Math.round((perResponseAvgs.reduce((a, b) => a + b, 0) / perResponseAvgs.length) * 10) / 10
-    : null;
-
-  return { avg, count: perResponseStarLists.length, distribution };
-}
-
-/**
  * Reads through the admin client, same as every other feedback-table access
  * — feedback_responses/feedback_answers carry zero RLS policies (0033), so
  * the anon client src/lib/data/mentors.ts uses cannot see them. Both
@@ -66,37 +31,52 @@ async function reviewsEnabledFor(mentorId: string): Promise<boolean> {
   return data?.show_reviews ?? false;
 }
 
-/** Confirmed live against the real Supabase project (whqdasotjlhvrjmgiffk): `feedback_sessions!inner(mentor_id)` + `.eq("feedback_sessions.mentor_id", ...)` correctly filters feedback_responses by its joined session's mentor. */
+const EMPTY_SUMMARY: MentorReviewSummary = { avg: null, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+
+function summaryFromRow(row: {
+  response_count: number;
+  avg_star: number | null;
+  star_1: number;
+  star_2: number;
+  star_3: number;
+  star_4: number;
+  star_5: number;
+}): MentorReviewSummary {
+  return {
+    avg: row.avg_star,
+    count: row.response_count,
+    distribution: { 1: row.star_1, 2: row.star_2, 3: row.star_3, 4: row.star_4, 5: row.star_5 },
+  };
+}
+
+/**
+ * Aggregated in Postgres via mentor_review_stats (migration 0046), not by
+ * fetching every feedback_responses/feedback_answers row into JS and
+ * reducing here — PostgREST's db-max-rows cap (~1000) silently truncated
+ * that fetch-all approach for mentors with a lot of history, producing a
+ * wrong average/distribution with no error. Same fix shape as
+ * feedback_session_stats (0034) and mentor_tier_inputs (0045).
+ */
 export async function getMentorReviewSummary(mentorId: string): Promise<MentorReviewSummary> {
-  const empty: MentorReviewSummary = { avg: null, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
-  if (!(await reviewsEnabledFor(mentorId))) return empty;
+  if (!(await reviewsEnabledFor(mentorId))) return EMPTY_SUMMARY;
 
   const admin = createAdminSupabase();
-  const { data } = await admin
-    .from("feedback_responses")
-    .select("id, comments, feedback_sessions!inner(mentor_id), feedback_answers(star_value)")
-    .eq("feedback_sessions.mentor_id", mentorId)
-    .eq("is_public", true);
+  const { data, error } = await admin.rpc("mentor_review_stats", { p_mentor_ids: [mentorId] });
+  if (error || !data?.length) return EMPTY_SUMMARY;
 
-  const perResponseStarLists = (data ?? [])
-    .filter((r) => r.comments?.trim())
-    .map((r) => (r.feedback_answers ?? []).map((a) => a.star_value).filter((v): v is number => v != null));
-
-  return summarizeStarValues(perResponseStarLists);
+  return summaryFromRow(data[0]);
 }
 
 /**
  * Batch variant of getMentorReviewSummary for list views (the /mentorship
- * grid) — 2 queries total instead of N, reusing the same reviewsEnabledFor
- * + summarizeStarValues logic per mentor rather than N+1-querying per
- * MentorCard. Mentors with show_reviews off, or with no public commented
- * responses, come back with the same `empty` summary getMentorReviewSummary
- * would give them (never omitted from the returned map).
+ * grid) — one mentor_review_stats call instead of N. Mentors with
+ * show_reviews off, or with no public commented responses, come back with
+ * the same EMPTY_SUMMARY getMentorReviewSummary would give them (never
+ * omitted from the returned map).
  */
 export async function getMentorReviewSummaries(mentorIds: string[]): Promise<Record<string, MentorReviewSummary>> {
-  const empty: MentorReviewSummary = { avg: null, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
   const result: Record<string, MentorReviewSummary> = {};
-  for (const id of mentorIds) result[id] = empty;
+  for (const id of mentorIds) result[id] = EMPTY_SUMMARY;
   if (!mentorIds.length) return result;
 
   const admin = createAdminSupabase();
@@ -104,25 +84,10 @@ export async function getMentorReviewSummaries(mentorIds: string[]): Promise<Rec
   const enabledIds = (mentorRows ?? []).filter((m) => m.show_reviews).map((m) => m.id);
   if (!enabledIds.length) return result;
 
-  const { data } = await admin
-    .from("feedback_responses")
-    .select("id, comments, feedback_sessions!inner(mentor_id), feedback_answers(star_value)")
-    .in("feedback_sessions.mentor_id", enabledIds)
-    .eq("is_public", true);
+  const { data, error } = await admin.rpc("mentor_review_stats", { p_mentor_ids: enabledIds });
+  if (error || !data) return result;
 
-  const perMentorStarLists = new Map<string, number[][]>();
-  for (const id of enabledIds) perMentorStarLists.set(id, []);
-
-  for (const r of data ?? []) {
-    if (!r.comments?.trim()) continue;
-    const mentorId = (r.feedback_sessions as unknown as { mentor_id: string }).mentor_id;
-    const stars = (r.feedback_answers ?? []).map((a) => a.star_value).filter((v): v is number => v != null);
-    perMentorStarLists.get(mentorId)?.push(stars);
-  }
-
-  perMentorStarLists.forEach((lists, id) => {
-    result[id] = summarizeStarValues(lists);
-  });
+  for (const row of data) result[row.mentor_id] = summaryFromRow(row);
   return result;
 }
 
