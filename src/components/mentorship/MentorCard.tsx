@@ -7,6 +7,7 @@ import type { Mentor } from "@/lib/data/mentors";
 import type { MentorReviewSummary } from "@/lib/data/mentor-reviews";
 import { formatPrice, initials } from "@/lib/format";
 import { StarRating } from "@/components/ui/StarRating";
+import { MentorTierBadge } from "./MentorTierBadge";
 
 interface MentorCardProps {
   mentor: Mentor;
@@ -99,23 +100,26 @@ export default function MentorCard({ mentor, index, ratingSummary }: MentorCardP
         {mentor.name}
       </h3>
 
-      {/* Expertise badge — light green bg, dark green text */}
-      <span
-        className="font-poppins mb-3"
-        style={{
-          fontWeight: 600,
-          fontSize: "11px",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          background: "#E8F5EE",
-          color: "#1A4D2E",
-          borderRadius: "50px",
-          padding: "4px 14px",
-          display: "inline-block",
-        }}
-      >
-        {mentor.expertise}
-      </span>
+      {/* Expertise badge — light green bg, dark green text — plus tier badge, same row */}
+      <div className="flex items-center flex-wrap justify-center gap-1.5 mb-3">
+        <span
+          className="font-poppins"
+          style={{
+            fontWeight: 600,
+            fontSize: "11px",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            background: "#E8F5EE",
+            color: "#1A4D2E",
+            borderRadius: "50px",
+            padding: "4px 14px",
+            display: "inline-block",
+          }}
+        >
+          {mentor.expertise}
+        </span>
+        <MentorTierBadge tier={mentor.tier} />
+      </div>
 
       {/* Rating — only when this mentor has at least one real public review; an
           unreviewed mentor shows no line at all rather than a fake "No ratings

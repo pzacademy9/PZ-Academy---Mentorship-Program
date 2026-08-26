@@ -7,6 +7,8 @@ import MentorCard, { ComingSoonCard } from "@/components/mentorship/MentorCard";
 import RecruitmentForm from "@/components/mentorship/RecruitmentForm";
 import { getPublishedMentors, type Mentor } from "@/lib/data/mentors";
 import { getMentorReviewSummaries, type MentorReviewSummary } from "@/lib/data/mentor-reviews";
+import { partitionByFeaturedTier, shouldRenderFeaturedStrip } from "@/lib/mentor-tier";
+import TopMentorsStrip from "@/components/mentorship/TopMentorsStrip";
 
 export const metadata: Metadata = {
   title: "PZ Academy Mentorship – Find Your Expert Mentor",
@@ -18,13 +20,22 @@ export default async function HomePage() {
   const mentors = await getPublishedMentors();
   const ratingSummaries = await getMentorReviewSummaries(mentors.map((m) => m.id));
 
+  // getPublishedMentors already sorts tier DESC, order_index ASC, so featured/rest
+  // both preserve that order. On day one every mentor is 'standard', so featured is
+  // empty and shouldRenderFeaturedStrip is false — the page is byte-identical to
+  // before this feature until an admin actually promotes someone.
+  const { featured, rest } = partitionByFeaturedTier(mentors);
+  const showStrip = shouldRenderFeaturedStrip(featured.length, mentors.length);
+  const gridMentors = showStrip ? rest : mentors;
+
   return (
     <>
       <MarketingNav />
       <main>
         <HeroSection />
         <TrustBar />
-        <MentorsSection mentors={mentors} ratingSummaries={ratingSummaries} />
+        {showStrip && <TopMentorsStrip mentors={featured} />}
+        <MentorsSection mentors={gridMentors} ratingSummaries={ratingSummaries} />
         <HowItWorksSection />
         <RecruitmentForm />
       </main>

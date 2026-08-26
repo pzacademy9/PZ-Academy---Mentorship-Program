@@ -24,6 +24,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import type { MentorListRow } from "@/lib/data/admin-mentors";
+import { MentorTierPill } from "./MentorTierPill";
 
 const VISIBILITY_BADGE: Record<MentorListRow["visibility"], string> = {
   published: "bg-pz-primary-container text-pz-on-primary-container",
@@ -32,9 +33,9 @@ const VISIBILITY_BADGE: Record<MentorListRow["visibility"], string> = {
 };
 
 function toCsv(rows: MentorListRow[]): string {
-  const header = ["Name", "Slug", "Expertise", "Price (PKR)", "Visibility", "Bookings"];
+  const header = ["Name", "Slug", "Expertise", "Price (PKR)", "Tier", "Visibility", "Bookings"];
   const lines = rows.map((r) =>
-    [r.name, r.slug, r.expertise, r.pricePerSession, r.visibility, r.bookingCount]
+    [r.name, r.slug, r.expertise, r.pricePerSession, r.tier, r.visibility, r.bookingCount]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(","),
   );
@@ -127,6 +128,7 @@ export function MentorRegistryTable({ rows: initialRows }: { rows: MentorListRow
               <th className="px-4 py-3 font-bold w-8" />
               <th className="px-6 py-3 font-bold">Mentor</th>
               <th className="px-6 py-3 font-bold">Price</th>
+              <th className="px-6 py-3 font-bold">Tier</th>
               <th className="px-6 py-3 font-bold">Visibility</th>
               <th className="px-6 py-3 font-bold">Bookings</th>
               <th className="px-6 py-3 font-bold text-right">Actions</th>
@@ -140,7 +142,7 @@ export function MentorRegistryTable({ rows: initialRows }: { rows: MentorListRow
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-pz-on-surface-variant">
+                    <td colSpan={7} className="px-6 py-12 text-center text-pz-on-surface-variant">
                       No mentors match your search.
                     </td>
                   </tr>
@@ -155,7 +157,7 @@ export function MentorRegistryTable({ rows: initialRows }: { rows: MentorListRow
       </div>
 
       <p className="text-xs text-pz-on-surface-variant italic">
-        Drag rows to set the order mentors appear in on the public /mentorship page. Draft and Hidden mentors are never shown publicly.
+        Drag rows to set the order mentors appear in within their tier on the public /mentorship page. Higher tiers always sort above lower ones. Draft and Hidden mentors are never shown publicly.
       </p>
     </div>
   );
@@ -199,6 +201,9 @@ function MentorRow({ row, dragDisabled }: { row: MentorListRow; dragDisabled: bo
         {row.expertise && <span className="block text-xs text-pz-on-surface-variant mt-0.5">{row.expertise}</span>}
       </td>
       <td className="px-6 py-4 text-pz-on-surface">PKR {row.pricePerSession.toLocaleString()}</td>
+      <td className="px-6 py-4">
+        <MentorTierPill tier={row.tier} />
+      </td>
       <td className="px-6 py-4">
         <span
           className={cn(

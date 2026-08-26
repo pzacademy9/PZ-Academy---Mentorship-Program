@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ExternalLink, Save, Trash2, User, BookText, Image as ImageIcon, Banknote, Package, Award, Sparkles, Quote, Link2 } from "lucide-react";
+import { ExternalLink, Save, Trash2, User, BookText, Image as ImageIcon, Banknote, Package, Award, Sparkles, Quote, Link2, Medal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,10 @@ import { PackageRepeater } from "./PackageRepeater";
 import { CredentialRepeater } from "./CredentialRepeater";
 import { TestimonialRepeater } from "./TestimonialRepeater";
 import { SocialLinkRepeater } from "./SocialLinkRepeater";
+import { MentorTierPill } from "./MentorTierPill";
 import { MENTOR_VISIBILITIES, MENTOR_TIMEZONES } from "@/lib/validations/admin-mentor";
+import { MENTOR_TIERS, MENTOR_TIER_LABELS, TIER_PRICE_GUIDANCE, type MentorTier } from "@/lib/mentor-tier";
+import { formatDate } from "@/lib/format";
 import type { MentorConfigDetail } from "@/lib/data/admin-mentors";
 import type { MentorPackage, MentorCredential, MentorTestimonial, MentorSocialLink } from "@/lib/data/mentors";
 
@@ -49,6 +52,7 @@ type FormState = {
   timezone: string;
   visibility: MentorConfigDetail["visibility"];
   showReviews: boolean;
+  tierOverride: MentorTier | "";
 };
 
 function toFormState(mentor: MentorConfigDetail): FormState {
@@ -78,6 +82,7 @@ function toFormState(mentor: MentorConfigDetail): FormState {
     timezone: mentor.timezone,
     visibility: mentor.visibility,
     showReviews: mentor.showReviews,
+    tierOverride: mentor.tierOverride ?? "",
   };
 }
 
@@ -126,6 +131,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
           timezone: form.timezone || undefined,
           visibility: form.visibility,
           showReviews: form.showReviews,
+          tierOverride: form.tierOverride || undefined,
         }),
       });
 
@@ -241,6 +247,82 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
             </label>
           </div>
         </div>
+      </section>
+
+      {/* Tier & Ranking */}
+      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
+        <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
+          <Medal className="w-5 h-5 text-pz-primary" />
+          Tier & Ranking
+        </h3>
+
+        {/* Computed readout */}
+        <div className="relative overflow-hidden rounded-lg border border-pz-outline-variant bg-pz-surface-container-low px-4 py-3 pl-5">
+          <div className="absolute left-0 top-0 h-full w-1 bg-pz-secondary" aria-hidden="true" />
+          <span className="block font-headline text-[10px] font-bold uppercase tracking-widest text-pz-on-surface-variant mb-2">
+            Computed
+          </span>
+          <div className="flex flex-wrap items-center gap-3 mb-1.5">
+            <MentorTierPill tier={mentor.tierComputed} />
+            <span className="font-body text-sm font-semibold text-pz-on-surface">score {mentor.tierScore.toFixed(1)} / 100</span>
+          </div>
+          <p className="font-body text-xs text-pz-on-surface-variant">
+            {mentor.tierReviewCount} public review{mentor.tierReviewCount === 1 ? "" : "s"}
+            {mentor.tierRatingAvg != null && ` · ${mentor.tierRatingAvg.toFixed(2)} avg`}
+            {` · ${mentor.tierSessionCount} completed session${mentor.tierSessionCount === 1 ? "" : "s"}`}
+            {mentor.tierComputedAt ? ` · updated ${formatDate(mentor.tierComputedAt)}` : " · never scored"}
+          </p>
+          {mentor.profileId == null && (
+            <p className="font-body text-xs text-pz-danger italic mt-2">
+              No linked account — completed sessions can&apos;t be counted for this mentor, which caps the computed tier at Premium. Pin a tier below to override.
+            </p>
+          )}
+        </div>
+
+        {/* Override + effective tier */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className={labelClass}>Tier Override (pin)</label>
+            <select
+              value={form.tierOverride}
+              onChange={(e) => set("tierOverride", e.target.value as FormState["tierOverride"])}
+              className={inputClass}
+            >
+              <option value="">Auto — follow the computed tier</option>
+              {MENTOR_TIERS.map((t) => (
+                <option key={t} value={t}>
+                  {MENTOR_TIER_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Effective Tier</label>
+            <div className="flex flex-wrap items-center gap-2 border border-pz-outline-variant rounded-lg px-3 py-2.5 bg-pz-surface-container">
+              <MentorTierPill tier={(form.tierOverride || mentor.tierComputed) as MentorTier} />
+              <span className="font-body text-xs text-pz-on-surface-variant italic">
+                {form.tierOverride ? "pinned by admin" : "auto"}
+              </span>
+              {form.tierOverride && form.tierOverride !== mentor.tierComputed && (
+                <span className="font-body text-xs text-pz-on-surface-variant">
+                  (computed: {MENTOR_TIER_LABELS[mentor.tierComputed]})
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Advisory price guidance — never a hard cap, see mentorTierPriceWarnings */}
+        {(() => {
+          const effectiveTier = (form.tierOverride || mentor.tierComputed) as MentorTier;
+          const band = TIER_PRICE_GUIDANCE[effectiveTier];
+          return (
+            <p className="font-body text-xs text-pz-on-surface-variant italic">
+              Suggested single-session price for {MENTOR_TIER_LABELS[effectiveTier]}: PKR {band.min.toLocaleString()}–{band.max.toLocaleString()}.
+              Guidance only — you can price outside it and the save will still go through.
+            </p>
+          );
+        })()}
       </section>
 
       {/* Public Copy */}

@@ -12,6 +12,7 @@ import type { Mentor } from "@/lib/data/mentors";
 import { formatPrice, initials } from "@/lib/format";
 import { whatsappLink } from "@/lib/mentorship/whatsapp";
 import { cn } from "@/lib/utils";
+import { MentorTierBadge } from "./MentorTierBadge";
 
 interface FormState {
   fullName: string;
@@ -195,7 +196,10 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
               <p className="font-montserrat font-bold text-white text-lg leading-tight">
                 {mentor.name}
               </p>
-              <p className="font-poppins text-xs text-white/60">{mentor.expertise}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="font-poppins text-xs text-white/60">{mentor.expertise}</p>
+                <MentorTierBadge tier={mentor.tier} />
+              </div>
             </div>
           </motion.div>
 

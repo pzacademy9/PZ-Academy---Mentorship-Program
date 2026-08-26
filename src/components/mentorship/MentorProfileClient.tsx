@@ -18,6 +18,7 @@ import { toEmbedUrl } from "@/lib/video-embed";
 import { LinkedInIcon, BRAND_ICON_BY_PLATFORM } from "./BrandIcons";
 import { detectSocialPlatform, SOCIAL_PLATFORM_LABELS } from "@/lib/social-platforms";
 import { MentorReviews } from "./MentorReviews";
+import { MentorTierBadge } from "./MentorTierBadge";
 
 const iconMap: Record<string, LucideIcon> = {
   GraduationCap, Award, BookOpen, Lightbulb, TrendingUp,
@@ -136,10 +137,11 @@ export default function MentorProfileClient({
                 </Link>
               </motion.div>
 
-              <motion.div variants={fadeUp}>
-                <span className="inline-block px-3 py-1 bg-brand-green-mid/10 text-brand-green-mid font-poppins text-xs uppercase tracking-widest rounded-full mb-4">
+              <motion.div variants={fadeUp} className="flex items-center flex-wrap gap-2 mb-4">
+                <span className="inline-block px-3 py-1 bg-brand-green-mid/10 text-brand-green-mid font-poppins text-xs uppercase tracking-widest rounded-full">
                   {mentor.expertise}
                 </span>
+                <MentorTierBadge tier={mentor.tier} size="md" />
               </motion.div>
 
               <motion.h1
