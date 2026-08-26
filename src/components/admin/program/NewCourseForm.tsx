@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { GraduationCap, Presentation, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,11 +17,16 @@ const SELECTABLE_TYPES: { value: CourseType; label: string; hint: string; icon: 
   { value: "webinar", label: "Webinar", hint: "1 session, flat list", icon: Video },
 ];
 
+function initialTypeFromQuery(value: string | null): CourseType {
+  return SELECTABLE_TYPES.some((option) => option.value === value) ? (value as CourseType) : "course";
+}
+
 export function NewCourseForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<CourseType>("course");
+  const [type, setType] = useState<CourseType>(() => initialTypeFromQuery(searchParams.get("type")));
 
   function submit() {
     if (!title.trim()) {

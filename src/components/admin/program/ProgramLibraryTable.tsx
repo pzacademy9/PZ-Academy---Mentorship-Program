@@ -2,16 +2,25 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Download, ChevronRight } from "lucide-react";
+import { Search, Download, ChevronRight, GraduationCap, Presentation, Video, PackageOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProgramListRow } from "@/lib/data/admin-lms";
 
-const TYPE_BADGE: Record<ProgramListRow["type"], string> = {
-  course: "bg-pz-primary-container text-pz-on-primary-container",
-  workshop: "bg-pz-secondary-container text-pz-on-secondary-container",
-  webinar: "bg-pz-tertiary-container text-pz-on-tertiary-container",
-  mentorship: "bg-pz-tertiary-container text-pz-on-tertiary-container",
-};
+type DisplayType = "course" | "workshop" | "webinar";
+
+const SECTIONS: {
+  type: DisplayType;
+  label: string;
+  icon: typeof GraduationCap;
+  iconBg: string;
+  iconColor: string;
+}[] = [
+  { type: "course", label: "Courses", icon: GraduationCap, iconBg: "bg-pz-tertiary-container", iconColor: "text-pz-on-tertiary-container" },
+  { type: "workshop", label: "Workshops", icon: Presentation, iconBg: "bg-pz-secondary-container", iconColor: "text-pz-on-secondary-container" },
+  { type: "webinar", label: "Webinars", icon: Video, iconBg: "bg-pz-tertiary-fixed", iconColor: "text-pz-on-tertiary-fixed" },
+];
+
+type PublishFilter = "all" | "published" | "draft";
 
 function toCsv(rows: ProgramListRow[]): string {
   const header = ["Title", "Slug", "Type", "Price (PKR)", "Status", "Published", "Sessions", "Enrollments"];
@@ -33,16 +42,71 @@ function downloadCsv(rows: ProgramListRow[]) {
   URL.revokeObjectURL(url);
 }
 
+function ProgramRow({ row }: { row: ProgramListRow }) {
+  return (
+    <tr className="hover:bg-pz-surface-container-low transition-colors group">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className={cn("w-2 h-2 rounded-full", row.isPublished ? "bg-pz-primary" : "bg-pz-surface-dim")} />
+          <span
+            className={cn(
+              "font-medium transition-colors",
+              row.isPublished ? "text-pz-on-surface group-hover:text-pz-primary" : "text-pz-on-surface-variant",
+            )}
+          >
+            {row.title}
+          </span>
+        </div>
+      </td>
+      <td className="px-6 py-4 text-pz-on-surface-variant font-mono text-xs">{row.slug}</td>
+      <td className="px-6 py-4 text-pz-on-surface">PKR {row.pricePkr.toLocaleString()}</td>
+      <td className="px-6 py-4">
+        <span
+          className={cn(
+            "text-xs font-bold px-2.5 py-1 rounded-full",
+            row.isPublished
+              ? "bg-pz-primary-container text-pz-on-primary-container"
+              : "bg-pz-surface-container-high text-pz-on-surface-variant",
+          )}
+        >
+          {row.isPublished ? "Published" : "Draft"}
+        </span>
+      </td>
+      <td className="px-6 py-4 text-right">
+        <Link
+          href={`/dashboard/admin/courses/${row.id}`}
+          className="inline-flex items-center gap-1 text-pz-primary font-medium hover:underline"
+        >
+          Edit <ChevronRight className="w-4 h-4" />
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
 export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
   const [query, setQuery] = useState("");
+  const [publishFilter, setPublishFilter] = useState<PublishFilter>("all");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) => r.title.toLowerCase().includes(q) || r.slug.toLowerCase().includes(q),
-    );
-  }, [rows, query]);
+    return rows.filter((r) => {
+      if (q && !r.title.toLowerCase().includes(q) && !r.slug.toLowerCase().includes(q)) return false;
+      if (publishFilter === "published" && !r.isPublished) return false;
+      if (publishFilter === "draft" && r.isPublished) return false;
+      return true;
+    });
+  }, [rows, query, publishFilter]);
+
+  const grouped = useMemo(() => {
+    const byType = new Map<DisplayType, ProgramListRow[]>();
+    for (const section of SECTIONS) byType.set(section.type, []);
+    for (const row of filtered) {
+      if (row.type === "mentorship") continue; // mentorship is managed separately
+      byType.get(row.type as DisplayType)?.push(row);
+    }
+    return byType;
+  }, [filtered]);
 
   return (
     <div className="space-y-6">
@@ -58,6 +122,22 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
           />
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex bg-pz-surface-container-low p-1 rounded-lg">
+            {(["all", "published", "draft"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setPublishFilter(option)}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize",
+                  publishFilter === option
+                    ? "bg-pz-surface-container-lowest text-pz-primary shadow-sm"
+                    : "text-pz-on-surface-variant hover:text-pz-primary",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => downloadCsv(filtered)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-pz-outline-variant text-sm font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
@@ -74,63 +154,74 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
         </div>
       </div>
 
-      <div className="bg-pz-surface-container-lowest rounded-xl border border-pz-outline-variant overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
-              <th className="px-6 py-3 font-bold">Course Title</th>
-              <th className="px-6 py-3 font-bold">Slug</th>
-              <th className="px-6 py-3 font-bold">Price</th>
-              <th className="px-6 py-3 font-bold">Status</th>
-              <th className="px-6 py-3 font-bold text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((row) => (
-              <tr key={row.id} className="border-b border-pz-outline-variant/50 last:border-b-0 hover:bg-pz-surface-container-low/50 transition-colors">
-                <td className="px-6 py-4">
-                  <p className="font-headline font-bold text-pz-on-surface">{row.title}</p>
-                  <span className={cn("inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full", TYPE_BADGE[row.type])}>
-                    {row.type}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-pz-on-surface-variant font-mono text-xs">{row.slug}</td>
-                <td className="px-6 py-4 text-pz-on-surface">PKR {row.pricePkr.toLocaleString()}</td>
-                <td className="px-6 py-4">
-                  <span
-                    className={cn(
-                      "text-xs font-bold px-2.5 py-1 rounded-full",
-                      row.isPublished
-                        ? "bg-pz-primary-container text-pz-on-primary-container"
-                        : "bg-pz-surface-container-high text-pz-on-surface-variant",
-                    )}
-                  >
-                    {row.isPublished ? "Published" : "Draft"}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
+      <div className="space-y-8">
+        {SECTIONS.map((section) => {
+          const sectionRows = grouped.get(section.type) ?? [];
+          return (
+            <section
+              key={section.type}
+              className="bg-pz-surface-container-lowest rounded-xl border border-pz-outline-variant overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-pz-outline-variant flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", section.iconBg, section.iconColor)}>
+                    <section.icon className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-headline text-lg font-bold text-pz-on-surface">{section.label}</h3>
+                </div>
+                <span
+                  className={cn(
+                    "text-xs font-bold px-3 py-1 rounded-full",
+                    sectionRows.length > 0
+                      ? "bg-pz-primary-container text-pz-on-primary-container"
+                      : "bg-pz-surface-container-high text-pz-on-surface-variant",
+                  )}
+                >
+                  {sectionRows.length} {sectionRows.length === 1 ? "program" : "programs"}
+                </span>
+              </div>
+
+              {sectionRows.length === 0 ? (
+                <div className="p-10 flex flex-col items-center justify-center text-center">
+                  <div className="w-14 h-14 bg-pz-surface-container-low rounded-full flex items-center justify-center mb-3">
+                    <PackageOpen className="w-6 h-6 text-pz-outline" />
+                  </div>
+                  <p className="font-body text-pz-on-surface-variant font-medium mb-1">No {section.label.toLowerCase()} yet.</p>
                   <Link
-                    href={`/dashboard/admin/courses/${row.id}`}
-                    className="inline-flex items-center gap-1 text-pz-primary font-medium hover:underline"
+                    href={`/dashboard/admin/courses/new?type=${section.type}`}
+                    className="mt-3 px-4 py-2 bg-pz-surface-container-lowest text-pz-primary border border-pz-primary rounded-lg text-sm font-medium hover:bg-pz-primary-container/20 transition-colors"
                   >
-                    Edit <ChevronRight className="w-4 h-4" />
+                    + Add {section.type === "course" ? "Course" : section.type === "workshop" ? "Workshop" : "Webinar"}
                   </Link>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-pz-on-surface-variant">
-                  No programs match your search.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        <div className="px-6 py-3 text-xs text-pz-on-surface-variant border-t border-pz-outline-variant bg-pz-surface-container-low">
-          Showing {filtered.length} of {rows.length} programs
-        </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
+                        <th className="px-6 py-3 font-bold">Course Title</th>
+                        <th className="px-6 py-3 font-bold">Slug</th>
+                        <th className="px-6 py-3 font-bold">Price</th>
+                        <th className="px-6 py-3 font-bold">Status</th>
+                        <th className="px-6 py-3 font-bold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sectionRows.map((row) => (
+                        <ProgramRow key={row.id} row={row} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
+
+      {filtered.length === 0 && (
+        <p className="text-center text-sm text-pz-on-surface-variant py-6">No programs match your search.</p>
+      )}
 
       <p className="text-xs text-pz-on-surface-variant italic">
         Draft courses are hidden from the public site until published.
