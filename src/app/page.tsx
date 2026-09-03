@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Quote } from "lucide-react";
+import { getActiveBanners, getFeaturedItems } from "@/lib/data/marketing";
 
 const STATS = [
   { icon: Video,    number: "12+",  label: "Live Webinars",     badge: null },
@@ -21,8 +22,9 @@ const SERVICES = [
     desc: "Connect 1-on-1 with pharmaceutical experts and practitioners who'll guide your academic journey and help you navigate clinical challenges." },
 ];
 
-const FEATURED = [
-  { badge: "Live Now", live: true,  title: "Mastering Dose Calculations",
+/** Fallback shown until admins add real banners/featured items — see /dashboard/admin/marketing. */
+const FEATURED_FALLBACK = [
+  { badge: "Live Now", live: true, title: "Mastering Dose Calculations",
     desc: "A comprehensive module-based course covering pediatric, renal, and weight-based dosing. Build clinical confidence with real patient scenarios.",
     duration: "8 Weeks", enrolled: "240+ Enrolled", href: "/courses", grad: "from-pz-forest to-pz-mid" },
   { badge: "Interactive Quiz", live: false, title: "MED-Q — Quiz & Competition Platform",
@@ -35,13 +37,28 @@ const REVIEWS = [
   { text: '"MED-Q tournaments kept me motivated every week. Best pharma community in Pakistan."',         author: "M. Kamran", role: "Final Year Student", initials: "MK", side: "right" },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [heroBanners, featuredCards] = await Promise.all([getActiveBanners("hero"), getFeaturedItems()]);
+  const heroBanner = heroBanners[0] ?? null;
+  const featured =
+    featuredCards.length > 0
+      ? featuredCards.map((f) => ({ ...f, live: false, enrolled: null as string | null }))
+      : FEATURED_FALLBACK;
+
   return (
     <>
       <MarketingNav />
 
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-pz-deep">
+        {/* Banner image, when an active hero banner is set — see /dashboard/admin/marketing */}
+        {heroBanner?.imageUrl && (
+          <div className="absolute inset-0 z-[1]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={heroBanner.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover opacity-40" />
+            <div className="absolute inset-0 bg-gradient-to-b from-pz-deep/60 via-pz-deep/70 to-pz-deep" />
+          </div>
+        )}
         {/* Hex grid bg */}
         <div className="absolute inset-0 opacity-75" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpolygon fill='none' stroke='rgba(255%2C255%2C255%2C0.045)' stroke-width='1.2' points='30%2C3 57%2C18 57%2C48 30%2C63 3%2C48 3%2C18'/%3E%3Cpolygon fill='none' stroke='rgba(255%2C255%2C255%2C0.045)' stroke-width='1.2' points='30%2C63 57%2C78 57%2C104 3%2C104 3%2C78'/%3E%3C/svg%3E")`,
@@ -77,15 +94,21 @@ export default function HomePage() {
             <span className="w-1.5 h-1.5 rounded-full bg-pz-bright animate-pulse" />
             Educating with Innovation
           </div>
-          <h1 className="font-montserrat font-black text-white leading-[1.06] tracking-tight mb-4" style={{fontSize:"clamp(2rem,6vw,4.5rem)",letterSpacing:"-.02em"}}>
-            Empowering Minds<br /><em className="not-italic text-pz-bright">To Master The Science</em><br />Of Medicine
-          </h1>
+          {heroBanner ? (
+            <h1 className="font-montserrat font-black text-white leading-[1.06] tracking-tight mb-4" style={{fontSize:"clamp(2rem,6vw,4.5rem)",letterSpacing:"-.02em"}}>
+              {heroBanner.headline}
+            </h1>
+          ) : (
+            <h1 className="font-montserrat font-black text-white leading-[1.06] tracking-tight mb-4" style={{fontSize:"clamp(2rem,6vw,4.5rem)",letterSpacing:"-.02em"}}>
+              Empowering Minds<br /><em className="not-italic text-pz-bright">To Master The Science</em><br />Of Medicine
+            </h1>
+          )}
           <p className="font-poppins text-[rgba(255,255,255,.62)] max-w-[560px] mx-auto mt-4 mb-10 leading-relaxed" style={{fontSize:"clamp(.95rem,1.6vw,1.1rem)"}}>
             PZ Academy by Pharmacozyme — combining innovation, research, and real-world learning to shape the next generation of pharmaceutical leaders.
           </p>
           <div className="flex gap-3.5 justify-center flex-wrap">
-            <Link href="/courses" className="inline-flex items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
-              <BookOpen className="w-4 h-4" /> Explore Courses
+            <Link href={heroBanner?.ctaLink ?? "/courses"} className="inline-flex items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
+              <BookOpen className="w-4 h-4" /> {heroBanner?.ctaText ?? "Explore Courses"}
             </Link>
             <Link href="https://pz-academy.pharmacozyme.com/mentorship?type=mentor#apply"
               className="inline-flex items-center gap-2 font-poppins font-semibold text-sm text-white px-7 py-3.5 rounded-full border border-[rgba(255,255,255,.32)] transition-all duration-200 hover:border-pz-bright hover:text-pz-bright hover:-translate-y-0.5">
@@ -169,7 +192,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {FEATURED.map((f) => (
+            {featured.map((f) => (
               <Link key={f.title} href={f.href}
                 className="group flex flex-col bg-pz-offwhite rounded-xl border-[1.5px] border-pz-border overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-mid">
                 <div className={`h-1.5 bg-gradient-to-r ${f.grad}`} />
@@ -181,8 +204,8 @@ export default function HomePage() {
                   <p className="font-poppins text-pz-muted text-sm leading-relaxed flex-1">{f.desc}</p>
                   <div className="mt-6 flex items-center justify-between">
                     <div className="flex items-center gap-4 text-xs text-pz-muted font-poppins">
-                      <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5"/> {f.duration}</span>
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5"/> {f.enrolled}</span>
+                      {f.duration && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5"/> {f.duration}</span>}
+                      {f.enrolled && <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5"/> {f.enrolled}</span>}
                     </div>
                     <span className="font-poppins font-semibold text-sm text-pz-forest group-hover:text-pz-mid flex items-center gap-1 group-hover:gap-2 transition-all">
                       Enroll Now <ArrowRight className="w-4 h-4"/>
