@@ -267,6 +267,105 @@ export type Database = {
           },
         ]
       }
+      campaign_recipients: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          email_queue_id: string | null
+          id: string
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          created_at?: string
+          email_queue_id?: string | null
+          id?: string
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string
+          email_queue_id?: string | null
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          html_content: string
+          id: string
+          name: string
+          scheduled_at: string | null
+          segment: Json
+          started_at: string | null
+          status: Database["public"]["Enums"]["crm_campaign_status"]
+          subject: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          html_content?: string
+          id?: string
+          name: string
+          scheduled_at?: string | null
+          segment?: Json
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["crm_campaign_status"]
+          subject?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          html_content?: string
+          id?: string
+          name?: string
+          scheduled_at?: string | null
+          segment?: Json
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["crm_campaign_status"]
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           cert_url: string | null
@@ -303,6 +402,141 @@ export type Database = {
           {
             foreignKeyName: "certificates_student_id_fkey"
             columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_purchases: {
+        Row: {
+          amount: number | null
+          contact_id: string
+          course_id: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          import_batch_id: string | null
+          is_early_bird: boolean
+          product_label: string
+          promo_code: string | null
+          purchased_at: string | null
+          row_type: Database["public"]["Enums"]["crm_row_type"]
+          source_row_ref: string
+          source_sheet_id: string
+        }
+        Insert: {
+          amount?: number | null
+          contact_id: string
+          course_id?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          import_batch_id?: string | null
+          is_early_bird?: boolean
+          product_label?: string
+          promo_code?: string | null
+          purchased_at?: string | null
+          row_type?: Database["public"]["Enums"]["crm_row_type"]
+          source_row_ref: string
+          source_sheet_id: string
+        }
+        Update: {
+          amount?: number | null
+          contact_id?: string
+          course_id?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          import_batch_id?: string | null
+          is_early_bird?: boolean
+          product_label?: string
+          promo_code?: string | null
+          purchased_at?: string | null
+          row_type?: Database["public"]["Enums"]["crm_row_type"]
+          source_row_ref?: string
+          source_sheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_purchases_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_purchases_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_purchases_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          consent_basis: Database["public"]["Enums"]["crm_consent_basis"]
+          country: string | null
+          created_at: string
+          discovery_source: Database["public"]["Enums"]["crm_discovery_source"]
+          email: string | null
+          email_unsubscribed_at: string | null
+          full_name: string
+          id: string
+          phone_e164: string | null
+          phone_raw: string | null
+          profession: string | null
+          profile_id: string | null
+          unsubscribe_token: string
+          updated_at: string
+          whatsapp_unsubscribed_at: string | null
+        }
+        Insert: {
+          consent_basis?: Database["public"]["Enums"]["crm_consent_basis"]
+          country?: string | null
+          created_at?: string
+          discovery_source?: Database["public"]["Enums"]["crm_discovery_source"]
+          email?: string | null
+          email_unsubscribed_at?: string | null
+          full_name?: string
+          id?: string
+          phone_e164?: string | null
+          phone_raw?: string | null
+          profession?: string | null
+          profile_id?: string | null
+          unsubscribe_token?: string
+          updated_at?: string
+          whatsapp_unsubscribed_at?: string | null
+        }
+        Update: {
+          consent_basis?: Database["public"]["Enums"]["crm_consent_basis"]
+          country?: string | null
+          created_at?: string
+          discovery_source?: Database["public"]["Enums"]["crm_discovery_source"]
+          email?: string | null
+          email_unsubscribed_at?: string | null
+          full_name?: string
+          id?: string
+          phone_e164?: string | null
+          phone_raw?: string | null
+          profession?: string | null
+          profile_id?: string | null
+          unsubscribe_token?: string
+          updated_at?: string
+          whatsapp_unsubscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -952,6 +1186,72 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batches: {
+        Row: {
+          column_mapping: Json
+          contacts_created: number
+          contacts_merged: number
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          rows_imported: number
+          rows_skipped: number
+          rows_total: number
+          sheet_id: string
+          sheet_name: string
+          status: Database["public"]["Enums"]["crm_import_status"]
+          tab_name: string
+        }
+        Insert: {
+          column_mapping?: Json
+          contacts_created?: number
+          contacts_merged?: number
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          rows_imported?: number
+          rows_skipped?: number
+          rows_total?: number
+          sheet_id: string
+          sheet_name?: string
+          status?: Database["public"]["Enums"]["crm_import_status"]
+          tab_name: string
+        }
+        Update: {
+          column_mapping?: Json
+          contacts_created?: number
+          contacts_merged?: number
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          rows_imported?: number
+          rows_skipped?: number
+          rows_total?: number
+          sheet_id?: string
+          sheet_name?: string
+          status?: Database["public"]["Enums"]["crm_import_status"]
+          tab_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_notes: {
         Row: {
           content_html: string
@@ -1469,6 +1769,64 @@ export type Database = {
           },
         ]
       }
+      merge_candidates: {
+        Row: {
+          confidence: number
+          contact_a_id: string
+          contact_b_id: string
+          created_at: string
+          id: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["crm_merge_status"]
+        }
+        Insert: {
+          confidence?: number
+          contact_a_id: string
+          contact_b_id: string
+          created_at?: string
+          id?: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["crm_merge_status"]
+        }
+        Update: {
+          confidence?: number
+          contact_a_id?: string
+          contact_b_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["crm_merge_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merge_candidates_contact_a_id_fkey"
+            columns: ["contact_a_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_candidates_contact_b_id_fkey"
+            columns: ["contact_b_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_candidates_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           course_id: string
@@ -1938,6 +2296,17 @@ export type Database = {
       banner_slot: "hero" | "mid_page" | "sidebar" | "footer"
       course_status: "draft" | "open" | "closed" | "archived"
       course_type: "course" | "workshop" | "webinar" | "mentorship"
+      crm_campaign_status: "draft" | "scheduled" | "sending" | "sent" | "cancelled"
+      crm_consent_basis: "purchase" | "enquiry"
+      crm_discovery_source:
+        | "instagram"
+        | "facebook"
+        | "whatsapp"
+        | "other"
+        | "unknown"
+      crm_import_status: "draft" | "previewed" | "committed" | "failed"
+      crm_merge_status: "pending" | "merged" | "rejected"
+      crm_row_type: "individual" | "group_leader" | "group_member"
       enrollment_status:
         | "pending"
         | "reserved"
@@ -2092,6 +2461,12 @@ export const Constants = {
       banner_slot: ["hero", "mid_page", "sidebar", "footer"],
       course_status: ["draft", "open", "closed", "archived"],
       course_type: ["course", "workshop", "webinar", "mentorship"],
+      crm_campaign_status: ["draft", "scheduled", "sending", "sent", "cancelled"],
+      crm_consent_basis: ["purchase", "enquiry"],
+      crm_discovery_source: ["instagram", "facebook", "whatsapp", "other", "unknown"],
+      crm_import_status: ["draft", "previewed", "committed", "failed"],
+      crm_merge_status: ["pending", "merged", "rejected"],
+      crm_row_type: ["individual", "group_leader", "group_member"],
       enrollment_status: ["pending", "reserved", "active", "rejected", "expired"],
       featured_item_type: ["course", "webinar"],
       feedback_program_type: ["workshop", "course"],
