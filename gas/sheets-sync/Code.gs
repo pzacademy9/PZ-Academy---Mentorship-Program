@@ -172,6 +172,14 @@ function doPost(e) {
     return handleApplyStatus_(body);
   }
 
+  if (body.action === "listSheetTabs") {
+    return handleListSheetTabs_(body);
+  }
+
+  if (body.action === "readSheetRows") {
+    return handleReadSheetRows_(body);
+  }
+
   return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
 }
 
@@ -281,4 +289,93 @@ function ensureTrackingColumns_(sheet, headerRow, props) {
 
 function jsonResponse_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Lists every tab in a spreadsheet with its header row and data row count,
+ * so the app can offer a tab picker and auto-guess a column mapping without
+ * downloading the whole sheet first.
+ *
+ * Headers come from row 1. Sheets whose row 1 is blank return an empty
+ * header array rather than failing — the admin can still pick the tab and
+ * map columns by index.
+ */
+function handleListSheetTabs_(body) {
+  if (!body.sheetId) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId" });
+  }
+
+  try {
+    var ss = SpreadsheetApp.openById(body.sheetId);
+    var tabs = ss.getSheets().map(function (sheet) {
+      var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      var headers = [];
+      if (lastRow >= 1 && lastCol >= 1) {
+        headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+      }
+      return {
+        name: sheet.getName(),
+        headers: headers,
+        // Exclude the header row from the count the admin sees.
+        rowCount: Math.max(0, lastRow - 1),
+      };
+    });
+    return jsonResponse_({ status: "success", tabs: tabs, sheetName: ss.getName() });
+  } catch (err) {
+    // Most common cause: the deploying account lacks access to this
+    // spreadsheet ID. Share the sheet with that account and retry.
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/**
+ * Reads a page of data rows (header row excluded) from one tab.
+ *
+ * Paginated deliberately. Apps Script enforces a six-minute execution
+ * ceiling and a response size limit, and several of these cohort sheets are
+ * large. getDisplayValues() rather than getValues() so numbers, dates, and
+ * phone numbers arrive exactly as a human sees them in the sheet — a phone
+ * column formatted as a number would otherwise lose its leading zero before
+ * normalizePhone ever sees it.
+ */
+function handleReadSheetRows_(body) {
+  if (!body.sheetId || !body.tabName) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId or tabName" });
+  }
+
+  var offset = Number(body.offset) || 0;
+  var limit = Math.min(Number(body.limit) || 500, 500);
+
+  try {
+    var ss = SpreadsheetApp.openById(body.sheetId);
+    var sheet = ss.getSheetByName(body.tabName);
+    if (!sheet) {
+      return jsonResponse_({ status: "error", message: "No tab named " + body.tabName });
+    }
+
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    var total = Math.max(0, lastRow - 1);
+
+    if (total === 0 || offset >= total || lastCol < 1) {
+      return jsonResponse_({ status: "success", rows: [], total: total, nextOffset: null });
+    }
+
+    // +2 converts a zero-based data offset into a 1-based sheet row that
+    // skips the header: data row 0 lives at sheet row 2.
+    var startRow = offset + 2;
+    var count = Math.min(limit, total - offset);
+    var rows = sheet.getRange(startRow, 1, count, lastCol).getDisplayValues();
+
+    var consumed = offset + count;
+    return jsonResponse_({
+      status: "success",
+      rows: rows,
+      total: total,
+      nextOffset: consumed < total ? consumed : null,
+    });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
 }
