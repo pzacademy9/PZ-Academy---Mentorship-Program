@@ -2216,6 +2216,18 @@ export type Database = {
           status: Database["public"]["Enums"]["progress_status"]
         }[]
       }
+      crm_import_commit: {
+        Args: {
+          p_sheet_id: string
+          p_sheet_name: string
+          p_tab_name: string
+          p_column_mapping: Json
+          p_course_id: string | null
+          p_created_by: string | null
+          p_rows: Json
+        }
+        Returns: Json
+      }
       feedback_session_stats: {
         Args: { p_session_ids: string[] }
         Returns: {
