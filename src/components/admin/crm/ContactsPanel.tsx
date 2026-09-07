@@ -77,9 +77,8 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
             <thead className="text-pz-on-surface-variant text-xs uppercase">
               <tr><th className="py-2">Name</th><th>Email</th><th>Phone</th><th>Country</th><th>Source</th><th>Purchases</th></tr>
             </thead>
-            <tbody>
-              {rows.map((c) => (
-                <tbody key={c.id}>
+            {rows.map((c) => (
+              <tbody key={c.id}>
                   <tr className="border-t border-pz-outline-variant">
                     <td className="py-2">
                       <button onClick={() => toggleDetail(c.id)} className="text-left underline">
@@ -113,9 +112,8 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
                       </td>
                     </tr>
                   )}
-                </tbody>
-              ))}
-            </tbody>
+              </tbody>
+            ))}
           </table>
         </div>
       )}
