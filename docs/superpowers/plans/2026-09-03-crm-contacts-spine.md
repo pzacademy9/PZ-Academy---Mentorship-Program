@@ -2042,7 +2042,7 @@ export async function previewImport(input: ImportPreviewInput): Promise<PreviewR
   }
 
   const phoneFailures = importable.filter((r) => r.contact.phoneE164 === null).length;
-  const productLabels = [...new Set(importable.map((r) => r.purchase.productLabel).filter((l) => l !== ""))].sort();
+  const productLabels = Array.from(new Set(importable.map((r) => r.purchase.productLabel).filter((l) => l !== ""))).sort();
 
   return {
     ok: true,
@@ -2279,7 +2279,9 @@ export async function rebuildMergeCandidates(): Promise<number> {
 
   const found: Array<{ contact_a_id: string; contact_b_id: string; reason: string; confidence: number }> = [];
 
-  for (const bucket of buckets.values()) {
+  // Array.from() around the Map iterator: this repo's tsconfig sets no
+  // `target`, so a bare `for...of` over a Map/Set iterator fails tsc (TS2802).
+  for (const bucket of Array.from(buckets.values())) {
     if (bucket.length < 2) continue;
     for (let i = 0; i < bucket.length; i += 1) {
       for (let j = i + 1; j < bucket.length; j += 1) {
@@ -2322,7 +2324,7 @@ export async function listMergeCandidates(): Promise<MergeCandidateRow[]> {
   const rows = data ?? [];
   if (rows.length === 0) return [];
 
-  const ids = [...new Set(rows.flatMap((r) => [r.contact_a_id, r.contact_b_id]))];
+  const ids = Array.from(new Set(rows.flatMap((r) => [r.contact_a_id, r.contact_b_id])));
   const { data: contacts } = await admin
     .from("contacts")
     .select("id, full_name, email, phone_e164, country, discovery_source, email_unsubscribed_at, contact_purchases(count)")
