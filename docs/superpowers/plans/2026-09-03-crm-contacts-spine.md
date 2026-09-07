@@ -2983,7 +2983,7 @@ export function ImportWizard() {
                     <td className="py-2 tabular-nums">{s.rowRef}</td>
                     <td>{s.name}</td>
                     <td>{s.email ?? "—"}</td>
-                    <td className={s.phone ? "" : "text-pz-error"}>{s.phone ?? "needs review"}</td>
+                    <td className={s.phone ? "" : "text-pz-danger"}>{s.phone ?? "needs review"}</td>
                     <td>{s.product || "—"}</td>
                     <td>{s.rowType}</td>
                   </tr>
@@ -3002,7 +3002,7 @@ export function ImportWizard() {
         </section>
       )}
 
-      {error && <p className="font-body text-sm text-pz-error">{error}</p>}
+      {error && <p className="font-body text-sm text-pz-danger">{error}</p>}
       {done && <p className="font-body text-sm text-pz-primary">{done}</p>}
     </div>
   );
@@ -3123,10 +3123,10 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
                 <tr key={c.id} className="border-t border-pz-outline-variant">
                   <td className="py-2">
                     {c.fullName || "—"}
-                    {c.unsubscribed && <span className="ml-2 text-xs text-pz-error">unsubscribed</span>}
+                    {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}
                   </td>
                   <td>{c.email ?? "—"}</td>
-                  <td className={c.phoneE164 ? "" : "text-pz-error"}>{c.phoneE164 ?? "needs review"}</td>
+                  <td className={c.phoneE164 ? "" : "text-pz-danger"}>{c.phoneE164 ?? "needs review"}</td>
                   <td>{c.country ?? "—"}</td>
                   <td>{c.discoverySource}</td>
                   <td className="tabular-nums">{c.purchaseCount}</td>
@@ -3200,7 +3200,7 @@ export function MergeReviewPanel({ initialCandidates }: { initialCandidates: Can
 
   return (
     <div className="space-y-4">
-      {error && <p className="font-body text-sm text-pz-error">{error}</p>}
+      {error && <p className="font-body text-sm text-pz-danger">{error}</p>}
 
       {candidates.map((c) => (
         <div key={c.id} className="bg-pz-surface-container-high rounded-2xl p-5 space-y-3">
@@ -4817,7 +4817,7 @@ export function SegmentBuilder({
 
           <button
             onClick={() => update(value.filter((_, i) => i !== index))}
-            className="text-pz-error font-body text-sm"
+            className="text-pz-danger font-body text-sm"
           >
             remove
           </button>
@@ -4964,14 +4964,14 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
                 Send test
               </button>
               <button onClick={sendReal} disabled={busy}
-                className="px-5 py-2 rounded-full bg-pz-error text-white font-headline text-sm font-semibold disabled:opacity-50">
+                className="px-5 py-2 rounded-full bg-pz-danger text-white font-headline text-sm font-semibold disabled:opacity-50">
                 Send to segment
               </button>
             </>
           )}
         </div>
 
-        {error && <p className="font-body text-sm text-pz-error">{error}</p>}
+        {error && <p className="font-body text-sm text-pz-danger">{error}</p>}
         {notice && <p className="font-body text-sm text-pz-primary">{notice}</p>}
       </section>
 
@@ -4995,7 +4995,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
                     <td className="tabular-nums">{c.delivered}</td>
                     <td className="tabular-nums">{c.opened}</td>
                     <td className="tabular-nums">{c.clicked}</td>
-                    <td className={`tabular-nums ${c.bounced > 0 ? "text-pz-error" : ""}`}>{c.bounced}</td>
+                    <td className={`tabular-nums ${c.bounced > 0 ? "text-pz-danger" : ""}`}>{c.bounced}</td>
                   </tr>
                 ))}
               </tbody>
