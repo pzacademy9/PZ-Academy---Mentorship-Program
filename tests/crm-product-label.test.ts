@@ -43,6 +43,14 @@ describe("parseProductLabel", () => {
     });
   });
 
+  it("detects the row-type hint mid-label, not only at the start", () => {
+    // MEP Batch 1 labels lead with the course name, so the Individual/Group
+    // token sits in the middle: "Complete Course — … — Group — PKR …".
+    expect(parseProductLabel("Complete Course — Module 1 & Module 2 — Group — PKR 8,400 (3 × PKR 2,800/person)").rowTypeHint).toBe("group_leader");
+    expect(parseProductLabel("Complete Course — Module 1 & Module 2 — Individual — PKR 3,500").rowTypeHint).toBe("individual");
+    expect(parseProductLabel("Single Module — Module 1 — Understanding Medication Errors & High-Alert Medications — Individual — PKR 1,800").rowTypeHint).toBe("individual");
+  });
+
   it("returns nulls rather than guessing on an unrecognised label", () => {
     expect(parseProductLabel("Scholarship")).toEqual({
       amount: null,

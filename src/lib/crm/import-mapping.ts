@@ -66,12 +66,18 @@ const ALIASES: Record<keyof ColumnMapping, string[]> = {
   promoCode: ["promo code", "promo", "referral code", "coupon"],
 };
 
+// Strip everything but letters and digits so a spaced Title Case header
+// ("Row Type") and its camelCase equivalent ("rowType") compare equal. The
+// website form sheets use camelCase; the older master sheets use spaces.
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
 export function guessColumnMapping(headers: string[]): ColumnMapping {
-  const normalized = headers.map((h) => h.trim().toLowerCase());
+  const normalized = headers.map(squash);
 
   function find(field: keyof ColumnMapping): number | null {
     for (const alias of ALIASES[field]) {
-      const index = normalized.findIndex((h) => h.includes(alias));
+      const needle = squash(alias);
+      const index = normalized.findIndex((h) => h.includes(needle));
       if (index !== -1) return index;
     }
     return null;
@@ -107,8 +113,11 @@ function toRowType(explicit: string, hint: ReturnType<typeof parseProductLabel>[
   // The explicit "Row Type" column wins over the label hint: a group member
   // shares the group leader's product label but is not a leader.
   const value = explicit.trim().toLowerCase();
-  if (value.includes("leader")) return "group_leader";
+  // "lead" not "leader": the form sheets say "Group Lead", the older sheets
+  // "Group Leader". Member is checked first so a stray "lead" in a member
+  // label can never win.
   if (value.includes("member")) return "group_member";
+  if (value.includes("lead")) return "group_leader";
   if (value.includes("individual")) return "individual";
   return hint ?? "individual";
 }

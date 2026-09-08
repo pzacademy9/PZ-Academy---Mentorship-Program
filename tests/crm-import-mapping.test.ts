@@ -25,6 +25,17 @@ describe("guessColumnMapping", () => {
     expect(mapping.email).toBeNull();
     expect(mapping.phone).toBeNull();
   });
+
+  it("matches camelCase form-builder headers (rowType, regOption, promoCode)", () => {
+    // The website form sheets use camelCase headers with no spaces; the older
+    // master sheets use spaced Title Case. The guess must handle both.
+    const headers = ["Name", "Email", "whatsapp", "profession", "discovery", "regOption", "consent", "rowType", "promoCode", "voucherUrl", "groupLeadEmail"];
+    const mapping = guessColumnMapping(headers);
+    expect(mapping).toEqual({
+      name: 0, email: 1, phone: 2, profession: 3,
+      discovery: 4, product: 5, rowType: 7, promoCode: 8,
+    });
+  });
 });
 
 describe("parseSheetRow", () => {
@@ -78,6 +89,24 @@ describe("parseSheetRow", () => {
     expect(parsed.purchase.rowType).toBe("group_member");
     expect(parsed.purchase.amount).toBe(2160);
     expect(parsed.purchase.promoCode).toBe("PZ-AHMED");
+  });
+
+  it("reads Group Lead / Group Member from the explicit column on a camelCase sheet", () => {
+    // Verbatim from the MEP Batch 1 Master Sheet: the row-type column is
+    // "rowType" and its values are "Group Lead" / "Group Member", not the
+    // "leader" spelling the older sheets use.
+    const mepHeaders = ["Name", "Email", "whatsapp", "profession", "discovery", "regOption", "consent", "rowType", "promoCode"];
+    const mepMapping = guessColumnMapping(mepHeaders);
+    const groupLabel = "Complete Course — Module 1 & Module 2 — Group — PKR 8,400 (3 × PKR 2,800/person)";
+    const rowTypeFor = (rowType: string) => {
+      const row = ["A Person", "person@x.com", "3001234567", "", "", groupLabel, "", rowType, ""];
+      const parsed = parseSheetRow(row, mepMapping, 0, "S");
+      return parsed.ok ? parsed.purchase.rowType : null;
+    };
+    expect(rowTypeFor("Group Lead")).toBe("group_leader");
+    expect(rowTypeFor("Group Member")).toBe("group_member");
+    expect(rowTypeFor("Individual")).toBe("individual");
+    expect(rowTypeFor("")).toBe("group_leader"); // falls back to the label hint
   });
 
   it("normalizes the discovery source to a known enum value", () => {

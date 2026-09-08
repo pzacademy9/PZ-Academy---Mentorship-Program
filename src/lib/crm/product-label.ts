@@ -30,9 +30,13 @@ export function parseProductLabel(raw: string | null | undefined): ParsedProduct
 
   const isEarlyBird = /\[early bird\]/i.test(label);
 
+  // The Individual/Group token can lead the label ("Group — PKR …") or sit
+  // mid-label ("Complete Course — … — Group — PKR …"), so match it as a
+  // whole word anywhere. Individual is tested first: a label carrying both
+  // words is an individual seat.
   let rowTypeHint: ParsedProduct["rowTypeHint"] = null;
-  if (/^individual\b/i.test(label)) rowTypeHint = "individual";
-  else if (/^group\b/i.test(label)) rowTypeHint = "group_leader";
+  if (/\bindividual\b/i.test(label)) rowTypeHint = "individual";
+  else if (/\bgroup\b/i.test(label)) rowTypeHint = "group_leader";
 
   let currency: ParsedProduct["currency"] = null;
   for (const c of CURRENCIES) {
