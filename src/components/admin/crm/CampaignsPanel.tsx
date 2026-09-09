@@ -23,6 +23,19 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Any edit after a draft is saved invalidates it: the saved draft no longer
+  // matches what is on screen, so the test/send buttons (gated on draftId)
+  // must hide until "Save draft" is pressed again.
+  function invalidateDraft() {
+    setDraftId(null);
+    setNotice(null);
+  }
+
+  const editName = (v: string) => { setName(v); invalidateDraft(); };
+  const editSubject = (v: string) => { setSubject(v); invalidateDraft(); };
+  const editBody = (v: string) => { setBodyHtml(v); invalidateDraft(); };
+  const editSegment = (v: SegmentFilter[]) => { setSegment(v); invalidateDraft(); };
+
   async function reload() {
     const res = await fetch("/api/admin/crm/campaigns");
     if (!res.ok) return;
@@ -69,9 +82,31 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
 
   async function sendReal() {
     if (!draftId) return;
+
+    // Confirm against the real recipient count, fetched fresh — an admin must
+    // not approve a "send to the segment" without knowing how many people that
+    // is. A failed count fetch blocks the send rather than sending blind.
+    setBusy(true); setError(null);
+    let total: number;
+    try {
+      const res = await fetch("/api/admin/crm/segments/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segment }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || typeof json.total !== "number") throw new Error();
+      total = json.total;
+    } catch {
+      setBusy(false);
+      setError("Could not confirm the recipient count — try again.");
+      return;
+    }
+    setBusy(false);
+
     // Irreversible and outward-facing: once enqueued, these emails cannot be
     // recalled. Explicit confirmation is required.
-    if (!window.confirm("This sends real emails to everyone in the segment and cannot be undone. Continue?")) return;
+    if (!window.confirm(`Send to ${total} contacts? This sends real emails and cannot be undone.`)) return;
 
     setBusy(true); setError(null);
     try {
@@ -92,11 +127,11 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       <section className="bg-pz-surface-container-high rounded-2xl p-5 space-y-4">
         <h2 className="font-headline font-semibold text-pz-secondary">New campaign</h2>
 
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Internal name"
+        <input value={name} onChange={(e) => editName(e.target.value)} placeholder="Internal name"
           className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject — {{first_name}} works here too"
+        <input value={subject} onChange={(e) => editSubject(e.target.value)} placeholder="Subject — {{first_name}} works here too"
           className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
-        <textarea value={bodyHtml} onChange={(e) => setBodyHtml(e.target.value)} rows={8}
+        <textarea value={bodyHtml} onChange={(e) => editBody(e.target.value)} rows={8}
           className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-mono text-xs" />
         <p className="font-body text-xs text-pz-on-surface-variant">
           Tags: <code>{"{{first_name}}"}</code>, <code>{"{{full_name}}"}</code>, <code>{"{{email}}"}</code>.
@@ -105,7 +140,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
 
         <div>
           <h3 className="font-headline text-sm font-semibold mb-2">Who receives it</h3>
-          <SegmentBuilder value={segment} onChange={setSegment} />
+          <SegmentBuilder value={segment} onChange={editSegment} />
         </div>
 
         <div className="flex gap-2 flex-wrap items-center">
