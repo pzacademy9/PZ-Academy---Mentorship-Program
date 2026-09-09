@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { importPreviewSchema, importCommitSchema, mergeResolveSchema } from "@/lib/validations/crm";
+import { importPreviewSchema, importCommitSchema, mergeResolveSchema, segmentFilterSchema, campaignCreateSchema } from "@/lib/validations/crm";
 
 const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8 };
 
@@ -57,5 +57,46 @@ describe("mergeResolveSchema", () => {
 
   it("rejects any other decision", () => {
     expect(mergeResolveSchema.safeParse({ decision: "delete" }).success).toBe(false);
+  });
+});
+
+describe("segmentFilterSchema", () => {
+  it("accepts a row_type filter", () => {
+    expect(segmentFilterSchema.safeParse({ field: "row_type", op: "eq", value: "group_leader" }).success).toBe(true);
+  });
+
+  it("accepts a purchase_count comparison", () => {
+    expect(segmentFilterSchema.safeParse({ field: "purchase_count", op: "gte", value: 2 }).success).toBe(true);
+  });
+
+  it("rejects an unknown field", () => {
+    expect(segmentFilterSchema.safeParse({ field: "salary", op: "gte", value: 2 }).success).toBe(false);
+  });
+
+  it("rejects an operator that does not belong to the field", () => {
+    expect(segmentFilterSchema.safeParse({ field: "purchase_count", op: "contains", value: 2 }).success).toBe(false);
+  });
+});
+
+describe("campaignCreateSchema", () => {
+  it("accepts a complete draft", () => {
+    const parsed = campaignCreateSchema.safeParse({
+      name: "Win-back March",
+      subject: "Hi {{first_name}}, your next step",
+      bodyHtml: "<p>Hello</p>",
+      segment: [{ field: "purchase_count", op: "gte", value: 2 }],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts an empty segment, which means every sendable contact", () => {
+    const parsed = campaignCreateSchema.safeParse({ name: "All", subject: "S", bodyHtml: "<p>x</p>", segment: [] });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a blank name, subject, or body", () => {
+    expect(campaignCreateSchema.safeParse({ name: "", subject: "S", bodyHtml: "<p>x</p>", segment: [] }).success).toBe(false);
+    expect(campaignCreateSchema.safeParse({ name: "N", subject: "", bodyHtml: "<p>x</p>", segment: [] }).success).toBe(false);
+    expect(campaignCreateSchema.safeParse({ name: "N", subject: "S", bodyHtml: "", segment: [] }).success).toBe(false);
   });
 });
