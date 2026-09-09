@@ -147,12 +147,28 @@ export async function sendCampaign(campaignId: string): Promise<MutationResult> 
   const { contacts } = await resolveSegment(filters);
   if (contacts.length === 0) return { ok: false, reason: "empty-segment" };
 
+  // Skip contacts already linked to this campaign, so a deliberate retry after
+  // a mid-send chunk failure re-processes only the chunks that did not complete.
+  const { data: existingLinks } = await admin
+    .from("campaign_recipients")
+    .select("contact_id")
+    .eq("campaign_id", campaignId);
+  const alreadyEnqueued = new Set((existingLinks ?? []).map((r) => r.contact_id));
+  const pending = contacts.filter((c) => !alreadyEnqueued.has(c.id));
+  if (pending.length === 0) {
+    await admin
+      .from("campaigns")
+      .update({ status: "sent", completed_at: new Date().toISOString() })
+      .eq("id", campaignId);
+    return { ok: true, id: campaignId };
+  }
+
   await admin.from("campaigns").update({ status: "sending", started_at: new Date().toISOString() }).eq("id", campaignId);
 
   const nowMinute = new Date().toISOString().slice(0, 16);
 
-  for (let i = 0; i < contacts.length; i += ENQUEUE_CHUNK) {
-    const chunk = contacts.slice(i, i + ENQUEUE_CHUNK);
+  for (let i = 0; i < pending.length; i += ENQUEUE_CHUNK) {
+    const chunk = pending.slice(i, i + ENQUEUE_CHUNK);
 
     const queueRows = chunk.map((contact) => ({
       event_type: "campaign",
@@ -168,8 +184,10 @@ export async function sendCampaign(campaignId: string): Promise<MutationResult> 
 
     const { data: queued, error: queueError } = await admin.from("email_queue").insert(queueRows).select("id, user_email");
     if (queueError) {
+      // Leave status 'sending', not 'draft': the already-sent guard then
+      // blocks an accidental re-send. Chunks already enqueued still deliver;
+      // resuming the rest needs a deliberate reset to 'draft'.
       console.error("[crm-campaigns] enqueue failed:", queueError);
-      await admin.from("campaigns").update({ status: "draft" }).eq("id", campaignId);
       return { ok: false, reason: "db-error" };
     }
 
@@ -185,7 +203,14 @@ export async function sendCampaign(campaignId: string): Promise<MutationResult> 
     const { error: recipientError } = await admin
       .from("campaign_recipients")
       .upsert(recipientRows, { onConflict: "campaign_id,contact_id", ignoreDuplicates: true });
-    if (recipientError) console.error("[crm-campaigns] recipient link failed:", recipientError);
+    if (recipientError) {
+      // Residual sharp edge: email_queue.insert for this chunk succeeded, so
+      // those contacts are queued but not recorded here. A forced retry (after
+      // manually resetting status to 'draft') would re-enqueue them — that
+      // path needs manual email_queue cleanup first. Rare double-failure.
+      console.error("[crm-campaigns] recipient link failed:", recipientError);
+      return { ok: false, reason: "db-error" };
+    }
   }
 
   await admin
