@@ -2193,7 +2193,52 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      crm_campaign_stats: {
+        Row: {
+          bounced: number | null
+          campaign_id: string | null
+          clicked: number | null
+          completed_at: string | null
+          created_at: string | null
+          delivered: number | null
+          failed: number | null
+          name: string | null
+          opened: number | null
+          recipients: number | null
+          sent: number | null
+          status: Database["public"]["Enums"]["crm_campaign_status"] | null
+        }
+        Relationships: []
+      }
+      crm_contact_segment_source: {
+        Row: {
+          consent_basis: Database["public"]["Enums"]["crm_consent_basis"] | null
+          country: string | null
+          course_ids: string[] | null
+          created_at: string | null
+          discovery_source:
+            | Database["public"]["Enums"]["crm_discovery_source"]
+            | null
+          email: string | null
+          first_purchase_at: string | null
+          full_name: string | null
+          has_platform_account: boolean | null
+          id: string | null
+          import_batch_ids: string[] | null
+          is_sendable: boolean | null
+          last_purchase_at: string | null
+          phone_e164: string | null
+          product_labels: string[] | null
+          product_labels_text: string | null
+          profession: string | null
+          promo_codes: string[] | null
+          purchase_count: number | null
+          row_types: string[] | null
+          total_pkr: number | null
+          unsubscribe_token: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       book_mentorship_sessions: {
