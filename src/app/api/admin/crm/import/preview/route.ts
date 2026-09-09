@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { previewImport } from "@/lib/data/admin-crm-import";
 import { importPreviewSchema } from "@/lib/validations/crm";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;

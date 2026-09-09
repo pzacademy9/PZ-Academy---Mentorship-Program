@@ -66,14 +66,17 @@ export type ImportCommitInput = z.infer<typeof importCommitSchema>;
  * {field, op, value} object would type-check and then fail at query time.
  */
 export const segmentFilterSchema = z.discriminatedUnion("field", [
-  z.object({ field: z.literal("import_batch_id"), op: z.literal("in"), values: z.array(z.string().uuid()) }),
-  z.object({ field: z.literal("course_id"), op: z.literal("in"), values: z.array(z.string().uuid()) }),
+  // .min(1) on every list and string value: an incomplete filter (empty list,
+  // blank text) must be a 400, not a filter that silently matches everyone and
+  // widens the send.
+  z.object({ field: z.literal("import_batch_id"), op: z.literal("in"), values: z.array(z.string().uuid()).min(1) }),
+  z.object({ field: z.literal("course_id"), op: z.literal("in"), values: z.array(z.string().uuid()).min(1) }),
   z.object({ field: z.literal("row_type"), op: z.literal("eq"), value: z.enum(["individual", "group_leader", "group_member"]) }),
-  z.object({ field: z.literal("product_label"), op: z.literal("contains"), value: z.string().trim().max(200) }),
-  z.object({ field: z.literal("promo_code"), op: z.literal("eq"), value: z.string().trim().max(100) }),
-  z.object({ field: z.literal("discovery_source"), op: z.literal("in"), values: z.array(z.enum(["instagram", "facebook", "whatsapp", "other", "unknown"])) }),
-  z.object({ field: z.literal("country"), op: z.literal("in"), values: z.array(z.string().trim().max(4)) }),
-  z.object({ field: z.literal("profession"), op: z.literal("contains"), value: z.string().trim().max(200) }),
+  z.object({ field: z.literal("product_label"), op: z.literal("contains"), value: z.string().trim().min(1).max(200) }),
+  z.object({ field: z.literal("promo_code"), op: z.literal("eq"), value: z.string().trim().min(1).max(100) }),
+  z.object({ field: z.literal("discovery_source"), op: z.literal("in"), values: z.array(z.enum(["instagram", "facebook", "whatsapp", "other", "unknown"])).min(1) }),
+  z.object({ field: z.literal("country"), op: z.literal("in"), values: z.array(z.string().trim().min(1).max(4)).min(1) }),
+  z.object({ field: z.literal("profession"), op: z.literal("contains"), value: z.string().trim().min(1).max(200) }),
   z.object({ field: z.literal("purchase_count"), op: z.enum(["gte", "lte"]), value: z.number().int().min(0).max(1000) }),
   z.object({ field: z.literal("last_purchase_at"), op: z.enum(["before", "after"]), value: z.string().trim().min(4).max(40) }),
   z.object({ field: z.literal("has_platform_account"), op: z.literal("eq"), value: z.boolean() }),

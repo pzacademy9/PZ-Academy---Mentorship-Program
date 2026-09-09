@@ -76,6 +76,17 @@ describe("segmentFilterSchema", () => {
   it("rejects an operator that does not belong to the field", () => {
     expect(segmentFilterSchema.safeParse({ field: "purchase_count", op: "contains", value: 2 }).success).toBe(false);
   });
+
+  it("rejects an in-filter with an empty value list", () => {
+    // An empty list would drop the predicate entirely and silently widen the
+    // segment to every contact.
+    expect(segmentFilterSchema.safeParse({ field: "country", op: "in", values: [] }).success).toBe(false);
+    expect(segmentFilterSchema.safeParse({ field: "discovery_source", op: "in", values: [] }).success).toBe(false);
+  });
+
+  it("rejects a contains-filter with a blank value", () => {
+    expect(segmentFilterSchema.safeParse({ field: "product_label", op: "contains", value: "  " }).success).toBe(false);
+  });
 });
 
 describe("campaignCreateSchema", () => {

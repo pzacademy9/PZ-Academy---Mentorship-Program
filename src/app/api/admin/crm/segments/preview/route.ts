@@ -10,9 +10,11 @@ export async function POST(req: NextRequest) {
   const parsed = segmentPreviewSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid segment" }, { status: 400 });
 
-  const { contacts, total } = await resolveSegment(parsed.data.segment, { limit: 10 });
+  const result = await resolveSegment(parsed.data.segment, { limit: 10 });
+  if (!result.ok) return NextResponse.json({ error: "Could not resolve that segment" }, { status: 500 });
+
   return NextResponse.json({
-    total,
-    samples: contacts.map((c) => ({ fullName: c.fullName, email: c.email })),
+    total: result.total,
+    samples: result.contacts.map((c) => ({ fullName: c.fullName, email: c.email })),
   });
 }

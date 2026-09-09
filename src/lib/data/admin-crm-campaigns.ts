@@ -18,7 +18,7 @@ import type { SegmentFilter } from "@/lib/crm/segment";
 
 export type MutationResult =
   | { ok: true; id: string }
-  | { ok: false; reason: "not-found" | "db-error" | "empty-segment" | "already-sent" };
+  | { ok: false; reason: "not-found" | "db-error" | "empty-segment" | "already-sent" | "cancelled" };
 
 export type CampaignRow = {
   id: string;
@@ -141,11 +141,31 @@ export async function sendCampaign(campaignId: string): Promise<MutationResult> 
     .eq("id", campaignId)
     .maybeSingle();
   if (!campaign) return { ok: false, reason: "not-found" };
-  if (campaign.status === "sent" || campaign.status === "sending") return { ok: false, reason: "already-sent" };
+  // Only a completed or cancelled campaign is off-limits. 'sending' is allowed
+  // to proceed: the pending-filter below skips contacts already linked, so a
+  // resume re-processes only the chunks that did not finish.
+  if (campaign.status === "sent") return { ok: false, reason: "already-sent" };
+  if (campaign.status === "cancelled") return { ok: false, reason: "cancelled" };
+
+  // A missing app URL means every unsubscribe link in the outgoing mail would
+  // point at localhost. Refuse rather than send broken one-click-unsubscribe.
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    console.error("[crm-campaigns] NEXT_PUBLIC_APP_URL is not set; refusing to send with a broken unsubscribe URL");
+    return { ok: false, reason: "db-error" };
+  }
 
   const filters = (Array.isArray(campaign.segment) ? campaign.segment : []) as SegmentFilter[];
-  const { contacts } = await resolveSegment(filters);
+  const segment = await resolveSegment(filters);
+  if (!segment.ok) return { ok: false, reason: "db-error" };
+  const { contacts, total } = segment;
   if (contacts.length === 0) return { ok: false, reason: "empty-segment" };
+  // Pagination should always return the whole match set. If it did not (query
+  // truncation, or the page cap tripped), enqueuing now would silently
+  // under-deliver — refuse instead and leave the campaign status untouched.
+  if (contacts.length !== total) {
+    console.error(`[crm-campaigns] segment resolved ${contacts.length} of ${total} contacts; refusing partial send`);
+    return { ok: false, reason: "db-error" };
+  }
 
   // Skip contacts already linked to this campaign, so a deliberate retry after
   // a mid-send chunk failure re-processes only the chunks that did not complete.

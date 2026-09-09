@@ -9,7 +9,16 @@ export type SegmentContact = {
   unsubscribeToken: string;
 };
 
-type Query = ReturnType<ReturnType<typeof createAdminSupabase>["from"]>["select"] extends (...a: never[]) => infer R ? R : never;
+export type SegmentResult =
+  | { ok: true; contacts: SegmentContact[]; total: number }
+  | { ok: false };
+
+type RawRow = {
+  id: string | null;
+  full_name: string | null;
+  email: string | null;
+  unsubscribe_token: string | null;
+};
 
 /** Applies one QueryOp to a PostgREST query builder. */
 function applyOp<T extends { eq: unknown }>(query: T, op: QueryOp): T {
@@ -30,39 +39,71 @@ function applyOp<T extends { eq: unknown }>(query: T, op: QueryOp): T {
   }
 }
 
+const PAGE = 1000;
+// 20k rows is far beyond any real campaign segment. Hitting this cap means a
+// filter is wrong or missing — sendCampaign turns a short read into a refusal
+// to send rather than a silent partial delivery.
+const MAX_PAGES = 20;
+
 /**
  * Resolves a segment to the contacts it matches.
  *
  * `limit` exists so the builder UI can show a sample without pulling the
- * whole list; the send path calls this with no limit and snapshots whatever
- * comes back.
+ * whole list. With no limit the full match set is paged in — a single
+ * `.select()` silently caps at PostgREST's max-rows and a large segment
+ * would then under-send with no error.
+ *
+ * Returns a discriminated result so a query error is distinguishable from a
+ * genuinely empty segment: `{ ok: false }` is a database failure, an empty
+ * `contacts` with `ok: true` is "nobody matched".
  */
 export async function resolveSegment(
   filters: SegmentFilter[],
   opts?: { limit?: number },
-): Promise<{ contacts: SegmentContact[]; total: number }> {
+): Promise<SegmentResult> {
   const admin = createAdminSupabase();
   const ops = buildSegmentFilters(filters);
 
-  let query = admin
-    .from("crm_contact_segment_source")
-    .select("id, full_name, email, unsubscribe_token", { count: "exact" });
+  const build = () => {
+    let query = admin
+      .from("crm_contact_segment_source")
+      .select("id, full_name, email, unsubscribe_token", { count: "exact" });
+    for (const op of ops) query = applyOp(query, op);
+    return query;
+  };
 
-  for (const op of ops) query = applyOp(query, op);
-  if (opts?.limit) query = query.limit(opts.limit);
+  const rawRows: RawRow[] = [];
+  let total = 0;
 
-  const { data, count, error } = await query;
-  if (error) {
-    console.error("[crm-segments] resolve failed:", error);
-    return { contacts: [], total: 0 };
+  if (opts?.limit) {
+    const { data, count, error } = await build().limit(opts.limit);
+    if (error) {
+      console.error("[crm-segments] resolve failed:", error);
+      return { ok: false };
+    }
+    rawRows.push(...((data ?? []) as RawRow[]));
+    total = count ?? rawRows.length;
+  } else {
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const offset = page * PAGE;
+      const { data, count, error } = await build().range(offset, offset + PAGE - 1);
+      if (error) {
+        console.error("[crm-segments] resolve failed:", error);
+        return { ok: false };
+      }
+      const rows = (data ?? []) as RawRow[];
+      rawRows.push(...rows);
+      if (count != null) total = count;
+      if (rows.length < PAGE || offset + rows.length >= total) break;
+    }
   }
 
-  const contacts: SegmentContact[] = (data ?? [])
+  const contacts: SegmentContact[] = rawRows
     // is_sendable already guarantees a non-null email; this narrows the type.
     // id and unsubscribe_token are non-null for any real contact row — the view
     // types them nullable only because it is a view, so narrow them here too.
     .filter(
-      (r): r is typeof r & { id: string; email: string; unsubscribe_token: string } =>
+      (r): r is RawRow & { id: string; email: string; unsubscribe_token: string } =>
         r.id !== null && r.email !== null && r.unsubscribe_token !== null,
     )
     .map((r) => ({
@@ -72,10 +113,10 @@ export async function resolveSegment(
       unsubscribeToken: r.unsubscribe_token,
     }));
 
-  return { contacts, total: count ?? contacts.length };
+  return { ok: true, contacts, total };
 }
 
 export async function countSegment(filters: SegmentFilter[]): Promise<number> {
-  const { total } = await resolveSegment(filters, { limit: 1 });
-  return total;
+  const result = await resolveSegment(filters, { limit: 1 });
+  return result.ok ? result.total : 0;
 }
