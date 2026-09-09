@@ -25,6 +25,7 @@ export type ColumnMapping = {
   product: number | null;
   rowType: number | null;
   promoCode: number | null;
+  purchasedAt: number | null;
 };
 
 export type ParsedContact = {
@@ -44,6 +45,7 @@ export type ParsedPurchase = {
   isEarlyBird: boolean;
   rowType: RowType;
   promoCode: string | null;
+  purchasedAt: string | null;
 };
 
 export type ParsedRow =
@@ -64,6 +66,7 @@ const ALIASES: Record<keyof ColumnMapping, string[]> = {
   product: ["registration option", "registration", "package", "option"],
   rowType: ["row type", "registration type"],
   promoCode: ["promo code", "promo", "referral code", "coupon"],
+  purchasedAt: ["timestamp", "date", "submitted", "submittedat"],
 };
 
 // Strip everything but letters and digits so a spaced Title Case header
@@ -92,6 +95,7 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
     product: find("product"),
     rowType: find("rowType"),
     promoCode: find("promoCode"),
+    purchasedAt: find("purchasedAt"),
   };
 }
 
@@ -145,6 +149,15 @@ export function parseSheetRow(
   const productLabel = cell(row, mapping.product);
   const parsedProduct = parseProductLabel(productLabel);
 
+  // Purchase date from the sheet's timestamp column, when mapped and parseable.
+  // An unparseable or empty cell leaves this null — the DB then falls back to
+  // created_at for the last_purchase_at aggregate.
+  const purchasedAtRaw = cell(row, mapping.purchasedAt);
+  const purchasedAt =
+    purchasedAtRaw !== "" && !Number.isNaN(Date.parse(purchasedAtRaw))
+      ? new Date(purchasedAtRaw).toISOString()
+      : null;
+
   const currencyCountry = parsedProduct.currency === "AED" ? "AE" : parsedProduct.currency === "SAR" ? "SA" : null;
 
   return {
@@ -166,6 +179,7 @@ export function parseSheetRow(
       isEarlyBird: parsedProduct.isEarlyBird,
       rowType: toRowType(cell(row, mapping.rowType), parsedProduct.rowTypeHint),
       promoCode: cell(row, mapping.promoCode) || null,
+      purchasedAt,
     },
   };
 }

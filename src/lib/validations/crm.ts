@@ -17,6 +17,7 @@ export const columnMappingSchema = z.object({
   product: columnIndex,
   rowType: columnIndex,
   promoCode: columnIndex,
+  purchasedAt: columnIndex,
 });
 
 /**

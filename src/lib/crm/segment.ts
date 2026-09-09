@@ -38,7 +38,6 @@ export const SEGMENT_FIELDS: ReadonlyArray<{ field: SegmentFilter["field"]; labe
   { field: "country", label: "Country", hint: "PK, AE, SA" },
   { field: "product_label", label: "Product label contains", hint: "substring of the registration option" },
   { field: "import_batch_id", label: "Import batch", hint: "one cohort sheet — also how warm-up waves are cut" },
-  { field: "course_id", label: "Course", hint: "only set where a batch was mapped to a course" },
   { field: "promo_code", label: "Promo code", hint: "exact match" },
   { field: "profession", label: "Profession contains", hint: "substring" },
 ];

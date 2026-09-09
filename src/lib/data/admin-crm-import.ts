@@ -70,12 +70,19 @@ export async function previewImport(input: ImportPreviewInput): Promise<PreviewR
   const existingEmails = new Set<string>();
   const existingPhones = new Set<string>();
 
-  if (emails.length > 0) {
-    const { data } = await admin.from("contacts").select("email").in("email", emails);
+  // Chunked at 100: every value goes into the GET query string, and a sheet
+  // with thousands of rows would blow past the URL length limit or silently
+  // truncate. A chunk error is fatal — treating everyone as new would let a
+  // re-import look like a first import.
+  const CHUNK = 100;
+  for (let i = 0; i < emails.length; i += CHUNK) {
+    const { data, error } = await admin.from("contacts").select("email").in("email", emails.slice(i, i + CHUNK));
+    if (error) return { ok: false, message: "Could not check for existing contacts — try again." };
     for (const row of data ?? []) if (row.email) existingEmails.add(row.email);
   }
-  if (phones.length > 0) {
-    const { data } = await admin.from("contacts").select("phone_e164").in("phone_e164", phones);
+  for (let i = 0; i < phones.length; i += CHUNK) {
+    const { data, error } = await admin.from("contacts").select("phone_e164").in("phone_e164", phones.slice(i, i + CHUNK));
+    if (error) return { ok: false, message: "Could not check for existing contacts — try again." };
     for (const row of data ?? []) if (row.phone_e164) existingPhones.add(row.phone_e164);
   }
 

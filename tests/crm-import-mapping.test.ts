@@ -8,7 +8,7 @@ describe("guessColumnMapping", () => {
   it("maps every known header by index", () => {
     expect(guessColumnMapping(HEADERS)).toEqual({
       name: 0, email: 1, phone: 2, profession: 3,
-      discovery: 4, product: 5, rowType: 7, promoCode: 8,
+      discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null,
     });
   });
 
@@ -33,8 +33,13 @@ describe("guessColumnMapping", () => {
     const mapping = guessColumnMapping(headers);
     expect(mapping).toEqual({
       name: 0, email: 1, phone: 2, profession: 3,
-      discovery: 4, product: 5, rowType: 7, promoCode: 8,
+      discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null,
     });
+  });
+
+  it("maps a Timestamp or submittedAt header to purchasedAt", () => {
+    expect(guessColumnMapping(["Timestamp", "Name", "Email"]).purchasedAt).toBe(0);
+    expect(guessColumnMapping(["Name", "Email", "submittedAt"]).purchasedAt).toBe(2);
   });
 });
 
@@ -120,6 +125,34 @@ describe("parseSheetRow", () => {
     expect(build("WhatsApp Group")).toBe("whatsapp");
     expect(build("A friend told me")).toBe("other");
     expect(build("")).toBe("unknown");
+  });
+
+  it("parses a mapped Timestamp cell into an ISO purchasedAt", () => {
+    const tsHeaders = ["Timestamp", "Name", "Email", "WhatsApp"];
+    const tsMapping = guessColumnMapping(tsHeaders);
+    const row = ["8/5/2026 11:36:02", "Almas", "almas@x.com", "3234267102"];
+    const parsed = parseSheetRow(row, tsMapping, 0, "S");
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.purchase.purchasedAt).toBe(new Date("8/5/2026 11:36:02").toISOString());
+  });
+
+  it("leaves purchasedAt null when the timestamp cell is unparseable", () => {
+    const tsHeaders = ["Timestamp", "Name", "Email", "WhatsApp"];
+    const tsMapping = guessColumnMapping(tsHeaders);
+    const row = ["not a date", "Almas", "almas@x.com", "3234267102"];
+    const parsed = parseSheetRow(row, tsMapping, 0, "S");
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.purchase.purchasedAt).toBeNull();
+  });
+
+  it("leaves purchasedAt null when no timestamp column is mapped", () => {
+    const row = ["Almas Raza", "almasraza07@gmail.com", "3234267102", "", "", "", "", "", ""];
+    const parsed = parseSheetRow(row, mapping, 0, "Form Responses 1");
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.purchase.purchasedAt).toBeNull();
   });
 
   it("rejects a row with neither a usable email nor a usable phone", () => {

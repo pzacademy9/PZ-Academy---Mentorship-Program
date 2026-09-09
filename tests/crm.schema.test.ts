@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { importPreviewSchema, importCommitSchema, mergeResolveSchema, segmentFilterSchema, campaignCreateSchema } from "@/lib/validations/crm";
 
-const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8 };
+const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null };
 
 describe("importPreviewSchema", () => {
   it("accepts a sheet id, tab name, and mapping", () => {

@@ -26,6 +26,7 @@ const FIELDS: Array<{ key: keyof ColumnMappingInput; label: string }> = [
   { key: "product", label: "Registration option" },
   { key: "rowType", label: "Row type" },
   { key: "promoCode", label: "Promo code" },
+  { key: "purchasedAt", label: "Purchase date" },
 ];
 
 export function ImportWizard() {
