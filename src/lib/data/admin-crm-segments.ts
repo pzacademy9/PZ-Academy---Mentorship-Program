@@ -69,7 +69,8 @@ export async function resolveSegment(
       .from("crm_contact_segment_source")
       .select("id, full_name, email, unsubscribe_token", { count: "exact" });
     for (const op of ops) query = applyOp(query, op);
-    return query;
+    // Stable order so paged .range() reads below cannot skip or duplicate a row.
+    return query.order("id", { ascending: true });
   };
 
   const rawRows: RawRow[] = [];

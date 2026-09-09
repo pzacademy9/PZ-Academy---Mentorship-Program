@@ -5,7 +5,7 @@
 -- Two objects, both create-or-replace:
 --
 -- (a) crm_import_commit — three hardening changes over 0048:
---     * set local statement_timeout = '120s' so an ~800-row sheet does not
+--     * set local statement_timeout = '55s' so an ~800-row sheet does not
 --       inherit authenticator's 8s cap and roll back mid-import.
 --     * capture purchased_at from the parsed row so segment date filters and
 --       first/last purchase columns are real instead of import-time.
@@ -46,7 +46,7 @@ begin
   -- The function runs as authenticator, which carries an 8s statement_timeout.
   -- A single-transaction import of an ~800-row cohort sheet exceeds that and
   -- rolls the whole thing back. Raise it for this transaction only.
-  set local statement_timeout = '120s';
+  set local statement_timeout = '55s';
 
   v_rows_total := coalesce(jsonb_array_length(p_rows), 0);
 

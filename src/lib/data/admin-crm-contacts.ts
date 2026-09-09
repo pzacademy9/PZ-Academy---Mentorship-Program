@@ -131,6 +131,7 @@ export async function rebuildMergeCandidates(): Promise<number> {
     const { data, count, error } = await admin
       .from("contacts")
       .select("id, email, phone_e164, full_name", { count: "exact" })
+      .order("id", { ascending: true })
       .range(offset, offset + PAGE - 1);
     if (error) {
       console.error("[crm-contacts] rebuildMergeCandidates: contact scan failed:", error);
