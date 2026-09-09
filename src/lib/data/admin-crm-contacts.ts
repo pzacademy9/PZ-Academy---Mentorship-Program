@@ -119,8 +119,27 @@ export async function getContactDetail(id: string): Promise<ContactDetail | null
 export async function rebuildMergeCandidates(): Promise<number> {
   const admin = createAdminSupabase();
 
-  const { data } = await admin.from("contacts").select("id, email, phone_e164, full_name");
-  const contacts = data ?? [];
+  // Paged: a single .select() silently caps at PostgREST's max-rows, and a
+  // contact missed here is a duplicate that never surfaces for review. Cap at
+  // 20 pages (20k contacts) — far beyond the real list.
+  const PAGE = 1000;
+  const MAX_PAGES = 20;
+  type ContactMini = { id: string; email: string | null; phone_e164: string | null; full_name: string };
+  const contacts: ContactMini[] = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const offset = page * PAGE;
+    const { data, count, error } = await admin
+      .from("contacts")
+      .select("id, email, phone_e164, full_name", { count: "exact" })
+      .range(offset, offset + PAGE - 1);
+    if (error) {
+      console.error("[crm-contacts] rebuildMergeCandidates: contact scan failed:", error);
+      return 0;
+    }
+    const rows = (data ?? []) as ContactMini[];
+    contacts.push(...rows);
+    if (rows.length < PAGE || (count != null && offset + rows.length >= count)) break;
+  }
 
   const buckets = new Map<string, typeof contacts>();
   for (const c of contacts) {
@@ -159,8 +178,21 @@ export async function rebuildMergeCandidates(): Promise<number> {
     }
   }
 
-  await admin.from("merge_candidates").delete().eq("status", "pending");
-  if (found.length > 0) await admin.from("merge_candidates").insert(found);
+  const { error: clearError } = await admin.from("merge_candidates").delete().eq("status", "pending");
+  if (clearError) {
+    console.error("[crm-contacts] rebuildMergeCandidates: could not clear pending queue:", clearError);
+    return 0;
+  }
+
+  if (found.length > 0) {
+    const { error: insertError } = await admin.from("merge_candidates").insert(found);
+    if (insertError) {
+      // The pending queue was just wiped and the refill failed — report the
+      // failure rather than a count that describes a queue that is now empty.
+      console.error("[crm-contacts] rebuildMergeCandidates: queue refill failed after clear:", insertError);
+      return 0;
+    }
+  }
 
   return found.length;
 }
@@ -245,8 +277,23 @@ export async function resolveMergeCandidate(
     if (!pair || pair.length !== 2) return { ok: false, reason: "not-found" };
     const [keep, drop] = pair;
 
-    // Fill the survivor's gaps from the record about to be deleted, so
-    // merging never loses a field the duplicate happened to carry.
+    // Order matters. If `keep` were updated with `drop`'s email/phone while
+    // `drop` still held those values, the unique indexes on contacts.email and
+    // contacts.phone_e164 would abort the update with 23505. So: reattach
+    // `drop`'s child rows, delete `drop` to free its unique values, and only
+    // then gap-fill `keep`.
+    const { error: moveError } = await admin
+      .from("contact_purchases")
+      .update({ contact_id: keep.id })
+      .eq("contact_id", drop.id);
+    if (moveError) return { ok: false, reason: "db-error" };
+
+    const { error: deleteError } = await admin.from("contacts").delete().eq("id", drop.id);
+    if (deleteError) return { ok: false, reason: "db-error" };
+
+    // Fill the survivor's gaps from the record just deleted, so merging never
+    // loses a field the duplicate happened to carry. `drop`'s values were read
+    // into `pair` before the delete, so they are still available here.
     const { error: updateError } = await admin
       .from("contacts")
       .update({
@@ -258,15 +305,6 @@ export async function resolveMergeCandidate(
       })
       .eq("id", keep.id);
     if (updateError) return { ok: false, reason: "db-error" };
-
-    const { error: moveError } = await admin
-      .from("contact_purchases")
-      .update({ contact_id: keep.id })
-      .eq("contact_id", drop.id);
-    if (moveError) return { ok: false, reason: "db-error" };
-
-    const { error: deleteError } = await admin.from("contacts").delete().eq("id", drop.id);
-    if (deleteError) return { ok: false, reason: "db-error" };
   }
 
   const { error } = await admin
