@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import DOMPurify from "isomorphic-dompurify";
 import { SegmentBuilder } from "./SegmentBuilder";
 import type { SegmentFilter } from "@/lib/crm/segment";
 
@@ -10,6 +11,25 @@ type Campaign = {
   id: string; name: string; subject: string; status: string; createdAt: string;
   recipients: number; sent: number; delivered: number; opened: number; clicked: number; bounced: number;
 };
+
+// Preview-only substitution so an admin can see roughly what a recipient
+// sees without actually sending a test. Never touches the stored bodyHtml.
+const PREVIEW_SAMPLE = { first_name: "Jordan", full_name: "Jordan Ahmed", email: "jordan@example.com" };
+// Sanitized before render — this is a live preview of whatever the admin
+// currently has typed (or pasted) into the raw-HTML body, not vetted content.
+function renderPreviewHtml(html: string): string {
+  const withTags = html
+    .replaceAll("{{first_name}}", PREVIEW_SAMPLE.first_name)
+    .replaceAll("{{full_name}}", PREVIEW_SAMPLE.full_name)
+    .replaceAll("{{email}}", PREVIEW_SAMPLE.email);
+  return DOMPurify.sanitize(withTags);
+}
+
+const MERGE_TAGS = [
+  { label: "First name", tag: "{{first_name}}" },
+  { label: "Full name", tag: "{{full_name}}" },
+  { label: "Email", tag: "{{email}}" },
+] as const;
 
 export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   const router = useRouter();
@@ -31,8 +51,17 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [bodyView, setBodyView] = useState<"edit" | "preview">("edit");
+  const [campaignSearch, setCampaignSearch] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredCampaigns = campaignSearch.trim() === ""
+    ? campaigns
+    : campaigns.filter((c) => {
+        const q = campaignSearch.trim().toLowerCase();
+        return c.name.toLowerCase().includes(q) || c.subject.toLowerCase().includes(q);
+      });
 
   // Any edit after a draft is saved invalidates it: the saved draft no longer
   // matches what is on screen, so the test/send buttons (gated on draftId)
@@ -76,6 +105,12 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       setUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
+  }
+
+  function insertTag(tag: string) {
+    const el = bodyRef.current;
+    const pos = el?.selectionStart ?? bodyHtml.length;
+    editBody(bodyHtml.slice(0, pos) + tag + bodyHtml.slice(pos));
   }
 
   // "Duplicate" loads any campaign back into the composer as a fresh,
@@ -254,15 +289,42 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
           className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
         <input value={subject} onChange={(e) => editSubject(e.target.value)} placeholder="Subject — {{first_name}} works here too"
           className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
-        <textarea ref={bodyRef} value={bodyHtml} onChange={(e) => editBody(e.target.value)} rows={8}
-          className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-mono text-xs" />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 border-b border-pz-outline-variant">
+          <button type="button" onClick={() => setBodyView("edit")}
+            className={`px-3 py-1.5 text-xs font-bold border-b-2 -mb-px transition-colors ${bodyView === "edit" ? "border-pz-primary text-pz-primary" : "border-transparent text-pz-on-surface-variant hover:text-pz-secondary"}`}>
+            Edit
+          </button>
+          <button type="button" onClick={() => setBodyView("preview")}
+            className={`px-3 py-1.5 text-xs font-bold border-b-2 -mb-px transition-colors ${bodyView === "preview" ? "border-pz-primary text-pz-primary" : "border-transparent text-pz-on-surface-variant hover:text-pz-secondary"}`}>
+            Preview
+          </button>
+        </div>
+
+        {bodyView === "edit" ? (
+          <textarea ref={bodyRef} value={bodyHtml} onChange={(e) => editBody(e.target.value)} rows={8}
+            className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-mono text-xs" />
+        ) : (
+          <div className="rounded-xl border border-pz-outline-variant overflow-hidden">
+            <div style={{ fontFamily: "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif", background: "#ffffff", padding: "24px 16px" }}>
+              <div style={{ maxWidth: 560, margin: "0 auto", color: "#222222", lineHeight: 1.6, fontSize: 15 }}
+                dangerouslySetInnerHTML={{ __html: renderPreviewHtml(bodyHtml) }} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
           <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage}
             className="px-3 py-1.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors disabled:opacity-50">
             {uploadingImage ? "Uploading…" : "Insert image"}
           </button>
           <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void insertImage(f); }} />
+          {MERGE_TAGS.map((t) => (
+            <button key={t.tag} type="button" onClick={() => insertTag(t.tag)}
+              className="px-3 py-1.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors">
+              {t.label}
+            </button>
+          ))}
         </div>
         <p className="font-body text-xs text-pz-on-surface-variant">
           Tags: <code>{"{{first_name}}"}</code>, <code>{"{{full_name}}"}</code>, <code>{"{{email}}"}</code>.
@@ -301,9 +363,17 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-headline font-semibold text-pz-secondary">Sent campaigns</h2>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h2 className="font-headline font-semibold text-pz-secondary">Sent campaigns</h2>
+          {campaigns.length > 0 && (
+            <input value={campaignSearch} onChange={(e) => setCampaignSearch(e.target.value)} placeholder="Search by name or subject…"
+              className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64" />
+          )}
+        </div>
         {campaigns.length === 0 ? (
           <p className="font-body text-sm text-pz-on-surface-variant">No campaigns yet.</p>
+        ) : filteredCampaigns.length === 0 ? (
+          <p className="font-body text-sm text-pz-on-surface-variant">No campaigns match &quot;{campaignSearch}&quot;.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left font-body text-sm">
@@ -311,7 +381,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
                 <tr><th className="py-2">Name</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Bounced</th><th></th></tr>
               </thead>
               <tbody>
-                {campaigns.map((c) => (
+                {filteredCampaigns.map((c) => (
                   <tr key={c.id} className="border-t border-pz-outline-variant">
                     <td className="py-2">{c.name}</td>
                     <td>{c.status}</td>

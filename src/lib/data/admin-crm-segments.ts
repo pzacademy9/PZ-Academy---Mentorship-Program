@@ -121,3 +121,41 @@ export async function countSegment(filters: SegmentFilter[]): Promise<number> {
   const result = await resolveSegment(filters, { limit: 1 });
   return result.ok ? result.total : 0;
 }
+
+export type SegmentValueField = "country" | "profession" | "product_label" | "promo_code";
+
+// Only fields with real free-form vocabulary need this — row_type and
+// discovery_source are already closed enums the builder can render directly
+// from segmentFilterSchema, no DB round trip required.
+const VALUE_FIELD_COLUMNS: Record<SegmentValueField, { column: string; isArray: boolean }> = {
+  country: { column: "country", isArray: false },
+  profession: { column: "profession", isArray: false },
+  product_label: { column: "product_labels", isArray: true },
+  promo_code: { column: "promo_codes", isArray: true },
+};
+
+const VALUE_SCAN_ROWS = 5000;
+const VALUE_LIST_CAP = 100;
+
+/** Distinct real values seen for one open-vocabulary segment field, for autocomplete/datalist suggestions. */
+export async function listFieldValues(field: SegmentValueField): Promise<string[]> {
+  const { column, isArray } = VALUE_FIELD_COLUMNS[field];
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("crm_contact_segment_source")
+    .select(column)
+    .not(column, "is", null)
+    .limit(VALUE_SCAN_ROWS);
+
+  const values = new Set<string>();
+  for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+    const raw = row[column];
+    if (isArray) {
+      if (Array.isArray(raw)) for (const v of raw) if (typeof v === "string" && v.trim()) values.add(v.trim());
+    } else if (typeof raw === "string" && raw.trim()) {
+      values.add(raw.trim());
+    }
+  }
+
+  return Array.from(values).sort((a, b) => a.localeCompare(b)).slice(0, VALUE_LIST_CAP);
+}

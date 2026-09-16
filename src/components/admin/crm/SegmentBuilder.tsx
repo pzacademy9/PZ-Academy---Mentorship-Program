@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SEGMENT_FIELDS, type SegmentFilter } from "@/lib/crm/segment";
 
 type ImportBatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number; createdAt: string };
+
+// row_type and discovery_source are closed enums (see segmentFilterSchema) —
+// rendered as checkboxes/select from these literals directly, no DB round trip.
+const ROW_TYPE_OPTIONS = ["individual", "group_leader", "group_member"] as const;
+const DISCOVERY_SOURCE_OPTIONS = ["instagram", "facebook", "whatsapp", "other", "unknown"] as const;
+// country is genuinely open vocabulary; profession/product_label/promo_code are
+// open text but benefit from suggesting real values already seen in the data.
+const OPEN_VOCAB_FIELDS = ["country", "profession", "product_label", "promo_code"] as const;
+
+const AUTO_COUNT_DELAY_MS = 500;
 
 /**
  * Filters combine with AND. The live count is the whole point of this
@@ -20,13 +30,26 @@ export function SegmentBuilder({
   const [samples, setSamples] = useState<Array<{ fullName: string; email: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [batches, setBatches] = useState<ImportBatchOption[]>([]);
+  const [fieldValues, setFieldValues] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
+  const autoCountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/crm/import/batches")
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => { if (json?.batches) setBatches(json.batches); })
       .catch(() => {});
+
+    Promise.all(
+      OPEN_VOCAB_FIELDS.map((field) =>
+        fetch(`/api/admin/crm/segments/field-values?field=${field}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => [field, (json?.values as string[] | undefined) ?? []] as const)
+          .catch(() => [field, []] as const),
+      ),
+    ).then((pairs) => setFieldValues(Object.fromEntries(pairs)));
+
+    return () => { if (autoCountTimer.current) clearTimeout(autoCountTimer.current); };
   }, []);
 
   async function refreshCount(filters: SegmentFilter[]) {
@@ -51,10 +74,26 @@ export function SegmentBuilder({
     }
   }
 
+  // A freshly added filter (e.g. Country with no box checked yet) is
+  // incomplete by construction — the server correctly 400s it, but firing
+  // that request automatically would flash an alarming error before the
+  // admin has touched the new filter at all.
+  function isFilterComplete(f: SegmentFilter): boolean {
+    if ("values" in f) return f.values.length > 0;
+    if (typeof f.value === "string") return f.value.trim() !== "";
+    return true;
+  }
+
   function update(next: SegmentFilter[]) {
     onChange(next);
     setCount(null);
     setError(null);
+    // Debounced so a segment being actively edited (e.g. typing a country
+    // code) does not fire a count request on every keystroke.
+    if (autoCountTimer.current) clearTimeout(autoCountTimer.current);
+    if (next.every(isFilterComplete)) {
+      autoCountTimer.current = setTimeout(() => { void refreshCount(next); }, AUTO_COUNT_DELAY_MS);
+    }
   }
 
   function addFilter(field: SegmentFilter["field"]) {
@@ -83,7 +122,7 @@ export function SegmentBuilder({
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <select
           value=""
           onChange={(e) => { if (e.target.value) addFilter(e.target.value as SegmentFilter["field"]); }}
@@ -150,6 +189,62 @@ export function SegmentBuilder({
                 })
               )}
             </div>
+          ) : filter.field === "country" ? (
+            <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">
+              {(fieldValues.country ?? []).length === 0 ? (
+                <span className="font-body text-xs text-pz-on-surface-variant">No countries seen in imported contacts yet.</span>
+              ) : (
+                (fieldValues.country ?? []).map((v) => {
+                  const checked = filter.values.includes(v);
+                  return (
+                    <label key={v} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          patch(index, {
+                            ...filter,
+                            values: e.target.checked ? [...filter.values, v] : filter.values.filter((x) => x !== v),
+                          } as SegmentFilter)
+                        }
+                      />
+                      {v}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          ) : filter.field === "discovery_source" ? (
+            <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">
+              {DISCOVERY_SOURCE_OPTIONS.map((v) => {
+                const checked = filter.values.includes(v);
+                return (
+                  <label key={v} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        patch(index, {
+                          ...filter,
+                          values: e.target.checked ? [...filter.values, v] : filter.values.filter((x) => x !== v),
+                        } as SegmentFilter)
+                      }
+                    />
+                    {v}
+                  </label>
+                );
+              })}
+            </div>
+          ) : filter.field === "row_type" ? (
+            <select
+              value={filter.value}
+              onChange={(e) => patch(index, { ...filter, value: e.target.value } as SegmentFilter)}
+              className="rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
+            >
+              {ROW_TYPE_OPTIONS.map((v) => (
+                <option key={v} value={v}>{v.replace("_", " ")}</option>
+              ))}
+            </select>
           ) : "values" in filter ? (
             <input
               value={filter.values.join(", ")}
@@ -169,16 +264,24 @@ export function SegmentBuilder({
               <option value="false">no</option>
             </select>
           ) : (
-            <input
-              value={String(filter.value)}
-              onChange={(e) =>
-                patch(index, {
-                  ...filter,
-                  value: typeof filter.value === "number" ? Number(e.target.value) || 0 : e.target.value,
-                } as SegmentFilter)
-              }
-              className="flex-1 min-w-[140px] rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
-            />
+            <>
+              <input
+                value={String(filter.value)}
+                onChange={(e) =>
+                  patch(index, {
+                    ...filter,
+                    value: typeof filter.value === "number" ? Number(e.target.value) || 0 : e.target.value,
+                  } as SegmentFilter)
+                }
+                list={(OPEN_VOCAB_FIELDS as readonly string[]).includes(filter.field) ? `${filter.field}-values` : undefined}
+                className="flex-1 min-w-[140px] rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
+              />
+              {(OPEN_VOCAB_FIELDS as readonly string[]).includes(filter.field) && (
+                <datalist id={`${filter.field}-values`}>
+                  {(fieldValues[filter.field] ?? []).map((v) => <option key={v} value={v} />)}
+                </datalist>
+              )}
+            </>
           )}
 
           <button

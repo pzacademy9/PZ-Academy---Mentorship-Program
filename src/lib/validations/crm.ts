@@ -86,6 +86,10 @@ export const segmentPreviewSchema = z.object({
   segment: z.array(segmentFilterSchema).max(20),
 });
 
+export const segmentFieldValuesQuerySchema = z.object({
+  field: z.enum(["country", "profession", "product_label", "promo_code"]),
+});
+
 export const campaignCreateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(150),
   subject: z.string().trim().min(1, "Subject is required").max(300),
