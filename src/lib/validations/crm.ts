@@ -52,6 +52,8 @@ export const mergeResolveSchema = z.object({
 
 export const contactListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
+  courseName: z.string().trim().min(1).max(200).optional(),
+  importBatchId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });

@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const parsed = contactListQuerySchema.safeParse({
     search: searchParams.get("search") ?? undefined,
+    courseName: searchParams.get("courseName") ?? undefined,
+    importBatchId: searchParams.get("importBatchId") ?? undefined,
     limit: searchParams.get("limit") ?? undefined,
     offset: searchParams.get("offset") ?? undefined,
   });

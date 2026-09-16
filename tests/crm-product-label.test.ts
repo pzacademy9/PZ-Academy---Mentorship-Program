@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseProductLabel } from "@/lib/crm/product-label";
+import { parseProductLabel, courseNameFromLabel } from "@/lib/crm/product-label";
 
 describe("parseProductLabel", () => {
   // Literals below are verbatim from the MDC3 Master Sheet's
@@ -63,5 +63,50 @@ describe("parseProductLabel", () => {
   it("handles blank input", () => {
     expect(parseProductLabel("")).toEqual({ amount: null, currency: null, isEarlyBird: false, rowTypeHint: null });
     expect(parseProductLabel(null)).toEqual({ amount: null, currency: null, isEarlyBird: false, rowTypeHint: null });
+  });
+});
+
+describe("courseNameFromLabel", () => {
+  // Literals below are verbatim distinct product_label values read from the
+  // live contact_purchases table — the same label describes one course across
+  // a dozen price/promo variants, which is what this collapses.
+  it("drops tier, price, early-bird and promo from a full course label", () => {
+    expect(courseNameFromLabel("Complete Course — Module 1 & Module 2 — Individual — PKR 1,960 [Early Bird] [Promo: 20% OFF]"))
+      .toBe("Complete Course — Module 1 & Module 2");
+  });
+
+  it("collapses individual and group variants of one course to the same name", () => {
+    expect(courseNameFromLabel("Complete Course — Module 1 & Module 2 — Individual — PKR 3,500"))
+      .toBe(courseNameFromLabel("Complete Course — Module 1 & Module 2 — Group — PKR 8,400 (3 × PKR 2,800/person)"));
+  });
+
+  it("keeps a long single-module name intact", () => {
+    expect(courseNameFromLabel("Single Module — Module 1 — Understanding Medication Errors & High-Alert Medications — Individual — PKR 1,800"))
+      .toBe("Single Module — Module 1 — Understanding Medication Errors & High-Alert Medications");
+  });
+
+  it("handles a tier token that follows the name without a separator", () => {
+    expect(courseNameFromLabel("Recorded (Self-Paced) Individual — AED 85")).toBe("Recorded (Self-Paced)");
+  });
+
+  it("returns a label that names no course at all as empty", () => {
+    // These come from sheets where the cohort itself identified the course, so
+    // the label carries only the tier and price.
+    expect(courseNameFromLabel("Individual — AED 80 [Early Bird]")).toBe("");
+    expect(courseNameFromLabel("Group — PKR 6,000 (3 × PKR 2,000/person) [Early Bird]")).toBe("");
+  });
+
+  it("keeps a bare access-tier label as its own name", () => {
+    expect(courseNameFromLabel("Free Access")).toBe("Free Access");
+    expect(courseNameFromLabel("Pro Access")).toBe("Pro Access");
+  });
+
+  it("cuts at a currency even when no tier token is present", () => {
+    expect(courseNameFromLabel("Workshop Replay — PKR 1,500")).toBe("Workshop Replay");
+  });
+
+  it("handles blank input", () => {
+    expect(courseNameFromLabel("")).toBe("");
+    expect(courseNameFromLabel(null)).toBe("");
   });
 });

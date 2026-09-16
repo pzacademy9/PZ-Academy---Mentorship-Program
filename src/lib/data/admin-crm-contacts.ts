@@ -18,6 +18,7 @@ export type ContactRow = {
   country: string | null;
   discoverySource: string;
   purchaseCount: number;
+  productLabels: string[];
   unsubscribed: boolean;
 };
 
@@ -37,12 +38,41 @@ export type ContactDetail = ContactRow & {
   }>;
 };
 
-export async function listContacts(query: { search?: string; limit: number; offset: number }): Promise<{ rows: ContactRow[]; total: number }> {
+type RawContactRow = {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone_e164: string | null;
+  country: string | null;
+  discovery_source: string;
+  email_unsubscribed_at: string | null;
+};
+
+// Matches the .in() chunking on the import path: a page of 200 contact ids is
+// ~7KB of UUIDs in a GET URL, close enough to proxy limits to be worth avoiding.
+const ID_CHUNK = 100;
+
+const BASE_COLUMNS = "id, full_name, email, phone_e164, country, discovery_source, email_unsubscribed_at";
+
+export async function listContacts(query: {
+  search?: string;
+  courseName?: string;
+  importBatchId?: string;
+  limit: number;
+  offset: number;
+}): Promise<{ rows: ContactRow[]; total: number }> {
   const admin = createAdminSupabase();
+
+  // An inner-joined embed is what turns "all contacts" into "contacts who
+  // registered for X". The embedded rows themselves are discarded — labels and
+  // counts are read back per page below so they describe ALL of a contact's
+  // registrations, not just the ones that matched the filter.
+  const filtered = query.courseName !== undefined || query.importBatchId !== undefined;
+  const select = filtered ? `${BASE_COLUMNS}, contact_purchases!inner(id)` : BASE_COLUMNS;
 
   let q = admin
     .from("contacts")
-    .select("id, full_name, email, phone_e164, country, discovery_source, email_unsubscribed_at, contact_purchases(count)", { count: "exact" })
+    .select(select, { count: "exact" })
     .order("created_at", { ascending: false })
     .range(query.offset, query.offset + query.limit - 1);
 
@@ -50,22 +80,61 @@ export async function listContacts(query: { search?: string; limit: number; offs
     const term = `%${query.search.trim()}%`;
     q = q.or(`full_name.ilike.${term},email.ilike.${term},phone_e164.ilike.${term}`);
   }
+  if (query.courseName) {
+    // A course name is always a prefix of the labels it covers, so one prefix
+    // match catches every price/tier/promo variant of that course.
+    const pattern = `${query.courseName.replace(/[%_]/g, (c) => `\\${c}`)}%`;
+    q = q.ilike("contact_purchases.product_label", pattern);
+  }
+  if (query.importBatchId) q = q.eq("contact_purchases.import_batch_id", query.importBatchId);
 
   const { data, count } = await q;
+  const contacts = (data ?? []) as unknown as RawContactRow[];
 
-  const rows: ContactRow[] = (data ?? []).map((c) => ({
+  const labels = await purchaseLabelsByContact(contacts.map((c) => c.id));
+
+  const rows: ContactRow[] = contacts.map((c) => ({
     id: c.id,
     fullName: c.full_name,
     email: c.email,
     phoneE164: c.phone_e164,
     country: c.country,
     discoverySource: c.discovery_source,
-    // PostgREST returns an embedded count as [{count: n}].
-    purchaseCount: Array.isArray(c.contact_purchases) ? (c.contact_purchases[0]?.count ?? 0) : 0,
+    purchaseCount: labels.get(c.id)?.count ?? 0,
+    productLabels: labels.get(c.id)?.labels ?? [],
     unsubscribed: c.email_unsubscribed_at !== null,
   }));
 
   return { rows, total: count ?? rows.length };
+}
+
+/** Every registration a contact has, regardless of what the list was filtered by. */
+async function purchaseLabelsByContact(ids: string[]): Promise<Map<string, { labels: string[]; count: number }>> {
+  const byContact = new Map<string, { labels: string[]; count: number }>();
+  const admin = createAdminSupabase();
+
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    const { data, error } = await admin
+      .from("contact_purchases")
+      .select("contact_id, product_label")
+      .in("contact_id", chunk);
+
+    if (error) {
+      console.error("[crm-contacts] purchase label read failed:", error);
+      continue;
+    }
+
+    for (const p of data ?? []) {
+      const entry = byContact.get(p.contact_id) ?? { labels: [], count: 0 };
+      entry.count += 1;
+      const label = (p.product_label ?? "").trim();
+      if (label !== "" && !entry.labels.includes(label)) entry.labels.push(label);
+      byContact.set(p.contact_id, entry);
+    }
+  }
+
+  return byContact;
 }
 
 export async function getContactDetail(id: string): Promise<ContactDetail | null> {
@@ -92,6 +161,7 @@ export async function getContactDetail(id: string): Promise<ContactDetail | null
     unsubscribed: data.email_unsubscribed_at !== null,
     hasPlatformAccount: data.profile_id !== null,
     purchaseCount: purchases.length,
+    productLabels: Array.from(new Set(purchases.map((p) => (p.product_label ?? "").trim()).filter((l) => l !== ""))),
     purchases: purchases.map((p) => ({
       id: p.id,
       productLabel: p.product_label,
@@ -220,11 +290,14 @@ export async function listMergeCandidates(): Promise<MergeCandidateRow[]> {
   const ids = Array.from(new Set(rows.flatMap((r) => [r.contact_a_id, r.contact_b_id])));
   const { data: contacts } = await admin
     .from("contacts")
-    .select("id, full_name, email, phone_e164, country, discovery_source, email_unsubscribed_at, contact_purchases(count)")
+    .select("id, full_name, email, phone_e164, country, discovery_source, email_unsubscribed_at, contact_purchases(product_label)")
     .in("id", ids);
 
   const byId = new Map<string, ContactRow>();
   for (const c of contacts ?? []) {
+    // What each side registered for is real evidence when judging whether two
+    // records are the same person, so it rides along into the review queue.
+    const purchases = Array.isArray(c.contact_purchases) ? c.contact_purchases : [];
     byId.set(c.id, {
       id: c.id,
       fullName: c.full_name,
@@ -232,7 +305,8 @@ export async function listMergeCandidates(): Promise<MergeCandidateRow[]> {
       phoneE164: c.phone_e164,
       country: c.country,
       discoverySource: c.discovery_source,
-      purchaseCount: Array.isArray(c.contact_purchases) ? (c.contact_purchases[0]?.count ?? 0) : 0,
+      purchaseCount: purchases.length,
+      productLabels: Array.from(new Set(purchases.map((p) => (p.product_label ?? "").trim()).filter((l) => l !== ""))),
       unsubscribed: c.email_unsubscribed_at !== null,
     });
   }

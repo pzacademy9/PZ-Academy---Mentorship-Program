@@ -23,6 +23,39 @@ function toNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * The course portion of a registration label, with the tier, price, early-bird
+ * and promo suffixes removed — "Complete Course — Module 1 & Module 2 —
+ * Individual — PKR 1,960 [Early Bird]" becomes "Complete Course — Module 1 &
+ * Module 2", so every price variant of one course collapses to one name.
+ *
+ * Returns "" when the label names no course (labels like "Individual — PKR
+ * 2,700" come from sheets where the cohort itself identified the course).
+ * The result is always a PREFIX of the raw label, which is what lets a caller
+ * match every variant with a single prefix comparison.
+ *
+ * A course whose own name contained the word "Individual" or "Group" would be
+ * truncated at that word. No such course exists here, and the raw label is
+ * always kept alongside, so the cost of being wrong is a filter that groups
+ * oddly, never lost data.
+ */
+export function courseNameFromLabel(raw: string | null | undefined): string {
+  if (raw == null) return "";
+  const label = raw.trim();
+  if (label === "") return "";
+
+  const cutPoints = [
+    label.search(/\b(individual|group)\b/i),
+    label.search(new RegExp(`\\b(${CURRENCIES.join("|")}|USD)\\b`)),
+    label.indexOf("["),
+  ].filter((i) => i >= 0);
+
+  const name = cutPoints.length === 0 ? label : label.slice(0, Math.min(...cutPoints));
+
+  // Whatever separator led into the part just removed ("— ", "- ", ", ").
+  return name.replace(/[\s—–\-,:|]+$/, "").trim();
+}
+
 export function parseProductLabel(raw: string | null | undefined): ParsedProduct {
   if (raw == null) return { ...EMPTY };
   const label = raw.trim();
