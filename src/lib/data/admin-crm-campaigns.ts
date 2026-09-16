@@ -63,6 +63,26 @@ export async function listCampaigns(): Promise<CampaignRow[]> {
     }));
 }
 
+export type CampaignDetail = { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] };
+
+/** Backs "Duplicate" on a past campaign — loads it back into the composer as a fresh draft. */
+export async function getCampaign(id: string): Promise<CampaignDetail | null> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("campaigns")
+    .select("name, subject, html_content, segment")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return null;
+
+  return {
+    name: data.name,
+    subject: data.subject,
+    bodyHtml: data.html_content,
+    segment: (Array.isArray(data.segment) ? data.segment : []) as SegmentFilter[],
+  };
+}
+
 export async function createCampaign(
   userId: string,
   input: { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] },
@@ -87,6 +107,51 @@ export async function createCampaign(
   }
   if (!data) return { ok: false, reason: "db-error" };
   return { ok: true, id: data.id };
+}
+
+/**
+ * Updates a draft in place — the point being an admin can retest after
+ * tweaking wording without piling up a new campaign row (and a new blank
+ * "Sent campaigns" entry) on every retest. Once a campaign has left draft
+ * (sending/sent/cancelled) it is send history, not editable — resend that
+ * content via "Duplicate" (createCampaign) instead of mutating the record.
+ */
+export async function updateCampaign(
+  id: string,
+  input: { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] },
+): Promise<MutationResult> {
+  const admin = createAdminSupabase();
+
+  const { data: existing } = await admin.from("campaigns").select("status").eq("id", id).maybeSingle();
+  if (!existing) return { ok: false, reason: "not-found" };
+  if (existing.status !== "draft") return { ok: false, reason: "already-sent" };
+
+  const { error } = await admin
+    .from("campaigns")
+    .update({ name: input.name, subject: input.subject, html_content: input.bodyHtml, segment: input.segment })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[crm-campaigns] update failed:", error);
+    return { ok: false, reason: "db-error" };
+  }
+  return { ok: true, id };
+}
+
+/** Only a draft can be deleted — sent/sending campaigns are send history, kept for the stats table. */
+export async function deleteCampaign(id: string): Promise<MutationResult> {
+  const admin = createAdminSupabase();
+
+  const { data: existing } = await admin.from("campaigns").select("status").eq("id", id).maybeSingle();
+  if (!existing) return { ok: false, reason: "not-found" };
+  if (existing.status !== "draft") return { ok: false, reason: "already-sent" };
+
+  const { error } = await admin.from("campaigns").delete().eq("id", id);
+  if (error) {
+    console.error("[crm-campaigns] delete failed:", error);
+    return { ok: false, reason: "db-error" };
+  }
+  return { ok: true, id };
 }
 
 function appUrl(): string {

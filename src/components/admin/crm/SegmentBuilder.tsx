@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SEGMENT_FIELDS, type SegmentFilter } from "@/lib/crm/segment";
+
+type ImportBatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number; createdAt: string };
 
 /**
  * Filters combine with AND. The live count is the whole point of this
@@ -17,17 +19,31 @@ export function SegmentBuilder({
   const [count, setCount] = useState<number | null>(null);
   const [samples, setSamples] = useState<Array<{ fullName: string; email: string }>>([]);
   const [busy, setBusy] = useState(false);
+  const [batches, setBatches] = useState<ImportBatchOption[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/crm/import/batches")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => { if (json?.batches) setBatches(json.batches); })
+      .catch(() => {});
+  }, []);
 
   async function refreshCount(filters: SegmentFilter[]) {
     setBusy(true);
+    setError(null);
     try {
       const res = await fetch("/api/admin/crm/segments/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ segment: filters }),
       });
-      if (!res.ok) { setCount(null); return; }
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCount(null);
+        setError(json.error ?? "Could not count that segment.");
+        return;
+      }
       setCount(json.total);
       setSamples(json.samples ?? []);
     } finally {
@@ -38,6 +54,7 @@ export function SegmentBuilder({
   function update(next: SegmentFilter[]) {
     onChange(next);
     setCount(null);
+    setError(null);
   }
 
   function addFilter(field: SegmentFilter["field"]) {
@@ -93,6 +110,8 @@ export function SegmentBuilder({
         )}
       </div>
 
+      {error && <p className="font-body text-sm text-pz-danger">{error}</p>}
+
       {value.length === 0 && (
         <p className="font-body text-xs text-pz-on-surface-variant">
           No filters — this matches every contact who has an email, has not unsubscribed, and has not bounced.
@@ -105,7 +124,33 @@ export function SegmentBuilder({
             {SEGMENT_FIELDS.find((f) => f.field === filter.field)?.label ?? filter.field}
           </span>
 
-          {"values" in filter ? (
+          {filter.field === "import_batch_id" ? (
+            <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">
+              {batches.length === 0 ? (
+                <span className="font-body text-xs text-pz-on-surface-variant">No import batches yet.</span>
+              ) : (
+                batches.map((b) => {
+                  const checked = filter.values.includes(b.id);
+                  const label = `${b.sheetName} — ${b.tabName} (${b.rowsImported})`;
+                  return (
+                    <label key={b.id} title={b.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          patch(index, {
+                            ...filter,
+                            values: e.target.checked ? [...filter.values, b.id] : filter.values.filter((v) => v !== b.id),
+                          } as SegmentFilter)
+                        }
+                      />
+                      {label}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          ) : "values" in filter ? (
             <input
               value={filter.values.join(", ")}
               onChange={(e) =>

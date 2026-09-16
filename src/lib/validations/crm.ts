@@ -93,6 +93,10 @@ export const campaignCreateSchema = z.object({
   segment: z.array(segmentFilterSchema).max(20),
 });
 
+// Same shape as create — editing a draft never changes what fields exist,
+// only whether the row is inserted or updated.
+export const campaignUpdateSchema = campaignCreateSchema;
+
 export const campaignTestSchema = z.object({
   email: z.string().trim().email(),
 });

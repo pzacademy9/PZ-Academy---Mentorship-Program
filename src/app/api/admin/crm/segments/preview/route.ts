@@ -8,7 +8,16 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const parsed = segmentPreviewSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid segment" }, { status: 400 });
+  if (!parsed.success) {
+    // Logged server-side because a discriminated-union mismatch (e.g. a
+    // stray field/op pair left over from an earlier filter default) reports
+    // as Zod's generic "Invalid input" to the client with no indication of
+    // which filter or field caused it.
+    console.error("[crm-segments-preview] invalid segment:", JSON.stringify(parsed.error.issues));
+    const first = parsed.error.issues[0];
+    const where = first?.path.length ? ` (at ${first.path.join(".")})` : "";
+    return NextResponse.json({ error: `Invalid segment${where}: ${first?.message ?? "unknown"}` }, { status: 400 });
+  }
 
   const result = await resolveSegment(parsed.data.segment, { limit: 10 });
   if (!result.ok) return NextResponse.json({ error: "Could not resolve that segment" }, { status: 500 });

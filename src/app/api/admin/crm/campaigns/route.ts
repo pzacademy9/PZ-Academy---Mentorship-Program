@@ -15,7 +15,14 @@ export async function POST(req: NextRequest) {
 
   const parsed = campaignCreateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    // A discriminated-union mismatch inside `segment` (e.g. a filter left in
+    // an incomplete default state) reports as Zod's generic "Invalid input"
+    // with no indication of which field — logging the full issue list is
+    // what actually tells you which one.
+    console.error("[crm-campaigns] invalid create payload:", JSON.stringify(parsed.error.issues));
+    const first = parsed.error.issues[0];
+    const where = first?.path.length ? ` (at ${first.path.join(".")})` : "";
+    return NextResponse.json({ error: `${first?.message ?? "Invalid input"}${where}` }, { status: 400 });
   }
 
   const result = await createCampaign(auth.user.id, parsed.data);

@@ -23,46 +23,14 @@ interface WebhookResponse {
 }
 
 /**
- * Verify Brevo webhook signature using HMAC-SHA256
- * Brevo sends: x-brevo-signature header with HMAC-SHA256 hash of the request body
+ * Constant-time string comparison — prevents a timing attack from leaking
+ * the secret one character at a time via response-time measurement.
  */
-async function verifyBrevoSignature(
-  body: string,
-  signature: string,
-  secret: string
-): Promise<boolean> {
-  try {
-    // Convert secret to Uint8Array
-    const secretBytes = new TextEncoder().encode(secret);
-
-    // Create HMAC-SHA256 key
-    const key = await Deno.crypto.subtle.importKey(
-      "raw",
-      secretBytes,
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-
-    // Create HMAC signature of the body
-    const bodyBytes = new TextEncoder().encode(body);
-    const signatureBytes = await Deno.crypto.subtle.sign(
-      "HMAC",
-      key,
-      bodyBytes
-    );
-
-    // Convert signature bytes to hex string
-    const calculatedSignature = Array.from(new Uint8Array(signatureBytes))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    // Compare signatures (constant-time comparison to prevent timing attacks)
-    return calculatedSignature === signature;
-  } catch (error) {
-    console.error("Signature verification error:", error);
-    return false;
-  }
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /**
@@ -76,7 +44,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, x-brevo-signature",
+        "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
       },
     });
   }
@@ -91,7 +59,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Get Brevo webhook secret from environment
+    // Brevo does not sign webhook requests — no HMAC, no JWT — but its create-
+    // webhook API does accept custom "headers" attached to every call it
+    // makes, which is the credential channel used here. (This handler
+    // previously required an "x-brevo-signature" header Brevo never sends on
+    // its own, so every real call was rejected with 401 — and separately,
+    // BREVO_WEBHOOK_SECRET was never actually set as a function secret, so it
+    // 500'd before even reaching that check. Both are fixed together.) A
+    // query-string secret was considered and rejected: URLs get written to
+    // access logs, browser history, and proxies far more readily than
+    // headers do, so the secret belongs in a header, not the URL.
     const brevoWebhookSecret = Deno.env.get("BREVO_WEBHOOK_SECRET");
     if (!brevoWebhookSecret) {
       console.error("BREVO_WEBHOOK_SECRET not configured");
@@ -101,33 +78,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get the raw body for signature verification
+    const providedSecret = req.headers.get("x-webhook-secret") ?? "";
+    if (!timingSafeEqual(providedSecret, brevoWebhookSecret)) {
+      console.warn("Invalid or missing x-webhook-secret header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const bodyText = await req.text();
-
-    // Get the signature from headers
-    const signature = req.headers.get("x-brevo-signature");
-    if (!signature) {
-      console.warn("Missing x-brevo-signature header");
-      return new Response(
-        JSON.stringify({ error: "Invalid signature" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Verify the signature
-    const isValid = await verifyBrevoSignature(
-      bodyText,
-      signature,
-      brevoWebhookSecret
-    );
-
-    if (!isValid) {
-      console.warn("Invalid Brevo webhook signature");
-      return new Response(
-        JSON.stringify({ error: "Invalid signature" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
 
     // Parse the JSON body
     let event: BrevoWebhookEvent;

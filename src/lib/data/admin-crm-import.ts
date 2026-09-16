@@ -36,6 +36,31 @@ export async function getSheetTabs(sheetIdOrUrl: string): Promise<SheetTabsResul
   return listSheetTabs(sheetId);
 }
 
+export type ImportBatchOption = {
+  id: string;
+  sheetName: string;
+  tabName: string;
+  rowsImported: number;
+  createdAt: string;
+};
+
+/** Feeds the segment builder's batch picker — labels instead of raw UUIDs. */
+export async function listImportBatches(): Promise<ImportBatchOption[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("import_batches")
+    .select("id, sheet_name, tab_name, rows_imported, created_at")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    sheetName: b.sheet_name || "(untitled sheet)",
+    tabName: b.tab_name,
+    rowsImported: b.rows_imported,
+    createdAt: b.created_at,
+  }));
+}
+
 export { guessColumnMapping };
 
 /** Parses every row once, and reports what a commit would do. Writes nothing. */
