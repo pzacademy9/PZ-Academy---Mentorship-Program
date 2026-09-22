@@ -6,6 +6,10 @@ export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
 
-  const courses = await listCoursesForTagging();
-  return NextResponse.json({ courses });
+  try {
+    const courses = await listCoursesForTagging();
+    return NextResponse.json({ courses });
+  } catch {
+    return NextResponse.json({ error: "Could not load courses" }, { status: 500 });
+  }
 }

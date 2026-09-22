@@ -71,7 +71,11 @@ export type CourseOption = { id: string; title: string; type: string };
  */
 export async function listCoursesForTagging(): Promise<CourseOption[]> {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("courses").select("id, title, type").order("title");
+  const { data, error } = await admin.from("courses").select("id, title, type").order("title");
+  if (error) {
+    console.error("[crm-import] listCoursesForTagging failed:", error);
+    throw new Error("Could not load courses");
+  }
   return (data ?? []).map((c) => ({ id: c.id, title: c.title, type: c.type }));
 }
 

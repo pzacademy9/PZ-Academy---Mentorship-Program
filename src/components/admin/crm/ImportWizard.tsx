@@ -42,12 +42,19 @@ export function ImportWizard() {
   const [done, setDone] = useState<string | null>(null);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; type: string }>>([]);
   const [courseId, setCourseId] = useState<string>("");
+  const [coursesError, setCoursesError] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/crm/courses")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("failed");
+        return res.json();
+      })
       .then((json) => setCourses(json.courses ?? []))
-      .catch(() => setCourses([]));
+      .catch(() => {
+        setCourses([]);
+        setCoursesError(true);
+      });
   }, []);
 
   const activeTab = tabs.find((t) => t.name === selectedTab) ?? null;
@@ -57,6 +64,7 @@ export function ImportWizard() {
     setError(null);
     setPreview(null);
     setDone(null);
+    setCourseId("");
     try {
       const res = await fetch("/api/admin/crm/sheets", {
         method: "POST",
@@ -217,6 +225,9 @@ export function ImportWizard() {
                 </option>
               ))}
             </select>
+            {coursesError && (
+              <span className="block text-pz-danger text-xs mt-1">Could not load the course list — reload the page before tagging.</span>
+            )}
           </label>
           <button
             onClick={runPreview}
