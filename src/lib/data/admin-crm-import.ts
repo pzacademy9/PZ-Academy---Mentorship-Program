@@ -61,6 +61,20 @@ export async function listImportBatches(): Promise<ImportBatchOption[]> {
   }));
 }
 
+export type CourseOption = { id: string; title: string; type: string };
+
+/**
+ * Feeds the import wizard's course picker. Deliberately unfiltered by
+ * is_published — a course tagged here may be a draft row that exists only
+ * to label historical CRM data (see migration 0051), and it must stay
+ * pickable even though it will never appear in the public catalog.
+ */
+export async function listCoursesForTagging(): Promise<CourseOption[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin.from("courses").select("id, title, type").order("title");
+  return (data ?? []).map((c) => ({ id: c.id, title: c.title, type: c.type }));
+}
+
 export { guessColumnMapping };
 
 /** Parses every row once, and reports what a commit would do. Writes nothing. */
