@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnMappingInput } from "@/lib/validations/crm";
 
@@ -40,6 +40,15 @@ export function ImportWizard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [courses, setCourses] = useState<Array<{ id: string; title: string; type: string }>>([]);
+  const [courseId, setCourseId] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/admin/crm/courses")
+      .then((res) => res.json())
+      .then((json) => setCourses(json.courses ?? []))
+      .catch(() => setCourses([]));
+  }, []);
 
   const activeTab = tabs.find((t) => t.name === selectedTab) ?? null;
 
@@ -103,7 +112,13 @@ export function ImportWizard() {
       const res = await fetch("/api/admin/crm/import/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetId: sheetInput, tabName: selectedTab, mapping, sheetName }),
+        body: JSON.stringify({
+          sheetId: sheetInput,
+          tabName: selectedTab,
+          mapping,
+          sheetName,
+          ...(courseId ? { courseId } : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Import failed.");
@@ -188,6 +203,21 @@ export function ImportWizard() {
               </label>
             ))}
           </div>
+          <label className="block font-body text-sm">
+            <span className="block text-pz-on-surface-variant mb-1">Course (optional — tags every row in this batch)</span>
+            <select
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+              className="w-full sm:w-1/2 rounded-xl border border-pz-outline-variant px-3 py-2"
+            >
+              <option value="">— not tagged —</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title} ({c.type})
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={runPreview}
             disabled={busy}
