@@ -155,6 +155,16 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     router.push("/dashboard/admin/crm?tab=campaigns");
   }
 
+  function useSelectedInWhatsApp() {
+    try {
+      sessionStorage.setItem(SELECTED_CONTACTS_STORAGE_KEY, JSON.stringify(Array.from(selected)));
+    } catch {
+      toast.error("Could not hand off the selection — try again.");
+      return;
+    }
+    router.push("/dashboard/admin/crm?tab=whatsapp");
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -218,6 +228,12 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
               className="font-body text-xs font-semibold text-pz-primary hover:underline"
             >
               Use in new campaign
+            </button>
+            <button
+              onClick={useSelectedInWhatsApp}
+              className="font-body text-xs font-semibold text-pz-primary hover:underline"
+            >
+              Use in WhatsApp batch
             </button>
             <button
               onClick={() => setSelected(new Set())}

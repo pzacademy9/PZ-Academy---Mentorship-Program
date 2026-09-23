@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { buildWhatsAppLink } from "@/lib/crm/whatsapp-link";
-import type { SegmentFilter } from "@/lib/crm/segment";
+import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
 
 type BatchListRow = {
   id: string;
@@ -36,6 +36,26 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [detail, setDetail] = useState<BatchDetail | null>(null);
   const [busyRecipientId, setBusyRecipientId] = useState<string | null>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
+
+  // Picks up a bulk selection handed off from the Contacts tab, once, on
+  // mount. Read-then-remove so revisiting this tab later (without a fresh
+  // handoff) never re-seeds a stale selection into a new draft. Mirrors
+  // CampaignsPanel's identical effect for the email channel.
+  useEffect(() => {
+    let ids: unknown;
+    try {
+      const raw = sessionStorage.getItem(SELECTED_CONTACTS_STORAGE_KEY);
+      sessionStorage.removeItem(SELECTED_CONTACTS_STORAGE_KEY);
+      ids = raw ? JSON.parse(raw) : null;
+    } catch {
+      return;
+    }
+    if (!Array.isArray(ids) || ids.length === 0) return;
+
+    setSegment((prev) => [...prev, { field: "contact_id", op: "in", values: ids as string[] }]);
+    toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} added from Contacts.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function createBatch() {
     setCreating(true);

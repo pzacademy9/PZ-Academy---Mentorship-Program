@@ -4,11 +4,6 @@
  * recipient table builds these links directly in the browser).
  */
 
-const MERGE_TAGS: ReadonlyArray<{ tag: string; resolve: (fullName: string) => string }> = [
-  { tag: "{{first_name}}", resolve: firstNameOf },
-  { tag: "{{full_name}}", resolve: (fullName) => fullName },
-];
-
 /** First whitespace-separated token of a full name; the whole name if there is no space. */
 export function firstNameOf(fullName: string): string {
   const trimmed = fullName.trim();
@@ -16,10 +11,26 @@ export function firstNameOf(fullName: string): string {
   return trimmed.split(/\s+/)[0];
 }
 
+/**
+ * Same tag matching and blank-name fallback as the email channel's
+ * src/lib/crm/merge-tags.ts ("there" keeps a greeting grammatical when the
+ * sheet had no name; {{ first_name }} with stray whitespace still matches),
+ * so the two channels behave identically for the same contact data. Not
+ * reusing renderMergeTags directly — it HTML-escapes for email body markup,
+ * which would corrupt a plain-text wa.me message (e.g. turn "&" into
+ * "&amp;" in what the admin actually sends).
+ */
 function renderMessage(template: string, fullName: string): string {
-  let out = template;
-  for (const { tag, resolve } of MERGE_TAGS) out = out.split(tag).join(resolve(fullName));
-  return out;
+  const trimmedName = fullName.trim();
+  const first = firstNameOf(fullName);
+  const values: Record<string, string> = {
+    first_name: first === "" ? "there" : first,
+    full_name: trimmedName === "" ? "there" : trimmedName,
+  };
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) => {
+    const value = values[key];
+    return value === undefined ? match : value;
+  });
 }
 
 /**

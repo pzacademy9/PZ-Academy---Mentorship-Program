@@ -45,4 +45,14 @@ describe("buildWhatsAppLink", () => {
     const link = buildWhatsAppLink("+92 300 1234567", "Hi", "A");
     expect(link.startsWith("https://wa.me/923001234567?")).toBe(true);
   });
+
+  it("falls back to 'there' for both merge tags when the name is blank, matching the email channel's merge-tags.ts", () => {
+    const link = buildWhatsAppLink("+923001234567", "Hi {{first_name}}, ({{full_name}})", "   ");
+    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Hi there, (there)");
+  });
+
+  it("tolerates internal whitespace inside a merge tag, e.g. {{ first_name }}", () => {
+    const link = buildWhatsAppLink("+923001234567", "Hi {{ first_name }}", "Ayesha Khan");
+    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Hi Ayesha");
+  });
 });
