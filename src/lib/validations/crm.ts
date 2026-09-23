@@ -50,6 +50,10 @@ export const mergeResolveSchema = z.object({
   decision: z.enum(["merge", "reject"]),
 });
 
+export const contactPhoneUpdateSchema = z.object({
+  phoneRaw: z.string().trim().min(1, "Phone number is required").max(40),
+});
+
 export const contactListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   courseName: z.string().trim().min(1).max(200).optional(),
@@ -71,6 +75,7 @@ export const segmentFilterSchema = z.discriminatedUnion("field", [
   // .min(1) on every list and string value: an incomplete filter (empty list,
   // blank text) must be a 400, not a filter that silently matches everyone and
   // widens the send.
+  z.object({ field: z.literal("contact_id"), op: z.literal("in"), values: z.array(z.string().uuid()).min(1).max(500) }),
   z.object({ field: z.literal("import_batch_id"), op: z.literal("in"), values: z.array(z.string().uuid()).min(1) }),
   z.object({ field: z.literal("course_id"), op: z.literal("in"), values: z.array(z.string().uuid()).min(1) }),
   z.object({ field: z.literal("row_type"), op: z.literal("eq"), value: z.enum(["individual", "group_leader", "group_member"]) }),

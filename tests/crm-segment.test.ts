@@ -24,9 +24,25 @@ describe("buildSegmentFilters", () => {
     ]);
   });
 
+  it("maps contact_id to a scalar id membership check", () => {
+    // Unlike the other list filters (import_batch_id, course_id), contact_id
+    // targets the row's own id column directly, not an aggregated array.
+    expect(buildSegmentFilters([{ field: "contact_id", op: "in", values: ["c1", "c2"] }])).toEqual([
+      { kind: "in", column: "id", values: ["c1", "c2"] },
+      SENDABLE_GUARD,
+    ]);
+  });
+
   it("maps import_batch_id to an array overlap check", () => {
     expect(buildSegmentFilters([{ field: "import_batch_id", op: "in", values: ["b1", "b2"] }])).toEqual([
       { kind: "overlaps", column: "import_batch_ids", values: ["b1", "b2"] },
+      SENDABLE_GUARD,
+    ]);
+  });
+
+  it("maps course_id to an array overlap check", () => {
+    expect(buildSegmentFilters([{ field: "course_id", op: "in", values: ["c1", "c2"] }])).toEqual([
+      { kind: "overlaps", column: "course_ids", values: ["c1", "c2"] },
       SENDABLE_GUARD,
     ]);
   });

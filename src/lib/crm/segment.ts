@@ -8,7 +8,15 @@
  * nothing in the first campaigns needs it.
  */
 
+/**
+ * sessionStorage key the Contacts tab writes a bulk selection to before
+ * navigating to Campaigns, and Campaigns reads once on mount to seed a
+ * contact_id filter. Shared here so both sides agree on the exact string.
+ */
+export const SELECTED_CONTACTS_STORAGE_KEY = "crm:selectedContactIds";
+
 export type SegmentFilter =
+  | { field: "contact_id"; op: "in"; values: string[] }
   | { field: "import_batch_id"; op: "in"; values: string[] }
   | { field: "course_id"; op: "in"; values: string[] }
   | { field: "row_type"; op: "eq"; value: string }
@@ -28,7 +36,14 @@ export type QueryOp =
   | { kind: "ilike"; column: string; pattern: string }
   | { kind: "eq" | "gte" | "lte" | "lt" | "gt"; column: string; value: string | number | boolean };
 
-/** Field metadata for the builder UI. Keeping it beside the type prevents drift. */
+/**
+ * Field metadata for the builder UI's manual "+ Add a filter" dropdown.
+ * Keeping it beside the type prevents drift.
+ *
+ * contact_id is deliberately absent: it never comes from the dropdown, only
+ * from the Contacts tab's bulk-select handoff, and SegmentBuilder renders it
+ * as a read-only chip rather than a picker.
+ */
 export const SEGMENT_FIELDS: ReadonlyArray<{ field: SegmentFilter["field"]; label: string; hint: string }> = [
   { field: "row_type", label: "Row type", hint: "group_leader finds people who recruited other buyers" },
   { field: "purchase_count", label: "Number of purchases", hint: "2 or more finds proven repeat buyers" },
@@ -38,6 +53,7 @@ export const SEGMENT_FIELDS: ReadonlyArray<{ field: SegmentFilter["field"]; labe
   { field: "country", label: "Country", hint: "PK, AE, SA" },
   { field: "product_label", label: "Product label contains", hint: "substring of the registration option" },
   { field: "import_batch_id", label: "Import batch", hint: "one cohort sheet — also how warm-up waves are cut" },
+  { field: "course_id", label: "Course", hint: "which program the contact registered for" },
   { field: "promo_code", label: "Promo code", hint: "exact match" },
   { field: "profession", label: "Profession contains", hint: "substring" },
 ];
@@ -54,6 +70,9 @@ export function buildSegmentFilters(filters: SegmentFilter[]): QueryOp[] {
 
   for (const filter of filters) {
     switch (filter.field) {
+      case "contact_id":
+        if (filter.values.length > 0) ops.push({ kind: "in", column: "id", values: filter.values });
+        break;
       case "import_batch_id":
         if (filter.values.length > 0) ops.push({ kind: "overlaps", column: "import_batch_ids", values: filter.values });
         break;

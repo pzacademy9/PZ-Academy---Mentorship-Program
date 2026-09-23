@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SEGMENT_FIELDS, type SegmentFilter } from "@/lib/crm/segment";
 
 type ImportBatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number; createdAt: string };
+type CourseOption = { id: string; title: string; type: string };
 
 // row_type and discovery_source are closed enums (see segmentFilterSchema) —
 // rendered as checkboxes/select from these literals directly, no DB round trip.
@@ -30,6 +31,7 @@ export function SegmentBuilder({
   const [samples, setSamples] = useState<Array<{ fullName: string; email: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [batches, setBatches] = useState<ImportBatchOption[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const autoCountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,6 +40,11 @@ export function SegmentBuilder({
     fetch("/api/admin/crm/import/batches")
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => { if (json?.batches) setBatches(json.batches); })
+      .catch(() => {});
+
+    fetch("/api/admin/crm/courses")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => { if (json?.courses) setCourses(json.courses); })
       .catch(() => {});
 
     Promise.all(
@@ -101,6 +108,7 @@ export function SegmentBuilder({
     // means the builder can never emit a field/operator pair the schema
     // rejects.
     const defaults: Record<SegmentFilter["field"], SegmentFilter> = {
+      contact_id: { field: "contact_id", op: "in", values: [] },
       import_batch_id: { field: "import_batch_id", op: "in", values: [] },
       course_id: { field: "course_id", op: "in", values: [] },
       row_type: { field: "row_type", op: "eq", value: "group_leader" },
@@ -160,10 +168,16 @@ export function SegmentBuilder({
       {value.map((filter, index) => (
         <div key={index} className="flex gap-2 items-center flex-wrap bg-pz-surface-container-high rounded-xl px-3 py-2">
           <span className="font-body text-sm font-medium">
-            {SEGMENT_FIELDS.find((f) => f.field === filter.field)?.label ?? filter.field}
+            {filter.field === "contact_id"
+              ? "Specific contacts"
+              : SEGMENT_FIELDS.find((f) => f.field === filter.field)?.label ?? filter.field}
           </span>
 
-          {filter.field === "import_batch_id" ? (
+          {filter.field === "contact_id" ? (
+            <span className="flex-1 font-body text-xs text-pz-on-surface-variant">
+              {filter.values.length} contact{filter.values.length === 1 ? "" : "s"} — picked from the Contacts tab
+            </span>
+          ) : filter.field === "import_batch_id" ? (
             <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">
               {batches.length === 0 ? (
                 <span className="font-body text-xs text-pz-on-surface-variant">No import batches yet.</span>
@@ -184,6 +198,31 @@ export function SegmentBuilder({
                         }
                       />
                       {label}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          ) : filter.field === "course_id" ? (
+            <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">
+              {courses.length === 0 ? (
+                <span className="font-body text-xs text-pz-on-surface-variant">No courses yet.</span>
+              ) : (
+                courses.map((c) => {
+                  const checked = filter.values.includes(c.id);
+                  return (
+                    <label key={c.id} title={c.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          patch(index, {
+                            ...filter,
+                            values: e.target.checked ? [...filter.values, c.id] : filter.values.filter((v) => v !== c.id),
+                          } as SegmentFilter)
+                        }
+                      />
+                      {c.title}
                     </label>
                   );
                 })
@@ -245,15 +284,6 @@ export function SegmentBuilder({
                 <option key={v} value={v}>{v.replace("_", " ")}</option>
               ))}
             </select>
-          ) : "values" in filter ? (
-            <input
-              value={filter.values.join(", ")}
-              onChange={(e) =>
-                patch(index, { ...filter, values: e.target.value.split(",").map((v) => v.trim()).filter((v) => v !== "") } as SegmentFilter)
-              }
-              placeholder="comma separated"
-              className="flex-1 min-w-[180px] rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
-            />
           ) : typeof filter.value === "boolean" ? (
             <select
               value={String(filter.value)}

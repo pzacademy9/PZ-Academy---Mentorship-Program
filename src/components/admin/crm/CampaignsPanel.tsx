@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
 import { SegmentBuilder } from "./SegmentBuilder";
-import type { SegmentFilter } from "@/lib/crm/segment";
+import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
 
 type Campaign = {
   id: string; name: string; subject: string; status: string; createdAt: string;
@@ -55,6 +55,26 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   const [campaignSearch, setCampaignSearch] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Picks up a bulk selection handed off from the Contacts tab, once, on
+  // mount. Read-then-remove so revisiting this tab later (without a fresh
+  // handoff) never re-seeds a stale selection into a new draft.
+  useEffect(() => {
+    let ids: unknown;
+    try {
+      const raw = sessionStorage.getItem(SELECTED_CONTACTS_STORAGE_KEY);
+      sessionStorage.removeItem(SELECTED_CONTACTS_STORAGE_KEY);
+      ids = raw ? JSON.parse(raw) : null;
+    } catch {
+      return;
+    }
+    if (!Array.isArray(ids) || ids.length === 0) return;
+
+    setSegment((prev) => [...prev, { field: "contact_id", op: "in", values: ids as string[] }]);
+    setDraftId(null);
+    toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} added from Contacts.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredCampaigns = campaignSearch.trim() === ""
     ? campaigns

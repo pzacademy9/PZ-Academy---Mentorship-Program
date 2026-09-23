@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { scoreDuplicate, normalizeName } from "@/lib/crm/identity";
+import { normalizePhone } from "@/lib/crm/phone";
 
 /**
  * Contacts read layer plus the duplicate review queue. Mirrors
@@ -173,6 +174,48 @@ export async function getContactDetail(id: string): Promise<ContactDetail | null
       sourceRowRef: p.source_row_ref,
     })),
   };
+}
+
+export type UpdateContactPhoneResult =
+  | { ok: true; phoneE164: string }
+  | { ok: false; reason: "invalid" }
+  | { ok: false; reason: "not-found" }
+  | { ok: false; reason: "conflict"; ownerName: string | null }
+  | { ok: false; reason: "db-error" };
+
+/**
+ * Re-normalizes through the same rules the import path uses, so a manual
+ * edit and a sheet import can never disagree about what a valid number is.
+ * The unique index on phone_e164 is the real duplicate guard: a violation
+ * there means this number already belongs to a different contact, reported
+ * back as a conflict rather than a generic failure.
+ */
+export async function updateContactPhone(id: string, phoneRaw: string): Promise<UpdateContactPhoneResult> {
+  const parsed = normalizePhone(phoneRaw);
+  if (!parsed.ok) return { ok: false, reason: "invalid" };
+
+  const admin = createAdminSupabase();
+  const { error, count } = await admin
+    .from("contacts")
+    .update({ phone_e164: parsed.e164, phone_raw: phoneRaw.trim() }, { count: "exact" })
+    .eq("id", id);
+
+  if (error) {
+    if (error.code === "23505") {
+      const { data: owner } = await admin
+        .from("contacts")
+        .select("full_name")
+        .eq("phone_e164", parsed.e164)
+        .neq("id", id)
+        .maybeSingle();
+      return { ok: false, reason: "conflict", ownerName: owner?.full_name || null };
+    }
+    console.error("[crm-contacts] updateContactPhone failed:", error);
+    return { ok: false, reason: "db-error" };
+  }
+  if (!count) return { ok: false, reason: "not-found" };
+
+  return { ok: true, phoneE164: parsed.e164 };
 }
 
 /**

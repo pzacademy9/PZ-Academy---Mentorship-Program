@@ -61,6 +61,65 @@ export async function listImportBatches(): Promise<ImportBatchOption[]> {
   }));
 }
 
+export type CohortRow = {
+  id: string;
+  sheetName: string;
+  tabName: string;
+  rowsImported: number;
+  createdAt: string;
+  courseId: string | null;
+  courseTitle: string | null;
+  purchaseCount: number;
+};
+
+/**
+ * Feeds the Cohorts tab. Unlike listImportBatches, this counts purchases
+ * still attached to each batch live — a batch's stored rows_imported is a
+ * snapshot from commit time and goes stale once contact_purchases.import_batch_id
+ * is reassigned (e.g. by a later commit's upsert) or a batch is deleted.
+ */
+export async function listCohorts(): Promise<CohortRow[]> {
+  const admin = createAdminSupabase();
+  const [{ data: batches }, { data: purchases }] = await Promise.all([
+    admin
+      .from("import_batches")
+      .select("id, sheet_name, tab_name, rows_imported, created_at, course_id, courses(title)")
+      .order("created_at", { ascending: false }),
+    admin.from("contact_purchases").select("import_batch_id"),
+  ]);
+
+  const counts = new Map<string, number>();
+  for (const p of purchases ?? []) {
+    if (p.import_batch_id) counts.set(p.import_batch_id, (counts.get(p.import_batch_id) ?? 0) + 1);
+  }
+
+  return (batches ?? []).map((b) => ({
+    id: b.id,
+    sheetName: b.sheet_name || "(untitled sheet)",
+    tabName: b.tab_name,
+    rowsImported: b.rows_imported,
+    createdAt: b.created_at,
+    courseId: b.course_id,
+    courseTitle: (b.courses as { title: string } | null)?.title ?? null,
+    purchaseCount: counts.get(b.id) ?? 0,
+  }));
+}
+
+export type DeleteCohortResult = { ok: true } | { ok: false; reason: "not-found" | "error" };
+
+/**
+ * Detaches the batch label only — import_batches.id is ON DELETE SET NULL
+ * on contact_purchases.import_batch_id, so purchases and contacts survive;
+ * they just lose their cohort tag.
+ */
+export async function deleteImportBatch(id: string): Promise<DeleteCohortResult> {
+  const admin = createAdminSupabase();
+  const { error, count } = await admin.from("import_batches").delete({ count: "exact" }).eq("id", id);
+  if (error) return { ok: false, reason: "error" };
+  if (!count) return { ok: false, reason: "not-found" };
+  return { ok: true };
+}
+
 export type CourseOption = { id: string; title: string; type: string };
 
 /**
