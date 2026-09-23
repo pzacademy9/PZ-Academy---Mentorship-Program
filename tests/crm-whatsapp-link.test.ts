@@ -21,38 +21,41 @@ describe("firstNameOf", () => {
 });
 
 describe("buildWhatsAppLink", () => {
-  it("strips the leading plus and encodes the message", () => {
+  it("links straight to web.whatsapp.com/send with phone and encoded message", () => {
     const link = buildWhatsAppLink("+923001234567", "Hi {{first_name}}!", "Ayesha Khan");
-    expect(link).toBe("https://wa.me/923001234567?text=Hi%20Ayesha!");
+    const url = new URL(link);
+    expect(url.origin + url.pathname).toBe("https://web.whatsapp.com/send");
+    expect(url.searchParams.get("phone")).toBe("923001234567");
+    expect(url.searchParams.get("text")).toBe("Hi Ayesha!");
   });
 
   it("substitutes both merge tags", () => {
     const link = buildWhatsAppLink("+923001234567", "{{full_name}} ({{first_name}})", "Ayesha Khan");
-    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Ayesha Khan (Ayesha)");
+    expect(new URL(link).searchParams.get("text")).toBe("Ayesha Khan (Ayesha)");
   });
 
   it("leaves a message with no merge tags untouched", () => {
     const link = buildWhatsAppLink("+923001234567", "Hello there, no personalization here.", "Ayesha Khan");
-    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Hello there, no personalization here.");
+    expect(new URL(link).searchParams.get("text")).toBe("Hello there, no personalization here.");
   });
 
   it("does not crash on a single-word name", () => {
     const link = buildWhatsAppLink("+923001234567", "Hi {{first_name}}, {{full_name}}", "Somaan");
-    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Hi Somaan, Somaan");
+    expect(new URL(link).searchParams.get("text")).toBe("Hi Somaan, Somaan");
   });
 
   it("strips any non-digit characters from the phone, not just the leading plus", () => {
     const link = buildWhatsAppLink("+92 300 1234567", "Hi", "A");
-    expect(link.startsWith("https://wa.me/923001234567?")).toBe(true);
+    expect(new URL(link).searchParams.get("phone")).toBe("923001234567");
   });
 
   it("falls back to 'there' for both merge tags when the name is blank, matching the email channel's merge-tags.ts", () => {
     const link = buildWhatsAppLink("+923001234567", "Hi {{first_name}}, ({{full_name}})", "   ");
-    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Hi there, (there)");
+    expect(new URL(link).searchParams.get("text")).toBe("Hi there, (there)");
   });
 
   it("tolerates internal whitespace inside a merge tag, e.g. {{ first_name }}", () => {
     const link = buildWhatsAppLink("+923001234567", "Hi {{ first_name }}", "Ayesha Khan");
-    expect(decodeURIComponent(link.split("?text=")[1])).toBe("Hi Ayesha");
+    expect(new URL(link).searchParams.get("text")).toBe("Hi Ayesha");
   });
 });

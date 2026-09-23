@@ -1,5 +1,5 @@
 /**
- * wa.me click-to-chat link generation for the WhatsApp outreach feature.
+ * Click-to-chat link generation for the WhatsApp outreach feature.
  * Pure — no I/O, no database, safe to import from client components (the
  * recipient table builds these links directly in the browser).
  */
@@ -34,13 +34,20 @@ function renderMessage(template: string, fullName: string): string {
 }
 
 /**
- * wa.me requires digits only in the URL — no leading "+", no spaces or
- * dashes. phoneE164 is always "+<country><number>" by construction
- * (src/lib/crm/phone.ts's normalizePhone), so stripping every non-digit
- * character is a defensive superset of "just remove the +".
+ * Links straight to web.whatsapp.com/send rather than wa.me: wa.me is only
+ * a redirector that shows an interstitial ("Open app" / "Continue to
+ * WhatsApp Web") on every click, which is an extra click per recipient in
+ * a batch of dozens. web.whatsapp.com/send goes directly into the web
+ * client an already-logged-in admin has open, same as wa.me's own
+ * "Continue to WhatsApp Web" destination minus the interstitial.
+ *
+ * Digits-only, no leading "+", no spaces or dashes. phoneE164 is always
+ * "+<country><number>" by construction (src/lib/crm/phone.ts's
+ * normalizePhone), so stripping every non-digit character is a defensive
+ * superset of "just remove the +".
  */
 export function buildWhatsAppLink(phoneE164: string, messageTemplate: string, fullName: string): string {
   const digits = phoneE164.replace(/\D/g, "");
   const message = renderMessage(messageTemplate, fullName);
-  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  return `https://web.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(message)}`;
 }
