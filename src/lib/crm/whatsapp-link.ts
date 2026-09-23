@@ -34,12 +34,25 @@ function renderMessage(template: string, fullName: string): string {
 }
 
 /**
- * Links straight to web.whatsapp.com/send rather than wa.me: wa.me is only
- * a redirector that shows an interstitial ("Open app" / "Continue to
- * WhatsApp Web") on every click, which is an extra click per recipient in
- * a batch of dozens. web.whatsapp.com/send goes directly into the web
- * client an already-logged-in admin has open, same as wa.me's own
- * "Continue to WhatsApp Web" destination minus the interstitial.
+ * Uses the whatsapp:// app protocol (Meta's documented click-to-chat
+ * scheme) rather than wa.me or web.whatsapp.com. The OS hands the link
+ * straight to the installed WhatsApp desktop/mobile app — no browser tab
+ * involved at all, so there's nothing to pile up across clicks, and no
+ * wa.me interstitial ("Open app" / "Continue to WhatsApp Web") either.
+ * The app is single-instance by nature: repeat clicks just bring the same
+ * already-running window to front and swap its open chat, which is what
+ * the previous wa.me/web.whatsapp.com attempts at forcing tab reuse were
+ * trying (and failing) to achieve at the browser-tab level — WhatsApp
+ * Web's own Cross-Origin-Opener-Policy header actively defeats any
+ * client-side trick to hold onto a browser tab reference across a
+ * cross-origin navigation, confirmed live. The app has no such
+ * restriction because there's no browser tab to lose.
+ *
+ * Requires the WhatsApp desktop/mobile app to be installed and its
+ * protocol handler registered with the OS — true for this CRM's admin
+ * operator. Chrome will prompt to confirm opening an external app on the
+ * first click from this origin; that's a one-time browser permission,
+ * not a per-click step.
  *
  * Digits-only, no leading "+", no spaces or dashes. phoneE164 is always
  * "+<country><number>" by construction (src/lib/crm/phone.ts's
@@ -49,5 +62,5 @@ function renderMessage(template: string, fullName: string): string {
 export function buildWhatsAppLink(phoneE164: string, messageTemplate: string, fullName: string): string {
   const digits = phoneE164.replace(/\D/g, "");
   const message = renderMessage(messageTemplate, fullName);
-  return `https://web.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(message)}`;
+  return `whatsapp://send?phone=${digits}&text=${encodeURIComponent(message)}`;
 }

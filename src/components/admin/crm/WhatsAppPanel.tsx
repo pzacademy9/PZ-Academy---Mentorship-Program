@@ -200,10 +200,12 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                               <td className="py-1">{r.fullName || "—"}</td>
                               <td>{r.phoneE164}</td>
                               <td>
+                                {/* No target="_blank": whatsapp:// is a protocol
+                                    link, not a page — the browser hands it to the
+                                    OS before any navigation happens, so opening it
+                                    in a new tab would only risk a stray blank one. */}
                                 <a
                                   href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)}
-                                  target="_blank"
-                                  rel="noreferrer"
                                   className="text-pz-primary underline text-xs font-semibold"
                                 >
                                   Open chat

@@ -21,10 +21,11 @@ describe("firstNameOf", () => {
 });
 
 describe("buildWhatsAppLink", () => {
-  it("links straight to web.whatsapp.com/send with phone and encoded message", () => {
+  it("links via the whatsapp:// app protocol, straight into the desktop/mobile app, with phone and encoded message", () => {
     const link = buildWhatsAppLink("+923001234567", "Hi {{first_name}}!", "Ayesha Khan");
     const url = new URL(link);
-    expect(url.origin + url.pathname).toBe("https://web.whatsapp.com/send");
+    expect(url.protocol).toBe("whatsapp:");
+    expect(url.host).toBe("send");
     expect(url.searchParams.get("phone")).toBe("923001234567");
     expect(url.searchParams.get("text")).toBe("Hi Ayesha!");
   });
