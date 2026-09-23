@@ -34,6 +34,8 @@ export type QueryOp =
   | { kind: "contains"; column: string; values: string[] }
   | { kind: "in"; column: string; values: string[] }
   | { kind: "ilike"; column: string; pattern: string }
+  | { kind: "not-null"; column: string }
+  | { kind: "is-null"; column: string }
   | { kind: "eq" | "gte" | "lte" | "lt" | "gt"; column: string; value: string | number | boolean };
 
 /**
@@ -59,13 +61,20 @@ export const SEGMENT_FIELDS: ReadonlyArray<{ field: SegmentFilter["field"]; labe
 ];
 
 /**
- * Never optional and never removable: excludes contacts with no email,
- * contacts who unsubscribed, and addresses Brevo has suppressed. Folded into
- * is_sendable by the view so one predicate covers all three.
+ * Never optional and never removable for its channel: excludes contacts
+ * with no email, contacts who unsubscribed, and addresses Brevo has
+ * suppressed (folded into is_sendable by the view). WHATSAPP_REACHABLE_GUARD
+ * is the same idea for the other channel — a valid phone number that hasn't
+ * opted out of WhatsApp specifically (separate from email unsubscribe;
+ * they're independent channels).
  */
-const SENDABLE_GUARD: QueryOp = { kind: "eq", column: "is_sendable", value: true };
+export const EMAIL_SENDABLE_GUARD: QueryOp[] = [{ kind: "eq", column: "is_sendable", value: true }];
+export const WHATSAPP_REACHABLE_GUARD: QueryOp[] = [
+  { kind: "not-null", column: "phone_e164" },
+  { kind: "is-null", column: "whatsapp_unsubscribed_at" },
+];
 
-export function buildSegmentFilters(filters: SegmentFilter[]): QueryOp[] {
+export function buildSegmentFilters(filters: SegmentFilter[], guard: QueryOp[] = EMAIL_SENDABLE_GUARD): QueryOp[] {
   const ops: QueryOp[] = [];
 
   for (const filter of filters) {
@@ -111,6 +120,6 @@ export function buildSegmentFilters(filters: SegmentFilter[]): QueryOp[] {
     }
   }
 
-  ops.push(SENDABLE_GUARD);
+  ops.push(...guard);
   return ops;
 }
