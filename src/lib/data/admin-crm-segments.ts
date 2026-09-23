@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { buildSegmentFilters, type SegmentFilter, type QueryOp } from "@/lib/crm/segment";
+import { buildSegmentFilters, WHATSAPP_REACHABLE_GUARD, type SegmentFilter, type QueryOp } from "@/lib/crm/segment";
 
 export type SegmentContact = {
   id: string;
@@ -34,6 +34,10 @@ function applyOp<T extends { eq: unknown }>(query: T, op: QueryOp): T {
       return q.in(op.column as never, op.values as never);
     case "ilike":
       return q.ilike(op.column as never, op.pattern as never);
+    case "is-null":
+      return q.is(op.column as never, null as never);
+    case "not-null":
+      return q.not(op.column as never, "is" as never, null as never);
     default:
       return q[op.kind](op.column as never, op.value as never);
   }
@@ -113,6 +117,79 @@ export async function resolveSegment(
       email: r.email,
       unsubscribeToken: r.unsubscribe_token,
     }));
+
+  return { ok: true, contacts, total };
+}
+
+export type WhatsAppSegmentContact = {
+  id: string;
+  fullName: string;
+  phoneE164: string;
+};
+
+export type WhatsAppSegmentResult =
+  | { ok: true; contacts: WhatsAppSegmentContact[]; total: number }
+  | { ok: false };
+
+type WhatsAppRawRow = {
+  id: string | null;
+  full_name: string | null;
+  phone_e164: string | null;
+};
+
+/**
+ * The WhatsApp equivalent of resolveSegment. Kept as a separate function
+ * rather than a channel branch inside resolveSegment: the two channels
+ * genuinely need different required fields (email needs a non-null email +
+ * unsubscribe_token; WhatsApp needs a non-null phone and tolerates no email
+ * at all), so a shared SegmentContact type would have to make every field
+ * optional and push the "which fields are actually guaranteed" question
+ * onto every caller instead of onto this one function.
+ */
+export async function resolveWhatsAppSegment(
+  filters: SegmentFilter[],
+  opts?: { limit?: number },
+): Promise<WhatsAppSegmentResult> {
+  const admin = createAdminSupabase();
+  const ops = buildSegmentFilters(filters, WHATSAPP_REACHABLE_GUARD);
+
+  const build = () => {
+    let query = admin
+      .from("crm_contact_segment_source")
+      .select("id, full_name, phone_e164", { count: "exact" });
+    for (const op of ops) query = applyOp(query, op);
+    return query.order("id", { ascending: true });
+  };
+
+  const rawRows: WhatsAppRawRow[] = [];
+  let total = 0;
+
+  if (opts?.limit) {
+    const { data, count, error } = await build().limit(opts.limit);
+    if (error) {
+      console.error("[crm-segments] whatsapp resolve failed:", error);
+      return { ok: false };
+    }
+    rawRows.push(...((data ?? []) as WhatsAppRawRow[]));
+    total = count ?? rawRows.length;
+  } else {
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const offset = page * PAGE;
+      const { data, count, error } = await build().range(offset, offset + PAGE - 1);
+      if (error) {
+        console.error("[crm-segments] whatsapp resolve failed:", error);
+        return { ok: false };
+      }
+      const rows = (data ?? []) as WhatsAppRawRow[];
+      rawRows.push(...rows);
+      if (count != null) total = count;
+      if (rows.length < PAGE || offset + rows.length >= total) break;
+    }
+  }
+
+  const contacts: WhatsAppSegmentContact[] = rawRows
+    .filter((r): r is WhatsAppRawRow & { id: string; phone_e164: string } => r.id !== null && r.phone_e164 !== null)
+    .map((r) => ({ id: r.id, fullName: r.full_name ?? "", phoneE164: r.phone_e164 }));
 
   return { ok: true, contacts, total };
 }
