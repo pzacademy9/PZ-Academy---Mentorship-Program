@@ -3,21 +3,24 @@ import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listContacts, listMergeCandidates } from "@/lib/data/admin-crm-contacts";
 import { listCampaigns } from "@/lib/data/admin-crm-campaigns";
 import { listCohorts } from "@/lib/data/admin-crm-import";
+import { listWhatsAppBatches } from "@/lib/data/admin-crm-whatsapp";
 import { ContactsPanel } from "@/components/admin/crm/ContactsPanel";
 import { ImportWizard } from "@/components/admin/crm/ImportWizard";
 import { MergeReviewPanel } from "@/components/admin/crm/MergeReviewPanel";
 import { CampaignsPanel } from "@/components/admin/crm/CampaignsPanel";
 import { CohortsPanel } from "@/components/admin/crm/CohortsPanel";
+import { WhatsAppPanel } from "@/components/admin/crm/WhatsAppPanel";
 
 export const metadata = { title: "CRM — PZ Academy" };
 
-type Tab = "contacts" | "import" | "merge" | "campaigns" | "cohorts";
+type Tab = "contacts" | "import" | "merge" | "campaigns" | "cohorts" | "whatsapp";
 
 function parseTab(value: string | undefined): Tab {
   if (value === "import") return "import";
   if (value === "merge") return "merge";
   if (value === "campaigns") return "campaigns";
   if (value === "cohorts") return "cohorts";
+  if (value === "whatsapp") return "whatsapp";
   return "contacts";
 }
 
@@ -37,11 +40,12 @@ export default async function AdminCrmPage({
   const { tab: tabParam } = await searchParams;
   const tab = parseTab(tabParam);
 
-  const [contacts, mergeCandidates, campaigns, cohorts] = await Promise.all([
+  const [contacts, mergeCandidates, campaigns, cohorts, whatsappBatches] = await Promise.all([
     listContacts({ limit: 50, offset: 0 }),
     listMergeCandidates(),
     listCampaigns(),
     listCohorts(),
+    listWhatsAppBatches(),
   ]);
 
   return (
@@ -69,6 +73,9 @@ export default async function AdminCrmPage({
         <Link href="/dashboard/admin/crm?tab=cohorts" className={TAB_CLASS(tab === "cohorts")}>
           Cohorts <span className="ml-2 tabular-nums">{cohorts.length}</span>
         </Link>
+        <Link href="/dashboard/admin/crm?tab=whatsapp" className={TAB_CLASS(tab === "whatsapp")}>
+          WhatsApp <span className="ml-2 tabular-nums">{whatsappBatches.length}</span>
+        </Link>
       </div>
 
       {tab === "contacts" && <ContactsPanel initialRows={contacts.rows} initialTotal={contacts.total} />}
@@ -76,6 +83,7 @@ export default async function AdminCrmPage({
       {tab === "merge" && <MergeReviewPanel initialCandidates={mergeCandidates} />}
       {tab === "campaigns" && <CampaignsPanel initialCampaigns={campaigns} />}
       {tab === "cohorts" && <CohortsPanel initialCohorts={cohorts} />}
+      {tab === "whatsapp" && <WhatsAppPanel initialBatches={whatsappBatches} />}
     </div>
   );
 }
