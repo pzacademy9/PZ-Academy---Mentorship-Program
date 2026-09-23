@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { importPreviewSchema, importCommitSchema, mergeResolveSchema, segmentFilterSchema, campaignCreateSchema } from "@/lib/validations/crm";
+import {
+  importPreviewSchema,
+  importCommitSchema,
+  mergeResolveSchema,
+  segmentFilterSchema,
+  segmentPreviewSchema,
+  campaignCreateSchema,
+  whatsappBatchCreateSchema,
+  whatsappRecipientStatusSchema,
+} from "@/lib/validations/crm";
 
 const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null };
 
@@ -109,5 +118,55 @@ describe("campaignCreateSchema", () => {
     expect(campaignCreateSchema.safeParse({ name: "", subject: "S", bodyHtml: "<p>x</p>", segment: [] }).success).toBe(false);
     expect(campaignCreateSchema.safeParse({ name: "N", subject: "", bodyHtml: "<p>x</p>", segment: [] }).success).toBe(false);
     expect(campaignCreateSchema.safeParse({ name: "N", subject: "S", bodyHtml: "", segment: [] }).success).toBe(false);
+  });
+});
+
+describe("segmentPreviewSchema", () => {
+  it("defaults channel to email when omitted", () => {
+    const parsed = segmentPreviewSchema.safeParse({ segment: [] });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.channel).toBe("email");
+  });
+
+  it("accepts an explicit whatsapp channel", () => {
+    const parsed = segmentPreviewSchema.safeParse({ segment: [], channel: "whatsapp" });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.channel).toBe("whatsapp");
+  });
+
+  it("rejects an unknown channel", () => {
+    expect(segmentPreviewSchema.safeParse({ segment: [], channel: "sms" }).success).toBe(false);
+  });
+});
+
+describe("whatsappBatchCreateSchema", () => {
+  it("accepts a complete batch", () => {
+    const parsed = whatsappBatchCreateSchema.safeParse({
+      name: "W20 WhatsApp follow-up",
+      messageTemplate: "Hi {{first_name}}, ...",
+      segment: [{ field: "country", op: "in", values: ["PK"] }],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts an empty segment, which means everyone phone-reachable", () => {
+    const parsed = whatsappBatchCreateSchema.safeParse({ name: "All", messageTemplate: "Hi", segment: [] });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a blank name or message", () => {
+    expect(whatsappBatchCreateSchema.safeParse({ name: "", messageTemplate: "Hi", segment: [] }).success).toBe(false);
+    expect(whatsappBatchCreateSchema.safeParse({ name: "N", messageTemplate: "", segment: [] }).success).toBe(false);
+  });
+});
+
+describe("whatsappRecipientStatusSchema", () => {
+  it("accepts pending and sent", () => {
+    expect(whatsappRecipientStatusSchema.safeParse({ status: "pending" }).success).toBe(true);
+    expect(whatsappRecipientStatusSchema.safeParse({ status: "sent" }).success).toBe(true);
+  });
+
+  it("rejects any other status", () => {
+    expect(whatsappRecipientStatusSchema.safeParse({ status: "delivered" }).success).toBe(false);
   });
 });

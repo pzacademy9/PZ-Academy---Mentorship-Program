@@ -91,6 +91,7 @@ export const segmentFilterSchema = z.discriminatedUnion("field", [
 
 export const segmentPreviewSchema = z.object({
   segment: z.array(segmentFilterSchema).max(20),
+  channel: z.enum(["email", "whatsapp"]).default("email"),
 });
 
 export const segmentFieldValuesQuerySchema = z.object({
@@ -110,4 +111,14 @@ export const campaignUpdateSchema = campaignCreateSchema;
 
 export const campaignTestSchema = z.object({
   email: z.string().trim().email(),
+});
+
+export const whatsappBatchCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(150),
+  messageTemplate: z.string().trim().min(1, "Message is required").max(4096),
+  segment: z.array(segmentFilterSchema).max(20),
+});
+
+export const whatsappRecipientStatusSchema = z.object({
+  status: z.enum(["pending", "sent"]),
 });
