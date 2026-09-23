@@ -23,12 +23,14 @@ const AUTO_COUNT_DELAY_MS = 500;
 export function SegmentBuilder({
   value,
   onChange,
+  channel = "email",
 }: {
   value: SegmentFilter[];
   onChange: (next: SegmentFilter[]) => void;
+  channel?: "email" | "whatsapp";
 }) {
   const [count, setCount] = useState<number | null>(null);
-  const [samples, setSamples] = useState<Array<{ fullName: string; email: string }>>([]);
+  const [samples, setSamples] = useState<Array<{ fullName: string; email?: string; phoneE164?: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [batches, setBatches] = useState<ImportBatchOption[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
@@ -66,7 +68,7 @@ export function SegmentBuilder({
       const res = await fetch("/api/admin/crm/segments/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segment: filters }),
+        body: JSON.stringify({ segment: filters, channel }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -161,7 +163,9 @@ export function SegmentBuilder({
 
       {value.length === 0 && (
         <p className="font-body text-xs text-pz-on-surface-variant">
-          No filters — this matches every contact who has an email, has not unsubscribed, and has not bounced.
+          {channel === "whatsapp"
+            ? "No filters — this matches every contact with a valid WhatsApp number who hasn't opted out."
+            : "No filters — this matches every contact who has an email, has not unsubscribed, and has not bounced."}
         </p>
       )}
 
@@ -325,7 +329,7 @@ export function SegmentBuilder({
 
       {samples.length > 0 && (
         <p className="font-body text-xs text-pz-on-surface-variant">
-          e.g. {samples.map((s) => s.fullName || s.email).join(", ")}
+          e.g. {samples.map((s) => s.fullName || s.email || s.phoneE164).join(", ")}
         </p>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { resolveSegment } from "@/lib/data/admin-crm-segments";
+import { resolveSegment, resolveWhatsAppSegment } from "@/lib/data/admin-crm-segments";
 import { segmentPreviewSchema } from "@/lib/validations/crm";
 
 export async function POST(req: NextRequest) {
@@ -17,6 +17,15 @@ export async function POST(req: NextRequest) {
     const first = parsed.error.issues[0];
     const where = first?.path.length ? ` (at ${first.path.join(".")})` : "";
     return NextResponse.json({ error: `Invalid segment${where}: ${first?.message ?? "unknown"}` }, { status: 400 });
+  }
+
+  if (parsed.data.channel === "whatsapp") {
+    const result = await resolveWhatsAppSegment(parsed.data.segment, { limit: 10 });
+    if (!result.ok) return NextResponse.json({ error: "Could not resolve that segment" }, { status: 500 });
+    return NextResponse.json({
+      total: result.total,
+      samples: result.contacts.map((c) => ({ fullName: c.fullName, phoneE164: c.phoneE164 })),
+    });
   }
 
   const result = await resolveSegment(parsed.data.segment, { limit: 10 });
