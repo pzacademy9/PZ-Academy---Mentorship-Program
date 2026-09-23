@@ -2191,6 +2191,105 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_batch_recipients: {
+        Row: {
+          batch_id: string
+          contact_id: string | null
+          created_at: string
+          full_name: string
+          id: string
+          phone_e164: string
+          sent_at: string | null
+          sent_by: string | null
+          status: Database["public"]["Enums"]["whatsapp_send_status"]
+        }
+        Insert: {
+          batch_id: string
+          contact_id?: string | null
+          created_at?: string
+          full_name: string
+          id?: string
+          phone_e164: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: Database["public"]["Enums"]["whatsapp_send_status"]
+        }
+        Update: {
+          batch_id?: string
+          contact_id?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          phone_e164?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: Database["public"]["Enums"]["whatsapp_send_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_batch_recipients_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_batch_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_batch_recipients_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          message_template: string
+          name: string
+          recipient_count: number
+          segment: Json
+          sent_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          message_template: string
+          name: string
+          recipient_count?: number
+          segment?: Json
+          sent_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          message_template?: string
+          name?: string
+          recipient_count?: number
+          segment?: Json
+          sent_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       crm_campaign_stats: {
@@ -2236,6 +2335,7 @@ export type Database = {
           row_types: string[] | null
           total_pkr: number | null
           unsubscribe_token: string | null
+          whatsapp_unsubscribed_at: string | null
         }
         Relationships: []
       }
@@ -2388,6 +2488,7 @@ export type Database = {
         | "interview_prep"
         | "career_guidance"
       user_role: "student" | "mentor" | "admin" | "super_admin"
+      whatsapp_send_status: "pending" | "sent"
     }
     CompositeTypes: {
       [_ in never]: never
