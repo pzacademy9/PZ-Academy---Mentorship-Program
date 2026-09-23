@@ -92,6 +92,38 @@ export async function createWhatsAppBatch(
   return { ok: true, batchId: batch.id, recipientCount: resolved.contacts.length };
 }
 
+export type UpdateWhatsAppBatchMessageResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
+
+/**
+ * Edits the message template on an already-created batch. Any recipient
+ * still pending picks up the new text on their next "Open chat" click —
+ * there's no per-recipient stored copy of the message to reconcile, the
+ * link is built from this field live. A recipient already marked sent
+ * keeps its sent_at/sent_by history either way; editing the template
+ * afterward is for fixing a typo or adjusting for the ones still to go,
+ * not rewriting what already went out.
+ */
+export async function updateWhatsAppBatchMessage(
+  batchId: string,
+  messageTemplate: string,
+): Promise<UpdateWhatsAppBatchMessageResult> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("whatsapp_batches")
+    .update({ message_template: messageTemplate })
+    .eq("id", batchId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[crm-whatsapp] batch message update failed:", error);
+    return { ok: false, reason: "db-error" };
+  }
+  if (!data) return { ok: false, reason: "not-found" };
+
+  return { ok: true };
+}
+
 export type WhatsAppRecipientRow = {
   id: string;
   fullName: string;

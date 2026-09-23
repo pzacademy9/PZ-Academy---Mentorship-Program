@@ -7,6 +7,7 @@ import {
   segmentPreviewSchema,
   campaignCreateSchema,
   whatsappBatchCreateSchema,
+  whatsappBatchUpdateSchema,
   whatsappRecipientStatusSchema,
 } from "@/lib/validations/crm";
 
@@ -157,6 +158,21 @@ describe("whatsappBatchCreateSchema", () => {
   it("rejects a blank name or message", () => {
     expect(whatsappBatchCreateSchema.safeParse({ name: "", messageTemplate: "Hi", segment: [] }).success).toBe(false);
     expect(whatsappBatchCreateSchema.safeParse({ name: "N", messageTemplate: "", segment: [] }).success).toBe(false);
+  });
+});
+
+describe("whatsappBatchUpdateSchema", () => {
+  it("accepts a new message template", () => {
+    const parsed = whatsappBatchUpdateSchema.safeParse({ messageTemplate: "Hi {{first_name}}, updated." });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a blank message", () => {
+    expect(whatsappBatchUpdateSchema.safeParse({ messageTemplate: "" }).success).toBe(false);
+  });
+
+  it("rejects a message over 4096 characters, matching the create schema's limit", () => {
+    expect(whatsappBatchUpdateSchema.safeParse({ messageTemplate: "a".repeat(4097) }).success).toBe(false);
   });
 });
 

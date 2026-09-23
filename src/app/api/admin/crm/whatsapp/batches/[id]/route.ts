@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { getWhatsAppBatchDetail } from "@/lib/data/admin-crm-whatsapp";
+import { getWhatsAppBatchDetail, updateWhatsAppBatchMessage } from "@/lib/data/admin-crm-whatsapp";
+import { whatsappBatchUpdateSchema } from "@/lib/validations/crm";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
@@ -11,4 +12,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!detail) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(detail);
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
+  const { id } = await params;
+  const parsed = whatsappBatchUpdateSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  const result = await updateWhatsAppBatchMessage(id, parsed.data.messageTemplate);
+  if (!result.ok) {
+    const status = result.reason === "not-found" ? 404 : 500;
+    return NextResponse.json({ error: "Could not update this batch's message." }, { status });
+  }
+
+  return NextResponse.json({ ok: true });
 }

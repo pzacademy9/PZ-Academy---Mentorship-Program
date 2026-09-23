@@ -35,6 +35,9 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<BatchDetail | null>(null);
   const [busyRecipientId, setBusyRecipientId] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState(false);
+  const [messageDraft, setMessageDraft] = useState("");
+  const [savingMessage, setSavingMessage] = useState(false);
   const messageRef = useRef<HTMLTextAreaElement>(null);
 
   // Picks up a bulk selection handed off from the Contacts tab, once, on
@@ -93,11 +96,34 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   }
 
   async function toggleDetail(id: string) {
+    setEditingMessage(false);
     if (openId === id) { setOpenId(null); setDetail(null); return; }
     setOpenId(id);
     setDetail(null);
     const res = await fetch(`/api/admin/crm/whatsapp/batches/${id}`);
     if (res.ok) setDetail(await res.json());
+  }
+
+  async function saveMessage() {
+    if (!detail) return;
+    setSavingMessage(true);
+    try {
+      const res = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageTemplate: messageDraft }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error ?? "Could not update the message.");
+        return;
+      }
+      setDetail((prev) => (prev ? { ...prev, messageTemplate: messageDraft } : prev));
+      setEditingMessage(false);
+      toast.success("Message updated.");
+    } finally {
+      setSavingMessage(false);
+    }
   }
 
   async function toggleSent(recipient: Recipient) {
@@ -190,6 +216,47 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                     {detail === null ? (
                       <p className="font-body text-xs text-pz-on-surface-variant">Loading…</p>
                     ) : (
+                      <>
+                      <div className="mb-4 bg-pz-surface-container-highest rounded-xl p-3">
+                        {editingMessage ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={messageDraft}
+                              onChange={(e) => setMessageDraft(e.target.value)}
+                              rows={4}
+                              className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={saveMessage}
+                                disabled={savingMessage || messageDraft.trim() === ""}
+                                className="px-4 py-1.5 rounded-full bg-pz-primary text-pz-on-primary font-headline text-xs font-semibold disabled:opacity-50"
+                              >
+                                {savingMessage ? "Saving…" : "Save message"}
+                              </button>
+                              <button
+                                onClick={() => setEditingMessage(false)}
+                                disabled={savingMessage}
+                                className="px-4 py-1.5 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-xs font-semibold"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-body text-xs text-pz-on-surface-variant whitespace-pre-wrap flex-1">
+                              {detail.messageTemplate}
+                            </p>
+                            <button
+                              onClick={() => { setMessageDraft(detail.messageTemplate); setEditingMessage(true); }}
+                              className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0"
+                            >
+                              Edit message
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <table className="w-full text-left font-body text-sm">
                         <thead className="text-pz-on-surface-variant text-xs uppercase">
                           <tr><th className="py-1">Name</th><th>Phone</th><th></th><th></th></tr>
@@ -226,6 +293,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                           ))}
                         </tbody>
                       </table>
+                      </>
                     )}
                   </div>
                 )}

@@ -119,6 +119,10 @@ export const whatsappBatchCreateSchema = z.object({
   segment: z.array(segmentFilterSchema).max(20),
 });
 
+export const whatsappBatchUpdateSchema = z.object({
+  messageTemplate: z.string().trim().min(1, "Message is required").max(4096),
+});
+
 export const whatsappRecipientStatusSchema = z.object({
   status: z.enum(["pending", "sent"]),
 });
