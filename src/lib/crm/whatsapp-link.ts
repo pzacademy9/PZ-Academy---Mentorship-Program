@@ -20,7 +20,7 @@ export function firstNameOf(fullName: string): string {
  * which would corrupt a plain-text wa.me message (e.g. turn "&" into
  * "&amp;" in what the admin actually sends).
  */
-function renderMessage(template: string, fullName: string): string {
+export function renderWhatsAppMessage(template: string, fullName: string): string {
   const trimmedName = fullName.trim();
   const first = firstNameOf(fullName);
   const values: Record<string, string> = {
@@ -61,6 +61,6 @@ function renderMessage(template: string, fullName: string): string {
  */
 export function buildWhatsAppLink(phoneE164: string, messageTemplate: string, fullName: string): string {
   const digits = phoneE164.replace(/\D/g, "");
-  const message = renderMessage(messageTemplate, fullName);
+  const message = renderWhatsAppMessage(messageTemplate, fullName);
   return `whatsapp://send?phone=${digits}&text=${encodeURIComponent(message)}`;
 }

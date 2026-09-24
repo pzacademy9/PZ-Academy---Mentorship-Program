@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWhatsAppLink, firstNameOf } from "@/lib/crm/whatsapp-link";
+import { buildWhatsAppLink, firstNameOf, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 
 describe("firstNameOf", () => {
   it("returns the first token of a multi-word name", () => {
@@ -58,5 +58,15 @@ describe("buildWhatsAppLink", () => {
   it("tolerates internal whitespace inside a merge tag, e.g. {{ first_name }}", () => {
     const link = buildWhatsAppLink("+923001234567", "Hi {{ first_name }}", "Ayesha Khan");
     expect(new URL(link).searchParams.get("text")).toBe("Hi Ayesha");
+  });
+});
+
+describe("renderWhatsAppMessage", () => {
+  it("substitutes merge tags into plain text, the same rendering buildWhatsAppLink encodes into the link", () => {
+    expect(renderWhatsAppMessage("Hi {{first_name}}!", "Ayesha Khan")).toBe("Hi Ayesha!");
+  });
+
+  it("falls back to 'there' for a blank name", () => {
+    expect(renderWhatsAppMessage("Hi {{first_name}}", "   ")).toBe("Hi there");
   });
 });

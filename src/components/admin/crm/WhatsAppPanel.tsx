@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SegmentBuilder } from "./SegmentBuilder";
-import { buildWhatsAppLink } from "@/lib/crm/whatsapp-link";
+import { buildWhatsAppLink, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
 
 type BatchListRow = {
@@ -38,7 +38,9 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [editingMessage, setEditingMessage] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
   const [savingMessage, setSavingMessage] = useState(false);
+  const [queueMode, setQueueMode] = useState(false);
   const messageRef = useRef<HTMLTextAreaElement>(null);
+  const queueLinkRef = useRef<HTMLAnchorElement>(null);
 
   // Picks up a bulk selection handed off from the Contacts tab, once, on
   // mount. Read-then-remove so revisiting this tab later (without a fresh
@@ -95,8 +97,16 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     setMessage(message.slice(0, start) + tag + message.slice(end));
   }
 
+  // Keeps the queue's "Open chat" link focused so Enter re-triggers it after
+  // each click, without a separate keydown listener — a focused <a> already
+  // activates on Enter natively.
+  useEffect(() => {
+    if (queueMode) queueLinkRef.current?.focus();
+  }, [queueMode, detail]);
+
   async function toggleDetail(id: string) {
     setEditingMessage(false);
+    setQueueMode(false);
     if (openId === id) { setOpenId(null); setDetail(null); return; }
     setOpenId(id);
     setDetail(null);
@@ -257,42 +267,96 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                           </div>
                         )}
                       </div>
-                      <table className="w-full text-left font-body text-sm">
-                        <thead className="text-pz-on-surface-variant text-xs uppercase">
-                          <tr><th className="py-1">Name</th><th>Phone</th><th></th><th></th></tr>
-                        </thead>
-                        <tbody>
-                          {detail.recipients.map((r) => (
-                            <tr key={r.id} className="border-t border-pz-outline-variant">
-                              <td className="py-1">{r.fullName || "—"}</td>
-                              <td>{r.phoneE164}</td>
-                              <td>
-                                {/* No target="_blank": whatsapp:// is a protocol
-                                    link, not a page — the browser hands it to the
-                                    OS before any navigation happens, so opening it
-                                    in a new tab would only risk a stray blank one. */}
-                                <a
-                                  href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)}
-                                  className="text-pz-primary underline text-xs font-semibold"
-                                >
-                                  Open chat
-                                </a>
-                              </td>
-                              <td>
-                                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={r.status === "sent"}
-                                    disabled={busyRecipientId === r.id}
-                                    onChange={() => toggleSent(r)}
-                                  />
-                                  sent
-                                </label>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+
+                      <div className="mb-3 flex justify-end">
+                        <button
+                          onClick={() => setQueueMode((v) => !v)}
+                          className="font-body text-xs font-semibold text-pz-primary hover:underline"
+                        >
+                          {queueMode ? "Switch to table view" : "Switch to queue mode"}
+                        </button>
+                      </div>
+
+                      {queueMode ? (
+                        (() => {
+                          const pending = detail.recipients.filter((r) => r.status === "pending");
+                          const current = pending[0];
+                          if (!current) {
+                            return (
+                              <p className="font-body text-sm text-pz-on-surface-variant py-6 text-center">
+                                All recipients sent.
+                              </p>
+                            );
+                          }
+                          return (
+                            <div className="bg-pz-surface-container-highest rounded-xl p-4 space-y-3">
+                              <p className="font-body text-xs text-pz-on-surface-variant tabular-nums">
+                                {detail.sentCount} / {detail.recipientCount} sent — {pending.length} left
+                              </p>
+                              <p className="font-body font-semibold text-sm">
+                                {current.fullName || "—"}{" "}
+                                <span className="font-normal text-pz-on-surface-variant">{current.phoneE164}</span>
+                              </p>
+                              <p className="font-body text-sm whitespace-pre-wrap">
+                                {renderWhatsAppMessage(detail.messageTemplate, current.fullName)}
+                              </p>
+                              {/* No target="_blank": whatsapp:// is a protocol
+                                  link, not a page — the browser hands it to the
+                                  OS before any navigation happens. Clicking (or
+                                  hitting Enter while it's focused, see the
+                                  autofocus effect above) opens the chat and marks
+                                  this recipient sent in the same action, which
+                                  drops them out of `pending` and advances the
+                                  queue to the next one on re-render. */}
+                              <a
+                                ref={queueLinkRef}
+                                href={buildWhatsAppLink(current.phoneE164, detail.messageTemplate, current.fullName)}
+                                onClick={() => toggleSent(current)}
+                                className="inline-block px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold"
+                              >
+                                Open chat
+                              </a>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <table className="w-full text-left font-body text-sm">
+                          <thead className="text-pz-on-surface-variant text-xs uppercase">
+                            <tr><th className="py-1">Name</th><th>Phone</th><th></th><th></th></tr>
+                          </thead>
+                          <tbody>
+                            {detail.recipients.map((r) => (
+                              <tr key={r.id} className="border-t border-pz-outline-variant">
+                                <td className="py-1">{r.fullName || "—"}</td>
+                                <td>{r.phoneE164}</td>
+                                <td>
+                                  {/* No target="_blank": whatsapp:// is a protocol
+                                      link, not a page — the browser hands it to the
+                                      OS before any navigation happens, so opening it
+                                      in a new tab would only risk a stray blank one. */}
+                                  <a
+                                    href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)}
+                                    className="text-pz-primary underline text-xs font-semibold"
+                                  >
+                                    Open chat
+                                  </a>
+                                </td>
+                                <td>
+                                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={r.status === "sent"}
+                                      disabled={busyRecipientId === r.id}
+                                      onChange={() => toggleSent(r)}
+                                    />
+                                    sent
+                                  </label>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                       </>
                     )}
                   </div>
