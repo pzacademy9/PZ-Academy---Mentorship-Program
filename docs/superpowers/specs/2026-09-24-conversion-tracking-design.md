@@ -155,16 +155,23 @@ until-valid convention `createBatch` already uses for name/message.
 text): `"12% converted (17/139) · Not converted (yet): 122"` when tracked;
 nothing extra when `conversion` is `null`.
 
-**Recipient table** (expanded detail): existing Name/Phone(or Email)/Status
-columns gain a "Converted" column — a checkmark + date, or "Not converted
-(yet)" — only rendered when the batch/campaign is tracked.
+**Recipient table** (WhatsApp batch expanded detail only — the one place a
+per-recipient table already exists): existing Name/Phone/Status columns
+gain a "Converted" column — a checkmark + date, or "Not converted (yet)" —
+only rendered when the batch is tracked. `CampaignsPanel` has no
+per-recipient detail view to extend (it only ever showed aggregate stats —
+recipients/sent/delivered/opened/clicked/bounced — no expand/drill-down);
+building one is out of scope for this slice, so email's per-recipient
+converted list lives only in the Conversion tab below.
 
 **New "Conversion" tab** on the CRM page (alongside Contacts / Import /
 Merge / Campaigns / Cohorts / WhatsApp): lists every tracked batch and
 campaign, both channels together, sorted by conversion % descending — name,
-channel icon, course tag, converted/total, %. Read-only; click-through
-reuses the existing batch/campaign detail views rather than duplicating the
-recipient list here.
+channel icon, course tag, converted/total, %. Each row expands in place
+(same tab, no separate page) to a converted-recipient list — name +
+converted-at — since campaigns have nowhere else to show this. WhatsApp
+rows may expand the same way for consistency, even though their batch
+detail view already has the per-recipient table.
 
 ## Error handling
 
