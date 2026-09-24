@@ -16,7 +16,7 @@ type BatchListRow = {
 };
 
 type Recipient = { id: string; fullName: string; phoneE164: string; status: "pending" | "sent"; sentAt: string | null };
-type BatchDetail = BatchListRow & { recipients: Recipient[] };
+type BatchDetail = BatchListRow & { segment: SegmentFilter[]; recipients: Recipient[] };
 
 const MERGE_TAGS = [
   { label: "First name", tag: "{{first_name}}" },
@@ -38,7 +38,13 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [editingMessage, setEditingMessage] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
   const [savingMessage, setSavingMessage] = useState(false);
+  const [editingBatch, setEditingBatch] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [segmentDraft, setSegmentDraft] = useState<SegmentFilter[]>([]);
+  const [savingBatch, setSavingBatch] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [queueMode, setQueueMode] = useState(false);
+  const [lastQueueSentId, setLastQueueSentId] = useState<string | null>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const queueLinkRef = useRef<HTMLAnchorElement>(null);
 
@@ -106,12 +112,65 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
 
   async function toggleDetail(id: string) {
     setEditingMessage(false);
+    setEditingBatch(false);
     setQueueMode(false);
+    setLastQueueSentId(null);
     if (openId === id) { setOpenId(null); setDetail(null); return; }
     setOpenId(id);
     setDetail(null);
     const res = await fetch(`/api/admin/crm/whatsapp/batches/${id}`);
     if (res.ok) setDetail(await res.json());
+  }
+
+  async function saveBatchEdits() {
+    if (!detail) return;
+    setSavingBatch(true);
+    try {
+      const res = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nameDraft, segment: segmentDraft }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not update this batch.");
+        return;
+      }
+      const refreshed = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`);
+      if (refreshed.ok) {
+        const newDetail: BatchDetail = await refreshed.json();
+        setDetail(newDetail);
+        setBatches((prev) =>
+          prev.map((b) =>
+            b.id === newDetail.id
+              ? { ...b, name: newDetail.name, recipientCount: newDetail.recipientCount, sentCount: newDetail.sentCount }
+              : b,
+          ),
+        );
+      }
+      setEditingBatch(false);
+      toast.success("Batch updated.");
+    } finally {
+      setSavingBatch(false);
+    }
+  }
+
+  async function deleteBatch(b: BatchListRow) {
+    if (!confirm(`Delete "${b.name}" — ${b.sentCount} sent? This cannot be undone.`)) return;
+    setDeletingId(b.id);
+    try {
+      const res = await fetch(`/api/admin/crm/whatsapp/batches/${b.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error ?? "Could not delete this batch.");
+        return;
+      }
+      setBatches((prev) => prev.filter((x) => x.id !== b.id));
+      if (openId === b.id) { setOpenId(null); setDetail(null); }
+      toast.success("Batch deleted.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function saveMessage() {
@@ -167,6 +226,19 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     }
   }
 
+  // Undoes exactly the last queue-mode send (misclick recovery) — one step
+  // only, not a full history. toggleSent flips sent back to pending, which
+  // puts the recipient back in `pending` at their original array position,
+  // so they reappear as the current queue card with no separate cursor to
+  // manage.
+  async function goBackInQueue() {
+    if (!detail || !lastQueueSentId) return;
+    const recipient = detail.recipients.find((r) => r.id === lastQueueSentId);
+    setLastQueueSentId(null);
+    if (!recipient) return;
+    await toggleSent(recipient);
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-pz-surface-container-high rounded-2xl p-5 space-y-3">
@@ -214,12 +286,21 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
           <div className="space-y-2">
             {batches.map((b) => (
               <div key={b.id} className="bg-pz-surface-container-high rounded-2xl p-4">
-                <button onClick={() => toggleDetail(b.id)} className="w-full flex items-center justify-between text-left">
-                  <span className="font-body font-semibold text-sm">{b.name}</span>
-                  <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
-                    {b.sentCount} / {b.recipientCount} sent
-                  </span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleDetail(b.id)} className="flex-1 flex items-center justify-between text-left">
+                    <span className="font-body font-semibold text-sm">{b.name}</span>
+                    <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
+                      {b.sentCount} / {b.recipientCount} sent
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => deleteBatch(b)}
+                    disabled={deletingId === b.id}
+                    className="font-body text-xs font-semibold text-pz-danger hover:underline shrink-0 disabled:opacity-50"
+                  >
+                    {deletingId === b.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
 
                 {openId === b.id && (
                   <div className="mt-4 overflow-x-auto">
@@ -227,6 +308,53 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                       <p className="font-body text-xs text-pz-on-surface-variant">Loading…</p>
                     ) : (
                       <>
+                      <div className="mb-4 bg-pz-surface-container-highest rounded-xl p-3">
+                        {editingBatch ? (
+                          <div className="space-y-3">
+                            <input
+                              value={nameDraft}
+                              onChange={(e) => setNameDraft(e.target.value)}
+                              className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm font-semibold"
+                            />
+                            <SegmentBuilder value={segmentDraft} onChange={setSegmentDraft} channel="whatsapp" />
+                            <p className="font-body text-xs text-pz-on-surface-variant">
+                              Re-applying the segment adds newly-matching contacts as pending and drops
+                              non-matching pending ones — anyone already sent stays in the batch either way.
+                            </p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={saveBatchEdits}
+                                disabled={savingBatch || nameDraft.trim() === ""}
+                                className="px-4 py-1.5 rounded-full bg-pz-primary text-pz-on-primary font-headline text-xs font-semibold disabled:opacity-50"
+                              >
+                                {savingBatch ? "Saving…" : "Save batch"}
+                              </button>
+                              <button
+                                onClick={() => setEditingBatch(false)}
+                                disabled={savingBatch}
+                                className="px-4 py-1.5 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-xs font-semibold"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-body font-semibold text-sm flex-1">{detail.name}</p>
+                            <button
+                              onClick={() => {
+                                setNameDraft(detail.name);
+                                setSegmentDraft(detail.segment);
+                                setEditingBatch(true);
+                              }}
+                              className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0"
+                            >
+                              Edit batch
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="mb-4 bg-pz-surface-container-highest rounded-xl p-3">
                         {editingMessage ? (
                           <div className="space-y-2">
@@ -281,41 +409,54 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                         (() => {
                           const pending = detail.recipients.filter((r) => r.status === "pending");
                           const current = pending[0];
-                          if (!current) {
-                            return (
-                              <p className="font-body text-sm text-pz-on-surface-variant py-6 text-center">
-                                All recipients sent.
-                              </p>
-                            );
-                          }
                           return (
                             <div className="bg-pz-surface-container-highest rounded-xl p-4 space-y-3">
                               <p className="font-body text-xs text-pz-on-surface-variant tabular-nums">
                                 {detail.sentCount} / {detail.recipientCount} sent — {pending.length} left
                               </p>
-                              <p className="font-body font-semibold text-sm">
-                                {current.fullName || "—"}{" "}
-                                <span className="font-normal text-pz-on-surface-variant">{current.phoneE164}</span>
-                              </p>
-                              <p className="font-body text-sm whitespace-pre-wrap">
-                                {renderWhatsAppMessage(detail.messageTemplate, current.fullName)}
-                              </p>
-                              {/* No target="_blank": whatsapp:// is a protocol
-                                  link, not a page — the browser hands it to the
-                                  OS before any navigation happens. Clicking (or
-                                  hitting Enter while it's focused, see the
-                                  autofocus effect above) opens the chat and marks
-                                  this recipient sent in the same action, which
-                                  drops them out of `pending` and advances the
-                                  queue to the next one on re-render. */}
-                              <a
-                                ref={queueLinkRef}
-                                href={buildWhatsAppLink(current.phoneE164, detail.messageTemplate, current.fullName)}
-                                onClick={() => toggleSent(current)}
-                                className="inline-block px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold"
-                              >
-                                Open chat
-                              </a>
+                              {current ? (
+                                <>
+                                  <p className="font-body font-semibold text-sm">
+                                    {current.fullName || "—"}{" "}
+                                    <span className="font-normal text-pz-on-surface-variant">{current.phoneE164}</span>
+                                  </p>
+                                  <p className="font-body text-sm whitespace-pre-wrap">
+                                    {renderWhatsAppMessage(detail.messageTemplate, current.fullName)}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="font-body text-sm text-pz-on-surface-variant py-2">
+                                  All recipients sent.
+                                </p>
+                              )}
+                              <div className="flex items-center gap-3">
+                                {current && (
+                                  // No target="_blank": whatsapp:// is a protocol
+                                  // link, not a page — the browser hands it to the
+                                  // OS before any navigation happens. Clicking (or
+                                  // hitting Enter while it's focused, see the
+                                  // autofocus effect above) opens the chat and marks
+                                  // this recipient sent in the same action, which
+                                  // drops them out of `pending` and advances the
+                                  // queue to the next one on re-render.
+                                  <a
+                                    ref={queueLinkRef}
+                                    href={buildWhatsAppLink(current.phoneE164, detail.messageTemplate, current.fullName)}
+                                    onClick={() => { toggleSent(current); setLastQueueSentId(current.id); }}
+                                    className="inline-block px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold"
+                                  >
+                                    Open chat
+                                  </a>
+                                )}
+                                {lastQueueSentId && (
+                                  <button
+                                    onClick={goBackInQueue}
+                                    className="font-body text-xs font-semibold text-pz-on-surface-variant hover:underline"
+                                  >
+                                    ← Back (undo last send)
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })()

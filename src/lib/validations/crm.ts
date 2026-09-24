@@ -119,9 +119,15 @@ export const whatsappBatchCreateSchema = z.object({
   segment: z.array(segmentFilterSchema).max(20),
 });
 
-export const whatsappBatchUpdateSchema = z.object({
-  messageTemplate: z.string().trim().min(1, "Message is required").max(4096),
-});
+export const whatsappBatchUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(150).optional(),
+    messageTemplate: z.string().trim().min(1, "Message is required").max(4096).optional(),
+    segment: z.array(segmentFilterSchema).max(20).optional(),
+  })
+  .refine((v) => v.name !== undefined || v.messageTemplate !== undefined || v.segment !== undefined, {
+    message: "At least one field is required",
+  });
 
 export const whatsappRecipientStatusSchema = z.object({
   status: z.enum(["pending", "sent"]),

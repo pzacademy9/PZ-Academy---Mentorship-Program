@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { resolveWhatsAppSegment } from "./admin-crm-segments";
+import { reconcileWhatsAppSegment } from "@/lib/crm/whatsapp-batch-reconcile";
 import type { SegmentFilter } from "@/lib/crm/segment";
 
 /**
@@ -92,31 +93,129 @@ export async function createWhatsAppBatch(
   return { ok: true, batchId: batch.id, recipientCount: resolved.contacts.length };
 }
 
-export type UpdateWhatsAppBatchMessageResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
+export type UpdateWhatsAppBatchResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
 
 /**
- * Edits the message template on an already-created batch. Any recipient
- * still pending picks up the new text on their next "Open chat" click —
- * there's no per-recipient stored copy of the message to reconcile, the
- * link is built from this field live. A recipient already marked sent
- * keeps its sent_at/sent_by history either way; editing the template
- * afterward is for fixing a typo or adjusting for the ones still to go,
- * not rewriting what already went out.
+ * Edits an already-created batch: name, message template, and/or segment,
+ * each independently optional so a caller only sends what changed.
+ *
+ * A messageTemplate edit doesn't touch recipients — the link is built from
+ * this field live, so a still-pending recipient just picks up the new text
+ * on their next "Open chat" click. A segment edit does touch recipients:
+ * it re-resolves the filter and reconciles via reconcileWhatsAppSegment
+ * (newly-matching contacts added as pending, non-matching pending ones
+ * removed, sent ones never touched — see that function's docs). Either
+ * way, a recipient already marked sent keeps its sent_at/sent_by history.
  */
-export async function updateWhatsAppBatchMessage(
+export async function updateWhatsAppBatch(
   batchId: string,
-  messageTemplate: string,
-): Promise<UpdateWhatsAppBatchMessageResult> {
+  updates: { name?: string; messageTemplate?: string; segment?: SegmentFilter[] },
+): Promise<UpdateWhatsAppBatchResult> {
   const admin = createAdminSupabase();
+
+  if (updates.segment !== undefined) {
+    const resolved = await resolveWhatsAppSegment(updates.segment);
+    if (!resolved.ok) return { ok: false, reason: "db-error" };
+
+    const { data: existing, error: existingError } = await admin
+      .from("whatsapp_batch_recipients")
+      .select("id, contact_id, status")
+      .eq("batch_id", batchId);
+
+    if (existingError) {
+      console.error("[crm-whatsapp] recipient lookup for segment re-run failed:", existingError);
+      return { ok: false, reason: "db-error" };
+    }
+
+    const { toInsert, toDeleteIds } = reconcileWhatsAppSegment(
+      resolved.contacts,
+      (existing ?? []).map((r) => ({ id: r.id, contactId: r.contact_id, status: r.status })),
+    );
+
+    if (toInsert.length > 0) {
+      const { error: insertError } = await admin.from("whatsapp_batch_recipients").insert(
+        toInsert.map((c) => ({
+          batch_id: batchId,
+          contact_id: c.contactId,
+          full_name: c.fullName,
+          phone_e164: c.phoneE164,
+        })),
+      );
+      if (insertError) {
+        console.error("[crm-whatsapp] segment re-run insert failed:", insertError);
+        return { ok: false, reason: "db-error" };
+      }
+    }
+
+    if (toDeleteIds.length > 0) {
+      const { error: deleteError } = await admin
+        .from("whatsapp_batch_recipients")
+        .delete()
+        .in("id", toDeleteIds);
+      if (deleteError) {
+        console.error("[crm-whatsapp] segment re-run delete failed:", deleteError);
+        return { ok: false, reason: "db-error" };
+      }
+    }
+
+    const { count } = await admin
+      .from("whatsapp_batch_recipients")
+      .select("id", { count: "exact", head: true })
+      .eq("batch_id", batchId);
+
+    const { data, error } = await admin
+      .from("whatsapp_batches")
+      .update({
+        segment: updates.segment,
+        recipient_count: count ?? 0,
+        ...(updates.name !== undefined ? { name: updates.name } : {}),
+        ...(updates.messageTemplate !== undefined ? { message_template: updates.messageTemplate } : {}),
+      })
+      .eq("id", batchId)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      console.error("[crm-whatsapp] batch update failed:", error);
+      return { ok: false, reason: "db-error" };
+    }
+    if (!data) return { ok: false, reason: "not-found" };
+    return { ok: true };
+  }
+
   const { data, error } = await admin
     .from("whatsapp_batches")
-    .update({ message_template: messageTemplate })
+    .update({
+      ...(updates.name !== undefined ? { name: updates.name } : {}),
+      ...(updates.messageTemplate !== undefined ? { message_template: updates.messageTemplate } : {}),
+    })
     .eq("id", batchId)
     .select("id")
     .maybeSingle();
 
   if (error) {
-    console.error("[crm-whatsapp] batch message update failed:", error);
+    console.error("[crm-whatsapp] batch update failed:", error);
+    return { ok: false, reason: "db-error" };
+  }
+  if (!data) return { ok: false, reason: "not-found" };
+
+  return { ok: true };
+}
+
+export type DeleteWhatsAppBatchResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
+
+/** whatsapp_batch_recipients cascade-deletes via its batch_id FK (0054). */
+export async function deleteWhatsAppBatch(batchId: string): Promise<DeleteWhatsAppBatchResult> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("whatsapp_batches")
+    .delete()
+    .eq("id", batchId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[crm-whatsapp] batch delete failed:", error);
     return { ok: false, reason: "db-error" };
   }
   if (!data) return { ok: false, reason: "not-found" };
@@ -132,13 +231,16 @@ export type WhatsAppRecipientRow = {
   sentAt: string | null;
 };
 
-export type WhatsAppBatchDetail = WhatsAppBatchListRow & { recipients: WhatsAppRecipientRow[] };
+export type WhatsAppBatchDetail = WhatsAppBatchListRow & {
+  segment: SegmentFilter[];
+  recipients: WhatsAppRecipientRow[];
+};
 
 export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchDetail | null> {
   const admin = createAdminSupabase();
   const { data: batch } = await admin
     .from("whatsapp_batches")
-    .select("id, name, message_template, recipient_count, sent_count, created_at")
+    .select("id, name, message_template, segment, recipient_count, sent_count, created_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -154,6 +256,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
     id: batch.id,
     name: batch.name,
     messageTemplate: batch.message_template,
+    segment: (batch.segment ?? []) as SegmentFilter[],
     recipientCount: batch.recipient_count,
     sentCount: batch.sent_count,
     createdAt: batch.created_at,
