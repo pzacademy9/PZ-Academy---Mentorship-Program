@@ -6,6 +6,7 @@ import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
 import { buildWhatsAppLink, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
+import type { ConversionTag } from "@/lib/crm/conversion";
 
 type BatchListRow = {
   id: string;
@@ -14,9 +15,12 @@ type BatchListRow = {
   recipientCount: number;
   sentCount: number;
   createdAt: string;
+  conversionTag: ConversionTag;
+  conversionCourseTitle: string | null;
+  conversion: { converted: number; total: number } | null;
 };
 
-type Recipient = { id: string; fullName: string; phoneE164: string; status: "pending" | "sent"; sentAt: string | null };
+type Recipient = { id: string; fullName: string; phoneE164: string; status: "pending" | "sent"; sentAt: string | null; convertedAt: string | null };
 type BatchDetail = BatchListRow & { segment: SegmentFilter[]; recipients: Recipient[] };
 
 const MERGE_TAGS = [
@@ -47,6 +51,10 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [queueMode, setQueueMode] = useState(false);
   const [lastQueueSentId, setLastQueueSentId] = useState<string | null>(null);
+  const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
+  const [conversionMode, setConversionMode] = useState<"course" | "label" | "none" | "">("");
+  const [conversionCourseId, setConversionCourseId] = useState("");
+  const [conversionLabel, setConversionLabel] = useState("");
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const queueLinkRef = useRef<HTMLAnchorElement>(null);
 
@@ -70,14 +78,30 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    fetch("/api/admin/crm/courses")
+      .then((r) => r.json())
+      .then((j: { courses?: { id: string; title: string }[] }) => setCourses(j.courses ?? []))
+      .catch(() => {});
+  }, []);
+
+  function buildConversionTag(): ConversionTag | null {
+    if (conversionMode === "course") return conversionCourseId ? { kind: "course", courseId: conversionCourseId } : null;
+    if (conversionMode === "label") return conversionLabel.trim() ? { kind: "label", pattern: conversionLabel.trim() } : null;
+    if (conversionMode === "none") return { kind: "none" };
+    return null;
+  }
+
   async function createBatch() {
     setCreating(true);
     setCreateError(null);
+    const conversionTag = buildConversionTag();
+    if (!conversionTag) { setCreating(false); return; }
     try {
       const res = await fetch("/api/admin/crm/whatsapp/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, messageTemplate: message, segment }),
+        body: JSON.stringify({ name, messageTemplate: message, segment, conversionTag }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -88,6 +112,9 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
       setName("");
       setMessage(DEFAULT_MESSAGE);
       setSegment([]);
+      setConversionMode("");
+      setConversionCourseId("");
+      setConversionLabel("");
       const list = await fetch("/api/admin/crm/whatsapp/batches");
       if (list.ok) setBatches((await list.json()).batches);
     } finally {
@@ -304,10 +331,47 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
         />
         <TemplatePicker channel="whatsapp" currentBody={message} onLoad={(t) => setMessage(t.body)} />
         <SegmentBuilder value={segment} onChange={setSegment} channel="whatsapp" />
+        <div className="space-y-2">
+          <h3 className="font-headline text-sm font-semibold">Track conversion</h3>
+          <div className="flex gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <input type="radio" name="whatsappConversionMode" checked={conversionMode === "course"} onChange={() => setConversionMode("course")} />
+              Existing course
+            </label>
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <input type="radio" name="whatsappConversionMode" checked={conversionMode === "label"} onChange={() => setConversionMode("label")} />
+              Other course (type to match)
+            </label>
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <input type="radio" name="whatsappConversionMode" checked={conversionMode === "none"} onChange={() => setConversionMode("none")} />
+              Not tracking conversion
+            </label>
+          </div>
+          {conversionMode === "course" && (
+            <select
+              value={conversionCourseId}
+              onChange={(e) => setConversionCourseId(e.target.value)}
+              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+            >
+              <option value="">Select a course…</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
+          )}
+          {conversionMode === "label" && (
+            <input
+              value={conversionLabel}
+              onChange={(e) => setConversionLabel(e.target.value)}
+              placeholder="Text to match in the purchase's product label, e.g. Advanced Mixing"
+              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+            />
+          )}
+        </div>
         {createError && <p className="font-body text-sm text-pz-danger">{createError}</p>}
         <button
           onClick={createBatch}
-          disabled={creating || name.trim() === "" || message.trim() === ""}
+          disabled={creating || name.trim() === "" || message.trim() === "" || buildConversionTag() === null}
           className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
         >
           {creating ? "Creating…" : "Create batch"}
@@ -327,6 +391,13 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                     <span className="font-body font-semibold text-sm">{b.name}</span>
                     <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
                       {b.sentCount} / {b.recipientCount} sent
+                      {b.conversion && (
+                        <>
+                          {" · "}
+                          {b.recipientCount > 0 ? Math.round((b.conversion.converted / b.recipientCount) * 100) : 0}% converted (
+                          {b.conversion.converted}/{b.recipientCount}) · Not converted (yet): {b.recipientCount - b.conversion.converted}
+                        </>
+                      )}
                     </span>
                   </button>
                   <button
@@ -506,7 +577,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                       ) : (
                         <table className="w-full text-left font-body text-sm">
                           <thead className="text-pz-on-surface-variant text-xs uppercase">
-                            <tr><th className="py-1">Name</th><th>Phone</th><th></th><th></th></tr>
+                            <tr><th className="py-1">Name</th><th>Phone</th><th></th><th></th><th>Converted</th></tr>
                           </thead>
                           <tbody>
                             {detail.recipients.map((r) => (
@@ -535,6 +606,13 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                                     />
                                     sent
                                   </label>
+                                </td>
+                                <td className="text-xs">
+                                  {detail.conversion
+                                    ? r.convertedAt
+                                      ? new Date(r.convertedAt).toLocaleDateString()
+                                      : "Not converted (yet)"
+                                    : "—"}
                                 </td>
                               </tr>
                             ))}
