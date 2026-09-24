@@ -44,6 +44,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [segmentDraft, setSegmentDraft] = useState<SegmentFilter[]>([]);
   const [savingBatch, setSavingBatch] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [queueMode, setQueueMode] = useState(false);
   const [lastQueueSentId, setLastQueueSentId] = useState<string | null>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
@@ -174,6 +175,39 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     }
   }
 
+  // Clones a batch's message + a fresh re-resolve of its segment into a new
+  // batch, everyone starting pending — the "send a follow-up to the same
+  // cohort" path, since nothing here auto-sequences (every send is a manual
+  // click). Re-resolving (not copying the recipient row list) picks up any
+  // contacts that started matching the segment since the source batch was
+  // created, same as an edited-segment reconcile does.
+  async function duplicateBatch(b: BatchListRow) {
+    setDuplicatingId(b.id);
+    try {
+      const detailRes = await fetch(`/api/admin/crm/whatsapp/batches/${b.id}`);
+      if (!detailRes.ok) {
+        toast.error("Could not load that batch.");
+        return;
+      }
+      const { segment: sourceSegment } = (await detailRes.json()) as BatchDetail;
+      const res = await fetch("/api/admin/crm/whatsapp/batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `${b.name} (copy)`, messageTemplate: b.messageTemplate, segment: sourceSegment }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not duplicate this batch.");
+        return;
+      }
+      toast.success(`Batch duplicated — ${json.recipientCount} contacts.`);
+      const list = await fetch("/api/admin/crm/whatsapp/batches");
+      if (list.ok) setBatches((await list.json()).batches);
+    } finally {
+      setDuplicatingId(null);
+    }
+  }
+
   async function saveMessage() {
     if (!detail) return;
     setSavingMessage(true);
@@ -294,6 +328,13 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                     <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
                       {b.sentCount} / {b.recipientCount} sent
                     </span>
+                  </button>
+                  <button
+                    onClick={() => duplicateBatch(b)}
+                    disabled={duplicatingId === b.id}
+                    className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0 disabled:opacity-50"
+                  >
+                    {duplicatingId === b.id ? "Duplicating…" : "Duplicate"}
                   </button>
                   <button
                     onClick={() => deleteBatch(b)}
