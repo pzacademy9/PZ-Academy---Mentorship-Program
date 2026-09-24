@@ -7,10 +7,14 @@ import DOMPurify from "isomorphic-dompurify";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
+import type { ConversionTag } from "@/lib/crm/conversion";
 
 type Campaign = {
   id: string; name: string; subject: string; status: string; createdAt: string;
   recipients: number; sent: number; delivered: number; opened: number; clicked: number; bounced: number;
+  conversionTag: ConversionTag;
+  conversionCourseTitle: string | null;
+  conversion: { converted: number; total: number } | null;
 };
 
 // Preview-only substitution so an admin can see roughly what a recipient
@@ -54,8 +58,19 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   const [uploadingImage, setUploadingImage] = useState(false);
   const [bodyView, setBodyView] = useState<"edit" | "preview">("edit");
   const [campaignSearch, setCampaignSearch] = useState("");
+  const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
+  const [conversionMode, setConversionMode] = useState<"course" | "label" | "none" | "">("");
+  const [conversionCourseId, setConversionCourseId] = useState("");
+  const [conversionLabel, setConversionLabel] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/crm/courses")
+      .then((r) => r.json())
+      .then((j: { courses?: { id: string; title: string }[] }) => setCourses(j.courses ?? []))
+      .catch(() => {});
+  }, []);
 
   // Picks up a bulk selection handed off from the Contacts tab, once, on
   // mount. Read-then-remove so revisiting this tab later (without a fresh
@@ -96,6 +111,23 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   const editSubject = (v: string) => { setSubject(v); invalidateDraft(); };
   const editBody = (v: string) => { setBodyHtml(v); invalidateDraft(); };
   const editSegment = (v: SegmentFilter[]) => { setSegment(v); invalidateDraft(); };
+
+  function buildConversionTag(): ConversionTag | null {
+    if (conversionMode === "course") return conversionCourseId ? { kind: "course", courseId: conversionCourseId } : null;
+    if (conversionMode === "label") return conversionLabel.trim() ? { kind: "label", pattern: conversionLabel.trim() } : null;
+    if (conversionMode === "none") return { kind: "none" };
+    return null;
+  }
+
+  function loadConversionTag(tag: ConversionTag) {
+    if (tag.kind === "course") { setConversionMode("course"); setConversionCourseId(tag.courseId); setConversionLabel(""); }
+    else if (tag.kind === "label") { setConversionMode("label"); setConversionLabel(tag.pattern); setConversionCourseId(""); }
+    else { setConversionMode("none"); setConversionCourseId(""); setConversionLabel(""); }
+  }
+
+  const editConversionMode = (v: typeof conversionMode) => { setConversionMode(v); invalidateDraft(); };
+  const editConversionCourseId = (v: string) => { setConversionCourseId(v); invalidateDraft(); };
+  const editConversionLabel = (v: string) => { setConversionLabel(v); invalidateDraft(); };
 
   // Reuses the course-image relay (Google Drive, public link, correct
   // cross-origin-safe thumbnail URL) — campaign images have the same
@@ -143,11 +175,12 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${id}`);
       if (!res.ok) throw new Error();
-      const json = (await res.json()) as { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] };
+      const json = (await res.json()) as { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[]; conversionTag: ConversionTag };
       setName(`${json.name} (copy)`);
       setSubject(json.subject);
       setBodyHtml(json.bodyHtml);
       setSegment(json.segment);
+      loadConversionTag(json.conversionTag);
       setBoundId(null);
       invalidateDraft();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -165,11 +198,12 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${id}`);
       if (!res.ok) throw new Error();
-      const json = (await res.json()) as { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] };
+      const json = (await res.json()) as { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[]; conversionTag: ConversionTag };
       setName(json.name);
       setSubject(json.subject);
       setBodyHtml(json.bodyHtml);
       setSegment(json.segment);
+      loadConversionTag(json.conversionTag);
       setBoundId(id);
       invalidateDraft();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -201,6 +235,9 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     setBodyHtml("<p>Hi {{first_name}},</p>\n<p></p>");
     setSegment([]);
     setBoundId(null);
+    setConversionMode("");
+    setConversionCourseId("");
+    setConversionLabel("");
     invalidateDraft();
     setError(null);
   }
@@ -215,13 +252,15 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   }
 
   async function saveDraft() {
+    const conversionTag = buildConversionTag();
+    if (!conversionTag) return;
     setBusy(true); setError(null);
     try {
       const url = boundId ? `/api/admin/crm/campaigns/${boundId}` : "/api/admin/crm/campaigns";
       const res = await fetch(url, {
         method: boundId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, subject, bodyHtml, segment }),
+        body: JSON.stringify({ name, subject, bodyHtml, segment, conversionTag }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Could not save the draft.");
@@ -363,8 +402,46 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
           <SegmentBuilder value={segment} onChange={editSegment} />
         </div>
 
+        <div className="space-y-2">
+          <h3 className="font-headline text-sm font-semibold">Track conversion</h3>
+          <div className="flex gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <input type="radio" name="campaignConversionMode" checked={conversionMode === "course"} onChange={() => editConversionMode("course")} />
+              Existing course
+            </label>
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <input type="radio" name="campaignConversionMode" checked={conversionMode === "label"} onChange={() => editConversionMode("label")} />
+              Other course (type to match)
+            </label>
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <input type="radio" name="campaignConversionMode" checked={conversionMode === "none"} onChange={() => editConversionMode("none")} />
+              Not tracking conversion
+            </label>
+          </div>
+          {conversionMode === "course" && (
+            <select
+              value={conversionCourseId}
+              onChange={(e) => editConversionCourseId(e.target.value)}
+              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+            >
+              <option value="">Select a course…</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
+          )}
+          {conversionMode === "label" && (
+            <input
+              value={conversionLabel}
+              onChange={(e) => editConversionLabel(e.target.value)}
+              placeholder="Text to match in the purchase's product label, e.g. Advanced Mixing"
+              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+            />
+          )}
+        </div>
+
         <div className="flex gap-2 flex-wrap items-center">
-          <button onClick={saveDraft} disabled={busy}
+          <button onClick={saveDraft} disabled={busy || buildConversionTag() === null}
             className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50">
             {busy ? "Saving…" : "Save draft"}
           </button>
@@ -405,7 +482,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
           <div className="overflow-x-auto">
             <table className="w-full text-left font-body text-sm">
               <thead className="text-pz-on-surface-variant text-xs uppercase">
-                <tr><th className="py-2">Name</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Bounced</th><th></th></tr>
+                <tr><th className="py-2">Name</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Bounced</th><th>Converted</th><th></th></tr>
               </thead>
               <tbody>
                 {filteredCampaigns.map((c) => (
@@ -418,6 +495,11 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
                     <td className="tabular-nums">{c.opened}</td>
                     <td className="tabular-nums">{c.clicked}</td>
                     <td className={`tabular-nums ${c.bounced > 0 ? "text-pz-danger" : ""}`}>{c.bounced}</td>
+                    <td className="tabular-nums">
+                      {c.conversion
+                        ? `${c.conversion.total > 0 ? Math.round((c.conversion.converted / c.conversion.total) * 100) : 0}% (${c.conversion.converted}/${c.conversion.total})`
+                        : "—"}
+                    </td>
                     <td className="whitespace-nowrap space-x-3">
                       {c.status === "draft" && (
                         <button onClick={() => editCampaign(c.id)} className="text-pz-primary font-body text-xs font-semibold">
