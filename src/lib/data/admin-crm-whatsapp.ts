@@ -3,6 +3,8 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { resolveWhatsAppSegment } from "./admin-crm-segments";
 import { reconcileWhatsAppSegment } from "@/lib/crm/whatsapp-batch-reconcile";
 import type { SegmentFilter } from "@/lib/crm/segment";
+import { toConversionTag, fromConversionTag, computeConversions } from "./admin-crm-conversions";
+import type { ConversionTag } from "@/lib/crm/conversion";
 
 /**
  * WhatsApp batch data layer. Mirrors admin-crm-import.ts / admin-crm-
@@ -17,22 +19,37 @@ export type WhatsAppBatchListRow = {
   recipientCount: number;
   sentCount: number;
   createdAt: string;
+  conversionTag: ConversionTag;
+  conversionCourseTitle: string | null;
+  conversion: { converted: number; total: number } | null;
 };
 
 export async function listWhatsAppBatches(): Promise<WhatsAppBatchListRow[]> {
   const admin = createAdminSupabase();
   const { data } = await admin
     .from("whatsapp_batches")
-    .select("id, name, message_template, recipient_count, sent_count, created_at")
+    .select(
+      "id, name, message_template, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, courses(title)",
+    )
     .order("created_at", { ascending: false });
 
-  return (data ?? []).map((b) => ({
+  const rows = data ?? [];
+  const conversions = await Promise.all(
+    rows.map((b) =>
+      fetchBatchConversion(b.id, b.recipient_count, toConversionTag(b.conversion_course_id, b.conversion_label_match)),
+    ),
+  );
+
+  return rows.map((b, i) => ({
     id: b.id,
     name: b.name,
     messageTemplate: b.message_template,
     recipientCount: b.recipient_count,
     sentCount: b.sent_count,
     createdAt: b.created_at,
+    conversionTag: toConversionTag(b.conversion_course_id, b.conversion_label_match),
+    conversionCourseTitle: (b.courses as { title: string } | null)?.title ?? null,
+    conversion: conversions[i].summary,
   }));
 }
 
@@ -50,7 +67,7 @@ export type CreateWhatsAppBatchResult =
  */
 export async function createWhatsAppBatch(
   userId: string,
-  input: { name: string; messageTemplate: string; segment: SegmentFilter[] },
+  input: { name: string; messageTemplate: string; segment: SegmentFilter[]; conversionTag: ConversionTag },
 ): Promise<CreateWhatsAppBatchResult> {
   const resolved = await resolveWhatsAppSegment(input.segment);
   if (!resolved.ok) return { ok: false, reason: "db-error" };
@@ -66,6 +83,7 @@ export async function createWhatsAppBatch(
       segment: input.segment,
       recipient_count: resolved.contacts.length,
       created_by: userId,
+      ...fromConversionTag(input.conversionTag),
     })
     .select("id")
     .single();
@@ -109,7 +127,7 @@ export type UpdateWhatsAppBatchResult = { ok: true } | { ok: false; reason: "not
  */
 export async function updateWhatsAppBatch(
   batchId: string,
-  updates: { name?: string; messageTemplate?: string; segment?: SegmentFilter[] },
+  updates: { name?: string; messageTemplate?: string; segment?: SegmentFilter[]; conversionTag?: ConversionTag },
 ): Promise<UpdateWhatsAppBatchResult> {
   const admin = createAdminSupabase();
 
@@ -170,6 +188,7 @@ export async function updateWhatsAppBatch(
         recipient_count: count ?? 0,
         ...(updates.name !== undefined ? { name: updates.name } : {}),
         ...(updates.messageTemplate !== undefined ? { message_template: updates.messageTemplate } : {}),
+        ...(updates.conversionTag !== undefined ? fromConversionTag(updates.conversionTag) : {}),
       })
       .eq("id", batchId)
       .select("id")
@@ -188,6 +207,7 @@ export async function updateWhatsAppBatch(
     .update({
       ...(updates.name !== undefined ? { name: updates.name } : {}),
       ...(updates.messageTemplate !== undefined ? { message_template: updates.messageTemplate } : {}),
+      ...(updates.conversionTag !== undefined ? fromConversionTag(updates.conversionTag) : {}),
     })
     .eq("id", batchId)
     .select("id")
@@ -229,6 +249,7 @@ export type WhatsAppRecipientRow = {
   phoneE164: string;
   status: "pending" | "sent";
   sentAt: string | null;
+  convertedAt: string | null;
 };
 
 export type WhatsAppBatchDetail = WhatsAppBatchListRow & {
@@ -240,7 +261,9 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   const admin = createAdminSupabase();
   const { data: batch } = await admin
     .from("whatsapp_batches")
-    .select("id, name, message_template, segment, recipient_count, sent_count, created_at")
+    .select(
+      "id, name, message_template, segment, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, courses(title)",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -252,6 +275,10 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
     .eq("batch_id", id)
     .order("full_name", { ascending: true });
 
+  const tag = toConversionTag(batch.conversion_course_id, batch.conversion_label_match);
+  const { summary, convertedAtByRecipientId } = await fetchBatchConversion(id, batch.recipient_count, tag);
+  const rows = recipients ?? [];
+
   return {
     id: batch.id,
     name: batch.name,
@@ -260,12 +287,16 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
     recipientCount: batch.recipient_count,
     sentCount: batch.sent_count,
     createdAt: batch.created_at,
-    recipients: (recipients ?? []).map((r) => ({
+    conversionTag: tag,
+    conversionCourseTitle: (batch.courses as { title: string } | null)?.title ?? null,
+    conversion: summary,
+    recipients: rows.map((r) => ({
       id: r.id,
       fullName: r.full_name,
       phoneE164: r.phone_e164,
       status: r.status,
       sentAt: r.sent_at,
+      convertedAt: convertedAtByRecipientId.get(r.id) ?? null,
     })),
   };
 }
@@ -327,4 +358,38 @@ export async function updateRecipientStatus(
   }
 
   return { ok: true };
+}
+
+/**
+ * Fetches this batch's recipients and resolves conversion. Returns `null`
+ * summary/empty map when the batch isn't tracked — callers branch on
+ * `tag.kind` before calling this, this is just the shared fetch+resolve
+ * step reused by both listWhatsAppBatches (summary only) and
+ * getWhatsAppBatchDetail (summary + per-recipient detail).
+ */
+async function fetchBatchConversion(
+  batchId: string,
+  recipientCount: number,
+  tag: ConversionTag,
+): Promise<{ summary: { converted: number; total: number } | null; convertedAtByRecipientId: Map<string, string | null> }> {
+  if (tag.kind === "none") return { summary: null, convertedAtByRecipientId: new Map() };
+
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("whatsapp_batch_recipients")
+    .select("id, contact_id, full_name, sent_at, status")
+    .eq("batch_id", batchId);
+
+  const sent = (data ?? [])
+    .filter(
+      (r): r is typeof r & { contact_id: string; sent_at: string } =>
+        r.status === "sent" && r.contact_id !== null && r.sent_at !== null,
+    )
+    .map((r) => ({ recipientId: r.id, contactId: r.contact_id, fullName: r.full_name, sentAt: r.sent_at }));
+
+  const { summary, recipients } = await computeConversions(sent, recipientCount, tag);
+  const convertedAtByContact = new Map(recipients.map((r) => [r.contactId, r.convertedAt]));
+  const convertedAtByRecipientId = new Map(sent.map((r) => [r.recipientId, convertedAtByContact.get(r.contactId) ?? null]));
+
+  return { summary, convertedAtByRecipientId };
 }
