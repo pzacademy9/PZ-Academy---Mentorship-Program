@@ -9,6 +9,7 @@ import {
   whatsappBatchCreateSchema,
   whatsappBatchUpdateSchema,
   whatsappRecipientStatusSchema,
+  templateCreateSchema,
 } from "@/lib/validations/crm";
 
 const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null };
@@ -184,5 +185,48 @@ describe("whatsappRecipientStatusSchema", () => {
 
   it("rejects any other status", () => {
     expect(whatsappRecipientStatusSchema.safeParse({ status: "delivered" }).success).toBe(false);
+  });
+});
+
+describe("templateCreateSchema", () => {
+  it("accepts a whatsapp template with no subject", () => {
+    const parsed = templateCreateSchema.safeParse({
+      channel: "whatsapp",
+      name: "Follow-up",
+      body: "Hi {{first_name}}, ...",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts an email template with a subject", () => {
+    const parsed = templateCreateSchema.safeParse({
+      channel: "email",
+      name: "Welcome",
+      subject: "Welcome to PZ Academy",
+      body: "<p>Hi {{first_name}}</p>",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an email template with no subject", () => {
+    expect(
+      templateCreateSchema.safeParse({ channel: "email", name: "Welcome", body: "<p>Hi</p>" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an email template with a blank subject", () => {
+    expect(
+      templateCreateSchema.safeParse({ channel: "email", name: "Welcome", subject: "  ", body: "<p>Hi</p>" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects a blank name or body", () => {
+    expect(templateCreateSchema.safeParse({ channel: "whatsapp", name: "", body: "Hi" }).success).toBe(false);
+    expect(templateCreateSchema.safeParse({ channel: "whatsapp", name: "N", body: "" }).success).toBe(false);
+  });
+
+  it("rejects an unknown channel", () => {
+    expect(templateCreateSchema.safeParse({ channel: "sms", name: "N", body: "Hi" }).success).toBe(false);
   });
 });

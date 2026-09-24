@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SegmentBuilder } from "./SegmentBuilder";
+import { TemplatePicker } from "./TemplatePicker";
 import { buildWhatsAppLink, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
 
@@ -267,6 +268,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
           rows={5}
           className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
         />
+        <TemplatePicker channel="whatsapp" currentBody={message} onLoad={(t) => setMessage(t.body)} />
         <SegmentBuilder value={segment} onChange={setSegment} channel="whatsapp" />
         {createError && <p className="font-body text-sm text-pz-danger">{createError}</p>}
         <button

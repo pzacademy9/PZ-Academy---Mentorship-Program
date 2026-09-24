@@ -129,6 +129,18 @@ export const whatsappBatchUpdateSchema = z
     message: "At least one field is required",
   });
 
+export const templateCreateSchema = z
+  .object({
+    channel: z.enum(["email", "whatsapp"]),
+    name: z.string().trim().min(1, "Name is required").max(150),
+    subject: z.string().trim().max(300).optional(),
+    body: z.string().trim().min(1, "Body is required").max(100_000),
+  })
+  .refine((v) => v.channel !== "email" || (v.subject !== undefined && v.subject !== ""), {
+    message: "Subject is required for an email template",
+    path: ["subject"],
+  });
+
 export const whatsappRecipientStatusSchema = z.object({
   status: z.enum(["pending", "sent"]),
 });

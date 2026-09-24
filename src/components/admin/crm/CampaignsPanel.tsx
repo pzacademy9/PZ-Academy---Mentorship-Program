@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
 import { SegmentBuilder } from "./SegmentBuilder";
+import { TemplatePicker } from "./TemplatePicker";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
 
 type Campaign = {
@@ -350,6 +351,12 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
           Tags: <code>{"{{first_name}}"}</code>, <code>{"{{full_name}}"}</code>, <code>{"{{email}}"}</code>.
           The PZ Academy header and the unsubscribe footer are added automatically.
         </p>
+        <TemplatePicker
+          channel="email"
+          currentSubject={subject}
+          currentBody={bodyHtml}
+          onLoad={(t) => { editSubject(t.subject ?? ""); editBody(t.body); }}
+        />
 
         <div>
           <h3 className="font-headline text-sm font-semibold mb-2">Who receives it</h3>
