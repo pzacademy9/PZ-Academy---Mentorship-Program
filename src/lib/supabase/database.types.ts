@@ -319,6 +319,8 @@ export type Database = {
       campaigns: {
         Row: {
           completed_at: string | null
+          conversion_course_id: string | null
+          conversion_label_match: string | null
           created_at: string
           created_by: string | null
           html_content: string
@@ -332,6 +334,8 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          conversion_course_id?: string | null
+          conversion_label_match?: string | null
           created_at?: string
           created_by?: string | null
           html_content?: string
@@ -345,6 +349,8 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          conversion_course_id?: string | null
+          conversion_label_match?: string | null
           created_at?: string
           created_by?: string | null
           html_content?: string
@@ -362,6 +368,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_conversion_course_id_fkey"
+            columns: ["conversion_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
@@ -2289,6 +2302,8 @@ export type Database = {
       }
       whatsapp_batches: {
         Row: {
+          conversion_course_id: string | null
+          conversion_label_match: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -2299,6 +2314,8 @@ export type Database = {
           sent_count: number
         }
         Insert: {
+          conversion_course_id?: string | null
+          conversion_label_match?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2309,6 +2326,8 @@ export type Database = {
           sent_count?: number
         }
         Update: {
+          conversion_course_id?: string | null
+          conversion_label_match?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2324,6 +2343,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_batches_conversion_course_id_fkey"
+            columns: ["conversion_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
