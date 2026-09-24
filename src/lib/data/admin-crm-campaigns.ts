@@ -5,6 +5,8 @@ import { renderMergeTags } from "@/lib/crm/merge-tags";
 import { buildCampaignHtml } from "@/lib/crm/campaign-email";
 import { sendTransactionalEmail } from "@/lib/brevo";
 import type { SegmentFilter } from "@/lib/crm/segment";
+import { toConversionTag, fromConversionTag, computeConversions } from "./admin-crm-conversions";
+import type { ConversionTag } from "@/lib/crm/conversion";
 
 /**
  * Campaign drafting and sending. Mirrors admin-marketing.ts conventions.
@@ -20,6 +22,40 @@ export type MutationResult =
   | { ok: true; id: string }
   | { ok: false; reason: "not-found" | "db-error" | "empty-segment" | "already-sent" | "cancelled" };
 
+/**
+ * Fetches this campaign's sent recipients (via campaign_recipients →
+ * email_queue for the real send timestamp, and → contacts for the display
+ * name campaign_recipients doesn't itself snapshot) and resolves
+ * conversion. Mirrors fetchBatchConversion in admin-crm-whatsapp.ts, but
+ * campaigns have no denormalized recipient_count column, so callers pass
+ * the audience size they already have (from crm_campaign_stats, or a
+ * direct count for the standalone conversions endpoint).
+ */
+async function fetchCampaignConversion(
+  campaignId: string,
+  totalAudience: number,
+  tag: ConversionTag,
+): Promise<{ summary: { converted: number; total: number } | null; recipients: { contactId: string; fullName: string; sentAt: string; convertedAt: string | null }[] }> {
+  if (tag.kind === "none") return { summary: null, recipients: [] };
+
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("campaign_recipients")
+    .select("contact_id, email_queue(sent_at), contacts(full_name)")
+    .eq("campaign_id", campaignId);
+
+  const sent = (data ?? [])
+    .map((r) => ({
+      contactId: r.contact_id,
+      fullName: (r.contacts as { full_name: string } | null)?.full_name ?? "",
+      sentAt: (r.email_queue as { sent_at: string | null } | null)?.sent_at ?? null,
+    }))
+    .filter((r): r is { contactId: string; fullName: string; sentAt: string } => r.sentAt !== null);
+
+  const { summary, recipients } = await computeConversions(sent, totalAudience, tag);
+  return { summary, recipients };
+}
+
 export type CampaignRow = {
   id: string;
   name: string;
@@ -32,6 +68,9 @@ export type CampaignRow = {
   opened: number;
   clicked: number;
   bounced: number;
+  conversionTag: ConversionTag;
+  conversionCourseTitle: string | null;
+  conversion: { converted: number; total: number } | null;
 };
 
 export async function listCampaigns(): Promise<CampaignRow[]> {
@@ -41,17 +80,30 @@ export async function listCampaigns(): Promise<CampaignRow[]> {
     .select("campaign_id, name, status, created_at, recipients, sent, delivered, opened, clicked, bounced")
     .order("created_at", { ascending: false });
 
-  const { data: subjects } = await admin.from("campaigns").select("id, subject");
-  const subjectById = new Map((subjects ?? []).map((c) => [c.id, c.subject]));
+  const filtered = (data ?? []).filter((c): c is typeof c & { campaign_id: string } => c.campaign_id !== null);
 
-  return (data ?? [])
-    // A stats row always has these — the view types them nullable only because
-    // it is a view (LEFT JOIN shape), so narrow/coalesce here.
-    .filter((c): c is typeof c & { campaign_id: string } => c.campaign_id !== null)
-    .map((c) => ({
+  // Replaces the old bare "subjects" lookup — same trip now also carries
+  // each campaign's conversion tag, since crm_campaign_stats (a view built
+  // for the pre-conversion slice) doesn't expose it.
+  const { data: extra } = await admin
+    .from("campaigns")
+    .select("id, subject, conversion_course_id, conversion_label_match, courses(title)");
+  const extraById = new Map((extra ?? []).map((c) => [c.id, c]));
+
+  const conversions = await Promise.all(
+    filtered.map((c) => {
+      const row = extraById.get(c.campaign_id);
+      const tag = toConversionTag(row?.conversion_course_id ?? null, row?.conversion_label_match ?? null);
+      return fetchCampaignConversion(c.campaign_id, Number(c.recipients ?? 0), tag);
+    }),
+  );
+
+  return filtered.map((c, i) => {
+    const row = extraById.get(c.campaign_id);
+    return {
       id: c.campaign_id,
       name: c.name ?? "",
-      subject: subjectById.get(c.campaign_id) ?? "",
+      subject: row?.subject ?? "",
       status: c.status ?? "draft",
       createdAt: c.created_at ?? "",
       recipients: Number(c.recipients ?? 0),
@@ -60,17 +112,27 @@ export async function listCampaigns(): Promise<CampaignRow[]> {
       opened: Number(c.opened ?? 0),
       clicked: Number(c.clicked ?? 0),
       bounced: Number(c.bounced ?? 0),
-    }));
+      conversionTag: toConversionTag(row?.conversion_course_id ?? null, row?.conversion_label_match ?? null),
+      conversionCourseTitle: (row?.courses as { title: string } | null)?.title ?? null,
+      conversion: conversions[i].summary,
+    };
+  });
 }
 
-export type CampaignDetail = { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] };
+export type CampaignDetail = {
+  name: string;
+  subject: string;
+  bodyHtml: string;
+  segment: SegmentFilter[];
+  conversionTag: ConversionTag;
+};
 
-/** Backs "Duplicate" on a past campaign — loads it back into the composer as a fresh draft. */
+/** Backs "Duplicate" and "Edit" on a past campaign — loads it back into the composer. */
 export async function getCampaign(id: string): Promise<CampaignDetail | null> {
   const admin = createAdminSupabase();
   const { data } = await admin
     .from("campaigns")
-    .select("name, subject, html_content, segment")
+    .select("name, subject, html_content, segment, conversion_course_id, conversion_label_match")
     .eq("id", id)
     .maybeSingle();
   if (!data) return null;
@@ -80,12 +142,13 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
     subject: data.subject,
     bodyHtml: data.html_content,
     segment: (Array.isArray(data.segment) ? data.segment : []) as SegmentFilter[],
+    conversionTag: toConversionTag(data.conversion_course_id, data.conversion_label_match),
   };
 }
 
 export async function createCampaign(
   userId: string,
-  input: { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] },
+  input: { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[]; conversionTag: ConversionTag },
 ): Promise<MutationResult> {
   const admin = createAdminSupabase();
   const { data, error } = await admin
@@ -97,6 +160,7 @@ export async function createCampaign(
       segment: input.segment,
       status: "draft",
       created_by: userId,
+      ...fromConversionTag(input.conversionTag),
     })
     .select("id")
     .single();
@@ -118,7 +182,7 @@ export async function createCampaign(
  */
 export async function updateCampaign(
   id: string,
-  input: { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[] },
+  input: { name: string; subject: string; bodyHtml: string; segment: SegmentFilter[]; conversionTag: ConversionTag },
 ): Promise<MutationResult> {
   const admin = createAdminSupabase();
 
@@ -128,7 +192,13 @@ export async function updateCampaign(
 
   const { error } = await admin
     .from("campaigns")
-    .update({ name: input.name, subject: input.subject, html_content: input.bodyHtml, segment: input.segment })
+    .update({
+      name: input.name,
+      subject: input.subject,
+      html_content: input.bodyHtml,
+      segment: input.segment,
+      ...fromConversionTag(input.conversionTag),
+    })
     .eq("id", id);
 
   if (error) {
@@ -304,4 +374,40 @@ export async function sendCampaign(campaignId: string): Promise<MutationResult> 
     .eq("id", campaignId);
 
   return { ok: true, id: campaignId };
+}
+
+export type CampaignConversionDetail = {
+  converted: number;
+  total: number;
+  recipients: { contactId: string; fullName: string; sentAt: string; convertedAt: string | null }[];
+} | null;
+
+/**
+ * Standalone per-campaign conversion detail — unlike WhatsApp (whose batch
+ * detail endpoint already carries recipients+convertedAt), campaigns have
+ * no other recipient-level view, so this is the sole endpoint the
+ * Conversion tab drill-down calls for the email side. Returns null both
+ * when the campaign isn't tracked and when it doesn't exist — the route
+ * distinguishes those by checking existence separately.
+ */
+export async function getCampaignConversionDetail(campaignId: string): Promise<CampaignConversionDetail> {
+  const admin = createAdminSupabase();
+  const { data: campaign } = await admin
+    .from("campaigns")
+    .select("conversion_course_id, conversion_label_match")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (!campaign) return null;
+
+  const tag = toConversionTag(campaign.conversion_course_id, campaign.conversion_label_match);
+  if (tag.kind === "none") return null;
+
+  const { count } = await admin
+    .from("campaign_recipients")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId);
+
+  const { summary, recipients } = await fetchCampaignConversion(campaignId, count ?? 0, tag);
+  if (!summary) return null;
+  return { converted: summary.converted, total: summary.total, recipients };
 }
