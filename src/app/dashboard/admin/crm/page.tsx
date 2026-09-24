@@ -10,10 +10,11 @@ import { MergeReviewPanel } from "@/components/admin/crm/MergeReviewPanel";
 import { CampaignsPanel } from "@/components/admin/crm/CampaignsPanel";
 import { CohortsPanel } from "@/components/admin/crm/CohortsPanel";
 import { WhatsAppPanel } from "@/components/admin/crm/WhatsAppPanel";
+import { ConversionPanel, type ConversionTrackedItem } from "@/components/admin/crm/ConversionPanel";
 
 export const metadata = { title: "CRM — PZ Academy" };
 
-type Tab = "contacts" | "import" | "merge" | "campaigns" | "cohorts" | "whatsapp";
+type Tab = "contacts" | "import" | "merge" | "campaigns" | "cohorts" | "whatsapp" | "conversion";
 
 function parseTab(value: string | undefined): Tab {
   if (value === "import") return "import";
@@ -21,6 +22,7 @@ function parseTab(value: string | undefined): Tab {
   if (value === "campaigns") return "campaigns";
   if (value === "cohorts") return "cohorts";
   if (value === "whatsapp") return "whatsapp";
+  if (value === "conversion") return "conversion";
   return "contacts";
 }
 
@@ -47,6 +49,29 @@ export default async function AdminCrmPage({
     listCohorts(),
     listWhatsAppBatches(),
   ]);
+
+  const conversionItems: ConversionTrackedItem[] = [
+    ...whatsappBatches
+      .filter((b) => b.conversionTag.kind !== "none" && b.conversion !== null)
+      .map((b) => ({
+        kind: "whatsapp" as const,
+        id: b.id,
+        name: b.name,
+        conversionTag: b.conversionTag,
+        conversionCourseTitle: b.conversionCourseTitle,
+        conversion: b.conversion!,
+      })),
+    ...campaigns
+      .filter((c) => c.conversionTag.kind !== "none" && c.conversion !== null)
+      .map((c) => ({
+        kind: "campaign" as const,
+        id: c.id,
+        name: c.name,
+        conversionTag: c.conversionTag,
+        conversionCourseTitle: c.conversionCourseTitle,
+        conversion: c.conversion!,
+      })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -76,6 +101,9 @@ export default async function AdminCrmPage({
         <Link href="/dashboard/admin/crm?tab=whatsapp" className={TAB_CLASS(tab === "whatsapp")}>
           WhatsApp <span className="ml-2 tabular-nums">{whatsappBatches.length}</span>
         </Link>
+        <Link href="/dashboard/admin/crm?tab=conversion" className={TAB_CLASS(tab === "conversion")}>
+          Conversion
+        </Link>
       </div>
 
       {tab === "contacts" && <ContactsPanel initialRows={contacts.rows} initialTotal={contacts.total} />}
@@ -84,6 +112,7 @@ export default async function AdminCrmPage({
       {tab === "campaigns" && <CampaignsPanel initialCampaigns={campaigns} />}
       {tab === "cohorts" && <CohortsPanel initialCohorts={cohorts} />}
       {tab === "whatsapp" && <WhatsAppPanel initialBatches={whatsappBatches} />}
+      {tab === "conversion" && <ConversionPanel items={conversionItems} />}
     </div>
   );
 }
