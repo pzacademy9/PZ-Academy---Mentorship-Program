@@ -98,11 +98,18 @@ export const segmentFieldValuesQuerySchema = z.object({
   field: z.enum(["country", "profession", "product_label", "promo_code"]),
 });
 
+export const conversionTagSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("course"), courseId: z.string().uuid() }),
+  z.object({ kind: z.literal("label"), pattern: z.string().trim().min(1, "Pattern is required").max(200) }),
+  z.object({ kind: z.literal("none") }),
+]);
+
 export const campaignCreateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(150),
   subject: z.string().trim().min(1, "Subject is required").max(300),
   bodyHtml: z.string().trim().min(1, "Body is required").max(100_000),
   segment: z.array(segmentFilterSchema).max(20),
+  conversionTag: conversionTagSchema,
 });
 
 // Same shape as create — editing a draft never changes what fields exist,
@@ -117,6 +124,7 @@ export const whatsappBatchCreateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(150),
   messageTemplate: z.string().trim().min(1, "Message is required").max(4096),
   segment: z.array(segmentFilterSchema).max(20),
+  conversionTag: conversionTagSchema,
 });
 
 export const whatsappBatchUpdateSchema = z
@@ -124,10 +132,13 @@ export const whatsappBatchUpdateSchema = z
     name: z.string().trim().min(1, "Name is required").max(150).optional(),
     messageTemplate: z.string().trim().min(1, "Message is required").max(4096).optional(),
     segment: z.array(segmentFilterSchema).max(20).optional(),
+    conversionTag: conversionTagSchema.optional(),
   })
-  .refine((v) => v.name !== undefined || v.messageTemplate !== undefined || v.segment !== undefined, {
-    message: "At least one field is required",
-  });
+  .refine(
+    (v) =>
+      v.name !== undefined || v.messageTemplate !== undefined || v.segment !== undefined || v.conversionTag !== undefined,
+    { message: "At least one field is required" },
+  );
 
 export const templateCreateSchema = z
   .object({

@@ -10,6 +10,7 @@ import {
   whatsappBatchUpdateSchema,
   whatsappRecipientStatusSchema,
   templateCreateSchema,
+  conversionTagSchema,
 } from "@/lib/validations/crm";
 
 const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null };
@@ -107,12 +108,13 @@ describe("campaignCreateSchema", () => {
       subject: "Hi {{first_name}}, your next step",
       bodyHtml: "<p>Hello</p>",
       segment: [{ field: "purchase_count", op: "gte", value: 2 }],
+      conversionTag: { kind: "none" },
     });
     expect(parsed.success).toBe(true);
   });
 
   it("accepts an empty segment, which means every sendable contact", () => {
-    const parsed = campaignCreateSchema.safeParse({ name: "All", subject: "S", bodyHtml: "<p>x</p>", segment: [] });
+    const parsed = campaignCreateSchema.safeParse({ name: "All", subject: "S", bodyHtml: "<p>x</p>", segment: [], conversionTag: { kind: "none" } });
     expect(parsed.success).toBe(true);
   });
 
@@ -147,12 +149,13 @@ describe("whatsappBatchCreateSchema", () => {
       name: "W20 WhatsApp follow-up",
       messageTemplate: "Hi {{first_name}}, ...",
       segment: [{ field: "country", op: "in", values: ["PK"] }],
+      conversionTag: { kind: "none" },
     });
     expect(parsed.success).toBe(true);
   });
 
   it("accepts an empty segment, which means everyone phone-reachable", () => {
-    const parsed = whatsappBatchCreateSchema.safeParse({ name: "All", messageTemplate: "Hi", segment: [] });
+    const parsed = whatsappBatchCreateSchema.safeParse({ name: "All", messageTemplate: "Hi", segment: [], conversionTag: { kind: "none" } });
     expect(parsed.success).toBe(true);
   });
 
@@ -228,5 +231,69 @@ describe("templateCreateSchema", () => {
 
   it("rejects an unknown channel", () => {
     expect(templateCreateSchema.safeParse({ channel: "sms", name: "N", body: "Hi" }).success).toBe(false);
+  });
+});
+
+describe("conversionTagSchema", () => {
+  it("accepts a course tag", () => {
+    const parsed = conversionTagSchema.safeParse({ kind: "course", courseId: "3f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f" });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts a label tag", () => {
+    const parsed = conversionTagSchema.safeParse({ kind: "label", pattern: "Advanced Mixing" });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts a none tag with no other fields", () => {
+    expect(conversionTagSchema.safeParse({ kind: "none" }).success).toBe(true);
+  });
+
+  it("rejects a course tag with a non-uuid courseId", () => {
+    expect(conversionTagSchema.safeParse({ kind: "course", courseId: "nope" }).success).toBe(false);
+  });
+
+  it("rejects a label tag with a blank pattern", () => {
+    expect(conversionTagSchema.safeParse({ kind: "label", pattern: "  " }).success).toBe(false);
+  });
+
+  it("rejects an unknown kind", () => {
+    expect(conversionTagSchema.safeParse({ kind: "product" }).success).toBe(false);
+  });
+});
+
+describe("whatsappBatchCreateSchema with conversionTag", () => {
+  it("requires a conversionTag", () => {
+    const parsed = whatsappBatchCreateSchema.safeParse({ name: "N", messageTemplate: "Hi", segment: [] });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts a complete batch with a none conversionTag", () => {
+    const parsed = whatsappBatchCreateSchema.safeParse({
+      name: "N", messageTemplate: "Hi", segment: [], conversionTag: { kind: "none" },
+    });
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("whatsappBatchUpdateSchema with conversionTag", () => {
+  it("accepts conversionTag as the only field", () => {
+    const parsed = whatsappBatchUpdateSchema.safeParse({ conversionTag: { kind: "none" } });
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("campaignCreateSchema with conversionTag", () => {
+  it("requires a conversionTag", () => {
+    const parsed = campaignCreateSchema.safeParse({ name: "N", subject: "S", bodyHtml: "<p>x</p>", segment: [] });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts a complete draft with a label conversionTag", () => {
+    const parsed = campaignCreateSchema.safeParse({
+      name: "N", subject: "S", bodyHtml: "<p>x</p>", segment: [],
+      conversionTag: { kind: "label", pattern: "Advanced Mixing" },
+    });
+    expect(parsed.success).toBe(true);
   });
 });
