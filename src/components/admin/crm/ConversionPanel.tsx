@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ConversionTag } from "@/lib/crm/conversion";
 
 export type ConversionTrackedItem = {
@@ -30,15 +30,21 @@ export function ConversionPanel({ items }: { items: ConversionTrackedItem[] }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [rows, setRows] = useState<ExpandedRow[] | null>(null);
   const [loading, setLoading] = useState(false);
+  // Tracks the currently-open item independent of React's state batching, so a
+  // slow fetch for a previously-open item can detect it's stale once the user
+  // has since closed it or opened a different item, and skip overwriting `rows`.
+  const openKeyRef = useRef<string | null>(null);
 
   async function toggle(item: ConversionTrackedItem) {
     const key = `${item.kind}:${item.id}`;
     if (openKey === key) {
       setOpenKey(null);
+      openKeyRef.current = null;
       setRows(null);
       return;
     }
     setOpenKey(key);
+    openKeyRef.current = key;
     setRows(null);
     setLoading(true);
     try {
@@ -46,6 +52,7 @@ export function ConversionPanel({ items }: { items: ConversionTrackedItem[] }) {
         const res = await fetch(`/api/admin/crm/whatsapp/batches/${item.id}`);
         const json = await res.json();
         const recipients = (json.recipients ?? []) as { id: string; fullName: string; status: string; convertedAt: string | null }[];
+        if (openKeyRef.current !== key) return; // a different item was opened while this fetch was in flight
         setRows(
           recipients
             .filter((r) => r.status === "sent")
@@ -55,10 +62,11 @@ export function ConversionPanel({ items }: { items: ConversionTrackedItem[] }) {
         const res = await fetch(`/api/admin/crm/campaigns/${item.id}/conversions`);
         const json = await res.json();
         const recipients = (json.recipients ?? []) as { contactId: string; fullName: string; convertedAt: string | null }[];
+        if (openKeyRef.current !== key) return; // a different item was opened while this fetch was in flight
         setRows(recipients.map((r) => ({ id: r.contactId, fullName: r.fullName, convertedAt: r.convertedAt })));
       }
     } finally {
-      setLoading(false);
+      if (openKeyRef.current === key) setLoading(false);
     }
   }
 
