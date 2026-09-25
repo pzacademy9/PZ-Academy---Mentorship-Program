@@ -47,6 +47,9 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [nameDraft, setNameDraft] = useState("");
   const [segmentDraft, setSegmentDraft] = useState<SegmentFilter[]>([]);
   const [savingBatch, setSavingBatch] = useState(false);
+  const [editConversionMode, setEditConversionMode] = useState<"course" | "label" | "none" | "">("");
+  const [editConversionCourseId, setEditConversionCourseId] = useState("");
+  const [editConversionLabel, setEditConversionLabel] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [queueMode, setQueueMode] = useState(false);
@@ -90,6 +93,19 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     if (conversionMode === "label") return conversionLabel.trim() ? { kind: "label", pattern: conversionLabel.trim() } : null;
     if (conversionMode === "none") return { kind: "none" };
     return null;
+  }
+
+  function buildEditConversionTag(): ConversionTag | null {
+    if (editConversionMode === "course") return editConversionCourseId ? { kind: "course", courseId: editConversionCourseId } : null;
+    if (editConversionMode === "label") return editConversionLabel.trim() ? { kind: "label", pattern: editConversionLabel.trim() } : null;
+    if (editConversionMode === "none") return { kind: "none" };
+    return null;
+  }
+
+  function loadEditConversionTag(tag: ConversionTag) {
+    if (tag.kind === "course") { setEditConversionMode("course"); setEditConversionCourseId(tag.courseId); setEditConversionLabel(""); }
+    else if (tag.kind === "label") { setEditConversionMode("label"); setEditConversionLabel(tag.pattern); setEditConversionCourseId(""); }
+    else { setEditConversionMode("none"); setEditConversionCourseId(""); setEditConversionLabel(""); }
   }
 
   async function createBatch() {
@@ -153,12 +169,14 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
 
   async function saveBatchEdits() {
     if (!detail) return;
+    const conversionTag = buildEditConversionTag();
+    if (!conversionTag) return;
     setSavingBatch(true);
     try {
       const res = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nameDraft, segment: segmentDraft }),
+        body: JSON.stringify({ name: nameDraft, segment: segmentDraft, conversionTag }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -172,7 +190,15 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
         setBatches((prev) =>
           prev.map((b) =>
             b.id === newDetail.id
-              ? { ...b, name: newDetail.name, recipientCount: newDetail.recipientCount, sentCount: newDetail.sentCount }
+              ? {
+                  ...b,
+                  name: newDetail.name,
+                  recipientCount: newDetail.recipientCount,
+                  sentCount: newDetail.sentCount,
+                  conversionTag: newDetail.conversionTag,
+                  conversionCourseTitle: newDetail.conversionCourseTitle,
+                  conversion: newDetail.conversion,
+                }
               : b,
           ),
         );
@@ -394,8 +420,8 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                       {b.conversion && (
                         <>
                           {" · "}
-                          {b.recipientCount > 0 ? Math.round((b.conversion.converted / b.recipientCount) * 100) : 0}% converted (
-                          {b.conversion.converted}/{b.recipientCount}) · Not converted (yet): {b.recipientCount - b.conversion.converted}
+                          {b.conversion.total > 0 ? Math.round((b.conversion.converted / b.conversion.total) * 100) : 0}% converted (
+                          {b.conversion.converted}/{b.conversion.total}) · Not converted (yet): {b.conversion.total - b.conversion.converted}
                         </>
                       )}
                     </span>
@@ -435,10 +461,47 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                               Re-applying the segment adds newly-matching contacts as pending and drops
                               non-matching pending ones — anyone already sent stays in the batch either way.
                             </p>
+                            <div className="space-y-2">
+                              <h3 className="font-headline text-sm font-semibold">Track conversion</h3>
+                              <div className="flex gap-3 flex-wrap">
+                                <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+                                  <input type="radio" name="whatsappEditConversionMode" checked={editConversionMode === "course"} onChange={() => setEditConversionMode("course")} />
+                                  Existing course
+                                </label>
+                                <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+                                  <input type="radio" name="whatsappEditConversionMode" checked={editConversionMode === "label"} onChange={() => setEditConversionMode("label")} />
+                                  Other course (type to match)
+                                </label>
+                                <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+                                  <input type="radio" name="whatsappEditConversionMode" checked={editConversionMode === "none"} onChange={() => setEditConversionMode("none")} />
+                                  Not tracking conversion
+                                </label>
+                              </div>
+                              {editConversionMode === "course" && (
+                                <select
+                                  value={editConversionCourseId}
+                                  onChange={(e) => setEditConversionCourseId(e.target.value)}
+                                  className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+                                >
+                                  <option value="">Select a course…</option>
+                                  {courses.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                  ))}
+                                </select>
+                              )}
+                              {editConversionMode === "label" && (
+                                <input
+                                  value={editConversionLabel}
+                                  onChange={(e) => setEditConversionLabel(e.target.value)}
+                                  placeholder="Text to match in the purchase's product label, e.g. Advanced Mixing"
+                                  className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+                                />
+                              )}
+                            </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={saveBatchEdits}
-                                disabled={savingBatch || nameDraft.trim() === ""}
+                                disabled={savingBatch || nameDraft.trim() === "" || buildEditConversionTag() === null}
                                 className="px-4 py-1.5 rounded-full bg-pz-primary text-pz-on-primary font-headline text-xs font-semibold disabled:opacity-50"
                               >
                                 {savingBatch ? "Saving…" : "Save batch"}
@@ -459,6 +522,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                               onClick={() => {
                                 setNameDraft(detail.name);
                                 setSegmentDraft(detail.segment);
+                                loadEditConversionTag(detail.conversionTag);
                                 setEditingBatch(true);
                               }}
                               className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0"
