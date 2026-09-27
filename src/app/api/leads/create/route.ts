@@ -4,6 +4,7 @@ import {
   getAgentByToken,
   countRecentLeadsByAgent,
   findLeadByPhone,
+  getLeadById,
   insertLead,
   updateLeadFields,
 } from "@/lib/data/leads";
@@ -57,6 +58,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (input.resolution === "update") {
+    const existingLead = await getLeadById(input.existingLeadId!);
+    if (!existingLead) {
+      return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+    }
     await updateLeadFields(input.existingLeadId!, fields);
     return NextResponse.json({ ok: true, id: input.existingLeadId });
   }
