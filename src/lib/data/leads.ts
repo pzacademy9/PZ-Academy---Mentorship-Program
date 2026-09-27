@@ -83,19 +83,33 @@ export async function insertLead(fields: LeadFields): Promise<string> {
   return data.id;
 }
 
-export async function updateLeadFields(leadId: string, fields: LeadFields): Promise<void> {
+export type LeadUpdateFields = {
+  name?: string | null;
+  email?: string | null;
+  phone?: string;
+  profession?: string | null;
+  leadCampaignId?: string | null;
+  agentId?: string;
+};
+
+export async function updateLeadFields(leadId: string, fields: LeadUpdateFields): Promise<void> {
   const admin = createAdminSupabase();
-  const { error } = await admin
-    .from("leads")
-    .update({
-      name: fields.name,
-      email: fields.email,
-      phone: fields.phone,
-      profession: fields.profession,
-      lead_campaign_id: fields.leadCampaignId,
-      agent_id: fields.agentId,
-    })
-    .eq("id", leadId);
+  const updates: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string;
+    profession?: string | null;
+    lead_campaign_id?: string | null;
+    agent_id?: string;
+  } = {};
+  if (fields.name !== undefined) updates.name = fields.name;
+  if (fields.email !== undefined) updates.email = fields.email;
+  if (fields.phone !== undefined) updates.phone = fields.phone;
+  if (fields.profession !== undefined) updates.profession = fields.profession;
+  if (fields.leadCampaignId !== undefined) updates.lead_campaign_id = fields.leadCampaignId;
+  if (fields.agentId !== undefined) updates.agent_id = fields.agentId;
+
+  const { error } = await admin.from("leads").update(updates).eq("id", leadId);
   if (error) throw new Error(error.message);
 }
 

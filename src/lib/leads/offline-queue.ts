@@ -70,6 +70,9 @@ export async function flushQueue(): Promise<void> {
       });
       if (res.ok) {
         removeFromQueue(entry.localId);
+      } else if (res.status === 400 || res.status === 403 || res.status === 404) {
+        console.error(`[leads] permanently rejected (status ${res.status}), dropping from queue:`, entry.localId);
+        removeFromQueue(entry.localId);
       } else {
         bumpAttempts(entry.localId);
       }

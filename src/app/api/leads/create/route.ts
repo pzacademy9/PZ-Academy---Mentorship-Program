@@ -7,6 +7,7 @@ import {
   getLeadById,
   insertLead,
   updateLeadFields,
+  type LeadUpdateFields,
 } from "@/lib/data/leads";
 
 const RATE_LIMIT_PER_HOUR = 30;
@@ -62,7 +63,22 @@ export async function POST(req: NextRequest) {
     if (!existingLead) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
     }
-    await updateLeadFields(input.existingLeadId!, fields);
+    // Unlike insert, an update must not blank out fields the agent's chat
+    // paste simply didn't mention this time — only include a key here when
+    // the input actually provided it. Phone and agentId always update:
+    // phone is always required/validated, and agentId should always move to
+    // whoever last touched the lead.
+    const updateFields: LeadUpdateFields = {
+      phone: input.phone,
+      agentId: agent.id,
+      ...(input.name !== undefined && input.name !== null ? { name: input.name } : {}),
+      ...(input.email !== undefined && input.email !== null ? { email: input.email } : {}),
+      ...(input.profession !== undefined && input.profession !== null ? { profession: input.profession } : {}),
+      ...(input.leadCampaignId !== undefined && input.leadCampaignId !== null
+        ? { leadCampaignId: input.leadCampaignId }
+        : {}),
+    };
+    await updateLeadFields(input.existingLeadId!, updateFields);
     return NextResponse.json({ ok: true, id: input.existingLeadId });
   }
 

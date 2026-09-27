@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { extractEmail, extractPhone, extractName, extractProfession } from "@/lib/leads/extract";
 import { enqueueLead, flushQueue } from "@/lib/leads/offline-queue";
+import { normalizePhone } from "@/lib/crm/phone";
 
 type LeadCampaign = { id: string; name: string };
 type DuplicateInfo = { id: string; status: string; leadCampaignName: string | null };
@@ -82,6 +83,12 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
       return;
     }
 
+    const normalized = normalizePhone(phone);
+    if (!normalized.ok) {
+      toast.error("Enter a valid phone number (e.g. 03001234567).");
+      return;
+    }
+
     if (!navigator.onLine) {
       saveOptimistically("insert");
       return;
@@ -100,7 +107,7 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
           profession: profession.trim() || undefined,
           leadCampaignId: leadCampaignId || undefined,
         }),
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(8000),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.duplicate) {

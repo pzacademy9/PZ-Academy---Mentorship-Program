@@ -67,4 +67,16 @@ describe("flushQueue", () => {
     expect(readQueue()).toHaveLength(1);
     expect(readQueue()[0].attempts).toBe(1);
   });
+
+  it("drops a permanently rejected entry (400) instead of retrying it", async () => {
+    enqueueLead("token-1", draft);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: "Invalid input" }) }),
+    );
+
+    await flushQueue();
+
+    expect(readQueue()).toHaveLength(0);
+  });
 });

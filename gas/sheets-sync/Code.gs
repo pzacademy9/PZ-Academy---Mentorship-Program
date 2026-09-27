@@ -450,6 +450,13 @@ function handleApplyLeadSync_(body) {
     return jsonResponse_({ status: "error", message: "Missing row.id" });
   }
 
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: "Could not acquire lock, try again" });
+  }
+
   try {
     const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
     const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -476,23 +483,30 @@ function handleApplyLeadSync_(body) {
     const campaignCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_CAMPAIGN"));
     const agentCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_AGENT"));
 
-    sheet.getRange(targetRow, idCol + 1).setValue(body.row.id);
-    if (nameCol !== -1) sheet.getRange(targetRow, nameCol + 1).setValue(body.row.name || "");
-    if (emailCol !== -1) sheet.getRange(targetRow, emailCol + 1).setValue(body.row.email || "");
-    if (phoneCol !== -1) sheet.getRange(targetRow, phoneCol + 1).setValue(body.row.phone || "");
-    if (professionCol !== -1) sheet.getRange(targetRow, professionCol + 1).setValue(body.row.profession || "");
-    if (campaignCol !== -1) sheet.getRange(targetRow, campaignCol + 1).setValue(body.row.campaignName || "");
-    if (agentCol !== -1) sheet.getRange(targetRow, agentCol + 1).setValue(body.row.agentName || "");
-    sheet.getRange(targetRow, statusCol + 1).setValue(body.row.status || "");
-    sheet.getRange(targetRow, notesCol + 1).setValue(body.row.notes || "");
+    const lastCol = sheet.getLastColumn();
+    const rowValues = sheet.getRange(targetRow, 1, 1, lastCol).getValues()[0];
+
+    rowValues[idCol] = body.row.id;
+    if (nameCol !== -1) rowValues[nameCol] = body.row.name || "";
+    if (emailCol !== -1) rowValues[emailCol] = body.row.email || "";
+    if (phoneCol !== -1) rowValues[phoneCol] = body.row.phone || "";
+    if (professionCol !== -1) rowValues[professionCol] = body.row.profession || "";
+    if (campaignCol !== -1) rowValues[campaignCol] = body.row.campaignName || "";
+    if (agentCol !== -1) rowValues[agentCol] = body.row.agentName || "";
+    rowValues[statusCol] = body.row.status || "";
+    rowValues[notesCol] = body.row.notes || "";
 
     const syncValue = String(body.row.status || "") + "|" + String(body.row.notes || "");
-    if (appSyncValueCol !== -1) sheet.getRange(targetRow, appSyncValueCol + 1).setValue(syncValue);
-    if (syncedAtCol !== -1) sheet.getRange(targetRow, syncedAtCol + 1).setValue(new Date());
+    if (appSyncValueCol !== -1) rowValues[appSyncValueCol] = syncValue;
+    if (syncedAtCol !== -1) rowValues[syncedAtCol] = new Date();
+
+    sheet.getRange(targetRow, 1, 1, lastCol).setValues([rowValues]);
 
     return jsonResponse_({ status: "success", message: "Lead sheet updated" });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -509,42 +523,48 @@ function onEditLeads(e) {
     const props = PropertiesService.getScriptProperties();
     ensureTrackingColumns_(sheet, headerRow, props);
 
-    const editedRow = e.range.getRow();
-    if (editedRow === 1) return;
-
     const idCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_ID"));
     const statusCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_STATUS"));
     const notesCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_NOTES"));
     const appSyncValueCol = headerIndex_(headerRow, "AppSyncValue");
     if (idCol === -1 || statusCol === -1 || notesCol === -1) return;
 
-    const editedCol = e.range.getColumn();
-    if (editedCol !== statusCol + 1 && editedCol !== notesCol + 1) return;
+    const startRow = e.range.getRow();
+    const numRows = e.range.getNumRows();
+    const startCol = e.range.getColumn();
+    const numCols = e.range.getNumColumns();
 
-    const id = sheet.getRange(editedRow, idCol + 1).getValue();
-    if (!id) return; // a row not yet synced from the app — nothing to report back on
+    for (let r = startRow; r < startRow + numRows; r++) {
+      if (r === 1) continue; // header row
 
-    const status = sheet.getRange(editedRow, statusCol + 1).getValue();
-    const notes = sheet.getRange(editedRow, notesCol + 1).getValue();
+      const editedColsInRow = [];
+      for (let c = startCol; c < startCol + numCols; c++) editedColsInRow.push(c);
+      const touchesStatusOrNotes = editedColsInRow.includes(statusCol + 1) || editedColsInRow.includes(notesCol + 1);
+      if (!touchesStatusOrNotes) continue;
 
-    // Loop guard: this exact combination is what the app itself last wrote —
-    // this edit is that write echoing back, not a real ops-team edit.
-    const lastAppValue = appSyncValueCol !== -1 ? sheet.getRange(editedRow, appSyncValueCol + 1).getValue() : "";
-    const currentValue = String(status || "") + "|" + String(notes || "");
-    if (currentValue === lastAppValue) return;
+      const id = sheet.getRange(r, idCol + 1).getValue();
+      if (!id) continue; // a row not yet synced from the app — nothing to report back on
 
-    UrlFetchApp.fetch(props.getProperty("WEBHOOK_URL_LEADS"), {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify({
-        token: props.getProperty("SYNC_SECRET"),
-        id: String(id),
-        status: String(status || ""),
-        notes: String(notes || ""),
-        updatedAt: new Date().toISOString(),
-      }),
-      muteHttpExceptions: true,
-    });
+      const status = sheet.getRange(r, statusCol + 1).getValue();
+      const notes = sheet.getRange(r, notesCol + 1).getValue();
+
+      const lastAppValue = appSyncValueCol !== -1 ? sheet.getRange(r, appSyncValueCol + 1).getValue() : "";
+      const currentValue = String(status || "") + "|" + String(notes || "");
+      if (currentValue === lastAppValue) continue;
+
+      UrlFetchApp.fetch(props.getProperty("WEBHOOK_URL_LEADS"), {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify({
+          token: props.getProperty("SYNC_SECRET"),
+          id: String(id),
+          status: String(status || ""),
+          notes: String(notes || ""),
+          updatedAt: new Date().toISOString(),
+        }),
+        muteHttpExceptions: true,
+      });
+    }
   } catch (err) {
     console.error(String(err));
   }
