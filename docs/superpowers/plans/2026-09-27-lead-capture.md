@@ -1750,11 +1750,20 @@ export async function applyLeadSync(row: LeadSyncRow): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Deploy via clasp** (per project convention — never redeploy via the web editor's "New version," which silently keeps stale code):
+- [ ] **Step 4: Deploy via clasp** (per project convention — never redeploy via the web editor's "New version," which silently keeps stale code)
+
+**Correction (found by the final whole-branch review, 2026-09-27):** the command below is wrong for this repo's actual layout and would ship stale code. `gas/clasp-project/Sheet Sync.js` is a gitignored local mirror that clasp pushes FROM — it is not kept in sync with `gas/sheets-sync/Code.gs` (the file this task actually edited) by any automated process. A bare `clasp push` from `gas/clasp-project/` would push the OLD pre-this-plan code, silently dropping every new action added in this task. A bare `clasp deploy` also creates a NEW deployment with a new `/exec` URL, leaving `GAS_SHEETS_SYNC_URL` pointed at the old one. Use instead:
 
 ```bash
-cd gas/clasp-project && clasp push && clasp deploy
+cd gas/clasp-project
+clasp pull
+cp ../sheets-sync/Code.gs "Sheet Sync.js"
+clasp push -f
+clasp deployments   # find the existing deploymentId already referenced by GAS_SHEETS_SYNC_URL
+clasp redeploy <deploymentId>
 ```
+
+This keeps the existing `/exec` URL valid — no env var changes needed. Still a manual step for the user; still never done by an unattended agent (see Task 12's dispatch note on why).
 
 - [ ] **Step 5: Type-check the Next.js side and commit**
 
