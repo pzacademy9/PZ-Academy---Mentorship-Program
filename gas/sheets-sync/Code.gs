@@ -180,6 +180,14 @@ function doPost(e) {
     return handleReadSheetRows_(body);
   }
 
+  if (body.action === "registerLeadSheet") {
+    return handleRegisterLeadSheet_(body);
+  }
+
+  if (body.action === "applyLeadSync") {
+    return handleApplyLeadSync_(body);
+  }
+
   return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
 }
 
@@ -377,5 +385,167 @@ function handleReadSheetRows_(body) {
     });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/**
+ * Installs the leads-specific onEdit watcher on the ONE leads sheet, and
+ * remembers its ID in a script property so handleApplyLeadSync_ knows which
+ * spreadsheet to write into without the app passing sheetId on every call.
+ * A separate handler function (onEditLeads, not onEdit) means this sheet's
+ * column layout (id/status/notes) never shares script properties with the
+ * unrelated enrollment sheets' COL_EMAIL/COL_PAYMENT_CONFIRMATION config.
+ *
+ * One-time script properties this action's project needs, set once in
+ * Project Settings -> Script Properties (in addition to the existing
+ * SYNC_SECRET/WEBHOOK_URL/COL_* ones already documented at the top of this
+ * file):
+ *   WEBHOOK_URL_LEADS = https://<your-domain>/api/sync/from-sheets
+ *   LEADS_COL_ID         = <exact header text of the id column>
+ *   LEADS_COL_STATUS     = <exact header text of the status column>
+ *   LEADS_COL_NOTES      = <exact header text of the notes column>
+ *   LEADS_COL_NAME       = <exact header text of the name column>        (optional)
+ *   LEADS_COL_EMAIL      = <exact header text of the email column>       (optional)
+ *   LEADS_COL_PHONE      = <exact header text of the phone column>       (optional)
+ *   LEADS_COL_PROFESSION = <exact header text of the profession column>  (optional)
+ *   LEADS_COL_CAMPAIGN   = <exact header text of the campaign column>    (optional)
+ *   LEADS_COL_AGENT      = <exact header text of the agent column>       (optional)
+ * LEADS_SHEET_ID is set automatically by this action — do not set it by hand.
+ */
+function handleRegisterLeadSheet_(body) {
+  if (!body.sheetId) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId" });
+  }
+
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const alreadyRegistered = ScriptApp.getProjectTriggers().some(
+      (t) => t.getHandlerFunction() === "onEditLeads" && t.getTriggerSourceId() === body.sheetId,
+    );
+    if (!alreadyRegistered) {
+      ScriptApp.newTrigger("onEditLeads").forSpreadsheet(body.sheetId).onEdit().create();
+    }
+    props.setProperty("LEADS_SHEET_ID", body.sheetId);
+    return jsonResponse_({ status: "success", message: "Lead sheet registered" });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/**
+ * Writes one lead's full row into the registered leads sheet, matched by
+ * the id column. Appends a fresh row the first time a given lead syncs
+ * (leads are created in Supabase first, so the first sync for any lead has
+ * no existing sheet row yet); every later sync updates that row in place.
+ * Sets AppSyncValue so onEditLeads can tell its own echo apart from a real
+ * ops-team edit, exactly like handleApplyStatus_ does for enrollments.
+ */
+function handleApplyLeadSync_(body) {
+  const props = PropertiesService.getScriptProperties();
+  const sheetId = props.getProperty("LEADS_SHEET_ID");
+  if (!sheetId) {
+    return jsonResponse_({ status: "error", message: "No lead sheet registered yet" });
+  }
+  if (!body.row || !body.row.id) {
+    return jsonResponse_({ status: "error", message: "Missing row.id" });
+  }
+
+  try {
+    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
+    const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    ensureTrackingColumns_(sheet, headerRow, props);
+
+    const idCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_ID"));
+    const statusCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_STATUS"));
+    const notesCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_NOTES"));
+    const appSyncValueCol = headerIndex_(headerRow, "AppSyncValue");
+    const syncedAtCol = headerIndex_(headerRow, "SyncedAt");
+    if (idCol === -1 || statusCol === -1 || notesCol === -1) {
+      return jsonResponse_({ status: "error", message: "Lead sheet is missing id/status/notes columns" });
+    }
+
+    const ids =
+      sheet.getLastRow() > 1 ? sheet.getRange(2, idCol + 1, sheet.getLastRow() - 1, 1).getValues() : [];
+    const existingRowIndex = ids.findIndex((r) => String(r[0]).trim() === String(body.row.id).trim());
+    const targetRow = existingRowIndex === -1 ? sheet.getLastRow() + 1 : existingRowIndex + 2;
+
+    const nameCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_NAME"));
+    const emailCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_EMAIL"));
+    const phoneCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_PHONE"));
+    const professionCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_PROFESSION"));
+    const campaignCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_CAMPAIGN"));
+    const agentCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_AGENT"));
+
+    sheet.getRange(targetRow, idCol + 1).setValue(body.row.id);
+    if (nameCol !== -1) sheet.getRange(targetRow, nameCol + 1).setValue(body.row.name || "");
+    if (emailCol !== -1) sheet.getRange(targetRow, emailCol + 1).setValue(body.row.email || "");
+    if (phoneCol !== -1) sheet.getRange(targetRow, phoneCol + 1).setValue(body.row.phone || "");
+    if (professionCol !== -1) sheet.getRange(targetRow, professionCol + 1).setValue(body.row.profession || "");
+    if (campaignCol !== -1) sheet.getRange(targetRow, campaignCol + 1).setValue(body.row.campaignName || "");
+    if (agentCol !== -1) sheet.getRange(targetRow, agentCol + 1).setValue(body.row.agentName || "");
+    sheet.getRange(targetRow, statusCol + 1).setValue(body.row.status || "");
+    sheet.getRange(targetRow, notesCol + 1).setValue(body.row.notes || "");
+
+    const syncValue = String(body.row.status || "") + "|" + String(body.row.notes || "");
+    if (appSyncValueCol !== -1) sheet.getRange(targetRow, appSyncValueCol + 1).setValue(syncValue);
+    if (syncedAtCol !== -1) sheet.getRange(targetRow, syncedAtCol + 1).setValue(new Date());
+
+    return jsonResponse_({ status: "success", message: "Lead sheet updated" });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/**
+ * Installable trigger for the ONE leads sheet, registered by
+ * handleRegisterLeadSheet_. Separate from onEdit (which serves enrollment
+ * sheets) because it reads a completely different column layout. Only
+ * status/notes edits are ever forwarded — every other cell is app-owned.
+ */
+function onEditLeads(e) {
+  try {
+    const sheet = e.range.getSheet();
+    const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const props = PropertiesService.getScriptProperties();
+    ensureTrackingColumns_(sheet, headerRow, props);
+
+    const editedRow = e.range.getRow();
+    if (editedRow === 1) return;
+
+    const idCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_ID"));
+    const statusCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_STATUS"));
+    const notesCol = headerIndex_(headerRow, props.getProperty("LEADS_COL_NOTES"));
+    const appSyncValueCol = headerIndex_(headerRow, "AppSyncValue");
+    if (idCol === -1 || statusCol === -1 || notesCol === -1) return;
+
+    const editedCol = e.range.getColumn();
+    if (editedCol !== statusCol + 1 && editedCol !== notesCol + 1) return;
+
+    const id = sheet.getRange(editedRow, idCol + 1).getValue();
+    if (!id) return; // a row not yet synced from the app — nothing to report back on
+
+    const status = sheet.getRange(editedRow, statusCol + 1).getValue();
+    const notes = sheet.getRange(editedRow, notesCol + 1).getValue();
+
+    // Loop guard: this exact combination is what the app itself last wrote —
+    // this edit is that write echoing back, not a real ops-team edit.
+    const lastAppValue = appSyncValueCol !== -1 ? sheet.getRange(editedRow, appSyncValueCol + 1).getValue() : "";
+    const currentValue = String(status || "") + "|" + String(notes || "");
+    if (currentValue === lastAppValue) return;
+
+    UrlFetchApp.fetch(props.getProperty("WEBHOOK_URL_LEADS"), {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify({
+        token: props.getProperty("SYNC_SECRET"),
+        id: String(id),
+        status: String(status || ""),
+        notes: String(notes || ""),
+        updatedAt: new Date().toISOString(),
+      }),
+      muteHttpExceptions: true,
+    });
+  } catch (err) {
+    console.error(String(err));
   }
 }

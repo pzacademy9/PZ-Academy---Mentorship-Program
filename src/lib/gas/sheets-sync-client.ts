@@ -1,5 +1,6 @@
 import "server-only";
 import type { EnrollmentStatus } from "@/lib/validations/sheet-sync";
+import type { LeadSyncRow } from "@/lib/data/leads";
 
 /**
  * Pushes a confirmed status back to the team's Google Sheet so it never
@@ -79,5 +80,53 @@ export async function registerSheet(
     return { ok: true, message: data.message ?? "Sheet registered." };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Request failed." };
+  }
+}
+
+export async function registerLeadSheet(sheetId: string): Promise<{ ok: boolean; message: string }> {
+  const url = process.env.GAS_SHEETS_SYNC_URL;
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!url || !token) {
+    return { ok: false, message: "GAS_SHEETS_SYNC_URL or SHEETS_SYNC_SECRET is not configured." };
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, action: "registerLeadSheet", sheetId }),
+    });
+    const data = (await res.json().catch(() => null)) as { status?: string; message?: string } | null;
+
+    if (!data || data.status !== "success") {
+      return { ok: false, message: data?.message ?? "GAS did not confirm registration." };
+    }
+    return { ok: true, message: data.message ?? "Lead sheet registered." };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Request failed." };
+  }
+}
+
+/**
+ * Fire-and-forget, mirroring pushStatusToSheet's "never block the caller"
+ * contract — a dead or misconfigured GAS deployment must never turn a
+ * lead insert/update into a failed request.
+ */
+export async function applyLeadSync(row: LeadSyncRow): Promise<void> {
+  const url = process.env.GAS_SHEETS_SYNC_URL;
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!url || !token) {
+    console.warn("[sheets-sync] applyLeadSync skipped: GAS_SHEETS_SYNC_URL or SHEETS_SYNC_SECRET not set");
+    return;
+  }
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, action: "applyLeadSync", row }),
+    });
+  } catch (error) {
+    console.error(`[sheets-sync] failed to push lead ${row.id}:`, error);
   }
 }
