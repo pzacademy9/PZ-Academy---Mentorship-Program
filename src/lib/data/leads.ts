@@ -85,7 +85,7 @@ export async function insertLead(fields: LeadFields): Promise<string> {
 
 export async function updateLeadFields(leadId: string, fields: LeadFields): Promise<void> {
   const admin = createAdminSupabase();
-  await admin
+  const { error } = await admin
     .from("leads")
     .update({
       name: fields.name,
@@ -96,6 +96,7 @@ export async function updateLeadFields(leadId: string, fields: LeadFields): Prom
       agent_id: fields.agentId,
     })
     .eq("id", leadId);
+  if (error) throw new Error(error.message);
 }
 
 export async function getLeadById(leadId: string): Promise<{ id: string; updatedAt: string } | null> {
@@ -111,7 +112,8 @@ export async function applyStatusAndNotesFromSheet(
   notes: string | null,
 ): Promise<void> {
   const admin = createAdminSupabase();
-  await admin.from("leads").update({ status, notes }).eq("id", leadId);
+  const { error } = await admin.from("leads").update({ status, notes }).eq("id", leadId);
+  if (error) throw new Error(error.message);
 }
 
 export type LeadSyncRow = {
