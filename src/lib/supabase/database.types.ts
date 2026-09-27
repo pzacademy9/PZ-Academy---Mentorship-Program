@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          token: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          token: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          token?: string
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           course_id: string
@@ -1261,6 +1285,84 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_campaigns: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          lead_campaign_id: string | null
+          name: string | null
+          notes: string | null
+          phone: string
+          profession: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_campaign_id?: string | null
+          name?: string | null
+          notes?: string | null
+          phone: string
+          profession?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_campaign_id?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string
+          profession?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_lead_campaign_id_fkey"
+            columns: ["lead_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "lead_campaigns"
             referencedColumns: ["id"]
           },
         ]
