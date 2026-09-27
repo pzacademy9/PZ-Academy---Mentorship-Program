@@ -4,6 +4,7 @@ import { listContacts, listMergeCandidates } from "@/lib/data/admin-crm-contacts
 import { listCampaigns } from "@/lib/data/admin-crm-campaigns";
 import { listCohorts } from "@/lib/data/admin-crm-import";
 import { listWhatsAppBatches } from "@/lib/data/admin-crm-whatsapp";
+import { listAgents } from "@/lib/data/admin-crm-agents";
 import { ContactsPanel } from "@/components/admin/crm/ContactsPanel";
 import { ImportWizard } from "@/components/admin/crm/ImportWizard";
 import { MergeReviewPanel } from "@/components/admin/crm/MergeReviewPanel";
@@ -11,10 +12,11 @@ import { CampaignsPanel } from "@/components/admin/crm/CampaignsPanel";
 import { CohortsPanel } from "@/components/admin/crm/CohortsPanel";
 import { WhatsAppPanel } from "@/components/admin/crm/WhatsAppPanel";
 import { ConversionPanel, type ConversionTrackedItem } from "@/components/admin/crm/ConversionPanel";
+import { AgentsPanel } from "@/components/admin/crm/AgentsPanel";
 
 export const metadata = { title: "CRM — PZ Academy" };
 
-type Tab = "contacts" | "import" | "merge" | "campaigns" | "cohorts" | "whatsapp" | "conversion";
+type Tab = "contacts" | "import" | "merge" | "campaigns" | "cohorts" | "whatsapp" | "conversion" | "agents";
 
 function parseTab(value: string | undefined): Tab {
   if (value === "import") return "import";
@@ -23,6 +25,7 @@ function parseTab(value: string | undefined): Tab {
   if (value === "cohorts") return "cohorts";
   if (value === "whatsapp") return "whatsapp";
   if (value === "conversion") return "conversion";
+  if (value === "agents") return "agents";
   return "contacts";
 }
 
@@ -42,12 +45,13 @@ export default async function AdminCrmPage({
   const { tab: tabParam } = await searchParams;
   const tab = parseTab(tabParam);
 
-  const [contacts, mergeCandidates, campaigns, cohorts, whatsappBatches] = await Promise.all([
+  const [contacts, mergeCandidates, campaigns, cohorts, whatsappBatches, agents] = await Promise.all([
     listContacts({ limit: 50, offset: 0 }),
     listMergeCandidates(),
     listCampaigns(),
     listCohorts(),
     listWhatsAppBatches(),
+    listAgents(),
   ]);
 
   const conversionItems: ConversionTrackedItem[] = [
@@ -104,6 +108,9 @@ export default async function AdminCrmPage({
         <Link href="/dashboard/admin/crm?tab=conversion" className={TAB_CLASS(tab === "conversion")}>
           Conversion
         </Link>
+        <Link href="/dashboard/admin/crm?tab=agents" className={TAB_CLASS(tab === "agents")}>
+          Agents <span className="ml-2 tabular-nums">{agents.length}</span>
+        </Link>
       </div>
 
       {tab === "contacts" && <ContactsPanel initialRows={contacts.rows} initialTotal={contacts.total} />}
@@ -113,6 +120,7 @@ export default async function AdminCrmPage({
       {tab === "cohorts" && <CohortsPanel initialCohorts={cohorts} />}
       {tab === "whatsapp" && <WhatsAppPanel initialBatches={whatsappBatches} />}
       {tab === "conversion" && <ConversionPanel items={conversionItems} />}
+      {tab === "agents" && <AgentsPanel initialAgents={agents} />}
     </div>
   );
 }

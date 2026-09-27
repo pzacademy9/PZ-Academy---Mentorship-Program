@@ -98,6 +98,10 @@ export const segmentFieldValuesQuerySchema = z.object({
   field: z.enum(["country", "profession", "product_label", "promo_code"]),
 });
 
+export const agentCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100),
+});
+
 export const conversionTagSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("course"), courseId: z.string().uuid() }),
   z.object({ kind: z.literal("label"), pattern: z.string().trim().min(1, "Pattern is required").max(200) }),
