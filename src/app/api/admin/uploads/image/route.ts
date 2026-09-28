@@ -60,13 +60,13 @@ export async function POST(req: NextRequest) {
       }),
     });
   } catch (err) {
-    console.error("[course-image] GAS request failed:", err);
+    console.error("[uploads-image] GAS request failed:", err);
     return NextResponse.json({ error: `Could not reach the upload service: ${String(err)}` }, { status: 502 });
   }
 
   if (!gasRes.ok) {
     const bodyText = await gasRes.text().catch(() => "");
-    console.error("[course-image] GAS returned non-OK status:", gasRes.status, bodyText.slice(0, 500));
+    console.error("[uploads-image] GAS returned non-OK status:", gasRes.status, bodyText.slice(0, 500));
     return NextResponse.json(
       { error: `Upload failed (GAS status ${gasRes.status}): ${bodyText.slice(0, 300)}` },
       { status: 502 },
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     json = await gasRes.json();
   } catch (err) {
     const bodyText = await gasRes.text().catch(() => "");
-    console.error("[course-image] GAS response was not valid JSON:", bodyText.slice(0, 500), err);
+    console.error("[uploads-image] GAS response was not valid JSON:", bodyText.slice(0, 500), err);
     return NextResponse.json(
       { error: `Upload service returned an unexpected response: ${bodyText.slice(0, 300)}` },
       { status: 502 },

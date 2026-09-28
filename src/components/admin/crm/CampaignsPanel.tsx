@@ -141,7 +141,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       form.append("courseSlug", "crm-campaigns");
       form.append("kind", "campaign");
 
-      const res = await fetch("/api/admin/uploads/course-image", { method: "POST", body: form });
+      const res = await fetch("/api/admin/uploads/image", { method: "POST", body: form });
       const payload = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
       if (!res.ok || !payload?.url) {
         toast.error(payload?.error ?? "Image upload failed.");

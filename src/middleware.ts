@@ -64,11 +64,11 @@ export const config = {
     // /enroll, so API routes (which already gate themselves via
     // requireAdmin()/requireMentor()) got a pure-overhead Supabase
     // session-refresh round-trip through the Edge Runtime on every request
-    // for no behavioral effect — and Edge Runtime handles large multipart/
-    // base64 upload bodies far less reliably than the Node serverless
-    // runtime those routes actually run on, which was intermittently
-    // producing a bare edge-layer 502 (no app code ever ran) on
-    // /api/admin/uploads/course-image before this exclusion.
+    // for no behavioral effect. Worth keeping regardless of any single bug —
+    // it just removes dead work — but it was NOT what fixed the
+    // /api/admin/uploads/course-image 502 investigated alongside it (that
+    // persisted after this exclusion shipped; see the route's move to
+    // /api/admin/uploads/image for what actually resolved it).
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

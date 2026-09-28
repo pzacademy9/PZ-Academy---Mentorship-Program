@@ -9,7 +9,7 @@ const ALLOWED_MIME_TYPES = ["application/pdf"];
 
 /**
  * Uploads a lesson PDF or Supporting Document to a PRIVATE Drive file via the
- * GAS bridge — unlike /api/admin/uploads/course-image, this never sets
+ * GAS bridge — unlike /api/admin/uploads/image, this never sets
  * ANYONE_WITH_LINK sharing (see handleUploadPrivateDocument_ in
  * gas/payment-screenshots/Code.gs). The response is a bare fileId, never a
  * Drive URL — students only ever reach the bytes through the gated stream

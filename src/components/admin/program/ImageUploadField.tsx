@@ -6,7 +6,7 @@ import { ImagePlus, Loader2, Trash2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Uploads to Google Drive via /api/admin/uploads/course-image and writes the
+ * Uploads to Google Drive via /api/admin/uploads/image and writes the
  * resulting public URL into `value`. The text input stays editable underneath
  * so pasting a URL directly still works — the plan's explicit requirement for
  * course-image fields (they're marketing assets on a public Drive link, not
@@ -26,7 +26,7 @@ export function ImageUploadField({
   inputClassName,
   shape = "circle",
   icon: Icon = ImagePlus,
-  uploadUrl = "/api/admin/uploads/course-image",
+  uploadUrl = "/api/admin/uploads/image",
 }: {
   value: string;
   onChange: (url: string) => void;

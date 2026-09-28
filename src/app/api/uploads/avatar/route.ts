@@ -10,7 +10,7 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
 /**
  * Uploads a user's own profile photo to Google Drive via the GAS bridge --
  * reuses the "uploadCourseImage" GAS action (same backend already proven by
- * /api/admin/uploads/course-image, no GAS-side changes needed), since this
+ * /api/admin/uploads/image, no GAS-side changes needed), since this
  * repo never touches Supabase Storage for files. Any authenticated user may
  * upload their own avatar -- no role gate, mirrors
  * /api/uploads/payment-screenshot.
