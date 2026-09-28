@@ -58,6 +58,13 @@ export async function POST(req: NextRequest) {
         base64,
         filename,
       }),
+      // Next.js 14.2.x has a flagged fetch-memoization bug (see the
+      // next@14.2.5 vulnerability warning in the build log) where an
+      // unrelated cached response could be replayed for this call — this
+      // route's request body is unique per upload anyway, so opting out of
+      // caching entirely is both the safe default and the concrete fix for
+      // that class of bug.
+      cache: "no-store",
     });
   } catch (err) {
     console.error("[uploads-image] GAS request failed:", err);
