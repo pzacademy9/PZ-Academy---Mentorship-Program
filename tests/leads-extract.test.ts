@@ -51,6 +51,11 @@ describe("extractName", () => {
     const text = `Hamza Ansari\nH2@gmail.com\n+92099999222\nPharmacist`;
     expect(extractName(text)).toBe("Hamza Ansari");
   });
+
+  it("matches the Meta lead-ad 'Full name:' label", () => {
+    const text = `Full name: Mahreez Fatima\nEmail: mehreez456@gmail.com\nWhatsApp number: 03440815800`;
+    expect(extractName(text)).toBe("Mahreez Fatima");
+  });
 });
 
 describe("extractProfession", () => {
