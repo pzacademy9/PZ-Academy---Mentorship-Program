@@ -23,7 +23,12 @@ export function extractPhone(text: string): string | null {
 }
 
 const NAME_PATTERNS = [
+  // Registration-confirmation style paste: "Name: Mahnoor Bhatti" on its own line.
+  /^\s*name\s*[:\-]\s*([A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*){0,3})\s*$/im,
   /\b(?:my\s+name\s+is|[Ii]\s*'?\s*m|[Ii]\s+am|[Tt]his\s+is)\s+([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+){0,2})/,
+  // Bare name as the very first line (common when an agent pastes a contact's own
+  // WhatsApp intro, which is just their name with nothing else on that line).
+  /^\s*([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+){1,2})\s*(?:\r?\n|$)/,
 ];
 
 export function extractName(text: string): string | null {
@@ -35,6 +40,8 @@ export function extractName(text: string): string | null {
 }
 
 const PROFESSION_PATTERNS = [
+  // Registration-confirmation style paste: "Profession: Community Pharmacist".
+  /^\s*profession\s*[:\-]\s*([A-Za-z][A-Za-z\s'-]{1,60}?)\s*$/im,
   /\bi\s*'?\s*m\s+an?\s+([a-z][a-z\s'-]{2,60}?)(?=[.,!\n]|$)/i,
   /\bi\s+am\s+an?\s+([a-z][a-z\s'-]{2,60}?)(?=[.,!\n]|$)/i,
   /\bi\s+work\s+as\s+an?\s+([a-z][a-z\s'-]{2,60}?)(?=[.,!\n]|$)/i,

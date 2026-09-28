@@ -41,6 +41,16 @@ describe("extractName", () => {
   it("returns null when no name pattern matches", () => {
     expect(extractName("interested in the course, please share details")).toBeNull();
   });
+
+  it("matches a 'Name:' labeled line", () => {
+    const text = `Name: Mahnoor Bhatti\nEmail: mahnoorsaleem716@gmail.com\nRef: PZA-DMC1-035\nRegistration: Live – Modules: M1 – Individual\n\nPlease verify my payment. Thank you!`;
+    expect(extractName(text)).toBe("Mahnoor Bhatti");
+  });
+
+  it("matches a bare name as the first line of the paste", () => {
+    const text = `Hamza Ansari\nH2@gmail.com\n+92099999222\nPharmacist`;
+    expect(extractName(text)).toBe("Hamza Ansari");
+  });
 });
 
 describe("extractProfession", () => {
@@ -58,6 +68,11 @@ describe("extractProfession", () => {
 
   it("returns null when no profession pattern matches", () => {
     expect(extractProfession("just want to know the course fee")).toBeNull();
+  });
+
+  it("matches a 'Profession:' labeled line", () => {
+    const text = `Name: Mahnoor Bhatti\nProfession: Community Pharmacist\nEmail: mahnoorsaleem716@gmail.com`;
+    expect(extractProfession(text)).toBe("Community Pharmacist");
   });
 });
 

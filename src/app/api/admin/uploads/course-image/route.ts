@@ -44,25 +44,46 @@ export async function POST(req: NextRequest) {
   const ext = file.type.split("/")[1];
   const filename = `${kind}_${Date.now()}.${ext}`;
 
-  const gasRes = await fetch(GAS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "uploadCourseImage",
-      secret: GAS_SHARED_SECRET,
-      courseSlug,
-      kind,
-      mimeType: file.type,
-      base64,
-      filename,
-    }),
-  });
-
-  if (!gasRes.ok) {
-    return NextResponse.json({ error: "Upload failed" }, { status: 502 });
+  let gasRes: Response;
+  try {
+    gasRes = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "uploadCourseImage",
+        secret: GAS_SHARED_SECRET,
+        courseSlug,
+        kind,
+        mimeType: file.type,
+        base64,
+        filename,
+      }),
+    });
+  } catch (err) {
+    console.error("[course-image] GAS request failed:", err);
+    return NextResponse.json({ error: `Could not reach the upload service: ${String(err)}` }, { status: 502 });
   }
 
-  const json: { ok: boolean; url?: string; error?: string } = await gasRes.json();
+  if (!gasRes.ok) {
+    const bodyText = await gasRes.text().catch(() => "");
+    console.error("[course-image] GAS returned non-OK status:", gasRes.status, bodyText.slice(0, 500));
+    return NextResponse.json(
+      { error: `Upload failed (GAS status ${gasRes.status}): ${bodyText.slice(0, 300)}` },
+      { status: 502 },
+    );
+  }
+
+  let json: { ok: boolean; url?: string; error?: string };
+  try {
+    json = await gasRes.json();
+  } catch (err) {
+    const bodyText = await gasRes.text().catch(() => "");
+    console.error("[course-image] GAS response was not valid JSON:", bodyText.slice(0, 500), err);
+    return NextResponse.json(
+      { error: `Upload service returned an unexpected response: ${bodyText.slice(0, 300)}` },
+      { status: 502 },
+    );
+  }
   if (!json.ok || !json.url) {
     return NextResponse.json({ error: json.error ?? "Upload failed" }, { status: 502 });
   }
