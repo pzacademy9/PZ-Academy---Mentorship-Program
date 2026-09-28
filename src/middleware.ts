@@ -60,6 +60,15 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Excludes /api/* too: every branch above only ever checks /dashboard or
+    // /enroll, so API routes (which already gate themselves via
+    // requireAdmin()/requireMentor()) got a pure-overhead Supabase
+    // session-refresh round-trip through the Edge Runtime on every request
+    // for no behavioral effect — and Edge Runtime handles large multipart/
+    // base64 upload bodies far less reliably than the Node serverless
+    // runtime those routes actually run on, which was intermittently
+    // producing a bare edge-layer 502 (no app code ever ran) on
+    // /api/admin/uploads/course-image before this exclusion.
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
