@@ -44,6 +44,13 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
   // Two filter changes in quick succession race; without this the slower
   // (older) response can land last and repaint the list with stale rows.
   const latestSearch = useRef(0);
+  const [showBulkConvertForm, setShowBulkConvertForm] = useState(false);
+  const [bulkProgramMode, setBulkProgramMode] = useState<"course" | "label">("course");
+  const [bulkCourseId, setBulkCourseId] = useState("");
+  const [bulkLabel, setBulkLabel] = useState("");
+  const [bulkConvertedAt, setBulkConvertedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [courseChoices, setCourseChoices] = useState<{ id: string; title: string }[]>([]);
 
   // Both endpoints already exist for the campaign segment builder.
   useEffect(() => {
@@ -60,6 +67,11 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     fetch("/api/admin/crm/import/batches")
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => { if (json?.batches) setBatches(json.batches); })
+      .catch(() => {});
+
+    fetch("/api/admin/crm/courses")
+      .then((r) => r.json())
+      .then((j: { courses?: { id: string; title: string }[] }) => setCourseChoices(j.courses ?? []))
       .catch(() => {});
   }, []);
 
@@ -123,6 +135,33 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       return;
     }
     router.push("/dashboard/admin/crm?tab=whatsapp");
+  }
+
+  async function markSelectedConverted() {
+    const program = bulkProgramMode === "course" ? { kind: "course" as const, courseId: bulkCourseId } : { kind: "label" as const, pattern: bulkLabel.trim() };
+    if (bulkProgramMode === "course" && !bulkCourseId) return;
+    if (bulkProgramMode === "label" && bulkLabel.trim() === "") return;
+
+    setBulkSaving(true);
+    try {
+      const res = await fetch("/api/admin/crm/manual-conversions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: Array.from(selected), program, convertedAt: bulkConvertedAt }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not record these conversions.");
+        return;
+      }
+      toast.success(`Marked ${json.count} contact${json.count === 1 ? "" : "s"} converted.`);
+      setShowBulkConvertForm(false);
+      setBulkCourseId("");
+      setBulkLabel("");
+      setSelected(new Set());
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   return (
@@ -196,10 +235,47 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
               Use in WhatsApp batch
             </button>
             <button
+              onClick={() => setShowBulkConvertForm((v) => !v)}
+              className="font-body text-xs font-semibold text-pz-primary hover:underline"
+            >
+              Mark {selected.size} selected as converted…
+            </button>
+            <button
               onClick={() => setSelected(new Set())}
               className="font-body text-xs text-pz-on-surface-variant hover:text-pz-secondary"
             >
               Clear
+            </button>
+          </div>
+        )}
+
+        {selected.size > 0 && showBulkConvertForm && (
+          <div className="bg-pz-surface-container-high rounded-2xl p-4 space-y-3 mt-2">
+            <div className="flex gap-3 flex-wrap">
+              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+                <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "course"} onChange={() => setBulkProgramMode("course")} />
+                Existing course
+              </label>
+              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+                <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "label"} onChange={() => setBulkProgramMode("label")} />
+                Other program (type a name)
+              </label>
+            </div>
+            {bulkProgramMode === "course" ? (
+              <select value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm">
+                <option value="">Select a course…</option>
+                {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+            ) : (
+              <input value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
+            )}
+            <input type="date" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
+            <button
+              onClick={markSelectedConverted}
+              disabled={bulkSaving || (bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === "")}
+              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+            >
+              {bulkSaving ? "Saving…" : `Mark ${selected.size} converted`}
             </button>
           </div>
         )}
