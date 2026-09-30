@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import DOMPurify from "isomorphic-dompurify";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
@@ -23,12 +22,18 @@ type Campaign = {
 const PREVIEW_SAMPLE = { first_name: "Jordan", full_name: "Jordan Ahmed", email: "jordan@example.com" };
 // Sanitized before render — this is a live preview of whatever the admin
 // currently has typed (or pasted) into the raw-HTML body, not vetted content.
-function renderPreviewHtml(html: string): string {
+// isomorphic-dompurify is loaded lazily in the browser only (see the effect in
+// CampaignsPanel): client components are still server-rendered, and its Node
+// build pulls in jsdom, which crashes at import time on Vercel (ERR_REQUIRE_ESM).
+// Until the sanitizer has loaded this returns "" — never unsanitized HTML.
+type Sanitizer = { sanitize: (html: string) => string };
+function renderPreviewHtml(html: string, purifier: Sanitizer | null): string {
+  if (!purifier) return "";
   const withTags = html
     .replaceAll("{{first_name}}", PREVIEW_SAMPLE.first_name)
     .replaceAll("{{full_name}}", PREVIEW_SAMPLE.full_name)
     .replaceAll("{{email}}", PREVIEW_SAMPLE.email);
-  return DOMPurify.sanitize(withTags);
+  return purifier.sanitize(withTags);
 }
 
 const MERGE_TAGS = [
@@ -65,6 +70,15 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   const [conversionLabel, setConversionLabel] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const [purifier, setPurifier] = useState<Sanitizer | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    import("isomorphic-dompurify")
+      .then((m) => { if (!cancelled) setPurifier({ sanitize: (h) => m.default.sanitize(h) }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     fetch("/api/admin/crm/courses")
@@ -368,7 +382,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
           <div className="rounded-xl border border-pz-outline-variant overflow-hidden">
             <div style={{ fontFamily: "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif", background: "#ffffff", padding: "24px 16px" }}>
               <div style={{ maxWidth: 560, margin: "0 auto", color: "#222222", lineHeight: 1.6, fontSize: 15 }}
-                dangerouslySetInnerHTML={{ __html: renderPreviewHtml(bodyHtml) }} />
+                dangerouslySetInnerHTML={{ __html: renderPreviewHtml(bodyHtml, purifier) }} />
             </div>
           </div>
         )}

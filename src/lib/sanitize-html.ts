@@ -14,9 +14,11 @@ import sanitizeHtml from "sanitize-html";
  * html-encoding-sniffer dependency requires the ESM-only @exodus/bytes via
  * plain CommonJS require() — that throws ERR_REQUIRE_ESM at runtime in
  * Vercel's serverless functions (and fails the webpack build outright if the
- * package isn't externalized). isomorphic-dompurify is still used directly
- * in client components (e.g. CampaignsPanel.tsx), where it resolves to its
- * browser build against the real DOM and never touches jsdom.
+ * package isn't externalized). Note that "use client" components are STILL
+ * server-rendered, so a static import of isomorphic-dompurify there resolves
+ * to the Node/jsdom build on the server and crashes the same way. It must be
+ * loaded lazily client-side only (dynamic import() inside a useEffect), as
+ * CampaignsPanel.tsx does.
  */
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "u", "s",
