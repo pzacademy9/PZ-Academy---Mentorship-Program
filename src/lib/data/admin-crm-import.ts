@@ -105,6 +105,56 @@ export async function listCohorts(): Promise<CohortRow[]> {
   }));
 }
 
+export type CohortContactRow = {
+  contactId: string;
+  fullName: string;
+  email: string | null;
+  phoneE164: string | null;
+  productLabel: string;
+};
+
+export type CohortDetail = CohortRow & { contacts: CohortContactRow[] };
+
+/** Feeds the Cohort detail page — every purchase this sheet import produced, joined back to its contact. */
+export async function getCohortDetail(id: string): Promise<CohortDetail | null> {
+  const admin = createAdminSupabase();
+  const { data: batch } = await admin
+    .from("import_batches")
+    .select("id, sheet_name, tab_name, rows_imported, created_at, course_id, courses(title)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!batch) return null;
+
+  const { data: purchases } = await admin
+    .from("contact_purchases")
+    .select("contact_id, product_label, contacts(full_name, email, phone_e164)")
+    .eq("import_batch_id", id);
+
+  const rows = purchases ?? [];
+  const contacts: CohortContactRow[] = rows.map((p) => {
+    const contact = p.contacts as { full_name: string; email: string | null; phone_e164: string | null } | null;
+    return {
+      contactId: p.contact_id,
+      fullName: contact?.full_name ?? "",
+      email: contact?.email ?? null,
+      phoneE164: contact?.phone_e164 ?? null,
+      productLabel: p.product_label,
+    };
+  });
+
+  return {
+    id: batch.id,
+    sheetName: batch.sheet_name || "(untitled sheet)",
+    tabName: batch.tab_name,
+    rowsImported: batch.rows_imported,
+    createdAt: batch.created_at,
+    courseId: batch.course_id,
+    courseTitle: (batch.courses as { title: string } | null)?.title ?? null,
+    purchaseCount: rows.length,
+    contacts,
+  };
+}
+
 export type DeleteCohortResult = { ok: true } | { ok: false; reason: "not-found" | "error" };
 
 /**

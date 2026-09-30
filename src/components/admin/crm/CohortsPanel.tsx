@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
@@ -64,7 +65,11 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
         <tbody>
           {cohorts.map((c) => (
             <tr key={c.id} className="border-t border-pz-outline-variant">
-              <td className="py-2">{c.sheetName}</td>
+              <td className="py-2">
+                <Link href={`/dashboard/admin/crm/cohorts/${c.id}`} className="underline">
+                  {c.sheetName}
+                </Link>
+              </td>
               <td>{c.tabName}</td>
               <td className={c.courseTitle ? "" : "text-pz-danger"}>{c.courseTitle ?? "untagged"}</td>
               <td className="tabular-nums">
