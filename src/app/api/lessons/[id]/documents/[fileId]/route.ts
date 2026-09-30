@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { LessonDocument } from "@/lib/data/lms";
 
-const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
+// GAS_WEBAPP_URL is reserved for the feedback system in production; this
+// bridge (shared with sheets-sync per gas/sheets-sync/Code.gs) lives at
+// GAS_SHEETS_SYNC_URL instead.
+const GAS_URL = process.env.GAS_SHEETS_SYNC_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
 
 /**

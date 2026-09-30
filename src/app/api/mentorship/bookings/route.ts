@@ -7,7 +7,10 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getBookableMentor } from "@/lib/data/mentors";
 import { isKnownPackageName } from "@/lib/validations/admin-mentor";
 
-const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
+// GAS_WEBAPP_URL is reserved for the feedback system in production; this
+// bridge (shared with sheets-sync per gas/sheets-sync/Code.gs) lives at
+// GAS_SHEETS_SYNC_URL instead.
+const GAS_URL = process.env.GAS_SHEETS_SYNC_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
 const BOOKING_SCRIPT_URL = process.env.NEXT_PUBLIC_BOOKING_SCRIPT_URL ?? "";
 

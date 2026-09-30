@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireMentor } from "@/lib/auth/require-mentor";
 
-const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
+// GAS_WEBAPP_URL is reserved for the feedback system in production; this
+// bridge (shared with sheets-sync per gas/sheets-sync/Code.gs) lives at
+// GAS_SHEETS_SYNC_URL instead. (Previously this route hit GAS_WEBAPP_URL,
+// which in production landed on the feedback GAS project and returned its
+// generic "This feedback link is not valid." error — not a caching bug.)
+const GAS_URL = process.env.GAS_SHEETS_SYNC_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -58,12 +63,8 @@ export async function POST(req: NextRequest) {
         base64,
         filename,
       }),
-      // Next.js 14.2.x has a flagged fetch-memoization bug (see the
-      // next@14.2.5 vulnerability warning in the build log) where an
-      // unrelated cached response could be replayed for this call — this
-      // route's request body is unique per upload anyway, so opting out of
-      // caching entirely is both the safe default and the concrete fix for
-      // that class of bug.
+      // Each upload's body is unique, so there's no reason to let Next.js
+      // memoize this fetch.
       cache: "no-store",
     });
   } catch (err) {

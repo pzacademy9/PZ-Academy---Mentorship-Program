@@ -1,6 +1,9 @@
 import "server-only";
 
-const GAS_URL = process.env.GAS_WEBAPP_URL ?? "";
+// GAS_WEBAPP_URL is reserved for the feedback system in production; the
+// Drive-upload bridge (shared by payment-screenshots + sheets-sync per
+// gas/sheets-sync/Code.gs) lives at GAS_SHEETS_SYNC_URL instead.
+const GAS_URL = process.env.GAS_SHEETS_SYNC_URL ?? "";
 const GAS_SHARED_SECRET = process.env.GAS_SHARED_SECRET ?? "";
 
 /** Moves one Drive file to Trash via the GAS relay's trashFile action. Never throws — callers treat a failure as "couldn't clean up," not a reason to fail their own operation. */

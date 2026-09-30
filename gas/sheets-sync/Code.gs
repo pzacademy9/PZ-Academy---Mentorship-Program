@@ -35,8 +35,12 @@
  *      supported here.
  *   3. Deploy -> New deployment -> Web app -> Execute as "Me", access
  *      "Anyone" -> copy the /exec URL into .env.local as GAS_SHEETS_SYNC_URL.
- *      If sharing the payment-screenshots project, this is the SAME /exec
- *      URL as GAS_WEBAPP_URL — both env vars just point at one deployment now.
+ *      If sharing the payment-screenshots project, that project's setup
+ *      comment also points at GAS_SHEETS_SYNC_URL now — do NOT reuse
+ *      GAS_WEBAPP_URL, which in production is the separate feedback GAS
+ *      project's URL (a real prod incident: every Drive-upload route read
+ *      GAS_WEBAPP_URL, silently landed on the feedback script, and got 502s
+ *      back with that script's own "This feedback link is not valid." error).
  *   4. The deploying Google account must have edit access to every sheet
  *      that gets registered — same Drive/team as today's sheets.
  *

@@ -10,7 +10,10 @@
  * One-time setup after pasting this file into script.google.com:
  *   1. Project Settings -> Script Properties -> add SHARED_SECRET = <a long random string>
  *   2. Deploy -> New deployment -> Web app -> Execute as "Me", access "Anyone"
- *   3. Copy the /exec URL into the Next.js app's .env.local as GAS_WEBAPP_URL
+ *   3. Copy the /exec URL into the Next.js app's .env.local as GAS_SHEETS_SYNC_URL
+ *      (NOT GAS_WEBAPP_URL — that name is reserved for the separate feedback
+ *      GAS project in production; reusing it here misroutes every upload
+ *      route to the feedback script instead of this one)
  *   4. Put the same random string in .env.local as GAS_SHARED_SECRET
  */
 
