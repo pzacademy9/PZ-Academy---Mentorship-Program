@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Copy, Check } from "lucide-react";
 import { formatDate } from "@/lib/format";
@@ -138,7 +139,11 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
             <tbody>
               {agents.map((a) => (
                 <tr key={a.id} className="border-t border-pz-outline-variant">
-                  <td className="py-2">{a.name}</td>
+                  <td className="py-2">
+                    <Link href={`/dashboard/admin/crm/agents/${a.id}`} className="underline">
+                      {a.name}
+                    </Link>
+                  </td>
                   <td>
                     <CopyLinkButton token={a.token} />
                   </td>

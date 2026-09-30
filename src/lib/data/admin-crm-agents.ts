@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { listLeadsByAgent, type AgentLeadRow } from "./leads";
 
 /**
  * Sales agent link management for the admin CRM panel. Agents themselves are
@@ -52,4 +53,19 @@ export async function setAgentActive(id: string, active: boolean): Promise<boole
   const admin = createAdminSupabase();
   const { error } = await admin.from("agents").update({ active }).eq("id", id);
   return !error;
+}
+
+export type AgentDetail = Agent & { leads: AgentLeadRow[] };
+
+export async function getAgentDetail(id: string): Promise<AgentDetail | null> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("agents")
+    .select("id, name, token, active, created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return null;
+
+  const leads = await listLeadsByAgent(id);
+  return { id: data.id, name: data.name, token: data.token, active: data.active, createdAt: data.created_at, leads };
 }
