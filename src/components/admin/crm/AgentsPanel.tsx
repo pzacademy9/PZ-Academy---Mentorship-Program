@@ -51,6 +51,8 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const filteredAgents = search.trim() === "" ? agents : agents.filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   async function create() {
     const trimmed = name.trim();
@@ -122,8 +124,18 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
         </button>
       </div>
 
+      {agents.length > 0 && (
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search agents…"
+          className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64"
+        />
+      )}
       {agents.length === 0 ? (
         <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No agents yet.</p>
+      ) : filteredAgents.length === 0 ? (
+        <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No agents match &quot;{search}&quot;.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left font-body text-sm">
@@ -137,7 +149,7 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
               </tr>
             </thead>
             <tbody>
-              {agents.map((a) => (
+              {filteredAgents.map((a) => (
                 <tr key={a.id} className="border-t border-pz-outline-variant">
                   <td className="py-2">
                     <Link href={`/dashboard/admin/crm/agents/${a.id}`} className="underline">
