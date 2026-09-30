@@ -44,6 +44,9 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [conversionCourseId, setConversionCourseId] = useState("");
   const [conversionLabel, setConversionLabel] = useState("");
   const messageRef = useRef<HTMLTextAreaElement>(null);
+  const [batchSearch, setBatchSearch] = useState("");
+  const filteredBatches =
+    batchSearch.trim() === "" ? batches : batches.filter((b) => b.name.toLowerCase().includes(batchSearch.trim().toLowerCase()));
 
   // Picks up a bulk selection handed off from the Contacts tab, once, on
   // mount. Read-then-remove so revisiting this tab later (without a fresh
@@ -249,12 +252,24 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
       </div>
 
       <div>
-        <h2 className="font-headline font-bold text-lg mb-3">Batches</h2>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <h2 className="font-headline font-bold text-lg">Batches</h2>
+          {batches.length > 0 && (
+            <input
+              value={batchSearch}
+              onChange={(e) => setBatchSearch(e.target.value)}
+              placeholder="Search batches…"
+              className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64"
+            />
+          )}
+        </div>
         {batches.length === 0 ? (
           <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No WhatsApp batches yet.</p>
+        ) : filteredBatches.length === 0 ? (
+          <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No batches match &quot;{batchSearch}&quot;.</p>
         ) : (
           <div className="space-y-2">
-            {batches.map((b) => (
+            {filteredBatches.map((b) => (
               <div key={b.id} className="bg-pz-surface-container-high rounded-2xl p-4">
                 <div className="flex items-center gap-2">
                   <Link href={`/dashboard/admin/crm/whatsapp/${b.id}`} className="flex-1 flex items-center justify-between text-left">
