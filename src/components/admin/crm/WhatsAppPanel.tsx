@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
-import { buildWhatsAppLink, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
 import type { ConversionTag } from "@/lib/crm/conversion";
 
@@ -20,8 +20,8 @@ type BatchListRow = {
   conversion: { converted: number; total: number } | null;
 };
 
-type Recipient = { id: string; fullName: string; phoneE164: string; status: "pending" | "sent"; sentAt: string | null; convertedAt: string | null };
-type BatchDetail = BatchListRow & { segment: SegmentFilter[]; recipients: Recipient[] };
+// Minimal type for duplicateBatch API response casting
+type BatchDetail = { segment: SegmentFilter[] };
 
 const MERGE_TAGS = [
   { label: "First name", tag: "{{first_name}}" },
@@ -37,29 +37,13 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
   const [segment, setSegment] = useState<SegmentFilter[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<BatchDetail | null>(null);
-  const [busyRecipientId, setBusyRecipientId] = useState<string | null>(null);
-  const [editingMessage, setEditingMessage] = useState(false);
-  const [messageDraft, setMessageDraft] = useState("");
-  const [savingMessage, setSavingMessage] = useState(false);
-  const [editingBatch, setEditingBatch] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
-  const [segmentDraft, setSegmentDraft] = useState<SegmentFilter[]>([]);
-  const [savingBatch, setSavingBatch] = useState(false);
-  const [editConversionMode, setEditConversionMode] = useState<"course" | "label" | "none" | "">("");
-  const [editConversionCourseId, setEditConversionCourseId] = useState("");
-  const [editConversionLabel, setEditConversionLabel] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
-  const [queueMode, setQueueMode] = useState(false);
-  const [lastQueueSentId, setLastQueueSentId] = useState<string | null>(null);
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
   const [conversionMode, setConversionMode] = useState<"course" | "label" | "none" | "">("");
   const [conversionCourseId, setConversionCourseId] = useState("");
   const [conversionLabel, setConversionLabel] = useState("");
   const messageRef = useRef<HTMLTextAreaElement>(null);
-  const queueLinkRef = useRef<HTMLAnchorElement>(null);
 
   // Picks up a bulk selection handed off from the Contacts tab, once, on
   // mount. Read-then-remove so revisiting this tab later (without a fresh
@@ -93,19 +77,6 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     if (conversionMode === "label") return conversionLabel.trim() ? { kind: "label", pattern: conversionLabel.trim() } : null;
     if (conversionMode === "none") return { kind: "none" };
     return null;
-  }
-
-  function buildEditConversionTag(): ConversionTag | null {
-    if (editConversionMode === "course") return editConversionCourseId ? { kind: "course", courseId: editConversionCourseId } : null;
-    if (editConversionMode === "label") return editConversionLabel.trim() ? { kind: "label", pattern: editConversionLabel.trim() } : null;
-    if (editConversionMode === "none") return { kind: "none" };
-    return null;
-  }
-
-  function loadEditConversionTag(tag: ConversionTag) {
-    if (tag.kind === "course") { setEditConversionMode("course"); setEditConversionCourseId(tag.courseId); setEditConversionLabel(""); }
-    else if (tag.kind === "label") { setEditConversionMode("label"); setEditConversionLabel(tag.pattern); setEditConversionCourseId(""); }
-    else { setEditConversionMode("none"); setEditConversionCourseId(""); setEditConversionLabel(""); }
   }
 
   async function createBatch() {
@@ -148,67 +119,6 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     setMessage(message.slice(0, start) + tag + message.slice(end));
   }
 
-  // Keeps the queue's "Open chat" link focused so Enter re-triggers it after
-  // each click, without a separate keydown listener — a focused <a> already
-  // activates on Enter natively.
-  useEffect(() => {
-    if (queueMode) queueLinkRef.current?.focus();
-  }, [queueMode, detail]);
-
-  async function toggleDetail(id: string) {
-    setEditingMessage(false);
-    setEditingBatch(false);
-    setQueueMode(false);
-    setLastQueueSentId(null);
-    if (openId === id) { setOpenId(null); setDetail(null); return; }
-    setOpenId(id);
-    setDetail(null);
-    const res = await fetch(`/api/admin/crm/whatsapp/batches/${id}`);
-    if (res.ok) setDetail(await res.json());
-  }
-
-  async function saveBatchEdits() {
-    if (!detail) return;
-    const conversionTag = buildEditConversionTag();
-    if (!conversionTag) return;
-    setSavingBatch(true);
-    try {
-      const res = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nameDraft, segment: segmentDraft, conversionTag }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(json.error ?? "Could not update this batch.");
-        return;
-      }
-      const refreshed = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`);
-      if (refreshed.ok) {
-        const newDetail: BatchDetail = await refreshed.json();
-        setDetail(newDetail);
-        setBatches((prev) =>
-          prev.map((b) =>
-            b.id === newDetail.id
-              ? {
-                  ...b,
-                  name: newDetail.name,
-                  recipientCount: newDetail.recipientCount,
-                  sentCount: newDetail.sentCount,
-                  conversionTag: newDetail.conversionTag,
-                  conversionCourseTitle: newDetail.conversionCourseTitle,
-                  conversion: newDetail.conversion,
-                }
-              : b,
-          ),
-        );
-      }
-      setEditingBatch(false);
-      toast.success("Batch updated.");
-    } finally {
-      setSavingBatch(false);
-    }
-  }
 
   async function deleteBatch(b: BatchListRow) {
     if (!confirm(`Delete "${b.name}" — ${b.sentCount} sent? This cannot be undone.`)) return;
@@ -221,7 +131,6 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
         return;
       }
       setBatches((prev) => prev.filter((x) => x.id !== b.id));
-      if (openId === b.id) { setOpenId(null); setDetail(null); }
       toast.success("Batch deleted.");
     } finally {
       setDeletingId(null);
@@ -261,71 +170,6 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
     }
   }
 
-  async function saveMessage() {
-    if (!detail) return;
-    setSavingMessage(true);
-    try {
-      const res = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageTemplate: messageDraft }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        toast.error(json.error ?? "Could not update the message.");
-        return;
-      }
-      setDetail((prev) => (prev ? { ...prev, messageTemplate: messageDraft } : prev));
-      setEditingMessage(false);
-      toast.success("Message updated.");
-    } finally {
-      setSavingMessage(false);
-    }
-  }
-
-  async function toggleSent(recipient: Recipient) {
-    if (!detail) return;
-    const nextStatus: "pending" | "sent" = recipient.status === "sent" ? "pending" : "sent";
-    setBusyRecipientId(recipient.id);
-    try {
-      const res = await fetch(`/api/admin/crm/whatsapp/batches/${detail.id}/recipients/${recipient.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        toast.error(json.error ?? "Could not update this recipient.");
-        return;
-      }
-      const currentDetailId = detail.id;
-      setDetail((prev) => {
-        if (!prev) return prev;
-        const recipients = prev.recipients.map((r) => (r.id === recipient.id ? { ...r, status: nextStatus } : r));
-        return { ...prev, recipients, sentCount: recipients.filter((r) => r.status === "sent").length };
-      });
-      setBatches((prev) =>
-        prev.map((b) =>
-          b.id === currentDetailId ? { ...b, sentCount: b.sentCount + (nextStatus === "sent" ? 1 : -1) } : b,
-        ),
-      );
-    } finally {
-      setBusyRecipientId(null);
-    }
-  }
-
-  // Undoes exactly the last queue-mode send (misclick recovery) — one step
-  // only, not a full history. toggleSent flips sent back to pending, which
-  // puts the recipient back in `pending` at their original array position,
-  // so they reappear as the current queue card with no separate cursor to
-  // manage.
-  async function goBackInQueue() {
-    if (!detail || !lastQueueSentId) return;
-    const recipient = detail.recipients.find((r) => r.id === lastQueueSentId);
-    setLastQueueSentId(null);
-    if (!recipient) return;
-    await toggleSent(recipient);
-  }
 
   return (
     <div className="space-y-6">
@@ -413,19 +257,19 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
             {batches.map((b) => (
               <div key={b.id} className="bg-pz-surface-container-high rounded-2xl p-4">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => toggleDetail(b.id)} className="flex-1 flex items-center justify-between text-left">
-                    <span className="font-body font-semibold text-sm">{b.name}</span>
-                    <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
-                      {b.sentCount} / {b.recipientCount} sent
-                      {b.conversion && (
-                        <>
-                          {" · "}
-                          {b.conversion.total > 0 ? Math.round((b.conversion.converted / b.conversion.total) * 100) : 0}% converted (
-                          {b.conversion.converted}/{b.conversion.total}) · Not converted (yet): {b.conversion.total - b.conversion.converted}
-                        </>
-                      )}
-                    </span>
-                  </button>
+                  <Link href={`/dashboard/admin/crm/whatsapp/${b.id}`} className="flex-1 flex items-center justify-between text-left">
+                  <span className="font-body font-semibold text-sm">{b.name}</span>
+                  <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
+                    {b.sentCount} / {b.recipientCount} sent
+                    {b.conversion && (
+                      <>
+                        {" · "}
+                        {b.conversion.total > 0 ? Math.round((b.conversion.converted / b.conversion.total) * 100) : 0}% converted (
+                        {b.conversion.converted}/{b.conversion.total}) · Not converted (yet): {b.conversion.total - b.conversion.converted}
+                      </>
+                    )}
+                  </span>
+                </Link>
                   <button
                     onClick={() => duplicateBatch(b)}
                     disabled={duplicatingId === b.id}
@@ -441,252 +285,6 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                     {deletingId === b.id ? "Deleting…" : "Delete"}
                   </button>
                 </div>
-
-                {openId === b.id && (
-                  <div className="mt-4 overflow-x-auto">
-                    {detail === null ? (
-                      <p className="font-body text-xs text-pz-on-surface-variant">Loading…</p>
-                    ) : (
-                      <>
-                      <div className="mb-4 bg-pz-surface-container-highest rounded-xl p-3">
-                        {editingBatch ? (
-                          <div className="space-y-3">
-                            <input
-                              value={nameDraft}
-                              onChange={(e) => setNameDraft(e.target.value)}
-                              className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm font-semibold"
-                            />
-                            <SegmentBuilder value={segmentDraft} onChange={setSegmentDraft} channel="whatsapp" />
-                            <p className="font-body text-xs text-pz-on-surface-variant">
-                              Re-applying the segment adds newly-matching contacts as pending and drops
-                              non-matching pending ones — anyone already sent stays in the batch either way.
-                            </p>
-                            <div className="space-y-2">
-                              <h3 className="font-headline text-sm font-semibold">Track conversion</h3>
-                              <div className="flex gap-3 flex-wrap">
-                                <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
-                                  <input type="radio" name="whatsappEditConversionMode" checked={editConversionMode === "course"} onChange={() => setEditConversionMode("course")} />
-                                  Existing course
-                                </label>
-                                <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
-                                  <input type="radio" name="whatsappEditConversionMode" checked={editConversionMode === "label"} onChange={() => setEditConversionMode("label")} />
-                                  Other course (type to match)
-                                </label>
-                                <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
-                                  <input type="radio" name="whatsappEditConversionMode" checked={editConversionMode === "none"} onChange={() => setEditConversionMode("none")} />
-                                  Not tracking conversion
-                                </label>
-                              </div>
-                              {editConversionMode === "course" && (
-                                <select
-                                  value={editConversionCourseId}
-                                  onChange={(e) => setEditConversionCourseId(e.target.value)}
-                                  className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
-                                >
-                                  <option value="">Select a course…</option>
-                                  {courses.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.title}</option>
-                                  ))}
-                                </select>
-                              )}
-                              {editConversionMode === "label" && (
-                                <input
-                                  value={editConversionLabel}
-                                  onChange={(e) => setEditConversionLabel(e.target.value)}
-                                  placeholder="Text to match in the purchase's product label, e.g. Advanced Mixing"
-                                  className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
-                                />
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={saveBatchEdits}
-                                disabled={savingBatch || nameDraft.trim() === "" || buildEditConversionTag() === null}
-                                className="px-4 py-1.5 rounded-full bg-pz-primary text-pz-on-primary font-headline text-xs font-semibold disabled:opacity-50"
-                              >
-                                {savingBatch ? "Saving…" : "Save batch"}
-                              </button>
-                              <button
-                                onClick={() => setEditingBatch(false)}
-                                disabled={savingBatch}
-                                className="px-4 py-1.5 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-xs font-semibold"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="font-body font-semibold text-sm flex-1">{detail.name}</p>
-                            <button
-                              onClick={() => {
-                                setNameDraft(detail.name);
-                                setSegmentDraft(detail.segment);
-                                loadEditConversionTag(detail.conversionTag);
-                                setEditingBatch(true);
-                              }}
-                              className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0"
-                            >
-                              Edit batch
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mb-4 bg-pz-surface-container-highest rounded-xl p-3">
-                        {editingMessage ? (
-                          <div className="space-y-2">
-                            <textarea
-                              value={messageDraft}
-                              onChange={(e) => setMessageDraft(e.target.value)}
-                              rows={4}
-                              className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={saveMessage}
-                                disabled={savingMessage || messageDraft.trim() === ""}
-                                className="px-4 py-1.5 rounded-full bg-pz-primary text-pz-on-primary font-headline text-xs font-semibold disabled:opacity-50"
-                              >
-                                {savingMessage ? "Saving…" : "Save message"}
-                              </button>
-                              <button
-                                onClick={() => setEditingMessage(false)}
-                                disabled={savingMessage}
-                                className="px-4 py-1.5 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-xs font-semibold"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="font-body text-xs text-pz-on-surface-variant whitespace-pre-wrap flex-1">
-                              {detail.messageTemplate}
-                            </p>
-                            <button
-                              onClick={() => { setMessageDraft(detail.messageTemplate); setEditingMessage(true); }}
-                              className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0"
-                            >
-                              Edit message
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mb-3 flex justify-end">
-                        <button
-                          onClick={() => setQueueMode((v) => !v)}
-                          className="font-body text-xs font-semibold text-pz-primary hover:underline"
-                        >
-                          {queueMode ? "Switch to table view" : "Switch to queue mode"}
-                        </button>
-                      </div>
-
-                      {queueMode ? (
-                        (() => {
-                          const pending = detail.recipients.filter((r) => r.status === "pending");
-                          const current = pending[0];
-                          return (
-                            <div className="bg-pz-surface-container-highest rounded-xl p-4 space-y-3">
-                              <p className="font-body text-xs text-pz-on-surface-variant tabular-nums">
-                                {detail.sentCount} / {detail.recipientCount} sent — {pending.length} left
-                              </p>
-                              {current ? (
-                                <>
-                                  <p className="font-body font-semibold text-sm">
-                                    {current.fullName || "—"}{" "}
-                                    <span className="font-normal text-pz-on-surface-variant">{current.phoneE164}</span>
-                                  </p>
-                                  <p className="font-body text-sm whitespace-pre-wrap">
-                                    {renderWhatsAppMessage(detail.messageTemplate, current.fullName)}
-                                  </p>
-                                </>
-                              ) : (
-                                <p className="font-body text-sm text-pz-on-surface-variant py-2">
-                                  All recipients sent.
-                                </p>
-                              )}
-                              <div className="flex items-center gap-3">
-                                {current && (
-                                  // No target="_blank": whatsapp:// is a protocol
-                                  // link, not a page — the browser hands it to the
-                                  // OS before any navigation happens. Clicking (or
-                                  // hitting Enter while it's focused, see the
-                                  // autofocus effect above) opens the chat and marks
-                                  // this recipient sent in the same action, which
-                                  // drops them out of `pending` and advances the
-                                  // queue to the next one on re-render.
-                                  <a
-                                    ref={queueLinkRef}
-                                    href={buildWhatsAppLink(current.phoneE164, detail.messageTemplate, current.fullName)}
-                                    onClick={() => { toggleSent(current); setLastQueueSentId(current.id); }}
-                                    className="inline-block px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold"
-                                  >
-                                    Open chat
-                                  </a>
-                                )}
-                                {lastQueueSentId && (
-                                  <button
-                                    onClick={goBackInQueue}
-                                    className="font-body text-xs font-semibold text-pz-on-surface-variant hover:underline"
-                                  >
-                                    ← Back (undo last send)
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        <table className="w-full text-left font-body text-sm">
-                          <thead className="text-pz-on-surface-variant text-xs uppercase">
-                            <tr><th className="py-1">Name</th><th>Phone</th><th></th><th></th><th>Converted</th></tr>
-                          </thead>
-                          <tbody>
-                            {detail.recipients.map((r) => (
-                              <tr key={r.id} className="border-t border-pz-outline-variant">
-                                <td className="py-1">{r.fullName || "—"}</td>
-                                <td>{r.phoneE164}</td>
-                                <td>
-                                  {/* No target="_blank": whatsapp:// is a protocol
-                                      link, not a page — the browser hands it to the
-                                      OS before any navigation happens, so opening it
-                                      in a new tab would only risk a stray blank one. */}
-                                  <a
-                                    href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)}
-                                    className="text-pz-primary underline text-xs font-semibold"
-                                  >
-                                    Open chat
-                                  </a>
-                                </td>
-                                <td>
-                                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={r.status === "sent"}
-                                      disabled={busyRecipientId === r.id}
-                                      onChange={() => toggleSent(r)}
-                                    />
-                                    sent
-                                  </label>
-                                </td>
-                                <td className="text-xs">
-                                  {detail.conversion
-                                    ? r.convertedAt
-                                      ? new Date(r.convertedAt).toLocaleDateString()
-                                      : "Not converted (yet)"
-                                    : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             ))}
           </div>
