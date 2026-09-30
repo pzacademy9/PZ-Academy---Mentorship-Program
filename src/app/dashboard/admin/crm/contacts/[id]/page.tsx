@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getContactDetail } from "@/lib/data/admin-crm-contacts";
+import { listManualConversions } from "@/lib/data/admin-crm-manual-conversions";
 import { ContactDetailClient } from "@/components/admin/crm/ContactDetailClient";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -15,5 +16,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const detail = await getContactDetail(id);
   if (!detail) notFound();
 
-  return <ContactDetailClient detail={detail} />;
+  const manualConversions = await listManualConversions(id);
+
+  return <ContactDetailClient detail={detail} initialManualConversions={manualConversions} />;
 }
