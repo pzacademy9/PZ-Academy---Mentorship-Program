@@ -2505,6 +2505,54 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_conversions: {
+        Row: {
+          contact_id: string
+          converted_at: string
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          program_label: string | null
+        }
+        Insert: {
+          contact_id: string
+          converted_at?: string
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          program_label?: string | null
+        }
+        Update: {
+          contact_id?: string
+          converted_at?: string
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          program_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_conversions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_conversions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       book_mentorship_sessions: {
