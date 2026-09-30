@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
 import { SegmentBuilder } from "./SegmentBuilder";
@@ -487,7 +488,11 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
               <tbody>
                 {filteredCampaigns.map((c) => (
                   <tr key={c.id} className="border-t border-pz-outline-variant">
-                    <td className="py-2">{c.name}</td>
+                    <td className="py-2">
+                      <Link href={`/dashboard/admin/crm/campaigns/${c.id}`} className="underline">
+                        {c.name}
+                      </Link>
+                    </td>
                     <td>{c.status}</td>
                     <td className="tabular-nums">{c.recipients}</td>
                     <td className="tabular-nums">{c.sent}</td>
