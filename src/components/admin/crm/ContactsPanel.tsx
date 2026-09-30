@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
@@ -36,15 +37,10 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
   const [courseOptions, setCourseOptions] = useState<string[]>([]);
   const [batches, setBatches] = useState<BatchOption[]>([]);
   const [busy, setBusy] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   // Selection persists across searches deliberately — an admin narrowing
   // down to find specific people across a few searches expects earlier
   // picks to still be checked, not silently dropped.
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [phoneDraft, setPhoneDraft] = useState("");
-  const [phoneBusy, setPhoneBusy] = useState(false);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
   // Two filter changes in quick succession race; without this the slower
   // (older) response can land last and repaint the list with stale rows.
   const latestSearch = useRef(0);
@@ -86,44 +82,8 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       // mounted client component's own useState.
       setRows(json.rows);
       setTotal(json.total);
-      setOpenId(null);
     } finally {
       if (ticket === latestSearch.current) setBusy(false);
-    }
-  }
-
-  async function toggleDetail(id: string) {
-    if (openId === id) { setOpenId(null); setDetail(null); return; }
-    setOpenId(id);
-    setDetail(null);
-    setPhoneError(null);
-    const res = await fetch(`/api/admin/crm/contacts/${id}`);
-    if (res.ok) {
-      const json = await res.json();
-      setDetail(json);
-      setPhoneDraft(String(json.phoneRaw ?? json.phoneE164 ?? ""));
-    }
-  }
-
-  async function savePhone(id: string) {
-    setPhoneBusy(true);
-    setPhoneError(null);
-    try {
-      const res = await fetch(`/api/admin/crm/contacts/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneRaw: phoneDraft }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPhoneError(json.error ?? "Could not save this number.");
-        return;
-      }
-      setDetail((prev) => (prev ? { ...prev, phoneE164: json.phoneE164, phoneRaw: phoneDraft } : prev));
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, phoneE164: json.phoneE164 } : r)));
-      toast.success("Phone number updated.");
-    } finally {
-      setPhoneBusy(false);
     }
   }
 
@@ -277,9 +237,9 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
                       />
                     </td>
                     <td>
-                      <button onClick={() => toggleDetail(c.id)} className="text-left underline">
+                      <Link href={`/dashboard/admin/crm/contacts/${c.id}`} className="text-left underline">
                         {c.fullName || "—"}
-                      </button>
+                      </Link>
                       {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}
                     </td>
                     <td>{c.email ?? "—"}</td>
@@ -297,42 +257,6 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
                     <td>{c.discoverySource}</td>
                     <td className="tabular-nums">{c.purchaseCount}</td>
                   </tr>
-                  {openId === c.id && (
-                    <tr className="border-t border-pz-outline-variant bg-pz-surface">
-                      <td colSpan={8} className="p-4">
-                        {detail === null ? (
-                          <p className="font-body text-xs text-pz-on-surface-variant">Loading…</p>
-                        ) : (
-                          <div className="space-y-2 font-body text-xs">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold">Phone:</span>
-                              <input
-                                value={phoneDraft}
-                                onChange={(e) => setPhoneDraft(e.target.value)}
-                                className="rounded-lg border border-pz-outline-variant px-2 py-1 font-body text-xs"
-                              />
-                              <button
-                                onClick={() => savePhone(c.id)}
-                                disabled={phoneBusy || phoneDraft.trim() === ""}
-                                className="px-3 py-1 rounded-full bg-pz-primary text-pz-on-primary font-headline text-xs font-semibold disabled:opacity-50"
-                              >
-                                {phoneBusy ? "Saving…" : "Save"}
-                              </button>
-                              {phoneError && <span className="text-pz-danger">{phoneError}</span>}
-                            </div>
-                            <p>Profession: {String(detail.profession ?? "—")} · Platform account: {detail.hasPlatformAccount ? "yes" : "no"}</p>
-                            {(detail.purchases as Array<Record<string, unknown>>).map((p) => (
-                              <p key={String(p.id)}>
-                                {String(p.productLabel) || "—"} · {p.amount === null ? "—" : `${String(p.currency ?? "")} ${String(p.amount)}`}
-                                {p.isEarlyBird ? " · early bird" : ""} · {String(p.rowType)}
-                                {p.promoCode ? ` · promo ${String(p.promoCode)}` : ""} · {String(p.sourceRowRef)}
-                              </p>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
               </tbody>
             ))}
           </table>
