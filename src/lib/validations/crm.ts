@@ -108,6 +108,18 @@ export const conversionTagSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("none") }),
 ]);
 
+export const manualConversionProgramSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("course"), courseId: z.string().uuid() }),
+  z.object({ kind: z.literal("label"), pattern: z.string().trim().min(1, "Pattern is required").max(200) }),
+]);
+
+export const manualConversionCreateSchema = z.object({
+  contactIds: z.array(z.string().uuid()).min(1, "Select at least one contact").max(500),
+  program: manualConversionProgramSchema,
+  convertedAt: z.string().trim().min(1).optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+
 export const campaignCreateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(150),
   subject: z.string().trim().min(1, "Subject is required").max(300),

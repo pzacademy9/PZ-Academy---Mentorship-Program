@@ -11,6 +11,7 @@ import {
   whatsappRecipientStatusSchema,
   templateCreateSchema,
   conversionTagSchema,
+  manualConversionCreateSchema,
 } from "@/lib/validations/crm";
 
 const MAPPING = { name: 0, email: 1, phone: 2, profession: 3, discovery: 4, product: 5, rowType: 7, promoCode: 8, purchasedAt: null };
@@ -295,5 +296,48 @@ describe("campaignCreateSchema with conversionTag", () => {
       conversionTag: { kind: "label", pattern: "Advanced Mixing" },
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("manualConversionCreateSchema", () => {
+  it("accepts a single contact with a course program", () => {
+    const parsed = manualConversionCreateSchema.safeParse({
+      contactIds: ["11111111-1111-4111-8111-111111111111"],
+      program: { kind: "course", courseId: "22222222-2222-4222-8222-222222222222" },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts several contacts with a label program, plus a note", () => {
+    const parsed = manualConversionCreateSchema.safeParse({
+      contactIds: ["11111111-1111-4111-8111-111111111111", "33333333-3333-4333-8333-333333333333"],
+      program: { kind: "label", pattern: "Advanced Mixing" },
+      note: "Confirmed by phone",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an empty contactIds array", () => {
+    const parsed = manualConversionCreateSchema.safeParse({
+      contactIds: [],
+      program: { kind: "label", pattern: "Advanced Mixing" },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a program with neither courseId nor pattern (kind omitted)", () => {
+    const parsed = manualConversionCreateSchema.safeParse({
+      contactIds: ["11111111-1111-4111-8111-111111111111"],
+      program: {},
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a program of kind 'none' — a manual conversion always names a program", () => {
+    const parsed = manualConversionCreateSchema.safeParse({
+      contactIds: ["11111111-1111-4111-8111-111111111111"],
+      program: { kind: "none" },
+    });
+    expect(parsed.success).toBe(false);
   });
 });
