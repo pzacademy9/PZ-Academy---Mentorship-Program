@@ -114,9 +114,9 @@ export const manualConversionProgramSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const manualConversionCreateSchema = z.object({
-  contactIds: z.array(z.string().uuid()).min(1, "Select at least one contact").max(500),
+  contactIds: z.array(z.string().uuid()).min(1, "Select at least one contact").max(500, "Select at most 500 contacts at a time"),
   program: manualConversionProgramSchema,
-  convertedAt: z.string().trim().min(1).optional(),
+  convertedAt: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date").optional(),
   note: z.string().trim().max(1000).optional(),
 });
 

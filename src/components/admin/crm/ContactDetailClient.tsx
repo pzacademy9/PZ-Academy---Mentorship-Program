@@ -73,7 +73,7 @@ export function ContactDetailClient({
       const res = await fetch("/api/admin/crm/manual-conversions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactIds: [detail.id], program, convertedAt, note: note.trim() || undefined }),
+        body: JSON.stringify({ contactIds: [detail.id], program, convertedAt: convertedAt || undefined, note: note.trim() || undefined }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));

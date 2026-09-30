@@ -340,4 +340,22 @@ describe("manualConversionCreateSchema", () => {
     });
     expect(parsed.success).toBe(false);
   });
+
+  const base = {
+    contactIds: ["11111111-1111-4111-8111-111111111111"],
+    program: { kind: "label", pattern: "Advanced Mixing" },
+  };
+
+  it("rejects a malformed convertedAt", () => {
+    expect(manualConversionCreateSchema.safeParse({ ...base, convertedAt: "tomorrow" }).success).toBe(false);
+    expect(manualConversionCreateSchema.safeParse({ ...base, convertedAt: "2026-9-1" }).success).toBe(false);
+  });
+
+  it("accepts a YYYY-MM-DD convertedAt", () => {
+    expect(manualConversionCreateSchema.safeParse({ ...base, convertedAt: "2026-09-30" }).success).toBe(true);
+  });
+
+  it("accepts an omitted convertedAt", () => {
+    expect(manualConversionCreateSchema.safeParse(base).success).toBe(true);
+  });
 });

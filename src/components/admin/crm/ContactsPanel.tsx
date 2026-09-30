@@ -147,7 +147,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       const res = await fetch("/api/admin/crm/manual-conversions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactIds: Array.from(selected), program, convertedAt: bulkConvertedAt }),
+        body: JSON.stringify({ contactIds: Array.from(selected), program, convertedAt: bulkConvertedAt || undefined }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -323,7 +323,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
                     <td className="max-w-[260px]">
                       {c.productLabels.length === 0 ? "—" : (
                         // Course names read; the full labels (price, promo, tier)
-                        // stay one hover away and are listed in the detail row.
+                        // stay one hover away and are shown on the contact detail page.
                         <span title={c.productLabels.join("\n")} className="line-clamp-2">
                           {courseSummary(c.productLabels)}
                         </span>

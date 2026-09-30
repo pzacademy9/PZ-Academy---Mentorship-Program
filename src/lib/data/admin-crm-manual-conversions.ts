@@ -9,6 +9,8 @@ import { toManualConversionProgram, fromManualConversionProgram, type ManualConv
  * percentage; they are their own parallel fact about a contact.
  */
 
+const ID_CHUNK = 100;
+
 export type ManualConversionRow = {
   id: string;
   contactId: string;
@@ -29,8 +31,13 @@ export async function listManualConversions(contactId: string): Promise<ManualCo
 
   return (data ?? [])
     .map((row) => {
-      const program = toManualConversionProgram(row.course_id, row.program_label);
-      if (!program) return null; // defensive: a row that somehow has neither/both set is unrenderable, not a crash
+      // course deleted -> ON DELETE SET NULL leaves neither set; keep the row visible (and undoable)
+      // instead of dropping it while the recipient badge still counts it.
+      const program: ManualConversionProgram | null =
+        row.course_id === null && row.program_label === null
+          ? { kind: "label", pattern: "(deleted course)" }
+          : toManualConversionProgram(row.course_id, row.program_label);
+      if (!program) return null; // defensive: a row with both set is unrenderable, not a crash
       return {
         id: row.id,
         contactId: row.contact_id,
@@ -83,6 +90,11 @@ export async function deleteManualConversion(id: string): Promise<DeleteManualCo
 export async function listContactIdsWithManualConversion(contactIds: string[]): Promise<Set<string>> {
   if (contactIds.length === 0) return new Set();
   const admin = createAdminSupabase();
-  const { data } = await admin.from("manual_conversions").select("contact_id").in("contact_id", contactIds);
-  return new Set((data ?? []).map((r) => r.contact_id));
+  const found = new Set<string>();
+  // Chunked so a large campaign doesn't blow the PostgREST URL length limit (same ID_CHUNK as admin-crm-contacts).
+  for (let i = 0; i < contactIds.length; i += ID_CHUNK) {
+    const { data } = await admin.from("manual_conversions").select("contact_id").in("contact_id", contactIds.slice(i, i + ID_CHUNK));
+    for (const r of data ?? []) found.add(r.contact_id);
+  }
+  return found;
 }
