@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 /**
  * The one allowlist for admin-authored lesson HTML (Tiptap's output).
@@ -7,6 +7,16 @@ import DOMPurify from "isomorphic-dompurify";
  * would otherwise become stored XSS for every enrolled student. Matches the
  * toolbar RichTextEditor actually exposes: bold/italic/underline, lists,
  * links, images. Nothing script-capable is on the list.
+ *
+ * Uses `sanitize-html` (pure CJS, no jsdom) rather than isomorphic-dompurify
+ * here specifically: both call sites above are Server Components/functions,
+ * and isomorphic-dompurify's Node path pulls in jsdom, whose
+ * html-encoding-sniffer dependency requires the ESM-only @exodus/bytes via
+ * plain CommonJS require() — that throws ERR_REQUIRE_ESM at runtime in
+ * Vercel's serverless functions (and fails the webpack build outright if the
+ * package isn't externalized). isomorphic-dompurify is still used directly
+ * in client components (e.g. CampaignsPanel.tsx), where it resolves to its
+ * browser build against the real DOM and never touches jsdom.
  */
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "u", "s",
@@ -17,5 +27,8 @@ const ALLOWED_TAGS = [
 const ALLOWED_ATTR = ["href", "src", "alt", "target", "rel"];
 
 export function sanitizeLessonHtml(html: string): string {
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR });
+  return sanitizeHtml(html, {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: { "*": ALLOWED_ATTR },
+  });
 }
