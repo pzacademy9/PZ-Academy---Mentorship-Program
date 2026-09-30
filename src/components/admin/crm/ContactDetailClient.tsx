@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ export function ContactDetailClient({
   detail: ContactDetail;
   initialManualConversions: ManualConversionRow[];
 }) {
+  const router = useRouter();
   const [phoneDraft, setPhoneDraft] = useState(String(detail.phoneRaw ?? detail.phoneE164 ?? ""));
   const [phoneE164, setPhoneE164] = useState(detail.phoneE164);
   const [phoneBusy, setPhoneBusy] = useState(false);
@@ -57,6 +59,10 @@ export function ContactDetailClient({
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    setManualConversions(initialManualConversions);
+  }, [initialManualConversions]);
+
   async function markConverted() {
     const program = programMode === "course" ? { kind: "course" as const, courseId } : { kind: "label" as const, pattern: label.trim() };
     if (programMode === "course" && !courseId) return;
@@ -79,21 +85,7 @@ export function ContactDetailClient({
       setCourseId("");
       setLabel("");
       setNote("");
-      // There is no GET-by-contact route (Task 14 only added POST/DELETE) —
-      // the POST body already carries everything needed to render the new
-      // row, so append it directly rather than refetching.
-      setManualConversions((prev) => [
-        {
-          id: crypto.randomUUID(),
-          contactId: detail.id,
-          program,
-          programCourseTitle: programMode === "course" ? courses.find((c) => c.id === courseId)?.title ?? null : null,
-          convertedAt,
-          note: note.trim() || null,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
+      router.refresh();
     } finally {
       setSaving(false);
     }
