@@ -9,7 +9,14 @@ import { buildWhatsAppLink, renderWhatsAppMessage } from "@/lib/crm/whatsapp-lin
 import type { SegmentFilter } from "@/lib/crm/segment";
 import type { WhatsAppBatchDetail, WhatsAppRecipientRow } from "@/lib/data/admin-crm-whatsapp";
 
-export function WhatsAppBatchDetailClient({ initialDetail }: { initialDetail: WhatsAppBatchDetail }) {
+export function WhatsAppBatchDetailClient({
+  initialDetail,
+  manualConvertedContactIds,
+}: {
+  initialDetail: WhatsAppBatchDetail;
+  manualConvertedContactIds: string[];
+}) {
+  const manualSet = new Set(manualConvertedContactIds);
   const [detail, setDetail] = useState(initialDetail);
   const [editingMessage, setEditingMessage] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
@@ -311,9 +318,18 @@ export function WhatsAppBatchDetailClient({ initialDetail }: { initialDetail: Wh
             {filteredRecipients.map((r) => (
               <tr key={r.id} className="border-t border-pz-outline-variant">
                 <td className="py-1">
-                  {/* WhatsAppRecipientRow has no contactId yet — plain text
-                      here; Task 17 adds contactId and turns this into a link. */}
-                  {r.fullName || "—"}
+                  {r.contactId ? (
+                    <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="underline">
+                      {r.fullName || "—"}
+                    </Link>
+                  ) : (
+                    r.fullName || "—"
+                  )}
+                  {r.contactId && manualSet.has(r.contactId) && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-full bg-pz-primary-container text-pz-on-primary-container text-[10px] font-bold uppercase">
+                      manually converted
+                    </span>
+                  )}
                 </td>
                 <td>{r.phoneE164}</td>
                 <td>

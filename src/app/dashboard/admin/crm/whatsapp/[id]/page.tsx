@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getWhatsAppBatchDetail } from "@/lib/data/admin-crm-whatsapp";
+import { listContactIdsWithManualConversion } from "@/lib/data/admin-crm-manual-conversions";
 import { WhatsAppBatchDetailClient } from "@/components/admin/crm/WhatsAppBatchDetailClient";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -15,5 +16,8 @@ export default async function WhatsAppBatchDetailPage({ params }: { params: Prom
   const detail = await getWhatsAppBatchDetail(id);
   if (!detail) notFound();
 
-  return <WhatsAppBatchDetailClient initialDetail={detail} />;
+  const contactIds = detail.recipients.map((r) => r.contactId).filter((id): id is string => id !== null);
+  const manualConvertedContactIds = await listContactIdsWithManualConversion(contactIds);
+
+  return <WhatsAppBatchDetailClient initialDetail={detail} manualConvertedContactIds={Array.from(manualConvertedContactIds)} />;
 }

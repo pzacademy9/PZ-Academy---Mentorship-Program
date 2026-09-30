@@ -245,6 +245,7 @@ export async function deleteWhatsAppBatch(batchId: string): Promise<DeleteWhatsA
 
 export type WhatsAppRecipientRow = {
   id: string;
+  contactId: string | null;
   fullName: string;
   phoneE164: string;
   status: "pending" | "sent";
@@ -271,7 +272,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
 
   const { data: recipients } = await admin
     .from("whatsapp_batch_recipients")
-    .select("id, full_name, phone_e164, status, sent_at")
+    .select("id, full_name, phone_e164, status, sent_at, contact_id")
     .eq("batch_id", id)
     .order("full_name", { ascending: true });
 
@@ -292,6 +293,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
     conversion: summary,
     recipients: rows.map((r) => ({
       id: r.id,
+      contactId: r.contact_id,
       fullName: r.full_name,
       phoneE164: r.phone_e164,
       status: r.status,

@@ -8,10 +8,13 @@ import type { CampaignRow, CampaignConversionDetail } from "@/lib/data/admin-crm
 export function CampaignDetailClient({
   campaign,
   conversionDetail,
+  manualConvertedContactIds,
 }: {
   campaign: CampaignRow;
   conversionDetail: CampaignConversionDetail;
+  manualConvertedContactIds: string[];
 }) {
+  const manualSet = new Set(manualConvertedContactIds);
   const [recipientSearch, setRecipientSearch] = useState("");
   const recipients = conversionDetail?.recipients ?? [];
   const filteredRecipients =
@@ -91,6 +94,11 @@ export function CampaignDetailClient({
                     <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="underline">
                       {r.fullName || "—"}
                     </Link>
+                    {manualSet.has(r.contactId) && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded-full bg-pz-primary-container text-pz-on-primary-container text-[10px] font-bold uppercase">
+                        manually converted
+                      </span>
+                    )}
                   </td>
                   <td>{r.convertedAt ? new Date(r.convertedAt).toLocaleDateString() : "Not converted (yet)"}</td>
                 </tr>
