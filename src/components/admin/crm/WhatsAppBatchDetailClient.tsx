@@ -165,6 +165,10 @@ export function WhatsAppBatchDetailClient({ initialDetail }: { initialDetail: Wh
               className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm font-semibold"
             />
             <SegmentBuilder value={segmentDraft} onChange={setSegmentDraft} channel="whatsapp" />
+            <p className="font-body text-xs text-pz-on-surface-variant">
+              Re-applying the segment adds newly-matching contacts as pending and drops
+              non-matching pending ones — anyone already sent stays in the batch either way.
+            </p>
             <div className="space-y-2">
               <h3 className="font-headline text-sm font-semibold">Track conversion</h3>
               <div className="flex gap-3 flex-wrap">
