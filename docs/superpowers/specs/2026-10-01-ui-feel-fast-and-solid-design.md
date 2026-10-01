@@ -1,17 +1,20 @@
-# UI Polish, Spec 1: Feel Fast and Solid
+# UI Polish, Spec 1: Feel Fast, Solid and Mobile-First
 
 Date: 2026-10-01
 Status: approved in brainstorming, awaiting written-spec review
-Follow-up: Spec 2, "Delight" (beautiful, fun, engaging), is brainstormed after this spec is approved. It builds on the components defined here.
+Follow-up: Spec 2, "Delight" (beautiful, fun, engaging), is designed phone-first and builds on the components defined here.
 
 ## Goal
 
-Make every screen respond the moment it is clicked, and make every action safe to click.
+Make every screen respond the moment it is clicked, make every action safe to click, and make the app comfortable on a phone first.
 
 - Navigation shows instant feedback: a top progress bar, then a skeleton shaped like the destination page.
 - Action buttons show a spinner while working and cannot submit twice.
 - Errors, missing pages and empty lists look intentional and on-brand, never bare framework screens or blank space.
 - Native browser `confirm()` and `alert()` popups are gone.
+- Every screen works at 360px wide: no sideways page scroll, every nav destination reachable, and comfortable tap targets.
+
+**Mobile-first rule (applies to every section).** Each component and layout is designed and built at 360–390px first, then enhanced at `md` (768px) and `lg` (1024px) with Tailwind breakpoint prefixes. "Done" for any piece of this spec includes checking it at 390px.
 
 Out of scope: visual redesign, new features, motion and celebration work (Spec 2), and converting mutations to server actions.
 
@@ -105,6 +108,35 @@ Auth pages (`(auth)/*`), token pages (`review/[token]`, `unsubscribe/[token]`, `
 - **Native popups.** The three `confirm()` calls become `await confirm({...})`. The three `alert()` calls in `BookingClient.tsx` become `toast.error(...)`. The "please wait before submitting again" case becomes `toast.info(...)`.
 - **Behavior preserved.** No request payloads, endpoints or success and error handling change beyond wrapping. Existing toasts stay.
 
+## Section 4: Mobile-first layout
+
+Problems found on the live app at 390px (2026-10-01):
+- **Bottom nav:** [Sidebar.tsx](../../../src/components/dashboard/Sidebar.tsx) renders the bottom nav from `items.slice(0, 8)` in a sideways-scrolling strip. Admins cannot reach Feedback, Sheet Sync, Send Notice, Analytics, Notifications or Settings on a phone, and the eighth item is cut off at the edge.
+- **Dashboard:** the four stat tiles stack one per row and fill the first screen.
+- **CRM:** tab chips wrap into four rows, using about 40% of the screen.
+- **Tables:** they run past the right edge (15 files render `<table>`). Checkboxes are about 13px and names wrap over three lines.
+- **Branding:** the mobile header says "PharmaZyme" ([Topbar.tsx:47](../../../src/components/dashboard/Topbar.tsx)) while the desktop sidebar says "PZ Academy".
+
+Changes:
+1. **Bottom nav: 4 + More.** On phones the bottom bar shows the first 4 role-relevant items and a **More** button. More opens a bottom sheet (Radix Dialog styled as a sheet) listing every remaining nav item from the same `NAV_ITEMS` source, so nothing is unreachable. The active item is highlighted in the bar, or on More when the active page lives in the sheet. The bar respects `env(safe-area-inset-bottom)`, and page content gets matching bottom padding so the last row is never hidden behind the bar.
+2. **Responsive data lists: `<ResponsiveList>`.** Below `md`, each table row renders as a stacked card:
+   - the primary field (name) as the title, with 2–3 key fields beneath;
+   - the row's link covering the whole card;
+   - a selection checkbox with a 44px hit area, where the table supports selection.
+
+   At `md` and up, the existing table renders unchanged. Implemented as a small helper (`src/components/ui/responsive-list.tsx`) that takes a column config with a `mobile: "title" | "meta" | "hidden"` role per column. The 15 table files migrate during the area sweeps.
+3. **Tab rows scroll sideways.** Tab and chip groups (CRM tabs and similar `?tab=` navs) become a single horizontally scrollable row on phones, with `snap-x`, no wrapping, the active chip scrolled into view on load, and a fade on the edge that has more chips. They wrap as today at `md` and up.
+4. **Stat tiles: 2 columns on phones.** Dashboard stat grids use `grid-cols-2` below `md`, with a compact tile (icon, number, label), so four stats take one short band instead of a full screen.
+5. **Tap targets and inputs.**
+   - Interactive elements have a hit area of at least 44×44px on touch devices (padding or `min-h-11`; icon buttons use `size="icon"`, raised to 44px below `md`).
+   - Form inputs, selects and textareas use `text-base` (16px) below `md` so iOS Safari does not zoom on focus.
+   - The `Button` sizes `default` and `sm` get `min-h-11` below `md`.
+6. **Sticky actions on long forms.** On phones, the primary Save or Submit button of long forms (course builder lesson editor, settings, mentor profile, booking) sits in a sticky bottom bar above the nav, so it is reachable without scrolling. It uses `<Button loading>` from Section 1.
+7. **Dialogs become sheets on phones.** `ConfirmProvider` and other Radix dialogs render as bottom sheets below `md` (full width, rounded top, thumb-reachable buttons stacked full-width) and as centered dialogs at `md` and up.
+8. **Brand name.** The mobile header shows "PZ Academy", matching the sidebar.
+9. **Skeletons are mobile-shaped.** Every skeleton shape in Section 1 has its own phone layout: table becomes stacked card skeletons, the stat grid has 2 columns, and chat shows the thread list or the conversation, not both. So the mobile skeleton matches what loads.
+10. **No sideways page scroll.** At 360px, `document.documentElement.scrollWidth` must equal the viewport width on every route. Only explicit scroll containers (tab rows, wide code or preview blocks) may scroll horizontally.
+
 ## Testing
 
 Vitest unit tests:
@@ -120,14 +152,32 @@ Live verification on a preview deploy, before production:
 - A double click on representative action buttons (save contact phone, mark converted, delete template, book session) sends exactly one request, checked in the network panel.
 - A forced error shows the error card, and **Try again** recovers. An unknown URL shows the 404.
 - Dark mode: skeletons and empty states use the dark tokens correctly.
+- Mobile at 390×844 (Playwright viewport) on every route:
+  - `scrollWidth` equals the viewport width.
+  - Every nav destination is reachable through the bar or the More sheet.
+  - Tables render as cards.
+  - Tap targets are at least 44px.
+  - Inputs do not trigger zoom.
+  - The loading skeleton matches the mobile layout.
+  - Spot-check at 360px.
+
+Additional unit tests:
+- Bottom nav: given each role's `NAV_ITEMS`, the bar plus the More sheet together contain every item exactly once.
+- `ResponsiveList`: renders a title and meta fields per row, and hides `hidden` columns in card mode.
 
 ## Rollout
 
 Ship in waves. Each wave is independently deployable and verified before the next.
 
-1. **Shared building blocks:** components and hook, the progress bar, `ConfirmProvider`, tests.
-2. **Route coverage:** route skeletons, error pages and the 404.
-3. **Sweep by area:** CRM, then admin (non-CRM), then mentor and student, then portal and public. Each area's sweep includes its action buttons, popups, client-panel skeletons and empty states.
+1. **Shared building blocks:** components and hook, the progress bar, `ConfirmProvider`, `ResponsiveList`, mobile `Button` and input sizing, tests.
+2. **Mobile shell:** bottom nav 4 + More sheet, safe-area padding, brand name fix. This fixes the unreachable admin pages first.
+3. **Route coverage:** route skeletons (mobile and desktop shapes), error pages and the 404.
+4. **Sweep by area:** CRM, then admin (non-CRM), then mentor and student, then portal and public. Each area's sweep includes:
+   - action buttons and popups;
+   - client-panel skeletons and empty states;
+   - tables to responsive lists;
+   - tab rows, stat grids and sticky form actions;
+   - a 390px check.
 
 ## Constraints and gotchas
 
