@@ -33,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           notifications={items}
           unreadCount={unreadCount}
         />
-        <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-6">{children}</main>
       </div>
     </div>
   );

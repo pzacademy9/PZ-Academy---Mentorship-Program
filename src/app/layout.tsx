@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, Fredoka, Handlee, Allura } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import "./mentorship/mentorship.css";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,6 +74,7 @@ export default function RootLayout({
           "font-fredoka bg-white text-pz-ink dark:bg-[#101412] dark:text-[#e0e3df] antialiased",
         )}
       >
+        <NextTopLoader color="hsl(var(--primary))" height={3} showSpinner={false} shadow={false} />
         <ThemeProvider>
           <ConfirmProvider>
             {children}
