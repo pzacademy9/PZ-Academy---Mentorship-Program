@@ -545,7 +545,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
                     variant="bare"
                     size="bare"
                     loading={loading}
-                    className="btn-primary w-full justify-center text-sm max-md:min-h-11"
+                    className="btn-primary w-full justify-center text-sm font-bold rounded-[4px] max-md:min-h-11 transition-[background-color,box-shadow,transform]"
                   >
                     {loading ? "Processing..." : (
                       <>

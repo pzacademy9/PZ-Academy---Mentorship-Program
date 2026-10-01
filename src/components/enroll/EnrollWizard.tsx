@@ -326,7 +326,7 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
               size="bare"
               loading={submitting}
               onClick={() => handleUploadAndSubmit()}
-              className="py-4 bg-pz-primary text-white font-headline font-bold rounded-lg hover:bg-pz-on-primary-container transition-all active:scale-[0.98] shadow-md disabled:opacity-50"
+              className="py-4 text-base bg-pz-primary text-white font-headline font-bold rounded-lg hover:bg-pz-on-primary-container transition-all active:scale-[0.98] shadow-md disabled:opacity-50"
             >
               {submitting ? "Submitting…" : "Submit Enrollment"}
             </Button>
