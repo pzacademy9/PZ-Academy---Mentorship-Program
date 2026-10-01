@@ -35,7 +35,7 @@ export function ChipTabs({ children, className, label }: { children: React.React
       <div
         ref={rowRef}
         data-chip-row
-        className="flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-md:flex-nowrap md:flex-wrap md:overflow-visible md:px-0 [&>*]:shrink-0 [&>*]:snap-start"
+        className="flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-md:flex-nowrap md:flex-wrap md:overflow-visible md:px-0 [&>*]:shrink-0 [&>*]:snap-start max-md:[&>*]:min-h-11 [&>*]:inline-flex [&>*]:items-center"
       >
         {children}
       </div>

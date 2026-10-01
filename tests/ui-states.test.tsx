@@ -35,4 +35,5 @@ it("ChipTabs renders a labelled scroll row that does not wrap on mobile", () => 
   const row = nav.querySelector("[data-chip-row]") as HTMLElement;
   expect(row.className).toContain("overflow-x-auto");
   expect(row.className).toContain("max-md:flex-nowrap");
+  expect(row.className).toContain("max-md:[&>*]:min-h-11");
 });

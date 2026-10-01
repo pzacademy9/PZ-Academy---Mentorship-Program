@@ -15,7 +15,7 @@ export function ErrorState({
 }) {
   return (
     <div className="flex min-h-[50vh] items-center justify-center px-4 py-10">
-      <div role="alert" className="w-full max-w-md rounded-xl border border-destructive/30 border-l-4 border-l-destructive bg-destructive/5 p-5">
+      <div role="alert" className="w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/5 p-5">
         <div className="flex gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <AlertTriangle className="h-5 w-5 text-destructive" aria-hidden="true" />
