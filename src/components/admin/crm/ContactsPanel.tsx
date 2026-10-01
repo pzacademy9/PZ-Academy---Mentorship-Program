@@ -190,7 +190,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         <select
           value={courseName}
           onChange={(e) => { setCourseName(e.target.value); void runSearch({ courseName: e.target.value }); }}
-          className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
+          className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
         >
           <option value="">All courses</option>
           {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -199,7 +199,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         <select
           value={importBatchId}
           onChange={(e) => { setImportBatchId(e.target.value); void runSearch({ importBatchId: e.target.value }); }}
-          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
+          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
         >
           <option value="">All cohorts</option>
           {batches.map((b) => (

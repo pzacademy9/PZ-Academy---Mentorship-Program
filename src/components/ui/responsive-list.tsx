@@ -45,11 +45,11 @@ export function ResponsiveList<T>({
                 </label>
               )}
               {href ? (
-                <Link href={href} className={cn("flex min-h-11 flex-1 items-center p-3 active:bg-muted", selection && "pl-0")}>
+                <Link href={href} className={cn("flex min-h-11 min-w-0 flex-1 items-center p-3 active:bg-muted", selection && "pl-0")}>
                   {body}
                 </Link>
               ) : (
-                <div className={cn("flex flex-1 items-center p-3", selection && "pl-0")}>{body}</div>
+                <div className={cn("flex min-w-0 flex-1 items-center p-3", selection && "pl-0")}>{body}</div>
               )}
             </li>
           );
