@@ -42,7 +42,7 @@ export function StringListRepeater({
               onChange={(e) => commit(rows.map((r) => (r.key === row.key ? { ...r, value: e.target.value } : r)))}
               placeholder={placeholder}
               rows={3}
-              className="flex-1 border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
+              className="flex-1 border border-pz-outline-variant rounded-lg px-3 py-2 text-sm max-md:text-base font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
             />
           ) : (
             <input
@@ -50,7 +50,7 @@ export function StringListRepeater({
               value={row.value}
               onChange={(e) => commit(rows.map((r) => (r.key === row.key ? { ...r, value: e.target.value } : r)))}
               placeholder={placeholder}
-              className="flex-1 border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
+              className="flex-1 border border-pz-outline-variant rounded-lg px-3 py-2 text-sm max-md:text-base font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
             />
           )}
           <button

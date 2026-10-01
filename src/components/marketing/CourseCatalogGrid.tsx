@@ -36,7 +36,7 @@ export function CourseCatalogGrid({ courses, noun = "Course" }: { courses: Cours
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`Search ${noun.toLowerCase()}s...`}
-          className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-full py-4 pl-14 pr-6 text-sm text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary transition-all shadow-sm font-body"
+          className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-full py-4 pl-14 pr-6 text-sm max-md:text-base text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary transition-all shadow-sm font-body"
         />
       </div>
 

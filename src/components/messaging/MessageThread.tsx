@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Send, MoreVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useBroadcastChannel } from "@/lib/realtime/useBroadcastChannel";
 import { formatTime } from "@/lib/format";
@@ -78,6 +79,7 @@ export function MessageThread({
   sendUrl: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [isTransitioning, startTransition] = useTransition();
@@ -201,8 +203,8 @@ export function MessageThread({
     });
   }
 
-  function deleteForEveryone(messageId: string) {
-    if (!window.confirm("Delete this message for everyone? This cannot be undone.")) return;
+  async function deleteForEveryone(messageId: string) {
+    if (!(await confirm({ title: "Delete message?", description: "Delete this message for everyone? This cannot be undone.", confirmLabel: "Delete", destructive: true }))) return;
     removedIdsRef.current.add(messageId);
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     messageAction({ action: "delete", messageId }).then((res) => {
@@ -210,8 +212,8 @@ export function MessageThread({
     });
   }
 
-  function clearChat() {
-    if (!window.confirm("Clear this entire conversation for both of you? This cannot be undone.")) return;
+  async function clearChat() {
+    if (!(await confirm({ title: "Clear conversation?", description: "Clear this entire conversation for both of you? This cannot be undone.", confirmLabel: "Clear", destructive: true }))) return;
     for (const m of messages) removedIdsRef.current.add(m.id);
     startTransition(async () => {
       const res = await messageAction({ action: "clear" });

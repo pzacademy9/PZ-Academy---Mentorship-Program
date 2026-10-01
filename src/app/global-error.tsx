@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
+
 /* Replaces the root layout when it crashes, so it renders its own <html>
    and cannot rely on Tailwind tokens or providers. */
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { console.error("Global error", error.digest ?? error.message); }, [error]);
   return (
     <html lang="en">
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#F7FAF5", color: "#0F3D22" }}>

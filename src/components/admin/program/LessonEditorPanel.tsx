@@ -497,7 +497,7 @@ export function LessonEditorPanel({
         </>
       )}
 
-      <div className="sticky bottom-0 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 bg-pz-surface max-md:bg-background/95 max-md:backdrop-blur border-t border-pz-outline-variant px-4 md:px-8 py-3 md:py-4 -mx-4 md:-mx-8 flex flex-wrap justify-between items-center gap-3 mt-12">
+      <div className="sticky bottom-0 max-lg:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-lg:z-40 bg-pz-surface max-lg:bg-background/95 max-lg:backdrop-blur border-t border-pz-outline-variant px-4 md:px-8 py-3 md:py-4 -mx-4 md:-mx-8 flex flex-wrap justify-between items-center gap-3 mt-12">
         <div className="flex items-center gap-1 text-xs font-bold text-pz-on-surface-variant">
           <CheckCheck className="w-4 h-4 text-pz-primary" />
           {lastSaved ? `Last saved ${lastSaved.toLocaleTimeString()}` : "No changes saved yet"}
