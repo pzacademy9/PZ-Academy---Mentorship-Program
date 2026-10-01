@@ -80,6 +80,14 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-montserrat;
   }
+  /* iOS Safari zooms on focus when an input's font-size is below 16px. */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 /* ── Marketing page keyframes ─────────────────────────── */
