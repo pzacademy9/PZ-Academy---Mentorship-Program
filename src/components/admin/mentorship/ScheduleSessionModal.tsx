@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarClock, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 export function ScheduleSessionModal({
   bookingId,
@@ -21,40 +23,37 @@ export function ScheduleSessionModal({
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [isPending, startTransition] = useTransition();
 
-  function submit() {
+  const { run: submit, pending: isPending } = useAsyncAction(async () => {
     if (!date || !time) {
       toast.error("Pick both a date and a time.");
       return;
     }
     const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
 
-    startTransition(async () => {
-      const res = await fetch("/api/admin/mentorship/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId, scheduledAt }),
-      });
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not schedule this session.");
-        return;
-      }
-
-      setOpen(false);
-      toast.success(`Session 1 scheduled for ${studentName}.`);
-      router.refresh();
+    const res = await fetch("/api/admin/mentorship/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId, scheduledAt }),
     });
-  }
+
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(payload?.error ?? "Could not schedule this session.");
+      return;
+    }
+
+    setOpen(false);
+    toast.success(`Session 1 scheduled for ${studentName}.`);
+    router.refresh();
+  });
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-headline font-bold text-pz-primary hover:bg-pz-primary/10 transition-colors"
+        className="inline-flex items-center gap-1.5 max-md:min-h-11 rounded-lg px-3 py-1.5 text-xs font-headline font-bold text-pz-primary hover:bg-pz-primary/10 transition-colors"
       >
         <CalendarClock className="w-3.5 h-3.5" />
         Schedule
@@ -92,7 +91,7 @@ export function ScheduleSessionModal({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+              className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
             />
           </div>
 
@@ -105,7 +104,7 @@ export function ScheduleSessionModal({
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+              className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
             />
           </div>
 
@@ -121,18 +120,20 @@ export function ScheduleSessionModal({
               type="button"
               onClick={() => setOpen(false)}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
-            <button
+            <Button
+              variant="bare"
+              size="bare"
               type="button"
-              onClick={submit}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50"
+              onClick={() => submit()}
+              loading={isPending}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50"
             >
               {isPending ? "Working…" : "Create Sessions"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

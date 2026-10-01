@@ -6,6 +6,8 @@ import { CirclePlus, Trash2, EyeOff, Pencil, Share2, Inbox, ArrowLeft } from "lu
 import { relativeTime, formatDateTime } from "@/lib/format";
 import { describeAuditAction, type AuditCategory, type AuditTone } from "@/lib/data/feedback-audit-actions";
 import type { AuditLogEntry } from "@/lib/data/feedback-audit";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_TABS: { value: AuditCategory | "all"; label: string }[] = [
@@ -59,7 +61,7 @@ export function AuditLogClient({ entries }: { entries: AuditLogEntry[] }) {
     <div className="space-y-6">
       <Link
         href="/dashboard/admin/feedback"
-        className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
+        className="inline-flex items-center gap-2 max-md:min-h-11 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Back to sessions
       </Link>
@@ -78,7 +80,7 @@ export function AuditLogClient({ entries }: { entries: AuditLogEntry[] }) {
             type="button"
             onClick={() => setCategory(tab.value)}
             className={cn(
-              "px-4 py-2 rounded-full font-headline font-bold text-sm transition-colors border",
+              "px-4 py-2 max-md:min-h-11 rounded-full font-headline font-bold text-sm transition-colors border",
               category === tab.value
                 ? "bg-pz-primary-container text-pz-on-primary-container border-pz-primary"
                 : "bg-pz-surface-container-lowest text-pz-on-surface-variant border-pz-outline-variant hover:bg-pz-surface-container-high",
@@ -90,14 +92,24 @@ export function AuditLogClient({ entries }: { entries: AuditLogEntry[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 flex flex-col items-center text-center">
-          <Inbox className="w-10 h-10 text-pz-outline-variant mb-3" />
-          <p className="font-body text-pz-on-surface-variant text-sm">
-            {category === "all" ? "No activity yet." : "No activity in this category."}
-          </p>
-        </div>
+        <EmptyState
+          icon={Inbox}
+          title={category === "all" ? "No activity yet" : "No activity in this category"}
+          description="Changes to feedback sessions, programs and responses will show up here."
+        />
       ) : (
-        <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
+        <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden max-md:border-0 max-md:bg-transparent">
+          <ResponsiveList
+            rows={visible}
+            getKey={(entry) => entry.id}
+            mobile={{
+              title: (entry) => <ActionBadge action={entry.action} />,
+              meta: (entry) => [
+                `${relativeTime(entry.createdAt)} · ${entry.actorName ?? "System"}`,
+                entry.detail ? <span key="detail" className="block whitespace-normal break-words">{entry.detail}</span> : null,
+              ].filter(Boolean),
+            }}
+            table={
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[48rem]">
               <thead>
@@ -127,6 +139,8 @@ export function AuditLogClient({ entries }: { entries: AuditLogEntry[] }) {
               </tbody>
             </table>
           </div>
+            }
+          />
           <div className="px-6 py-4 border-t border-pz-outline-variant/40 font-body text-sm text-pz-on-surface-variant">
             Showing {visible.length} entr{visible.length === 1 ? "y" : "ies"}
           </div>

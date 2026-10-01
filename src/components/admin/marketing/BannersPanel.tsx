@@ -21,6 +21,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Pencil, Trash2, ImageOff, Image } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import { ImageUploadField } from "@/components/admin/program/ImageUploadField";
 import { BANNER_SLOTS, getBannerStatus, type BannerStatus } from "@/lib/validations/admin-marketing";
@@ -77,7 +81,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
   const [slotFilter, setSlotFilter] = useState<(typeof BANNER_SLOTS)[number] | "all">("hero");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm("hero"));
-  const [saving, setSaving] = useState(false);
+  const confirm = useConfirm();
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -93,12 +97,11 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
     setForm(toFormState(banner));
   }
 
-  async function submit() {
+  const { run: submit, pending: saving } = useAsyncAction(async () => {
     if (!form.headline.trim() || !form.ctaText.trim() || !form.ctaLink.trim()) {
       toast.error("Headline, CTA text, and CTA link are required.");
       return;
     }
-    setSaving(true);
     const body = {
       slot: form.slot,
       imageUrl: form.imageUrl.trim() || undefined,
@@ -114,7 +117,6 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
       body: JSON.stringify(body),
     });
     const payload = (await res.json().catch(() => null)) as { id?: string; error?: string; warning?: string | null } | null;
-    setSaving(false);
     if (!res.ok) {
       toast.error(payload?.error ?? "Could not save banner.");
       return;
@@ -144,9 +146,9 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
     toast.success(editingId ? "Banner updated." : "Banner created.");
     setEditingId(null);
     setForm(emptyForm(form.slot));
-  }
+  });
 
-  async function toggleActive(banner: AdminBannerRow) {
+  const { run: toggleActive, pending: toggling, pendingKey: togglingId } = useAsyncAction(async (banner: AdminBannerRow) => {
     setBanners((prev) => prev.map((b) => (b.id === banner.id ? { ...b, isActive: !b.isActive } : b)));
     const res = await fetch(`/api/admin/banners/${banner.id}`, {
       method: "PATCH",
@@ -157,10 +159,10 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
       toast.error("Could not update banner.");
       setBanners((prev) => prev.map((b) => (b.id === banner.id ? { ...b, isActive: banner.isActive } : b)));
     }
-  }
+  }, { getKey: (banner) => banner.id });
 
-  async function remove(banner: AdminBannerRow) {
-    if (!confirm(`Delete "${banner.headline}"?`)) return;
+  const { run: remove, pending: removing, pendingKey: removingId } = useAsyncAction(async (banner: AdminBannerRow) => {
+    if (!(await confirm({ title: "Delete banner?", description: `"${banner.headline}" will be removed.`, confirmLabel: "Delete", destructive: true }))) return;
     const res = await fetch(`/api/admin/banners/${banner.id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Could not delete banner.");
@@ -171,7 +173,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
     toast.success("Banner deleted.");
     if (payload?.warning) toast.warning(payload.warning);
     if (editingId === banner.id) startNew();
-  }
+  }, { getKey: (banner) => banner.id });
 
   async function persistOrder(slot: (typeof BANNER_SLOTS)[number], next: AdminBannerRow[]) {
     const res = await fetch("/api/admin/banners/reorder", {
@@ -201,6 +203,8 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
       ? [...banners].sort((a, b) => (a.slot === b.slot ? a.orderIndex - b.orderIndex : a.slot.localeCompare(b.slot)))
       : banners.filter((b) => b.slot === slotFilter).sort((a, b) => a.orderIndex - b.orderIndex);
 
+  const rowState = { togglingId, removingId, busy: toggling || removing };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
@@ -208,7 +212,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
           <button
             onClick={() => setSlotFilter("all")}
             className={cn(
-              "px-4 py-1.5 rounded-full font-headline text-xs font-semibold transition-all",
+              "px-4 py-1.5 max-md:min-h-11 rounded-full font-headline text-xs font-semibold transition-all",
               slotFilter === "all"
                 ? "bg-pz-primary-container text-pz-on-primary-container"
                 : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant",
@@ -221,7 +225,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
               key={slot}
               onClick={() => setSlotFilter(slot)}
               className={cn(
-                "px-4 py-1.5 rounded-full font-headline text-xs font-semibold transition-all",
+                "px-4 py-1.5 max-md:min-h-11 rounded-full font-headline text-xs font-semibold transition-all",
                 slotFilter === slot
                   ? "bg-pz-primary-container text-pz-on-primary-container"
                   : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant",
@@ -233,13 +237,15 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
         </div>
 
         {visible.length === 0 ? (
-          <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 text-center">
-            <p className="font-body text-pz-on-surface-variant text-sm">No banners in this slot yet.</p>
-          </div>
+          <EmptyState
+            icon={ImageOff}
+            title="No banners in this slot yet"
+            description="Use the form to create one."
+          />
         ) : slotFilter === "all" ? (
           <div className="space-y-2">
             {visible.map((b) => (
-              <BannerRow key={b.id} banner={b} onEdit={() => startEdit(b)} onToggle={() => toggleActive(b)} onDelete={() => remove(b)} />
+              <BannerRow key={b.id} banner={b} onEdit={() => startEdit(b)} onToggle={() => toggleActive(b)} onDelete={() => remove(b)} {...rowState} />
             ))}
           </div>
         ) : (
@@ -247,7 +253,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
             <SortableContext items={visible.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
                 {visible.map((b) => (
-                  <SortableBannerRow key={b.id} banner={b} onEdit={() => startEdit(b)} onToggle={() => toggleActive(b)} onDelete={() => remove(b)} />
+                  <SortableBannerRow key={b.id} banner={b} onEdit={() => startEdit(b)} onToggle={() => toggleActive(b)} onDelete={() => remove(b)} {...rowState} />
                 ))}
               </div>
             </SortableContext>
@@ -259,7 +265,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
         <div className="flex items-center justify-between">
           <h3 className="font-headline font-bold text-pz-on-surface">{editingId ? "Edit Banner" : "New Banner"}</h3>
           {editingId && (
-            <button onClick={startNew} className="text-xs font-bold text-pz-on-surface-variant hover:text-pz-primary">
+            <button onClick={startNew} className="text-xs font-bold text-pz-on-surface-variant hover:text-pz-primary max-md:min-h-11 max-md:min-w-11">
               Cancel
             </button>
           )}
@@ -270,7 +276,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
           <select
             value={form.slot}
             onChange={(e) => set("slot", e.target.value as FormState["slot"])}
-            className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body bg-pz-surface"
+            className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body bg-pz-surface max-md:text-base max-md:min-h-11"
           >
             {BANNER_SLOTS.map((slot) => (
               <option key={slot} value={slot}>
@@ -289,7 +295,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
             kind="banner"
             shape="square"
             icon={Image}
-            inputClassName="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body"
+            inputClassName="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"
           />
         </div>
 
@@ -299,11 +305,11 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
             type="text"
             value={form.headline}
             onChange={(e) => set("headline", e.target.value)}
-            className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body"
+            className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-bold text-pz-on-surface-variant block mb-1">CTA Text</label>
             <input
@@ -311,7 +317,7 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
               value={form.ctaText}
               onChange={(e) => set("ctaText", e.target.value)}
               placeholder="e.g. Enroll Now"
-              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body"
+              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"
             />
           </div>
           <div>
@@ -321,36 +327,38 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
               value={form.ctaLink}
               onChange={(e) => set("ctaLink", e.target.value)}
               placeholder="/courses"
-              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body"
+              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"
             />
           </div>
         </div>
 
         <div>
           <label className="text-xs font-bold text-pz-on-surface-variant block mb-1">Schedule (optional)</label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               type="datetime-local"
               value={form.activeFrom}
               onChange={(e) => set("activeFrom", e.target.value)}
-              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body"
+              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"
             />
             <input
               type="datetime-local"
               value={form.activeUntil}
               onChange={(e) => set("activeUntil", e.target.value)}
-              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body"
+              className="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"
             />
           </div>
         </div>
 
-        <button
-          onClick={submit}
-          disabled={saving}
-          className="w-full bg-pz-primary text-pz-on-primary rounded-lg py-2.5 font-headline font-bold text-sm disabled:opacity-50"
+        <Button
+          variant="bare"
+          size="bare"
+          loading={saving}
+          onClick={() => submit()}
+          className="w-full bg-pz-primary text-pz-on-primary rounded-lg py-2.5 max-md:min-h-11 font-headline font-bold text-sm disabled:opacity-50"
         >
           {saving ? "Saving…" : editingId ? "Save Changes" : "Create Banner"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -362,16 +370,22 @@ function BannerRow({
   onToggle,
   onDelete,
   dragHandle,
+  togglingId,
+  removingId,
+  busy,
 }: {
   banner: AdminBannerRow;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
   dragHandle?: React.ReactNode;
+  togglingId: string | null;
+  removingId: string | null;
+  busy: boolean;
 }) {
   const status = getBannerStatus(banner);
   return (
-    <div className="bg-pz-surface rounded-lg border border-pz-outline-variant p-3 flex items-center gap-3">
+    <div className="bg-pz-surface rounded-lg border border-pz-outline-variant p-3 flex flex-wrap md:flex-nowrap items-center gap-3">
       {dragHandle}
       <div className="w-14 h-10 shrink-0 rounded-md overflow-hidden bg-pz-surface-container flex items-center justify-center">
         {banner.imageUrl ? (
@@ -387,35 +401,67 @@ function BannerRow({
           {SLOT_LABELS[banner.slot]} · {banner.ctaText}
         </p>
       </div>
-      <span className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full shrink-0", STATUS_STYLES[status])}>
-        {status}
-      </span>
-      <button
-        onClick={onToggle}
-        title={banner.isActive ? "Deactivate" : "Activate"}
-        className={cn(
-          "relative w-9 h-5 rounded-full shrink-0 transition-colors",
-          banner.isActive ? "bg-pz-primary" : "bg-pz-outline-variant",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
-            banner.isActive && "translate-x-4",
-          )}
-        />
-      </button>
-      <button onClick={onEdit} className="p-1.5 text-pz-on-surface-variant hover:text-pz-primary shrink-0">
-        <Pencil className="w-4 h-4" />
-      </button>
-      <button onClick={onDelete} className="p-1.5 text-pz-on-surface-variant hover:text-pz-danger shrink-0">
-        <Trash2 className="w-4 h-4" />
-      </button>
+      {/* Controls drop to their own line on phones so the headline keeps room; md:contents keeps the desktop row identical. */}
+      <div className="flex items-center gap-3 max-md:basis-full max-md:justify-end md:contents">
+        <span className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full shrink-0", STATUS_STYLES[status])}>
+          {status}
+        </span>
+        <Button
+          variant="bare"
+          size="bare"
+          onClick={onToggle}
+          loading={togglingId === banner.id}
+          disabled={busy}
+          title={banner.isActive ? "Deactivate" : "Activate"}
+          aria-label={banner.isActive ? "Deactivate banner" : "Activate banner"}
+          className="shrink-0 max-md:min-h-11 max-md:min-w-11"
+        >
+          <span
+            className={cn(
+              "relative block w-9 h-5 rounded-full transition-colors",
+              banner.isActive ? "bg-pz-primary" : "bg-pz-outline-variant",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                banner.isActive && "translate-x-4",
+              )}
+            />
+          </span>
+        </Button>
+        <button
+          onClick={onEdit}
+          aria-label="Edit banner"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center text-pz-on-surface-variant hover:text-pz-primary shrink-0"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <Button
+          variant="bare"
+          size="bare"
+          onClick={onDelete}
+          loading={removingId === banner.id}
+          disabled={busy}
+          aria-label="Delete banner"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 text-pz-on-surface-variant hover:text-pz-danger shrink-0"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
 
-function SortableBannerRow(props: { banner: AdminBannerRow; onEdit: () => void; onToggle: () => void; onDelete: () => void }) {
+function SortableBannerRow(props: {
+  banner: AdminBannerRow;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+  togglingId: string | null;
+  removingId: string | null;
+  busy: boolean;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.banner.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   return (
@@ -423,7 +469,7 @@ function SortableBannerRow(props: { banner: AdminBannerRow; onEdit: () => void; 
       <BannerRow
         {...props}
         dragHandle={
-          <span {...attributes} {...listeners} className="text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0">
+          <span {...attributes} {...listeners} className="text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0 max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center max-md:justify-center max-md:touch-none">
             <GripVertical className="w-4 h-4" />
           </span>
         }

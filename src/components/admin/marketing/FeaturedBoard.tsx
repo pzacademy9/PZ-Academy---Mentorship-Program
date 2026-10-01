@@ -17,6 +17,8 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, X, ImageOff, PlusCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import type { AdminFeaturedItemRow, AvailableCourseRow } from "@/lib/data/admin-marketing";
 
@@ -249,7 +251,9 @@ function DraggableCourseCard({ course }: { course: AvailableCourseRow }) {
   );
 }
 
-function FeaturedCard({ entry, index, onRemove }: { entry: FeaturedEntry; index: number; onRemove: () => void }) {
+function FeaturedCard({ entry, index, onRemove }: { entry: FeaturedEntry; index: number; onRemove: () => Promise<void> }) {
+  // Per-card lock: removing one card must never block removing another.
+  const { run: remove, pending: removing } = useAsyncAction(onRemove);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `${FEAT_PREFIX}${entry.courseId}` });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   return (
@@ -257,7 +261,7 @@ function FeaturedCard({ entry, index, onRemove }: { entry: FeaturedEntry; index:
       <span
         {...attributes}
         {...listeners}
-        className="text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        className="text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0 touch-none max-md:min-h-11 max-md:min-w-11 max-md:inline-flex max-md:items-center max-md:justify-center"
       >
         <GripVertical className="w-4 h-4" />
       </span>
@@ -276,9 +280,16 @@ function FeaturedCard({ entry, index, onRemove }: { entry: FeaturedEntry; index:
         <p className="font-body font-medium text-sm text-pz-on-surface truncate">{entry.title}</p>
         <p className="font-body text-xs text-pz-on-surface-variant capitalize">{entry.itemType}</p>
       </div>
-      <button onClick={onRemove} className="p-1 text-pz-on-surface-variant hover:text-pz-danger shrink-0">
+      <Button
+        variant="bare"
+        size="bare"
+        onClick={() => remove()}
+        loading={removing}
+        aria-label="Remove from featured"
+        className="p-1 max-md:min-h-11 max-md:min-w-11 text-pz-on-surface-variant hover:text-pz-danger shrink-0"
+      >
         <X className="w-4 h-4" />
-      </button>
+      </Button>
     </div>
   );
 }
