@@ -10,6 +10,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/format";
 import { resolveNotificationStyle } from "./notification-style";
@@ -26,7 +28,7 @@ export function NotificationBell({
   unreadCount?: number;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
 
   // A new notification (from any source: enrollment triggers, admin
   // broadcast, mentorship feedback, sheet-sync) refreshes this component's
@@ -45,41 +47,58 @@ export function NotificationBell({
     });
   }
 
-  function handleMarkAll() {
-    startTransition(async () => {
+  const { run: handleMarkAll, pending: markingAll } = useAsyncAction(async () => {
+    try {
       const res = await markRead();
       if (!res.ok) {
         toast.error("Could not mark notifications read.");
         return;
       }
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not mark notifications read.");
+    }
+  });
 
-  function handleOpen(notification: AppNotification) {
-    startTransition(async () => {
-      // Awaited rather than fire-and-forget: navigating away can abort an
-      // in-flight request, which would leave the row unread.
-      if (!notification.isRead) await markRead(notification.id);
-      if (notification.link) router.push(notification.link);
-      else router.refresh();
-    });
-  }
-
-  function handleDelete(id: string) {
-    startTransition(async () => {
-      const res = await fetch("/api/notifications", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) {
-        toast.error("Could not delete notification.");
+  const { run: handleOpen, pending: opening } = useAsyncAction(
+    async (notification: AppNotification) => {
+      try {
+        // Awaited rather than fire-and-forget: navigating away can abort an
+        // in-flight request, which would leave the row unread.
+        if (!notification.isRead) await markRead(notification.id);
+      } catch {
+        toast.error("Could not open notification.");
         return;
       }
-      router.refresh();
-    });
-  }
+      startTransition(() => {
+        if (notification.link) router.push(notification.link);
+        else router.refresh();
+      });
+    },
+    { getKey: (n) => n.id },
+  );
+
+  const { run: handleDelete, pending: deleting, pendingKey: deletingId } = useAsyncAction(
+    async (id: string) => {
+      try {
+        const res = await fetch("/api/notifications", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) {
+          toast.error("Could not delete notification.");
+          return;
+        }
+        startTransition(() => router.refresh());
+      } catch {
+        toast.error("Could not delete notification.");
+      }
+    },
+    { getKey: (id) => id },
+  );
+
+  const isPending = markingAll || opening || deleting || isNavigating;
 
   return (
     <DropdownMenu>
@@ -87,7 +106,7 @@ export function NotificationBell({
         aria-label={
           unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications, none unread"
         }
-        className="relative p-2 rounded-full text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary/30"
+        className="relative inline-flex items-center justify-center p-2 max-md:min-h-11 max-md:min-w-11 rounded-full text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary/30"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -99,14 +118,17 @@ export function NotificationBell({
         <div className="p-4 flex items-center justify-between border-b border-pz-outline-variant/60">
           <h3 className="font-headline font-bold text-pz-on-surface text-base">Notifications</h3>
           {unreadCount > 0 && (
-            <button
+            <Button
               type="button"
-              onClick={handleMarkAll}
+              variant="bare"
+              size="bare"
+              loading={markingAll}
               disabled={isPending}
-              className="font-label text-sm text-pz-secondary hover:underline disabled:opacity-50"
+              onClick={() => handleMarkAll()}
+              className="font-label text-sm text-pz-secondary hover:underline max-md:min-h-11"
             >
               Mark all read
-            </button>
+            </Button>
           )}
         </div>
 
@@ -128,7 +150,7 @@ export function NotificationBell({
                 >
                   <button
                     type="button"
-                    onClick={() => handleOpen(notification)}
+                    onClick={() => void handleOpen(notification)}
                     disabled={isPending}
                     className="min-w-0 flex-1 text-left p-4 flex gap-3 transition-colors hover:bg-pz-surface-container-high disabled:opacity-60"
                   >
@@ -156,15 +178,18 @@ export function NotificationBell({
                       />
                     )}
                   </button>
-                  <button
+                  <Button
                     type="button"
+                    variant="bare"
+                    size="bare"
                     aria-label="Delete notification"
-                    onClick={() => handleDelete(notification.id)}
+                    loading={deletingId === notification.id}
                     disabled={isPending}
-                    className="shrink-0 self-start mt-3 mr-2 p-1.5 rounded-full text-pz-on-surface-variant/60 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors disabled:opacity-50"
+                    onClick={() => void handleDelete(notification.id)}
+                    className="shrink-0 self-start mt-3 mr-2 p-1.5 max-md:mt-1 max-md:mr-1 max-md:min-h-11 max-md:min-w-11 rounded-full text-pz-on-surface-variant/60 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
                 </div>
               );
             })
