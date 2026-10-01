@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnMappingInput } from "@/lib/validations/crm";
+import { Button } from "@/components/ui/button";
+import { ResponsiveList } from "@/components/ui/responsive-list";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 type Tab = { name: string; headers: string[]; rowCount: number; guessedMapping: ColumnMappingInput };
 
@@ -37,7 +40,6 @@ export function ImportWizard() {
   const [selectedTab, setSelectedTab] = useState<string | null>(null);
   const [mapping, setMapping] = useState<ColumnMappingInput | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; type: string }>>([]);
@@ -59,8 +61,7 @@ export function ImportWizard() {
 
   const activeTab = tabs.find((t) => t.name === selectedTab) ?? null;
 
-  async function loadTabs() {
-    setBusy(true);
+  const { run: loadTabs, pending: loadingTabs } = useAsyncAction(async () => {
     setError(null);
     setPreview(null);
     setDone(null);
@@ -79,10 +80,8 @@ export function ImportWizard() {
       setMapping(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read that sheet.");
-    } finally {
-      setBusy(false);
     }
-  }
+  });
 
   function chooseTab(tab: Tab) {
     // Prefill from the server's guess, which the admin can then correct.
@@ -92,9 +91,8 @@ export function ImportWizard() {
     setDone(null);
   }
 
-  async function runPreview() {
+  const { run: runPreview, pending: previewing } = useAsyncAction(async () => {
     if (!mapping || !selectedTab) return;
-    setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/crm/import/preview", {
@@ -107,14 +105,11 @@ export function ImportWizard() {
       setPreview(json);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Preview failed.");
-    } finally {
-      setBusy(false);
     }
-  }
+  });
 
-  async function commit() {
+  const { run: commit, pending: committing } = useAsyncAction(async () => {
     if (!mapping || !selectedTab) return;
-    setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/crm/import/commit", {
@@ -140,10 +135,10 @@ export function ImportWizard() {
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed.");
-    } finally {
-      setBusy(false);
     }
-  }
+  });
+  // The three steps are mutually exclusive: while one runs, the others stay disabled.
+  const busy = loadingTabs || previewing || committing;
 
   return (
     <div className="space-y-6">
@@ -155,15 +150,18 @@ export function ImportWizard() {
             value={sheetInput}
             onChange={(e) => setSheetInput(e.target.value)}
             placeholder="Paste the Google Sheets URL"
-            className="flex-1 min-w-[280px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+            className="flex-1 min-w-0 sm:min-w-[280px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
           />
-          <button
-            onClick={loadTabs}
+          <Button
+            variant="bare"
+            size="bare"
+            loading={loadingTabs}
+            onClick={() => loadTabs()}
             disabled={busy || sheetInput.trim() === ""}
-            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
           >
-            {busy ? "Reading…" : "Read sheet"}
-          </button>
+            {loadingTabs ? "Reading…" : "Read sheet"}
+          </Button>
         </div>
         {sheetName && <p className="font-body text-xs text-pz-on-surface-variant">Opened: {sheetName}</p>}
       </section>
@@ -177,7 +175,7 @@ export function ImportWizard() {
               <button
                 key={tab.name}
                 onClick={() => chooseTab(tab)}
-                className={`px-4 py-2 rounded-full font-body text-sm ${selectedTab === tab.name ? "bg-pz-primary-container text-pz-on-primary-container font-semibold" : "bg-pz-surface-variant text-pz-on-surface-variant"}`}
+                className={`px-4 py-2 rounded-full font-body text-sm max-md:min-h-11 ${selectedTab === tab.name ? "bg-pz-primary-container text-pz-on-primary-container font-semibold" : "bg-pz-surface-variant text-pz-on-surface-variant"}`}
               >
                 {tab.name} <span className="tabular-nums opacity-70">({tab.rowCount})</span>
               </button>
@@ -199,7 +197,7 @@ export function ImportWizard() {
                   onChange={(e) =>
                     setMapping({ ...mapping, [field.key]: e.target.value === "" ? null : Number(e.target.value) })
                   }
-                  className="w-full rounded-xl border border-pz-outline-variant px-3 py-2"
+                  className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 max-md:min-h-11 max-md:text-base"
                 >
                   <option value="">— not mapped —</option>
                   {activeTab.headers.map((header, index) => (
@@ -216,7 +214,7 @@ export function ImportWizard() {
             <select
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
-              className="w-full sm:w-1/2 rounded-xl border border-pz-outline-variant px-3 py-2"
+              className="w-full sm:w-1/2 rounded-xl border border-pz-outline-variant px-3 py-2 max-md:min-h-11 max-md:text-base"
             >
               <option value="">— not tagged —</option>
               {courses.map((c) => (
@@ -229,13 +227,16 @@ export function ImportWizard() {
               <span className="block text-pz-danger text-xs mt-1">Could not load the course list — reload the page before tagging.</span>
             )}
           </label>
-          <button
-            onClick={runPreview}
+          <Button
+            variant="bare"
+            size="bare"
+            loading={previewing}
+            onClick={() => runPreview()}
             disabled={busy}
-            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
           >
-            {busy ? "Checking…" : "Preview import"}
-          </button>
+            {previewing ? "Checking…" : "Preview import"}
+          </Button>
         </section>
       )}
 
@@ -259,33 +260,46 @@ export function ImportWizard() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left font-body text-sm">
-              <thead className="text-pz-on-surface-variant text-xs uppercase">
-                <tr><th className="py-2">Row</th><th>Name</th><th>Email</th><th>Phone</th><th>Product</th><th>Type</th></tr>
-              </thead>
-              <tbody>
-                {preview.samples.map((s) => (
-                  <tr key={s.rowRef} className="border-t border-pz-outline-variant">
-                    <td className="py-2 tabular-nums">{s.rowRef}</td>
-                    <td>{s.name}</td>
-                    <td>{s.email ?? "—"}</td>
-                    <td className={s.phone ? "" : "text-pz-danger"}>{s.phone ?? "needs review"}</td>
-                    <td>{s.product || "—"}</td>
-                    <td>{s.rowType}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveList
+            rows={preview.samples}
+            getKey={(r) => r.rowRef}
+            mobile={{
+              title: (r) => r.name || `Row ${r.rowRef}`,
+              meta: (r) => [r.email, r.phone ?? "Phone needs review", r.product, `Row ${r.rowRef} · ${r.rowType}`].filter(Boolean),
+            }}
+            table={
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-body text-sm">
+                  <thead className="text-pz-on-surface-variant text-xs uppercase">
+                    <tr><th className="py-2">Row</th><th>Name</th><th>Email</th><th>Phone</th><th>Product</th><th>Type</th></tr>
+                  </thead>
+                  <tbody>
+                    {preview.samples.map((s) => (
+                      <tr key={s.rowRef} className="border-t border-pz-outline-variant">
+                        <td className="py-2 tabular-nums">{s.rowRef}</td>
+                        <td>{s.name}</td>
+                        <td>{s.email ?? "—"}</td>
+                        <td className={s.phone ? "" : "text-pz-danger"}>{s.phone ?? "needs review"}</td>
+                        <td>{s.product || "—"}</td>
+                        <td>{s.rowType}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
 
-          <button
-            onClick={commit}
+          <Button
+            variant="bare"
+            size="bare"
+            loading={committing}
+            onClick={() => commit()}
             disabled={busy || preview.rowsImportable === 0}
-            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
           >
-            {busy ? "Importing…" : `Import ${preview.rowsImportable} rows`}
-          </button>
+            {committing ? "Importing…" : `Import ${preview.rowsImportable} rows`}
+          </Button>
         </section>
       )}
 

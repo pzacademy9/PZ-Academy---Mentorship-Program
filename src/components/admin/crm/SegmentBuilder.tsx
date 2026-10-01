@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SEGMENT_FIELDS, type SegmentFilter } from "@/lib/crm/segment";
+import { Button } from "@/components/ui/button";
 
 type ImportBatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number; createdAt: string };
 type CourseOption = { id: string; title: string; type: string };
@@ -136,7 +137,7 @@ export function SegmentBuilder({
         <select
           value=""
           onChange={(e) => { if (e.target.value) addFilter(e.target.value as SegmentFilter["field"]); }}
-          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm"
+          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
         >
           <option value="">+ Add a filter…</option>
           {SEGMENT_FIELDS.map((f) => (
@@ -144,13 +145,15 @@ export function SegmentBuilder({
           ))}
         </select>
 
-        <button
+        <Button
+          variant="bare"
+          size="bare"
+          loading={busy}
           onClick={() => refreshCount(value)}
-          disabled={busy}
-          className="px-5 py-2 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-sm font-medium disabled:opacity-50"
+          className="px-5 py-2 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-sm font-medium max-md:min-h-11"
         >
           {busy ? "Counting…" : "Count matches"}
-        </button>
+        </Button>
 
         {count !== null && (
           <span className="px-4 py-2 font-body text-sm">
@@ -190,7 +193,7 @@ export function SegmentBuilder({
                   const checked = filter.values.includes(b.id);
                   const label = `${b.sheetName} — ${b.tabName} (${b.rowsImported})`;
                   return (
-                    <label key={b.id} title={b.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                    <label key={b.id} title={b.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer max-md:min-h-11">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -215,7 +218,7 @@ export function SegmentBuilder({
                 courses.map((c) => {
                   const checked = filter.values.includes(c.id);
                   return (
-                    <label key={c.id} title={c.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                    <label key={c.id} title={c.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer max-md:min-h-11">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -240,7 +243,7 @@ export function SegmentBuilder({
                 (fieldValues.country ?? []).map((v) => {
                   const checked = filter.values.includes(v);
                   return (
-                    <label key={v} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                    <label key={v} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer max-md:min-h-11">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -262,7 +265,7 @@ export function SegmentBuilder({
               {DISCOVERY_SOURCE_OPTIONS.map((v) => {
                 const checked = filter.values.includes(v);
                 return (
-                  <label key={v} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer">
+                  <label key={v} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-pz-outline-variant text-xs font-body cursor-pointer max-md:min-h-11">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -282,7 +285,7 @@ export function SegmentBuilder({
             <select
               value={filter.value}
               onChange={(e) => patch(index, { ...filter, value: e.target.value } as SegmentFilter)}
-              className="rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
+              className="rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm max-md:min-h-11 max-md:text-base"
             >
               {ROW_TYPE_OPTIONS.map((v) => (
                 <option key={v} value={v}>{v.replace("_", " ")}</option>
@@ -292,7 +295,7 @@ export function SegmentBuilder({
             <select
               value={String(filter.value)}
               onChange={(e) => patch(index, { ...filter, value: e.target.value === "true" } as SegmentFilter)}
-              className="rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
+              className="rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm max-md:min-h-11 max-md:text-base"
             >
               <option value="true">yes</option>
               <option value="false">no</option>
@@ -308,7 +311,7 @@ export function SegmentBuilder({
                   } as SegmentFilter)
                 }
                 list={(OPEN_VOCAB_FIELDS as readonly string[]).includes(filter.field) ? `${filter.field}-values` : undefined}
-                className="flex-1 min-w-[140px] rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm"
+                className="flex-1 min-w-[140px] rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm max-md:min-h-11 max-md:text-base"
               />
               {(OPEN_VOCAB_FIELDS as readonly string[]).includes(filter.field) && (
                 <datalist id={`${filter.field}-values`}>
@@ -320,7 +323,7 @@ export function SegmentBuilder({
 
           <button
             onClick={() => update(value.filter((_, i) => i !== index))}
-            className="text-pz-danger font-body text-sm"
+            className="text-pz-danger font-body text-sm max-md:min-h-11 max-md:min-w-11"
           >
             remove
           </button>

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, Check } from "lucide-react";
+import { ArrowLeft, Copy, Check, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDate } from "@/lib/format";
 import type { AgentDetail } from "@/lib/data/admin-crm-agents";
 
@@ -22,7 +24,7 @@ function CopyLinkButton({ token }: { token: string }) {
   }
   return (
     <button type="button" onClick={copy} title="Copy link"
-      className="inline-flex items-center gap-1.5 rounded-md border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-highest transition-colors">
+      className="inline-flex items-center gap-1.5 rounded-md border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-highest transition-colors max-md:min-h-11">
       {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? "Copied" : "Copy link"}
     </button>
@@ -41,7 +43,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
       <div>
         <Link
           href="/dashboard/admin/crm?tab=agents"
-          className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
+          className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors max-md:min-h-11"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Agents
         </Link>
@@ -62,32 +64,43 @@ export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search leads…"
-            className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64"
+            className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base"
           />
         )}
       </div>
-      {filtered.length === 0 ? (
-        <p className="font-body text-sm text-pz-on-surface-variant py-4">
-          {search ? `No leads match "${search}".` : "No leads submitted through this link yet."}
-        </p>
-      ) : (
-        <table className="w-full text-left font-body text-sm">
-          <thead className="text-pz-on-surface-variant text-xs uppercase">
-            <tr><th className="py-1">Name</th><th>Phone</th><th>Profession</th><th>Status</th><th>Submitted</th></tr>
-          </thead>
-          <tbody>
-            {filtered.map((l) => (
-              <tr key={l.id} className="border-t border-pz-outline-variant">
-                <td className="py-1">{l.name || "—"}</td>
-                <td>{l.phone}</td>
-                <td>{l.profession ?? "—"}</td>
-                <td>{l.status}</td>
-                <td>{formatDate(l.createdAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <ResponsiveList
+        rows={filtered}
+        getKey={(l) => l.id}
+        empty={
+          <EmptyState
+            icon={UserPlus}
+            title={search ? "No leads match" : "No leads yet"}
+            description={search ? `Nothing matches "${search}".` : "Leads submitted through this agent's link appear here."}
+          />
+        }
+        mobile={{
+          title: (l) => l.name || "—",
+          meta: (l) => [l.phone, l.profession, `${l.status} · ${formatDate(l.createdAt)}`].filter(Boolean),
+        }}
+        table={
+            <table className="w-full text-left font-body text-sm">
+              <thead className="text-pz-on-surface-variant text-xs uppercase">
+                <tr><th className="py-1">Name</th><th>Phone</th><th>Profession</th><th>Status</th><th>Submitted</th></tr>
+              </thead>
+              <tbody>
+                {filtered.map((l) => (
+                  <tr key={l.id} className="border-t border-pz-outline-variant">
+                    <td className="py-1">{l.name || "—"}</td>
+                    <td>{l.phone}</td>
+                    <td>{l.profession ?? "—"}</td>
+                    <td>{l.status}</td>
+                    <td>{formatDate(l.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        }
+      />
     </div>
   );
 }

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 export type Template = {
   id: string;
@@ -32,8 +35,7 @@ export function TemplatePicker({
   currentBody: string;
 }) {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +50,7 @@ export function TemplatePicker({
     };
   }, [channel]);
 
-  async function saveAsTemplate() {
+  const { run: saveAsTemplate, pending: saving } = useAsyncAction(async () => {
     if (currentBody.trim() === "") {
       toast.error("Nothing to save — the message is empty.");
       return;
@@ -56,8 +58,7 @@ export function TemplatePicker({
     const name = window.prompt("Template name:")?.trim();
     if (!name) return;
 
-    setSaving(true);
-    try {
+    {
       const res = await fetch("/api/admin/crm/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,14 +74,11 @@ export function TemplatePicker({
         { id: json.id, channel, name, subject: currentSubject ?? null, body: currentBody, createdAt: new Date().toISOString() },
       ]);
       toast.success("Template saved.");
-    } finally {
-      setSaving(false);
     }
-  }
+  });
 
-  async function removeTemplate(template: Template) {
-    if (!confirm(`Delete template "${template.name}"?`)) return;
-    setDeletingId(template.id);
+  const { run: removeTemplate, pending: removing, pendingKey: deletingId } = useAsyncAction(async (template: Template) => {
+    if (!(await confirm({ title: "Delete template?", description: `"${template.name}" will be removed.`, confirmLabel: "Delete", destructive: true }))) return;
     try {
       const res = await fetch(`/api/admin/crm/templates/${template.id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -89,40 +87,45 @@ export function TemplatePicker({
         return;
       }
       setTemplates((prev) => prev.filter((t) => t.id !== template.id));
-    } finally {
-      setDeletingId(null);
+    } catch {
+      toast.error("Could not delete this template.");
     }
-  }
+  }, { getKey: (template) => template.id });
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {templates.map((t) => (
         <span
           key={t.id}
-          className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-body text-xs font-medium"
+          className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 max-md:py-0 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-body text-xs font-medium"
         >
-          <button type="button" onClick={() => onLoad(t)} className="hover:underline">
+          <button type="button" onClick={() => onLoad(t)} className="hover:underline max-md:min-h-11">
             {t.name}
           </button>
-          <button
+          <Button
             type="button"
+            variant="bare"
+            size="bare"
+            loading={deletingId === t.id}
+            disabled={removing}
             onClick={() => removeTemplate(t)}
-            disabled={deletingId === t.id}
             aria-label={`Delete template ${t.name}`}
-            className="leading-none opacity-60 hover:opacity-100 hover:text-pz-danger disabled:opacity-30"
+            className="leading-none opacity-60 hover:opacity-100 hover:text-pz-danger disabled:opacity-30 max-md:min-h-11 max-md:min-w-11"
           >
             ×
-          </button>
+          </Button>
         </span>
       ))}
-      <button
+      <Button
         type="button"
-        onClick={saveAsTemplate}
-        disabled={saving}
-        className="px-3 py-1 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-body text-xs font-medium disabled:opacity-50"
+        variant="bare"
+        size="bare"
+        loading={saving}
+        onClick={() => saveAsTemplate()}
+        className="px-3 py-1 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-body text-xs font-medium max-md:min-h-11"
       >
         {saving ? "Saving…" : "+ Save as template"}
-      </button>
+      </Button>
     </div>
   );
 }
