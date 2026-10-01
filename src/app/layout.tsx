@@ -5,6 +5,7 @@ import "./mentorship/mentorship.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -67,8 +68,10 @@ export default function RootLayout({
         )}
       >
         <ThemeProvider>
-          {children}
-          <Toaster richColors position="bottom-right" />
+          <ConfirmProvider>
+            {children}
+            <Toaster richColors position="bottom-right" />
+          </ConfirmProvider>
         </ThemeProvider>
       </body>
     </html>
