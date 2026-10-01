@@ -59,4 +59,23 @@ describe("useAsyncAction", () => {
     await act(async () => { out = await result.current.run(); });
     expect(out).toBe(2);
   });
+
+  it("releases the lock if getKey throws, allowing a retry", async () => {
+    const fn = vi.fn(async (id: string): Promise<string> => "ok");
+    const getKey = vi.fn((id: string) => {
+      if (id === "throw") throw new Error("key error");
+      return id;
+    });
+    const { result } = renderHook(() => useAsyncAction(fn, { getKey }));
+    // First call with throwing getKey
+    await act(async () => {
+      await expect(result.current.run("throw")).rejects.toThrow("key error");
+    });
+    expect(result.current.pending).toBe(false);
+    // Second call should succeed (lock was released)
+    let out: string | undefined;
+    await act(async () => { out = await result.current.run("ok"); });
+    expect(out).toBe("ok");
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });

@@ -23,9 +23,11 @@ export function useAsyncAction<A extends unknown[], R>(
 
   const run = useCallback(async (...args: A): Promise<R | undefined> => {
     if (lock.current) return undefined;
+    // Compute key before taking the lock so a throwing getKey doesn't leak the lock
+    const key = getKeyRef.current ? getKeyRef.current(...args) : null;
     lock.current = true;
     setPending(true);
-    setPendingKey(getKeyRef.current ? getKeyRef.current(...args) : null);
+    setPendingKey(key);
     try {
       return await fnRef.current(...args);
     } finally {

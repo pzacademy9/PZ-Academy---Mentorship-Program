@@ -36,4 +36,24 @@ describe("Button", () => {
     render(<Button>Go</Button>);
     expect(screen.getByRole("button").className).toContain("max-md:min-h-11");
   });
+
+  it("asChild forwards disabled to the child element", () => {
+    render(
+      <Button asChild disabled>
+        <button>Submit</button>
+      </Button>
+    );
+    expect(screen.getByRole("button", { name: /submit/i })).toHaveProperty("disabled", true);
+  });
+
+  it("asChild with loading ignores the loading prop (ignored with asChild)", () => {
+    // The loading prop is documented as "Ignored with asChild"
+    render(
+      <Button asChild loading>
+        <a href="/">Link</a>
+      </Button>
+    );
+    const link = screen.getByRole("link");
+    expect(link.querySelector("[data-spinner]")).toBeNull();
+  });
 });
