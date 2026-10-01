@@ -6,6 +6,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Save, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { BuilderState, BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
 import { CurriculumMap } from "./CurriculumMap";
 import { LessonEditorPanel } from "./LessonEditorPanel";
@@ -26,13 +28,13 @@ function firstLesson(modules: BuilderModule[]): BuilderLesson | null {
  */
 export function CourseBuilder({ initialState }: { initialState: BuilderState }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
   const [modules, setModules] = useState<BuilderModule[]>(initialState.modules);
   const [isPublished, setIsPublished] = useState(initialState.course.isPublished);
   const [selectedLesson, setSelectedLesson] = useState<BuilderLesson | null>(firstLesson(initialState.modules));
 
-  function setPublished(next: boolean) {
-    startTransition(async () => {
+  const { run: setPublished, pending: publishing } = useAsyncAction(async (next: boolean) => {
+    try {
       const res = await fetch(`/api/admin/courses/${initialState.course.id}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,9 +51,11 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
       setIsPublished(payload?.isPublished ?? next);
       if (payload?.warning) toast.warning(payload.warning);
       toast.success(next ? "Program published." : "Program moved back to draft.");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not update publish state.");
+    }
+  });
 
   function selectLesson(lesson: BuilderLesson) {
     setSelectedLesson(lesson);
@@ -100,7 +104,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
           </div>
           <p className="text-sm font-body text-pz-on-surface-variant">{initialState.course.title}</p>
         </div>
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <div className="flex items-center bg-pz-surface-container rounded-full p-1 border border-pz-outline-variant">
             <span
               className={cn(
@@ -120,10 +124,10 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
             </span>
           </div>
           <div className="h-8 w-px bg-pz-outline-variant/50 hidden sm:block" />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href={`/dashboard/admin/courses/${initialState.course.id}`}
-              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm"
+              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
             >
               <Settings className="w-4 h-4" />
               Basics
@@ -133,18 +137,20 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
                 router.refresh();
                 toast.info("Everything here saves automatically.");
               }}
-              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm"
+              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
             >
               <Save className="w-4 h-4" />
               Save Draft
             </button>
-            <button
+            <Button
+              variant="bare"
+              size="bare"
+              loading={publishing || isRefreshing}
               onClick={() => setPublished(!isPublished)}
-              disabled={isPending}
-              className="bg-pz-primary text-pz-on-primary px-6 py-2 rounded-lg font-bold text-sm shadow-md hover:opacity-90 transition-all disabled:opacity-50"
+              className="bg-pz-primary text-pz-on-primary px-6 py-2 rounded-lg font-bold text-sm shadow-md hover:opacity-90 transition-all max-md:min-h-11"
             >
-              {isPending ? "Working…" : isPublished ? "Unpublish" : "Publish"}
-            </button>
+              {publishing || isRefreshing ? "Working…" : isPublished ? "Unpublish" : "Publish"}
+            </Button>
           </div>
         </div>
       </div>

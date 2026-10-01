@@ -1,30 +1,36 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const DEFAULT_DAYS = 30;
 
 const FIELD =
-  "w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+  "w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
 const LABEL = "block font-headline text-sm font-semibold text-pz-on-surface mb-1.5";
 
 /** Bulk-deletes read notifications older than N days, across every user — an admin cleanup action, not a per-user one. */
 export function PurgeNotificationsCard() {
-  const [isPending, startTransition] = useTransition();
+  const confirm = useConfirm();
   const [days, setDays] = useState(DEFAULT_DAYS);
 
-  function submit() {
+  const { run: submit, pending: purging } = useAsyncAction(async () => {
     if (
-      !window.confirm(
-        `Permanently delete every read notification older than ${days} day${days === 1 ? "" : "s"}, for all users? This cannot be undone.`,
-      )
+      !(await confirm({
+        title: "Delete old notifications?",
+        description: `Permanently delete every read notification older than ${days} day${days === 1 ? "" : "s"}, for all users? This cannot be undone.`,
+        confirmLabel: "Delete",
+        destructive: true,
+      }))
     ) {
       return;
     }
 
-    startTransition(async () => {
+    try {
       const res = await fetch("/api/admin/notifications/purge", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -39,11 +45,13 @@ export function PurgeNotificationsCard() {
         return;
       }
       toast.success(`Deleted ${json?.deleted ?? 0} old notification${json?.deleted === 1 ? "" : "s"}.`);
-    });
-  }
+    } catch {
+      toast.error("Could not purge notifications.");
+    }
+  });
 
   return (
-    <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-6 space-y-4 max-w-2xl">
+    <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-4 md:p-6 space-y-4 max-w-2xl">
       <div>
         <h2 className="font-headline font-bold text-pz-on-surface text-base">Clean up old notifications</h2>
         <p className="font-body text-sm text-pz-on-surface-variant mt-1">
@@ -52,7 +60,7 @@ export function PurgeNotificationsCard() {
         </p>
       </div>
 
-      <div className="flex items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <div>
           <label htmlFor="purge-days" className={LABEL}>
             Older than (days)
@@ -68,15 +76,17 @@ export function PurgeNotificationsCard() {
           />
         </div>
 
-        <button
+        <Button
           type="button"
-          onClick={submit}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-pz-error-container text-pz-on-error-container font-headline font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          variant="bare"
+          size="bare"
+          loading={purging}
+          onClick={() => submit()}
+          className="gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg bg-pz-error-container text-pz-on-error-container font-headline font-bold text-sm hover:opacity-90 transition-opacity"
         >
           <Trash2 className="w-4 h-4" />
-          {isPending ? "Deleting…" : "Delete old notifications"}
-        </button>
+          {purging ? "Deleting…" : "Delete old notifications"}
+        </Button>
       </div>
     </div>
   );

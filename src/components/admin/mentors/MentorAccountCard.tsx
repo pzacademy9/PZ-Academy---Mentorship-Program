@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Mail, Unlink, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import {
   Dialog,
   DialogContent,
@@ -14,18 +16,18 @@ import {
 } from "@/components/ui/dialog";
 
 const inputClass =
-  "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+  "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
 const labelClass = "block font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant mb-1.5";
 
 export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string; linkedEmail: string | null }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [unlinkOpen, setUnlinkOpen] = useState(false);
 
-  function sendInvite() {
-    startTransition(async () => {
+  const { run: sendInvite, pending: inviting } = useAsyncAction(async () => {
+    try {
       const res = await fetch(`/api/admin/mentors/${mentorId}/account`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,13 +46,15 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
         return;
       }
       toast.success(`Invite sent to ${payload?.email}.`);
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not process this invite.");
+    }
+  });
 
-  function confirmLink() {
+  const { run: confirmLink, pending: linking } = useAsyncAction(async () => {
     if (!existingEmail) return;
-    startTransition(async () => {
+    try {
       const res = await fetch(`/api/admin/mentors/${mentorId}/account`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -64,12 +68,14 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
       }
       toast.success(`Linked existing account (${existingEmail}) as this mentor.`);
       setExistingEmail(null);
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not link this account.");
+    }
+  });
 
-  function confirmUnlink() {
-    startTransition(async () => {
+  const { run: confirmUnlink, pending: unlinking } = useAsyncAction(async () => {
+    try {
       const res = await fetch(`/api/admin/mentors/${mentorId}/account`, { method: "DELETE" });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -79,12 +85,14 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
       }
       toast.success("Account unlinked.");
       setUnlinkOpen(false);
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not unlink this account.");
+    }
+  });
 
   return (
-    <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
+    <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
       <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
         <Mail className="w-5 h-5 text-pz-primary" />
         Mentor Account
@@ -103,7 +111,7 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
           <button
             type="button"
             onClick={() => setUnlinkOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-pz-danger text-pz-danger font-headline font-bold text-sm rounded-lg hover:bg-pz-danger/10 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 max-md:min-h-11 border border-pz-danger text-pz-danger font-headline font-bold text-sm rounded-lg hover:bg-pz-danger/10 transition-colors"
           >
             <Unlink className="w-4 h-4" />
             Unlink account
@@ -121,15 +129,18 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
               className={inputClass}
             />
           </div>
-          <button
+          <Button
             type="button"
-            onClick={sendInvite}
-            disabled={isPending || email.trim().length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2.5 self-end bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm rounded-lg hover:shadow-md transition-all disabled:opacity-50"
+            variant="bare"
+            size="bare"
+            loading={inviting || isRefreshing}
+            disabled={email.trim().length === 0}
+            onClick={() => sendInvite()}
+            className="gap-2 px-4 py-2.5 max-md:min-h-11 sm:self-end bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm rounded-lg hover:shadow-md transition-all"
           >
             <Send className="w-4 h-4" />
-            {isPending ? "Working…" : "Invite Mentor"}
-          </button>
+            {inviting || isRefreshing ? "Working…" : "Invite Mentor"}
+          </Button>
         </div>
       )}
 
@@ -142,22 +153,26 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <button
+            <Button
               type="button"
+              variant="bare"
+              size="bare"
               onClick={() => setExistingEmail(null)}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              disabled={linking || isRefreshing}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={confirmLink}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary-container text-pz-on-primary-container hover:shadow-md transition-all disabled:opacity-50"
+              variant="bare"
+              size="bare"
+              loading={linking || isRefreshing}
+              onClick={() => confirmLink()}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-primary-container text-pz-on-primary-container hover:shadow-md transition-all"
             >
-              {isPending ? "Linking…" : "Link account"}
-            </button>
+              {linking || isRefreshing ? "Linking…" : "Link account"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -172,22 +187,26 @@ export function MentorAccountCard({ mentorId, linkedEmail }: { mentorId: string;
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <button
+            <Button
               type="button"
+              variant="bare"
+              size="bare"
               onClick={() => setUnlinkOpen(false)}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              disabled={unlinking || isRefreshing}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={confirmUnlink}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50"
+              variant="bare"
+              size="bare"
+              loading={unlinking || isRefreshing}
+              onClick={() => confirmUnlink()}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors"
             >
-              {isPending ? "Unlinking…" : "Unlink"}
-            </button>
+              {unlinking || isRefreshing ? "Unlinking…" : "Unlink"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

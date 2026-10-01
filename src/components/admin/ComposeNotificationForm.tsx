@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Send, User, BookOpen, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { AUDIENCE_LABELS, type NotificationAudience } from "@/lib/validations/notification";
 
 const AUDIENCE_ICONS = { student: User, course: BookOpen, all: Users } as const;
 
 const FIELD =
-  "w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+  "w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
 const LABEL = "block font-headline text-sm font-semibold text-pz-on-surface mb-1.5";
 
 export function ComposeNotificationForm({
@@ -21,7 +23,7 @@ export function ComposeNotificationForm({
   students: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
 
   const [audience, setAudience] = useState<NotificationAudience>("student");
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
@@ -30,16 +32,14 @@ export function ComposeNotificationForm({
   const [body, setBody] = useState("");
   const [link, setLink] = useState("");
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
-
+  const { run: submit, pending: sending } = useAsyncAction(async () => {
     const payload: Record<string, string> = { audience, title: title.trim() };
     if (body.trim()) payload.body = body.trim();
     if (link.trim()) payload.link = link.trim();
     if (audience === "student") payload.studentId = studentId;
     if (audience === "course") payload.courseId = courseId;
 
-    startTransition(async () => {
+    try {
       const res = await fetch("/api/admin/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -60,20 +60,24 @@ export function ComposeNotificationForm({
       setTitle("");
       setBody("");
       setLink("");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not send the notification.");
+    }
+  });
 
   const disabled =
-    isPending ||
     title.trim().length < 3 ||
     (audience === "student" && !studentId) ||
     (audience === "course" && !courseId);
 
   return (
     <form
-      onSubmit={submit}
-      className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-6 space-y-5 max-w-2xl"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+      className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-4 md:p-6 space-y-5 max-w-2xl"
     >
       <div>
         <span className={LABEL}>Audience</span>
@@ -87,7 +91,7 @@ export function ComposeNotificationForm({
                 type="button"
                 onClick={() => setAudience(option)}
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-full font-headline text-sm transition-colors",
+                  "inline-flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-full font-headline text-sm transition-colors",
                   selected
                     ? "bg-pz-primary-container text-pz-on-primary-container font-semibold"
                     : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium",
@@ -194,14 +198,17 @@ export function ComposeNotificationForm({
       </div>
 
       <div className="flex justify-end pt-1">
-        <button
+        <Button
           type="submit"
+          variant="bare"
+          size="bare"
+          loading={sending || isRefreshing}
           disabled={disabled}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-pz-primary text-pz-on-primary font-headline font-bold text-sm hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="gap-2 px-5 py-2.5 max-md:min-h-11 max-md:w-full rounded-lg bg-pz-primary text-pz-on-primary font-headline font-bold text-sm hover:bg-pz-on-primary-container transition-colors"
         >
           <Send className="w-4 h-4" />
-          {isPending ? "Sending…" : "Send notification"}
-        </button>
+          {sending || isRefreshing ? "Sending…" : "Send notification"}
+        </Button>
       </div>
     </form>
   );

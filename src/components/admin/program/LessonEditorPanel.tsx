@@ -15,6 +15,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { DetailSkeleton } from "@/components/ui/skeletons";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { BuilderLesson, QuizQuestionRow, LessonResourceLink, LessonDocument } from "@/lib/data/admin-lms";
 import type { LessonContentType } from "@/lib/validations/admin-lms";
 import { RichTextEditor } from "./RichTextEditor";
@@ -165,8 +168,6 @@ export function LessonEditorPanel({
     updateResources(detail.resources.filter((_, i) => i !== index));
   }
 
-  const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -192,35 +193,33 @@ export function LessonEditorPanel({
     return res.json();
   }
 
-  async function uploadPdf(file: File) {
-    setUploadingPdf(true);
+  const { run: uploadPdf, pending: uploadingPdf } = useAsyncAction(async (file: File) => {
     try {
       const result = await uploadPrivateDocument(file);
       if (!result) return;
       setDetail((prev) => (prev ? { ...prev, pdfFileId: result.fileId } : prev));
       const ok = await patchLesson({ pdfFileId: result.fileId });
       if (ok) toast.success("PDF uploaded.");
-    } finally {
-      setUploadingPdf(false);
+    } catch {
+      toast.error("Upload failed.");
     }
-  }
+  });
 
   function updateDocuments(next: LessonDocument[]) {
     setDetail((prev) => (prev ? { ...prev, documents: next } : prev));
     void patchLesson({ documents: next });
   }
 
-  async function uploadSupportingDocument(file: File) {
+  const { run: uploadSupportingDocument, pending: uploadingDoc } = useAsyncAction(async (file: File) => {
     if (!detail || detail.documents.length >= 20) return;
-    setUploadingDoc(true);
     try {
       const result = await uploadPrivateDocument(file);
       if (!result) return;
       updateDocuments([...detail.documents, result]);
-    } finally {
-      setUploadingDoc(false);
+    } catch {
+      toast.error("Upload failed.");
     }
-  }
+  });
 
   function removeDocument(index: number) {
     if (!detail) return;
@@ -228,14 +227,19 @@ export function LessonEditorPanel({
   }
 
   /** "Save & Continue" — flush any pending debounced rich-text save before moving on, so nothing is silently lost. */
-  async function saveAndContinue() {
+  const { run: saveAndContinue, pending: savingAndContinuing } = useAsyncAction(async () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (pendingText.current !== null) {
-      await patchLesson({ textContent: pendingText.current });
-      pendingText.current = null;
+    try {
+      if (pendingText.current !== null) {
+        await patchLesson({ textContent: pendingText.current });
+        pendingText.current = null;
+      }
+    } catch {
+      toast.error("Could not save.");
+      return;
     }
     onAdvance();
-  }
+  });
 
   if (!lesson) {
     return (
@@ -249,7 +253,7 @@ export function LessonEditorPanel({
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h3 className="text-2xl font-headline font-bold text-pz-on-surface">Lesson Editor</h3>
@@ -260,7 +264,7 @@ export function LessonEditorPanel({
                 type="button"
                 onClick={() => switchContentType(ct.value)}
                 className={cn(
-                  "px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1",
+                  "px-4 py-1.5 max-md:min-h-11 rounded-md text-xs font-bold transition-all flex items-center gap-1",
                   detail?.contentType === ct.value
                     ? "bg-pz-primary text-pz-on-primary shadow-sm"
                     : "text-pz-on-surface-variant hover:bg-pz-surface",
@@ -283,12 +287,12 @@ export function LessonEditorPanel({
             onChange={(e) => setTitle(e.target.value)}
             onBlur={saveTitle}
             onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-            className="w-full bg-pz-surface border border-pz-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-pz-primary focus:outline-none font-medium text-lg"
+            className="w-full bg-pz-surface border border-pz-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-pz-primary focus:outline-none font-medium text-lg max-md:text-base"
           />
         </div>
       </div>
 
-      {loading && <p className="text-sm text-pz-on-surface-variant italic">Loading…</p>}
+      {loading && <DetailSkeleton sections={2} />}
 
       {!loading && detail && (
         <>
@@ -304,7 +308,7 @@ export function LessonEditorPanel({
                 defaultValue={detail.videoUrl}
                 onBlur={(e) => saveVideoUrl(e.target.value)}
                 placeholder="https://youtube.com/watch?v=..."
-                className="w-full bg-pz-surface border border-pz-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-pz-primary focus:outline-none font-medium"
+                className="w-full bg-pz-surface border border-pz-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-pz-primary focus:outline-none font-medium max-md:text-base"
               />
             </div>
           )}
@@ -326,14 +330,14 @@ export function LessonEditorPanel({
                 }}
               />
               {detail.pdfFileId ? (
-                <div className="flex items-center gap-3 bg-pz-surface p-4 rounded-xl border border-pz-outline-variant">
+                <div className="flex flex-wrap items-center gap-3 bg-pz-surface p-4 rounded-xl border border-pz-outline-variant">
                   <FileType2 className="w-6 h-6 text-pz-primary shrink-0" />
                   <p className="flex-1 font-medium text-sm text-pz-on-surface">This lesson&apos;s PDF is uploaded.</p>
                   <a
                     href={`/api/lessons/${lesson.id}/pdf`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-bold text-pz-primary hover:underline shrink-0"
+                    className="text-sm font-bold text-pz-primary hover:underline shrink-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
                   >
                     View
                   </a>
@@ -341,7 +345,7 @@ export function LessonEditorPanel({
                     type="button"
                     onClick={() => pdfInputRef.current?.click()}
                     disabled={uploadingPdf}
-                    className="text-sm font-bold text-pz-on-surface-variant hover:text-pz-primary flex items-center gap-1 shrink-0 disabled:opacity-50"
+                    className="text-sm font-bold text-pz-on-surface-variant hover:text-pz-primary flex items-center gap-1 shrink-0 disabled:opacity-50 max-md:min-h-11 max-md:justify-center"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     {uploadingPdf ? "Uploading…" : "Replace"}
@@ -422,14 +426,15 @@ export function LessonEditorPanel({
                       href={`/api/lessons/${lesson.id}/documents/${doc.fileId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-bold text-pz-primary hover:underline shrink-0"
+                      className="text-xs font-bold text-pz-primary hover:underline shrink-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
                     >
                       View
                     </a>
                     <button
                       type="button"
                       onClick={() => removeDocument(i)}
-                      className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0"
+                      aria-label="Remove"
+                      className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -445,7 +450,7 @@ export function LessonEditorPanel({
             onQuestionsChange={(qs) => setDetail((prev) => (prev ? { ...prev, quizQuestions: qs } : prev))}
           />
 
-          <div className="bg-pz-surface-container-low rounded-xl p-6 space-y-4 border border-pz-outline-variant/40">
+          <div className="bg-pz-surface-container-low rounded-xl p-4 md:p-6 space-y-4 border border-pz-outline-variant/40">
             <h4 className="font-headline font-bold text-pz-on-surface text-sm uppercase tracking-wider">
               External Resources
             </h4>
@@ -453,7 +458,7 @@ export function LessonEditorPanel({
               {detail.resources.map((resource, i) => (
                 <li
                   key={i}
-                  className="flex items-center gap-3 bg-pz-surface p-3 rounded-lg border border-pz-outline-variant"
+                  className="flex flex-wrap items-center gap-3 bg-pz-surface p-3 rounded-lg border border-pz-outline-variant"
                 >
                   <Link2 className="w-4 h-4 text-pz-secondary shrink-0" />
                   <input
@@ -461,19 +466,20 @@ export function LessonEditorPanel({
                     value={resource.label}
                     onChange={(e) => updateResource(i, { label: e.target.value })}
                     placeholder="Label"
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm font-medium"
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm max-md:text-base max-md:min-h-11 font-medium"
                   />
                   <input
                     type="text"
                     value={resource.url}
                     onChange={(e) => updateResource(i, { url: e.target.value })}
                     placeholder="https://..."
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm text-pz-on-surface-variant"
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm max-md:text-base max-md:min-h-11 text-pz-on-surface-variant"
                   />
                   <button
                     type="button"
                     onClick={() => removeResource(i)}
-                    className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0"
+                    aria-label="Remove"
+                      className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -483,7 +489,7 @@ export function LessonEditorPanel({
             <button
               type="button"
               onClick={addResource}
-              className="w-full py-2 bg-pz-surface border-2 border-dashed border-pz-outline-variant/50 rounded-lg text-xs font-bold text-pz-on-surface-variant hover:border-pz-secondary hover:text-pz-secondary transition-all"
+              className="w-full py-2 max-md:min-h-11 bg-pz-surface border-2 border-dashed border-pz-outline-variant/50 rounded-lg text-xs font-bold text-pz-on-surface-variant hover:border-pz-secondary hover:text-pz-secondary transition-all"
             >
               + Add Resource Link
             </button>
@@ -491,7 +497,7 @@ export function LessonEditorPanel({
         </>
       )}
 
-      <div className="sticky bottom-0 bg-pz-surface border-t border-pz-outline-variant px-8 py-4 -mx-8 flex flex-wrap justify-between items-center gap-3 mt-12">
+      <div className="sticky bottom-0 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 bg-pz-surface max-md:bg-background/95 max-md:backdrop-blur border-t border-pz-outline-variant px-4 md:px-8 py-3 md:py-4 -mx-4 md:-mx-8 flex flex-wrap justify-between items-center gap-3 mt-12">
         <div className="flex items-center gap-1 text-xs font-bold text-pz-on-surface-variant">
           <CheckCheck className="w-4 h-4 text-pz-primary" />
           {lastSaved ? `Last saved ${lastSaved.toLocaleTimeString()}` : "No changes saved yet"}
@@ -501,18 +507,21 @@ export function LessonEditorPanel({
             href={`/portal/${courseSlug}/lessons/${lesson.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-2 border border-pz-outline-variant rounded-lg font-bold text-sm hover:bg-pz-surface-container transition-colors flex items-center gap-1.5"
+            className="px-6 py-2 max-md:min-h-11 border border-pz-outline-variant rounded-lg font-bold text-sm hover:bg-pz-surface-container transition-colors flex items-center justify-center gap-1.5"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Preview Lesson
           </a>
-          <button
+          <Button
             type="button"
-            onClick={saveAndContinue}
-            className="px-6 py-2 bg-pz-primary text-pz-on-primary rounded-lg font-bold text-sm shadow-lg hover:brightness-110 transition-all"
+            variant="bare"
+            size="bare"
+            loading={savingAndContinuing}
+            onClick={() => saveAndContinue()}
+            className="px-6 py-2 max-md:min-h-11 bg-pz-primary text-pz-on-primary rounded-lg font-bold text-sm shadow-lg hover:brightness-110 transition-all"
           >
             Save &amp; Continue
-          </button>
+          </Button>
         </div>
       </div>
     </div>
