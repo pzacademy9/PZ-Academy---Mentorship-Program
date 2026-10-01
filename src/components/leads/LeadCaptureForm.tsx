@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { extractEmail, extractPhone, extractName, extractProfession } from "@/lib/leads/extract";
 import { enqueueLead, flushQueue } from "@/lib/leads/offline-queue";
 import { normalizePhone } from "@/lib/crm/phone";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 type LeadCampaign = { id: string; name: string };
 type DuplicateInfo = { id: string; status: string; leadCampaignName: string | null };
@@ -21,7 +22,6 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
   const [leadCampaignId, setLeadCampaignId] = useState("");
   const [campaigns, setCampaigns] = useState<LeadCampaign[]>([]);
   const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
-  const [checking, setChecking] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
     flushQueue();
   }
 
-  async function handleSave() {
+  const { run: handleSave, pending: checking } = useAsyncAction(async () => {
     if (!phone.trim()) {
       toast.error("Phone number is required");
       return;
@@ -94,7 +94,6 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
       return;
     }
 
-    setChecking(true);
     try {
       const res = await fetch("/api/leads/create", {
         method: "POST",
@@ -126,10 +125,8 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
     } catch {
       // Network hiccup mid-check — fall back to the offline path.
       saveOptimistically("insert");
-    } finally {
-      setChecking(false);
     }
-  }
+  });
 
   if (duplicate) {
     return (
@@ -165,7 +162,7 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
           onChange={(e) => setRaw(e.target.value)}
           onBlur={handleExtract}
           rows={6}
-          className="mt-1 w-full rounded-xl border border-pz-outline-variant px-4 py-3 font-body text-sm"
+          className="mt-1 w-full rounded-xl border border-pz-outline-variant px-4 py-3 font-body text-sm max-md:text-base"
           placeholder="Paste the customer's messages here..."
         />
         <Button type="button" variant="outline" className="mt-2 w-full" onClick={handleExtract}>
@@ -204,7 +201,7 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
           id="campaign"
           value={leadCampaignId}
           onChange={(e) => setLeadCampaignId(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-pz-outline-variant px-4 py-3 font-body text-sm"
+          className="mt-1 w-full rounded-xl border border-pz-outline-variant px-4 py-3 font-body text-sm max-md:text-base"
         >
           <option value="">— none —</option>
           {campaigns.map((c) => (
@@ -215,7 +212,7 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
         </select>
       </div>
 
-      <Button className="h-14 text-base" disabled={checking} onClick={handleSave}>
+      <Button className="h-14 text-base" loading={checking} onClick={() => handleSave()}>
         {checking ? "Checking..." : "Save lead"}
       </Button>
     </main>

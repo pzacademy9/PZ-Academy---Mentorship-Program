@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import type { ShareView, ShareSession, SharePerQuestion, ShareResponse } from '@/lib/mentorship/gas';
+import { Button } from '@/components/ui/button';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const DARK_BG      = '#0A2214';
@@ -210,6 +213,7 @@ function StickyBar({
             return (
               <button
                 key={chip.label}
+                className="max-md:min-h-11 max-md:min-w-11"
                 onClick={() => setFilterRating(chip.value)}
                 style={{
                   padding: '4px 10px', borderRadius: 20, fontSize: 12, fontFamily: 'var(--font-poppins)',
@@ -228,6 +232,7 @@ function StickyBar({
         {/* Search */}
         <input
           type="search"
+          className="max-md:min-h-11 max-md:!text-base"
           placeholder="Search comments…"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -241,6 +246,7 @@ function StickyBar({
         {/* Sort */}
         <select
           value={sortOrder}
+          className="max-md:min-h-11 max-md:!text-base"
           onChange={e => setSortOrder(e.target.value as SortOrder)}
           style={{
             padding: '5px 8px', borderRadius: 8, fontSize: 12, fontFamily: 'var(--font-poppins)',
@@ -256,6 +262,7 @@ function StickyBar({
 
         {/* Share button */}
         <button
+          className="max-md:min-h-11"
           onClick={onShare}
           style={{
             padding: '5px 14px', borderRadius: 8, fontSize: 12, fontFamily: 'var(--font-poppins)',
@@ -281,18 +288,20 @@ function ShareModal({ token, onClose }: { token: string; onClose: () => void }) 
     });
   }
 
-  function handleDownload() {
-    fetch(`/api/share-card/${token}`)
-      .then(r => r.blob())
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement('a');
-        a.href     = url;
-        a.download = 'pz-academy-feedback.png';
-        a.click();
-        URL.revokeObjectURL(url);
-      });
-  }
+  const { run: handleDownload, pending: downloading } = useAsyncAction(async () => {
+    try {
+      const r = await fetch(`/api/share-card/${token}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = 'pz-academy-feedback.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Could not download the share card. Please try again.');
+    }
+  });
 
   return (
     <div
@@ -307,7 +316,7 @@ function ShareModal({ token, onClose }: { token: string; onClose: () => void }) 
           <h2 style={{ fontFamily: 'var(--font-montserrat)', fontWeight: 800, fontSize: 17, color: '#fff', margin: 0 }}>
             Share this review
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: 0 }}>×</button>
+          <button onClick={onClose} aria-label="Close" className="max-md:min-h-11 max-md:min-w-11" style={{ background: 'none', border: 'none', color: MUTED, fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: 0 }}>×</button>
         </div>
 
         {/* Preview */}
@@ -322,6 +331,7 @@ function ShareModal({ token, onClose }: { token: string; onClose: () => void }) 
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={handleCopy}
+            className="max-md:min-h-11"
             style={{
               flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, fontFamily: 'var(--font-poppins)',
               border: `1px solid ${GOLD}`, background: copyDone ? BRAND_GREEN : 'transparent',
@@ -330,15 +340,19 @@ function ShareModal({ token, onClose }: { token: string; onClose: () => void }) 
           >
             {copyDone ? 'Copied!' : 'Copy link'}
           </button>
-          <button
-            onClick={handleDownload}
+          <Button
+            variant="bare"
+            size="bare"
+            loading={downloading}
+            onClick={() => handleDownload()}
+            className="max-md:min-h-11"
             style={{
               flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, fontFamily: 'var(--font-poppins)',
               border: 'none', background: GOLD, color: DARK_BG, cursor: 'pointer', fontWeight: 700,
             }}
           >
-            Download PNG
-          </button>
+            {downloading ? 'Downloading…' : 'Download PNG'}
+          </Button>
         </div>
       </div>
     </div>

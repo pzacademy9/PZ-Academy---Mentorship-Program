@@ -12,6 +12,9 @@ import type { Mentor } from "@/lib/data/mentors";
 import { formatPrice, initials } from "@/lib/format";
 import { whatsappLink } from "@/lib/mentorship/whatsapp";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { MentorTierBadge } from "./MentorTierBadge";
 
 interface FormState {
@@ -45,7 +48,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="text-white/40 hover:text-brand-gold transition-colors cursor-pointer p-1"
+      className="text-white/40 hover:text-brand-gold transition-colors cursor-pointer p-1 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center"
       aria-label={`Copy ${text}`}
     >
       <AnimatePresence mode="wait" initial={false}>
@@ -69,7 +72,6 @@ function CopyButton({ text }: { text: string }) {
 
 export default function BookingClient({ mentor }: { mentor: Mentor }) {
   const [form, setForm] = useState<FormState>(initial);
-  const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -96,17 +98,13 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
     handleFile(e.dataTransfer.files[0] ?? null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  const { run: submitBooking, pending: loading } = useAsyncAction(async () => {
     // Rate limiting: prevent submissions within 30 seconds
     const now = Date.now();
     if (now - lastSubmitRef.current < 30_000) {
-      alert("Please wait a moment before submitting again.");
+      toast.info("Please wait a moment before submitting again.");
       return;
     }
-
-    setLoading(true);
 
     try {
       let screenshotBase64 = "";
@@ -143,21 +141,18 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
       });
 
       if (!res.ok) {
-        setLoading(false);
-        alert("Something went wrong submitting your booking. Please try again or send your screenshot via WhatsApp instead.");
+        toast.error("Something went wrong submitting your booking. Please try again or send your screenshot via WhatsApp instead.");
         return;
       }
     } catch {
-      setLoading(false);
-      alert("Something went wrong submitting your booking. Please try again or send your screenshot via WhatsApp instead.");
+      toast.error("Something went wrong submitting your booking. Please try again or send your screenshot via WhatsApp instead.");
       return;
     }
 
-    setLoading(false);
     // Update submission timestamp
     lastSubmitRef.current = Date.now();
     router.push("/mentorship/thank-you");
-  }
+  });
 
   const selectedPackage = mentor.packages.find((p) => p.name === form.package);
 
@@ -379,7 +374,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
                 Your Booking Details
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-7" noValidate>
+              <form onSubmit={(e) => { e.preventDefault(); void submitBooking(); }} className="space-y-7" noValidate>
                 {/* Name + Email */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
                   <div>
@@ -462,7 +457,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
                       <button
                         type="button"
                         onClick={() => setForm((p) => ({ ...p, screenshot: null }))}
-                        className="text-gray-400 hover:text-red-400 transition-colors cursor-pointer p-1"
+                        className="text-gray-400 hover:text-red-400 transition-colors cursor-pointer p-1 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center"
                         aria-label="Remove file"
                       >
                         <X size={16} />
@@ -544,29 +539,22 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
                 </div>
 
                 {/* Submit */}
-                <motion.button
-                  type="submit"
-                  disabled={loading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="btn-primary w-full justify-center text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-4 h-4 border-2 border-brand-green/30 border-t-brand-green rounded-full"
-                      />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      Confirm Booking
-                      <ArrowRight size={15} />
-                    </>
-                  )}
-                </motion.button>
+                <div className="max-md:sticky max-md:bottom-0 max-md:z-40 max-md:-mx-8 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-8 max-md:pt-3 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:backdrop-blur">
+                  <Button
+                    type="submit"
+                    variant="bare"
+                    size="bare"
+                    loading={loading}
+                    className="btn-primary w-full justify-center text-sm max-md:min-h-11"
+                  >
+                    {loading ? "Processing..." : (
+                      <>
+                        Confirm Booking
+                        <ArrowRight size={15} />
+                      </>
+                    )}
+                  </Button>
+                </div>
 
                 <p className="text-center font-poppins text-xs text-gray-400">
                   Your booking will be reviewed within 24 hours. A confirmation email will be sent.
