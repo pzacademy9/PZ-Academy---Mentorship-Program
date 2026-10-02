@@ -42,9 +42,11 @@ Found during UI Polish Spec 1 live checks: contrast scan failed on 21 of 22 auth
 | on-surface-variant | #bfcab5 |
 | outline | #8a9481 |
 | outline-variant | #404a3a |
+| inverse-surface | #dfe5d6 |
 | inverse-on-surface | #2c3228 |
 | primary | #99f670 |
 | surface-tint | #81dc5a |
+| on-primary | #0f3900 |
 | secondary | #f6be3b |
 | tertiary | #a2d2ac |
 | academy-error / error | #ffb4ab |
