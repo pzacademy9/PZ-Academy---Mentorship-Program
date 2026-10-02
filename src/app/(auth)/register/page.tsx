@@ -7,7 +7,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left hero panel */}
-      <div className="hidden lg:flex lg:w-[55%] bg-pz-forest flex-col justify-between p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[55%] bg-pz-solid-forest flex-col justify-between p-12 relative overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-5"
           style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #3ecf70 1px, transparent 0)", backgroundSize: "32px 32px" }} />
@@ -46,7 +46,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-pz-forest flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-pz-solid-forest flex items-center justify-center">
               <span className="font-montserrat font-black text-pz-lime text-xs">PZ</span>
             </div>
             <span className="font-montserrat font-bold text-pz-forest">PZ Academy</span>

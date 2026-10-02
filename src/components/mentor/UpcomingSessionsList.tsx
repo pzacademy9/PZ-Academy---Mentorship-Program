@@ -136,7 +136,7 @@ export function UpcomingSessionsList({ sessions }: { sessions: UpcomingSession[]
                   loading={savingNotesId === s.id}
                   disabled={isPending}
                   onClick={() => void saveNotes(s.id)}
-                  className="mt-2 px-3 py-1.5 max-md:min-h-11 rounded-lg bg-pz-forest text-white font-headline text-xs font-bold hover:opacity-90 transition-opacity"
+                  className="mt-2 px-3 py-1.5 max-md:min-h-11 rounded-lg bg-pz-solid-forest text-white font-headline text-xs font-bold hover:opacity-90 transition-opacity"
                 >
                   Save Notes
                 </Button>

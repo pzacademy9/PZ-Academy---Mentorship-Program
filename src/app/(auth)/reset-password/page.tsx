@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md bg-white rounded-xl shadow-card p-8 space-y-6">
         <div className="space-y-1">
           <Link href="/" className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-pz-forest flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-pz-solid-forest flex items-center justify-center">
               <span className="font-montserrat font-black text-pz-lime text-xs">PZ</span>
             </div>
             <span className="font-montserrat font-bold text-pz-forest text-sm">PZ Academy</span>

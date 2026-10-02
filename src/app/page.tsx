@@ -26,10 +26,10 @@ const SERVICES = [
 const FEATURED_FALLBACK = [
   { badge: "Live Now", live: true, title: "Mastering Dose Calculations",
     desc: "A comprehensive module-based course covering pediatric, renal, and weight-based dosing. Build clinical confidence with real patient scenarios.",
-    duration: "8 Weeks", enrolled: "240+ Enrolled", href: "/courses", grad: "from-pz-forest to-pz-mid" },
+    duration: "8 Weeks", enrolled: "240+ Enrolled", href: "/courses", grad: "from-pz-solid-forest to-pz-solid-mid" },
   { badge: "Interactive Quiz", live: false, title: "MED-Q — Quiz & Competition Platform",
     desc: "Compete in pharmacology tournaments, join weekly leagues, and track your progress against thousands of pharmacy students across Pakistan, UAE, and KSA.",
-    duration: "Ongoing", enrolled: "500+ Active", href: "/courses", grad: "from-pz-deep to-pz-forest" },
+    duration: "Ongoing", enrolled: "500+ Active", href: "/courses", grad: "from-pz-solid-deep to-pz-solid-forest" },
 ];
 
 const REVIEWS = [
@@ -50,13 +50,13 @@ export default async function HomePage() {
       <MarketingNav />
 
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-pz-deep">
+      <section className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-pz-solid-deep">
         {/* Banner image, when an active hero banner is set — see /dashboard/admin/marketing */}
         {heroBanner?.imageUrl && (
           <div className="absolute inset-0 z-[1]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={heroBanner.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover opacity-40" />
-            <div className="absolute inset-0 bg-gradient-to-b from-pz-deep/60 via-pz-deep/70 to-pz-deep" />
+            <div className="absolute inset-0 bg-gradient-to-b from-pz-solid-deep/60 via-pz-solid-deep/70 to-pz-solid-deep" />
           </div>
         )}
         {/* Hex grid bg */}
@@ -161,7 +161,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {SERVICES.map((s) => (
               <Link key={s.title} href={s.href} target={s.external?"_blank":undefined} rel={s.external?"noopener noreferrer":undefined}
-                className="group bg-white rounded-xl p-7 border-[1.5px] border-pz-border flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-mid relative overflow-hidden">
+                className="group bg-white rounded-xl p-7 border-[1.5px] border-pz-border flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-solid-mid relative overflow-hidden">
                 <div className="absolute bottom-0 left-0 right-0 h-[3px] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-350"
                   style={{background:"linear-gradient(90deg,#194B32,#7ED957)"}} />
                 <div className="w-12 h-12 rounded-[14px] flex items-center justify-center mb-5 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-250"
@@ -194,10 +194,10 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {featured.map((f) => (
               <Link key={f.title} href={f.href}
-                className="group flex flex-col bg-pz-offwhite rounded-xl border-[1.5px] border-pz-border overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-mid">
+                className="group flex flex-col bg-pz-offwhite rounded-xl border-[1.5px] border-pz-border overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-solid-mid">
                 <div className={`h-1.5 bg-gradient-to-r ${f.grad}`} />
                 <div className="p-8 flex flex-col flex-1">
-                  <span className={`self-start mb-4 text-xs font-poppins font-bold px-3 py-1 rounded-full ${f.live ? "bg-pz-bright text-pz-forest" : "bg-pz-forest/10 text-pz-forest"}`}>
+                  <span className={`self-start mb-4 text-xs font-poppins font-bold px-3 py-1 rounded-full ${f.live ? "bg-pz-bright text-pz-forest" : "bg-pz-solid-forest/10 text-pz-forest"}`}>
                     {f.badge}
                   </span>
                   <h3 className="font-montserrat font-bold text-pz-forest text-xl mb-3 group-hover:text-pz-mid transition-colors">{f.title}</h3>
@@ -219,7 +219,7 @@ export default async function HomePage() {
       </section>
 
       {/* ─── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6 relative overflow-hidden bg-pz-forest">
+      <section className="py-24 px-6 relative overflow-hidden bg-pz-solid-forest">
         <div className="absolute inset-0 opacity-5"
           style={{backgroundImage:"radial-gradient(circle at 2px 2px, #7ED957 1px, transparent 0)",backgroundSize:"28px 28px"}} />
         <div className="relative z-10 max-w-[680px] mx-auto text-center">
@@ -254,7 +254,7 @@ export default async function HomePage() {
               </p>
               <div className="flex gap-2">
                 {["Instagram","Facebook"].map(s=>(
-                  <a key={s} href="#" className="w-9 h-9 rounded-full flex items-center justify-center bg-[rgba(255,255,255,.06)] hover:bg-pz-mid hover:-translate-y-1 transition-all duration-200 text-[rgba(255,255,255,.68)] text-xs font-poppins font-bold">{s[0]}</a>
+                  <a key={s} href="#" className="w-9 h-9 rounded-full flex items-center justify-center bg-[rgba(255,255,255,.06)] hover:bg-pz-solid-mid hover:-translate-y-1 transition-all duration-200 text-[rgba(255,255,255,.68)] text-xs font-poppins font-bold">{s[0]}</a>
                 ))}
               </div>
             </div>

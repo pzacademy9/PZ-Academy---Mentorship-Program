@@ -29,7 +29,7 @@ export function MarketingFooter() {
                   key={label}
                   href="#"
                   aria-label={label}
-                  className="w-[34px] h-[34px] rounded-full bg-[rgba(255,255,255,.06)] flex items-center justify-center transition-all duration-200 hover:bg-pz-mid hover:-translate-y-1 hover:shadow-[0_6px_16px_rgba(45,138,84,.35)]"
+                  className="w-[34px] h-[34px] rounded-full bg-[rgba(255,255,255,.06)] flex items-center justify-center transition-all duration-200 hover:bg-pz-solid-mid hover:-translate-y-1 hover:shadow-[0_6px_16px_rgba(45,138,84,.35)]"
                 >
                   <svg viewBox="0 0 24 24" className="w-[15px] h-[15px] fill-[rgba(255,255,255,.68)]">
                     {label === "Facebook" && <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" />}

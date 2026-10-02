@@ -43,7 +43,7 @@ export function LessonContent({ lesson }: { lesson: LessonView }) {
           href={lesson.pdfUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg bg-pz-forest text-white text-sm font-semibold px-5 py-2.5 hover:bg-pz-mid transition-colors shadow-md"
+          className="inline-flex items-center gap-2 rounded-lg bg-pz-solid-forest text-white text-sm font-semibold px-5 py-2.5 hover:bg-pz-solid-mid transition-colors shadow-md"
         >
           <FileDown className="w-4 h-4" /> Open PDF
         </a>

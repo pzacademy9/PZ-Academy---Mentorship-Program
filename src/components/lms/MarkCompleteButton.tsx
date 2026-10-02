@@ -57,7 +57,7 @@ export function MarkCompleteButton({
       size="bare"
       loading={saving || isRefreshing}
       onClick={() => handleClick()}
-      className="gap-2 rounded-lg bg-pz-forest text-white text-sm font-bold px-5 py-2.5 max-md:min-h-11 shadow-md transition-all hover:opacity-90"
+      className="gap-2 rounded-lg bg-pz-solid-forest text-white text-sm font-bold px-5 py-2.5 max-md:min-h-11 shadow-md transition-all hover:opacity-90"
     >
       <Check className="w-4 h-4" />
       Mark Complete

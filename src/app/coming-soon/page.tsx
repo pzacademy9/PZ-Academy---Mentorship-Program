@@ -4,7 +4,7 @@ export const metadata = { title: "Coming Soon — PZ Academy" };
 
 export default function ComingSoonPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-pz-forest px-6 text-center relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-pz-solid-forest px-6 text-center relative overflow-hidden">
       <div
         className="absolute inset-0 opacity-5 pointer-events-none"
         style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #7ed957 1px, transparent 0)", backgroundSize: "32px 32px" }}

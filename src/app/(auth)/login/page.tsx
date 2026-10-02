@@ -46,7 +46,7 @@ export default function LoginPage() {
         </section>
 
         {/* Desktop hero panel */}
-        <section className="hidden md:flex md:w-3/5 bg-pz-forest p-16 flex-col justify-center relative overflow-hidden">
+        <section className="hidden md:flex md:w-3/5 bg-pz-solid-forest p-16 flex-col justify-center relative overflow-hidden">
           <div
             className="absolute inset-0 opacity-5 pointer-events-none"
             style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #7ed957 1px, transparent 0)", backgroundSize: "32px 32px" }}
@@ -97,7 +97,7 @@ export default function LoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-pz-deep md:bg-pz-deep px-6 md:px-16 py-6 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] font-body text-white/50 uppercase tracking-widest">
+      <footer className="bg-pz-solid-deep md:bg-pz-solid-deep px-6 md:px-16 py-6 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] font-body text-white/50 uppercase tracking-widest">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-pz-bright/10 flex items-center justify-center border border-pz-bright/20">

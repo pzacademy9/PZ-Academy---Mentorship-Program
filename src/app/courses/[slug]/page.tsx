@@ -150,7 +150,7 @@ export default async function CourseDetailPage({
       <main className="max-w-[1280px] mx-auto px-6 md:px-16 py-8">
         {/* Hero */}
         <section className="mb-12">
-          <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden mb-8 shadow-xl bg-gradient-to-br from-pz-deep to-pz-forest">
+          <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden mb-8 shadow-xl bg-gradient-to-br from-pz-solid-deep to-pz-solid-forest">
             {course.bannerUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={course.bannerUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />

@@ -32,7 +32,7 @@ export default async function AdminDashboard() {
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         <StatCard label="Total Students" value={0} icon={Users} />
-        <StatCard label="Active Enrollments" value={0} icon={BookOpen} iconBg="bg-pz-pine/10" />
+        <StatCard label="Active Enrollments" value={0} icon={BookOpen} iconBg="bg-pz-solid-pine/10" />
         <StatCard label="Sessions This Month" value={0} icon={Calendar} iconBg="bg-pz-lime/20" />
         <StatCard label="Revenue (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-frost" />
       </div>

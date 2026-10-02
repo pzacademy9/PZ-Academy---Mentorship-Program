@@ -22,10 +22,10 @@ export default async function WorkshopsPage() {
       <MarketingNav />
 
       {/* ─── HERO ─── */}
-      <section className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-pz-deep">
+      <section className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-pz-solid-deep">
         <div className="absolute inset-0 opacity-75" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpolygon fill='none' stroke='rgba(255%2C255%2C255%2C0.045)' stroke-width='1.2' points='30%2C3 57%2C18 57%2C48 30%2C63 3%2C48 3%2C18'/%3E%3Cpolygon fill='none' stroke='rgba(255%2C255%2C255%2C0.045)' stroke-width='1.2' points='30%2C63 57%2C78 57%2C104 3%2C104 3%2C78'/%3E%3C/svg%3E")`, backgroundSize: "60px 104px" }} />
         <div className="absolute w-[600px] h-[600px] rounded-full bg-pz-bright opacity-[.07] blur-[90px] -top-[180px] -right-[120px] animate-[orbFloat1_12s_ease-in-out_infinite] pointer-events-none" />
-        <div className="absolute w-[450px] h-[450px] rounded-full bg-pz-mid opacity-[.13] blur-[90px] -bottom-20 -left-20 animate-[orbFloat2_15s_ease-in-out_infinite] pointer-events-none" />
+        <div className="absolute w-[450px] h-[450px] rounded-full bg-pz-solid-mid opacity-[.13] blur-[90px] -bottom-20 -left-20 animate-[orbFloat2_15s_ease-in-out_infinite] pointer-events-none" />
 
         <div className="relative z-10 max-w-[820px] px-6 pt-28 pb-16">
           <div className="inline-flex items-center gap-2 bg-[rgba(126,217,87,.1)] border border-[rgba(126,217,87,.28)] text-pz-bright text-[.72rem] font-semibold tracking-[.1em] uppercase px-4 py-1.5 rounded-full mb-6">
@@ -79,8 +79,8 @@ export default async function WorkshopsPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {BENEFITS.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="group p-8 rounded-2xl border-[1.5px] border-pz-border relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-transparent hover:bg-pz-offwhite after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:bg-gradient-to-r after:from-pz-forest after:to-pz-bright after:scale-x-0 after:origin-left after:transition-transform after:duration-[350ms] hover:after:scale-x-100">
-                <div className="w-[52px] h-[52px] rounded-[14px] bg-gradient-to-br from-pz-forest to-pz-mid flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-[5deg] group-hover:shadow-[0_8px_20px_rgba(25,75,50,.3)]">
+              <div key={title} className="group p-8 rounded-2xl border-[1.5px] border-pz-border relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-transparent hover:bg-pz-offwhite after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:bg-gradient-to-r after:from-pz-solid-forest after:to-pz-bright after:scale-x-0 after:origin-left after:transition-transform after:duration-[350ms] hover:after:scale-x-100">
+                <div className="w-[52px] h-[52px] rounded-[14px] bg-gradient-to-br from-pz-solid-forest to-pz-solid-mid flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-[5deg] group-hover:shadow-[0_8px_20px_rgba(25,75,50,.3)]">
                   <Icon className="w-6 h-6 text-white" strokeWidth={1.9} />
                 </div>
                 <h3 className="font-montserrat text-[1.08rem] font-bold text-pz-deep mb-2 transition-colors duration-200 group-hover:text-pz-forest">{title}</h3>
@@ -92,7 +92,7 @@ export default async function WorkshopsPage() {
       </section>
 
       {/* ─── CTA ─── */}
-      <section className="py-24 px-6 bg-gradient-to-br from-pz-deep to-[#1a4a2e] text-center relative overflow-hidden z-10">
+      <section className="py-24 px-6 bg-gradient-to-br from-pz-solid-deep to-[#1a4a2e] text-center relative overflow-hidden z-10">
         <div className="absolute inset-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpolygon fill='none' stroke='rgba(255%2C255%2C255%2C0.03)' stroke-width='1.2' points='30%2C3 57%2C18 57%2C48 30%2C63 3%2C48 3%2C18'/%3E%3C/svg%3E")`, backgroundSize: "60px 104px" }} />
         <div className="relative z-10 max-w-[600px] mx-auto">
           <h2 className="font-montserrat text-[clamp(1.9rem,3.5vw,2.8rem)] font-extrabold text-white leading-[1.15] mb-4">Ready to Level Up<br /><em className="not-italic text-pz-bright">Your Skills?</em></h2>

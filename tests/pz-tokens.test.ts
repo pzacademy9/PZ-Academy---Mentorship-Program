@@ -54,3 +54,18 @@ it("globals.css sets color-scheme dark and has no var(--pz-*, #hex) fallbacks", 
   expect(css).toMatch(/\.dark\s*\{[^}]*color-scheme:\s*dark/);
   expect(css).not.toMatch(/var\(--pz-[a-z-]+,\s*#/);
 });
+
+function walk(dir: string, out: string[] = []): string[] {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, out);
+    else if (/\.(tsx|ts)$/.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+it("no non-text utility uses the adaptive brand greens (use solid-* instead)", () => {
+  const re = /\b(bg|from|to|via|border|ring|divide|outline|fill|stroke|decoration|accent|caret|placeholder)-pz-(forest|deep|mid|pine|sage)\b/;
+  const offenders = walk(path.join(process.cwd(), "src")).filter((f) => re.test(fs.readFileSync(f, "utf8")));
+  expect(offenders).toEqual([]);
+});
