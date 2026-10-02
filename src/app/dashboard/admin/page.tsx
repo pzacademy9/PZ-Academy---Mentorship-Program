@@ -39,7 +39,7 @@ export default async function AdminDashboard() {
 
       {/* The real queue lives at /dashboard/admin/enrollments. This used to be a
           hardcoded empty table, which would now contradict the banner above. */}
-      <div className="bg-white rounded-xl shadow-card p-6">
+      <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
         <h2 className="font-montserrat font-bold text-pz-forest text-base">Pending Payments</h2>
         <p className="text-sm text-pz-muted mt-1">
           {pendingCount === 0

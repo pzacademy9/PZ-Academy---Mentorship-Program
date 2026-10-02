@@ -83,7 +83,7 @@ const ACTIONS: Record<
     confirmBody:
       "Course access is revoked and the seat is released. No email is sent for this action.",
     confirmLabel: "Mark expired",
-    confirmButton: "bg-pz-outline text-white hover:bg-pz-outline/90",
+    confirmButton: "bg-pz-outline text-white dark:text-pz-surface hover:bg-pz-outline/90",
   },
 };
 

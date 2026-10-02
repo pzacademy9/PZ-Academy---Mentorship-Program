@@ -584,7 +584,7 @@ export function NewSessionModal() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={isProgram ? "e.g. Advanced Cardiology Series" : "e.g. Advanced Cardiology Trends"}
-                  className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                  className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                 />
               </div>
 
@@ -625,7 +625,7 @@ export function NewSessionModal() {
                     Link to mentor
                   </label>
                   {selectedMentor ? (
-                    <div className="w-full bg-white p-2 rounded-lg border border-pz-outline-variant flex items-center justify-between">
+                    <div className="w-full bg-pz-surface-container-lowest p-2 rounded-lg border border-pz-outline-variant flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         {selectedMentor.photo ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -668,10 +668,10 @@ export function NewSessionModal() {
                         onFocus={() => setMentorDropdownOpen(true)}
                         onBlur={() => setTimeout(() => setMentorDropdownOpen(false), 150)}
                         placeholder={mentorsLoading ? "Loading mentors…" : "Search mentors by name…"}
-                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                       />
                       {mentorDropdownOpen && mentorQuery.trim().length > 0 && (
-                        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-pz-outline-variant rounded-lg shadow-lg">
+                        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg shadow-lg">
                           {mentorsLoading && (
                             <p className="px-3 py-2 font-body text-sm text-pz-on-surface-variant">Loading mentors…</p>
                           )}
@@ -736,7 +736,7 @@ export function NewSessionModal() {
                       value={speakerName}
                       onChange={(e) => setSpeakerName(e.target.value)}
                       placeholder="Dr. Jane Doe"
-                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -748,7 +748,7 @@ export function NewSessionModal() {
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                     />
                   </div>
                 </div>
@@ -785,7 +785,7 @@ export function NewSessionModal() {
                         value={s.title}
                         onChange={(e) => updateProgramSession(s.localId, { title: e.target.value })}
                         placeholder="Session title"
-                        className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                        className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                       />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
@@ -793,13 +793,13 @@ export function NewSessionModal() {
                           value={s.speaker}
                           onChange={(e) => updateProgramSession(s.localId, { speaker: e.target.value })}
                           placeholder="Speaker name"
-                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                         />
                         <input
                           type="date"
                           value={s.date}
                           onChange={(e) => updateProgramSession(s.localId, { date: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
+                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                         />
                       </div>
                     </div>

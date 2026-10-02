@@ -319,7 +319,7 @@ function MentorLinkRow({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search mentors…"
-              className="w-full pl-8 pr-2 py-1.5 rounded-md border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-xs text-pz-on-surface max-md:text-base max-md:min-h-11"
+              className="w-full pl-8 pr-2 py-1.5 rounded-md border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-xs text-pz-on-surface max-md:text-base max-md:min-h-11"
             />
           </div>
           {linkedMentor && (
