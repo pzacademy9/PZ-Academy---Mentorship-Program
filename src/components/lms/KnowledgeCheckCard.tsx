@@ -35,14 +35,14 @@ export function KnowledgeCheckCard({
 
   return (
     <>
-      <div className="bg-white dark:bg-[#1c211e] rounded-2xl shadow-xl border border-pz-border dark:border-[#2a2f2c] p-6 hover:border-pz-solid-forest/40 dark:hover:border-pz-lime/30 transition-colors group">
+      <div className="bg-pz-surface-container-lowest rounded-2xl shadow-xl border border-pz-border dark:border-pz-outline-variant p-6 hover:border-pz-solid-forest/40 dark:hover:border-pz-lime/30 transition-colors group">
         <span className="inline-flex w-10 h-10 rounded-full bg-pz-solid-forest/5 dark:bg-white/5 items-center justify-center mb-3 text-pz-forest dark:text-pz-lime group-hover:scale-110 transition-transform">
           <HelpCircle className="w-5 h-5" />
         </span>
-        <h3 className="font-montserrat font-bold text-pz-forest dark:text-[#e0e3df] text-base mb-1">
+        <h3 className="font-montserrat font-bold text-pz-forest dark:text-pz-on-surface text-base mb-1">
           Knowledge Check
         </h3>
-        <p className="text-sm text-pz-muted dark:text-[#c1c6d5] mb-4">
+        <p className="text-sm text-pz-muted dark:text-pz-on-surface-variant mb-4">
           {completed
             ? `Passed — best score ${best}/${questions.length}.`
             : `${questions.length} questions · ${attemptsLeft} attempt${attemptsLeft === 1 ? "" : "s"} left.`}

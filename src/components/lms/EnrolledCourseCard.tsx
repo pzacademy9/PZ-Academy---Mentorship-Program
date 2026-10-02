@@ -6,7 +6,7 @@ import type { EnrolledCourse } from "@/lib/data/lms";
 export function EnrolledCourseCard({ course }: { course: EnrolledCourse }) {
   const started = course.completed > 0;
   return (
-    <div className="bg-white dark:bg-[#1c211e] rounded-2xl shadow-xl border border-pz-border dark:border-[#2a2f2c] overflow-hidden flex flex-col">
+    <div className="bg-pz-surface-container-lowest rounded-2xl shadow-xl border border-pz-border dark:border-pz-outline-variant overflow-hidden flex flex-col">
       <div className="h-32 bg-pz-solid-forest/5 dark:bg-white/5 relative flex items-center justify-center">
         {course.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -16,10 +16,10 @@ export function EnrolledCourseCard({ course }: { course: EnrolledCourse }) {
         )}
       </div>
       <div className="p-5 flex flex-col flex-1">
-        <h3 className="font-montserrat font-bold text-pz-forest dark:text-[#e0e3df] text-base leading-snug">
+        <h3 className="font-montserrat font-bold text-pz-forest dark:text-pz-on-surface text-base leading-snug">
           {course.title}
         </h3>
-        <div className="mt-4 mb-1 flex items-center justify-between text-xs text-pz-muted dark:text-[#c1c6d5]">
+        <div className="mt-4 mb-1 flex items-center justify-between text-xs text-pz-muted dark:text-pz-on-surface-variant">
           <span>
             {course.completed} / {course.total} lessons
           </span>
