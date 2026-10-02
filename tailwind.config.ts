@@ -1,4 +1,6 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
+import { buildPzCss, pzTailwindColors } from "./src/lib/theme/pz-tokens";
 
 const config: Config = {
     darkMode: ["class"],
@@ -60,88 +62,7 @@ const config: Config = {
   				'gray-text': '#6B7280',
   				'card-border':'#E5E1D8',
   			},
-  			pz: {
-  				// Primary greens
-  				deep:       '#0F3D22', // hero/dark backgrounds
-  				forest:     '#194B32', // primary brand green
-  				mid:        '#196432', // headers, section accents
-  				bright:     '#7ED957', // CTAs, highlights
-  				pale:       '#C8F0A0', // tints, light accents
-  				offwhite:   '#F7FAF5', // light page background
-
-  				// Legacy aliases (keep dashboard components working)
-  				pine:       '#0F3D22', // → deep
-  				sage:       '#196432', // → mid
-  				lime:       '#7ED957', // → bright
-  				mint:       '#C8F0A0', // → pale
-  				frost:      '#F7FAF5', // → offwhite
-
-  				// Academy Gold accent
-  				gold:       '#C9960A',
-  				'gold-light': '#E8B84B',
-
-  				// Maroon (accent only — use sparingly)
-  				maroon:     '#3D0A0A',
-
-  				// UI
-  				ink:        '#1A2E1F', // body text
-  				muted:      '#4D6B54', // muted text
-  				border:     '#D4EACC', // borders
-  				success:    '#10B981',
-  				warning:    '#F59E0B',
-  				danger:     '#EF4444',
-
-  				// PharmaZyme Academy design-system tokens (from Stitch, verbatim names).
-  				// Namespaced under pz-* to avoid clobbering shadcn's primary/secondary/background/etc.
-  				// Ports Stitch class names 1:1 by just adding a `pz-` prefix, e.g. bg-primary-container -> bg-pz-primary-container.
-  				primary:                     '#246d00',
-  				'on-primary':                '#ffffff',
-  				'primary-container':         '#7ed957',
-  				'on-primary-container':      '#1d5d00',
-  				'primary-fixed':             '#9cf973',
-  				'primary-fixed-dim':         '#81dc5a',
-  				'on-primary-fixed':          '#062100',
-  				'on-primary-fixed-variant':  '#195200',
-  				secondary:                   '#7a5900',
-  				'on-secondary':              '#ffffff',
-  				'secondary-container':       '#ffc644',
-  				'on-secondary-container':    '#715300',
-  				'secondary-fixed':           '#ffdea1',
-  				'secondary-fixed-dim':       '#f6be3b',
-  				'on-secondary-fixed':        '#261900',
-  				'on-secondary-fixed-variant':'#5c4300',
-  				tertiary:                    '#3b6849',
-  				'on-tertiary':               '#ffffff',
-  				'tertiary-container':        '#9fcfa9',
-  				'on-tertiary-container':     '#2d593c',
-  				'tertiary-fixed':            '#bdeec7',
-  				'tertiary-fixed-dim':        '#a2d2ac',
-  				'on-tertiary-fixed':         '#00210e',
-  				'on-tertiary-fixed-variant': '#234f33',
-  				'academy-background':        '#f9f9f9',
-  				'on-background':             '#1a1c1c',
-  				surface:                     '#f9f9f9',
-  				'on-surface':                '#1a1c1c',
-  				'surface-variant':           '#e2e2e2',
-  				'on-surface-variant':        '#404a3a',
-  				'surface-dim':               '#dadada',
-  				'surface-bright':            '#f9f9f9',
-  				'surface-tint':              '#246d00',
-  				'surface-container-lowest':  '#ffffff',
-  				'surface-container-low':     '#f3f3f4',
-  				'surface-container':         '#eeeeee',
-  				'surface-container-high':    '#e8e8e8',
-  				'surface-container-highest': '#e2e2e2',
-  				outline:                     '#707a68',
-  				'outline-variant':           '#bfcab5',
-  				'inverse-surface':           '#2f3131',
-  				'inverse-on-surface':        '#f0f1f1',
-  				'inverse-primary':           '#81dc5a',
-  				'academy-error':             '#ba1a1a',
-  				'on-error':                  '#ffffff',
-  				'error-container':           '#ffdad6',
-  				'on-error-container':        '#93000a',
-  			},
+  			pz: pzTailwindColors(),
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
@@ -192,6 +113,12 @@ const config: Config = {
   		},
   	},
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    plugin(({ addBase }) => {
+      const { root, dark } = buildPzCss();
+      addBase({ ":root": root, ".dark": dark });
+    }),
+  ],
 };
 export default config;

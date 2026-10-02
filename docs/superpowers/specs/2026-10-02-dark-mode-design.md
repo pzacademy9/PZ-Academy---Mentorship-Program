@@ -42,22 +42,14 @@ Found during UI Polish Spec 1 live checks: contrast scan failed on 21 of 22 auth
 | on-surface-variant | #bfcab5 |
 | outline | #8a9481 |
 | outline-variant | #404a3a |
-| inverse-surface | #dfe5d6 |
 | inverse-on-surface | #2c3228 |
 | primary | #99f670 |
 | surface-tint | #81dc5a |
-| primary-container | #7ed957 |
-| on-primary | #0f3900 |
-| on-primary-container | #1d5d00 |
-| secondary | #a2d2ac |
-| secondary-container | #265235 |
-| on-secondary-container | #94c49f |
-| tertiary | #ffdb95 |
-| tertiary-container | #f3bb38 |
-| on-tertiary-container | #684c00 |
+| secondary | #f6be3b |
+| tertiary | #a2d2ac |
 | academy-error / error | #ffb4ab |
-| error-container | #93000a |
-| on-error-container | #ffdad6 |
+
+Container pairs (`primary-container`/`on-primary-container`, `secondary-container`/`on-secondary-container`, `tertiary-container`/`on-tertiary-container`, `error-container`/`on-error-container`) and all `*-fixed` tokens are identical in both themes so each pair stays readable by construction; the table rows above for those are superseded.
 
 The `*-fixed` and `*-fixed-dim` tokens keep the same value in both themes (Material semantics). Note: in light mode `pz-secondary` is gold (`#7a5900`) and `pz-tertiary` is green; the Stitch dark values above come from the Feedback project, whose roles differ, so each secondary/tertiary dark value is chosen by how the app uses the token (heading gold vs green text) and verified by the contrast scan, not copied blindly.
 
