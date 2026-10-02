@@ -20,7 +20,7 @@ export default async function MentorProfilePage() {
       {mentor ? (
         <MentorSelfProfileForm mentor={mentor} />
       ) : (
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <p className="text-pz-muted text-sm">
             No mentor profile is linked to your account yet. Contact an admin to get set up.
           </p>

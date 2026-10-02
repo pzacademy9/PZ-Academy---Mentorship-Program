@@ -91,7 +91,7 @@ export function MentorSelfProfileForm({ mentor }: { mentor: Mentor }) {
 
   return (
     <div>
-    <div className="bg-white rounded-xl shadow-card p-4 sm:p-6 space-y-6">
+    <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-montserrat font-bold text-pz-forest text-base">My Profile</h2>
         <Button
@@ -100,7 +100,7 @@ export function MentorSelfProfileForm({ mentor }: { mentor: Mentor }) {
           size="bare"
           loading={busy}
           onClick={() => save()}
-          className="max-md:hidden gap-2 px-4 py-2 bg-pz-lime text-pz-forest font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors"
+          className="max-md:hidden gap-2 px-4 py-2 bg-pz-lime text-pz-forest dark:text-pz-solid-forest dark:hover:bg-pz-primary-fixed font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors"
         >
           <Save className="w-4 h-4" />
           {busy ? "Saving…" : "Save Changes"}
@@ -210,7 +210,7 @@ export function MentorSelfProfileForm({ mentor }: { mentor: Mentor }) {
         size="bare"
         loading={busy}
         onClick={() => save()}
-        className="w-full gap-2 px-4 py-2 max-md:min-h-11 bg-pz-lime text-pz-forest font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors"
+        className="w-full gap-2 px-4 py-2 max-md:min-h-11 bg-pz-lime text-pz-forest dark:text-pz-solid-forest dark:hover:bg-pz-primary-fixed font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors"
       >
         <Save className="w-4 h-4" />
         {busy ? "Saving…" : "Save Changes"}

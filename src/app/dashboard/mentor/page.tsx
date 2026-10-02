@@ -31,7 +31,7 @@ export default async function MentorDashboard() {
       </div>
 
       {!mentor && (
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <p className="text-pz-muted text-sm">
             No mentor profile is linked to your account yet. Contact an admin to get set up.
           </p>
@@ -46,11 +46,11 @@ export default async function MentorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <h2 className="font-montserrat font-bold text-pz-forest text-base mb-4">Upcoming Sessions</h2>
           <UpcomingSessionsList sessions={upcomingSessions} />
         </div>
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <h2 className="font-montserrat font-bold text-pz-forest text-base mb-4">My Students</h2>
           <MyStudentsList students={students} />
         </div>

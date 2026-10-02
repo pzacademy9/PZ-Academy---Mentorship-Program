@@ -21,7 +21,7 @@ const DAYS: { day: number; label: string }[] = [
 ];
 
 const inputClass =
-  "bg-white border border-pz-outline-variant rounded-md px-3 py-2 max-md:text-base max-md:min-h-11 text-pz-on-surface focus:ring-2 focus:ring-pz-primary focus:outline-none font-body w-32 shadow-sm";
+  "bg-pz-surface-container-lowest border border-pz-outline-variant rounded-md px-3 py-2 max-md:text-base max-md:min-h-11 text-pz-on-surface focus:ring-2 focus:ring-pz-primary focus:outline-none font-body w-32 shadow-sm";
 
 function groupPreview(slots: string[], timezone: string) {
   const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, weekday: "short", day: "numeric", month: "short" });
@@ -107,7 +107,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
   return (
     <div className="flex flex-col xl:flex-row gap-6 items-start">
       <div className="flex-1 flex flex-col gap-6 w-full">
-        <div className="bg-white rounded-xl shadow-card p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-pz-on-surface-variant">
             <Globe className="w-5 h-5 text-pz-primary" />
             <span className="font-body font-medium">Current Timezone</span>
@@ -121,7 +121,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
           </select>
         </div>
 
-        <div className="bg-white rounded-xl shadow-card overflow-hidden">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card overflow-hidden">
           <div className="p-6 border-b border-pz-outline-variant flex justify-between items-center">
             <h3 className="font-headline font-bold text-pz-on-surface">Weekly Hours</h3>
           </div>
@@ -202,7 +202,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
             size="bare"
             loading={saving || isNavigating}
             onClick={() => save()}
-            className="bg-pz-lime hover:bg-pz-mint text-pz-forest px-8 py-3 max-md:w-full max-md:min-h-11 rounded-lg font-headline font-bold text-base shadow-md transition-all gap-2"
+            className="bg-pz-lime hover:bg-pz-mint text-pz-forest dark:text-pz-solid-forest dark:hover:bg-pz-primary-fixed px-8 py-3 max-md:w-full max-md:min-h-11 rounded-lg font-headline font-bold text-base shadow-md transition-all gap-2"
           >
             {saving || isNavigating ? "Saving…" : "Save Availability"}
             <Save className="w-4 h-4" />
@@ -211,7 +211,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
       </div>
 
       <aside className="w-full xl:w-[350px] shrink-0">
-        <div className="bg-white rounded-xl shadow-card overflow-hidden sticky top-8 flex flex-col max-h-[700px]">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card overflow-hidden sticky top-8 flex flex-col max-h-[700px]">
           <div className="p-6 border-b border-pz-outline-variant flex justify-between items-center">
             <h3 className="font-headline font-bold text-pz-on-surface">Live Preview</h3>
             <CalendarClock className="w-5 h-5 text-pz-tertiary" />
