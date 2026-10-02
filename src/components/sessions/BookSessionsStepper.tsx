@@ -102,11 +102,11 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
   const isPending = confirming || isRefreshing;
 
   if (loading) {
-    return <div className="bg-white rounded-xl shadow-card p-8 text-center font-body text-pz-on-surface-variant">Loading available times…</div>;
+    return <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-8 text-center font-body text-pz-on-surface-variant">Loading available times…</div>;
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-card max-md:overflow-clip md:overflow-hidden flex flex-col">
+    <div className="bg-pz-surface-container-lowest rounded-xl shadow-card max-md:overflow-clip md:overflow-hidden flex flex-col">
       <div className="border-b border-pz-outline-variant p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="font-headline font-bold text-pz-on-surface">Schedule Your Sessions</h2>
