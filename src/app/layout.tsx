@@ -71,7 +71,7 @@ export default function RootLayout({
           fredoka.variable,
           handlee.variable,
           allura.variable,
-          "font-fredoka bg-white text-pz-ink dark:bg-[#101412] dark:text-[#e0e3df] antialiased",
+          "font-fredoka bg-white text-pz-ink dark:bg-pz-surface dark:text-pz-on-surface antialiased",
         )}
       >
         <NextTopLoader color="hsl(var(--primary))" height={3} showSpinner={false} shadow={false} />
