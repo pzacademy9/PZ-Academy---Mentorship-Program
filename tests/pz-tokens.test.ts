@@ -51,6 +51,6 @@ it("tailwind colours use the alpha-value placeholder so /60 modifiers work", () 
 
 it("globals.css sets color-scheme dark and has no var(--pz-*, #hex) fallbacks", () => {
   const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
-  expect(css).toMatch(/\.dark\s*\{[^}]*color-scheme:\s*dark/s);
+  expect(css).toMatch(/\.dark\s*\{[^}]*color-scheme:\s*dark/);
   expect(css).not.toMatch(/var\(--pz-[a-z-]+,\s*#/);
 });
