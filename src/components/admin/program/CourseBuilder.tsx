@@ -98,7 +98,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold font-headline text-pz-on-surface">Course Builder</h2>
-            <span className="bg-pz-secondary-container/30 text-pz-on-secondary-container text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+            <span className="bg-pz-secondary-container/30 text-pz-on-secondary-container dark:text-pz-secondary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
               Editor
             </span>
           </div>
@@ -109,7 +109,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
             <span
               className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                !isPublished ? "bg-pz-surface-container-lowest text-pz-on-surface-variant shadow-sm" : "text-pz-on-surface-variant/60",
+                !isPublished ? "bg-pz-surface-container-lowest text-pz-on-surface-variant shadow-sm" : "text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80",
               )}
             >
               Draft
@@ -117,7 +117,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
             <span
               className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                isPublished ? "bg-pz-primary text-pz-on-primary shadow-sm" : "text-pz-on-surface-variant/60",
+                isPublished ? "bg-pz-primary text-pz-on-primary shadow-sm" : "text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80",
               )}
             >
               Published

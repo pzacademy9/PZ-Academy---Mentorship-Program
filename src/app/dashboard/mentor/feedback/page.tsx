@@ -69,7 +69,7 @@ export default async function MentorFeedbackPage() {
                       className={cn(
                         "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
                         s.status === "active"
-                          ? "bg-pz-primary-container/30 text-pz-on-primary-container"
+                          ? "bg-pz-primary-container/30 text-pz-on-primary-container dark:text-pz-primary"
                           : "bg-pz-surface-variant text-pz-on-surface-variant",
                       )}
                     >
@@ -94,7 +94,7 @@ export default async function MentorFeedbackPage() {
                     <span className="font-headline font-semibold text-xs">{s.avgRating.toFixed(1)}</span>
                   </span>
                 ) : (
-                  <span className="font-body text-xs text-pz-on-surface-variant/60">No ratings</span>
+                  <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">No ratings</span>
                 )}
                 <span className="inline-flex items-center gap-1 font-headline text-sm font-semibold text-pz-on-surface-variant group-hover:text-pz-primary transition-colors">
                   View

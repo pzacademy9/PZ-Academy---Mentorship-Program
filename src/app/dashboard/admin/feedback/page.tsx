@@ -136,7 +136,7 @@ export default async function AdminFeedbackPage() {
                           <span className="font-headline font-semibold text-xs">{s.avgRating.toFixed(1)}</span>
                         </span>
                       ) : (
-                        <span className="font-body text-xs text-pz-on-surface-variant/60">No ratings</span>
+                        <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">No ratings</span>
                       )}
                     </td>
                     <td className="py-4 px-6 text-center">
@@ -144,7 +144,7 @@ export default async function AdminFeedbackPage() {
                         className={cn(
                           "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
                           s.status === "active"
-                            ? "bg-pz-primary-container/30 text-pz-on-primary-container"
+                            ? "bg-pz-primary-container/30 text-pz-on-primary-container dark:text-pz-primary"
                             : "bg-pz-surface-variant text-pz-on-surface-variant",
                         )}
                       >

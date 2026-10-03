@@ -148,7 +148,7 @@ export function LessonSidePanel({
             <EditorContent editor={editor} />
           </div>
           <div className="p-3 border-t border-pz-outline-variant/40 flex items-center justify-between gap-2">
-            <p className="text-[11px] font-label text-pz-on-surface-variant/60">
+            <p className="text-[11px] font-label text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">
               {saved ? "Saved" : "Saving…"}
             </p>
             <div className="flex items-center gap-1">

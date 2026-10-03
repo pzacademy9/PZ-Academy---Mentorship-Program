@@ -154,7 +154,7 @@ export function TypeToggle({
         className={cn(
           "p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
           value === "stars"
-            ? "bg-pz-primary-container/40 text-pz-on-primary-container"
+            ? "bg-pz-primary-container/40 text-pz-on-primary-container dark:text-pz-primary"
             : "text-pz-on-surface-variant hover:bg-pz-surface-container-high",
         )}
       >
@@ -169,7 +169,7 @@ export function TypeToggle({
         className={cn(
           "p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
           value === "video"
-            ? "bg-pz-primary-container/40 text-pz-on-primary-container"
+            ? "bg-pz-primary-container/40 text-pz-on-primary-container dark:text-pz-primary"
             : "text-pz-on-surface-variant hover:bg-pz-surface-container-high",
         )}
       >
@@ -569,7 +569,7 @@ export function NewSessionModal() {
                 >
                   <ImageIcon className="w-7 h-7 text-pz-on-surface-variant" />
                   <span className="font-headline text-sm font-semibold text-pz-on-surface-variant">Add a cover image</span>
-                  <span className="font-body text-xs text-pz-on-surface-variant/70">16:9 recommended · up to 5 MB</span>
+                  <span className="font-body text-xs text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">16:9 recommended · up to 5 MB</span>
                   <input id="cover-input" type="file" accept="image/*" onChange={handleCoverSelect} className="hidden" />
                 </label>
               )}
@@ -609,7 +609,7 @@ export function NewSessionModal() {
                   <span
                     className={cn(
                       "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                      isProgram ? "translate-x-6" : "translate-x-1",
+                      isProgram ? "translate-x-6 dark:bg-pz-on-primary" : "translate-x-1",
                     )}
                   />
                 </button>
@@ -712,7 +712,7 @@ export function NewSessionModal() {
                       )}
                     </div>
                   )}
-                  <p className="font-body text-xs text-pz-on-surface-variant/70">
+                  <p className="font-body text-xs text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">
                     Optional — links this session&apos;s reviews to a public mentor profile
                   </p>
                   {selectedMentor && !selectedMentor.hasLinkedAccount && (

@@ -143,7 +143,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-pz-surface-dim peer-checked:bg-pz-primary rounded-full transition-colors" />
-                      <div className="absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5" />
+                      <div className="absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 dark:peer-checked:bg-pz-on-primary" />
                     </label>
                     <span className={`font-headline font-bold ${enabled ? "text-pz-on-surface" : "text-pz-on-surface-variant line-through"}`}>
                       {label}

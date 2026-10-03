@@ -547,7 +547,7 @@ function LessonRow({
           <GripVertical className="w-4 h-4" />
         </span>
         <Icon className={cn("w-4 h-4 shrink-0", selected ? "text-pz-primary" : "text-pz-primary/70")} />
-        <span className={cn("text-sm truncate", selected ? "font-bold text-pz-on-primary-container" : "font-medium text-pz-on-surface")}>
+        <span className={cn("text-sm truncate", selected ? "font-bold text-pz-on-primary-container dark:text-pz-primary" : "font-medium text-pz-on-surface")}>
           {label} {lesson.title}
         </span>
       </div>

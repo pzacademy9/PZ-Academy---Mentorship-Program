@@ -425,7 +425,7 @@ function BannerRow({
             <span
               className={cn(
                 "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
-                banner.isActive && "translate-x-4",
+                banner.isActive && "translate-x-4 dark:bg-pz-on-primary",
               )}
             />
           </span>

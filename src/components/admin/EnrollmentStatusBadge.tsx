@@ -17,7 +17,7 @@ type EnrollmentStatus = Database["public"]["Enums"]["enrollment_status"];
 const STYLES: Record<EnrollmentStatus, { label: string; className: string }> = {
   pending: {
     label: "Pending",
-    className: "bg-pz-secondary-container/40 text-pz-on-secondary-container",
+    className: "bg-pz-secondary-container/40 text-pz-on-secondary-container dark:text-pz-secondary",
   },
   reserved: {
     label: "Reserved",
@@ -25,7 +25,7 @@ const STYLES: Record<EnrollmentStatus, { label: string; className: string }> = {
   },
   active: {
     label: "Active",
-    className: "bg-pz-primary-container/30 text-pz-on-primary-container",
+    className: "bg-pz-primary-container/30 text-pz-on-primary-container dark:text-pz-primary",
   },
   rejected: {
     label: "Rejected",

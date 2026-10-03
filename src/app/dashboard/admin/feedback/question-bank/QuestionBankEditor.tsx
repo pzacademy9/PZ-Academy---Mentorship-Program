@@ -36,7 +36,7 @@ function TypeToggle({ value, onChange }: { value: QuestionType; onChange: (type:
         className={cn(
           "p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-md transition-colors",
           value === "stars"
-            ? "bg-pz-primary-container/40 text-pz-on-primary-container"
+            ? "bg-pz-primary-container/40 text-pz-on-primary-container dark:text-pz-primary"
             : "text-pz-on-surface-variant hover:bg-pz-surface-container-high",
         )}
       >
@@ -50,7 +50,7 @@ function TypeToggle({ value, onChange }: { value: QuestionType; onChange: (type:
         className={cn(
           "p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-md transition-colors",
           value === "video"
-            ? "bg-pz-primary-container/40 text-pz-on-primary-container"
+            ? "bg-pz-primary-container/40 text-pz-on-primary-container dark:text-pz-primary"
             : "text-pz-on-surface-variant hover:bg-pz-surface-container-high",
         )}
       >

@@ -48,7 +48,7 @@ export default async function MyNotesPage() {
               <p className="font-body text-sm text-pz-on-surface-variant line-clamp-3">
                 {note.preview || "No content yet."}
               </p>
-              <p className="font-label text-[11px] text-pz-on-surface-variant/60 mt-auto pt-2">
+              <p className="font-label text-[11px] text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80 mt-auto pt-2">
                 {new Date(note.updatedAt).toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",

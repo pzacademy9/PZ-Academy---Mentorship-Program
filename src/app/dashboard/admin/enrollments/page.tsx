@@ -183,7 +183,7 @@ export default async function AdminEnrollmentsPage({
                         {amount ? (
                           <span className="font-headline font-bold tabular-nums">{amount}</span>
                         ) : (
-                          <span className="font-body italic text-pz-on-surface-variant/70">
+                          <span className="font-body italic text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">
                             Not stated
                           </span>
                         )}

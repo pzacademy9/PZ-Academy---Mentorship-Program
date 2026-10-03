@@ -135,7 +135,7 @@ export default async function AdminMentorshipPage({
                             View
                           </a>
                         ) : (
-                          <span className="font-body text-xs text-pz-on-surface-variant/60">—</span>
+                          <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">—</span>
                         )}
                       </td>
                       <td className="py-4 px-6 whitespace-nowrap">
@@ -265,7 +265,7 @@ export default async function AdminMentorshipPage({
                           ))}
                         </div>
                       ) : (
-                        <span className="font-body text-xs text-pz-on-surface-variant/60">—</span>
+                        <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">—</span>
                       )}
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">

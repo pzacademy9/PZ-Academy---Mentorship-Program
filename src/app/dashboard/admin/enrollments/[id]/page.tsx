@@ -129,7 +129,7 @@ export default async function AdminEnrollmentDetailPage({
                 {amount ? (
                   <span className="font-headline font-semibold tabular-nums">{amount}</span>
                 ) : (
-                  <span className="italic text-pz-on-surface-variant/70">
+                  <span className="italic text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">
                     Not stated by student
                   </span>
                 )}
@@ -198,7 +198,7 @@ export default async function AdminEnrollmentDetailPage({
                 <p className="font-body text-sm text-pz-on-surface-variant">
                   No screenshot was submitted with this enrollment.
                 </p>
-                <p className="font-body text-xs text-pz-on-surface-variant/70 mt-1">
+                <p className="font-body text-xs text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80 mt-1">
                   Confirm the payment another way before approving.
                 </p>
               </div>
