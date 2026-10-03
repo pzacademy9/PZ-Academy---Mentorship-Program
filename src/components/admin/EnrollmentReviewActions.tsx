@@ -67,12 +67,12 @@ const ACTIONS: Record<
   reject: {
     label: "Reject",
     icon: XCircle,
-    button: "border border-pz-danger/40 text-pz-danger hover:bg-pz-danger/10",
+    button: "border border-pz-solid-danger/40 text-pz-danger hover:bg-pz-solid-danger/10",
     confirmTitle: "Reject this enrollment?",
     confirmBody:
       "The student is emailed the reason below and can submit a new payment afterwards.",
     confirmLabel: "Reject enrollment",
-    confirmButton: "bg-pz-danger text-white hover:bg-pz-danger/90",
+    confirmButton: "bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90",
   },
   expire: {
     label: "Mark expired",

@@ -170,7 +170,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                             type="button"
                             onClick={() => removeRange(day, i)}
                             aria-label="Remove time range"
-                            className="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11 text-pz-outline hover:text-pz-danger transition-colors p-2 rounded-full hover:bg-pz-danger/10 ml-auto sm:ml-0"
+                            className="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11 text-pz-outline hover:text-pz-danger transition-colors p-2 rounded-full hover:bg-pz-solid-danger/10 ml-auto sm:ml-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

@@ -37,7 +37,7 @@ const BOOKING_ACTIONS: Record<Action, ActionConfig> = {
   secondary: {
     label: "Cancel",
     icon: XCircle,
-    button: "border border-pz-danger/40 text-pz-danger hover:bg-pz-danger/10",
+    button: "border border-pz-solid-danger/40 text-pz-danger hover:bg-pz-solid-danger/10",
     confirmTitle: "Cancel this booking?",
     confirmBody: "The student is emailed the reason below.",
   },
@@ -54,7 +54,7 @@ const APPLICATION_ACTIONS: Record<Action, ActionConfig> = {
   secondary: {
     label: "Reject",
     icon: XCircle,
-    button: "border border-pz-danger/40 text-pz-danger hover:bg-pz-danger/10",
+    button: "border border-pz-solid-danger/40 text-pz-danger hover:bg-pz-solid-danger/10",
     confirmTitle: "Reject this application?",
     confirmBody: "The applicant is emailed the reason below.",
   },
@@ -169,7 +169,7 @@ export function MentorshipReviewActions({
           disabled={isPending}
           title={`Delete this ${recordLabel}`}
           aria-label={`Delete this ${recordLabel}`}
-          className="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11 rounded-lg p-1.5 text-pz-danger hover:bg-pz-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11 rounded-lg p-1.5 text-pz-danger hover:bg-pz-solid-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -265,7 +265,7 @@ export function MentorshipReviewActions({
               onClick={() => submitDelete()}
               loading={deletePending}
               disabled={isPending}
-              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
             </Button>

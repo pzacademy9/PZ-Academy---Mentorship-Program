@@ -104,7 +104,7 @@ export function ImageUploadField({
               onClick={() => onChange("")}
               disabled={uploading}
               title="Remove image"
-              className="shrink-0 inline-flex items-center justify-center p-2.5 max-md:min-h-11 max-md:min-w-11 rounded-lg border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-danger/10 hover:text-pz-danger hover:border-pz-danger/30 transition-colors disabled:opacity-50"
+              className="shrink-0 inline-flex items-center justify-center p-2.5 max-md:min-h-11 max-md:min-w-11 rounded-lg border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-solid-danger/10 hover:text-pz-danger hover:border-pz-solid-danger/30 transition-colors disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

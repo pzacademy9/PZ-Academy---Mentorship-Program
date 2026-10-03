@@ -153,7 +153,7 @@ export default async function AdminEnrollmentDetailPage({
 
               {enrollment.rejectionReason && (
                 <Field label="Rejection reason">
-                  <span className="block rounded-lg bg-pz-danger/10 text-pz-danger px-3 py-2 text-sm">
+                  <span className="block rounded-lg bg-pz-solid-danger/10 text-pz-danger px-3 py-2 text-sm">
                     {enrollment.rejectionReason}
                   </span>
                 </Field>

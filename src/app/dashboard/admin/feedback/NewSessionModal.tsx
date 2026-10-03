@@ -549,7 +549,7 @@ export function NewSessionModal() {
                     type="button"
                     onClick={removeCoverSelection}
                     aria-label="Remove cover image"
-                    className="absolute top-2 right-2 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center bg-pz-surface-container-highest/80 backdrop-blur text-pz-on-surface p-1 rounded-full hover:bg-pz-danger hover:text-white transition-colors shadow-lg z-10"
+                    className="absolute top-2 right-2 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center bg-pz-surface-container-highest/80 backdrop-blur text-pz-on-surface p-1 rounded-full hover:bg-pz-solid-danger hover:text-white transition-colors shadow-lg z-10"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1105,7 +1105,7 @@ export function SessionRowActions({
               loading={isPending}
               disabled={isPending}
               onClick={() => submitDelete()}
-              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
             </Button>
@@ -1149,7 +1149,7 @@ export function ProgramRowActions({ id, name }: { id: string; name: string }) {
           type="button"
           onClick={() => setDeleteOpen(true)}
           aria-label={`Delete ${name}`}
-          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-danger/10 transition-colors"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-solid-danger/10 transition-colors"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -1192,7 +1192,7 @@ export function ProgramRowActions({ id, name }: { id: string; name: string }) {
               loading={isPending}
               disabled={isPending}
               onClick={() => submitDelete()}
-              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
             </Button>

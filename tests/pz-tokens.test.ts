@@ -5,7 +5,7 @@ import path from "node:path";
 // Tokens that are intentionally identical in both themes (brand colours and
 // container/on-container pairs that stay readable by construction).
 const CONSTANT = new Set([
-  "bright", "lime", "gold", "gold-light", "maroon", "success", "warning", "danger",
+  "bright", "lime", "gold", "gold-light", "maroon", "success", "warning", "solid-danger",
   "solid-deep", "solid-forest", "solid-mid", "solid-pine", "solid-sage",
   "primary-container", "on-primary-container", "primary-fixed", "primary-fixed-dim",
   "on-primary-fixed", "on-primary-fixed-variant",
@@ -66,6 +66,12 @@ function walk(dir: string, out: string[] = []): string[] {
 
 it("no non-text utility uses the adaptive brand greens (use solid-* instead)", () => {
   const re = /\b(bg|from|to|via|border|ring|divide|outline|fill|stroke|decoration|accent|caret|placeholder)-pz-(forest|deep|mid|pine|sage)\b/;
+  const offenders = walk(path.join(process.cwd(), "src")).filter((f) => re.test(fs.readFileSync(f, "utf8")));
+  expect(offenders).toEqual([]);
+});
+
+it("no non-text utility uses the adaptive danger token (use solid-danger instead)", () => {
+  const re = /\b(bg|from|to|via|border|ring|divide|outline|fill|stroke|decoration|accent|caret|placeholder)-pz-danger\b/;
   const offenders = walk(path.join(process.cwd(), "src")).filter((f) => re.test(fs.readFileSync(f, "utf8")));
   expect(offenders).toEqual([]);
 });

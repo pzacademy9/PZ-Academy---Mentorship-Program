@@ -56,7 +56,7 @@ const VARIANTS: Record<Variant, VariantConfig> = {
   },
   rejected: {
     icon: XCircle,
-    iconWrap: "bg-pz-danger/15",
+    iconWrap: "bg-pz-solid-danger/15",
     iconColor: "text-pz-danger",
     title: "Enrollment Not Approved",
     body: (course) => (

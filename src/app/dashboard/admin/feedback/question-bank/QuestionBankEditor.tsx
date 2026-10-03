@@ -194,7 +194,7 @@ export function QuestionBankEditor({ initialQuestions }: { initialQuestions: Que
       </div>
 
       {mentorshipDefaultCount < 3 && (
-        <div className="flex gap-2 items-start bg-pz-danger/10 p-3 rounded-lg border border-pz-danger/30">
+        <div className="flex gap-2 items-start bg-pz-solid-danger/10 p-3 rounded-lg border border-pz-solid-danger/30">
           <Info className="w-4 h-4 text-pz-danger shrink-0 mt-0.5" />
           <p className="font-body text-xs text-pz-danger leading-relaxed">
             Only {mentorshipDefaultCount} question{mentorshipDefaultCount === 1 ? "" : "s"} currently flagged

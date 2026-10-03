@@ -479,7 +479,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
                 Send test
               </Button>
               <Button variant="bare" size="bare" loading={sending} onClick={() => sendReal()} disabled={busy}
-                className="px-5 py-2 rounded-full bg-pz-danger text-white font-headline text-sm font-semibold max-md:min-h-11">
+                className="px-5 py-2 rounded-full bg-pz-solid-danger text-white font-headline text-sm font-semibold max-md:min-h-11">
                 Send to segment
               </Button>
             </>

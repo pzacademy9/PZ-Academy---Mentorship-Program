@@ -32,7 +32,8 @@ export const PZ_TOKENS: Record<string, PzToken> = {
   border: { light: "#D4EACC", dark: "#404A3A" },
   success: { light: "#10B981" },
   warning: { light: "#F59E0B" },
-  danger: { light: "#EF4444" },
+  danger: { light: "#EF4444", dark: "#ffb4ab" },
+  "solid-danger": { light: "#EF4444" },
 
   // Stitch semantic tokens.
   primary: { light: "#246d00", dark: "#99f670" },

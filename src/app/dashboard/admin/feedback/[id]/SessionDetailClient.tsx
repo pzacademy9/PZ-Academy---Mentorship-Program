@@ -188,7 +188,7 @@ function ResponseRow({
             e.stopPropagation();
             onRequestDelete(r);
           }}
-          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-danger/10 transition-colors shrink-0"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-solid-danger/10 transition-colors shrink-0"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -539,7 +539,7 @@ export function SessionDetailClient({
                   loading={removeCoverPending}
                   disabled={isPending}
                   aria-label="Remove cover image"
-                  className="bg-pz-surface/70 hover:bg-pz-danger backdrop-blur-md border border-pz-outline-variant/40 text-pz-on-surface hover:text-white px-2 py-1.5 max-md:min-h-11 max-md:min-w-11 rounded-lg flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm"
+                  className="bg-pz-surface/70 hover:bg-pz-solid-danger backdrop-blur-md border border-pz-outline-variant/40 text-pz-on-surface hover:text-white px-2 py-1.5 max-md:min-h-11 max-md:min-w-11 rounded-lg flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm"
                 >
                   <X className="w-4 h-4" />
                 </Button>
@@ -747,7 +747,7 @@ export function SessionDetailClient({
               onClick={() => confirmDeleteResponse()}
               loading={deletePending}
               disabled={isPending}
-              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
             </Button>
