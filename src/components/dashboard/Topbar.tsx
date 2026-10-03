@@ -55,7 +55,7 @@ export function Topbar({ fullName, role, currentUserId, avatarUrl, notifications
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">
               <Avatar className="w-8 h-8 ring-2 ring-pz-primary/40">
                 <AvatarImage src={avatarUrl ?? undefined} alt={fullName} />
-                <AvatarFallback className="bg-pz-bright text-pz-deep text-xs font-bold">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-pz-bright text-pz-deep dark:text-pz-solid-deep text-xs font-bold">{initials}</AvatarFallback>
               </Avatar>
               <span className="hidden sm:block text-sm font-label font-medium text-pz-on-surface max-w-[120px] truncate">{fullName}</span>
             </Button>

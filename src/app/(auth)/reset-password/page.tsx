@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
             <Input id="confirm_password" className="max-md:h-11" name="confirm_password" type="password" autoComplete="new-password" />
             {errors.confirm_password && <p className="text-xs text-pz-danger">{errors.confirm_password}</p>}
           </div>
-          <Button type="submit" loading={loading} className="w-full bg-pz-lime text-pz-forest hover:bg-pz-mint font-semibold">
+          <Button type="submit" loading={loading} className="w-full bg-pz-lime text-pz-forest dark:text-pz-solid-forest hover:bg-pz-mint font-semibold">
             Update password
           </Button>
         </form>

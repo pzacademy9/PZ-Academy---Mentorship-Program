@@ -23,10 +23,10 @@ export function Sidebar({ role }: SidebarProps) {
   const tab = (active: boolean) =>
     cn(
       "flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-label transition-colors",
-      active ? "text-pz-on-secondary-container" : "text-pz-on-surface-variant",
+      active ? "text-pz-on-secondary-container dark:text-pz-secondary" : "text-pz-on-surface-variant",
     );
   const pill = (active: boolean) =>
-    cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-pz-secondary-container");
+    cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-pz-secondary-container text-pz-on-secondary-container");
 
   return (
     <>
@@ -34,7 +34,7 @@ export function Sidebar({ role }: SidebarProps) {
       <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-pz-surface-container shrink-0 border-r border-pz-outline-variant/20">
         <div className="flex items-center gap-3 px-6 py-5">
           <div className="w-8 h-8 rounded-full bg-pz-bright flex items-center justify-center shrink-0">
-            <span className="font-headline font-black text-pz-deep text-xs">PZ</span>
+            <span className="font-headline font-black text-pz-deep dark:text-pz-solid-deep text-xs">PZ</span>
           </div>
           <span className="font-headline font-bold text-pz-secondary text-sm">PZ Academy</span>
         </div>

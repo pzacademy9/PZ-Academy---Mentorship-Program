@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" className="max-md:h-11" name="email" type="email" placeholder="you@example.com" autoComplete="email" />
             </div>
-            <Button type="submit" loading={loading} className="w-full bg-pz-lime text-pz-forest hover:bg-pz-mint font-semibold">
+            <Button type="submit" loading={loading} className="w-full bg-pz-lime text-pz-forest dark:text-pz-solid-forest hover:bg-pz-mint font-semibold">
               Send reset link
             </Button>
             <Link href="/login" className="block text-center text-sm text-pz-muted hover:underline max-md:py-3">Back to login</Link>

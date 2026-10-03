@@ -489,7 +489,7 @@ export function QuizModal({
             )}
             <button
               onClick={onClose}
-              className="px-5 py-2.5 max-md:min-h-11 rounded-lg bg-pz-lime text-pz-forest font-bold text-sm shadow-md hover:opacity-90 transition-all"
+              className="px-5 py-2.5 max-md:min-h-11 rounded-lg bg-pz-lime text-pz-forest dark:text-pz-solid-forest font-bold text-sm shadow-md hover:opacity-90 transition-all"
             >
               {result.passed ? "Continue →" : "Close"}
             </button>

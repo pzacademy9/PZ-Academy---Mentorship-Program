@@ -127,7 +127,7 @@ export function RegisterForm() {
       <Button
         type="submit"
         loading={loading}
-        className="w-full bg-pz-lime text-pz-forest hover:bg-pz-mint font-semibold"
+        className="w-full bg-pz-lime text-pz-forest dark:text-pz-solid-forest hover:bg-pz-mint font-semibold"
       >
         Create Account
       </Button>
