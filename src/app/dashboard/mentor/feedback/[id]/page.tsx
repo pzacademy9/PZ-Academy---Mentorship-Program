@@ -83,7 +83,7 @@ function ResponseRow({
               &ldquo;{r.comments}&rdquo;
             </p>
           ) : (
-            <p className="font-body text-xs text-pz-on-surface-variant/60 mt-0.5 italic">No comments</p>
+            <p className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80 mt-0.5 italic">No comments</p>
           )}
         </div>
         <span className="font-body text-xs text-pz-on-surface-variant whitespace-nowrap hidden sm:inline">
@@ -183,7 +183,7 @@ export default async function MentorFeedbackSessionDetailPage({
             className={cn(
               "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
               session.status === "active"
-                ? "bg-pz-primary-container/30 text-pz-on-primary-container"
+                ? "bg-pz-primary-container/30 dark:bg-pz-primary-container/15 text-pz-on-primary-container dark:text-pz-primary"
                 : "bg-pz-surface-variant text-pz-on-surface-variant",
             )}
           >

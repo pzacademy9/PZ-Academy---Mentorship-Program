@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -29,6 +29,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import { ShareReviewModal } from "./ShareReviewModal";
 
@@ -150,9 +152,9 @@ export function TypeToggle({
         disabled={disabled}
         onClick={() => onChange("stars")}
         className={cn(
-          "p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+          "p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
           value === "stars"
-            ? "bg-pz-primary-container/40 text-pz-on-primary-container"
+            ? "bg-pz-primary-container/40 text-pz-on-primary-container dark:text-pz-primary"
             : "text-pz-on-surface-variant hover:bg-pz-surface-container-high",
         )}
       >
@@ -165,9 +167,9 @@ export function TypeToggle({
         disabled={disabled}
         onClick={() => onChange("video")}
         className={cn(
-          "p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+          "p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
           value === "video"
-            ? "bg-pz-primary-container/40 text-pz-on-primary-container"
+            ? "bg-pz-primary-container/40 text-pz-on-primary-container dark:text-pz-primary"
             : "text-pz-on-surface-variant hover:bg-pz-surface-container-high",
         )}
       >
@@ -200,12 +202,12 @@ function ProgramSessionLinkRow({ index, slug }: { index: number; slug: string })
           type="text"
           readOnly
           value={link}
-          className="flex-1 bg-transparent border-none px-3 py-2 font-body text-sm text-pz-on-surface truncate outline-none"
+          className="flex-1 bg-transparent border-none px-3 py-2 font-body text-sm max-md:text-base text-pz-on-surface truncate outline-none"
         />
         <button
           type="button"
           onClick={copy}
-          className="flex items-center gap-1.5 px-3 py-2 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
+          className="flex items-center gap-1.5 px-3 py-2 max-md:min-h-11 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
         >
           {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? "Copied" : "Copy"}
@@ -219,7 +221,6 @@ export function NewSessionModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"form" | "success">("form");
-  const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState("");
   const [speakerName, setSpeakerName] = useState("");
@@ -414,7 +415,7 @@ export function NewSessionModal() {
     );
   }
 
-  function submit() {
+  const { run: submit, pending: isPending } = useAsyncAction(async () => {
     if (!name.trim()) {
       toast.error(isProgram ? "Program name is required." : "Session name and speaker are required.");
       return;
@@ -451,55 +452,51 @@ export function NewSessionModal() {
         return;
       }
 
-      startTransition(async () => {
-        const res = await fetch("/api/admin/feedback/programs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), questions, sessions }),
-        });
-
-        if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-          toast.error(payload?.error ?? "Could not create this program.");
-          return;
-        }
-
-        const payload = (await res.json()) as { id: string; sessions: { id: string; slug: string }[] };
-        await uploadCoverForProgram(payload.id);
-        if (payload.sessions[0]) await uploadCoverForSession(payload.sessions[0].id);
-        setCreatedProgramSessions(payload.sessions);
-        setStep("success");
-        router.refresh();
-      });
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await fetch("/api/admin/feedback/sessions", {
+      const res = await fetch("/api/admin/feedback/programs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          speakerName: speakerName.trim(),
-          sessionDate: date || null,
-          questions,
-          mentorId: selectedMentorId,
-        }),
+        body: JSON.stringify({ name: name.trim(), questions, sessions }),
       });
 
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not create this session.");
+        toast.error(payload?.error ?? "Could not create this program.");
         return;
       }
 
-      const payload = (await res.json()) as { id: string; slug: string };
-      await uploadCoverForSession(payload.id);
-      setCreatedSlug(payload.slug);
+      const payload = (await res.json()) as { id: string; sessions: { id: string; slug: string }[] };
+      await uploadCoverForProgram(payload.id);
+      if (payload.sessions[0]) await uploadCoverForSession(payload.sessions[0].id);
+      setCreatedProgramSessions(payload.sessions);
       setStep("success");
       router.refresh();
+      return;
+    }
+
+    const res = await fetch("/api/admin/feedback/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        speakerName: speakerName.trim(),
+        sessionDate: date || null,
+        questions,
+        mentorId: selectedMentorId,
+      }),
     });
-  }
+
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(payload?.error ?? "Could not create this session.");
+      return;
+    }
+
+    const payload = (await res.json()) as { id: string; slug: string };
+    await uploadCoverForSession(payload.id);
+    setCreatedSlug(payload.slug);
+    setStep("success");
+    router.refresh();
+  });
 
   const link =
     createdSlug != null
@@ -528,7 +525,7 @@ export function NewSessionModal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors shadow-sm"
+        className="inline-flex items-center gap-2 max-md:min-h-11 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors shadow-sm"
       >
         <Plus className="w-4 h-4" />
         New Session
@@ -552,7 +549,7 @@ export function NewSessionModal() {
                     type="button"
                     onClick={removeCoverSelection}
                     aria-label="Remove cover image"
-                    className="absolute top-2 right-2 bg-pz-surface-container-highest/80 backdrop-blur text-pz-on-surface p-1 rounded-full hover:bg-pz-danger hover:text-white transition-colors shadow-lg z-10"
+                    className="absolute top-2 right-2 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center bg-pz-surface-container-highest/80 backdrop-blur text-pz-on-surface p-1 rounded-full hover:bg-pz-solid-danger hover:text-white transition-colors shadow-lg z-10"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -572,7 +569,7 @@ export function NewSessionModal() {
                 >
                   <ImageIcon className="w-7 h-7 text-pz-on-surface-variant" />
                   <span className="font-headline text-sm font-semibold text-pz-on-surface-variant">Add a cover image</span>
-                  <span className="font-body text-xs text-pz-on-surface-variant/70">16:9 recommended · up to 5 MB</span>
+                  <span className="font-body text-xs text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">16:9 recommended · up to 5 MB</span>
                   <input id="cover-input" type="file" accept="image/*" onChange={handleCoverSelect} className="hidden" />
                 </label>
               )}
@@ -587,7 +584,7 @@ export function NewSessionModal() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={isProgram ? "e.g. Advanced Cardiology Series" : "e.g. Advanced Cardiology Trends"}
-                  className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                  className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                 />
               </div>
 
@@ -605,14 +602,14 @@ export function NewSessionModal() {
                   aria-label="Make this a program"
                   onClick={() => setIsProgram((v) => !v)}
                   className={cn(
-                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 max-md:min-h-11 max-md:bg-clip-content max-md:py-2.5",
                     isProgram ? "bg-pz-primary" : "bg-pz-surface-variant",
                   )}
                 >
                   <span
                     className={cn(
                       "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                      isProgram ? "translate-x-6" : "translate-x-1",
+                      isProgram ? "translate-x-6 dark:bg-pz-on-primary" : "translate-x-1",
                     )}
                   />
                 </button>
@@ -628,7 +625,7 @@ export function NewSessionModal() {
                     Link to mentor
                   </label>
                   {selectedMentor ? (
-                    <div className="w-full bg-white p-2 rounded-lg border border-pz-outline-variant flex items-center justify-between">
+                    <div className="w-full bg-pz-surface-container-lowest p-2 rounded-lg border border-pz-outline-variant flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         {selectedMentor.photo ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -653,7 +650,7 @@ export function NewSessionModal() {
                         type="button"
                         onClick={() => setSelectedMentorId(null)}
                         aria-label="Clear linked mentor"
-                        className="p-1 rounded-full text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-variant transition-colors shrink-0"
+                        className="p-1 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-variant transition-colors shrink-0"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -671,10 +668,10 @@ export function NewSessionModal() {
                         onFocus={() => setMentorDropdownOpen(true)}
                         onBlur={() => setTimeout(() => setMentorDropdownOpen(false), 150)}
                         placeholder={mentorsLoading ? "Loading mentors…" : "Search mentors by name…"}
-                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                       />
                       {mentorDropdownOpen && mentorQuery.trim().length > 0 && (
-                        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-pz-outline-variant rounded-lg shadow-lg">
+                        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg shadow-lg">
                           {mentorsLoading && (
                             <p className="px-3 py-2 font-body text-sm text-pz-on-surface-variant">Loading mentors…</p>
                           )}
@@ -693,7 +690,7 @@ export function NewSessionModal() {
                                 setMentorQuery("");
                                 setMentorDropdownOpen(false);
                               }}
-                              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-pz-surface-container text-left transition-colors"
+                              className="w-full flex items-center gap-3 px-3 py-2 max-md:min-h-11 hover:bg-pz-surface-container text-left transition-colors"
                             >
                               {m.photo ? (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -715,7 +712,7 @@ export function NewSessionModal() {
                       )}
                     </div>
                   )}
-                  <p className="font-body text-xs text-pz-on-surface-variant/70">
+                  <p className="font-body text-xs text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">
                     Optional — links this session&apos;s reviews to a public mentor profile
                   </p>
                   {selectedMentor && !selectedMentor.hasLinkedAccount && (
@@ -739,7 +736,7 @@ export function NewSessionModal() {
                       value={speakerName}
                       onChange={(e) => setSpeakerName(e.target.value)}
                       placeholder="Dr. Jane Doe"
-                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -751,7 +748,7 @@ export function NewSessionModal() {
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                      className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                     />
                   </div>
                 </div>
@@ -778,7 +775,7 @@ export function NewSessionModal() {
                           onClick={() => removeProgramSession(s.localId)}
                           disabled={programSessions.length <= MIN_PROGRAM_SESSIONS}
                           aria-label={`Remove session ${i + 1}`}
-                          className="p-1 rounded text-pz-on-surface-variant hover:text-pz-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="p-1 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded text-pz-on-surface-variant hover:text-pz-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -788,7 +785,7 @@ export function NewSessionModal() {
                         value={s.title}
                         onChange={(e) => updateProgramSession(s.localId, { title: e.target.value })}
                         placeholder="Session title"
-                        className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                        className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                       />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
@@ -796,13 +793,13 @@ export function NewSessionModal() {
                           value={s.speaker}
                           onChange={(e) => updateProgramSession(s.localId, { speaker: e.target.value })}
                           placeholder="Speaker name"
-                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                         />
                         <input
                           type="date"
                           value={s.date}
                           onChange={(e) => updateProgramSession(s.localId, { date: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-white focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm"
+                          className="w-full px-3 py-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest focus:border-pz-primary focus:ring-2 focus:ring-pz-primary/20 outline-none font-body text-sm max-md:text-base max-md:min-h-11"
                         />
                       </div>
                     </div>
@@ -811,7 +808,7 @@ export function NewSessionModal() {
                   <button
                     type="button"
                     onClick={addProgramSession}
-                    className="inline-flex items-center gap-1.5 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container transition-colors"
+                    className="inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add Session
@@ -838,9 +835,9 @@ export function NewSessionModal() {
                         checked={!!selected[q.id]}
                         onChange={() => toggleSelected(q.id)}
                         disabled={!selected[q.id] && atMax}
-                        className="mt-1.5 w-4 h-4 rounded border-pz-outline-variant text-pz-primary focus:ring-pz-primary/30 cursor-pointer disabled:cursor-not-allowed"
+                        className="mt-1.5 w-4 h-4 max-md:w-5 max-md:h-5 rounded border-pz-outline-variant text-pz-primary focus:ring-pz-primary/30 cursor-pointer disabled:cursor-not-allowed"
                       />
-                      <label htmlFor={`bank-${q.id}`} className="flex-1 font-body text-sm text-pz-on-surface py-1 cursor-pointer">
+                      <label htmlFor={`bank-${q.id}`} className="flex-1 font-body text-sm text-pz-on-surface py-1 max-md:min-h-11 max-md:flex max-md:items-center cursor-pointer">
                         {q.text}
                       </label>
                       <TypeToggle
@@ -852,14 +849,14 @@ export function NewSessionModal() {
                   ))}
 
                   {customQuestions.map((q) => (
-                    <div key={q.localId} className="flex items-start gap-3">
+                    <div key={q.localId} className="flex flex-wrap items-start gap-3">
                       <span className="mt-1.5 w-4 h-4 rounded bg-pz-primary/70 shrink-0" aria-hidden />
                       <input
                         type="text"
                         value={q.text}
                         onChange={(e) => updateCustomQuestion(q.localId, { text: e.target.value })}
                         placeholder="Type a custom question…"
-                        className="flex-1 bg-transparent border-b border-pz-outline-variant/60 focus:border-pz-primary outline-none font-body text-sm text-pz-on-surface py-1"
+                        className="flex-1 max-md:min-w-[10rem] bg-transparent border-b border-pz-outline-variant/60 focus:border-pz-primary outline-none font-body text-sm text-pz-on-surface py-1 max-md:text-base max-md:min-h-11"
                       />
                       <TypeToggle
                         value={q.type}
@@ -870,7 +867,7 @@ export function NewSessionModal() {
                         type="button"
                         onClick={() => removeCustomQuestion(q.localId)}
                         aria-label="Remove custom question"
-                        className="p-1 rounded text-pz-on-surface-variant hover:text-pz-danger transition-colors"
+                        className="p-1 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded text-pz-on-surface-variant hover:text-pz-danger transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -882,7 +879,7 @@ export function NewSessionModal() {
                   type="button"
                   onClick={addCustomQuestion}
                   disabled={atMax}
-                  className="mt-2 inline-flex items-center gap-1.5 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="mt-2 inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add custom question
@@ -894,18 +891,20 @@ export function NewSessionModal() {
                   type="button"
                   onClick={closeAndReset}
                   disabled={isPending}
-                  className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+                  className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
-                <button
+                <Button
+                  variant="bare"
+                  size="bare"
                   type="button"
-                  onClick={submit}
-                  disabled={isPending}
-                  className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  loading={isPending}
+                  onClick={() => submit()}
+                  className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isPending ? "Creating…" : isProgram ? "Create Program" : "Create Session"}
-                </button>
+                </Button>
               </DialogFooter>
             </>
           ) : (
@@ -945,12 +944,12 @@ export function NewSessionModal() {
                       type="text"
                       readOnly
                       value={link}
-                      className="flex-1 bg-transparent border-none px-3 py-2.5 font-body text-sm text-pz-on-surface truncate outline-none"
+                      className="flex-1 bg-transparent border-none px-3 py-2.5 font-body text-sm max-md:text-base text-pz-on-surface truncate outline-none"
                     />
                     <button
                       type="button"
                       onClick={copyLink}
-                      className="flex items-center gap-1.5 px-4 py-2.5 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
+                      className="flex items-center gap-1.5 px-4 py-2.5 max-md:min-h-11 border-l border-pz-outline-variant bg-pz-surface-container-high hover:bg-pz-surface-variant transition-colors font-headline text-xs font-semibold text-pz-on-surface shrink-0"
                     >
                       {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
                       {copied ? "Copied" : "Copy"}
@@ -970,7 +969,7 @@ export function NewSessionModal() {
                 <button
                   type="button"
                   onClick={closeAndReset}
-                  className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors"
+                  className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors"
                 >
                   Done
                 </button>
@@ -996,63 +995,58 @@ export function SessionRowActions({
   status: "active" | "closed";
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  function toggleStatus() {
+  // One lock across status / share / delete: only one row action runs at a time.
+  const { run: toggleStatus, pending: togglePending } = useAsyncAction(async () => {
     const target = status === "active" ? "closed" : "active";
-    startTransition(async () => {
-      const res = await fetch(`/api/admin/feedback/sessions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: target }),
-      });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not update this session.");
-        return;
-      }
-      toast.success(`${name} — marked ${target}.`);
-      router.refresh();
+    const res = await fetch(`/api/admin/feedback/sessions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: target }),
     });
-  }
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(payload?.error ?? "Could not update this session.");
+      return;
+    }
+    toast.success(`${name} — marked ${target}.`);
+    router.refresh();
+  });
 
-  function shareLink() {
-    startTransition(async () => {
-      const res = await fetch(`/api/admin/feedback/sessions/${id}/share-token`, { method: "POST" });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not generate a share link.");
-        return;
-      }
-      const payload = (await res.json()) as { shareUrl: string };
-      const absolute = typeof window !== "undefined" ? `${window.location.origin}${payload.shareUrl}` : payload.shareUrl;
-      try {
-        await navigator.clipboard.writeText(absolute);
-        toast.success("Share link copied to clipboard.");
-      } catch {
-        toast.success(`Share link: ${absolute}`);
-      }
-    });
-  }
+  const { run: shareLink, pending: sharePending } = useAsyncAction(async () => {
+    const res = await fetch(`/api/admin/feedback/sessions/${id}/share-token`, { method: "POST" });
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(payload?.error ?? "Could not generate a share link.");
+      return;
+    }
+    const payload = (await res.json()) as { shareUrl: string };
+    const absolute = typeof window !== "undefined" ? `${window.location.origin}${payload.shareUrl}` : payload.shareUrl;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      toast.success("Share link copied to clipboard.");
+    } catch {
+      toast.success(`Share link: ${absolute}`);
+    }
+  });
 
   function exportCsv() {
     window.open(`/api/admin/feedback/sessions/${id}/export`, "_blank");
   }
 
-  function submitDelete() {
-    startTransition(async () => {
-      const res = await fetch(`/api/admin/feedback/sessions/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not delete this session.");
-        return;
-      }
-      setDeleteOpen(false);
-      toast.success(`${name} deleted.`);
-      router.refresh();
-    });
-  }
+  const { run: submitDelete, pending: deletePending } = useAsyncAction(async () => {
+    const res = await fetch(`/api/admin/feedback/sessions/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(payload?.error ?? "Could not delete this session.");
+      return;
+    }
+    setDeleteOpen(false);
+    toast.success(`${name} deleted.`);
+    router.refresh();
+  });
+  const isPending = togglePending || sharePending || deletePending;
 
   return (
     <>
@@ -1060,7 +1054,7 @@ export function SessionRowActions({
         <DropdownMenuTrigger
           aria-label="Session actions"
           disabled={isPending}
-          className="p-1.5 rounded-full text-pz-on-surface-variant hover:bg-pz-surface-container transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary/30"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:bg-pz-surface-container transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary/30"
         >
           <MoreVertical className="w-5 h-5" />
         </DropdownMenuTrigger>
@@ -1100,18 +1094,21 @@ export function SessionRowActions({
               type="button"
               onClick={() => setDeleteOpen(false)}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
-            <button
+            <Button
+              variant="bare"
+              size="bare"
               type="button"
-              onClick={submitDelete}
+              loading={isPending}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => submitDelete()}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1122,23 +1119,20 @@ export function SessionRowActions({
 /** Row-level actions for the Programs table — Share link and delete (sessions survive delete as standalone, program_id set to null). */
 export function ProgramRowActions({ id, name }: { id: string; name: string }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  function submitDelete() {
-    startTransition(async () => {
-      const res = await fetch(`/api/admin/feedback/programs/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(payload?.error ?? "Could not delete this program.");
-        return;
-      }
-      setDeleteOpen(false);
-      toast.success(`${name} deleted — its sessions remain, no longer grouped.`);
-      router.refresh();
-    });
-  }
+  const { run: submitDelete, pending: isPending } = useAsyncAction(async () => {
+    const res = await fetch(`/api/admin/feedback/programs/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(payload?.error ?? "Could not delete this program.");
+      return;
+    }
+    setDeleteOpen(false);
+    toast.success(`${name} deleted — its sessions remain, no longer grouped.`);
+    router.refresh();
+  });
 
   return (
     <>
@@ -1147,7 +1141,7 @@ export function ProgramRowActions({ id, name }: { id: string; name: string }) {
           type="button"
           onClick={() => setShareOpen(true)}
           aria-label={`Share ${name}`}
-          className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-primary/10 transition-colors"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-primary/10 transition-colors"
         >
           <Link2 className="w-4 h-4" />
         </button>
@@ -1155,7 +1149,7 @@ export function ProgramRowActions({ id, name }: { id: string; name: string }) {
           type="button"
           onClick={() => setDeleteOpen(true)}
           aria-label={`Delete ${name}`}
-          className="p-1.5 rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-danger/10 transition-colors"
+          className="p-1.5 max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center rounded-full text-pz-on-surface-variant hover:text-pz-danger hover:bg-pz-solid-danger/10 transition-colors"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -1187,18 +1181,21 @@ export function ProgramRowActions({ id, name }: { id: string; name: string }) {
               type="button"
               onClick={() => setDeleteOpen(false)}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
-            <button
+            <Button
+              variant="bare"
+              size="bare"
               type="button"
-              onClick={submitDelete}
+              loading={isPending}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => submitDelete()}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

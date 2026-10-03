@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import type { CampaignRow, CampaignConversionDetail } from "@/lib/data/admin-crm-campaigns";
 
 export function CampaignDetailClient({
@@ -36,7 +38,7 @@ export function CampaignDetailClient({
       <div>
         <Link
           href="/dashboard/admin/crm?tab=campaigns"
-          className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
+          className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors max-md:min-h-11"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Campaigns
         </Link>
@@ -72,39 +74,59 @@ export function CampaignDetailClient({
               value={recipientSearch}
               onChange={(e) => setRecipientSearch(e.target.value)}
               placeholder="Search recipients…"
-              className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64"
+              className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base"
             />
           )}
         </div>
         {!conversionDetail ? (
           <p className="font-body text-sm text-pz-on-surface-variant py-4">This campaign isn&apos;t tagged with a conversion program.</p>
-        ) : filteredRecipients.length === 0 ? (
-          <p className="font-body text-sm text-pz-on-surface-variant py-4">
-            {recipientSearch ? `No recipients match "${recipientSearch}".` : "No recipients yet."}
-          </p>
         ) : (
-          <table className="w-full text-left font-body text-sm">
-            <thead className="text-pz-on-surface-variant text-xs uppercase">
-              <tr><th className="py-1">Name</th><th>Converted</th></tr>
-            </thead>
-            <tbody>
-              {filteredRecipients.map((r) => (
-                <tr key={r.contactId} className="border-t border-pz-outline-variant">
-                  <td className="py-1">
-                    <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="underline">
-                      {r.fullName || "—"}
-                    </Link>
-                    {manualSet.has(r.contactId) && (
-                      <span className="ml-2 px-1.5 py-0.5 rounded-full bg-pz-primary-container text-pz-on-primary-container text-[10px] font-bold uppercase">
-                        manually converted
-                      </span>
-                    )}
-                  </td>
-                  <td>{r.convertedAt ? new Date(r.convertedAt).toLocaleDateString() : "Not converted (yet)"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ResponsiveList
+            rows={filteredRecipients}
+            getKey={(r) => r.contactId}
+            empty={
+              <EmptyState
+                icon={Users}
+                title={recipientSearch ? "No recipients match" : "No recipients yet"}
+                description={recipientSearch ? `Nothing matches "${recipientSearch}".` : undefined}
+              />
+            }
+            mobile={{
+              title: (r) => (
+                <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="inline-flex min-h-11 items-center underline">
+                  {r.fullName || "—"}
+                </Link>
+              ),
+              meta: (r) => [
+                manualSet.has(r.contactId) ? "Manually converted" : null,
+                r.convertedAt ? `Converted ${new Date(r.convertedAt).toLocaleDateString()}` : "Not converted (yet)",
+              ].filter(Boolean),
+            }}
+            table={
+              <table className="w-full text-left font-body text-sm">
+                <thead className="text-pz-on-surface-variant text-xs uppercase">
+                  <tr><th className="py-1">Name</th><th>Converted</th></tr>
+                </thead>
+                <tbody>
+                  {filteredRecipients.map((r) => (
+                    <tr key={r.contactId} className="border-t border-pz-outline-variant">
+                      <td className="py-1">
+                        <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="underline">
+                          {r.fullName || "—"}
+                        </Link>
+                        {manualSet.has(r.contactId) && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded-full bg-pz-primary-container text-pz-on-primary-container text-[10px] font-bold uppercase">
+                            manually converted
+                          </span>
+                        )}
+                      </td>
+                      <td>{r.convertedAt ? new Date(r.convertedAt).toLocaleDateString() : "Not converted (yet)"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }
+          />
         )}
       </div>
     </div>

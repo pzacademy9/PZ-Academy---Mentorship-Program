@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { GitMerge } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 type ContactRow = {
   id: string;
@@ -19,11 +23,9 @@ type Candidate = { id: string; reason: string; confidence: number; a: ContactRow
 export function MergeReviewPanel({ initialCandidates }: { initialCandidates: Candidate[] }) {
   const router = useRouter();
   const [candidates, setCandidates] = useState(initialCandidates);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function resolve(id: string, decision: "merge" | "reject") {
-    setBusyId(id);
+  const { run: resolve, pending: resolving, pendingKey: busyId } = useAsyncAction(async (id: string, decision: "merge" | "reject") => {
     setError(null);
     try {
       const res = await fetch(`/api/admin/crm/merge/${id}`, {
@@ -41,13 +43,17 @@ export function MergeReviewPanel({ initialCandidates }: { initialCandidates: Can
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not resolve this duplicate.");
-    } finally {
-      setBusyId(null);
     }
-  }
+  }, { getKey: (id) => id });
 
   if (candidates.length === 0) {
-    return <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No duplicates waiting for review.</p>;
+    return (
+      <EmptyState
+        icon={GitMerge}
+        title="No duplicates waiting for review"
+        description="Possible duplicate contacts show up here after an import."
+      />
+    );
   }
 
   return (
@@ -65,21 +71,26 @@ export function MergeReviewPanel({ initialCandidates }: { initialCandidates: Can
             <ContactCard contact={c.b} label="Will be removed" />
           </div>
 
-          <div className="flex gap-2">
-            <button
+          <div className="flex gap-2 max-md:flex-col">
+            <Button
+              variant="bare"
+              size="bare"
+              loading={busyId === c.id}
               onClick={() => resolve(c.id, "merge")}
-              disabled={busyId === c.id}
-              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+              disabled={resolving}
+              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
             >
               {busyId === c.id ? "Merging…" : "Merge"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="bare"
+              size="bare"
               onClick={() => resolve(c.id, "reject")}
-              disabled={busyId === c.id}
-              className="px-5 py-2 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-sm font-medium disabled:opacity-50"
+              disabled={resolving}
+              className="px-5 py-2 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-sm font-medium max-md:min-h-11"
             >
               Different people
-            </button>
+            </Button>
           </div>
         </div>
       ))}

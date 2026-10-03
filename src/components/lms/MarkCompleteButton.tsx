@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Check } from "lucide-react";
+import { CheckCircle2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { markLessonComplete } from "@/app/portal/actions";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 interface MarkCompleteButtonProps {
   courseSlug: string;
@@ -21,19 +22,11 @@ export function MarkCompleteButton({
   hasNext,
 }: MarkCompleteButtonProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
   const [done, setDone] = useState(completed);
 
-  if (done) {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-lg bg-pz-success/10 dark:bg-pz-success/15 text-pz-success text-sm font-semibold px-5 py-2.5">
-        <CheckCircle2 className="w-4 h-4" /> Completed
-      </span>
-    );
-  }
-
-  function handleClick() {
-    startTransition(async () => {
+  const { run: handleClick, pending: saving } = useAsyncAction(async () => {
+    try {
       const res = await markLessonComplete(courseSlug, lessonId);
       if (!res.ok) {
         toast.error(res.error ?? "Could not mark complete.");
@@ -43,21 +36,31 @@ export function MarkCompleteButton({
       toast.success(
         hasNext ? "Lesson complete — next lesson unlocked! 🎉" : "Lesson complete! 🎉",
       );
-      router.refresh();
-    });
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not mark complete.");
+    }
+  });
+
+  if (done) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-lg bg-pz-success/10 dark:bg-pz-success/15 text-pz-success text-sm font-semibold px-5 py-2.5">
+        <CheckCircle2 className="w-4 h-4" /> Completed
+      </span>
+    );
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={isPending}
-      className={cn(
-        "inline-flex items-center gap-2 rounded-lg bg-pz-forest text-white text-sm font-bold px-5 py-2.5 shadow-md transition-all hover:opacity-90",
-        isPending && "opacity-70 cursor-wait",
-      )}
+    <Button
+      type="button"
+      variant="bare"
+      size="bare"
+      loading={saving || isRefreshing}
+      onClick={() => handleClick()}
+      className="gap-2 rounded-lg bg-pz-solid-forest text-white text-sm font-bold px-5 py-2.5 max-md:min-h-11 shadow-md transition-all hover:opacity-90"
     >
-      {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+      <Check className="w-4 h-4" />
       Mark Complete
-    </button>
+    </Button>
   );
 }

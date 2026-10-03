@@ -31,7 +31,7 @@ export default async function MentorDashboard() {
       </div>
 
       {!mentor && (
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <p className="text-pz-muted text-sm">
             No mentor profile is linked to your account yet. Contact an admin to get set up.
           </p>
@@ -40,17 +40,17 @@ export default async function MentorDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Active Students" value={stats?.activeStudents ?? 0} icon={GraduationCap} />
-        <StatCard label="Sessions This Month" value={stats?.sessionsThisMonth ?? 0} icon={Calendar} iconBg="bg-pz-pine/10" />
+        <StatCard label="Sessions This Month" value={stats?.sessionsThisMonth ?? 0} icon={Calendar} iconBg="bg-pz-solid-pine/10" />
         <StatCard label="Earnings (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-lime/20" />
         <StatCard label="Pending Bookings" value={stats?.pendingBookings ?? 0} icon={Clock3} iconBg="bg-pz-frost" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <h2 className="font-montserrat font-bold text-pz-forest text-base mb-4">Upcoming Sessions</h2>
           <UpcomingSessionsList sessions={upcomingSessions} />
         </div>
-        <div className="bg-white rounded-xl shadow-card p-6">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
           <h2 className="font-montserrat font-bold text-pz-forest text-base mb-4">My Students</h2>
           <MyStudentsList students={students} />
         </div>

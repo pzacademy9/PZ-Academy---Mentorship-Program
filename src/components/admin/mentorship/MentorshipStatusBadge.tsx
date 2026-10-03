@@ -5,14 +5,14 @@ type BookingStatus = Database["public"]["Enums"]["mentorship_booking_status"];
 type ApplicationStatus = Database["public"]["Enums"]["mentor_application_status"];
 
 const BOOKING_STYLES: Record<BookingStatus, { label: string; className: string }> = {
-  pending: { label: "Pending", className: "bg-pz-secondary-container/40 text-pz-on-secondary-container" },
-  confirmed: { label: "Confirmed", className: "bg-pz-primary-container/30 text-pz-on-primary-container" },
+  pending: { label: "Pending", className: "bg-pz-secondary-container/40 text-pz-on-secondary-container dark:text-pz-secondary" },
+  confirmed: { label: "Confirmed", className: "bg-pz-primary-container/30 dark:bg-pz-primary-container/15 text-pz-on-primary-container dark:text-pz-primary" },
   cancelled: { label: "Cancelled", className: "bg-pz-error-container text-pz-on-error-container" },
 };
 
 const APPLICATION_STYLES: Record<ApplicationStatus, { label: string; className: string }> = {
-  pending: { label: "Pending", className: "bg-pz-secondary-container/40 text-pz-on-secondary-container" },
-  approved: { label: "Approved", className: "bg-pz-primary-container/30 text-pz-on-primary-container" },
+  pending: { label: "Pending", className: "bg-pz-secondary-container/40 text-pz-on-secondary-container dark:text-pz-secondary" },
+  approved: { label: "Approved", className: "bg-pz-primary-container/30 dark:bg-pz-primary-container/15 text-pz-on-primary-container dark:text-pz-primary" },
   rejected: { label: "Rejected", className: "bg-pz-error-container text-pz-on-error-container" },
 };
 

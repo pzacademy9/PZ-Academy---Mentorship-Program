@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChipTabs } from "@/components/ui/chip-tabs";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listBanners, listFeaturedItems, listAvailableCourses } from "@/lib/data/admin-marketing";
 import { BannersPanel } from "@/components/admin/marketing/BannersPanel";
@@ -34,20 +35,22 @@ export default async function AdminMarketingPage({
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <ChipTabs label="Marketing sections">
         <Link
           href="/dashboard/admin/marketing?tab=banners"
+          aria-current={tab === "banners" ? "page" : undefined}
           className={`px-5 py-2 rounded-full font-headline text-sm transition-all ${tab === "banners" ? "bg-pz-primary-container text-pz-on-primary-container font-semibold" : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium"}`}
         >
           Banners <span className="ml-2 tabular-nums">{banners.length}</span>
         </Link>
         <Link
           href="/dashboard/admin/marketing?tab=featured"
+          aria-current={tab === "featured" ? "page" : undefined}
           className={`px-5 py-2 rounded-full font-headline text-sm transition-all ${tab === "featured" ? "bg-pz-primary-container text-pz-on-primary-container font-semibold" : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium"}`}
         >
           Featured Content <span className="ml-2 tabular-nums">{featuredItems.length}</span>
         </Link>
-      </div>
+      </ChipTabs>
 
       {tab === "banners" ? (
         <BannersPanel initialBanners={banners} />

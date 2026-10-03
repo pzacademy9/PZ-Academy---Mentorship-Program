@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { toast } from "sonner";
-import { ImagePlus, Loader2, Trash2, type LucideIcon } from "lucide-react";
+import { ImagePlus, Trash2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 /**
  * Uploads to Google Drive via /api/admin/uploads/image and writes the
@@ -39,10 +41,7 @@ export function ImageUploadField({
   uploadUrl?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  async function handleFile(file: File) {
-    setUploading(true);
+  const { run: handleFile, pending: uploading } = useAsyncAction(async (file: File) => {
     try {
       const form = new FormData();
       form.append("file", file);
@@ -59,10 +58,9 @@ export function ImageUploadField({
       onChange(payload.url);
       toast.success("Image uploaded.");
     } finally {
-      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }
+  });
 
   return (
     <div className="flex items-start gap-3">
@@ -87,24 +85,26 @@ export function ImageUploadField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="https://... (or upload a file)"
-            className={inputClassName}
+            className={cn(inputClassName, "min-w-0 max-md:text-base max-md:min-h-11")}
           />
-          <button
+          <Button
             type="button"
+            variant="bare"
+            size="bare"
+            loading={uploading}
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors disabled:opacity-50"
+            className="shrink-0 gap-1.5 px-3 py-2.5 max-md:min-h-11 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
           >
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+            <ImagePlus className="w-3.5 h-3.5" />
             {uploading ? "Uploading…" : "Upload"}
-          </button>
+          </Button>
           {value && (
             <button
               type="button"
               onClick={() => onChange("")}
               disabled={uploading}
               title="Remove image"
-              className="shrink-0 inline-flex items-center justify-center p-2.5 rounded-lg border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-danger/10 hover:text-pz-danger hover:border-pz-danger/30 transition-colors disabled:opacity-50"
+              className="shrink-0 inline-flex items-center justify-center p-2.5 max-md:min-h-11 max-md:min-w-11 rounded-lg border border-pz-outline-variant text-pz-on-surface-variant hover:bg-pz-solid-danger/10 hover:text-pz-danger hover:border-pz-solid-danger/30 transition-colors disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

@@ -146,6 +146,9 @@ export function QuizModal({
   const timerNumRef = useRef<HTMLSpanElement>(null);
   const rafRef = useRef<number | null>(null);
   const answersRef = useRef<number[]>([]);
+  // Synchronous double-tap guard: `answered` state only updates after a render,
+  // so two taps (or a tap racing the timer) in the same tick would both pass.
+  const answeringRef = useRef(false);
 
   const [qi, setQi] = useState(0);
   const [score, setScore] = useState(0);
@@ -212,7 +215,8 @@ export function QuizModal({
 
   const revealAnswer = useCallback(
     async (idx: number, clientX?: number, clientY?: number) => {
-      if (answered) return;
+      if (answered || answeringRef.current) return;
+      answeringRef.current = true;
       setAnswered(true);
       setSelected(idx);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -244,6 +248,7 @@ export function QuizModal({
       setTimeout(() => {
         if (qi + 1 < total) {
           setQi((n) => n + 1);
+          answeringRef.current = false;
           setAnswered(false);
           setSelected(null);
           setCorrectIdx(null);
@@ -303,7 +308,7 @@ export function QuizModal({
   const stars = result ? (result.score / result.total >= 0.8 ? "★★★" : result.score / result.total >= 0.6 ? "★★☆" : "★☆☆") : "";
 
   return (
-    <div className="fixed inset-0 z-[80] bg-pz-forest/95 dark:bg-[#0a0d0b]/97 backdrop-blur-sm flex flex-col">
+    <div className="fixed inset-0 z-[80] bg-pz-solid-forest/95 dark:bg-pz-surface-container-lowest/95 backdrop-blur-sm flex flex-col">
       <canvas ref={canvasRef} className="fixed inset-0 z-[95] pointer-events-none" />
 
       {flashKind && (
@@ -339,7 +344,7 @@ export function QuizModal({
       <button
         onClick={onClose}
         aria-label="Close quiz"
-        className="absolute top-4 right-4 z-[96] w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+        className="absolute top-4 right-4 z-[96] w-10 h-10 max-md:size-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
       >
         <X className="w-5 h-5" />
       </button>
@@ -469,6 +474,7 @@ export function QuizModal({
                   setQi(0);
                   setScore(0);
                   setStreak(0);
+                  answeringRef.current = false;
                   setAnswered(false);
                   setSelected(null);
                   setCorrectIdx(null);
@@ -476,14 +482,14 @@ export function QuizModal({
                   setResult(null);
                   setPhase("question");
                 }}
-                className="px-5 py-2.5 rounded-lg border border-white/30 text-white font-semibold text-sm hover:bg-white/10 transition-colors"
+                className="px-5 py-2.5 max-md:min-h-11 rounded-lg border border-white/30 text-white font-semibold text-sm hover:bg-white/10 transition-colors"
               >
                 Try Again
               </button>
             )}
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-lg bg-pz-lime text-pz-forest font-bold text-sm shadow-md hover:opacity-90 transition-all"
+              className="px-5 py-2.5 max-md:min-h-11 rounded-lg bg-pz-lime text-pz-forest dark:text-pz-solid-forest font-bold text-sm shadow-md hover:opacity-90 transition-all"
             >
               {result.passed ? "Continue →" : "Close"}
             </button>

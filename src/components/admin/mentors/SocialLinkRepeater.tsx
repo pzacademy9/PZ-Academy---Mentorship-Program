@@ -5,7 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import type { MentorSocialLink } from "@/lib/data/mentors";
 
 const fieldClass =
-  "w-full border border-pz-outline-variant rounded-lg px-2.5 py-2 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20";
+  "w-full border border-pz-outline-variant rounded-lg px-2.5 py-2 text-sm max-md:text-base font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20";
 
 interface Row extends MentorSocialLink {
   key: string;

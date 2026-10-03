@@ -42,8 +42,8 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
             onClick={() => setFilter(f)}
             className={`px-5 py-2 rounded-full text-sm font-semibold font-poppins border transition-all duration-200 capitalize ${
               filter === f
-                ? "bg-pz-forest text-white border-pz-forest"
-                : "bg-white text-pz-muted border-pz-border hover:border-pz-mid hover:text-pz-forest"
+                ? "bg-pz-solid-forest text-white border-pz-solid-forest"
+                : "bg-white text-pz-muted border-pz-border hover:border-pz-solid-mid hover:text-pz-forest"
             }`}
           >
             {f === "all" ? "All Webinars" : f === "upcoming" ? "Upcoming" : "Past"}
@@ -107,7 +107,7 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
                   ) : (
                     <Link
                       href={`/courses/${w.slug}`}
-                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-pz-forest text-white text-[.84rem] font-semibold font-poppins transition-all duration-200 hover:bg-pz-mid hover:-translate-y-0.5 hover:shadow-card"
+                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-pz-solid-forest text-white text-[.84rem] font-semibold font-poppins transition-all duration-200 hover:bg-pz-solid-mid hover:-translate-y-0.5 hover:shadow-card"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       Watch Recording

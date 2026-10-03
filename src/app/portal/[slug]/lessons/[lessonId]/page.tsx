@@ -193,7 +193,7 @@ function NextButton({ href, enabled }: { href: string; enabled: boolean }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-pz-secondary text-white text-sm font-label font-bold px-4 py-2.5 hover:opacity-90 transition-opacity"
+      className="inline-flex items-center gap-1.5 rounded-lg bg-pz-secondary text-pz-on-secondary text-sm font-label font-bold px-4 py-2.5 hover:opacity-90 transition-opacity"
     >
       Next <ChevronRight className="w-4 h-4" />
     </Link>

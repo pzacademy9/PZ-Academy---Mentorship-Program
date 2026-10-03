@@ -3,8 +3,11 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCheck, ChevronRight, X } from "lucide-react";
+import { BellOff, CheckCheck, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { resolveNotificationStyle } from "./notification-style";
 import type { AppNotification } from "@/lib/data/notifications";
@@ -24,7 +27,7 @@ export function NotificationHistory({
   unreadCount: number;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
 
   function post(body: Record<string, string>) {
     return fetch("/api/notifications/read", {
@@ -34,53 +37,83 @@ export function NotificationHistory({
     });
   }
 
-  function handleMarkAll() {
-    startTransition(async () => {
+  const { run: handleMarkAll, pending: markingAll } = useAsyncAction(async () => {
+    try {
       const res = await post({});
       if (!res.ok) {
         toast.error("Could not mark notifications read.");
         return;
       }
       toast.success("All notifications marked read.");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not mark notifications read.");
+    }
+  });
 
-  function handleOpen(notification: AppNotification) {
-    startTransition(async () => {
-      if (!notification.isRead) await post({ id: notification.id });
-      if (notification.link) router.push(notification.link);
-      else router.refresh();
-    });
-  }
-
-  function handleDelete(id: string) {
-    startTransition(async () => {
-      const res = await fetch("/api/notifications", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) {
-        toast.error("Could not delete notification.");
+  const { run: handleOpen, pending: opening, pendingKey: openingId } = useAsyncAction(
+    async (notification: AppNotification) => {
+      try {
+        if (!notification.isRead) await post({ id: notification.id });
+      } catch {
+        toast.error("Could not open notification.");
         return;
       }
-      router.refresh();
-    });
+      startTransition(() => {
+        if (notification.link) router.push(notification.link);
+        else router.refresh();
+      });
+    },
+    { getKey: (n) => n.id },
+  );
+
+  const { run: handleDelete, pending: deleting, pendingKey: deletingId } = useAsyncAction(
+    async (id: string) => {
+      try {
+        const res = await fetch("/api/notifications", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) {
+          toast.error("Could not delete notification.");
+          return;
+        }
+        startTransition(() => router.refresh());
+      } catch {
+        toast.error("Could not delete notification.");
+      }
+    },
+    { getKey: (id) => id },
+  );
+
+  const isPending = markingAll || opening || deleting || isNavigating;
+
+  if (notifications.length === 0) {
+    return (
+      <EmptyState
+        icon={BellOff}
+        title="No notifications yet"
+        description="Updates about your enrollments and lessons will appear here."
+      />
+    );
   }
 
   return (
     <div className="space-y-4">
       {unreadCount > 0 && (
         <div className="flex justify-end">
-          <button
+          <Button
             type="button"
-            onClick={handleMarkAll}
+            variant="bare"
+            size="bare"
+            loading={markingAll}
             disabled={isPending}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-headline font-semibold text-sm transition-colors disabled:opacity-50"
+            onClick={() => handleMarkAll()}
+            className="gap-2 px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-headline font-semibold text-sm transition-colors"
           >
             <CheckCheck className="w-4 h-4" /> Mark all read
-          </button>
+          </Button>
         </div>
       )}
 
@@ -94,8 +127,9 @@ export function NotificationHistory({
             >
               <button
                 type="button"
-                onClick={() => handleOpen(notification)}
+                onClick={() => void handleOpen(notification)}
                 disabled={isPending}
+                aria-busy={openingId === notification.id || undefined}
                 className="min-w-0 flex-1 text-left p-5 flex gap-4 items-start transition-colors hover:bg-pz-surface-container-high disabled:opacity-60"
               >
                 <span
@@ -132,15 +166,18 @@ export function NotificationHistory({
                   <ChevronRight className="shrink-0 w-4 h-4 mt-1 text-pz-on-surface-variant/60" />
                 )}
               </button>
-              <button
+              <Button
                 type="button"
+                variant="bare"
+                size="bare"
                 aria-label="Delete notification"
-                onClick={() => handleDelete(notification.id)}
+                loading={deletingId === notification.id}
                 disabled={isPending}
-                className="shrink-0 self-start mt-4 mr-4 p-2 rounded-full text-pz-on-surface-variant/60 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors disabled:opacity-50"
+                onClick={() => void handleDelete(notification.id)}
+                className="shrink-0 self-start mt-2 mr-2 md:mt-4 md:mr-4 p-2 max-md:min-h-11 max-md:min-w-11 rounded-full text-pz-on-surface-variant/60 hover:text-pz-on-surface hover:bg-pz-surface-container-high transition-colors"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </li>
           );
         })}

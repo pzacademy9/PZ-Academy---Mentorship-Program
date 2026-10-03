@@ -20,6 +20,7 @@ import {
   Check,
 } from "lucide-react";
 import type { PublicSession } from "@/lib/mentorship/gas";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 const LOGO_URL  = "https://pharmacozyme.com/wp-content/uploads/2026/04/PZ-Academy-logo.png";
 const DARK_BG   = "#0A2214";
@@ -130,7 +131,6 @@ export default function FeedbackClient({ session }: Props) {
   const [videoAnswers, setVideoAnswers] = useState<VideoAnswers>({});
   const [videoStates,  setVideoStates]  = useState<VideoStates>({});
   const [comments,     setComments]     = useState("");
-  const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState("");
 
   const done = step === THANKYOU_STEP;
@@ -177,8 +177,7 @@ export default function FeedbackClient({ session }: Props) {
     setVideoStates((prev) => ({ ...prev, [index]: state }));
   };
 
-  const submit = async () => {
-    setLoading(true);
+  const { run: submit, pending: loading } = useAsyncAction(async () => {
     setError("");
     try {
       const payload = {
@@ -206,10 +205,8 @@ export default function FeedbackClient({ session }: Props) {
       setStep(THANKYOU_STEP);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
   const isLastBeforeSubmit = step === COMMENTS_STEP;
   const progressPercent    = Math.round((Math.min(step, COMMENTS_STEP) / COMMENTS_STEP) * 100);
@@ -415,7 +412,7 @@ export default function FeedbackClient({ session }: Props) {
               <motion.button
                 whileHover={canNext() && !loading ? { scale: 1.02 } : {}}
                 whileTap={canNext() && !loading ? { scale: 0.95 } : {}}
-                onClick={isLastBeforeSubmit ? submit : next}
+                onClick={isLastBeforeSubmit ? () => submit() : next}
                 disabled={!canNext() || loading}
                 style={{
                   flex:           1,
@@ -890,7 +887,7 @@ function VideoStep({
       {vState === "recording" && (
         <div style={{ textAlign: "center" }}>
           <p style={{ color: GOLD, fontSize: 13, marginBottom: 12, fontWeight: 600 }}>⏺ Recording: {countdown}s remaining</p>
-          <button onClick={stopRecording} style={{ background: "#EF4444", color: "#fff", border: "none", padding: "10px 24px", borderRadius: 20, cursor: "pointer", fontWeight: 700 }}>
+          <button onClick={stopRecording} className="max-md:min-h-11" style={{ background: "#EF4444", color: "#fff", border: "none", padding: "10px 24px", borderRadius: 20, cursor: "pointer", fontWeight: 700 }}>
             Stop Recording
           </button>
         </div>
@@ -901,7 +898,7 @@ function VideoStep({
           <button onClick={doUpload} style={btnPrimarySmall}>
             <Check size={18} /> Upload & Attach Video
           </button>
-          <button onClick={reset} style={btnGhostSmall}>Re-record / Cancel</button>
+          <button onClick={reset} className="max-md:min-h-11" style={btnGhostSmall}>Re-record / Cancel</button>
         </div>
       )}
 
@@ -926,7 +923,7 @@ function VideoStep({
           <div style={{ fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <CheckCircle2 size={18} color={GOLD} /> Video Attached Successfully!
           </div>
-          <button onClick={reset} style={{ background: "none", border: "none", color: "#fff", textDecoration: "underline", cursor: "pointer", fontSize: 12, marginTop: 4 }}>
+          <button onClick={reset} className="max-md:min-h-11 max-md:min-w-11" style={{ background: "none", border: "none", color: "#fff", textDecoration: "underline", cursor: "pointer", fontSize: 12, marginTop: 4 }}>
             Re-record or change video
           </button>
         </div>

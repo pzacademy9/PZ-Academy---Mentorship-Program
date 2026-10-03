@@ -21,6 +21,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2, PlusCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { QuizQuestionRow } from "@/lib/data/admin-lms";
 
 type QuestionPatch = Partial<{ question: string; options: string[]; correctIndex: number }>;
@@ -40,7 +42,7 @@ export function QuizEditor({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  async function addQuestion() {
+  const { run: addQuestion, pending: adding } = useAsyncAction(async () => {
     const res = await fetch(`/api/admin/lessons/${lessonId}/quiz-questions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,7 +53,7 @@ export function QuizEditor({
       return;
     }
     router.refresh();
-  }
+  });
 
   async function saveQuestion(id: string, patch: QuestionPatch) {
     const res = await fetch(`/api/admin/quiz-questions/${id}`, {
@@ -62,14 +64,14 @@ export function QuizEditor({
     if (!res.ok) toast.error("Could not save this question.");
   }
 
-  async function deleteQuestion(id: string) {
+  const { run: deleteQuestion, pending: deleting, pendingKey: deletingId } = useAsyncAction(async (id: string) => {
     const res = await fetch(`/api/admin/quiz-questions/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Could not delete this question.");
       return;
     }
     onQuestionsChange(questions.filter((q) => q.id !== id));
-  }
+  }, { getKey: (id) => id });
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -94,14 +96,17 @@ export function QuizEditor({
     <div className="space-y-4">
       <div className="flex items-center justify-between border-b border-pz-outline-variant pb-2">
         <h4 className="font-headline font-bold text-pz-on-surface">Check for Understanding</h4>
-        <button
+        <Button
           type="button"
-          onClick={addQuestion}
-          className="text-pz-primary font-bold text-sm flex items-center gap-1 hover:underline"
+          variant="bare"
+          size="bare"
+          loading={adding}
+          onClick={() => addQuestion()}
+          className="text-pz-primary font-bold text-sm gap-1 hover:underline max-md:min-h-11"
         >
           <PlusCircle className="w-4 h-4" />
           Add Question
-        </button>
+        </Button>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -114,6 +119,8 @@ export function QuizEditor({
                 question={q}
                 onSave={(patch) => saveQuestion(q.id, patch)}
                 onDelete={() => deleteQuestion(q.id)}
+                deleting={deletingId === q.id}
+                deleteDisabled={deleting}
                 onLocalChange={(patch) =>
                   onQuestionsChange(questions.map((x) => (x.id === q.id ? { ...x, ...patch } : x)))
                 }
@@ -135,12 +142,16 @@ function QuestionCard({
   question,
   onSave,
   onDelete,
+  deleting,
+  deleteDisabled,
   onLocalChange,
 }: {
   index: number;
   question: QuizQuestionRow;
   onSave: (patch: QuestionPatch) => void;
   onDelete: () => void;
+  deleting: boolean;
+  deleteDisabled: boolean;
   onLocalChange: (patch: Partial<QuizQuestionRow>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: question.id });
@@ -179,7 +190,7 @@ function QuestionCard({
       <span
         {...attributes}
         {...listeners}
-        className="mt-2 text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0"
+        className="mt-2 text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0 max-md:mt-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
       >
         <GripVertical className="w-4 h-4" />
       </span>
@@ -192,7 +203,7 @@ function QuestionCard({
           value={question.question}
           onChange={(e) => onLocalChange({ question: e.target.value })}
           onBlur={(e) => onSave({ question: e.target.value })}
-          className="w-full font-medium text-sm border-b border-transparent hover:border-pz-outline-variant focus:border-pz-primary outline-none bg-transparent pb-1"
+          className="w-full font-medium text-sm max-md:text-base max-md:min-h-11 border-b border-transparent hover:border-pz-outline-variant focus:border-pz-primary outline-none bg-transparent pb-1"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {question.options.map((opt, i) => (
@@ -212,7 +223,11 @@ function QuestionCard({
                   onSave({ correctIndex: i });
                 }}
                 title="Mark correct"
-                className={i === question.correctIndex ? "text-pz-primary" : "text-pz-on-surface-variant/40"}
+                aria-label="Mark correct"
+                className={cn(
+                  "max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center",
+                  i === question.correctIndex ? "text-pz-primary" : "text-pz-on-surface-variant/40",
+                )}
               >
                 <CheckCircle2 className="w-4 h-4" />
               </button>
@@ -221,13 +236,14 @@ function QuestionCard({
                 value={opt}
                 onChange={(e) => updateOption(i, e.target.value)}
                 onBlur={() => commitOptions(question.options)}
-                className="flex-1 min-w-0 bg-transparent outline-none font-medium"
+                className="flex-1 min-w-0 bg-transparent outline-none font-medium max-md:text-base max-md:min-h-11"
               />
               {question.options.length > 2 && (
                 <button
                   type="button"
                   onClick={() => removeOption(i)}
-                  className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0"
+                  aria-label="Remove option"
+                  className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -236,14 +252,23 @@ function QuestionCard({
           ))}
         </div>
         {question.options.length < 6 && (
-          <button type="button" onClick={addOption} className="text-xs font-bold text-pz-primary hover:underline">
+          <button type="button" onClick={addOption} className="text-xs font-bold text-pz-primary hover:underline max-md:min-h-11">
             + Add option
           </button>
         )}
       </div>
-      <button type="button" onClick={onDelete} className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0">
+      <Button
+        type="button"
+        variant="bare"
+        size="bare"
+        loading={deleting}
+        disabled={deleteDisabled}
+        onClick={onDelete}
+        aria-label="Delete question"
+        className="text-pz-on-surface-variant/40 hover:text-pz-danger shrink-0 max-md:min-h-11 max-md:min-w-11"
+      >
         <Trash2 className="w-4 h-4" />
-      </button>
+      </Button>
     </div>
   );
 }

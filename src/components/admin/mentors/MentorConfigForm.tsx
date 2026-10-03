@@ -13,6 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { ImageUploadField } from "@/components/admin/program/ImageUploadField";
 import { StringListRepeater } from "./StringListRepeater";
 import { PackageRepeater } from "./PackageRepeater";
@@ -87,12 +89,12 @@ function toFormState(mentor: MentorConfigDetail): FormState {
 }
 
 const inputClass =
-  "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+  "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
 const labelClass = "block font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant mb-1.5";
 
 export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
   const [form, setForm] = useState<FormState>(() => toFormState(mentor));
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -100,8 +102,8 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function save() {
-    startTransition(async () => {
+  const { run: save, pending: saving } = useAsyncAction(async () => {
+    try {
       const res = await fetch(`/api/admin/mentors/${mentor.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -144,12 +146,14 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       const payload = (await res.json().catch(() => null)) as { warning?: string | null } | null;
       if (payload?.warning) toast.warning(payload.warning);
       toast.success("Changes saved.");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not save changes.");
+    }
+  });
 
-  function confirmDelete() {
-    startTransition(async () => {
+  const { run: confirmDelete, pending: deleting } = useAsyncAction(async () => {
+    try {
       const res = await fetch(`/api/admin/mentors/${mentor.id}`, { method: "DELETE" });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -160,9 +164,11 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       const payload = (await res.json().catch(() => null)) as { warning?: string | null } | null;
       if (payload?.warning) toast.warning(payload.warning);
       toast.success("Mentor deleted.");
-      router.push("/dashboard/admin/mentors");
-    });
-  }
+      startTransition(() => router.push("/dashboard/admin/mentors"));
+    } catch {
+      toast.error("Could not delete this mentor.");
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -173,25 +179,27 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
             href={`/mentorship/mentors/${mentor.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 border-2 border-pz-primary text-pz-primary font-headline font-bold text-sm rounded-lg hover:bg-pz-primary/5 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 max-md:min-h-11 border-2 border-pz-primary text-pz-primary font-headline font-bold text-sm rounded-lg hover:bg-pz-primary/5 transition-colors"
           >
             <ExternalLink className="w-4 h-4" />
             View Public Page
           </Link>
-          <button
+          <Button
             type="button"
-            onClick={save}
-            disabled={isPending}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm rounded-lg hover:shadow-md transition-all disabled:opacity-50"
+            variant="bare"
+            size="bare"
+            loading={saving || isNavigating}
+            onClick={() => save()}
+            className="max-md:hidden gap-2 px-4 py-2 bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm rounded-lg hover:shadow-md transition-all"
           >
             <Save className="w-4 h-4" />
-            {isPending ? "Saving…" : "Save Changes"}
-          </button>
+            {saving || isNavigating ? "Saving…" : "Save Changes"}
+          </Button>
         </div>
       </div>
 
       {/* Identity */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-pz-primary" />
           Identity
@@ -234,7 +242,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
           </div>
           <div>
             <label className={labelClass}>Reviews on Public Profile</label>
-            <label className="flex items-center gap-2.5 border border-pz-outline-variant rounded-lg px-3 py-2.5 cursor-pointer">
+            <label className="flex items-center gap-2.5 max-md:min-h-11 border border-pz-outline-variant rounded-lg px-3 py-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.showReviews}
@@ -250,7 +258,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Tier & Ranking */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Medal className="w-5 h-5 text-pz-primary" />
           Tier & Ranking
@@ -326,7 +334,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Public Copy */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <BookText className="w-5 h-5 text-pz-primary" />
           Public Copy
@@ -348,7 +356,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Photo & Media */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <ImageIcon className="w-5 h-5 text-pz-primary" />
           Photo & Media
@@ -376,7 +384,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Session & Pricing */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-6">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Banknote className="w-5 h-5 text-pz-primary" />
           Session & Pricing
@@ -475,7 +483,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Packages */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Package className="w-5 h-5 text-pz-primary" />
           Packages
@@ -484,7 +492,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Credentials */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Award className="w-5 h-5 text-pz-primary" />
           Credentials
@@ -493,7 +501,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Skills */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pz-primary" />
           Skills
@@ -502,7 +510,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Testimonials */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Quote className="w-5 h-5 text-pz-primary" />
           Testimonials
@@ -511,7 +519,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
       </section>
 
       {/* Links */}
-      <section className="bg-pz-surface-container-lowest p-6 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
+      <section className="bg-pz-surface-container-lowest p-4 sm:p-8 rounded-xl border border-pz-outline-variant space-y-4">
         <h3 className="font-headline text-lg font-bold text-pz-on-surface border-b border-pz-outline-variant pb-4 flex items-center gap-2">
           <Link2 className="w-5 h-5 text-pz-primary" />
           Links
@@ -532,8 +540,22 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
         </div>
       </section>
 
+      <div className="md:hidden max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
+        <Button
+          type="button"
+          variant="bare"
+          size="bare"
+          loading={saving || isNavigating}
+          onClick={() => save()}
+          className="w-full gap-2 px-4 py-2 max-md:min-h-11 bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm rounded-lg hover:shadow-md transition-all"
+        >
+          <Save className="w-4 h-4" />
+          {saving || isNavigating ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
+
       {/* Danger Zone */}
-      <section className="bg-pz-danger/5 border border-pz-danger/30 rounded-xl p-6 flex items-center justify-between gap-4 flex-wrap">
+      <section className="bg-pz-solid-danger/5 border border-pz-solid-danger/30 rounded-xl p-4 md:p-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="font-headline font-bold text-sm text-pz-on-surface">Danger Zone</p>
           <p className="font-body text-xs text-pz-on-surface-variant mt-0.5">
@@ -543,7 +565,7 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
         <button
           type="button"
           onClick={() => setDeleteOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-pz-danger text-pz-danger font-headline font-bold text-sm rounded-lg hover:bg-pz-danger/10 transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 max-md:min-h-11 border border-pz-solid-danger text-pz-danger font-headline font-bold text-sm rounded-lg hover:bg-pz-solid-danger/10 transition-colors"
         >
           <Trash2 className="w-4 h-4" />
           Delete Mentor
@@ -559,22 +581,26 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <button
+            <Button
               type="button"
+              variant="bare"
+              size="bare"
               onClick={() => setDeleteOpen(false)}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              disabled={deleting || isNavigating}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={confirmDelete}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50"
+              variant="bare"
+              size="bare"
+              loading={deleting || isNavigating}
+              onClick={() => confirmDelete()}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors"
             >
-              {isPending ? "Deleting…" : "Delete permanently"}
-            </button>
+              {deleting || isNavigating ? "Deleting…" : "Delete permanently"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

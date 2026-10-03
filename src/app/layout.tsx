@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, Fredoka, Handlee, Allura } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import "./mentorship/mentorship.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -49,6 +51,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -63,12 +71,15 @@ export default function RootLayout({
           fredoka.variable,
           handlee.variable,
           allura.variable,
-          "font-fredoka bg-white text-pz-ink dark:bg-[#101412] dark:text-[#e0e3df] antialiased",
+          "font-fredoka bg-white text-pz-ink dark:bg-pz-surface dark:text-pz-on-surface antialiased",
         )}
       >
+        <NextTopLoader color="hsl(var(--primary))" height={3} showSpinner={false} shadow={false} />
         <ThemeProvider>
-          {children}
-          <Toaster richColors position="bottom-right" />
+          <ConfirmProvider>
+            {children}
+            <Toaster richColors position="bottom-right" />
+          </ConfirmProvider>
         </ThemeProvider>
       </body>
     </html>

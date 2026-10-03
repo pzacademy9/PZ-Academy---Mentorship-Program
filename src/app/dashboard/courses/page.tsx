@@ -23,7 +23,7 @@ export default async function MyCoursesPage() {
       </div>
 
       {courses.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-card p-10 flex flex-col items-center text-center">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-10 flex flex-col items-center text-center">
           <BookOpen className="w-10 h-10 text-pz-border mb-3" />
           <p className="text-pz-muted text-sm">You&apos;re not enrolled in any courses yet.</p>
           <a href="/courses" className="mt-3 text-pz-forest text-sm font-semibold hover:underline">

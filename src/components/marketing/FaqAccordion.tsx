@@ -19,7 +19,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
           key={i}
           className={cn(
             "bg-white rounded-2xl border-[1.5px] overflow-hidden transition-all duration-250",
-            open === i ? "border-pz-bright shadow-[0_4px_20px_rgba(126,217,87,.1)]" : "border-pz-border hover:border-pz-mid"
+            open === i ? "border-pz-bright shadow-[0_4px_20px_rgba(126,217,87,.1)]" : "border-pz-border hover:border-pz-solid-mid"
           )}
         >
           <button

@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Copy, Check, UploadCloud, CheckCircle2, Clock, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
+
+// Sticky action bar on phones. Public pages have no bottom nav, so it sits at the
+// viewport bottom (plus safe-area inset). The card has p-8, hence -mx-8 / px-8.
+const STICKY_BAR =
+  "max-md:sticky max-md:bottom-0 max-md:z-40 max-md:-mx-8 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-8 max-md:pt-3 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:backdrop-blur";
 
 const BANK_DETAILS = {
   bankName: "Faysal Bank",
@@ -50,7 +57,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          className="shrink-0 text-pz-primary active:scale-90 transition-transform"
+          className="shrink-0 text-pz-primary active:scale-90 transition-transform max-md:min-h-11 max-md:min-w-11 inline-flex items-center justify-center"
           aria-label={`Copy ${label}`}
         >
           {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -64,11 +71,9 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [file, setFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
 
   async function submitEnrollment(screenshotUrl?: string) {
-    setSubmitting(true);
     const res = await fetch("/api/enrollments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -78,7 +83,6 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
         ...(screenshotUrl ? { paymentScreenshotUrl: screenshotUrl } : {}),
       }),
     });
-    setSubmitting(false);
     if (!res.ok) {
       toast.error("Could not submit your enrollment. Please try again.");
       return;
@@ -87,26 +91,28 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
     setStep("done");
   }
 
-  async function handleUploadAndSubmit() {
+  const { run: handleUploadAndSubmit, pending: submitting } = useAsyncAction(async () => {
     if (!file) {
       toast.error("Choose a file first");
       return;
     }
-    setSubmitting(true);
-    const form = new FormData();
-    form.append("screenshot", file);
-    form.append("courseSlug", courseSlug);
-    const res = await fetch("/api/uploads/payment-screenshot", { method: "POST", body: form });
-    setSubmitting(false);
+    try {
+      const form = new FormData();
+      form.append("screenshot", file);
+      form.append("courseSlug", courseSlug);
+      const res = await fetch("/api/uploads/payment-screenshot", { method: "POST", body: form });
 
-    if (!res.ok) {
-      toast.error("Upload isn't available right now. Submitting without it — our team will follow up.");
-      await submitEnrollment();
-      return;
+      if (!res.ok) {
+        toast.error("Upload isn't available right now. Submitting without it — our team will follow up.");
+        await submitEnrollment();
+        return;
+      }
+      const { url } = await res.json();
+      await submitEnrollment(url);
+    } catch {
+      toast.error("Could not submit your enrollment. Please try again.");
     }
-    const { url } = await res.json();
-    await submitEnrollment(url);
-  }
+  });
 
   if (step === "done") {
     return (
@@ -235,12 +241,14 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
               </div>
             ))}
           </div>
-          <button
-            onClick={() => setStep(2)}
-            className="w-full py-4 bg-pz-primary text-white font-headline font-bold rounded-lg hover:bg-pz-on-primary-container transition-all active:scale-[0.98] shadow-md"
-          >
-            Looks Good, Continue
-          </button>
+          <div className={STICKY_BAR}>
+            <button
+              onClick={() => setStep(2)}
+              className="w-full py-4 bg-pz-primary text-white font-headline font-bold rounded-lg hover:bg-pz-on-primary-container transition-all active:scale-[0.98] shadow-md"
+            >
+              Looks Good, Continue
+            </button>
+          </div>
         </section>
       )}
 
@@ -265,7 +273,7 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
             <div className="h-px bg-pz-outline-variant/30" />
             <CopyRow label="Account Number" value={EASYPAISA_DETAILS.accountNumber} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={cn("grid grid-cols-2 gap-4", STICKY_BAR)}>
             <button
               onClick={() => setStep(1)}
               className="py-4 border-2 border-pz-primary text-pz-primary font-headline font-bold rounded-lg hover:bg-pz-primary/5 transition-all active:scale-[0.98]"
@@ -305,7 +313,7 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </label>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={cn("grid grid-cols-2 gap-4", STICKY_BAR)}>
             <button
               onClick={() => setStep(2)}
               disabled={submitting}
@@ -313,13 +321,15 @@ export function EnrollWizard({ courseSlug, courseTitle, pricePkr, profile }: Enr
             >
               Back
             </button>
-            <button
-              onClick={handleUploadAndSubmit}
-              disabled={submitting}
-              className="py-4 bg-pz-primary text-white font-headline font-bold rounded-lg hover:bg-pz-on-primary-container transition-all active:scale-[0.98] shadow-md disabled:opacity-50"
+            <Button
+              variant="bare"
+              size="bare"
+              loading={submitting}
+              onClick={() => handleUploadAndSubmit()}
+              className="py-4 text-base bg-pz-primary text-white font-headline font-bold rounded-lg hover:bg-pz-on-primary-container transition-all active:scale-[0.98] shadow-md disabled:opacity-50"
             >
               {submitting ? "Submitting…" : "Submit Enrollment"}
-            </button>
+            </Button>
           </div>
         </section>
       )}

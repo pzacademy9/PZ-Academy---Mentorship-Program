@@ -6,21 +6,15 @@ import { listApplicationsForReview } from "@/lib/data/mentorship-applications";
 import { MentorshipStatusBadge } from "@/components/admin/mentorship/MentorshipStatusBadge";
 import { MentorshipReviewActions } from "@/components/admin/mentorship/MentorshipReviewActions";
 import { ScheduleSessionModal } from "@/components/admin/mentorship/ScheduleSessionModal";
+import { ChipTabs } from "@/components/ui/chip-tabs";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDate, relativeTime, initials } from "@/lib/format";
 
 export const metadata = { title: "Mentorship Review — PZ Academy" };
 
 function parseTab(value: string | undefined): "bookings" | "applications" {
   return value === "applications" ? "applications" : "bookings";
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 flex flex-col items-center text-center">
-      <Inbox className="w-10 h-10 text-pz-outline-variant mb-3" />
-      <p className="font-body text-pz-on-surface-variant text-sm">{label}</p>
-    </div>
-  );
 }
 
 export default async function AdminMentorshipPage({
@@ -43,25 +37,63 @@ export default async function AdminMentorshipPage({
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <ChipTabs label="Mentorship sections">
         <Link
           href="/dashboard/admin/mentorship?tab=bookings"
+          aria-current={tab === "bookings" ? "page" : undefined}
           className={`px-5 py-2 rounded-full font-headline text-sm transition-all ${tab === "bookings" ? "bg-pz-primary-container text-pz-on-primary-container font-semibold" : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium"}`}
         >
           Bookings <span className="ml-2 tabular-nums">{bookings.length}</span>
         </Link>
         <Link
           href="/dashboard/admin/mentorship?tab=applications"
+          aria-current={tab === "applications" ? "page" : undefined}
           className={`px-5 py-2 rounded-full font-headline text-sm transition-all ${tab === "applications" ? "bg-pz-primary-container text-pz-on-primary-container font-semibold" : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium"}`}
         >
           Applications <span className="ml-2 tabular-nums">{applications.length}</span>
         </Link>
-      </div>
+      </ChipTabs>
 
       {tab === "bookings" ? (
         bookings.length === 0 ? (
-          <EmptyState label="No bookings yet." />
+          <EmptyState icon={Inbox} title="No bookings yet" description="Session bookings will appear here once students submit them." />
         ) : (
+          <ResponsiveList
+            rows={bookings}
+            getKey={(b) => b.id}
+            mobile={{
+              title: (b) => b.fullName,
+              meta: (b) => [
+                b.email,
+                `${b.mentorName} · ${b.packageName}`,
+                `${formatDate(b.createdAt)} · ${relativeTime(b.createdAt)}`,
+                <span key="status" className="inline-flex flex-wrap items-center gap-3">
+                  <MentorshipStatusBadge kind="booking" status={b.status} />
+                  {b.paymentScreenshotUrl && (
+                    <a
+                      href={b.paymentScreenshotUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center font-body text-pz-primary text-xs font-bold hover:underline"
+                    >
+                      View receipt
+                    </a>
+                  )}
+                </span>,
+                <div key="actions" className="flex flex-wrap items-center gap-2 pt-1">
+                  {b.status === "confirmed" && (
+                    <ScheduleSessionModal
+                      bookingId={b.id}
+                      studentName={b.fullName}
+                      mentorName={b.mentorName}
+                      packageName={b.packageName}
+                    />
+                  )}
+                  <MentorshipReviewActions kind="booking" id={b.id} status={b.status} name={b.fullName} />
+                </div>,
+              ],
+            }}
+            table={
           <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[48rem]">
@@ -103,7 +135,7 @@ export default async function AdminMentorshipPage({
                             View
                           </a>
                         ) : (
-                          <span className="font-body text-xs text-pz-on-surface-variant/60">—</span>
+                          <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">—</span>
                         )}
                       </td>
                       <td className="py-4 px-6 whitespace-nowrap">
@@ -132,10 +164,51 @@ export default async function AdminMentorshipPage({
               </table>
             </div>
           </div>
+            }
+          />
         )
       ) : applications.length === 0 ? (
-        <EmptyState label="No applications yet." />
+        <EmptyState icon={Inbox} title="No applications yet" description="Mentor applications will appear here once they are submitted." />
       ) : (
+        <ResponsiveList
+          rows={applications}
+          getKey={(a) => a.id}
+          mobile={{
+            title: (a) => a.fullName,
+            meta: (a) => [
+              a.email,
+              `${a.profession ?? "—"} · ${a.yearsExperience ?? "—"}`,
+              `${formatDate(a.createdAt)} · ${relativeTime(a.createdAt)}`,
+              <span key="status" className="inline-flex flex-wrap items-center gap-x-3">
+                <MentorshipStatusBadge kind="application" status={a.status} />
+                {a.cvUrl && (
+                  <a
+                    href={a.cvUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center font-body text-pz-primary text-xs font-bold hover:underline"
+                  >
+                    CV
+                  </a>
+                )}
+                {a.photoUrls.map((url, i) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center font-body text-pz-primary text-xs font-bold hover:underline"
+                  >
+                    {a.photoUrls.length > 1 ? `Photo ${i + 1}` : "Photo"}
+                  </a>
+                ))}
+              </span>,
+              <div key="actions" className="pt-1">
+                <MentorshipReviewActions kind="application" id={a.id} status={a.status} name={a.fullName} />
+              </div>,
+            ],
+          }}
+          table={
         <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[48rem]">
@@ -192,7 +265,7 @@ export default async function AdminMentorshipPage({
                           ))}
                         </div>
                       ) : (
-                        <span className="font-body text-xs text-pz-on-surface-variant/60">—</span>
+                        <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">—</span>
                       )}
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">
@@ -213,6 +286,8 @@ export default async function AdminMentorshipPage({
             </table>
           </div>
         </div>
+          }
+        />
       )}
     </div>
   );

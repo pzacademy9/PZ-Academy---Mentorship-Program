@@ -11,7 +11,7 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon: Icon, iconBg = "bg-pz-secondary/10", className }: StatCardProps) {
   return (
-    <div className={cn("p-5 rounded-xl border border-pz-secondary/20 bg-pz-surface-container/50 hover:border-pz-secondary transition-all group", className)}>
+    <div className={cn("p-4 md:p-5 rounded-xl border border-pz-secondary/20 bg-pz-surface-container/50 hover:border-pz-secondary transition-all group", className)}>
       <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 mb-3", iconBg)}>
         <Icon className="w-5 h-5 text-pz-secondary" />
       </div>

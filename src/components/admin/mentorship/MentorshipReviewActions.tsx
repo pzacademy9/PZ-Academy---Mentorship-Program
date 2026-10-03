@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Trash2 } from "lucide-react";
@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 
 type Action = "primary" | "secondary";
@@ -35,7 +37,7 @@ const BOOKING_ACTIONS: Record<Action, ActionConfig> = {
   secondary: {
     label: "Cancel",
     icon: XCircle,
-    button: "border border-pz-danger/40 text-pz-danger hover:bg-pz-danger/10",
+    button: "border border-pz-solid-danger/40 text-pz-danger hover:bg-pz-solid-danger/10",
     confirmTitle: "Cancel this booking?",
     confirmBody: "The student is emailed the reason below.",
   },
@@ -52,7 +54,7 @@ const APPLICATION_ACTIONS: Record<Action, ActionConfig> = {
   secondary: {
     label: "Reject",
     icon: XCircle,
-    button: "border border-pz-danger/40 text-pz-danger hover:bg-pz-danger/10",
+    button: "border border-pz-solid-danger/40 text-pz-danger hover:bg-pz-solid-danger/10",
     confirmTitle: "Reject this application?",
     confirmBody: "The applicant is emailed the reason below.",
   },
@@ -70,7 +72,6 @@ export function MentorshipReviewActions({
   name: string;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -84,66 +85,63 @@ export function MentorshipReviewActions({
   const config = open ? actions[open] : null;
   const isAvailable = (action: Action) => targetStatus[action] !== status;
 
-  function submit() {
+  const { run: submit, pending: submitPending } = useAsyncAction(async () => {
     if (!open) return;
     const action = open;
 
-    startTransition(async () => {
-      try {
-        const res = await fetch(apiPath, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: targetStatus[action],
-            reason: action === "secondary" ? reason.trim() || undefined : undefined,
-          }),
-        });
+    try {
+      const res = await fetch(apiPath, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: targetStatus[action],
+          reason: action === "secondary" ? reason.trim() || undefined : undefined,
+        }),
+      });
 
-        if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-          toast.error(payload?.error ?? "Could not update this record.");
-          return;
-        }
-
-        setOpen(null);
-        setReason("");
-        toast.success(`${name} — ${actions[action].label.toLowerCase()} applied.`);
-        router.refresh();
-      } catch {
-        toast.error("Network error — could not reach the server.");
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? "Could not update this record.");
+        return;
       }
-    });
-  }
 
-  function submitDelete() {
-    startTransition(async () => {
-      try {
-        const res = await fetch(apiPath, { method: "DELETE" });
+      setOpen(null);
+      setReason("");
+      toast.success(`${name} — ${actions[action].label.toLowerCase()} applied.`);
+      router.refresh();
+    } catch {
+      toast.error("Network error — could not reach the server.");
+    }
+  });
 
-        if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-          toast.error(payload?.error ?? `Could not delete this ${recordLabel}.`);
-          return;
-        }
+  const { run: submitDelete, pending: deletePending } = useAsyncAction(async () => {
+    try {
+      const res = await fetch(apiPath, { method: "DELETE" });
 
-        const payload = (await res.json().catch(() => null)) as { warnings?: string[] } | null;
-        setDeleteOpen(false);
-
-        if (!payload?.warnings || payload.warnings.length === 0) {
-          toast.success(`${name} deleted.`);
-        } else {
-          toast.warning(`${name} deleted from the database. ${payload.warnings.join(" ")}`);
-        }
-        router.refresh();
-      } catch {
-        toast.error("Network error — could not reach the server.");
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? `Could not delete this ${recordLabel}.`);
+        return;
       }
-    });
-  }
+
+      const payload = (await res.json().catch(() => null)) as { warnings?: string[] } | null;
+      setDeleteOpen(false);
+
+      if (!payload?.warnings || payload.warnings.length === 0) {
+        toast.success(`${name} deleted.`);
+      } else {
+        toast.warning(`${name} deleted from the database. ${payload.warnings.join(" ")}`);
+      }
+      router.refresh();
+    } catch {
+      toast.error("Network error — could not reach the server.");
+    }
+  });
+  const isPending = submitPending || deletePending;
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center flex-wrap gap-1.5">
         {(["primary", "secondary"] as Action[]).filter(isAvailable).map((action) => {
           const { label, icon: Icon, button } = actions[action];
           return (
@@ -156,7 +154,7 @@ export function MentorshipReviewActions({
               }}
               disabled={isPending}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-headline font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                "inline-flex items-center gap-1.5 max-md:min-h-11 rounded-lg px-3 py-1.5 text-xs font-headline font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                 button,
               )}
             >
@@ -171,7 +169,7 @@ export function MentorshipReviewActions({
           disabled={isPending}
           title={`Delete this ${recordLabel}`}
           aria-label={`Delete this ${recordLabel}`}
-          className="inline-flex items-center justify-center rounded-lg p-1.5 text-pz-danger hover:bg-pz-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11 rounded-lg p-1.5 text-pz-danger hover:bg-pz-solid-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -200,7 +198,7 @@ export function MentorshipReviewActions({
                     rows={3}
                     maxLength={500}
                     placeholder="Included in the email…"
-                    className="w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary resize-none"
+                    className="w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm max-md:text-base font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary resize-none"
                   />
                 </div>
               )}
@@ -210,18 +208,21 @@ export function MentorshipReviewActions({
                   type="button"
                   onClick={() => setOpen(null)}
                   disabled={isPending}
-                  className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+                  className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
-                <button
+                <Button
+                  variant="bare"
+                  size="bare"
                   type="button"
-                  onClick={submit}
+                  onClick={() => submit()}
+                  loading={submitPending}
                   disabled={isPending}
-                  className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isPending ? "Working…" : config.label}
-                </button>
+                </Button>
               </DialogFooter>
             </>
           )}
@@ -253,18 +254,21 @@ export function MentorshipReviewActions({
               type="button"
               onClick={() => setDeleteOpen(false)}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
-            <button
+            <Button
+              variant="bare"
+              size="bare"
               type="button"
-              onClick={submitDelete}
+              onClick={() => submitDelete()}
+              loading={deletePending}
               disabled={isPending}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? "Working…" : "Delete"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

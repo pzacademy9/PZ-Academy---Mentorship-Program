@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Search, Download, ChevronRight, GripVertical, AlertTriangle } from "lucide-react";
+import { Search, Download, ChevronRight, GripVertical, AlertTriangle, Users } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -23,6 +23,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { ResponsiveList } from "@/components/ui/responsive-list";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { MentorListRow } from "@/lib/data/admin-mentors";
 import { MentorTierPill } from "./MentorTierPill";
 
@@ -93,71 +95,97 @@ export function MentorRegistryTable({ rows: initialRows }: { rows: MentorListRow
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="relative w-full md:flex-1 md:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pz-on-surface-variant" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search mentors by name or slug..."
-            className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pz-primary/30 focus:border-pz-primary"
+            className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg pl-9 pr-4 py-2 text-sm max-md:text-base max-md:min-h-11 focus:outline-none focus:ring-2 focus:ring-pz-primary/30 focus:border-pz-primary"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => downloadCsv(filtered)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-pz-outline-variant text-sm font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
+            className="flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-lg border border-pz-outline-variant text-sm font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
           >
             <Download className="w-4 h-4" />
             Export List
           </button>
           <Link
             href="/dashboard/admin/mentors/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-pz-primary text-pz-on-primary text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary text-pz-on-primary text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
           >
             + Create New Mentor
           </Link>
         </div>
       </div>
 
-      <div className="bg-pz-surface-container-lowest rounded-xl border border-pz-outline-variant overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
-              <th className="px-4 py-3 font-bold w-8" />
-              <th className="px-6 py-3 font-bold">Mentor</th>
-              <th className="px-6 py-3 font-bold">Price</th>
-              <th className="px-6 py-3 font-bold">Tier</th>
-              <th className="px-6 py-3 font-bold">Visibility</th>
-              <th className="px-6 py-3 font-bold">Bookings</th>
-              <th className="px-6 py-3 font-bold text-right">Actions</th>
-            </tr>
-          </thead>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={filtered.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-              <tbody>
-                {filtered.map((row) => (
-                  <MentorRow key={row.id} row={row} dragDisabled={searching} />
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-pz-on-surface-variant">
-                      No mentors match your search.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </SortableContext>
-          </DndContext>
-        </table>
-        <div className="px-6 py-3 text-xs text-pz-on-surface-variant border-t border-pz-outline-variant bg-pz-surface-container-low">
+      <ResponsiveList
+        rows={filtered}
+        getKey={(r) => r.id}
+        mobile={{
+          title: (r) => r.name,
+          meta: (r) =>
+            [
+              r.expertise,
+              `PKR ${r.pricePerSession.toLocaleString()} · ${r.tier} · ${r.visibility}`,
+              `${r.bookingCount} ${r.bookingCount === 1 ? "booking" : "bookings"}`,
+            ].filter(Boolean),
+          href: (r) => `/dashboard/admin/mentors/${r.id}`,
+        }}
+        empty={
+          searching ? (
+            <EmptyState icon={Search} title="No mentors match your search." description="Try a different name or slug." />
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="No mentors yet"
+              description="Create the first mentor profile to get started."
+              action={{ label: "+ Create New Mentor", href: "/dashboard/admin/mentors/new" }}
+            />
+          )
+        }
+        table={
+          <div className="bg-pz-surface-container-lowest rounded-xl border border-pz-outline-variant overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
+                  <th className="px-4 py-3 font-bold w-8" />
+                  <th className="px-6 py-3 font-bold">Mentor</th>
+                  <th className="px-6 py-3 font-bold">Price</th>
+                  <th className="px-6 py-3 font-bold">Tier</th>
+                  <th className="px-6 py-3 font-bold">Visibility</th>
+                  <th className="px-6 py-3 font-bold">Bookings</th>
+                  <th className="px-6 py-3 font-bold text-right">Actions</th>
+                </tr>
+              </thead>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={filtered.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                  <tbody>
+                    {filtered.map((row) => (
+                      <MentorRow key={row.id} row={row} dragDisabled={searching} />
+                    ))}
+                  </tbody>
+                </SortableContext>
+              </DndContext>
+            </table>
+            <div className="px-6 py-3 text-xs text-pz-on-surface-variant border-t border-pz-outline-variant bg-pz-surface-container-low">
+              Showing {filtered.length} of {rows.length} mentors
+            </div>
+          </div>
+        }
+      />
+      {filtered.length > 0 && (
+        <p className="text-xs text-pz-on-surface-variant md:hidden">
           Showing {filtered.length} of {rows.length} mentors
-        </div>
-      </div>
+        </p>
+      )}
 
       <p className="text-xs text-pz-on-surface-variant italic">
-        Drag rows to set the order mentors appear in within their tier on the public /mentorship page. Higher tiers always sort above lower ones. Draft and Hidden mentors are never shown publicly.
+        On desktop, drag rows to set the order mentors appear in within their tier on the public /mentorship page. Higher tiers always sort above lower ones. Draft and Hidden mentors are never shown publicly.
       </p>
     </div>
   );

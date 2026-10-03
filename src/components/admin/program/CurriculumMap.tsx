@@ -30,6 +30,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
 
 const CONTENT_ICON = { video: Video, text: FileText, pdf: FileType2 } as const;
@@ -60,7 +62,6 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
   const [editModuleTitle, setEditModuleTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const totalLessons = modules.reduce((n, m) => n + m.lessons.length, 0);
 
@@ -119,7 +120,7 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
     void persistLessonOrder(moduleId, reordered);
   }
 
-  async function submitNewModule() {
+  const { run: submitNewModule, pending: addingModuleBusy } = useAsyncAction(async () => {
     const title = newModuleTitle.trim();
     if (!title) return;
     const res = await fetch(`/api/admin/courses/${courseId}/modules`, {
@@ -135,9 +136,9 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
     setNewModuleTitle("");
     setAddingModule(false);
     router.refresh();
-  }
+  });
 
-  async function submitNewLesson(moduleId: string) {
+  const { run: submitNewLesson, pending: addingLessonBusy } = useAsyncAction(async (moduleId: string) => {
     const title = newLessonTitle.trim();
     if (!title) return;
     const res = await fetch(`/api/admin/modules/${moduleId}/lessons`, {
@@ -153,9 +154,9 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
     setNewLessonTitle("");
     setAddingLessonFor(null);
     router.refresh();
-  }
+  });
 
-  async function submitModuleRename(moduleId: string) {
+  const { run: submitModuleRename } = useAsyncAction(async (moduleId: string) => {
     const title = editModuleTitle.trim();
     if (!title) {
       setEditingModule(null);
@@ -173,16 +174,15 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
     }
     onModulesChange(modules.map((m) => (m.id === moduleId ? { ...m, title } : m)));
     setEditingModule(null);
-  }
+  });
 
   function requestDelete(target: DeleteTarget) {
     setDeleteTarget(target);
     setDeleteWarning(null);
   }
 
-  async function confirmDelete() {
+  const { run: confirmDelete, pending: deleteBusy } = useAsyncAction(async () => {
     if (!deleteTarget) return;
-    setDeleteBusy(true);
     const path =
       deleteTarget.kind === "module" ? `/api/admin/modules/${deleteTarget.id}` : `/api/admin/lessons/${deleteTarget.id}`;
     const res = await fetch(path, {
@@ -190,7 +190,6 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirm: deleteWarning !== null }),
     });
-    setDeleteBusy(false);
 
     if (!res.ok) {
       const payload = (await res.json().catch(() => null)) as
@@ -212,11 +211,11 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
     setDeleteTarget(null);
     setDeleteWarning(null);
     router.refresh();
-  }
+  });
 
   return (
     <div className="flex flex-col h-full bg-pz-surface-container-low">
-      <div className="p-6 border-b border-pz-outline-variant bg-pz-surface flex justify-between items-center">
+      <div className="p-4 md:p-6 border-b border-pz-outline-variant bg-pz-surface flex justify-between items-center">
         <h3 className="font-headline font-bold text-pz-on-surface flex items-center gap-2">
           <FolderPlus className="w-5 h-5 text-pz-primary" />
           Curriculum Map
@@ -244,7 +243,7 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
                   setEditModuleTitle(mod.title);
                 }}
                 onEditTitleChange={setEditModuleTitle}
-                onSubmitEdit={() => submitModuleRename(mod.id)}
+                onSubmitEdit={() => void submitModuleRename(mod.id)}
                 onCancelEdit={() => setEditingModule(null)}
                 onDeleteModule={() => requestDelete({ kind: "module", id: mod.id, title: mod.title })}
                 onDeleteLesson={(lesson) => requestDelete({ kind: "lesson", id: lesson.id, title: lesson.title })}
@@ -257,7 +256,8 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
                   setNewLessonTitle("");
                 }}
                 onNewLessonTitleChange={setNewLessonTitle}
-                onSubmitNewLesson={() => submitNewLesson(mod.id)}
+                onSubmitNewLesson={() => void submitNewLesson(mod.id)}
+                addLessonBusy={addingLessonBusy}
                 onCancelAddLesson={() => setAddingLessonFor(null)}
               />
             ))}
@@ -273,23 +273,26 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
                 value={newModuleTitle}
                 onChange={(e) => setNewModuleTitle(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") submitNewModule();
+                  if (e.key === "Enter") void submitNewModule();
                   if (e.key === "Escape") setAddingModule(false);
                 }}
                 placeholder="Module title…"
-                className="flex-1 border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
+                className="flex-1 min-w-0 border border-pz-outline-variant rounded-lg px-3 py-2 text-sm max-md:text-base max-md:min-h-11 font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
               />
-              <button
-                onClick={submitNewModule}
-                className="px-3 py-2 bg-pz-primary text-pz-on-primary rounded-lg text-xs font-bold"
+              <Button
+                variant="bare"
+                size="bare"
+                loading={addingModuleBusy}
+                onClick={() => submitNewModule()}
+                className="px-3 py-2 bg-pz-primary text-pz-on-primary rounded-lg text-xs font-bold max-md:min-h-11"
               >
                 Add
-              </button>
+              </Button>
             </div>
           ) : (
             <button
               onClick={() => setAddingModule(true)}
-              className="w-full py-4 bg-pz-surface-container-high border-2 border-dashed border-pz-outline rounded-xl text-pz-on-surface-variant font-headline font-bold flex items-center justify-center gap-2 hover:bg-pz-surface-container-highest transition-colors"
+              className="w-full py-4 max-md:min-h-11 bg-pz-surface-container-high border-2 border-dashed border-pz-outline rounded-xl text-pz-on-surface-variant font-headline font-bold flex items-center justify-center gap-2 hover:bg-pz-surface-container-highest transition-colors"
             >
               <FolderPlus className="w-4 h-4" />
               Create New Module
@@ -325,25 +328,29 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <button
+            <Button
               type="button"
+              variant="bare"
+              size="bare"
               onClick={() => {
                 setDeleteTarget(null);
                 setDeleteWarning(null);
               }}
               disabled={deleteBusy}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={confirmDelete}
-              disabled={deleteBusy}
-              className="px-4 py-2.5 rounded-lg font-headline text-sm font-semibold bg-pz-danger text-white hover:bg-pz-danger/90 transition-colors disabled:opacity-50"
+              variant="bare"
+              size="bare"
+              loading={deleteBusy}
+              onClick={() => confirmDelete()}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors"
             >
               {deleteBusy ? "Deleting…" : deleteWarning ? "Delete anyway" : "Delete"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -372,6 +379,7 @@ function ModuleBlock({
   onStartAddLesson,
   onNewLessonTitleChange,
   onSubmitNewLesson,
+  addLessonBusy,
   onCancelAddLesson,
 }: {
   mod: BuilderModule;
@@ -394,6 +402,7 @@ function ModuleBlock({
   onStartAddLesson: () => void;
   onNewLessonTitleChange: (v: string) => void;
   onSubmitNewLesson: () => void;
+  addLessonBusy: boolean;
   onCancelAddLesson: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.id });
@@ -407,7 +416,7 @@ function ModuleBlock({
             <span
               {...attributes}
               {...listeners}
-              className="text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0"
+              className="text-pz-on-surface-variant/40 cursor-grab active:cursor-grabbing shrink-0 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
             >
               <GripVertical className="w-5 h-5" />
             </span>
@@ -432,10 +441,10 @@ function ModuleBlock({
             </div>
           </div>
           <div className="flex gap-1 shrink-0">
-            <button onClick={onStartEdit} className="p-1 text-pz-on-surface-variant hover:text-pz-primary">
+            <button onClick={onStartEdit} aria-label="Rename module" className="p-1 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center text-pz-on-surface-variant hover:text-pz-primary">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={onDeleteModule} className="p-1 text-pz-on-surface-variant hover:text-pz-danger">
+            <button onClick={onDeleteModule} aria-label="Delete module" className="p-1 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center text-pz-on-surface-variant hover:text-pz-danger">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -470,16 +479,22 @@ function ModuleBlock({
                 if (e.key === "Escape") onCancelAddLesson();
               }}
               placeholder={flat ? "Session title…" : "Lesson title…"}
-              className="flex-1 border border-pz-outline-variant rounded-lg px-3 py-1.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
+              className="flex-1 min-w-0 border border-pz-outline-variant rounded-lg px-3 py-1.5 text-sm max-md:text-base max-md:min-h-11 font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20"
             />
-            <button onClick={onSubmitNewLesson} className="px-3 py-1.5 bg-pz-primary text-pz-on-primary rounded-lg text-xs font-bold">
+            <Button
+              variant="bare"
+              size="bare"
+              loading={addLessonBusy}
+              onClick={onSubmitNewLesson}
+              className="px-3 py-1.5 bg-pz-primary text-pz-on-primary rounded-lg text-xs font-bold max-md:min-h-11"
+            >
               Add
-            </button>
+            </Button>
           </div>
         ) : (
           <button
             onClick={onStartAddLesson}
-            className="w-full py-2 border-2 border-dashed border-pz-outline-variant/50 rounded-lg text-xs font-bold text-pz-on-surface-variant hover:border-pz-primary hover:text-pz-primary transition-all flex items-center justify-center gap-1 mt-2"
+            className="w-full py-2 max-md:min-h-11 border-2 border-dashed border-pz-outline-variant/50 rounded-lg text-xs font-bold text-pz-on-surface-variant hover:border-pz-primary hover:text-pz-primary transition-all flex items-center justify-center gap-1 mt-2"
           >
             <PlusCircle className="w-4 h-4" />
             {flat ? "Add Session" : "Add Lesson"}
@@ -525,14 +540,14 @@ function LessonRow({
           {...listeners}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "shrink-0 cursor-grab active:cursor-grabbing transition-opacity",
+            "shrink-0 cursor-grab active:cursor-grabbing transition-opacity max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center max-md:opacity-100",
             selected ? "opacity-100 text-pz-primary/60" : "opacity-0 group-hover/lesson:opacity-100 text-pz-on-surface-variant/40",
           )}
         >
           <GripVertical className="w-4 h-4" />
         </span>
         <Icon className={cn("w-4 h-4 shrink-0", selected ? "text-pz-primary" : "text-pz-primary/70")} />
-        <span className={cn("text-sm truncate", selected ? "font-bold text-pz-on-primary-container" : "font-medium text-pz-on-surface")}>
+        <span className={cn("text-sm truncate", selected ? "font-bold text-pz-on-primary-container dark:text-pz-primary" : "font-medium text-pz-on-surface")}>
           {label} {lesson.title}
         </span>
       </div>
@@ -542,7 +557,8 @@ function LessonRow({
             e.stopPropagation();
             onDelete();
           }}
-          className={cn("p-1", selected ? "text-pz-primary/60 hover:text-pz-danger" : "text-pz-on-surface-variant hover:text-pz-danger")}
+          aria-label="Delete session"
+          className={cn("p-1 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center", selected ? "text-pz-primary/60 hover:text-pz-danger" : "text-pz-on-surface-variant hover:text-pz-danger")}
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>

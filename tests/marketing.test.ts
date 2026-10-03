@@ -13,7 +13,7 @@ describe("buildFeaturedCard", () => {
       badge: "Course",
       duration: "8 Weeks",
       href: "/courses/dose-calc",
-      grad: "from-pz-forest to-pz-mid",
+      grad: "from-pz-solid-forest to-pz-solid-mid",
     });
   });
 
@@ -45,10 +45,10 @@ describe("buildFeaturedCard", () => {
 
   it("cycles the gradient palette by index", () => {
     const base = { slug: "x", title: "X", tagline: null, type: "course" as const, durationText: null, durationWeeks: null };
-    expect(buildFeaturedCard(base, 0).grad).toBe("from-pz-forest to-pz-mid");
-    expect(buildFeaturedCard(base, 1).grad).toBe("from-pz-deep to-pz-forest");
-    expect(buildFeaturedCard(base, 2).grad).toBe("from-pz-mid to-pz-deep");
-    expect(buildFeaturedCard(base, 3).grad).toBe("from-pz-forest to-pz-mid");
+    expect(buildFeaturedCard(base, 0).grad).toBe("from-pz-solid-forest to-pz-solid-mid");
+    expect(buildFeaturedCard(base, 1).grad).toBe("from-pz-solid-deep to-pz-solid-forest");
+    expect(buildFeaturedCard(base, 2).grad).toBe("from-pz-solid-mid to-pz-solid-deep");
+    expect(buildFeaturedCard(base, 3).grad).toBe("from-pz-solid-forest to-pz-solid-mid");
   });
 });
 

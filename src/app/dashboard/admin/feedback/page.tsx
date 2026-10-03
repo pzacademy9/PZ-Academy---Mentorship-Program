@@ -4,6 +4,8 @@ import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listFeedbackSessions } from "@/lib/data/feedback-sessions";
 import { listFeedbackPrograms } from "@/lib/data/feedback-programs";
 import { formatDate, initials } from "@/lib/format";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import { cn } from "@/lib/utils";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import { NewSessionModal, SessionRowActions, ProgramRowActions } from "./NewSessionModal";
@@ -23,17 +25,6 @@ function SessionThumb({ coverUrl }: { coverUrl: string | null }) {
 
 export const metadata = { title: "Feedback Sessions — PZ Academy" };
 
-function EmptyState() {
-  return (
-    <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 flex flex-col items-center text-center">
-      <Inbox className="w-10 h-10 text-pz-outline-variant mb-3" />
-      <p className="font-body text-pz-on-surface-variant text-sm">
-        No feedback sessions yet — create one to start collecting responses.
-      </p>
-    </div>
-  );
-}
-
 export default async function AdminFeedbackPage() {
   await requireAdminPage();
 
@@ -49,17 +40,17 @@ export default async function AdminFeedbackPage() {
             Create sessions and track how attendees are rating them.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/dashboard/admin/feedback/question-bank"
-            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+            className="inline-flex items-center gap-2 max-md:min-h-11 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
           >
             <ListChecks className="w-4 h-4" />
             Question Bank
           </Link>
           <Link
             href="/dashboard/admin/feedback/audit-log"
-            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+            className="inline-flex items-center gap-2 max-md:min-h-11 rounded-full px-5 py-2.5 font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
           >
             <History className="w-4 h-4" />
             Audit Log
@@ -69,8 +60,30 @@ export default async function AdminFeedbackPage() {
       </div>
 
       {sessions.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          icon={Inbox}
+          title="No feedback sessions yet"
+          description="Create one with New Session to start collecting responses."
+        />
       ) : (
+        <ResponsiveList
+          rows={sessions}
+          getKey={(s) => s.id}
+          mobile={{
+            title: (s) => (
+              <Link href={`/dashboard/admin/feedback/${s.id}`} className="inline-flex min-h-11 items-center hover:text-pz-primary transition-colors">
+                {s.name}
+              </Link>
+            ),
+            meta: (s) => [
+              `${s.speakerName}${s.sessionDate ? ` · ${formatDate(s.sessionDate)}` : ""}`,
+              `${s.responseCount} response${s.responseCount === 1 ? "" : "s"} · ${s.avgRating != null ? `${s.avgRating.toFixed(1)} avg` : "No ratings"} · ${s.status === "active" ? "Active" : "Closed"}`,
+              <div key="actions" className="flex justify-end">
+                <SessionRowActions id={s.id} name={s.name} slug={s.slug} status={s.status} />
+              </div>,
+            ],
+          }}
+          table={
         <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[64rem]">
@@ -123,7 +136,7 @@ export default async function AdminFeedbackPage() {
                           <span className="font-headline font-semibold text-xs">{s.avgRating.toFixed(1)}</span>
                         </span>
                       ) : (
-                        <span className="font-body text-xs text-pz-on-surface-variant/60">No ratings</span>
+                        <span className="font-body text-xs text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80">No ratings</span>
                       )}
                     </td>
                     <td className="py-4 px-6 text-center">
@@ -131,7 +144,7 @@ export default async function AdminFeedbackPage() {
                         className={cn(
                           "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
                           s.status === "active"
-                            ? "bg-pz-primary-container/30 text-pz-on-primary-container"
+                            ? "bg-pz-primary-container/30 dark:bg-pz-primary-container/15 text-pz-on-primary-container dark:text-pz-primary"
                             : "bg-pz-surface-variant text-pz-on-surface-variant",
                         )}
                       >
@@ -149,6 +162,8 @@ export default async function AdminFeedbackPage() {
             </table>
           </div>
         </div>
+          }
+        />
       )}
 
       <div>
@@ -160,11 +175,25 @@ export default async function AdminFeedbackPage() {
         </div>
 
         {programs.length === 0 ? (
-          <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-8 flex flex-col items-center text-center">
-            <Layers className="w-8 h-8 text-pz-outline-variant mb-2" />
-            <p className="font-body text-pz-on-surface-variant text-sm">No programs yet.</p>
-          </div>
+          <EmptyState
+            icon={Layers}
+            title="No programs yet"
+            description="Create one with the Make this a program toggle in New Session."
+          />
         ) : (
+          <ResponsiveList
+            rows={programs}
+            getKey={(p) => p.id}
+            mobile={{
+              title: (p) => p.name,
+              meta: (p) => [
+                `${p.type} · ${p.sessionCount} session${p.sessionCount === 1 ? "" : "s"}`,
+                <div key="actions" className="flex justify-end">
+                  <ProgramRowActions id={p.id} name={p.name} />
+                </div>,
+              ],
+            }}
+            table={
           <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[36rem]">
@@ -197,6 +226,8 @@ export default async function AdminFeedbackPage() {
               </table>
             </div>
           </div>
+            }
+          />
         )}
       </div>
     </div>

@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Mail, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
@@ -44,6 +50,7 @@ const MERGE_TAGS = [
 
 export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaign[] }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
@@ -58,10 +65,8 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   // "Sent campaigns" row every time.
   const [boundId, setBoundId] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [bodyView, setBodyView] = useState<"edit" | "preview">("edit");
   const [campaignSearch, setCampaignSearch] = useState("");
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
@@ -148,8 +153,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   // cross-origin-safe thumbnail URL) — campaign images have the same
   // "public marketing asset" shape as course thumbnails, just a different
   // folder. Inserted at the textarea cursor rather than replacing the body.
-  async function insertImage(file: File) {
-    setUploadingImage(true);
+  const { run: insertImage, pending: uploadingImage } = useAsyncAction(async (file: File) => {
     try {
       const form = new FormData();
       form.append("file", file);
@@ -170,10 +174,9 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       editBody(next);
       toast.success("Image uploaded and inserted.");
     } finally {
-      setUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
-  }
+  });
 
   function insertTag(tag: string) {
     const el = bodyRef.current;
@@ -185,7 +188,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
   // unbound draft — a new row on save, never touching the original. This is
   // how a sent campaign gets resent (it is immutable history), and how a
   // draft gets forked into a variant instead of edited in place.
-  async function duplicateCampaign(id: string) {
+  const { run: duplicateCampaign, pending: duplicating, pendingKey: duplicatingId } = useAsyncAction(async (id: string) => {
     setError(null);
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${id}`);
@@ -202,13 +205,13 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     } catch {
       setError("Could not load that campaign.");
     }
-  }
+  }, { getKey: (id) => id });
 
   // "Edit" loads a draft back into the composer BOUND to its own row —
   // "Save draft" then updates it in place, so retest-after-edit does not
   // create a new campaign each time. Only a draft can be edited; sent/
   // sending campaigns are history — the server enforces this too.
-  async function editCampaign(id: string) {
+  const { run: editCampaign, pending: editing, pendingKey: editingId } = useAsyncAction(async (id: string) => {
     setError(null);
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${id}`);
@@ -225,10 +228,10 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     } catch {
       setError("Could not load that campaign.");
     }
-  }
+  }, { getKey: (id) => id });
 
-  async function deleteCampaign(id: string) {
-    if (!window.confirm("Delete this draft? This cannot be undone.")) return;
+  const { run: deleteCampaign, pending: deleting, pendingKey: deletingId } = useAsyncAction(async (id: string) => {
+    if (!(await confirm({ title: "Delete this draft?", description: "This cannot be undone.", confirmLabel: "Delete", destructive: true }))) return;
     setError(null);
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${id}`, { method: "DELETE" });
@@ -242,7 +245,8 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not delete the campaign.");
     }
-  }
+  }, { getKey: (id) => id });
+  const rowBusy = duplicating || editing || deleting;
 
   function newCampaign() {
     setName("");
@@ -266,10 +270,10 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     setCampaigns(json.campaigns);
   }
 
-  async function saveDraft() {
+  const { run: saveDraft, pending: saving } = useAsyncAction(async () => {
     const conversionTag = buildConversionTag();
     if (!conversionTag) return;
-    setBusy(true); setError(null);
+    setError(null);
     try {
       const url = boundId ? `/api/admin/crm/campaigns/${boundId}` : "/api/admin/crm/campaigns";
       const res = await fetch(url, {
@@ -286,12 +290,12 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the draft.");
-    } finally { setBusy(false); }
-  }
+    }
+  });
 
-  async function sendTest() {
+  const { run: sendTest, pending: testing } = useAsyncAction(async () => {
     if (!draftId) return;
-    setBusy(true); setError(null);
+    setError(null);
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${draftId}/test`, {
         method: "POST",
@@ -302,16 +306,16 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       setNotice(`Test sent to ${testEmail}. Check the rendering and the unsubscribe link before the real send.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send the test email.");
-    } finally { setBusy(false); }
-  }
+    }
+  });
 
-  async function sendReal() {
+  const { run: sendReal, pending: sending } = useAsyncAction(async () => {
     if (!draftId) return;
 
     // Confirm against the real recipient count, fetched fresh — an admin must
     // not approve a "send to the segment" without knowing how many people that
     // is. A failed count fetch blocks the send rather than sending blind.
-    setBusy(true); setError(null);
+    setError(null);
     let total: number;
     try {
       const res = await fetch("/api/admin/crm/segments/preview", {
@@ -323,17 +327,20 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       if (!res.ok || typeof json.total !== "number") throw new Error();
       total = json.total;
     } catch {
-      setBusy(false);
       setError("Could not confirm the recipient count — try again.");
       return;
     }
-    setBusy(false);
 
     // Irreversible and outward-facing: once enqueued, these emails cannot be
     // recalled. Explicit confirmation is required.
-    if (!window.confirm(`Send to ${total} contacts? This sends real emails and cannot be undone.`)) return;
+    if (!(await confirm({
+      title: `Send to ${total} contacts?`,
+      description: "This sends real emails and cannot be undone.",
+      confirmLabel: "Send",
+      destructive: true,
+    }))) return;
 
-    setBusy(true); setError(null);
+    setError(null);
     try {
       const res = await fetch(`/api/admin/crm/campaigns/${draftId}/send`, { method: "POST" });
       const json = await res.json().catch(() => ({}));
@@ -345,8 +352,10 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send the campaign.");
-    } finally { setBusy(false); }
-  }
+    }
+  });
+  // Save, test and send are mutually exclusive.
+  const busy = saving || testing || sending;
 
   return (
     <div className="space-y-6">
@@ -354,30 +363,30 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-headline font-semibold text-pz-secondary">{boundId ? "Editing draft" : "New campaign"}</h2>
           {boundId && (
-            <button onClick={newCampaign} className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary">
+            <button onClick={newCampaign} className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11">
               Start a new campaign instead
             </button>
           )}
         </div>
 
         <input value={name} onChange={(e) => editName(e.target.value)} placeholder="Internal name"
-          className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
+          className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
         <input value={subject} onChange={(e) => editSubject(e.target.value)} placeholder="Subject — {{first_name}} works here too"
-          className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
+          className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
         <div className="flex items-center gap-1 border-b border-pz-outline-variant">
           <button type="button" onClick={() => setBodyView("edit")}
-            className={`px-3 py-1.5 text-xs font-bold border-b-2 -mb-px transition-colors ${bodyView === "edit" ? "border-pz-primary text-pz-primary" : "border-transparent text-pz-on-surface-variant hover:text-pz-secondary"}`}>
+            className={`px-3 py-1.5 text-xs font-bold border-b-2 -mb-px transition-colors max-md:min-h-11 ${bodyView === "edit" ? "border-pz-primary text-pz-primary" : "border-transparent text-pz-on-surface-variant hover:text-pz-secondary"}`}>
             Edit
           </button>
           <button type="button" onClick={() => setBodyView("preview")}
-            className={`px-3 py-1.5 text-xs font-bold border-b-2 -mb-px transition-colors ${bodyView === "preview" ? "border-pz-primary text-pz-primary" : "border-transparent text-pz-on-surface-variant hover:text-pz-secondary"}`}>
+            className={`px-3 py-1.5 text-xs font-bold border-b-2 -mb-px transition-colors max-md:min-h-11 ${bodyView === "preview" ? "border-pz-primary text-pz-primary" : "border-transparent text-pz-on-surface-variant hover:text-pz-secondary"}`}>
             Preview
           </button>
         </div>
 
         {bodyView === "edit" ? (
           <textarea ref={bodyRef} value={bodyHtml} onChange={(e) => editBody(e.target.value)} rows={8}
-            className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-mono text-xs" />
+            className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-mono text-xs max-md:text-base" />
         ) : (
           <div className="rounded-xl border border-pz-outline-variant overflow-hidden">
             <div style={{ fontFamily: "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif", background: "#ffffff", padding: "24px 16px" }}>
@@ -388,15 +397,15 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
         )}
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage}
-            className="px-3 py-1.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors disabled:opacity-50">
+          <Button type="button" variant="bare" size="bare" loading={uploadingImage} onClick={() => imageInputRef.current?.click()}
+            className="px-3 py-1.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors max-md:min-h-11">
             {uploadingImage ? "Uploading…" : "Insert image"}
-          </button>
+          </Button>
           <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void insertImage(f); }} />
           {MERGE_TAGS.map((t) => (
             <button key={t.tag} type="button" onClick={() => insertTag(t.tag)}
-              className="px-3 py-1.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors">
+              className="px-3 py-1.5 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors max-md:min-h-11">
               {t.label}
             </button>
           ))}
@@ -420,15 +429,15 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
         <div className="space-y-2">
           <h3 className="font-headline text-sm font-semibold">Track conversion</h3>
           <div className="flex gap-3 flex-wrap">
-            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
               <input type="radio" name="campaignConversionMode" checked={conversionMode === "course"} onChange={() => editConversionMode("course")} />
               Existing course
             </label>
-            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
               <input type="radio" name="campaignConversionMode" checked={conversionMode === "label"} onChange={() => editConversionMode("label")} />
               Other course (type to match)
             </label>
-            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+            <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
               <input type="radio" name="campaignConversionMode" checked={conversionMode === "none"} onChange={() => editConversionMode("none")} />
               Not tracking conversion
             </label>
@@ -437,7 +446,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
             <select
               value={conversionCourseId}
               onChange={(e) => editConversionCourseId(e.target.value)}
-              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
             >
               <option value="">Select a course…</option>
               {courses.map((c) => (
@@ -450,29 +459,29 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
               value={conversionLabel}
               onChange={(e) => editConversionLabel(e.target.value)}
               placeholder="Text to match in the purchase's product label, e.g. Advanced Mixing"
-              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+              className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
             />
           )}
         </div>
 
         <div className="flex gap-2 flex-wrap items-center">
-          <button onClick={saveDraft} disabled={busy || buildConversionTag() === null}
-            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50">
-            {busy ? "Saving…" : "Save draft"}
-          </button>
+          <Button variant="bare" size="bare" loading={saving} onClick={() => saveDraft()} disabled={busy || buildConversionTag() === null}
+            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11">
+            {saving ? "Saving…" : "Save draft"}
+          </Button>
 
           {draftId && (
             <>
               <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="your@email.com"
-                className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm" />
-              <button onClick={sendTest} disabled={busy || testEmail === ""}
-                className="px-5 py-2 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-sm font-medium disabled:opacity-50">
+                className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
+              <Button variant="bare" size="bare" loading={testing} onClick={() => sendTest()} disabled={busy || testEmail === ""}
+                className="px-5 py-2 rounded-full bg-pz-surface-variant text-pz-on-surface-variant font-headline text-sm font-medium max-md:min-h-11">
                 Send test
-              </button>
-              <button onClick={sendReal} disabled={busy}
-                className="px-5 py-2 rounded-full bg-pz-danger text-white font-headline text-sm font-semibold disabled:opacity-50">
+              </Button>
+              <Button variant="bare" size="bare" loading={sending} onClick={() => sendReal()} disabled={busy}
+                className="px-5 py-2 rounded-full bg-pz-solid-danger text-white font-headline text-sm font-semibold max-md:min-h-11">
                 Send to segment
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -486,59 +495,95 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
           <h2 className="font-headline font-semibold text-pz-secondary">Sent campaigns</h2>
           {campaigns.length > 0 && (
             <input value={campaignSearch} onChange={(e) => setCampaignSearch(e.target.value)} placeholder="Search by name or subject…"
-              className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64" />
+              className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base" />
           )}
         </div>
         {campaigns.length === 0 ? (
-          <p className="font-body text-sm text-pz-on-surface-variant">No campaigns yet.</p>
+          <EmptyState icon={Mail} title="No campaigns yet" description="Compose and save a draft above; sent campaigns and their stats appear here." />
         ) : filteredCampaigns.length === 0 ? (
-          <p className="font-body text-sm text-pz-on-surface-variant">No campaigns match &quot;{campaignSearch}&quot;.</p>
+          <EmptyState icon={SearchX} title="No campaigns match" description={`Nothing matches "${campaignSearch}".`} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left font-body text-sm">
-              <thead className="text-pz-on-surface-variant text-xs uppercase">
-                <tr><th className="py-2">Name</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Bounced</th><th>Converted</th><th></th></tr>
-              </thead>
-              <tbody>
-                {filteredCampaigns.map((c) => (
-                  <tr key={c.id} className="border-t border-pz-outline-variant">
-                    <td className="py-2">
-                      <Link href={`/dashboard/admin/crm/campaigns/${c.id}`} className="underline">
-                        {c.name}
-                      </Link>
-                    </td>
-                    <td>{c.status}</td>
-                    <td className="tabular-nums">{c.recipients}</td>
-                    <td className="tabular-nums">{c.sent}</td>
-                    <td className="tabular-nums">{c.delivered}</td>
-                    <td className="tabular-nums">{c.opened}</td>
-                    <td className="tabular-nums">{c.clicked}</td>
-                    <td className={`tabular-nums ${c.bounced > 0 ? "text-pz-danger" : ""}`}>{c.bounced}</td>
-                    <td className="tabular-nums">
-                      {c.conversion
-                        ? `${c.conversion.total > 0 ? Math.round((c.conversion.converted / c.conversion.total) * 100) : 0}% (${c.conversion.converted}/${c.conversion.total})`
-                        : "—"}
-                    </td>
-                    <td className="whitespace-nowrap space-x-3">
-                      {c.status === "draft" && (
-                        <button onClick={() => editCampaign(c.id)} className="text-pz-primary font-body text-xs font-semibold">
-                          Edit
-                        </button>
-                      )}
-                      <button onClick={() => duplicateCampaign(c.id)} className="text-pz-primary font-body text-xs font-semibold">
-                        Duplicate
-                      </button>
-                      {c.status === "draft" && (
-                        <button onClick={() => deleteCampaign(c.id)} className="text-pz-danger font-body text-xs font-semibold">
-                          Delete
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveList
+            rows={filteredCampaigns}
+            getKey={(c) => c.id}
+            mobile={{
+              title: (c) => (
+                <Link href={`/dashboard/admin/crm/campaigns/${c.id}`} className="inline-flex min-h-11 items-center underline">
+                  {c.name}
+                </Link>
+              ),
+              meta: (c) => [
+                `${c.status} · ${c.recipients} recipients`,
+                `Sent ${c.sent} · Delivered ${c.delivered} · Opened ${c.opened} · Clicked ${c.clicked}`,
+                c.bounced > 0 ? <span className="text-pz-danger">{c.bounced} bounced</span> : null,
+                c.conversion
+                  ? `Converted ${c.conversion.total > 0 ? Math.round((c.conversion.converted / c.conversion.total) * 100) : 0}% (${c.conversion.converted}/${c.conversion.total})`
+                  : null,
+                <div key="actions" className="flex flex-wrap gap-x-1">
+                  {c.status === "draft" && (
+                    <Button variant="bare" size="bare" loading={editingId === c.id} disabled={rowBusy} onClick={() => editCampaign(c.id)} className="min-h-11 min-w-11 px-2 text-pz-primary font-body text-xs font-semibold">
+                      Edit
+                    </Button>
+                  )}
+                  <Button variant="bare" size="bare" loading={duplicatingId === c.id} disabled={rowBusy} onClick={() => duplicateCampaign(c.id)} className="min-h-11 min-w-11 px-2 text-pz-primary font-body text-xs font-semibold">
+                    Duplicate
+                  </Button>
+                  {c.status === "draft" && (
+                    <Button variant="bare" size="bare" loading={deletingId === c.id} disabled={rowBusy} onClick={() => deleteCampaign(c.id)} className="min-h-11 min-w-11 px-2 text-pz-danger font-body text-xs font-semibold">
+                      Delete
+                    </Button>
+                  )}
+                </div>,
+              ].filter(Boolean),
+            }}
+            table={
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-body text-sm">
+                  <thead className="text-pz-on-surface-variant text-xs uppercase">
+                    <tr><th className="py-2">Name</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Bounced</th><th>Converted</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {filteredCampaigns.map((c) => (
+                      <tr key={c.id} className="border-t border-pz-outline-variant">
+                        <td className="py-2">
+                          <Link href={`/dashboard/admin/crm/campaigns/${c.id}`} className="underline">
+                            {c.name}
+                          </Link>
+                        </td>
+                        <td>{c.status}</td>
+                        <td className="tabular-nums">{c.recipients}</td>
+                        <td className="tabular-nums">{c.sent}</td>
+                        <td className="tabular-nums">{c.delivered}</td>
+                        <td className="tabular-nums">{c.opened}</td>
+                        <td className="tabular-nums">{c.clicked}</td>
+                        <td className={`tabular-nums ${c.bounced > 0 ? "text-pz-danger" : ""}`}>{c.bounced}</td>
+                        <td className="tabular-nums">
+                          {c.conversion
+                            ? `${c.conversion.total > 0 ? Math.round((c.conversion.converted / c.conversion.total) * 100) : 0}% (${c.conversion.converted}/${c.conversion.total})`
+                            : "—"}
+                        </td>
+                        <td className="whitespace-nowrap space-x-3">
+                          {c.status === "draft" && (
+                            <Button variant="bare" size="bare" loading={editingId === c.id} disabled={rowBusy} onClick={() => editCampaign(c.id)} className="text-pz-primary font-body text-xs font-semibold">
+                              Edit
+                            </Button>
+                          )}
+                          <Button variant="bare" size="bare" loading={duplicatingId === c.id} disabled={rowBusy} onClick={() => duplicateCampaign(c.id)} className="text-pz-primary font-body text-xs font-semibold">
+                            Duplicate
+                          </Button>
+                          {c.status === "draft" && (
+                            <Button variant="bare" size="bare" loading={deletingId === c.id} disabled={rowBusy} onClick={() => deleteCampaign(c.id)} className="text-pz-danger font-body text-xs font-semibold">
+                              Delete
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
         )}
       </section>
     </div>

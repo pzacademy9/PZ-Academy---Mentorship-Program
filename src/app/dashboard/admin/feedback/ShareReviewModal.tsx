@@ -5,6 +5,8 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Copy, Check, ExternalLink, Globe, Award, Download, QrCode as QrCodeIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 
 export type ShareTargetType = "session" | "program";
@@ -71,14 +73,14 @@ function ShareLinkCard({
           type="text"
           readOnly
           value={url}
-          className="flex-1 min-w-0 h-10 rounded-md border border-pz-outline-variant bg-pz-surface-container-highest px-3 font-body text-sm text-pz-on-surface truncate outline-none focus:border-pz-primary focus:ring-1 focus:ring-pz-primary"
+          className="flex-1 min-w-0 h-10 max-md:h-11 max-md:text-base rounded-md border border-pz-outline-variant bg-pz-surface-container-highest px-3 font-body text-sm text-pz-on-surface truncate outline-none focus:border-pz-primary focus:ring-1 focus:ring-pz-primary"
         />
         <button
           type="button"
           onClick={copy}
           title="Copy link"
           aria-label={`Copy ${title.toLowerCase()}`}
-          className="shrink-0 h-10 w-10 grid place-items-center rounded-md text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-surface-container-highest transition-colors"
+          className="shrink-0 h-10 w-10 max-md:size-11 grid place-items-center rounded-md text-pz-on-surface-variant hover:text-pz-primary hover:bg-pz-surface-container-highest transition-colors"
         >
           {copied ? <Check className="w-4 h-4 text-pz-primary" /> : <Copy className="w-4 h-4" />}
         </button>
@@ -86,7 +88,7 @@ function ShareLinkCard({
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="shrink-0 inline-flex items-center gap-1.5 h-10 px-3 rounded-md font-headline text-sm font-semibold text-pz-primary hover:bg-pz-primary/10 transition-colors"
+          className="shrink-0 inline-flex items-center gap-1.5 h-10 max-md:h-11 max-md:min-w-11 px-3 rounded-md font-headline text-sm font-semibold text-pz-primary hover:bg-pz-primary/10 transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           Open
@@ -158,20 +160,21 @@ export function ShareReviewModal({ open, onOpenChange, targetType, targetId, tar
   }, [publicUrl]);
 
   // Same fetch → blob → trigger-download pattern as ReviewClient.tsx's ShareModal.handleDownload.
-  function downloadImage() {
+  const { run: downloadImage, pending: downloadingImage } = useAsyncAction(async () => {
     if (!shareCardUrl) return;
-    fetch(shareCardUrl)
-      .then((r) => r.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "pz-academy-feedback.png";
-        a.click();
-        URL.revokeObjectURL(url);
-      })
-      .catch(() => toast.error("Could not download the share card."));
-  }
+    try {
+      const r = await fetch(shareCardUrl);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "pz-academy-feedback.png";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Could not download the share card.");
+    }
+  });
 
   function downloadQr() {
     if (!qrDataUrl) return;
@@ -228,14 +231,17 @@ export function ShareReviewModal({ open, onOpenChange, targetType, targetId, tar
                   Perfect for sharing on LinkedIn, Twitter, or Instagram to highlight recent feedback.
                 </p>
                 <div className="mt-1">
-                  <button
+                  <Button
+                    variant="bare"
+                    size="bare"
                     type="button"
-                    onClick={downloadImage}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-pz-primary-container px-5 py-2 font-headline text-sm font-semibold text-pz-on-primary-container hover:bg-pz-primary-container/90 transition-colors"
+                    loading={downloadingImage}
+                    onClick={() => downloadImage()}
+                    className="inline-flex items-center justify-center gap-2 max-md:min-h-11 rounded-lg bg-pz-primary-container px-5 py-2 font-headline text-sm font-semibold text-pz-on-primary-container hover:bg-pz-primary-container/90 transition-colors"
                   >
                     <Download className="w-4 h-4" />
                     Download image
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -255,7 +261,7 @@ export function ShareReviewModal({ open, onOpenChange, targetType, targetId, tar
                   type="button"
                   onClick={downloadQr}
                   disabled={!qrDataUrl}
-                  className="font-headline text-sm font-semibold text-pz-primary hover:text-pz-tertiary-fixed-dim underline-offset-4 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="max-md:min-h-11 font-headline text-sm font-semibold text-pz-primary hover:text-pz-tertiary-fixed-dim underline-offset-4 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Download QR
                 </button>

@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { SELECTED_CONTACTS_STORAGE_KEY } from "@/lib/crm/segment";
 
@@ -49,7 +54,6 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
   const [bulkCourseId, setBulkCourseId] = useState("");
   const [bulkLabel, setBulkLabel] = useState("");
   const [bulkConvertedAt, setBulkConvertedAt] = useState(() => new Date().toISOString().slice(0, 10));
-  const [bulkSaving, setBulkSaving] = useState(false);
   const [courseChoices, setCourseChoices] = useState<{ id: string; title: string }[]>([]);
 
   // Both endpoints already exist for the campaign segment builder.
@@ -137,13 +141,12 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     router.push("/dashboard/admin/crm?tab=whatsapp");
   }
 
-  async function markSelectedConverted() {
+  const { run: markSelectedConverted, pending: bulkSaving } = useAsyncAction(async () => {
     const program = bulkProgramMode === "course" ? { kind: "course" as const, courseId: bulkCourseId } : { kind: "label" as const, pattern: bulkLabel.trim() };
     if (bulkProgramMode === "course" && !bulkCourseId) return;
     if (bulkProgramMode === "label" && bulkLabel.trim() === "") return;
 
-    setBulkSaving(true);
-    try {
+    {
       const res = await fetch("/api/admin/crm/manual-conversions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -159,10 +162,8 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       setBulkCourseId("");
       setBulkLabel("");
       setSelected(new Set());
-    } finally {
-      setBulkSaving(false);
     }
-  }
+  });
 
   return (
     <div className="space-y-4">
@@ -172,22 +173,24 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
           placeholder="Search name, email, or phone"
-          className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm"
+          className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
         />
-        <button
+        <Button
+          variant="bare"
+          size="bare"
+          loading={busy}
           onClick={() => runSearch()}
-          disabled={busy}
-          className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+          className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
         >
           {busy ? "Searching…" : "Search"}
-        </button>
+        </Button>
       </div>
 
       <div className="flex gap-2 flex-wrap items-center">
         <select
           value={courseName}
           onChange={(e) => { setCourseName(e.target.value); void runSearch({ courseName: e.target.value }); }}
-          className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm"
+          className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
         >
           <option value="">All courses</option>
           {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -196,7 +199,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         <select
           value={importBatchId}
           onChange={(e) => { setImportBatchId(e.target.value); void runSearch({ importBatchId: e.target.value }); }}
-          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm"
+          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
         >
           <option value="">All cohorts</option>
           {batches.map((b) => (
@@ -207,7 +210,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         {(courseName !== "" || importBatchId !== "") && (
           <button
             onClick={() => { setCourseName(""); setImportBatchId(""); void runSearch({ courseName: "", importBatchId: "" }); }}
-            className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary"
+            className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
           >
             Clear filters
           </button>
@@ -220,29 +223,29 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         </p>
 
         {selected.size > 0 && (
-          <div className="flex items-center gap-3 bg-pz-surface-container-high rounded-full px-4 py-1.5">
+          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap bg-pz-surface-container-high rounded-2xl md:rounded-full px-4 py-1.5">
             <span className="font-body text-xs font-semibold">{selected.size} selected</span>
             <button
               onClick={useSelectedInCampaign}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline"
+              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
             >
               Use in new campaign
             </button>
             <button
               onClick={useSelectedInWhatsApp}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline"
+              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
             >
               Use in WhatsApp batch
             </button>
             <button
               onClick={() => setShowBulkConvertForm((v) => !v)}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline"
+              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
             >
               Mark {selected.size} selected as converted…
             </button>
             <button
               onClick={() => setSelected(new Set())}
-              className="font-body text-xs text-pz-on-surface-variant hover:text-pz-secondary"
+              className="font-body text-xs text-pz-on-surface-variant hover:text-pz-secondary  max-md:min-h-11"
             >
               Clear
             </button>
@@ -252,92 +255,118 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         {selected.size > 0 && showBulkConvertForm && (
           <div className="bg-pz-surface-container-high rounded-2xl p-4 space-y-3 mt-2">
             <div className="flex gap-3 flex-wrap">
-              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
                 <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "course"} onChange={() => setBulkProgramMode("course")} />
                 Existing course
               </label>
-              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer">
+              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
                 <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "label"} onChange={() => setBulkProgramMode("label")} />
                 Other program (type a name)
               </label>
             </div>
             {bulkProgramMode === "course" ? (
-              <select value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm">
+              <select value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base">
                 <option value="">Select a course…</option>
                 {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
             ) : (
-              <input value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
+              <input value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
             )}
-            <input type="date" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm" />
-            <button
-              onClick={markSelectedConverted}
-              disabled={bulkSaving || (bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === "")}
-              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold disabled:opacity-50"
+            <input type="date" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
+            <Button
+              variant="bare"
+              size="bare"
+              loading={bulkSaving}
+              onClick={() => markSelectedConverted()}
+              disabled={bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === ""}
+              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
             >
               {bulkSaving ? "Saving…" : `Mark ${selected.size} converted`}
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
-      {rows.length === 0 ? (
-        <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">
-          No contacts yet. Use the Import tab to bring in a cohort sheet.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-body text-sm">
-            <thead className="text-pz-on-surface-variant text-xs uppercase">
-              <tr>
-                <th className="py-2 w-8">
-                  <input
-                    type="checkbox"
-                    checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
-                    onChange={toggleSelectAllVisible}
-                    aria-label="Select all shown"
-                  />
-                </th>
-                <th>Name</th><th>Email</th><th>Phone</th><th>Registered for</th><th>Country</th><th>Source</th><th>Purchases</th>
-              </tr>
-            </thead>
-            {rows.map((c) => (
-              <tbody key={c.id}>
-                  <tr className="border-t border-pz-outline-variant">
-                    <td className="py-2">
+      <ResponsiveList
+        rows={rows}
+        getKey={(c) => c.id}
+        empty={
+          <EmptyState
+            icon={Users}
+            title="No contacts yet"
+            description="Use the Import tab to bring in a cohort sheet."
+            action={{ label: "Import contacts", href: "/dashboard/admin/crm?tab=import" }}
+          />
+        }
+        mobile={{
+          title: (c) => c.fullName || c.email || "—",
+          meta: (c) => [
+            c.email,
+            c.phoneE164 ?? "Phone needs review",
+            c.productLabels.length > 0 ? courseSummary(c.productLabels) : null,
+            c.unsubscribed ? "Unsubscribed" : null,
+          ].filter(Boolean),
+          href: (c) => `/dashboard/admin/crm/contacts/${c.id}`,
+        }}
+        selection={{
+          isSelected: (c) => selected.has(c.id),
+          onToggle: (c) => toggleSelected(c.id),
+          label: (c) => `Select ${c.fullName || c.email || c.id}`,
+        }}
+        table={
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-body text-sm">
+                <thead className="text-pz-on-surface-variant text-xs uppercase">
+                  <tr>
+                    <th className="py-2 w-8">
                       <input
                         type="checkbox"
-                        checked={selected.has(c.id)}
-                        onChange={() => toggleSelected(c.id)}
-                        aria-label={`Select ${c.fullName || c.email || c.id}`}
+                        checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+                        onChange={toggleSelectAllVisible}
+                        aria-label="Select all shown"
                       />
-                    </td>
-                    <td>
-                      <Link href={`/dashboard/admin/crm/contacts/${c.id}`} className="text-left underline">
-                        {c.fullName || "—"}
-                      </Link>
-                      {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}
-                    </td>
-                    <td>{c.email ?? "—"}</td>
-                    <td className={c.phoneE164 ? "" : "text-pz-danger"}>{c.phoneE164 ?? "needs review"}</td>
-                    <td className="max-w-[260px]">
-                      {c.productLabels.length === 0 ? "—" : (
-                        // Course names read; the full labels (price, promo, tier)
-                        // stay one hover away and are shown on the contact detail page.
-                        <span title={c.productLabels.join("\n")} className="line-clamp-2">
-                          {courseSummary(c.productLabels)}
-                        </span>
-                      )}
-                    </td>
-                    <td>{c.country ?? "—"}</td>
-                    <td>{c.discoverySource}</td>
-                    <td className="tabular-nums">{c.purchaseCount}</td>
+                    </th>
+                    <th>Name</th><th>Email</th><th>Phone</th><th>Registered for</th><th>Country</th><th>Source</th><th>Purchases</th>
                   </tr>
-              </tbody>
-            ))}
-          </table>
-        </div>
-      )}
+                </thead>
+                {rows.map((c) => (
+                  <tbody key={c.id}>
+                      <tr className="border-t border-pz-outline-variant">
+                        <td className="py-2">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(c.id)}
+                            onChange={() => toggleSelected(c.id)}
+                            aria-label={`Select ${c.fullName || c.email || c.id}`}
+                          />
+                        </td>
+                        <td>
+                          <Link href={`/dashboard/admin/crm/contacts/${c.id}`} className="text-left underline">
+                            {c.fullName || "—"}
+                          </Link>
+                          {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}
+                        </td>
+                        <td>{c.email ?? "—"}</td>
+                        <td className={c.phoneE164 ? "" : "text-pz-danger"}>{c.phoneE164 ?? "needs review"}</td>
+                        <td className="max-w-[260px]">
+                          {c.productLabels.length === 0 ? "—" : (
+                            // Course names read; the full labels (price, promo, tier)
+                            // stay one hover away and are shown on the contact detail page.
+                            <span title={c.productLabels.join("\n")} className="line-clamp-2">
+                              {courseSummary(c.productLabels)}
+                            </span>
+                          )}
+                        </td>
+                        <td>{c.country ?? "—"}</td>
+                        <td>{c.discoverySource}</td>
+                        <td className="tabular-nums">{c.purchaseCount}</td>
+                      </tr>
+                  </tbody>
+                ))}
+              </table>
+            </div>
+        }
+      />
     </div>
   );
 }

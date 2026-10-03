@@ -30,16 +30,16 @@ export default async function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         <StatCard label="Total Students" value={0} icon={Users} />
-        <StatCard label="Active Enrollments" value={0} icon={BookOpen} iconBg="bg-pz-pine/10" />
+        <StatCard label="Active Enrollments" value={0} icon={BookOpen} iconBg="bg-pz-solid-pine/10" />
         <StatCard label="Sessions This Month" value={0} icon={Calendar} iconBg="bg-pz-lime/20" />
         <StatCard label="Revenue (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-frost" />
       </div>
 
       {/* The real queue lives at /dashboard/admin/enrollments. This used to be a
           hardcoded empty table, which would now contradict the banner above. */}
-      <div className="bg-white rounded-xl shadow-card p-6">
+      <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
         <h2 className="font-montserrat font-bold text-pz-forest text-base">Pending Payments</h2>
         <p className="text-sm text-pz-muted mt-1">
           {pendingCount === 0

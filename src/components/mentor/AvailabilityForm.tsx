@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Globe, Plus, Trash2, Save, CalendarClock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { MENTOR_TIMEZONES } from "@/lib/validations/admin-mentor";
 import { computeAvailableSlots, type WeeklyRange } from "@/lib/data/session-slots";
 import type { OwnAvailability } from "@/lib/data/mentor-availability";
@@ -19,7 +21,7 @@ const DAYS: { day: number; label: string }[] = [
 ];
 
 const inputClass =
-  "bg-white border border-pz-outline-variant rounded-md px-3 py-2 text-pz-on-surface focus:ring-2 focus:ring-pz-primary focus:outline-none font-body w-32 shadow-sm";
+  "bg-pz-surface-container-lowest border border-pz-outline-variant rounded-md px-3 py-2 max-md:text-base max-md:min-h-11 text-pz-on-surface focus:ring-2 focus:ring-pz-primary focus:outline-none font-body w-32 shadow-sm";
 
 function groupPreview(slots: string[], timezone: string) {
   const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, weekday: "short", day: "numeric", month: "short" });
@@ -37,7 +39,7 @@ function groupPreview(slots: string[], timezone: string) {
 
 export function AvailabilityForm({ availability }: { availability: OwnAvailability }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
   const [timezone, setTimezone] = useState(availability.timezone || MENTOR_TIMEZONES[0]);
   const [ranges, setRanges] = useState<WeeklyRange[]>(availability.weeklyRanges);
 
@@ -82,8 +84,8 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
     setRanges((prev) => prev.map((r) => (r === target ? { ...r, ...patch } : r)));
   }
 
-  function save() {
-    startTransition(async () => {
+  const { run: save, pending: saving } = useAsyncAction(async () => {
+    try {
       const res = await fetch("/api/mentor/availability", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -96,14 +98,16 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
         return;
       }
       toast.success("Availability saved.");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not save availability.");
+    }
+  });
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 items-start">
       <div className="flex-1 flex flex-col gap-6 w-full">
-        <div className="bg-white rounded-xl shadow-card p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-pz-on-surface-variant">
             <Globe className="w-5 h-5 text-pz-primary" />
             <span className="font-body font-medium">Current Timezone</span>
@@ -117,7 +121,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
           </select>
         </div>
 
-        <div className="bg-white rounded-xl shadow-card overflow-hidden">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card overflow-hidden">
           <div className="p-6 border-b border-pz-outline-variant flex justify-between items-center">
             <h3 className="font-headline font-bold text-pz-on-surface">Weekly Hours</h3>
           </div>
@@ -131,7 +135,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                   className={`flex flex-col sm:flex-row p-6 border-b border-pz-outline-variant last:border-b-0 ${enabled ? "" : "bg-pz-surface-container-low opacity-75"}`}
                 >
                   <div className="flex items-center w-full sm:w-40 mb-4 sm:mb-0 shrink-0 gap-4">
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer max-md:min-h-11">
                       <input
                         type="checkbox"
                         checked={enabled}
@@ -139,7 +143,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-pz-surface-dim peer-checked:bg-pz-primary rounded-full transition-colors" />
-                      <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5" />
+                      <div className="absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 dark:peer-checked:bg-pz-on-primary" />
                     </label>
                     <span className={`font-headline font-bold ${enabled ? "text-pz-on-surface" : "text-pz-on-surface-variant line-through"}`}>
                       {label}
@@ -165,7 +169,8 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                           <button
                             type="button"
                             onClick={() => removeRange(day, i)}
-                            className="text-pz-outline hover:text-pz-danger transition-colors p-2 rounded-full hover:bg-pz-danger/10 ml-auto sm:ml-0"
+                            aria-label="Remove time range"
+                            className="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11 text-pz-outline hover:text-pz-danger transition-colors p-2 rounded-full hover:bg-pz-solid-danger/10 ml-auto sm:ml-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -174,7 +179,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                       <button
                         type="button"
                         onClick={() => addRange(day)}
-                        className="text-pz-primary hover:text-pz-on-primary-container font-body font-medium flex items-center gap-1 w-max transition-colors text-sm"
+                        className="text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed font-body font-medium flex items-center gap-1 w-max max-md:min-h-11 transition-colors text-sm"
                       >
                         <Plus className="w-4 h-4" /> Add another range
                       </button>
@@ -190,21 +195,23 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <button
+        <div className="flex justify-end max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
+          <Button
             type="button"
-            onClick={save}
-            disabled={isPending}
-            className="bg-pz-lime hover:bg-pz-mint text-pz-forest px-8 py-3 rounded-lg font-headline font-bold shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+            variant="bare"
+            size="bare"
+            loading={saving || isNavigating}
+            onClick={() => save()}
+            className="bg-pz-lime hover:bg-pz-mint text-pz-forest dark:text-pz-solid-forest dark:hover:bg-pz-primary-fixed px-8 py-3 max-md:w-full max-md:min-h-11 rounded-lg font-headline font-bold text-base shadow-md transition-all gap-2"
           >
-            {isPending ? "Saving…" : "Save Availability"}
+            {saving || isNavigating ? "Saving…" : "Save Availability"}
             <Save className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       </div>
 
       <aside className="w-full xl:w-[350px] shrink-0">
-        <div className="bg-white rounded-xl shadow-card overflow-hidden sticky top-8 flex flex-col max-h-[700px]">
+        <div className="bg-pz-surface-container-lowest rounded-xl shadow-card overflow-hidden sticky top-8 flex flex-col max-h-[700px]">
           <div className="p-6 border-b border-pz-outline-variant flex justify-between items-center">
             <h3 className="font-headline font-bold text-pz-on-surface">Live Preview</h3>
             <CalendarClock className="w-5 h-5 text-pz-tertiary" />

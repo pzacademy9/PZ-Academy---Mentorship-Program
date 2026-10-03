@@ -70,7 +70,7 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
                       <span
                         className={cn(
                           "text-sm font-body",
-                          locked ? "text-pz-on-surface-variant/70" : "text-pz-on-surface font-medium",
+                          locked ? "text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80" : "text-pz-on-surface font-medium",
                         )}
                       >
                         {lesson.title}

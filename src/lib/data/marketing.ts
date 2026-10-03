@@ -56,7 +56,7 @@ export interface FeaturedCard {
   grad: string;
 }
 
-const FEATURED_GRADIENTS = ["from-pz-forest to-pz-mid", "from-pz-deep to-pz-forest", "from-pz-mid to-pz-deep"];
+const FEATURED_GRADIENTS = ["from-pz-solid-forest to-pz-solid-mid", "from-pz-solid-deep to-pz-solid-forest", "from-pz-solid-mid to-pz-solid-deep"];
 
 /** featured_items has no badge/gradient/enrolled-count columns — derived here from the joined course row. */
 export function buildFeaturedCard(course: FeaturedCourseRow, index: number): FeaturedCard {

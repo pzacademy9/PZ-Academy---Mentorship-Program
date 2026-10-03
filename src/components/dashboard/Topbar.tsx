@@ -42,9 +42,9 @@ export function Topbar({ fullName, role, currentUserId, avatarUrl, notifications
   }
 
   return (
-    <header className="h-16 border-b border-pz-outline-variant/20 dark:border-[#2a2f2c] bg-pz-surface dark:bg-[#1c211e] flex items-center justify-between px-4 sm:px-6 shrink-0 sticky top-0 z-30">
+    <header className="h-16 border-b border-pz-outline-variant/20 dark:border-pz-outline-variant bg-pz-surface dark:bg-pz-surface-container flex items-center justify-between px-4 sm:px-6 shrink-0 sticky top-0 z-30">
       <div className="flex items-center gap-2 lg:hidden">
-        <span className="font-headline font-black text-pz-primary">PharmaZyme</span>
+        <span className="font-headline font-black text-pz-primary">PZ Academy</span>
       </div>
       <div className="hidden lg:block" />
       <div className="flex items-center gap-2">
@@ -55,7 +55,7 @@ export function Topbar({ fullName, role, currentUserId, avatarUrl, notifications
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">
               <Avatar className="w-8 h-8 ring-2 ring-pz-primary/40">
                 <AvatarImage src={avatarUrl ?? undefined} alt={fullName} />
-                <AvatarFallback className="bg-pz-bright text-pz-deep text-xs font-bold">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-pz-bright text-pz-deep dark:text-pz-solid-deep text-xs font-bold">{initials}</AvatarFallback>
               </Avatar>
               <span className="hidden sm:block text-sm font-label font-medium text-pz-on-surface max-w-[120px] truncate">{fullName}</span>
             </Button>

@@ -12,6 +12,8 @@ import { EnrollmentStatusBadge } from "@/components/admin/EnrollmentStatusBadge"
 import { EnrollmentFilterTabs } from "@/components/admin/EnrollmentFilterTabs";
 import { EnrollmentReviewActions } from "@/components/admin/EnrollmentReviewActions";
 import { EnrollmentStatCards } from "@/components/admin/EnrollmentStatCards";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDate, relativeTime, formatPkr, initials } from "@/lib/format";
 
 export const metadata = { title: "Enrollment Review — PZ Academy" };
@@ -78,15 +80,48 @@ export default async function AdminEnrollmentsPage({
       <h2 className="font-headline font-bold text-lg text-pz-on-surface">Manage Applications</h2>
 
       {enrollments.length === 0 ? (
-        <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 flex flex-col items-center text-center">
-          <Inbox className="w-10 h-10 text-pz-outline-variant mb-3" />
-          <p className="font-body text-pz-on-surface-variant text-sm">
-            {filter === "pending"
-              ? "Nothing awaiting review — new payment submissions will appear here."
-              : `No ${filter === "all" ? "" : filter + " "}enrollments to show.`}
-          </p>
-        </div>
+        <EmptyState
+          icon={Inbox}
+          title={filter === "pending" ? "Nothing awaiting review" : `No ${filter === "all" ? "" : filter + " "}enrollments to show`}
+          description={filter === "pending" ? "New payment submissions will appear here." : undefined}
+        />
       ) : (
+        <ResponsiveList
+          rows={enrollments}
+          getKey={(e) => e.id}
+          mobile={{
+            title: (e) => (
+              <Link href={`/dashboard/admin/enrollments/${e.id}`} className="inline-flex min-h-11 items-center hover:text-pz-primary transition-colors">
+                {e.student.fullName}
+              </Link>
+            ),
+            meta: (e) => [
+              e.student.email ?? e.student.phone ?? "—",
+              `${e.course.title} (${e.course.type})`,
+              `${formatDate(e.enrolledAt)} · ${formatPkr(e.paymentAmountPkr) ?? "Amount not stated"}`,
+              <span key="status" className="inline-flex flex-wrap items-center gap-2">
+                <EnrollmentStatusBadge status={e.status} />
+                {e.paymentShortfallPkr != null && (
+                  <span className="font-body text-[11px] font-semibold text-pz-gold">
+                    Rs. {e.paymentShortfallPkr.toLocaleString("en-GB")} short
+                  </span>
+                )}
+                {e.sheetPendingStatus && (
+                  <span className="font-body text-[11px] font-semibold text-pz-danger">Sheet: → {e.sheetPendingStatus}</span>
+                )}
+              </span>,
+              <div key="actions" className="pt-1">
+                <EnrollmentReviewActions
+                  enrollmentId={e.id}
+                  status={e.status}
+                  studentName={e.student.fullName}
+                  courseTitle={e.course.title}
+                  size="compact"
+                />
+              </div>,
+            ],
+          }}
+          table={
         <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[52rem]">
@@ -148,7 +183,7 @@ export default async function AdminEnrollmentsPage({
                         {amount ? (
                           <span className="font-headline font-bold tabular-nums">{amount}</span>
                         ) : (
-                          <span className="font-body italic text-pz-on-surface-variant/70">
+                          <span className="font-body italic text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80">
                             Not stated
                           </span>
                         )}
@@ -215,6 +250,8 @@ export default async function AdminEnrollmentsPage({
             </table>
           </div>
         </div>
+          }
+        />
       )}
     </div>
   );

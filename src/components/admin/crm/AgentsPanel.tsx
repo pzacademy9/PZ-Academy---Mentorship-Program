@@ -3,7 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, UserPlus, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { formatDate } from "@/lib/format";
 
 type Agent = {
@@ -38,7 +42,7 @@ function CopyLinkButton({ token }: { token: string }) {
       type="button"
       onClick={copy}
       title="Copy link"
-      className="inline-flex items-center gap-1.5 rounded-md border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-highest transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-md border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-highest transition-colors max-md:min-h-11"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-pz-primary" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? "Copied" : "Copy link"}
@@ -49,16 +53,13 @@ function CopyLinkButton({ token }: { token: string }) {
 export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
   const [agents, setAgents] = useState(initialAgents);
   const [name, setName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const filteredAgents = search.trim() === "" ? agents : agents.filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
 
-  async function create() {
+  const { run: create, pending: creating } = useAsyncAction(async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    setCreating(true);
     try {
       const res = await fetch("/api/admin/crm/agents", {
         method: "POST",
@@ -73,13 +74,10 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
       toast.success(`Agent link created for ${trimmed}.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not create this agent.");
-    } finally {
-      setCreating(false);
     }
-  }
+  });
 
-  async function toggleActive(agent: Agent) {
-    setBusyId(agent.id);
+  const { run: toggleActive, pending: toggling, pendingKey: busyId } = useAsyncAction(async (agent: Agent) => {
     try {
       const res = await fetch(`/api/admin/crm/agents/${agent.id}`, {
         method: "PATCH",
@@ -93,10 +91,8 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
       setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, active: !a.active } : a)));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update this agent.");
-    } finally {
-      setBusyId(null);
     }
-  }
+  }, { getKey: (agent) => agent.id });
 
   return (
     <div className="space-y-6">
@@ -111,17 +107,20 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
               if (e.key === "Enter") create();
             }}
             placeholder="e.g. Ayesha Khan"
-            className="mt-1 w-full h-10 rounded-md border border-pz-outline-variant bg-pz-surface-container-highest px-3 font-body text-sm text-pz-on-surface outline-none focus:border-pz-primary focus:ring-1 focus:ring-pz-primary"
+            className="mt-1 w-full h-10 max-md:h-11 rounded-md border border-pz-outline-variant bg-pz-surface-container-highest px-3 font-body text-sm max-md:text-base text-pz-on-surface outline-none focus:border-pz-primary focus:ring-1 focus:ring-pz-primary"
           />
         </div>
-        <button
+        <Button
           type="button"
-          onClick={create}
-          disabled={creating || !name.trim()}
-          className="h-10 px-5 rounded-md bg-pz-primary-container font-headline text-sm font-semibold text-pz-on-primary-container hover:bg-pz-primary-container/90 transition-colors disabled:opacity-50"
+          variant="bare"
+          size="bare"
+          loading={creating}
+          onClick={() => create()}
+          disabled={!name.trim()}
+          className="h-10 max-md:h-11 px-5 rounded-md bg-pz-primary-container font-headline text-sm font-semibold text-pz-on-primary-container hover:bg-pz-primary-container/90 transition-colors"
         >
           {creating ? "Generating…" : "Generate link"}
-        </button>
+        </Button>
       </div>
 
       {agents.length > 0 && (
@@ -129,62 +128,94 @@ export function AgentsPanel({ initialAgents }: { initialAgents: Agent[] }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search agents…"
-          className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64"
+          className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base"
         />
       )}
       {agents.length === 0 ? (
-        <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No agents yet.</p>
+        <EmptyState icon={UserPlus} title="No agents yet" description="Generate a link above and share it with an agent so they can add leads." />
       ) : filteredAgents.length === 0 ? (
-        <p className="font-body text-sm text-pz-on-surface-variant py-8 text-center">No agents match &quot;{search}&quot;.</p>
+        <EmptyState icon={SearchX} title="No agents match" description={`Nothing matches "${search}".`} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-body text-sm">
-            <thead className="text-pz-on-surface-variant text-xs uppercase">
-              <tr>
-                <th className="py-2">Name</th>
-                <th>Link</th>
-                <th>Created</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAgents.map((a) => (
-                <tr key={a.id} className="border-t border-pz-outline-variant">
-                  <td className="py-2">
-                    <Link href={`/dashboard/admin/crm/agents/${a.id}`} className="underline">
-                      {a.name}
-                    </Link>
-                  </td>
-                  <td>
-                    <CopyLinkButton token={a.token} />
-                  </td>
-                  <td>{formatDate(a.createdAt)}</td>
-                  <td>
-                    <span
-                      className={
-                        a.active
-                          ? "inline-flex rounded-full bg-pz-primary-container px-2.5 py-1 text-xs font-semibold text-pz-on-primary-container"
-                          : "inline-flex rounded-full bg-pz-surface-container-highest px-2.5 py-1 text-xs font-semibold text-pz-on-surface-variant"
-                      }
-                    >
-                      {a.active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => toggleActive(a)}
-                      disabled={busyId === a.id}
-                      className="font-body text-sm text-pz-on-surface-variant hover:text-pz-on-surface disabled:opacity-50"
-                    >
-                      {busyId === a.id ? "…" : a.active ? "deactivate" : "activate"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveList
+          rows={filteredAgents}
+          getKey={(a) => a.id}
+          mobile={{
+            title: (a) => (
+              <Link href={`/dashboard/admin/crm/agents/${a.id}`} className="inline-flex min-h-11 items-center underline">
+                {a.name}
+              </Link>
+            ),
+            meta: (a) => [
+              `${a.active ? "Active" : "Inactive"} · ${formatDate(a.createdAt)}`,
+              <div key="actions" className="flex flex-wrap items-center gap-2">
+                <CopyLinkButton token={a.token} />
+                <Button
+                  variant="bare"
+                  size="bare"
+                  loading={busyId === a.id}
+                  disabled={toggling}
+                  onClick={() => toggleActive(a)}
+                  className="min-h-11 min-w-11 px-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-on-surface"
+                >
+                  {busyId === a.id ? "…" : a.active ? "deactivate" : "activate"}
+                </Button>
+              </div>,
+            ],
+          }}
+          table={
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-body text-sm">
+                <thead className="text-pz-on-surface-variant text-xs uppercase">
+                  <tr>
+                    <th className="py-2">Name</th>
+                    <th>Link</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAgents.map((a) => (
+                    <tr key={a.id} className="border-t border-pz-outline-variant">
+                      <td className="py-2">
+                        <Link href={`/dashboard/admin/crm/agents/${a.id}`} className="underline">
+                          {a.name}
+                        </Link>
+                      </td>
+                      <td>
+                        <CopyLinkButton token={a.token} />
+                      </td>
+                      <td>{formatDate(a.createdAt)}</td>
+                      <td>
+                        <span
+                          className={
+                            a.active
+                              ? "inline-flex rounded-full bg-pz-primary-container px-2.5 py-1 text-xs font-semibold text-pz-on-primary-container"
+                              : "inline-flex rounded-full bg-pz-surface-container-highest px-2.5 py-1 text-xs font-semibold text-pz-on-surface-variant"
+                          }
+                        >
+                          {a.active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td>
+                        <Button
+                          variant="bare"
+                          size="bare"
+                          loading={busyId === a.id}
+                          disabled={toggling}
+                          onClick={() => toggleActive(a)}
+                          className="font-body text-sm text-pz-on-surface-variant hover:text-pz-on-surface"
+                        >
+                          {busyId === a.id ? "…" : a.active ? "deactivate" : "activate"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   );

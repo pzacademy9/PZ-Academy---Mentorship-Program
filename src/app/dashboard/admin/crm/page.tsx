@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChipTabs } from "@/components/ui/chip-tabs";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listContacts, listMergeCandidates } from "@/lib/data/admin-crm-contacts";
 import { listCampaigns } from "@/lib/data/admin-crm-campaigns";
@@ -86,32 +87,32 @@ export default async function AdminCrmPage({
         </p>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <Link href="/dashboard/admin/crm?tab=contacts" className={TAB_CLASS(tab === "contacts")}>
+      <ChipTabs label="CRM sections">
+        <Link href="/dashboard/admin/crm?tab=contacts" className={TAB_CLASS(tab === "contacts")} aria-current={tab === "contacts" ? "page" : undefined}>
           Contacts <span className="ml-2 tabular-nums">{contacts.total}</span>
         </Link>
-        <Link href="/dashboard/admin/crm?tab=import" className={TAB_CLASS(tab === "import")}>
+        <Link href="/dashboard/admin/crm?tab=import" className={TAB_CLASS(tab === "import")} aria-current={tab === "import" ? "page" : undefined}>
           Import
         </Link>
-        <Link href="/dashboard/admin/crm?tab=merge" className={TAB_CLASS(tab === "merge")}>
+        <Link href="/dashboard/admin/crm?tab=merge" className={TAB_CLASS(tab === "merge")} aria-current={tab === "merge" ? "page" : undefined}>
           Merge Review <span className="ml-2 tabular-nums">{mergeCandidates.length}</span>
         </Link>
-        <Link href="/dashboard/admin/crm?tab=campaigns" className={TAB_CLASS(tab === "campaigns")}>
+        <Link href="/dashboard/admin/crm?tab=campaigns" className={TAB_CLASS(tab === "campaigns")} aria-current={tab === "campaigns" ? "page" : undefined}>
           Campaigns
         </Link>
-        <Link href="/dashboard/admin/crm?tab=cohorts" className={TAB_CLASS(tab === "cohorts")}>
+        <Link href="/dashboard/admin/crm?tab=cohorts" className={TAB_CLASS(tab === "cohorts")} aria-current={tab === "cohorts" ? "page" : undefined}>
           Cohorts <span className="ml-2 tabular-nums">{cohorts.length}</span>
         </Link>
-        <Link href="/dashboard/admin/crm?tab=whatsapp" className={TAB_CLASS(tab === "whatsapp")}>
+        <Link href="/dashboard/admin/crm?tab=whatsapp" className={TAB_CLASS(tab === "whatsapp")} aria-current={tab === "whatsapp" ? "page" : undefined}>
           WhatsApp <span className="ml-2 tabular-nums">{whatsappBatches.length}</span>
         </Link>
-        <Link href="/dashboard/admin/crm?tab=conversion" className={TAB_CLASS(tab === "conversion")}>
+        <Link href="/dashboard/admin/crm?tab=conversion" className={TAB_CLASS(tab === "conversion")} aria-current={tab === "conversion" ? "page" : undefined}>
           Conversion
         </Link>
-        <Link href="/dashboard/admin/crm?tab=agents" className={TAB_CLASS(tab === "agents")}>
+        <Link href="/dashboard/admin/crm?tab=agents" className={TAB_CLASS(tab === "agents")} aria-current={tab === "agents" ? "page" : undefined}>
           Agents <span className="ml-2 tabular-nums">{agents.length}</span>
         </Link>
-      </div>
+      </ChipTabs>
 
       {tab === "contacts" && <ContactsPanel initialRows={contacts.rows} initialTotal={contacts.total} />}
       {tab === "import" && <ImportWizard />}

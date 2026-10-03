@@ -4,9 +4,11 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Link2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 const FIELD =
-  "w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+  "w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
 const LABEL = "block font-headline text-sm font-semibold text-pz-on-surface mb-1.5";
 
 interface CourseOption {
@@ -22,7 +24,7 @@ interface CourseOption {
  */
 export function ConnectSheetForm({ courses }: { courses: CourseOption[] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
 
   const [courseId, setCourseId] = useState(courses[0]?.id ?? "");
   const [sheetId, setSheetId] = useState(courses[0]?.sheetId ?? "");
@@ -34,11 +36,10 @@ export function ConnectSheetForm({ courses }: { courses: CourseOption[] }) {
     setSheetId(courses.find((c) => c.id === courseId)?.sheetId ?? "");
   }, [courseId, courses]);
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
+  const { run: submit, pending: connecting } = useAsyncAction(async () => {
     const trimmed = sheetId.trim();
 
-    startTransition(async () => {
+    try {
       const res = await fetch(`/api/admin/courses/${courseId}/connect-sheet`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -57,16 +58,21 @@ export function ConnectSheetForm({ courses }: { courses: CourseOption[] }) {
       } else {
         toast.success("Connected — this sheet is now being watched for edits.");
       }
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not connect this sheet.");
+    }
+  });
 
-  const disabled = isPending || !courseId || sheetId.trim().length < 10;
+  const disabled = !courseId || sheetId.trim().length < 10;
 
   return (
     <form
-      onSubmit={submit}
-      className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-6 space-y-5 max-w-2xl"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+      className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-4 md:p-6 space-y-5 max-w-2xl"
     >
       <div>
         <label htmlFor="sheet-course" className={LABEL}>
@@ -107,14 +113,17 @@ export function ConnectSheetForm({ courses }: { courses: CourseOption[] }) {
       </div>
 
       <div className="flex justify-end pt-1">
-        <button
+        <Button
           type="submit"
+          variant="bare"
+          size="bare"
+          loading={connecting || isRefreshing}
           disabled={disabled}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-pz-primary text-pz-on-primary font-headline font-bold text-sm hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="gap-2 px-5 py-2.5 max-md:min-h-11 max-md:w-full rounded-lg bg-pz-primary text-pz-on-primary font-headline font-bold text-sm hover:bg-pz-on-primary-container transition-colors"
         >
           <Link2 className="w-4 h-4" />
-          {isPending ? "Connecting…" : "Connect sheet"}
-        </button>
+          {connecting || isRefreshing ? "Connecting…" : "Connect sheet"}
+        </Button>
       </div>
     </form>
   );

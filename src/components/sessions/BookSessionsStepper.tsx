@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 interface Props {
   bookingId: string;
@@ -27,7 +29,7 @@ function groupBySlotDay(slots: string[], timezone: string) {
 
 export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, packageName, sessionsNeeded }: Props) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
   const [allSlots, setAllSlots] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("UTC");
   const [selected, setSelected] = useState<string[]>([]);
@@ -72,8 +74,8 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
     setActiveDay(null);
   }
 
-  function confirmAll() {
-    startTransition(async () => {
+  const { run: confirmAll, pending: confirming } = useAsyncAction(async () => {
+    try {
       const res = await fetch("/api/sessions/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -92,16 +94,19 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
         return;
       }
       toast.success("All sessions booked.");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not book these sessions.");
+    }
+  });
+  const isPending = confirming || isRefreshing;
 
   if (loading) {
-    return <div className="bg-white rounded-xl shadow-card p-8 text-center font-body text-pz-on-surface-variant">Loading available times…</div>;
+    return <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-8 text-center font-body text-pz-on-surface-variant">Loading available times…</div>;
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-card overflow-hidden flex flex-col">
+    <div className="bg-pz-surface-container-lowest rounded-xl shadow-card max-md:overflow-clip md:overflow-hidden flex flex-col">
       <div className="border-b border-pz-outline-variant p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="font-headline font-bold text-pz-on-surface">Schedule Your Sessions</h2>
@@ -122,7 +127,7 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
       </div>
 
       {done ? (
-        <div className="p-8 flex flex-col gap-4">
+        <div className="p-4 md:p-8 flex flex-col gap-4">
           <h3 className="font-headline font-bold text-pz-on-surface">Review your sessions</h3>
           <ul className="flex flex-col gap-2">
             {selected.map((iso, i) => (
@@ -132,23 +137,27 @@ export function BookSessionsStepper({ bookingId, mentorSlug, mentorName, package
               </li>
             ))}
           </ul>
-          <div className="flex justify-end gap-3">
-            <button
+          <div className="flex justify-end gap-3 max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
+            <Button
               type="button"
+              variant="bare"
+              size="bare"
               onClick={() => setSelected([])}
               disabled={isPending}
-              className="px-6 py-2.5 rounded-lg border-2 border-pz-outline-variant text-pz-on-surface font-headline font-bold hover:bg-pz-surface-container-low transition-colors disabled:opacity-50"
+              className="px-6 py-2.5 max-md:min-h-11 max-md:flex-1 rounded-lg border-2 border-pz-outline-variant text-pz-on-surface font-headline font-bold hover:bg-pz-surface-container-low transition-colors"
             >
               Start Over
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={confirmAll}
-              disabled={isPending}
-              className="px-6 py-2.5 rounded-lg bg-pz-primary text-pz-on-primary font-headline font-bold shadow-md hover:bg-pz-on-primary-container transition-all disabled:opacity-50"
+              variant="bare"
+              size="bare"
+              loading={isPending}
+              onClick={() => confirmAll()}
+              className="px-6 py-2.5 max-md:min-h-11 max-md:flex-1 rounded-lg bg-pz-primary text-pz-on-primary font-headline font-bold shadow-md hover:bg-pz-on-primary-container transition-all"
             >
               {isPending ? "Booking…" : "Confirm All Sessions"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : days.length === 0 ? (

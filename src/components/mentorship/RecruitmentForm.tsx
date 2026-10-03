@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, ChevronRight, ChevronLeft, Send, FileText, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 const STEPS = [
   { number: 1, title: "Basic Information" },
@@ -51,7 +53,7 @@ const empty: FormData = {
 /* ── shared styles ── */
 const inputCls = `
   w-full px-4 py-3 rounded-lg border border-gray-200
-  font-poppins text-[15px] text-gray-900 placeholder-gray-400
+  font-poppins text-[15px] max-md:text-base text-gray-900 placeholder-gray-400
   bg-white outline-none transition-all duration-200
   focus:border-[#1A4D2E] focus:ring-2 focus:ring-[#1A4D2E]/10
 `.replace(/\s+/g, " ").trim();
@@ -146,7 +148,6 @@ export default function RecruitmentForm() {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [photos, setPhotos] = useState<File[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [direction, setDirection] = useState<1 | -1>(1);
   const cvRef = useRef<HTMLInputElement>(null);
@@ -194,14 +195,13 @@ export default function RecruitmentForm() {
     });
   }
 
-  async function handleSubmit() {
+  const { run: handleSubmit, pending: loading } = useAsyncAction(async () => {
     // Rate limiting: prevent submissions within 30 seconds
     const now = Date.now();
     if (now - lastSubmitRef.current < 30_000) {
       setError("Please wait before submitting again.");
       return;
     }
-    setLoading(true);
     setError("");
     try {
       const cvBase64 = cvFile ? await toBase64(cvFile) : "";
@@ -241,10 +241,8 @@ export default function RecruitmentForm() {
       lastSubmitRef.current = Date.now();
     } catch {
       setError("Something went wrong. Please try again or reach out via WhatsApp.");
-    } finally {
-      setLoading(false);
     }
-  }
+  });
 
   /* ── slide variants ── */
   const variants = {
@@ -573,14 +571,14 @@ export default function RecruitmentForm() {
                     <p className="font-poppins mt-4 text-center" style={{ fontSize: "13px", color: "#ef4444" }}>{error}</p>
                   )}
 
-                  <div className={`flex mt-8 gap-3 ${step === 1 ? "justify-end" : "justify-between"}`}>
+                  <div className={`flex mt-8 gap-3 ${step === 1 ? "justify-end" : "justify-between"} max-md:sticky max-md:bottom-0 max-md:z-40 max-md:-mx-9 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-9 max-md:pt-3 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:backdrop-blur`}>
                     {step > 1 && (
                       <motion.button
                         type="button"
                         onClick={back}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
-                        className="flex items-center gap-2 font-montserrat font-bold cursor-pointer transition-colors"
+                        className="flex items-center gap-2 font-montserrat font-bold cursor-pointer transition-colors max-md:min-h-11"
                         style={{
                           padding: "13px 24px", borderRadius: 6,
                           border: "2px solid rgba(26,77,46,0.2)",
@@ -600,7 +598,7 @@ export default function RecruitmentForm() {
                         disabled={!canAdvance()}
                         whileHover={canAdvance() ? { scale: 1.02 } : {}}
                         whileTap={canAdvance() ? { scale: 0.97 } : {}}
-                        className="flex items-center gap-2 font-montserrat font-bold cursor-pointer"
+                        className="flex items-center gap-2 font-montserrat font-bold cursor-pointer max-md:min-h-11"
                         style={{
                           padding: "13px 28px", borderRadius: 6,
                           background: canAdvance() ? "#1A4D2E" : "#D1D5DB",
@@ -615,40 +613,33 @@ export default function RecruitmentForm() {
                         <ChevronRight size={14} />
                       </motion.button>
                     ) : (
-                      <motion.button
+                      <Button
                         type="button"
-                        onClick={handleSubmit}
-                        disabled={loading || !canAdvance()}
-                        whileHover={!loading ? { scale: 1.02 } : {}}
-                        whileTap={!loading ? { scale: 0.97 } : {}}
-                        className="flex items-center gap-2 font-montserrat font-bold cursor-pointer"
+                        variant="bare"
+                        size="bare"
+                        loading={loading}
+                        onClick={() => handleSubmit()}
+                        disabled={!canAdvance()}
+                        className="flex items-center gap-2 font-montserrat font-bold cursor-pointer max-md:min-h-11 hover:scale-[1.02] active:scale-[0.97]"
                         style={{
                           padding: "13px 28px", borderRadius: 6,
                           background: loading ? "#D1D5DB" : "#1A4D2E",
                           color: loading ? "#9CA3AF" : "#C9A84C",
                           fontSize: "12px", letterSpacing: "0.10em", textTransform: "uppercase",
-                          cursor: loading ? "not-allowed" : "pointer",
                           opacity: loading ? 0.8 : 1,
                           transition: "all 0.2s",
                           boxShadow: loading ? "none" : "0 4px 16px rgba(26,77,46,0.25)",
                         }}
                       >
                         {loading ? (
-                          <>
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                              style={{ width: 14, height: 14, border: "2px solid rgba(26,77,46,0.2)", borderTopColor: "#1A4D2E", borderRadius: "50%" }}
-                            />
-                            Submitting...
-                          </>
+                          "Submitting..."
                         ) : (
                           <>
                             <Send size={13} />
                             Submit Application
                           </>
                         )}
-                      </motion.button>
+                      </Button>
                     )}
                   </div>
 

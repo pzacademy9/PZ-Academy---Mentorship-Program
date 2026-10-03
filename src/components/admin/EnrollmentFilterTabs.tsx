@@ -46,7 +46,7 @@ export function EnrollmentFilterTabs({
             )}
           >
             {tab === "all" ? "All" : ENROLLMENT_STATUS_LABELS[tab]}
-            <span className={cn("ml-2 tabular-nums", !selected && "text-pz-on-surface-variant/60")}>
+            <span className={cn("ml-2 tabular-nums", !selected && "text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80")}>
               {counts[tab]}
             </span>
           </Link>

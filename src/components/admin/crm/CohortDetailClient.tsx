@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDate } from "@/lib/format";
 import type { CohortDetail } from "@/lib/data/admin-crm-import";
 
@@ -18,7 +20,7 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
       <div>
         <Link
           href="/dashboard/admin/crm?tab=cohorts"
-          className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
+          className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors max-md:min-h-11"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Cohorts
         </Link>
@@ -38,35 +40,47 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search contacts…"
-            className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64"
+            className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base"
           />
         )}
       </div>
-      {filtered.length === 0 ? (
-        <p className="font-body text-sm text-pz-on-surface-variant py-4">
-          {search ? `No contacts match "${search}".` : "No contacts attached to this cohort."}
-        </p>
-      ) : (
-        <table className="w-full text-left font-body text-sm">
-          <thead className="text-pz-on-surface-variant text-xs uppercase">
-            <tr><th className="py-1">Name</th><th>Email</th><th>Phone</th><th>Product</th></tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => (
-              <tr key={`${c.contactId}-${c.productLabel}`} className="border-t border-pz-outline-variant">
-                <td className="py-1">
-                  <Link href={`/dashboard/admin/crm/contacts/${c.contactId}`} className="underline">
-                    {c.fullName || "—"}
-                  </Link>
-                </td>
-                <td>{c.email ?? "—"}</td>
-                <td>{c.phoneE164 ?? "—"}</td>
-                <td>{c.productLabel || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <ResponsiveList
+        rows={filtered}
+        getKey={(c) => `${c.contactId}-${c.productLabel}`}
+        empty={
+          <EmptyState
+            icon={Users}
+            title={search ? "No contacts match" : "No contacts in this cohort"}
+            description={search ? `Nothing matches "${search}".` : undefined}
+          />
+        }
+        mobile={{
+          title: (c) => c.fullName || "—",
+          meta: (c) => [c.email, c.phoneE164, c.productLabel].filter(Boolean),
+          href: (c) => `/dashboard/admin/crm/contacts/${c.contactId}`,
+        }}
+        table={
+            <table className="w-full text-left font-body text-sm">
+              <thead className="text-pz-on-surface-variant text-xs uppercase">
+                <tr><th className="py-1">Name</th><th>Email</th><th>Phone</th><th>Product</th></tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr key={`${c.contactId}-${c.productLabel}`} className="border-t border-pz-outline-variant">
+                    <td className="py-1">
+                      <Link href={`/dashboard/admin/crm/contacts/${c.contactId}`} className="underline">
+                        {c.fullName || "—"}
+                      </Link>
+                    </td>
+                    <td>{c.email ?? "—"}</td>
+                    <td>{c.phoneE164 ?? "—"}</td>
+                    <td>{c.productLabel || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        }
+      />
     </div>
   );
 }

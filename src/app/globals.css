@@ -40,6 +40,7 @@
     --sidebar-ring: 102 59% 59%;
   }
   .dark {
+    color-scheme: dark;
     --background: 150 25% 14%;
     --foreground: 0 0% 98%;
     --card: 150 47% 20%;
@@ -79,6 +80,14 @@
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-montserrat;
+  }
+  /* iOS Safari zooms on focus when an input's font-size is below 16px. */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 }
 
@@ -126,7 +135,7 @@
   margin: 0.5rem 0;
 }
 .lesson-note-content blockquote {
-  border-left: 3px solid var(--pz-outline-variant, #bfcab5);
+  border-left: 3px solid rgb(var(--pz-outline-variant));
   padding-left: 0.75rem;
   color: inherit;
   opacity: 0.85;

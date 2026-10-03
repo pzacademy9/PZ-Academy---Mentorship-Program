@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Download, ChevronRight, GraduationCap, Presentation, Video, PackageOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ResponsiveList } from "@/components/ui/responsive-list";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { ProgramListRow } from "@/lib/data/admin-lms";
 
 type DisplayType = "course" | "workshop" | "webinar";
@@ -110,25 +112,25 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="relative w-full md:flex-1 md:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pz-on-surface-variant" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search courses by title or slug..."
-            className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pz-primary/30 focus:border-pz-primary"
+            className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-lg pl-9 pr-4 py-2 text-sm max-md:text-base max-md:min-h-11 focus:outline-none focus:ring-2 focus:ring-pz-primary/30 focus:border-pz-primary"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-pz-surface-container-low p-1 rounded-lg">
             {(["all", "published", "draft"] as const).map((option) => (
               <button
                 key={option}
                 onClick={() => setPublishFilter(option)}
                 className={cn(
-                  "px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize",
+                  "px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize max-md:min-h-11",
                   publishFilter === option
                     ? "bg-pz-surface-container-lowest text-pz-primary shadow-sm"
                     : "text-pz-on-surface-variant hover:text-pz-primary",
@@ -140,14 +142,14 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
           </div>
           <button
             onClick={() => downloadCsv(filtered)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-pz-outline-variant text-sm font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
+            className="flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-lg border border-pz-outline-variant text-sm font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
           >
             <Download className="w-4 h-4" />
             Export List
           </button>
           <Link
             href="/dashboard/admin/courses/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-pz-primary text-pz-on-primary text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary text-pz-on-primary text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
           >
             + Create New Course
           </Link>
@@ -162,7 +164,7 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
               key={section.type}
               className="bg-pz-surface-container-lowest rounded-xl border border-pz-outline-variant overflow-hidden"
             >
-              <div className="px-6 py-4 border-b border-pz-outline-variant flex items-center justify-between">
+              <div className="px-4 md:px-6 py-4 border-b border-pz-outline-variant flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", section.iconBg, section.iconColor)}>
                     <section.icon className="w-5 h-5" />
@@ -181,46 +183,52 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
                 </span>
               </div>
 
-              {sectionRows.length === 0 ? (
-                <div className="p-10 flex flex-col items-center justify-center text-center">
-                  <div className="w-14 h-14 bg-pz-surface-container-low rounded-full flex items-center justify-center mb-3">
-                    <PackageOpen className="w-6 h-6 text-pz-outline" />
+              <ResponsiveList
+                rows={sectionRows}
+                getKey={(r) => r.id}
+                mobile={{
+                  title: (r) => r.title,
+                  meta: (r) => [r.slug, `PKR ${r.pricePkr.toLocaleString()} · ${r.isPublished ? "Published" : "Draft"}`],
+                  href: (r) => `/dashboard/admin/courses/${r.id}`,
+                }}
+                empty={
+                  <EmptyState
+                    icon={PackageOpen}
+                    title={`No ${section.label.toLowerCase()} yet.`}
+                    action={{
+                      label: `+ Add ${section.type === "course" ? "Course" : section.type === "workshop" ? "Workshop" : "Webinar"}`,
+                      href: `/dashboard/admin/courses/new?type=${section.type}`,
+                    }}
+                  />
+                }
+                table={
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
+                          <th className="px-6 py-3 font-bold">Course Title</th>
+                          <th className="px-6 py-3 font-bold">Slug</th>
+                          <th className="px-6 py-3 font-bold">Price</th>
+                          <th className="px-6 py-3 font-bold">Status</th>
+                          <th className="px-6 py-3 font-bold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sectionRows.map((row) => (
+                          <ProgramRow key={row.id} row={row} />
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <p className="font-body text-pz-on-surface-variant font-medium mb-1">No {section.label.toLowerCase()} yet.</p>
-                  <Link
-                    href={`/dashboard/admin/courses/new?type=${section.type}`}
-                    className="mt-3 px-4 py-2 bg-pz-surface-container-lowest text-pz-primary border border-pz-primary rounded-lg text-sm font-medium hover:bg-pz-primary-container/20 transition-colors"
-                  >
-                    + Add {section.type === "course" ? "Course" : section.type === "workshop" ? "Workshop" : "Webinar"}
-                  </Link>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
-                        <th className="px-6 py-3 font-bold">Course Title</th>
-                        <th className="px-6 py-3 font-bold">Slug</th>
-                        <th className="px-6 py-3 font-bold">Price</th>
-                        <th className="px-6 py-3 font-bold">Status</th>
-                        <th className="px-6 py-3 font-bold text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sectionRows.map((row) => (
-                        <ProgramRow key={row.id} row={row} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                }
+              />
             </section>
           );
         })}
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-center text-sm text-pz-on-surface-variant py-6">No programs match your search.</p>
+        <EmptyState icon={Search} title="No programs match your search." description="Try a different search or filter." />
       )}
 
       <p className="text-xs text-pz-on-surface-variant italic">

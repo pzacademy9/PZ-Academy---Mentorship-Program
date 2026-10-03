@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { ImageUploadField } from "@/components/admin/program/ImageUploadField";
 import { StringListRepeater } from "@/components/admin/mentors/StringListRepeater";
 import { SocialLinkRepeater } from "@/components/admin/mentors/SocialLinkRepeater";
@@ -42,20 +44,20 @@ function toFormState(mentor: Mentor): FormState {
 }
 
 const inputClass =
-  "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+  "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
 const labelClass = "block font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant mb-1.5";
 
 export function MentorSelfProfileForm({ mentor }: { mentor: Mentor }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
   const [form, setForm] = useState<FormState>(() => toFormState(mentor));
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function save() {
-    startTransition(async () => {
+  const { run: save, pending: saving } = useAsyncAction(async () => {
+    try {
       const res = await fetch("/api/mentor/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -80,23 +82,29 @@ export function MentorSelfProfileForm({ mentor }: { mentor: Mentor }) {
         return;
       }
       toast.success("Profile updated.");
-      router.refresh();
-    });
-  }
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not save changes.");
+    }
+  });
+  const busy = saving || isNavigating;
 
   return (
-    <div className="bg-white rounded-xl shadow-card p-6 space-y-6">
+    <div>
+    <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-montserrat font-bold text-pz-forest text-base">My Profile</h2>
-        <button
+        <Button
           type="button"
-          onClick={save}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-pz-lime text-pz-forest font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors disabled:opacity-50"
+          variant="bare"
+          size="bare"
+          loading={busy}
+          onClick={() => save()}
+          className="max-md:hidden gap-2 px-4 py-2 bg-pz-lime text-pz-forest dark:text-pz-solid-forest dark:hover:bg-pz-primary-fixed font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors"
         >
           <Save className="w-4 h-4" />
-          {isPending ? "Saving…" : "Save Changes"}
-        </button>
+          {busy ? "Saving…" : "Save Changes"}
+        </Button>
       </div>
 
       <div>
@@ -194,6 +202,20 @@ export function MentorSelfProfileForm({ mentor }: { mentor: Mentor }) {
         <label className={labelClass}>Credentials</label>
         <CredentialRepeater value={form.credentials} onChange={(v) => set("credentials", v)} />
       </div>
+    </div>
+    <div className="md:hidden mt-4 max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
+      <Button
+        type="button"
+        variant="bare"
+        size="bare"
+        loading={busy}
+        onClick={() => save()}
+        className="w-full gap-2 px-4 py-2 max-md:min-h-11 bg-pz-lime text-pz-forest dark:text-pz-solid-forest dark:hover:bg-pz-primary-fixed font-semibold text-sm rounded-lg hover:bg-pz-mint transition-colors"
+      >
+        <Save className="w-4 h-4" />
+        {busy ? "Saving…" : "Save Changes"}
+      </Button>
+    </div>
     </div>
   );
 }

@@ -56,7 +56,7 @@ const VARIANTS: Record<Variant, VariantConfig> = {
   },
   rejected: {
     icon: XCircle,
-    iconWrap: "bg-pz-danger/15",
+    iconWrap: "bg-pz-solid-danger/15",
     iconColor: "text-pz-danger",
     title: "Enrollment Not Approved",
     body: (course) => (
@@ -89,21 +89,21 @@ interface EnrollmentStatusScreenProps {
 export function EnrollmentStatusScreen({ variant, courseTitle, shortfallPkr }: EnrollmentStatusScreenProps) {
   const { icon: Icon, iconWrap, iconColor, title, body } = VARIANTS[variant];
   const course = (
-    <span className="font-semibold text-pz-ink dark:text-[#e0e3df]">{courseTitle}</span>
+    <span className="font-semibold text-pz-ink dark:text-pz-on-surface">{courseTitle}</span>
   );
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-6">
-      <div className="bg-white dark:bg-[#1c211e] rounded-2xl shadow-xl border border-pz-border dark:border-[#2a2f2c] max-w-md w-full p-8 text-center">
+      <div className="bg-pz-surface-container-lowest rounded-2xl shadow-xl border border-pz-border dark:border-pz-outline-variant max-w-md w-full p-8 text-center">
         <div
           className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${iconWrap}`}
         >
           <Icon className={`w-7 h-7 ${iconColor}`} />
         </div>
-        <h1 className="font-montserrat font-bold text-xl text-pz-forest dark:text-[#e0e3df] mt-5">
+        <h1 className="font-montserrat font-bold text-xl text-pz-forest dark:text-pz-on-surface mt-5">
           {title}
         </h1>
-        <p className="text-pz-muted dark:text-[#c1c6d5] text-sm mt-2">{body(course, shortfallPkr)}</p>
+        <p className="text-pz-muted dark:text-pz-on-surface-variant text-sm mt-2">{body(course, shortfallPkr)}</p>
         <Link
           href="/dashboard/courses"
           className="mt-6 inline-flex items-center gap-2 text-pz-forest dark:text-pz-lime text-sm font-semibold hover:underline"
