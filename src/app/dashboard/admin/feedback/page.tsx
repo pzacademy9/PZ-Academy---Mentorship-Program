@@ -144,7 +144,7 @@ export default async function AdminFeedbackPage() {
                         className={cn(
                           "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap font-headline",
                           s.status === "active"
-                            ? "bg-pz-primary-container/30 text-pz-on-primary-container dark:text-pz-primary"
+                            ? "bg-pz-primary-container/30 dark:bg-pz-primary-container/15 text-pz-on-primary-container dark:text-pz-primary"
                             : "bg-pz-surface-variant text-pz-on-surface-variant",
                         )}
                       >

@@ -25,7 +25,7 @@ const STYLES: Record<EnrollmentStatus, { label: string; className: string }> = {
   },
   active: {
     label: "Active",
-    className: "bg-pz-primary-container/30 text-pz-on-primary-container dark:text-pz-primary",
+    className: "bg-pz-primary-container/30 dark:bg-pz-primary-container/15 text-pz-on-primary-container dark:text-pz-primary",
   },
   rejected: {
     label: "Rejected",
