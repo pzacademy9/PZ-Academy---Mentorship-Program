@@ -179,7 +179,7 @@ export function AvailabilityForm({ availability }: { availability: OwnAvailabili
                       <button
                         type="button"
                         onClick={() => addRange(day)}
-                        className="text-pz-primary hover:text-pz-on-primary-container font-body font-medium flex items-center gap-1 w-max max-md:min-h-11 transition-colors text-sm"
+                        className="text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed font-body font-medium flex items-center gap-1 w-max max-md:min-h-11 transition-colors text-sm"
                       >
                         <Plus className="w-4 h-4" /> Add another range
                       </button>

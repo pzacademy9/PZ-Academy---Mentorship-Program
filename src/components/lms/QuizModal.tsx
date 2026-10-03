@@ -308,7 +308,7 @@ export function QuizModal({
   const stars = result ? (result.score / result.total >= 0.8 ? "★★★" : result.score / result.total >= 0.6 ? "★★☆" : "★☆☆") : "";
 
   return (
-    <div className="fixed inset-0 z-[80] bg-pz-solid-forest/95 dark:bg-pz-surface-container-lowest/97 backdrop-blur-sm flex flex-col">
+    <div className="fixed inset-0 z-[80] bg-pz-solid-forest/95 dark:bg-pz-surface-container-lowest/95 backdrop-blur-sm flex flex-col">
       <canvas ref={canvasRef} className="fixed inset-0 z-[95] pointer-events-none" />
 
       {flashKind && (

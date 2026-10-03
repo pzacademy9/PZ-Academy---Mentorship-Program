@@ -808,7 +808,7 @@ export function NewSessionModal() {
                   <button
                     type="button"
                     onClick={addProgramSession}
-                    className="inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container transition-colors"
+                    className="inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add Session
@@ -879,7 +879,7 @@ export function NewSessionModal() {
                   type="button"
                   onClick={addCustomQuestion}
                   disabled={atMax}
-                  className="mt-2 inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="mt-2 inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add custom question

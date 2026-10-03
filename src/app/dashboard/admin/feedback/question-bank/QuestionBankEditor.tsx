@@ -278,7 +278,7 @@ export function QuestionBankEditor({ initialQuestions }: { initialQuestions: Que
         <button
           type="button"
           onClick={addRow}
-          className="mt-4 inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container transition-colors"
+          className="mt-4 inline-flex items-center gap-1.5 max-md:min-h-11 font-headline text-xs font-semibold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Add question

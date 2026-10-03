@@ -4,6 +4,7 @@ import { buildPzCss, pzTailwindColors } from "./src/lib/theme/pz-tokens";
 
 const config: Config = {
     darkMode: ["class"],
+    safelist: ["dark"],
     content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
