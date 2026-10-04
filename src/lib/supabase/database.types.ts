@@ -447,16 +447,16 @@ export type Database = {
       }
       contact_activities: {
         Row: {
-          agent_id?: string | null
-          body?: string | null
-          burst_pos?: number | null
+          agent_id: string | null
+          body: string | null
+          burst_pos: number | null
           contact_id: string
-          created_at?: string
-          id?: string
-          is_new_chat?: boolean
+          created_at: string
+          id: string
+          is_new_chat: boolean
           kind: string
-          next_unlock_at?: string | null
-          number_id?: string | null
+          next_unlock_at: string | null
+          number_id: string | null
         }
         Insert: {
           agent_id?: string | null
@@ -2449,11 +2449,11 @@ export type Database = {
       }
       whatsapp_blocked_attempts: {
         Row: {
-          agent_id?: string | null
-          contact_id?: string | null
-          created_at?: string
-          id?: string
-          number_id?: string | null
+          agent_id: string | null
+          contact_id: string | null
+          created_at: string
+          id: string
+          number_id: string | null
           reason: string
         }
         Insert: {
@@ -2499,7 +2499,7 @@ export type Database = {
       whatsapp_number_agents: {
         Row: {
           agent_id: string
-          created_at?: string
+          created_at: string
           number_id: string
         }
         Insert: {
@@ -2531,15 +2531,15 @@ export type Database = {
       }
       whatsapp_numbers: {
         Row: {
-          created_at?: string
-          daily_cap?: number | null
-          frozen_until?: string | null
-          hourly_cap?: number | null
-          id?: string
+          created_at: string
+          daily_cap: number | null
+          frozen_until: string | null
+          hourly_cap: number | null
+          id: string
           label: string
-          phone_e164?: string | null
-          status?: string
-          warmup_started_on?: string
+          phone_e164: string | null
+          status: string
+          warmup_started_on: string
         }
         Insert: {
           created_at?: string
@@ -2567,21 +2567,21 @@ export type Database = {
       }
       whatsapp_safety_settings: {
         Row: {
-          burst_break_min?: number
-          burst_size?: number
-          daily_cap?: number
-          freeze_hours?: number
-          hourly_cap?: number
-          hourly_warn_at?: number
-          id?: boolean
-          quiet_end_hour?: number
-          quiet_start_hour?: number
-          spacing_max_s?: number
-          spacing_min_s?: number
-          timezone?: string
-          updated_at?: string
-          warmup_start?: number
-          warmup_step?: number
+          burst_break_min: number
+          burst_size: number
+          daily_cap: number
+          freeze_hours: number
+          hourly_cap: number
+          hourly_warn_at: number
+          id: boolean
+          quiet_end_hour: number
+          quiet_start_hour: number
+          spacing_max_s: number
+          spacing_min_s: number
+          timezone: string
+          updated_at: string
+          warmup_start: number
+          warmup_step: number
         }
         Insert: {
           burst_break_min?: number

@@ -78,4 +78,19 @@ describe("database.types.ts hand edits for 0063", () => {
       expect(contacts.match(new RegExp(`${col}\\??: string \\| null`, "g"))?.length).toBe(3);
     }
   });
+
+  it("keeps Row blocks of the new tables free of optional fields", () => {
+    for (const t of [
+      "whatsapp_numbers",
+      "whatsapp_number_agents",
+      "whatsapp_safety_settings",
+      "whatsapp_blocked_attempts",
+      "contact_activities",
+    ]) {
+      const start = types.indexOf(`      ${t}: {`);
+      const row = types.slice(types.indexOf("Row: {", start), types.indexOf("Insert: {", start));
+      expect(row.length).toBeGreaterThan(0);
+      expect(row).not.toContain("?:");
+    }
+  });
 });
