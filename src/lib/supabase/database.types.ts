@@ -520,6 +520,7 @@ export type Database = {
       }
       contacts: {
         Row: {
+          claimed_at: string | null
           consent_basis: Database["public"]["Enums"]["crm_consent_basis"]
           country: string | null
           created_at: string
@@ -528,6 +529,7 @@ export type Database = {
           email_unsubscribed_at: string | null
           full_name: string
           id: string
+          owner_id: string | null
           phone_e164: string | null
           phone_raw: string | null
           profession: string | null
@@ -537,6 +539,7 @@ export type Database = {
           whatsapp_unsubscribed_at: string | null
         }
         Insert: {
+          claimed_at?: string | null
           consent_basis?: Database["public"]["Enums"]["crm_consent_basis"]
           country?: string | null
           created_at?: string
@@ -545,6 +548,7 @@ export type Database = {
           email_unsubscribed_at?: string | null
           full_name?: string
           id?: string
+          owner_id?: string | null
           phone_e164?: string | null
           phone_raw?: string | null
           profession?: string | null
@@ -554,6 +558,7 @@ export type Database = {
           whatsapp_unsubscribed_at?: string | null
         }
         Update: {
+          claimed_at?: string | null
           consent_basis?: Database["public"]["Enums"]["crm_consent_basis"]
           country?: string | null
           created_at?: string
@@ -562,6 +567,7 @@ export type Database = {
           email_unsubscribed_at?: string | null
           full_name?: string
           id?: string
+          owner_id?: string | null
           phone_e164?: string | null
           phone_raw?: string | null
           profession?: string | null
@@ -574,6 +580,13 @@ export type Database = {
           {
             foreignKeyName: "contacts_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2701,7 +2714,7 @@ export type Database = {
         | "cv_review"
         | "interview_prep"
         | "career_guidance"
-      user_role: "student" | "mentor" | "admin" | "super_admin"
+      user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent"
       whatsapp_send_status: "pending" | "sent"
     }
     CompositeTypes: {
@@ -2858,7 +2871,7 @@ export const Constants = {
         "interview_prep",
         "career_guidance",
       ],
-      user_role: ["student", "mentor", "admin", "super_admin"],
+      user_role: ["student", "mentor", "admin", "super_admin", "sales_agent"],
     },
   },
 } as const
