@@ -88,6 +88,11 @@ export function startOfLocalDay(now: Date, timeZone: string): Date {
   return new Date(now.getTime() - sinceMidnight);
 }
 
+/** Warm-up restarts on the local date a freeze expires, so a recovered number does not return at full cap. */
+export function warmupStartAfterFreeze(frozenUntil: Date, timezone: string): string {
+  return localParts(frozenUntil, timezone).dateKey;
+}
+
 export function isQuietHours(now: Date, s: SafetySettings): boolean {
   const { hour } = localParts(now, s.timezone);
   if (s.quiet_start_hour === s.quiet_end_hour) return false;

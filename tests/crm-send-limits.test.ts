@@ -8,6 +8,7 @@ import {
   localParts,
   startOfLocalDay,
   violationAfterInsert,
+  warmupStartAfterFreeze,
   type NumberState,
   type Usage,
 } from "@/lib/crm/send-limits";
@@ -293,6 +294,13 @@ describe("DEFAULT_SETTINGS", () => {
       freeze_hours: 48,
       timezone: "Asia/Karachi",
     });
+  });
+});
+
+describe("warmupStartAfterFreeze", () => {
+  it("is the local calendar date of the freeze expiry", () => {
+    expect(warmupStartAfterFreeze(new Date("2026-10-07T00:00:00Z"), "Asia/Karachi")).toBe("2026-10-07");
+    expect(warmupStartAfterFreeze(new Date("2026-10-07T20:00:00Z"), "Asia/Karachi")).toBe("2026-10-08");
   });
 });
 
