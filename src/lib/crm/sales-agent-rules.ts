@@ -14,3 +14,17 @@ export function decidePromotion(currentRole: Role | null | undefined): Promotion
   if (currentRole === "sales_agent") return "already-sales-agent";
   return "promote";
 }
+
+export type RemovalDecision = "demote-and-release" | "release-only" | "not-found";
+
+/**
+ * What removeSalesAgent should do. A current sales agent is fully removed. A
+ * plain student who still owns contacts is the leftover of an interrupted
+ * removal (role already reverted, release failed), so only the release is
+ * re-run. Admins, mentors and anyone else are never touched.
+ */
+export function decideRemoval(role: Role | null | undefined, ownedContacts: number): RemovalDecision {
+  if (role === "sales_agent") return "demote-and-release";
+  if ((role === "student" || role == null) && ownedContacts > 0) return "release-only";
+  return "not-found";
+}

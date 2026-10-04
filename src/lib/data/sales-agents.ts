@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { findAccountIdByEmail } from "@/lib/data/mentor-accounts";
-import { decidePromotion } from "@/lib/crm/sales-agent-rules";
+import { decidePromotion, decideRemoval } from "@/lib/crm/sales-agent-rules";
 import type { Role } from "@/lib/roles";
 
 /**
@@ -131,25 +131,39 @@ export async function removeSalesAgent(profileId: string): Promise<RemoveResult>
   const admin = createAdminSupabase();
 
   const { data: profile } = await admin.from("profiles").select("role").eq("id", profileId).maybeSingle();
-  if (!profile || profile.role !== "sales_agent") return { ok: false, reason: "not-found" };
+  if (!profile) return { ok: false, reason: "not-found" };
+
+  const { count } = await admin
+    .from("contacts")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", profileId);
+  const decision = decideRemoval(profile.role as Role | null, count ?? 0);
+  if (decision === "not-found") return { ok: false, reason: "not-found" };
 
   const release = () =>
     admin.from("contacts").update({ owner_id: null, claimed_at: null }).eq("owner_id", profileId).select("id");
 
   const first = await release();
   if (first.error) return { ok: false, reason: "db-error" };
+  let released = first.data?.length ?? 0;
 
-  const { data: demoted, error: roleError } = await admin
-    .from("profiles")
-    .update({ role: "student" })
-    .eq("id", profileId)
-    .eq("role", "sales_agent")
-    .select("id");
-  if (roleError) return { ok: false, reason: "db-error" };
-  if (!demoted || demoted.length === 0) return { ok: false, reason: "not-found" };
+  if (decision === "demote-and-release") {
+    const { data: demoted, error: roleError } = await admin
+      .from("profiles")
+      .update({ role: "student" })
+      .eq("id", profileId)
+      .eq("role", "sales_agent")
+      .select("id");
+    if (roleError) return { ok: false, reason: "db-error" };
+    if (!demoted || demoted.length === 0) return { ok: false, reason: "not-found" };
 
-  const second = await release();
-  if (second.error) return { ok: false, reason: "db-error" };
+    // Final sweep; retried once. If it still fails the account is a student that
+    // owns contacts, which decideRemoval treats as "release-only" on the next call.
+    let second = await release();
+    if (second.error) second = await release();
+    if (second.error) return { ok: false, reason: "db-error" };
+    released += second.data?.length ?? 0;
+  }
 
-  return { ok: true, released: (first.data?.length ?? 0) + (second.data?.length ?? 0) };
+  return { ok: true, released };
 }
