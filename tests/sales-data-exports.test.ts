@@ -68,3 +68,11 @@ describe("sales-contacts exports", () => {
     }
   });
 });
+
+import * as send from "@/lib/data/sales-send";
+
+describe("sales-send exports", () => {
+  it("exposes requestSend", () => {
+    expect(typeof send.requestSend).toBe("function");
+  });
+});
