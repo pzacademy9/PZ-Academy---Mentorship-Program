@@ -1,6 +1,6 @@
 # Sales Agent Role and Sales Workspace
 
-**Status:** Draft for review
+**Status:** Approved by owner 2026-10-04
 **Date:** 2026-10-04
 **Branch:** sales-workspace (from master)
 
@@ -93,11 +93,11 @@ Trigger: on 2026-10-03 the owner's WhatsApp number used for "DMC campaign number
 **Limits are per sending WhatsApp number, not per agent.** The app tracks which number each agent sends from (`whatsapp_numbers`: label, owner/agent, status, warm-up start date). Counting uses `contact_activities` rows of kind `sent` to contacts with no prior two-way history ("new chats"), per number.
 
 Server-enforced guardrails (not just UI hints; the send-link route refuses when a limit is hit):
-1. **Daily cap of new chats per number:** default 25. Replies to people who already messaged first are not counted.
+1. **Daily cap of new chats per number:** default 60 (owner decision, 2026-10-04; raised from 25 because spacing, not volume alone, is the protection). Replies to people who already messaged first are not counted.
 2. **Hourly cap:** default 20 new chats per rolling hour (owner decision, 2026-10-04), with a yellow warning from the 15th new chat in the hour ("5 left this hour, slow down"). The daily cap (item 1) is still the binding limit unless admin raises it.
-3. **Spacing:** a random delay of 60-120 seconds between sends; the WhatsApp button stays locked with a visible countdown ("Next message unlocks in 74s").
+3. **Spacing:** a random delay of 90-180 seconds between sends (widened from 60-120 s when the daily cap rose to 60, so sends are spread out and not clustered); the WhatsApp button stays locked with a visible countdown ("Next message unlocks in 74s").
 4. **Burst pause:** after 10 sends, a forced 10-minute break (sized so the 20-per-hour cap is reachable but not in one burst).
-5. **Warm-up for a new or just-recovered number:** start at 10 new chats a day and rise by 5 a day to the cap over 3 days.
+5. **Warm-up for a new or just-recovered number:** start at 10 new chats a day and rise by 10 a day to the cap over 5 days.
 6. **Quiet hours:** no sends between 21:00 and 09:00 local time.
 7. **Message variety:** the Campaign step blocks sending the exact same text to more than 3 people in a row; the `{name}` tag and rotating saved variants satisfy this. A short per-agent "opt-out" line is suggested in templates ("Reply STOP to opt out").
 8. **Warm contacts first:** the Today queue ranks people who messaged first or replied before cold contacts, so the daily cap is spent on the safest sends first.
@@ -111,5 +111,5 @@ Because the guardrails are enforced server-side with the sent-activity log as th
 ## Open points for review
 
 - Bulk email for agents: assumed admin-only.
-- WhatsApp safety numbers (25 per day, 20 per hour with a warning at 15, 60-120 s spacing, 10-minute break per 10 sends, quiet hours 21:00-09:00, warm-up 10 rising by 5): conservative defaults chosen without published WhatsApp limits; tune with real results.
+- WhatsApp safety numbers (60 per day, 20 per hour with a warning at 15, 90-180 s spacing, 10-minute break per 10 sends, quiet hours 21:00-09:00, warm-up 10 rising by 10 a day): conservative defaults chosen without published WhatsApp limits; tune with real results.
 - Follow-up day defaults (+1, +2): tunable later by admin.
