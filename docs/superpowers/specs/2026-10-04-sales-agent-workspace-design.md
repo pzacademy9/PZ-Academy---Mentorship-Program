@@ -63,7 +63,7 @@ Today queue: contacts where `owner_id` is the user and (`next_followup_at` is du
 
 Safeguards:
 - Suppressed or do-not-contact contacts (the existing `is_sendable` guard) never enter a queue or a batch.
-- A batch is capped at 200 recipients. A contact messaged in the last 24 hours shows a "recently contacted" warning.
+- Sending limits are governed by Section 5 (WhatsApp safety), not by a batch-size cap. A contact messaged in the last 24 hours shows a "recently contacted" warning.
 - Every action writes a timeline row, so admin can audit the team.
 
 Migration note: a new enum value cannot be used in the transaction that adds it, so the enum change and the columns and table that rely on it are separate migration steps. `src/lib/supabase/database.types.ts` is hand-edited for the new entries, never regenerated wholesale.
@@ -73,7 +73,7 @@ Migration note: a new enum value cannot be used in the transaction that adds it,
 Three phases, each on its own branch with its own plan:
 
 1. **Phase A, role and access:** migration, `Role`, middleware, `requireSalesAgent()`, `assertCanActOn()`, the admin "Add sales agent" form, an empty `/dashboard/sales` shell.
-2. **Phase B, workspace screens:** Today, My Contacts with timeline, Add lead, Help and tour.
+2. **Phase B, workspace screens and WhatsApp safety:** Today, My Contacts with timeline, Add lead, Help and tour, and the whole Section 5 safety layer. The safety layer ships in B, before any agent can send, because Today already has a WhatsApp button.
 3. **Phase C, Campaigns flow:** the 3-step guided send and the admin view of agent activity.
 
 Design source: search the Stitch project first. Then write one prompt per screen group; the owner generates the screens and the code is extracted through the Stitch MCP. Screens in order: Today (phone and desktop), My Contacts with timeline pane, Campaign wizard (3 steps), Add lead, Help and tour. All use the existing PZ palette, so dark mode follows from the token system.
@@ -84,8 +84,30 @@ Testing:
 - Isolation tests: agent A cannot read or act on agent B's contacts, activities or batches.
 - Browser click-through as a test sales agent on phone and desktop. Test accounts: create a dedicated test sales agent; do not use the off-limits Test Data emails.
 
+## Section 5: WhatsApp safety (protect the sending numbers)
+
+Trigger: on 2026-10-03 the owner's WhatsApp number used for "DMC campaign number 2" was restricted while sending manual click-to-chat messages: about 20 first-contact messages at 3 pm, 10-20 one to two hours later, then about 30 two hours after that (roughly 65 new chats in about 5 hours). Click-to-chat is manual, but WhatsApp's systems judge the account's behaviour (volume of new chats to people who have not saved the number, identical text, replies, blocks and reports), not whether a human tapped send. The exact WhatsApp limits are not published, so every number below is a conservative default, adjustable by admin, and not a guarantee.
+
+**Limits are per sending WhatsApp number, not per agent.** The app tracks which number each agent sends from (`whatsapp_numbers`: label, owner/agent, status, warm-up start date). Counting uses `contact_activities` rows of kind `sent` to contacts with no prior two-way history ("new chats"), per number.
+
+Server-enforced guardrails (not just UI hints; the send-link route refuses when a limit is hit):
+1. **Daily cap of new chats per number:** default 25. Replies to people who already messaged first are not counted.
+2. **Hourly cap:** default 8 new chats per rolling hour.
+3. **Spacing:** a random delay of 60-120 seconds between sends; the WhatsApp button stays locked with a visible countdown ("Next message unlocks in 74s").
+4. **Burst pause:** after 8 sends, a forced 15-minute break.
+5. **Warm-up for a new or just-recovered number:** start at 10 new chats a day and rise by 5 a day to the cap over 3 days.
+6. **Quiet hours:** no sends between 21:00 and 09:00 local time.
+7. **Message variety:** the Campaign step blocks sending the exact same text to more than 3 people in a row; the `{name}` tag and rotating saved variants satisfy this. A short per-agent "opt-out" line is suggested in templates ("Reply STOP to opt out").
+8. **Warm contacts first:** the Today queue ranks people who messaged first or replied before cold contacts, so the daily cap is spent on the safest sends first.
+9. **Stop on bad signals:** Not interested logs a permanent do-not-contact if the agent also taps "Asked me to stop". A one-tap "My WhatsApp warns or restricts me" button freezes that number for 48 hours, shows the owner a banner, and writes an admin alert.
+10. **Visible budget:** every agent screen shows "12 of 25 new chats used today" and the next unlock time, so they never guess.
+
+Admin controls (admin-only settings page): view each number's status and usage, adjust the caps, hours and warm-up per number, unfreeze a number, and see the log of blocked attempts.
+
+Because the guardrails are enforced server-side with the sent-activity log as the source of truth, they hold even if an agent opens WhatsApp directly: the app can only control sends made through it, so agents are also told in Help not to message new numbers outside the CRM.
+
 ## Open points for review
 
 - Bulk email for agents: assumed admin-only.
-- The 200-recipient cap and the 24-hour "recently contacted" warning: agreed in conversation, tunable.
+- WhatsApp safety numbers (25 per day, 8 per hour, 60-120 s spacing, 15-minute break per 8 sends, quiet hours 21:00-09:00, warm-up 10 rising by 5): conservative defaults chosen without published WhatsApp limits; tune with real results.
 - Follow-up day defaults (+1, +2): tunable later by admin.
