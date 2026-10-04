@@ -1,7 +1,7 @@
 import { NAV_ITEMS, navForRole, activeHrefFor, splitMobileNav } from "@/components/dashboard/nav";
 import type { Role } from "@/lib/roles";
 
-const ROLES: Role[] = ["student", "mentor", "admin", "super_admin"];
+const ROLES: Role[] = ["student", "mentor", "admin", "super_admin", "sales_agent"];
 
 describe.each(ROLES)("role %s", (role) => {
   it("every role item appears exactly once across bar and more", () => {
@@ -39,4 +39,16 @@ it("activeHrefFor picks the longest matching href, not ancestors", () => {
 it("NAV_ITEMS is non-empty and every item has at least one role", () => {
   expect(NAV_ITEMS.length).toBeGreaterThan(0);
   for (const i of NAV_ITEMS) expect(i.roles.length).toBeGreaterThan(0);
+});
+
+it("sales_agent sees only the workspace, alerts and settings, nothing under /dashboard/admin", () => {
+  const items = navForRole("sales_agent");
+  expect(items.map((i) => i.href)).toEqual(["/dashboard/sales", "/dashboard/notifications", "/dashboard/settings"]);
+  expect(items.some((i) => i.href.startsWith("/dashboard/admin"))).toBe(false);
+});
+
+it("admin sees Sales Team, sales_agent does not see admin items", () => {
+  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-team");
+  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-team");
+  expect(navForRole("mentor").map((i) => i.href)).not.toContain("/dashboard/admin/sales-team");
 });

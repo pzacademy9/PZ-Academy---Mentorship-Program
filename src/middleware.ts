@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { roleHome, type Role } from "@/lib/roles";
+import { salesAgentRedirect } from "@/lib/access";
 
 /**
  * Pre-launch gate: students (the only role with no other reason to be in the
@@ -43,6 +44,11 @@ export async function middleware(request: NextRequest) {
 
     if (STUDENT_ACCESS_LOCKED && role === "student" && !isAllowlistedStudent && path !== "/coming-soon") {
       return NextResponse.redirect(new URL("/coming-soon", request.url));
+    }
+
+    const salesRedirect = salesAgentRedirect(role, path);
+    if (salesRedirect) {
+      return NextResponse.redirect(new URL(salesRedirect, request.url));
     }
 
     if (path.startsWith("/dashboard/admin") && role !== "admin" && role !== "super_admin") {
