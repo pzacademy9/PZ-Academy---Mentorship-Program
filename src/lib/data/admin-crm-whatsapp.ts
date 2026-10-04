@@ -274,7 +274,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
 
   const { data: recipients } = await admin
     .from("whatsapp_batch_recipients")
-    .select("id, full_name, phone_e164, status, sent_at, contact_id")
+    .select("id, full_name, phone_e164, status, sent_at, contact_id, contacts(do_not_contact_at)")
     .eq("batch_id", id)
     .order("full_name", { ascending: true });
 
@@ -282,17 +282,21 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   const { summary, convertedAtByRecipientId } = await fetchBatchConversion(id, batch.recipient_count, tag);
   const rows = recipients ?? [];
 
-  const contactIds = rows.map((r) => r.contact_id).filter((c): c is string => !!c);
-  const blockedContactIds = new Set<string>();
-  if (contactIds.length > 0) {
-    const { data: blocked, error: blockedError } = await admin
-      .from("contacts")
-      .select("id")
-      .in("id", contactIds)
-      .not("do_not_contact_at", "is", null);
-    if (blockedError) console.error("[crm-whatsapp] do-not-contact lookup failed:", blockedError);
-    for (const b of blocked ?? []) blockedContactIds.add(b.id);
-  }
+  // DNC flag comes from the embedded contacts relation in the same query (no
+  // second id-list lookup: URL-length limits on big batches). Fails
+  // closed: a recipient with a contact_id whose embedded contact is missing or
+  // unreadable is treated as blocked.
+  const isBlocked = (r: (typeof rows)[number]): boolean => {
+    if (!r.contact_id) return false;
+    const embedded = r.contacts as unknown as
+      | { do_not_contact_at: string | null }
+      | { do_not_contact_at: string | null }[]
+      | null
+      | undefined;
+    const contact = Array.isArray(embedded) ? embedded[0] : embedded;
+    if (!contact) return true;
+    return contact.do_not_contact_at != null;
+  };
 
   return {
     id: batch.id,
@@ -313,7 +317,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
       status: r.status,
       sentAt: r.sent_at,
       convertedAt: convertedAtByRecipientId.get(r.id) ?? null,
-      doNotContact: r.contact_id ? blockedContactIds.has(r.contact_id) : false,
+      doNotContact: isBlocked(r),
     })),
   };
 }
