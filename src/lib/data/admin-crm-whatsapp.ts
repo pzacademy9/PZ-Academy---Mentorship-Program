@@ -251,6 +251,8 @@ export type WhatsAppRecipientRow = {
   status: "pending" | "sent";
   sentAt: string | null;
   convertedAt: string | null;
+  /** Contact is flagged do-not-contact: the UI must not render a live wa.me link. */
+  doNotContact: boolean;
 };
 
 export type WhatsAppBatchDetail = WhatsAppBatchListRow & {
@@ -280,6 +282,18 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   const { summary, convertedAtByRecipientId } = await fetchBatchConversion(id, batch.recipient_count, tag);
   const rows = recipients ?? [];
 
+  const contactIds = rows.map((r) => r.contact_id).filter((c): c is string => !!c);
+  const blockedContactIds = new Set<string>();
+  if (contactIds.length > 0) {
+    const { data: blocked, error: blockedError } = await admin
+      .from("contacts")
+      .select("id")
+      .in("id", contactIds)
+      .not("do_not_contact_at", "is", null);
+    if (blockedError) console.error("[crm-whatsapp] do-not-contact lookup failed:", blockedError);
+    for (const b of blocked ?? []) blockedContactIds.add(b.id);
+  }
+
   return {
     id: batch.id,
     name: batch.name,
@@ -299,6 +313,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
       status: r.status,
       sentAt: r.sent_at,
       convertedAt: convertedAtByRecipientId.get(r.id) ?? null,
+      doNotContact: r.contact_id ? blockedContactIds.has(r.contact_id) : false,
     })),
   };
 }

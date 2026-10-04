@@ -2757,6 +2757,7 @@ export type Database = {
           total_pkr: number | null
           unsubscribe_token: string | null
           whatsapp_unsubscribed_at: string | null
+          do_not_contact_at: string | null
         }
         Relationships: []
       }
