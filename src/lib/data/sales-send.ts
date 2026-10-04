@@ -122,41 +122,56 @@ export async function requestSend(args: {
       .single();
     if (insErr) throw insErr;
 
-    // Re-verify: catches two taps racing on a shared number.
+    // Re-verify: catches two requests racing on a shared number. Our row is
+    // stamped with the request start time, so a slower request can land after a
+    // later one. We therefore look at every OTHER sent row within the minimum
+    // spacing on either side of our timestamp (strict bounds), and treat the one
+    // with the latest unlock time as the previous send. The later inserter always
+    // sees the earlier row and rejects itself; if both insert before either
+    // re-checks, both reject (fails closed).
     const after = await getNumberUsage(numberId, now, settings);
-    const { data: prevRows, error: prevErr } = await db
-      .from("contact_activities")
-      .select("created_at, next_unlock_at, burst_pos")
-      .eq("number_id", numberId)
-      .eq("kind", "sent")
-      .lt("created_at", createdIso)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (prevErr) throw prevErr;
-    const prev = prevRows?.[0];
+    let conflict: { created_at: string; next_unlock_at: string; burst_pos: number | null } | null = null;
+    if (settings.spacing_min_s > 0) {
+      const spanMs = settings.spacing_min_s * 1000;
+      const { data: nearRows, error: nearErr } = await db
+        .from("contact_activities")
+        .select("created_at, next_unlock_at, burst_pos")
+        .eq("number_id", numberId)
+        .eq("kind", "sent")
+        .neq("id", row.id)
+        .gt("created_at", new Date(now.getTime() - spanMs).toISOString())
+        .lt("created_at", new Date(now.getTime() + spanMs).toISOString());
+      if (nearErr) throw nearErr;
+      for (const r of nearRows ?? []) {
+        if (!r.next_unlock_at) continue;
+        if (!conflict || new Date(r.next_unlock_at).getTime() > new Date(conflict.next_unlock_at).getTime()) {
+          conflict = { created_at: r.created_at, next_unlock_at: r.next_unlock_at, burst_pos: r.burst_pos };
+        }
+      }
+    }
     const violation = violationAfterInsert({
       now,
       settings,
       state,
       isNewChat,
       usageWithOurs: { newChatsToday: after.newChatsToday, newChatsLastHour: after.newChatsLastHour },
-      previousSend:
-        prev && prev.next_unlock_at
-          ? {
-              createdAt: new Date(prev.created_at),
-              nextUnlockAt: new Date(prev.next_unlock_at),
-              burstPos: prev.burst_pos ?? 1,
-            }
-          : null,
+      previousSend: conflict
+        ? {
+            createdAt: new Date(conflict.created_at),
+            nextUnlockAt: new Date(conflict.next_unlock_at),
+            burstPos: conflict.burst_pos ?? 1,
+          }
+        : null,
     });
     if (violation) {
-      await db.from("contact_activities").delete().eq("id", row.id);
+      const { error: delErr } = await db.from("contact_activities").delete().eq("id", row.id);
+      if (delErr) console.error("[sales-send] could not remove over-limit send", row.id, delErr);
       await logBlockedAttempt({ numberId, agentId: actor.id, contactId, reason: violation });
       return {
         ok: false,
         reason: violation,
         message: "Another message was just sent from this number. Try again in a moment.",
-        retryAt: null,
+        retryAt: violation === "spacing" && conflict ? new Date(conflict.next_unlock_at).toISOString() : null,
       };
     }
 
