@@ -43,6 +43,13 @@ describe("data layer guards", () => {
     expect(detail).toContain("restricted: true");
   });
 
+  it("a timed panic freeze never replaces an indefinite freeze", () => {
+    const body = fnBody(numbers, "freezeNumber");
+    expect(body).toContain("isIndefinitelyFrozen(");
+    expect(body).toContain("changed: false");
+    expect(body.indexOf("isIndefinitelyFrozen(")).toBeLessThan(body.indexOf(".update("));
+  });
+
   it("the role gate cannot be dropped from the list and queue reads", () => {
     expect(fnBody(contacts, "getTodayQueue")).toContain("canUseSales(");
     expect(fnBody(contacts, "listContacts")).toContain("canUseSales(");

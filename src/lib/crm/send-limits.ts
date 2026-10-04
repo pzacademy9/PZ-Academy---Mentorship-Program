@@ -98,6 +98,11 @@ export function laterFreezeEnd(existing: Date | null, candidate: Date, now: Date
   return existing && existing > candidate && existing > now ? existing : candidate;
 }
 
+/** An admin-set freeze with no end date. A timed (panic) freeze must never replace or shorten it. */
+export function isIndefinitelyFrozen(status: string, frozenUntil: string | null): boolean {
+  return status === "frozen" && frozenUntil == null;
+}
+
 export function isQuietHours(now: Date, s: SafetySettings): boolean {
   const { hour } = localParts(now, s.timezone);
   if (s.quiet_start_hour === s.quiet_end_hour) return false;

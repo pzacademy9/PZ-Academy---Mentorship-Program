@@ -6,6 +6,7 @@ import {
   evaluateSend,
   isQuietHours,
   laterFreezeEnd,
+  isIndefinitelyFrozen,
   localParts,
   startOfLocalDay,
   violationAfterInsert,
@@ -320,3 +321,11 @@ describe("laterFreezeEnd", () => {
 });
 
 void NOON_PKT;
+
+describe("isIndefinitelyFrozen", () => {
+  it("is true only for frozen with no end date", () => {
+    expect(isIndefinitelyFrozen("frozen", null)).toBe(true);
+    expect(isIndefinitelyFrozen("frozen", "2026-10-05T00:00:00Z")).toBe(false);
+    expect(isIndefinitelyFrozen("active", null)).toBe(false);
+  });
+});

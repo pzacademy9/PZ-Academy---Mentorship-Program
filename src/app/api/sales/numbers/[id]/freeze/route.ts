@@ -12,5 +12,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!result.ok) {
     return NextResponse.json({ error: "Could not pause this number.", reason: result.reason }, { status: statusForReason(result.reason) });
   }
-  return NextResponse.json({ ok: true, frozenUntil: result.frozenUntil.toISOString() });
+  if (!result.changed) return NextResponse.json({ ok: true, changed: false, frozenUntil: null, alreadyFrozen: "indefinitely" });
+  return NextResponse.json({ ok: true, changed: true, frozenUntil: result.frozenUntil.toISOString() });
 }

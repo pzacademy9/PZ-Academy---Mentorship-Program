@@ -5,6 +5,7 @@ import {
   budgetSummary,
   localParts,
   laterFreezeEnd,
+  isIndefinitelyFrozen,
   warmupStartAfterFreeze,
   startOfLocalDay,
   type BudgetSummary,
@@ -207,7 +208,9 @@ export async function freezeNumber(
   numberId: string,
   now: Date = new Date(),
 ): Promise<
-  | { ok: true; frozenUntil: Date }
+  | { ok: true; changed: true; frozenUntil: Date }
+  /** Already frozen indefinitely: nothing was written, the existing freeze stands. */
+  | { ok: true; changed: false; frozenUntil: null }
   | { ok: false; reason: "not-found" | "number-not-assigned" | "db-error" }
 > {
   try {
@@ -216,6 +219,8 @@ export async function freezeNumber(
     if (!exists) return { ok: false, reason: "not-found" };
     const row = await getNumberForAgent(userId, isAdmin, numberId);
     if (!row) return { ok: false, reason: "number-not-assigned" };
+    // An indefinite admin freeze must not be turned into a timed one that lapses.
+    if (isIndefinitelyFrozen(row.status, row.frozen_until)) return { ok: true, changed: false, frozenUntil: null };
     const settings = await getSafetySettings();
     const candidate = new Date(now.getTime() + settings.freeze_hours * 3_600_000);
     // Never shorten a longer freeze that an admin already set.
@@ -232,7 +237,7 @@ export async function freezeNumber(
       .eq("id", numberId);
     if (error) throw error;
     await logBlockedAttempt({ numberId, agentId: userId, contactId: null, reason: "panic_freeze" });
-    return { ok: true, frozenUntil };
+    return { ok: true, changed: true, frozenUntil };
   } catch (e) {
     console.error("[sales-numbers] freezeNumber", e);
     return { ok: false, reason: "db-error" };
