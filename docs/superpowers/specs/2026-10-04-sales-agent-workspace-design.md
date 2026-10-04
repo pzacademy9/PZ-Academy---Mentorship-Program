@@ -92,9 +92,9 @@ Trigger: on 2026-10-03 the owner's WhatsApp number used for "DMC campaign number
 
 Server-enforced guardrails (not just UI hints; the send-link route refuses when a limit is hit):
 1. **Daily cap of new chats per number:** default 25. Replies to people who already messaged first are not counted.
-2. **Hourly cap:** default 8 new chats per rolling hour.
+2. **Hourly cap:** default 20 new chats per rolling hour (owner decision, 2026-10-04), with a yellow warning from the 15th new chat in the hour ("5 left this hour, slow down"). The daily cap (item 1) is still the binding limit unless admin raises it.
 3. **Spacing:** a random delay of 60-120 seconds between sends; the WhatsApp button stays locked with a visible countdown ("Next message unlocks in 74s").
-4. **Burst pause:** after 8 sends, a forced 15-minute break.
+4. **Burst pause:** after 10 sends, a forced 10-minute break (sized so the 20-per-hour cap is reachable but not in one burst).
 5. **Warm-up for a new or just-recovered number:** start at 10 new chats a day and rise by 5 a day to the cap over 3 days.
 6. **Quiet hours:** no sends between 21:00 and 09:00 local time.
 7. **Message variety:** the Campaign step blocks sending the exact same text to more than 3 people in a row; the `{name}` tag and rotating saved variants satisfy this. A short per-agent "opt-out" line is suggested in templates ("Reply STOP to opt out").
@@ -109,5 +109,5 @@ Because the guardrails are enforced server-side with the sent-activity log as th
 ## Open points for review
 
 - Bulk email for agents: assumed admin-only.
-- WhatsApp safety numbers (25 per day, 8 per hour, 60-120 s spacing, 15-minute break per 8 sends, quiet hours 21:00-09:00, warm-up 10 rising by 5): conservative defaults chosen without published WhatsApp limits; tune with real results.
+- WhatsApp safety numbers (25 per day, 20 per hour with a warning at 15, 60-120 s spacing, 10-minute break per 10 sends, quiet hours 21:00-09:00, warm-up 10 rising by 5): conservative defaults chosen without published WhatsApp limits; tune with real results.
 - Follow-up day defaults (+1, +2): tunable later by admin.
