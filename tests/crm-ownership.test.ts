@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canActOnContact, canClaimContact } from "@/lib/crm/ownership";
+import { canActOnContact, canClaimContact, canSeeDetails } from "@/lib/crm/ownership";
 
 const agent = { id: "agent-1", role: "sales_agent" as const };
 const other = { id: "agent-2", role: "sales_agent" as const };
@@ -41,5 +41,27 @@ describe("canClaimContact", () => {
   it("blocks students and mentors from claiming", () => {
     expect(canClaimContact({ owner_id: null }, { id: "x", role: "student" })).toEqual({ ok: false, reason: "not-allowed" });
     expect(canClaimContact({ owner_id: null }, { id: "x", role: "mentor" })).toEqual({ ok: false, reason: "not-allowed" });
+  });
+});
+
+describe("canSeeDetails", () => {
+  const v = (viewerId: string, viewerRole: "sales_agent" | "admin" | "super_admin" | "student", ownerId: string | null | undefined) => ({ viewerId, viewerRole, ownerId });
+  it("lets the owner see everything", () => {
+    expect(canSeeDetails(v("agent-1", "sales_agent", "agent-1"))).toBe(true);
+  });
+  it("lets anyone see unclaimed contacts (hand-over)", () => {
+    expect(canSeeDetails(v("agent-1", "sales_agent", null))).toBe(true);
+    expect(canSeeDetails(v("agent-1", "sales_agent", undefined))).toBe(true);
+  });
+  it("hides another agent's contact from a non-admin", () => {
+    expect(canSeeDetails(v("agent-1", "sales_agent", "agent-2"))).toBe(false);
+    expect(canSeeDetails(v("s", "student", "agent-2"))).toBe(false);
+  });
+  it("lets admins and super admins see everything", () => {
+    expect(canSeeDetails(v("a", "admin", "agent-2"))).toBe(true);
+    expect(canSeeDetails(v("a", "super_admin", "agent-2"))).toBe(true);
+  });
+  it("an empty viewer id never matches an empty owner id", () => {
+    expect(canSeeDetails(v("", "sales_agent", ""))).toBe(false);
   });
 });

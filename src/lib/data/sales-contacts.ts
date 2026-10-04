@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { canActOnContact, canClaimContact, type Actor } from "@/lib/crm/ownership";
+import { canActOnContact, canClaimContact, canSeeDetails, type Actor } from "@/lib/crm/ownership";
 import { nextFollowupFor, rankQueue, type OutcomeKind } from "@/lib/crm/followup";
 import { normalizePhone } from "@/lib/crm/phone";
 import { sanitizeSearch } from "@/lib/validations/sales";
@@ -144,7 +144,12 @@ export async function listContacts(
     const names = await ownerNames(Array.from(new Set(rows.map((r) => r.owner_id).filter((x): x is string => !!x))));
     return {
       ok: true,
-      rows: rows.map((r) => ({ ...r, owner_name: r.owner_id ? names.get(r.owner_id) ?? null : null })),
+      rows: rows.map((r) => ({
+        ...r,
+        // Others' contacts: mask the phone for non-admin viewers.
+        phone_e164: canSeeDetails({ viewerId: actor.id, viewerRole: actor.role, ownerId: r.owner_id }) ? r.phone_e164 : null,
+        owner_name: r.owner_id ? names.get(r.owner_id) ?? null : null,
+      })),
       total: count ?? 0,
       pageSize: PAGE_SIZE,
     };
@@ -159,6 +164,8 @@ export async function getContactDetail(actor: Actor, contactId: string): Promise
       contact: ContactRow & { email: string | null; profession: string | null };
       timeline: TimelineEntry[];
       canAct: boolean;
+      /** True when the viewer may only see name, owner and status (another agent's contact). */
+      restricted: boolean;
     }
   | Fail<"not-found" | "not-allowed" | "db-error">
 > {
@@ -174,6 +181,27 @@ export async function getContactDetail(actor: Actor, contactId: string): Promise
       .maybeSingle();
     if (error) throw error;
     if (!c) return { ok: false, reason: "not-found" };
+    if (!canSeeDetails({ viewerId: actor.id, viewerRole: actor.role, ownerId: c.owner_id })) {
+      const ownerMap = await ownerNames(c.owner_id ? [c.owner_id] : []);
+      return {
+        ok: true,
+        contact: {
+          id: c.id,
+          full_name: c.full_name,
+          phone_e164: null,
+          email: null,
+          profession: null,
+          owner_id: c.owner_id,
+          owner_name: c.owner_id ? ownerMap.get(c.owner_id) ?? null : null,
+          last_outcome: c.last_outcome,
+          next_followup_at: null,
+          do_not_contact_at: null,
+        },
+        timeline: [],
+        canAct: false,
+        restricted: true,
+      };
+    }
     const { data: acts, error: actErr } = await db
       .from("contact_activities")
       .select("id, kind, body, agent_id, created_at")
@@ -195,6 +223,7 @@ export async function getContactDetail(actor: Actor, contactId: string): Promise
         created_at: a.created_at,
       })),
       canAct: canActOnContact({ owner_id: c.owner_id }, actor).ok,
+      restricted: false,
     };
   } catch (e) {
     return dbError("getContactDetail", e);

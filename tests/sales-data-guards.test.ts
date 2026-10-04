@@ -32,6 +32,17 @@ describe("data layer guards", () => {
     expect(fnBody(contacts, "claimContact")).toContain("canClaimContact(");
   });
 
+  it("detail and list reads mask other agents' contacts through canSeeDetails", () => {
+    expect(contacts).toContain("canSeeDetails(");
+    const detail = fnBody(contacts, "getContactDetail");
+    const list = fnBody(contacts, "listContacts");
+    expect(detail).toContain("canSeeDetails(");
+    expect(list).toContain("canSeeDetails(");
+    // The restricted branch returns before the activity read, so timelines never leave the data layer.
+    expect(detail.indexOf("canSeeDetails(")).toBeLessThan(detail.indexOf('.from("contact_activities")'));
+    expect(detail).toContain("restricted: true");
+  });
+
   it("the role gate cannot be dropped from the list and queue reads", () => {
     expect(fnBody(contacts, "getTodayQueue")).toContain("canUseSales(");
     expect(fnBody(contacts, "listContacts")).toContain("canUseSales(");
