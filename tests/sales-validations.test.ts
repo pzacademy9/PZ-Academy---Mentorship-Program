@@ -66,6 +66,9 @@ describe("sanitizeSearch", () => {
   it("removes characters that break PostgREST or() filters", () => {
     expect(sanitizeSearch("a,b(c)%d*e\\f")).toBe("a b c d e f");
   });
+  it("strips double quotes", () => {
+    expect(sanitizeSearch('a"b')).toBe("a b");
+  });
   it("collapses whitespace and trims", () => {
     expect(sanitizeSearch("  Aye   sha ")).toBe("Aye sha");
   });

@@ -39,6 +39,9 @@ export type TimelineEntry = {
   created_at: string;
 };
 
+const canUseSales = (a: Actor) => a.role === "sales_agent" || a.role === "admin" || a.role === "super_admin";
+const isAdminRole = (a: Actor) => a.role === "admin" || a.role === "super_admin";
+
 type Fail<R extends string> = { ok: false; reason: R };
 const dbError = (tag: string, e: unknown): Fail<"db-error"> => {
   console.error(`[sales-contacts] ${tag}`, e);
@@ -56,7 +59,8 @@ async function ownerNames(ids: string[]): Promise<Map<string, string>> {
 export async function getTodayQueue(
   actor: Actor,
   now: Date = new Date(),
-): Promise<{ ok: true; items: QueueCard[]; remaining: number } | Fail<"db-error">> {
+): Promise<{ ok: true; items: QueueCard[]; remaining: number } | Fail<"db-error" | "not-allowed">> {
+  if (!canUseSales(actor)) return { ok: false, reason: "not-allowed" };
   if (actor.id === "") return { ok: true, items: [], remaining: 0 };
   try {
     const db = createAdminSupabase();
@@ -68,7 +72,8 @@ export async function getTodayQueue(
       .is("whatsapp_unsubscribed_at", null)
       .not("phone_e164", "is", null)
       .or(`next_followup_at.is.null,next_followup_at.lte.${now.toISOString()}`)
-      .limit(500);
+      .order("next_followup_at", { ascending: true, nullsFirst: true })
+      .limit(200);
     if (error) throw error;
     const rows = data ?? [];
     if (rows.length === 0) return { ok: true, items: [], remaining: 0 };
@@ -117,7 +122,8 @@ export async function getTodayQueue(
 export async function listContacts(
   actor: Actor,
   query: { tab: "mine" | "unclaimed" | "all"; q?: string; page: number },
-): Promise<{ ok: true; rows: ContactRow[]; total: number; pageSize: number } | Fail<"db-error">> {
+): Promise<{ ok: true; rows: ContactRow[]; total: number; pageSize: number } | Fail<"db-error" | "not-allowed">> {
+  if (!canUseSales(actor)) return { ok: false, reason: "not-allowed" };
   try {
     const db = createAdminSupabase();
     let q = db
@@ -202,8 +208,10 @@ export async function claimContact(
 ): Promise<{ ok: true } | Fail<"not-found" | "not-allowed" | "already-claimed" | "db-error">> {
   try {
     const db = createAdminSupabase();
-    const { data: c } = await db.from("contacts").select("id, owner_id").eq("id", contactId).maybeSingle();
+    const { data: c, error: cErr } = await db.from("contacts").select("id, owner_id").eq("id", contactId).maybeSingle();
+    if (cErr) throw cErr;
     if (!c) return { ok: false, reason: "not-found" };
+    if (actor.id !== "" && c.owner_id === actor.id && canUseSales(actor)) return { ok: true };
     const check = canClaimContact({ owner_id: c.owner_id }, actor);
     if (!check.ok) return { ok: false, reason: check.reason === "already-claimed" ? "already-claimed" : "not-allowed" };
 
@@ -253,21 +261,29 @@ export async function logOutcome(
     const db = createAdminSupabase();
     const iso = now.toISOString();
     const next = input.askedToStop ? null : nextFollowupFor(input.kind, now);
-    const { error: actErr } = await db.from("contact_activities").insert({
-      contact_id: contactId,
-      agent_id: actor.id,
-      kind: input.kind,
-      body: input.askedToStop ? "Asked me to stop" : null,
-      created_at: iso,
-    });
-    if (actErr) throw actErr;
+    const insertActivity = async () => {
+      const { error: actErr } = await db.from("contact_activities").insert({
+        contact_id: contactId,
+        agent_id: actor.id,
+        kind: input.kind,
+        body: input.askedToStop ? "Asked me to stop" : null,
+        created_at: iso,
+      });
+      if (actErr) throw actErr;
+    };
     const patch: { last_outcome: string; next_followup_at: string | null; do_not_contact_at?: string } = {
       last_outcome: input.kind,
       next_followup_at: next ? next.toISOString() : null,
     };
     if (input.askedToStop) patch.do_not_contact_at = iso;
-    const { error } = await db.from("contacts").update(patch).eq("id", contactId);
+    // Stop requests: update the contact first so a failure never leaves a sendable contact with a "stop" timeline.
+    if (!input.askedToStop) await insertActivity();
+    let upd = db.from("contacts").update(patch).eq("id", contactId);
+    if (!isAdminRole(actor)) upd = upd.eq("owner_id", actor.id);
+    const { data: updated, error } = await upd.select("id");
     if (error) throw error;
+    if (!updated || updated.length === 0) return { ok: false, reason: "not-owner" };
+    if (input.askedToStop) await insertActivity();
     return { ok: true, nextFollowupAt: next ? next.toISOString() : null };
   } catch (e) {
     return dbError("logOutcome", e);
@@ -310,11 +326,12 @@ export async function addLead(
   if (!phone.ok) return { ok: false, reason: "invalid-phone", detail: phone.reason };
   try {
     const db = createAdminSupabase();
-    const { data: existing } = await db
+    const { data: existing, error: exErr } = await db
       .from("contacts")
       .select("id, owner_id")
       .eq("phone_e164", phone.e164)
       .maybeSingle();
+    if (exErr) throw exErr;
     if (existing) {
       const names = await ownerNames(existing.owner_id ? [existing.owner_id] : []);
       return {
@@ -372,7 +389,8 @@ export async function assignContacts(
     const db = createAdminSupabase();
     let agentName = "";
     if (agentId !== null) {
-      const { data: p } = await db.from("profiles").select("id, role, full_name").eq("id", agentId).maybeSingle();
+      const { data: p, error: pErr } = await db.from("profiles").select("id, role, full_name").eq("id", agentId).maybeSingle();
+      if (pErr) throw pErr;
       if (!p || p.role !== "sales_agent") return { ok: false, reason: "invalid-agent" };
       agentName = p.full_name ?? "";
     }

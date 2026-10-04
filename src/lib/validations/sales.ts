@@ -37,7 +37,7 @@ export const contactsQuerySchema = z.object({
 /** PostgREST `or()` filters break on , ( ) and the wildcard characters. */
 export function sanitizeSearch(q: string): string {
   return q
-    .replace(/[,()%*\\_]/g, " ")
+    .replace(/[,()%*\\_"]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
