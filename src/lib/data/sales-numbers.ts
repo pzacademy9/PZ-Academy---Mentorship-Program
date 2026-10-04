@@ -4,6 +4,7 @@ import {
   DEFAULT_SETTINGS,
   budgetSummary,
   localParts,
+  laterFreezeEnd,
   warmupStartAfterFreeze,
   startOfLocalDay,
   type BudgetSummary,
@@ -46,10 +47,10 @@ export async function getSafetySettings(): Promise<SafetySettings> {
     .select("*")
     .eq("id", true)
     .maybeSingle();
-  if (error || !data) {
-    if (error) console.error("[sales-numbers] settings read failed, using defaults", error);
-    return DEFAULT_SETTINGS;
-  }
+  // Fail closed: a read error must not silently loosen limits an admin tightened. Callers sit in
+  // try/catch and map this to db-error (the admin settings route turns it into a 500).
+  if (error) throw error;
+  if (!data) return DEFAULT_SETTINGS;
   return {
     daily_cap: data.daily_cap,
     hourly_cap: data.hourly_cap,
@@ -216,7 +217,10 @@ export async function freezeNumber(
     const row = await getNumberForAgent(userId, isAdmin, numberId);
     if (!row) return { ok: false, reason: "number-not-assigned" };
     const settings = await getSafetySettings();
-    const frozenUntil = new Date(now.getTime() + settings.freeze_hours * 3_600_000);
+    const candidate = new Date(now.getTime() + settings.freeze_hours * 3_600_000);
+    // Never shorten a longer freeze that an admin already set.
+    const existing = row.status === "frozen" && row.frozen_until ? new Date(row.frozen_until) : null;
+    const frozenUntil = laterFreezeEnd(existing, candidate, now);
     const { error } = await db
       .from("whatsapp_numbers")
       .update({
@@ -322,7 +326,14 @@ export async function createNumber(input: {
       .select("id")
       .single();
     if (error) throw error;
-    await syncAgents(data.id, input.agentIds);
+    try {
+      await syncAgents(data.id, input.agentIds);
+    } catch (syncErr) {
+      // Do not leave a half-created number behind (a retry would duplicate it); links cascade.
+      const { error: cleanupErr } = await db.from("whatsapp_numbers").delete().eq("id", data.id);
+      if (cleanupErr) console.error("[sales-numbers] createNumber cleanup failed", data.id, cleanupErr);
+      throw syncErr;
+    }
     return { ok: true, id: data.id };
   } catch (e) {
     console.error("[sales-numbers] createNumber", e);

@@ -5,6 +5,7 @@ import {
   effectiveDailyCap,
   evaluateSend,
   isQuietHours,
+  laterFreezeEnd,
   localParts,
   startOfLocalDay,
   violationAfterInsert,
@@ -301,6 +302,20 @@ describe("warmupStartAfterFreeze", () => {
   it("is the local calendar date of the freeze expiry", () => {
     expect(warmupStartAfterFreeze(new Date("2026-10-07T00:00:00Z"), "Asia/Karachi")).toBe("2026-10-07");
     expect(warmupStartAfterFreeze(new Date("2026-10-07T20:00:00Z"), "Asia/Karachi")).toBe("2026-10-08");
+  });
+});
+
+describe("laterFreezeEnd", () => {
+  const now = new Date("2026-10-04T10:00:00Z");
+  const candidate = new Date("2026-10-06T10:00:00Z");
+  it("keeps a later existing freeze", () => {
+    const existing = new Date("2026-10-10T10:00:00Z");
+    expect(laterFreezeEnd(existing, candidate, now)).toBe(existing);
+  });
+  it("uses the candidate when existing is earlier, null or already past", () => {
+    expect(laterFreezeEnd(new Date("2026-10-05T10:00:00Z"), candidate, now)).toBe(candidate);
+    expect(laterFreezeEnd(null, candidate, now)).toBe(candidate);
+    expect(laterFreezeEnd(new Date("2026-10-01T10:00:00Z"), candidate, now)).toBe(candidate);
   });
 });
 

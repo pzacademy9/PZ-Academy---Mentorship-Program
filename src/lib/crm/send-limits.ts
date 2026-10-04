@@ -93,6 +93,11 @@ export function warmupStartAfterFreeze(frozenUntil: Date, timezone: string): str
   return localParts(frozenUntil, timezone).dateKey;
 }
 
+/** The later of an existing, still-running freeze end and a new one, so a freeze is never shortened. */
+export function laterFreezeEnd(existing: Date | null, candidate: Date, now: Date): Date {
+  return existing && existing > candidate && existing > now ? existing : candidate;
+}
+
 export function isQuietHours(now: Date, s: SafetySettings): boolean {
   const { hour } = localParts(now, s.timezone);
   if (s.quiet_start_hour === s.quiet_end_hour) return false;
