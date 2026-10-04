@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as numbers from "@/lib/data/sales-numbers";
+import * as contacts from "@/lib/data/sales-contacts";
 
 describe("sales-numbers exports", () => {
   it("exposes the functions the routes and send module rely on", () => {
@@ -48,5 +49,22 @@ describe("sales-numbers exports", () => {
       warmup_started_on: "2026-10-01", daily_cap: null, hourly_cap: null, created_at: "",
     });
     expect(state.status).toBe("active");
+  });
+});
+
+describe("sales-contacts exports", () => {
+  it("exposes the contact actions", () => {
+    for (const name of [
+      "getTodayQueue",
+      "listContacts",
+      "getContactDetail",
+      "claimContact",
+      "logOutcome",
+      "addNote",
+      "addLead",
+      "assignContacts",
+    ]) {
+      expect(typeof (contacts as Record<string, unknown>)[name]).toBe("function");
+    }
   });
 });
