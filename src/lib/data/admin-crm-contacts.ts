@@ -1,4 +1,5 @@
 import "server-only";
+import { carryOverFields } from "@/lib/crm/merge-carryover";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { scoreDuplicate, normalizeName } from "@/lib/crm/identity";
 import { normalizePhone } from "@/lib/crm/phone";
@@ -388,7 +389,9 @@ export async function resolveMergeCandidate(
   if (decision === "merge") {
     const { data: pair } = await admin
       .from("contacts")
-      .select("id, created_at, email, phone_e164, profession, country, profile_id")
+      .select(
+        "id, created_at, email, phone_e164, profession, country, profile_id, owner_id, claimed_at, do_not_contact_at, whatsapp_unsubscribed_at",
+      )
       .in("id", [candidate.contact_a_id, candidate.contact_b_id])
       .order("created_at", { ascending: true });
 
@@ -404,7 +407,41 @@ export async function resolveMergeCandidate(
       .from("contact_purchases")
       .update({ contact_id: keep.id })
       .eq("contact_id", drop.id);
-    if (moveError) return { ok: false, reason: "db-error" };
+    if (moveError) {
+      console.error("[crm-contacts] merge: purchase move failed:", moveError);
+      return { ok: false, reason: "db-error" };
+    }
+
+    // The sales workspace timeline and blocked-send audit rows would be lost
+    // (cascade / set null) when `drop` is deleted, so they move too.
+    const { error: activityMoveError } = await admin
+      .from("contact_activities")
+      .update({ contact_id: keep.id })
+      .eq("contact_id", drop.id);
+    if (activityMoveError) {
+      console.error("[crm-contacts] merge: activity move failed:", activityMoveError);
+      return { ok: false, reason: "db-error" };
+    }
+
+    const { error: blockedMoveError } = await admin
+      .from("whatsapp_blocked_attempts")
+      .update({ contact_id: keep.id })
+      .eq("contact_id", drop.id);
+    if (blockedMoveError) {
+      console.error("[crm-contacts] merge: blocked-attempt move failed:", blockedMoveError);
+      return { ok: false, reason: "db-error" };
+    }
+
+    // Opt-outs and ownership are applied BEFORE the delete so a failure here
+    // aborts the merge rather than silently dropping a stop request.
+    const carry = carryOverFields(keep, drop);
+    if (Object.keys(carry).length > 0) {
+      const { error: carryError } = await admin.from("contacts").update(carry).eq("id", keep.id);
+      if (carryError) {
+        console.error("[crm-contacts] merge: carry-over failed:", carryError);
+        return { ok: false, reason: "db-error" };
+      }
+    }
 
     const { error: deleteError } = await admin.from("contacts").delete().eq("id", drop.id);
     if (deleteError) return { ok: false, reason: "db-error" };
@@ -422,7 +459,10 @@ export async function resolveMergeCandidate(
         profile_id: keep.profile_id ?? drop.profile_id,
       })
       .eq("id", keep.id);
-    if (updateError) return { ok: false, reason: "db-error" };
+    if (updateError) {
+      console.error("[crm-contacts] merge: survivor update failed:", updateError);
+      return { ok: false, reason: "db-error" };
+    }
   }
 
   const { error } = await admin
