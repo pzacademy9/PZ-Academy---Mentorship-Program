@@ -445,6 +445,67 @@ export type Database = {
           },
         ]
       }
+      contact_activities: {
+        Row: {
+          agent_id: string | null
+          body: string | null
+          burst_pos: number | null
+          contact_id: string
+          created_at: string
+          id: string
+          is_new_chat: boolean
+          kind: string
+          next_unlock_at: string | null
+          number_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          body?: string | null
+          burst_pos?: number | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          is_new_chat?: boolean
+          kind: string
+          next_unlock_at?: string | null
+          number_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          body?: string | null
+          burst_pos?: number | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          is_new_chat?: boolean
+          kind?: string
+          next_unlock_at?: string | null
+          number_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_number_id_fkey"
+            columns: ["number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_purchases: {
         Row: {
           amount: number | null
@@ -520,6 +581,7 @@ export type Database = {
       }
       contacts: {
         Row: {
+          claimed_at: string | null
           consent_basis: Database["public"]["Enums"]["crm_consent_basis"]
           country: string | null
           created_at: string
@@ -528,6 +590,10 @@ export type Database = {
           email_unsubscribed_at: string | null
           full_name: string
           id: string
+          owner_id: string | null
+          next_followup_at: string | null
+          last_outcome: string | null
+          do_not_contact_at: string | null
           phone_e164: string | null
           phone_raw: string | null
           profession: string | null
@@ -537,6 +603,7 @@ export type Database = {
           whatsapp_unsubscribed_at: string | null
         }
         Insert: {
+          claimed_at?: string | null
           consent_basis?: Database["public"]["Enums"]["crm_consent_basis"]
           country?: string | null
           created_at?: string
@@ -545,6 +612,10 @@ export type Database = {
           email_unsubscribed_at?: string | null
           full_name?: string
           id?: string
+          owner_id?: string | null
+          next_followup_at?: string | null
+          last_outcome?: string | null
+          do_not_contact_at?: string | null
           phone_e164?: string | null
           phone_raw?: string | null
           profession?: string | null
@@ -554,6 +625,7 @@ export type Database = {
           whatsapp_unsubscribed_at?: string | null
         }
         Update: {
+          claimed_at?: string | null
           consent_basis?: Database["public"]["Enums"]["crm_consent_basis"]
           country?: string | null
           created_at?: string
@@ -562,6 +634,10 @@ export type Database = {
           email_unsubscribed_at?: string | null
           full_name?: string
           id?: string
+          owner_id?: string | null
+          next_followup_at?: string | null
+          last_outcome?: string | null
+          do_not_contact_at?: string | null
           phone_e164?: string | null
           phone_raw?: string | null
           profession?: string | null
@@ -574,6 +650,13 @@ export type Database = {
           {
             foreignKeyName: "contacts_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2364,6 +2447,178 @@ export type Database = {
           },
         ]
       }
+      whatsapp_blocked_attempts: {
+        Row: {
+          agent_id: string | null
+          contact_id: string | null
+          created_at: string
+          id: string
+          number_id: string | null
+          reason: string
+        }
+        Insert: {
+          agent_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          number_id?: string | null
+          reason: string
+        }
+        Update: {
+          agent_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          number_id?: string | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_blocked_attempts_number_id_fkey"
+            columns: ["number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_blocked_attempts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_blocked_attempts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_number_agents: {
+        Row: {
+          agent_id: string
+          created_at: string
+          number_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          number_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          number_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_number_agents_number_id_fkey"
+            columns: ["number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_number_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_numbers: {
+        Row: {
+          created_at: string
+          daily_cap: number | null
+          frozen_until: string | null
+          hourly_cap: number | null
+          id: string
+          label: string
+          phone_e164: string | null
+          status: string
+          warmup_started_on: string
+        }
+        Insert: {
+          created_at?: string
+          daily_cap?: number | null
+          frozen_until?: string | null
+          hourly_cap?: number | null
+          id?: string
+          label: string
+          phone_e164?: string | null
+          status?: string
+          warmup_started_on?: string
+        }
+        Update: {
+          created_at?: string
+          daily_cap?: number | null
+          frozen_until?: string | null
+          hourly_cap?: number | null
+          id?: string
+          label?: string
+          phone_e164?: string | null
+          status?: string
+          warmup_started_on?: string
+        }
+        Relationships: []
+      }
+      whatsapp_safety_settings: {
+        Row: {
+          burst_break_min: number
+          burst_size: number
+          daily_cap: number
+          freeze_hours: number
+          hourly_cap: number
+          hourly_warn_at: number
+          id: boolean
+          quiet_end_hour: number
+          quiet_start_hour: number
+          spacing_max_s: number
+          spacing_min_s: number
+          timezone: string
+          updated_at: string
+          warmup_start: number
+          warmup_step: number
+        }
+        Insert: {
+          burst_break_min?: number
+          burst_size?: number
+          daily_cap?: number
+          freeze_hours?: number
+          hourly_cap?: number
+          hourly_warn_at?: number
+          id?: boolean
+          quiet_end_hour?: number
+          quiet_start_hour?: number
+          spacing_max_s?: number
+          spacing_min_s?: number
+          timezone?: string
+          updated_at?: string
+          warmup_start?: number
+          warmup_step?: number
+        }
+        Update: {
+          burst_break_min?: number
+          burst_size?: number
+          daily_cap?: number
+          freeze_hours?: number
+          hourly_cap?: number
+          hourly_warn_at?: number
+          id?: boolean
+          quiet_end_hour?: number
+          quiet_start_hour?: number
+          spacing_max_s?: number
+          spacing_min_s?: number
+          timezone?: string
+          updated_at?: string
+          warmup_start?: number
+          warmup_step?: number
+        }
+        Relationships: []
+      }
       crm_message_templates: {
         Row: {
           body: string
@@ -2502,6 +2757,7 @@ export type Database = {
           total_pkr: number | null
           unsubscribe_token: string | null
           whatsapp_unsubscribed_at: string | null
+          do_not_contact_at: string | null
         }
         Relationships: []
       }
@@ -2701,7 +2957,7 @@ export type Database = {
         | "cv_review"
         | "interview_prep"
         | "career_guidance"
-      user_role: "student" | "mentor" | "admin" | "super_admin"
+      user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent"
       whatsapp_send_status: "pending" | "sent"
     }
     CompositeTypes: {
@@ -2858,7 +3114,7 @@ export const Constants = {
         "interview_prep",
         "career_guidance",
       ],
-      user_role: ["student", "mentor", "admin", "super_admin"],
+      user_role: ["student", "mentor", "admin", "super_admin", "sales_agent"],
     },
   },
 } as const

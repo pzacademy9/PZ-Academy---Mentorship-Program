@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-tertiary-container":"#7fecde","error-container":"#ffdad6","surface-container-low":"#f2f3ff","surface-container-high":"#e2e7ff","on-tertiary-fixed-variant":"#005049","surface":"#faf8ff","surface-bright":"#faf8ff","surface-container":"#eaedff","on-background":"#131b2e","tertiary-fixed-dim":"#6bd8cb","secondary-container":"#cee1ff","primary-container":"#006b5f","primary":"#005147","on-primary-fixed-variant":"#005047","on-error-container":"#93000a","outline":"#6e7976","on-primary":"#ffffff","surface-container-lowest":"#ffffff","background":"#faf8ff","inverse-on-surface":"#eef0ff","secondary-fixed-dim":"#b5c8e5","inverse-surface":"#283044","primary-fixed":"#9ff2e2","secondary":"#4d6079","on-tertiary":"#ffffff","surface-container-highest":"#dae2fd","tertiary":"#00514a","tertiary-fixed":"#89f5e7","on-surface":"#131b2e","tertiary-container":"#006b62","on-secondary-fixed-variant":"#364860","inverse-primary":"#83d5c6","primary-fixed-dim":"#83d5c6","surface-variant":"#dae2fd","on-error":"#ffffff","outline-variant":"#bec9c5","on-tertiary-fixed":"#00201d","on-primary-container":"#95e8d9","on-secondary-container":"#52647d","surface-dim":"#d2d9f4","secondary-fixed":"#d2e4ff","error":"#ba1a1a","on-secondary-fixed":"#081c32","on-secondary":"#ffffff","surface-tint":"#006b5f","on-primary-fixed":"#00201c","on-surface-variant":"#3e4946"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-sm":"0.5rem","gutter":"1rem","space-xs":"0.25rem","space-xl":"1.5rem","margin-md":"1.5rem","space-md":"0.75rem","margin":"1rem","gutter-lg":"1.5rem","space-lg":"1rem","margin-lg":"2rem"},fontFamily:{"label-md":["Inter"],"label-sm":["Inter"],"headline-sm":["Plus Jakarta Sans"],"body-md":["Inter"],"body-lg":["Inter"],"label-lg":["Inter"],"headline-lg":["Plus Jakarta Sans"],"body-sm":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"display-lg-mobile":["Plus Jakarta Sans"],"display-lg":["Plus Jakarta Sans"]},fontSize:{"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"500"}],"label-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.04em","fontWeight":"600"}],"headline-sm":["18px",{"lineHeight":"24px","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-lg":["14px",{"lineHeight":"20px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-lg":["28px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"16px","fontWeight":"400"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-md":["22px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"600"}],"display-lg-mobile":["28px",{"lineHeight":"36px","letterSpacing":"-0.01em","fontWeight":"700"}],"display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface"><header class="fixed top-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-xl z-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-gutter-lg flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-md"><img alt="PZ Academy CRM Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOh9psIMcgeUX4R49mZZ8a8j2RRFbfYHRtwyb87mVnxNI1qX0olyI15zOGxuMb1m6NhlNBDa9QdPYJOnOrpJW34Zh8wx4FCGhX6qbHXboeFDEbfpG4tvIA_aHq0F7V3ATUkXsgOmyUhFWwunvsg003JLjEADKKDYHuo4ru4VH_DI006NZ3LRE8SxYQNj6mWE-zl6iuspbcVxulJmgfKWLEuFzmPXDIuKEEitNn744Ematkkhv3cwUZ"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">PZ Academy</span><span class="font-label-sm text-label-sm text-secondary uppercase tracking-widest">Admissions CRM</span></div></div><div class="flex-1 max-w-md mx-space-xl hidden md:flex items-center"><div class="w-full flex items-center bg-surface-container-lowest rounded-lg px-space-md py-space-xs shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]"><span class="material-symbols-outlined text-secondary mr-space-sm text-[20px]">search</span><input class="w-full bg-transparent border-0 outline-none font-body-md text-body-md text-on-surface placeholder:text-secondary" placeholder="Search leads, clinical dossiers, student IDs..." type="text"/></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs bg-surface-container px-space-md py-space-xs rounded-full"><span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface">Status: </span><span class="font-label-sm text-label-sm text-primary font-bold">Live Outreach</span></div><button aria-label="Notifications" class="relative p-space-xs rounded-lg text-secondary hover:bg-surface-container hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span></button><div class="flex items-center gap-space-sm pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover shadow-[0_1px_3px_0_rgba(15,23,42,0.08)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxWMDae9lXWlu1mQM-3RX7a25GQ-Yglu1V-OjNtsAxLX2LPX5z6X85C4h-JraIUeDbRQjOV6EUG9C4sbPP2lv1ODdBSh9L47XlyJuOlom05VIHaEpuTKCaob17x5JzxgNRmme_C16u9fRHd7H1Ibo7jJxMl2MYfc6syUle28dl7FI36TcdXa864Z30tM9WTLypgpIsvJyUROI8sTcNFvpsKEgRoxugOkXPkkQYrHAuZAreL7biizNQ"/><div class="hidden lg:flex flex-col text-left"><span class="font-label-md text-label-md text-on-surface leading-tight">Dr. Eleanor Vance</span><span class="font-label-sm text-label-sm text-secondary leading-tight">Lead Admissions Officer</span></div></div></div></div></header><aside class="fixed left-0 top-16 bottom-0 w-64 bg-surface-container-lowest z-40 shadow-[0_1px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between py-space-lg"><div class="flex flex-col gap-space-xs px-space-md"><div class="px-space-md py-space-xs font-label-sm text-label-sm text-secondary uppercase tracking-wider">Workspace</div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary-container text-on-primary font-bold shadow-sm"><a aria-current="page" class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg transition-all bg-primary-container text-on-primary font-bold shadow-sm" data-path="outreach-queue" href="#"><span class="material-symbols-outlined text-[20px]">ring_volume</span>Outreach Queue</a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="pipeline" href="#"><span class="material-symbols-outlined text-[20px]">view_kanban</span>Pipeline</a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="templates" href="#"><span class="material-symbols-outlined text-[20px]">article</span>Templates</a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="enrolled-scholars" href="#"><span class="material-symbols-outlined text-[20px]">school</span>Enrolled Scholars</a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="analytics" href="#"><span class="material-symbols-outlined text-[20px]">monitoring</span>Analytics</a></nav></div><div class="px-space-md pt-space-lg border-t border-surface-container"><div class="bg-surface-container-low p-space-md rounded-lg"><div class="font-label-sm text-label-sm text-secondary uppercase">Daily Target</div><div class="font-headline-sm text-headline-sm text-primary mt-space-xs">18 / 25 Calls</div><div class="w-full bg-surface-container-highest rounded-full h-1.5 mt-space-sm"><div class="bg-primary h-1.5 rounded-full" style="width: 72%"></div></div></div></div></aside><div class="pl-64"><main class="relative w-full pt-16 px-gutter-lg py-margin-md min-h-screen bg-surface"><div class="flex flex-col w-full">
+<!-- Top Welcome & Daily Performance Banner -->
+<div class="w-full bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-space-lg mb-space-xl">
+<div class="flex items-center gap-space-md">
+<div class="relative">
+<img alt="Sarah Jenkins" class="w-14 h-14 rounded-full object-cover shadow-sm ring-2 ring-primary-container/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxWMDae9lXWlu1mQM-3RX7a25GQ-Yglu1V-OjNtsAxLX2LPX5z6X85C4h-JraIUeDbRQjOV6EUG9C4sbPP2lv1ODdBSh9L47XlyJuOlom05VIHaEpuTKCaob17x5JzxgNRmme_C16u9fRHd7H1Ibo7jJxMl2MYfc6syUle28dl7FI36TcdXa864Z30tM9WTLypgpIsvJyUROI8sTcNFvpsKEgRoxugOkXPkkQYrHAuZAreL7biizNQ"/>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-primary rounded-full ring-2 ring-surface-container-lowest"></span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">Good morning, Sarah Jenkins 👋</h1>
+<span class="bg-primary/10 text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded-full uppercase font-bold tracking-wider">Desk Live</span>
+</div>
+<p class="font-body-sm text-body-sm text-secondary mt-0.5">Wednesday, Oct 24, 2024 · Admissions &amp; Sales Desk · Shift #4</p>
+</div>
+</div>
+<!-- Quick Metrics & Contextual Operations -->
+<div class="flex flex-wrap items-center gap-space-md">
+<!-- Metric Pill 1: Pending -->
+<div class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg bg-surface-container">
+<div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+<span class="material-symbols-outlined text-[18px]">hourglass_top</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-secondary uppercase leading-none">Pending Today</span>
+<span class="font-headline-sm text-headline-sm text-on-surface leading-tight font-bold">18</span>
+</div>
+</div>
+<!-- Metric Pill 2: Sent -->
+<div class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg bg-surface-container">
+<div class="w-7 h-7 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">send</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-secondary uppercase leading-none">Sent Today</span>
+<span class="font-headline-sm text-headline-sm text-on-surface leading-tight font-bold">34</span>
+</div>
+</div>
+<!-- Metric Pill 3: Enrolled -->
+<div class="flex items-center gap-space-sm px-space-md py-space-xs rounded-lg bg-primary-container/10">
+<div class="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[18px]">workspace_premium</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase leading-none">Enrolled</span>
+<span class="font-headline-sm text-headline-sm text-primary leading-tight font-bold">5</span>
+</div>
+</div>
+<div class="flex items-center gap-space-xs pl-space-xs">
+<button class="h-10 px-space-md bg-surface-container-high hover:bg-surface-container-highest text-on-surface rounded-lg font-label-md text-label-md transition-colors flex items-center gap-space-xs shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">bolt</span>
+<span>Hot Leads (8)</span>
+</button>
+<button class="h-10 px-space-md bg-surface-container-lowest hover:bg-surface-container text-secondary rounded-lg font-label-md text-label-md transition-colors flex items-center gap-space-xs shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">file_download</span>
+<span class="hidden sm:inline">Export Summary</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Workspace Grid: 5 cols Left Queue, 7 cols Right Detail/Action -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter-lg items-start">
+<!-- LEFT COLUMN: Outreach Queue (xl:col-span-5) -->
+<div class="xl:col-span-5 flex flex-col gap-space-md">
+<!-- Search & Command Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center gap-space-sm">
+<div class="relative flex-1 flex items-center bg-surface-container-low rounded-lg px-space-md py-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px] mr-space-xs">search</span>
+<input class="w-full bg-transparent border-0 outline-none font-body-md text-body-md text-on-surface placeholder:text-secondary" placeholder="Search leads by candidate name, phone or city..." type="text"/>
+</div>
+<button aria-label="Add new candidate dossier" class="h-10 w-10 flex items-center justify-center bg-primary text-on-primary rounded-lg hover:bg-primary-container transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+</button>
+</div>
+<!-- Segment Tabs -->
+<div class="flex items-center gap-space-xs overflow-x-auto pb-1">
+<button class="px-space-md py-space-xs rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface shadow-sm whitespace-nowrap" type="button">
+          All <span class="ml-1 opacity-70">42</span>
+</button>
+<button class="px-space-md py-space-xs rounded-full font-label-sm text-label-sm bg-primary text-on-primary font-bold shadow-sm whitespace-nowrap" type="button">
+          Uncontacted <span class="ml-1 px-1.5 py-0.5 rounded-full bg-primary-container text-on-primary font-bold text-[10px]">12</span>
+</button>
+<button class="px-space-md py-space-xs rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface shadow-sm whitespace-nowrap" type="button">
+          Follow-ups <span class="ml-1 opacity-70">6</span>
+</button>
+<button class="px-space-md py-space-xs rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-secondary hover:text-on-surface shadow-sm whitespace-nowrap" type="button">
+          Interested <span class="ml-1 opacity-70">18</span>
+</button>
+</div>
+<!-- Contact Queue List -->
+<div class="flex flex-col gap-space-sm" id="candidateList">
+<!-- CARD 1 (Active/Selected State) -->
+<div class="relative bg-surface-container-lowest rounded-xl p-space-md shadow-sm transition-all cursor-pointer ring-2 ring-primary/40 bg-gradient-to-r from-surface-container-low to-surface-container-lowest">
+<div class="flex items-start justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-surface-container-lowest animate-pulse"></span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">Dr. Ayesha Tariq</span>
+<span class="material-symbols-outlined text-[16px] text-primary" title="Verified Credential">verified</span>
+</div>
+<div class="flex items-center gap-1 text-amber-500">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-sm text-label-sm font-bold text-on-surface">Hot</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md mt-space-xs font-body-sm text-body-sm text-secondary">
+<span class="inline-flex items-center gap-1 text-on-surface font-medium bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[15px] text-secondary">call</span>
+              +92 300 4589211
+              <button class="hover:text-primary ml-1" onclick="navigator.clipboard?.writeText('+923004589211')" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</span>
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline">location_on</span>
+              Lahore, PK
+            </span>
+</div>
+<div class="mt-space-sm flex items-center justify-between gap-space-xs pt-space-xs">
+<span class="px-space-sm py-0.5 rounded-md bg-primary-container/10 text-primary font-label-sm text-label-sm font-semibold truncate max-w-[210px]">
+              Clinical Pharmacy Masterclass
+            </span>
+<span class="font-label-sm text-label-sm text-error bg-error-container/40 px-2 py-0.5 rounded font-bold whitespace-nowrap">
+              12m ago · Web Lead
+            </span>
+</div>
+</div>
+<!-- CARD 2 -->
+<div class="bg-surface-container-lowest hover:bg-surface-container-low rounded-xl p-space-md shadow-sm transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Bilal Ahmed Khan</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">35m ago</span>
+</div>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md mt-space-xs font-body-sm text-body-sm text-secondary">
+<span class="inline-flex items-center gap-1 text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[15px] text-secondary">call</span>
+              +92 321 7843109
+            </span>
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline">location_on</span>
+              Karachi, PK
+            </span>
+</div>
+<div class="mt-space-sm flex items-center justify-between gap-space-xs pt-space-xs">
+<span class="px-space-sm py-0.5 rounded-md bg-secondary-container/50 text-secondary font-label-sm text-label-sm font-medium truncate max-w-[210px]">
+              Enzyme Kinetics &amp; Drug Design
+            </span>
+<span class="font-label-sm text-label-sm text-secondary whitespace-nowrap">
+              Instagram Ad
+            </span>
+</div>
+</div>
+<!-- CARD 3 -->
+<div class="bg-surface-container-lowest hover:bg-surface-container-low rounded-xl p-space-md shadow-sm transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Zainab Fatima</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">1h ago</span>
+</div>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md mt-space-xs font-body-sm text-body-sm text-secondary">
+<span class="inline-flex items-center gap-1 text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[15px] text-secondary">call</span>
+              +92 333 9124450
+            </span>
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline">location_on</span>
+              Islamabad, PK
+            </span>
+</div>
+<div class="mt-space-sm flex items-center justify-between gap-space-xs pt-space-xs">
+<span class="px-space-sm py-0.5 rounded-md bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium truncate max-w-[210px]">
+              Healthcare Ethics &amp; Reg. Law
+            </span>
+<span class="font-label-sm text-label-sm text-primary font-bold whitespace-nowrap">
+              Referral
+            </span>
+</div>
+</div>
+<!-- CARD 4 -->
+<div class="bg-surface-container-lowest hover:bg-surface-container-low rounded-xl p-space-md shadow-sm transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Dr. Hamza Siddiqui</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">2h ago</span>
+</div>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md mt-space-xs font-body-sm text-body-sm text-secondary">
+<span class="inline-flex items-center gap-1 text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[15px] text-secondary">call</span>
+              +92 345 6781200
+            </span>
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline">location_on</span>
+              Peshawar, PK
+            </span>
+</div>
+<div class="mt-space-sm flex items-center justify-between gap-space-xs pt-space-xs">
+<span class="px-space-sm py-0.5 rounded-md bg-secondary-container/50 text-secondary font-label-sm text-label-sm font-medium truncate max-w-[210px]">
+              Clinical Pharmacology 101
+            </span>
+<span class="font-label-sm text-label-sm text-secondary whitespace-nowrap">
+              Direct Search
+            </span>
+</div>
+</div>
+<!-- CARD 5 -->
+<div class="bg-surface-container-lowest hover:bg-surface-container-low rounded-xl p-space-md shadow-sm transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Mariam Noor</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">3h ago</span>
+</div>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md mt-space-xs font-body-sm text-body-sm text-secondary">
+<span class="inline-flex items-center gap-1 text-on-surface bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[15px] text-secondary">call</span>
+              +92 312 8841923
+            </span>
+<span class="inline-flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline">location_on</span>
+              Rawalpindi, PK
+            </span>
+</div>
+<div class="mt-space-sm flex items-center justify-between gap-space-xs pt-space-xs">
+<span class="px-space-sm py-0.5 rounded-md bg-primary-container/10 text-primary font-label-sm text-label-sm font-medium truncate max-w-[210px]">
+              Clinical Pharmacy Masterclass
+            </span>
+<span class="font-label-sm text-label-sm text-secondary whitespace-nowrap">
+              Workshop Attendee
+            </span>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Action & Conversation Pane (xl:col-span-7) -->
+<div class="xl:col-span-7 flex flex-col gap-space-lg">
+<!-- Top Profile Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs flex-wrap">
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">Dr. Ayesha Tariq</h2>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container font-mono text-secondary">#PZ-8941</span>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">local_fire_department</span> 94/100 Hot
+              </span>
+</div>
+<p class="font-body-md text-body-md text-secondary mt-1">Hospital Pharmacist at Shaukat Khanum · Seeking Advanced Certification</p>
+</div>
+<div class="flex items-center gap-space-xs self-start">
+<button class="h-9 px-space-md bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg font-label-sm text-label-sm flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">edit_note</span> Edit Dossier
+            </button>
+</div>
+</div>
+<!-- Clinical Qualification Data Strip -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-space-xs bg-surface-container-low rounded-lg p-space-sm">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-secondary uppercase">Acquisition Channel</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold mt-0.5">Website Form</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-secondary uppercase">Estimated Budget</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold mt-0.5">PKR 45K–60K</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-secondary uppercase">Cohort Preference</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold mt-0.5">Weekend Track</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-secondary uppercase">Target Date</span>
+<span class="font-label-md text-label-md text-primary font-bold mt-0.5">Nov 1st Cohort</span>
+</div>
+</div>
+<!-- Latest Lead Note Snippet -->
+<div class="flex items-start gap-space-sm bg-surface-container/60 rounded-lg p-space-sm text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">sticky_note_2</span>
+<p class="font-body-sm text-body-sm text-secondary italic">
+<span class="font-semibold not-italic text-on-surface">Last Agent Note:</span> "Expressed keen interest in batch starting Nov 1st. Inquired about installment plans and clinical preceptorship modules."
+          </p>
+</div>
+</div>
+<!-- WHATSAPP OUTREACH COCKPIT -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md ring-1 ring-primary/20">
+<!-- Card Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+<span class="material-symbols-outlined text-[24px]">chat</span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Instant WhatsApp Outreach</h3>
+<span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-label-sm text-label-sm rounded-full font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> wa.me secure
+                </span>
+</div>
+<p class="font-body-sm text-body-sm text-secondary">Initiate verified 1-to-1 conversation directly into desktop or mobile client</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-secondary">Target:</span>
+<span class="font-label-md text-label-md font-mono text-on-surface font-bold bg-surface-container px-2 py-1 rounded">+92 300 4589211</span>
+</div>
+</div>
+<!-- Template Selector -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-sm text-label-sm text-secondary uppercase font-semibold" for="templateSelect">Message Outreach Template</label>
+<div class="relative">
+<select class="w-full h-10 appearance-none bg-surface-container-low text-on-surface font-label-md text-label-md rounded-lg px-space-md pr-10 outline-none focus:ring-2 focus:ring-primary transition-all" id="templateSelect">
+<option selected="" value="initial">Initial Greeting (Course Details &amp; Brochure PDF)</option>
+<option value="discount">Fee Discount Follow-up (15% Early Bird Incentive)</option>
+<option value="faculty">Syllabus &amp; Clinical Faculty Introduction</option>
+<option value="closing">Urgent Cohort Closing Notice (Last 3 Seats)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-secondary pointer-events-none text-[20px]">expand_more</span>
+</div>
+</div>
+<!-- Message Preview Bubble -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-xs relative">
+<div class="flex items-center justify-between text-secondary font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">visibility</span> Preview with Dynamic Tags</span>
+<span class="text-primary font-semibold">Editable Draft</span>
+</div>
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm font-body-md text-body-md text-on-surface leading-relaxed">
+            Dear <span class="bg-primary/10 text-primary font-bold px-1 rounded">Dr. Ayesha</span>, thank you for reaching out to <span class="font-semibold">PharmaZyme Academy</span> regarding the <span class="bg-primary/10 text-primary font-bold px-1 rounded">Clinical Pharmacy Masterclass</span>! 🎓 
+            <br/><br/>
+            I reviewed your inquiry and would love to share our comprehensive curriculum and details on our upcoming <span class="font-semibold underline decoration-primary decoration-2">Nov 1 cohort</span>. When would be a good time for a brief 5-minute call, or shall I share the brochure PDF right here?
+          </div>
+<div class="flex items-center justify-end text-[11px] text-secondary gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Ready to dispatch via sales routing
+          </div>
+</div>
+<!-- PRIMARY SOLID CTA BUTTON -->
+<a class="h-12 w-full bg-primary hover:bg-primary-container text-on-primary rounded-lg font-label-lg text-label-lg flex items-center justify-center gap-space-sm shadow-md hover:shadow-lg transition-all font-bold group" href="https://wa.me/923004589211?text=Dear%20Dr.%20Ayesha%2C%20thank%20you%20for%20reaching%20out%20to%20PharmaZyme%20Academy%20regarding%20the%20Clinical%20Pharmacy%20Masterclass!%20%F0%9F%8E%93%20I%20reviewed%20your%20inquiry%20and%20would%20love%20to%20share%20our%20comprehensive%20curriculum%20and%20details%20on%20our%20upcoming%20Nov%201%20cohort.%20When%20would%20be%20a%20good%20time%20for%20a%20brief%205-minute%20call%2C%20or%20shall%20I%20share%20the%20brochure%20PDF%20right%20here%3F" rel="noopener noreferrer" target="_blank">
+<span class="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">chat</span>
+<span>Chat on WhatsApp (wa.me/+923004589211)</span>
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</a>
+<!-- Quick 1-Click Status Update Group -->
+<div class="pt-space-xs flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-secondary uppercase font-semibold">Quick Update Lead Status:</span>
+<div class="flex flex-wrap items-center gap-space-xs" id="statusPillGroup">
+<button class="h-8 px-space-md rounded-lg font-label-sm text-label-sm bg-primary text-on-primary font-bold shadow-sm transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">check</span> Sent &amp; Waiting
+            </button>
+<button class="h-8 px-space-md rounded-lg font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-surface-container-high transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">event</span> Follow-up Scheduled
+            </button>
+<button class="h-8 px-space-md rounded-lg font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-emerald-100 hover:text-emerald-900 transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">celebration</span> Won / Enrolled 🎉
+            </button>
+<button class="h-8 px-space-md rounded-lg font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-error-container/40 hover:text-error transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">cancel</span> Not Interested
+            </button>
+</div>
+</div>
+</div>
+<!-- Quick Note & Task Box -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<h4 class="font-label-lg text-label-lg text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-primary">add_comment</span>
+            Internal Academic Note &amp; Follow-up
+          </h4>
+<span class="font-label-sm text-label-sm text-secondary">Visible to admissions desk only</span>
+</div>
+<textarea class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md p-space-md rounded-lg border-0 outline-none focus:ring-2 focus:ring-primary resize-none placeholder:text-secondary" placeholder="Add internal sales note or follow-up reminder for Dr. Ayesha..." rows="3"></textarea>
+<div class="flex flex-col sm:flex-row items-center justify-between gap-space-sm pt-space-xs">
+<button class="w-full sm:w-auto h-9 px-space-md bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+            Schedule Follow-up Call (Tomorrow 11 AM)
+          </button>
+<button class="w-full sm:w-auto h-9 px-space-lg bg-surface-container-highest hover:bg-primary hover:text-on-primary text-on-surface rounded-lg font-label-md text-label-md font-bold transition-all shadow-sm" type="button">
+            Save Note
+          </button>
+</div>
+</div>
+<!-- Past Activity Timeline / History Mini Section -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<h4 class="font-label-lg text-label-lg text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-secondary">history</span>
+          Candidate Touchpoint Timeline
+        </h4>
+<div class="flex flex-col gap-space-md pl-2">
+<!-- Timeline Item 1 -->
+<div class="flex items-start gap-space-md relative">
+<div class="w-2.5 h-2.5 rounded-full bg-secondary mt-1.5 shrink-0 ring-4 ring-surface-container-low"></div>
+<div class="flex-1 flex flex-col sm:flex-row sm:items-center justify-between">
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">Lead automatically assigned to Sarah Jenkins</p>
+<span class="font-label-sm text-label-sm text-secondary">Routing engine prioritized priority medical leads</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-mono mt-0.5 sm:mt-0">10:15 AM</span>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="flex items-start gap-space-md relative">
+<div class="w-2.5 h-2.5 rounded-full bg-primary mt-1.5 shrink-0 ring-4 ring-primary/20"></div>
+<div class="flex-1 flex flex-col sm:flex-row sm:items-center justify-between">
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">Form submission received from landing page</p>
+<span class="font-label-sm text-label-sm text-secondary">Clinical Pharmacy Masterclass - Campaign ID: #FB-CLIN-PK-44</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-mono mt-0.5 sm:mt-0">10:14 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Simple micro-interactions for UI reactivity
+  document.querySelectorAll('#candidateList > div').forEach(card => {
+    card.addEventListener('click', function() {
+      document.querySelectorAll('#candidateList > div').forEach(c => {
+        c.classList.remove('ring-2', 'ring-primary/40', 'bg-gradient-to-r', 'from-surface-container-low', 'to-surface-container-lowest');
+      });
+      this.classList.add('ring-2', 'ring-primary/40', 'bg-gradient-to-r', 'from-surface-container-low', 'to-surface-container-lowest');
+    });
+  });
+
+  document.querySelectorAll('#statusPillGroup > button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#statusPillGroup > button').forEach(b => {
+        b.className = 'h-8 px-space-md rounded-lg font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-surface-container-high transition-all flex items-center gap-1';
+      });
+      this.className = 'h-8 px-space-md rounded-lg font-label-sm text-label-sm bg-primary text-on-primary font-bold shadow-sm transition-all flex items-center gap-1';
+    });
+  });
+</script></main></div></body></html>

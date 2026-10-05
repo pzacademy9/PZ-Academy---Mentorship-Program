@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&amp;family=Handlee&amp;family=Montserrat:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f9f9f9;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "tertiary-container": "#9fcfa9", "primary-fixed": "#9cf973", "outline-variant": "#bfcab5", "on-primary-container": "#1d5d00", "tertiary": "#3b6849", "on-error-container": "#93000a", "surface-container-high": "#e8e8e8", "surface-container-lowest": "#ffffff", "on-tertiary-fixed-variant": "#234f33", "on-tertiary": "#ffffff", "inverse-on-surface": "#f0f1f1", "background": "#f9f9f9", "primary": "#246d00", "on-primary-fixed-variant": "#195200", "on-tertiary-container": "#2d593c", "surface-variant": "#e2e2e2", "on-primary-fixed": "#062100", "inverse-primary": "#81dc5a", "on-secondary-container": "#715300", "on-error": "#ffffff", "surface-bright": "#f9f9f9", "tertiary-fixed-dim": "#a2d2ac", "on-surface-variant": "#404a3a", "on-tertiary-fixed": "#00210e", "primary-container": "#7ed957", "tertiary-fixed": "#bdeec7", "on-secondary": "#ffffff", "on-primary": "#ffffff", "on-secondary-fixed-variant": "#5c4300", "surface-container": "#eeeeee", "primary-fixed-dim": "#81dc5a", "secondary": "#7a5900", "surface-container-low": "#f3f3f4", "outline": "#707a68", "secondary-fixed-dim": "#f6be3b", "on-secondary-fixed": "#261900", "on-background": "#1a1c1c", "surface": "#f9f9f9", "surface-container-highest": "#e2e2e2", "error-container": "#ffdad6", "on-surface": "#1a1c1c", "inverse-surface": "#2f3131", "surface-dim": "#dadada", "secondary-container": "#ffc644", "secondary-fixed": "#ffdea1", "error": "#ba1a1a", "surface-tint": "#246d00" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: {}, fontFamily: { "headline": ["Montserrat"], "display": ["Montserrat"], "body": ["Fredoka"], "label": ["Handlee"] }, fontSize: {} } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 px-4 flex items-center justify-between gap-3"><div class="flex items-center gap-2 min-w-0 flex-1"><img alt="Modern sleek emblem for PharmaZyme Academy Sales &amp; Admissions CRM, featuring an academic graduation cap fused with clinical DNA leaf motif in deep navy and forest teal. Design context: - Primary color: #006b5f
+- Font: plusJakartaSans
+- Mode: light
+- Roundness: rounded-md
+. The logo should be visually consistent with these brand tokens." class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1VAI1D7PiUDHVJA3fuK93mIaev4HPW2PZJBd_YpbkHZXiiaTRZGeJ-RiUUpXJ4y-IAkLvoeqhJTuVrnEehafRdTDqYKZCq4vwfgAMDpvj16cynGY4DZtzfHvcsdhpWbboTs5ynludqjwJDd7_z-OAzi-EnEKAzkF0klhHl36XPBocxeT0LfeWiV8UiGttwhOh-Nluf4AlC6o396dfLgfq_8XX3iZhPDjlPXDXuMDEHrnd1xDOgxPFK0aSI"/><div class="flex flex-col min-w-0"><span class="text-[11px] font-label leading-tight text-tertiary font-bold tracking-tight truncate">PZ Academy</span><h1 class="text-base font-headline font-bold text-on-surface truncate leading-tight">Safety Admin</h1></div></div><button class="min-w-[44px] min-h-[44px] p-1.5 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors flex-shrink-0" type="button"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1Wo0unsaNIMTpMaLEvVuKc6ZlWRtC1jtYLVHpM8a_Fmgro5KMuOjY-ziZN4-ij89l4L92Y1q_GB0m86Um48zYXrGFlLYaWebtgja67lGixFnxsVVH9WNHEMa3ORhdaGd_8AHHe0Ia1Nd0qlvyyg7peXVSgAlU6iwwfvzRzpi22f0nIxrFKX0nsHr3eDpeZHw_4up7Ai3ve37XuOc8FHzKhmTLZgBQ6_IHXQ582eoDC9kG5n3-6YGNwQdA"/></button></div></header><main class="flex-1 w-full bg-surface pt-16 pb-24"><div class="flex flex-col w-full px-4 pt-2 pb-16 space-y-4">
+<!-- Caution Advisory Banner -->
+<div class="relative overflow-hidden bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-secondary-container/15 rounded-full blur-xl pointer-events-none"></div>
+<div class="flex items-start gap-3">
+<div class="w-9 h-9 rounded-lg bg-secondary-container/20 flex items-center justify-center flex-shrink-0 text-secondary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-2 mb-1">
+<span class="text-[12px] font-label font-bold text-secondary tracking-wide uppercase">Algorithmic Shielding</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-semibold bg-tertiary-fixed text-on-tertiary-fixed">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            Live Guard
+          </span>
+</div>
+<p class="text-xs font-body text-on-surface leading-relaxed">
+          These are cautious estimates, not guarantees from WhatsApp. Pacing protects your company SIMs from anti-spam flags.
+        </p>
+</div>
+</div>
+</div>
+<!-- Fleet SIM Health Header Widget & Add Action -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="px-2.5 py-1 rounded-full bg-primary-container/20 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span class="text-xs font-headline font-bold text-primary">Fleet SIM Risk: 99% Safe</span>
+</div>
+</div>
+<span class="text-xs font-body text-on-surface-variant font-medium">4 Active Lines</span>
+</div>
+<div class="flex items-center justify-between gap-3 pt-1">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-tertiary text-[18px]">dns</span>
+<h2 class="text-sm font-headline font-bold text-on-surface truncate">Connected Lines &amp; Status</h2>
+</div>
+<button class="h-9 px-3.5 rounded-lg bg-primary text-on-primary text-xs font-headline font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform flex-shrink-0" id="openAddLineModal" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>Add Line</span>
+</button>
+</div>
+</div>
+<!-- Connected Lines & SIM Health Cards Stack -->
+<div class="space-y-3">
+<!-- Card 1: DMC campaign 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm transition-all" id="sim-card-1">
+<div class="flex items-start justify-between gap-2 mb-2.5">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0"></span>
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">DMC campaign number 1</h3>
+</div>
+<p class="text-xs font-body text-on-surface-variant pl-4.5 mt-0.5 tracking-tight">+92 300 1234567</p>
+</div>
+<span class="px-2 py-0.5 rounded-md text-[11px] font-headline font-semibold bg-tertiary-fixed text-on-tertiary-fixed flex-shrink-0">
+          Active
+        </span>
+</div>
+<!-- Meter -->
+<div class="space-y-1.5 my-3">
+<div class="flex justify-between items-center text-xs">
+<span class="font-body text-on-surface-variant">Daily quota dispatch</span>
+<span class="font-headline font-bold text-on-surface">38 / 60 <span class="font-normal text-on-surface-variant text-[11px]">sent</span></span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 63%;"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="text-[11px] font-label text-tertiary">Normal pacing active</span>
+<button class="h-8 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-error text-xs font-headline font-medium flex items-center gap-1 active:scale-95 transition-all" onclick="toggleFreeze('sim-card-1', 'DMC campaign number 1')" type="button">
+<span class="material-symbols-outlined text-[15px]">ac_unit</span>
+<span>Freeze line</span>
+</button>
+</div>
+</div>
+<!-- Card 2: DMC campaign 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm transition-all" id="sim-card-2">
+<div class="flex items-start justify-between gap-2 mb-2.5">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0"></span>
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">DMC campaign number 2</h3>
+</div>
+<p class="text-xs font-body text-on-surface-variant pl-4.5 mt-0.5 tracking-tight">+92 312 9988112</p>
+</div>
+<span class="px-2 py-0.5 rounded-md text-[11px] font-headline font-semibold bg-tertiary-fixed text-on-tertiary-fixed flex-shrink-0">
+          Active
+        </span>
+</div>
+<!-- Meter -->
+<div class="space-y-1.5 my-3">
+<div class="flex justify-between items-center text-xs">
+<span class="font-body text-on-surface-variant">Daily quota dispatch</span>
+<span class="font-headline font-bold text-on-surface">14 / 60 <span class="font-normal text-on-surface-variant text-[11px]">sent</span></span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary-container rounded-full transition-all duration-500" style="width: 23%;"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="text-[11px] font-label text-tertiary">Optimal health</span>
+<button class="h-8 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-error text-xs font-headline font-medium flex items-center gap-1 active:scale-95 transition-all" onclick="toggleFreeze('sim-card-2', 'DMC campaign number 2')" type="button">
+<span class="material-symbols-outlined text-[15px]">ac_unit</span>
+<span>Freeze line</span>
+</button>
+</div>
+</div>
+<!-- Card 3: Outreach SIM 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm transition-all" id="sim-card-3">
+<div class="flex items-start justify-between gap-2 mb-2.5">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-fixed-dim flex-shrink-0"></span>
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">Outreach SIM 3</h3>
+</div>
+<p class="text-xs font-body text-on-surface-variant pl-4.5 mt-0.5 tracking-tight">+92 333 4589211</p>
+</div>
+<span class="px-2 py-0.5 rounded-md text-[11px] font-headline font-semibold bg-secondary-fixed text-on-secondary-fixed flex-shrink-0">
+          Warming up
+        </span>
+</div>
+<!-- Meter -->
+<div class="space-y-1.5 my-3">
+<div class="flex justify-between items-center text-xs">
+<span class="font-body text-on-surface-variant">Ramp Cap: Day 2 of 7</span>
+<span class="font-headline font-bold text-secondary">8 / 10 <span class="font-normal text-on-surface-variant text-[11px]">sent</span></span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-secondary-container rounded-full transition-all duration-500" style="width: 80%;"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="text-[11px] font-label text-secondary">+10 chat expansion tomorrow</span>
+<button class="h-8 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-error text-xs font-headline font-medium flex items-center gap-1 active:scale-95 transition-all" onclick="toggleFreeze('sim-card-3', 'Outreach SIM 3')" type="button">
+<span class="material-symbols-outlined text-[15px]">ac_unit</span>
+<span>Freeze line</span>
+</button>
+</div>
+</div>
+<!-- Card 4: New Inbound Line 4 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm transition-all" id="sim-card-4">
+<div class="flex items-start justify-between gap-2 mb-2.5">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-error flex-shrink-0"></span>
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">New Inbound Line 4</h3>
+</div>
+<p class="text-xs font-body text-on-surface-variant pl-4.5 mt-0.5 tracking-tight">+92 345 8801923</p>
+</div>
+<span class="px-2 py-0.5 rounded-md text-[11px] font-headline font-semibold bg-error-container text-on-error-container flex-shrink-0">
+          Frozen (48h safety)
+        </span>
+</div>
+<div class="bg-error-container/20 rounded-lg p-2.5 my-2.5 flex items-center gap-2.5">
+<span class="material-symbols-outlined text-error text-[20px]">hourglass_top</span>
+<div class="min-w-0 flex-1">
+<p class="text-xs font-headline font-bold text-on-error-container">Quarantine Active</p>
+<p class="text-[11px] font-body text-on-surface-variant">14 hours remaining in cool-off period</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="text-[11px] font-label text-on-surface-variant">SIM locked against outgoing</span>
+<button class="h-8 px-3.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-headline font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all" onclick="unfreezeLine('sim-card-4', 'New Inbound Line 4')" type="button">
+<span class="material-symbols-outlined text-[15px]">lock_open</span>
+<span>Unfreeze line</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Safety Rules & Pacing Form Header -->
+<div class="pt-2">
+<div class="flex items-center gap-2 px-1 mb-2">
+<span class="material-symbols-outlined text-primary text-[20px]">tune</span>
+<h2 class="text-base font-headline font-bold text-on-surface">Team-Wide Safety Rules &amp; Pacing</h2>
+</div>
+<p class="text-xs font-body text-on-surface-variant px-1">
+      Enforced across all WhatsApp web sessions, extensions, and automated admission queues.
+    </p>
+</div>
+<!-- Accordion 1: Daily & Hourly Throttle -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<button class="w-full p-4 flex items-center justify-between text-left transition-colors hover:bg-surface-container-low" onclick="toggleAccordion('acc-1', 'acc-icon-1')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container/30 flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">speed</span>
+</div>
+<div class="min-w-0">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">1. Daily &amp; Hourly Throttle</h3>
+<p class="text-[11px] font-body text-on-surface-variant truncate">60 new chats/day • 20/hr ceiling</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] transition-transform duration-200" id="acc-icon-1">expand_more</span>
+</button>
+<div class="px-4 pb-4 pt-1 space-y-3.5" id="acc-1">
+<div>
+<div class="flex justify-between items-baseline mb-1">
+<label class="text-xs font-headline font-semibold text-on-surface">New chats per day limit</label>
+<span class="text-xs font-headline font-bold text-primary" id="val-daily">60 chats</span>
+</div>
+<input class="w-full accent-primary h-2 bg-surface-container rounded-lg cursor-pointer" max="120" min="20" oninput="document.getElementById('val-daily').innerText = this.value + ' chats'" step="5" type="range" value="60"/>
+<p class="text-[11px] font-body text-on-surface-variant mt-1.5">
+          Limits cold admissions outreach attempts to prevent algorithmic meta-account review.
+        </p>
+</div>
+<div class="grid grid-cols-2 gap-3 pt-1">
+<div class="bg-surface-container-low rounded-lg p-3">
+<label class="block text-[11px] font-headline font-semibold text-on-surface-variant mb-1">Hourly send ceiling</label>
+<div class="flex items-center justify-between">
+<input class="w-14 text-sm font-headline font-bold text-on-surface bg-transparent focus:outline-none" type="number" value="20"/>
+<span class="text-xs font-body text-on-surface-variant">/ hour</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-3">
+<label class="block text-[11px] font-headline font-semibold text-on-surface-variant mb-1">Hourly warning threshold</label>
+<div class="flex items-center justify-between">
+<input class="w-14 text-sm font-headline font-bold text-secondary bg-transparent focus:outline-none" type="number" value="15"/>
+<span class="text-xs font-body text-on-surface-variant">triggers alert</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Accordion 2: Message Spacing & Rest Breaks -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<button class="w-full p-4 flex items-center justify-between text-left transition-colors hover:bg-surface-container-low" onclick="toggleAccordion('acc-2', 'acc-icon-2')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container/30 flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">timelapse</span>
+</div>
+<div class="min-w-0">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">2. Message Spacing &amp; Rest Breaks</h3>
+<p class="text-[11px] font-body text-on-surface-variant truncate">90s - 180s randomized delay</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] transition-transform duration-200" id="acc-icon-2">expand_more</span>
+</button>
+<div class="px-4 pb-4 pt-1 space-y-3.5" id="acc-2">
+<div class="bg-surface-container-low rounded-lg p-3 space-y-2">
+<div class="flex items-center justify-between">
+<span class="text-xs font-headline font-semibold text-on-surface">Randomized Message Spacing</span>
+<span class="text-[11px] font-label font-bold text-tertiary">Anti-bot simulation</span>
+</div>
+<div class="grid grid-cols-2 gap-2 text-center">
+<div class="bg-surface-container-lowest rounded-md p-2">
+<span class="text-[10px] font-body text-on-surface-variant block">Min interval</span>
+<span class="text-sm font-headline font-bold text-on-surface">90 sec</span>
+</div>
+<div class="bg-surface-container-lowest rounded-md p-2">
+<span class="text-[10px] font-body text-on-surface-variant block">Max interval</span>
+<span class="text-sm font-headline font-bold text-on-surface">180 sec</span>
+</div>
+</div>
+<p class="text-[11px] font-body text-on-surface-variant">Each dispatched student reminder inserts random variance within this window.</p>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-low">
+<div class="min-w-0 flex-1 pr-2">
+<p class="text-xs font-headline font-semibold text-on-surface">Mandatory Rest Break</p>
+<p class="text-[11px] font-body text-on-surface-variant">10 min cool-off period every 10 sends</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Accordion 3: Safe Hours -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<button class="w-full p-4 flex items-center justify-between text-left transition-colors hover:bg-surface-container-low" onclick="toggleAccordion('acc-3', 'acc-icon-3')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container/30 flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">bedtime</span>
+</div>
+<div class="min-w-0">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">3. Safe Hours</h3>
+<p class="text-[11px] font-body text-on-surface-variant truncate">21:00 to 09:00 PKT quarantine</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] transition-transform duration-200" id="acc-icon-3">expand_more</span>
+</button>
+<div class="px-4 pb-4 pt-1 space-y-3" id="acc-3">
+<div class="bg-surface-container-low rounded-lg p-3">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-headline font-semibold text-on-surface">Nighttime Quarantine Window</span>
+<span class="px-2 py-0.5 text-[10px] font-headline font-bold rounded bg-secondary-fixed text-on-secondary-fixed">PKT Timezone</span>
+</div>
+<div class="flex items-center gap-2 text-xs font-body text-on-surface">
+<span class="px-2.5 py-1 rounded bg-surface-container-lowest font-headline font-semibold">21:00 (9 PM)</span>
+<span class="text-on-surface-variant">until</span>
+<span class="px-2.5 py-1 rounded bg-surface-container-lowest font-headline font-semibold">09:00 (9 AM)</span>
+</div>
+<p class="text-[11px] font-body text-on-surface-variant mt-2 leading-relaxed">
+          Queued follow-ups freeze automatically to prevent consumer complaints &amp; high spam report likelihood.
+        </p>
+</div>
+</div>
+</div>
+<!-- Accordion 4: Warm-Up & Emergency Safeguards -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<button class="w-full p-4 flex items-center justify-between text-left transition-colors hover:bg-surface-container-low" onclick="toggleAccordion('acc-4', 'acc-icon-4')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container/30 flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">emergency</span>
+</div>
+<div class="min-w-0">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">4. Warm-Up &amp; Safeguards</h3>
+<p class="text-[11px] font-body text-on-surface-variant truncate">Ramping limits &amp; panic lock</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] transition-transform duration-200" id="acc-icon-4">expand_more</span>
+</button>
+<div class="px-4 pb-4 pt-1 space-y-3" id="acc-4">
+<div class="space-y-2 bg-surface-container-low p-3 rounded-lg">
+<div class="flex items-center justify-between">
+<span class="text-xs font-headline font-semibold text-on-surface">Automated Ramp-Up curve</span>
+<span class="text-[11px] font-label font-bold text-tertiary">+10 chats / day</span>
+</div>
+<p class="text-[11px] font-body text-on-surface-variant">
+          Brand-new registered SIMs start strictly at 10 chats/day, scaling progressively over a 7-day maturation trial.
+        </p>
+</div>
+<div class="space-y-2 bg-surface-container-low p-3 rounded-lg">
+<div class="flex items-center justify-between">
+<span class="text-xs font-headline font-semibold text-error">Panic Freeze Duration</span>
+<span class="text-xs font-headline font-bold text-error">48 Hours</span>
+</div>
+<p class="text-[11px] font-body text-on-surface-variant">
+          If 2 delivery drops or temporary block flags are caught within 15 minutes, auto-quarantine triggers instantly.
+        </p>
+</div>
+</div>
+</div>
+<!-- Sticky Bottom Action Bar -->
+<div class="sticky bottom-16 -mx-4 px-4 py-3 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-4px_16px_rgba(15,30,20,0.08)] z-40 flex items-center gap-3">
+<button class="flex-1 min-h-[48px] rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-headline font-bold active:scale-98 transition-all" id="discardBtn" type="button">
+      Discard
+    </button>
+<button class="flex-[2] min-h-[48px] rounded-lg bg-primary hover:bg-on-primary-container text-on-primary text-xs font-headline font-bold shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all" id="saveBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>Save All Safety Settings</span>
+</button>
+</div>
+<!-- Notification Toast Container -->
+<div class="fixed top-20 left-4 right-4 z-50 transform -translate-y-20 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 p-3.5 rounded-xl bg-inverse-surface text-inverse-on-surface shadow-xl" id="toast">
+<span class="material-symbols-outlined text-primary-container text-[20px]" id="toast-icon">check_circle</span>
+<span class="text-xs font-headline font-medium" id="toast-msg">Settings saved successfully</span>
+</div>
+<!-- Modal for Add Line -->
+<div class="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm hidden flex items-center justify-center p-4" id="addLineModal">
+<div class="w-full max-w-sm bg-surface-container-lowest rounded-xl p-5 shadow-2xl space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-sm font-headline font-bold text-on-surface">Add WhatsApp Line</h3>
+<button class="text-on-surface-variant hover:text-on-surface" id="closeAddLineModal" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="space-y-3">
+<div>
+<label class="block text-xs font-headline font-medium text-on-surface-variant mb-1">Line Friendly Name</label>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-low text-xs font-body text-on-surface focus:outline-none" placeholder="e.g. DMC Admissions SIM 5" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-headline font-medium text-on-surface-variant mb-1">Phone Number</label>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-low text-xs font-body text-on-surface focus:outline-none" placeholder="+92 300 0000000" type="text"/>
+</div>
+<div class="p-2.5 rounded-lg bg-secondary-container/15 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[18px]">info</span>
+<p class="text-[11px] font-body text-on-surface">Will automatically enter Day 1 warm-up trial (10 chats cap).</p>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 h-10 rounded-lg bg-surface-container text-xs font-headline font-semibold text-on-surface-variant" id="cancelAddLineModal" type="button">Cancel</button>
+<button class="flex-1 h-10 rounded-lg bg-primary text-xs font-headline font-bold text-on-primary" id="confirmAddLine" type="button">Pair SIM</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function toggleAccordion(id, iconId) {
+    const el = document.getElementById(id);
+    const icon = document.getElementById(iconId);
+    if (!el || !icon) return;
+    const isHidden = el.classList.contains('hidden');
+    if (isHidden) {
+      el.classList.remove('hidden');
+      icon.style.transform = 'rotate(0deg)';
+    } else {
+      el.classList.add('hidden');
+      icon.style.transform = 'rotate(-90deg)';
+    }
+  }
+
+  function showToast(message, icon = 'check_circle') {
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toast-msg');
+    const toastIcon = document.getElementById('toast-icon');
+    if (!toast || !toastMsg) return;
+    toastMsg.innerText = message;
+    if (toastIcon) toastIcon.innerText = icon;
+    toast.classList.remove('-translate-y-20', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+      toast.classList.add('-translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 2400);
+  }
+
+  function toggleFreeze(cardId, lineName) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    showToast(`Quarantine activated for ${lineName}`, 'ac_unit');
+    card.classList.add('opacity-75');
+  }
+
+  function unfreezeLine(cardId, lineName) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    showToast(`${lineName} restored to operational status`, 'verified');
+    card.classList.remove('opacity-75');
+  }
+
+  const modal = document.getElementById('addLineModal');
+  const openModalBtn = document.getElementById('openAddLineModal');
+  const closeModalBtn = document.getElementById('closeAddLineModal');
+  const cancelModalBtn = document.getElementById('cancelAddLineModal');
+  const confirmAddLine = document.getElementById('confirmAddLine');
+
+  if (openModalBtn && modal) {
+    openModalBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+  }
+  [closeModalBtn, cancelModalBtn].forEach(b => {
+    if (b) b.addEventListener('click', () => modal.classList.add('hidden'));
+  });
+  if (confirmAddLine && modal) {
+    confirmAddLine.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      showToast('New SIM linked into Day 1 warm-up pool');
+    });
+  }
+
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      showToast('All safety ceilings synced to Academy SIM fleet');
+    });
+  }
+
+  const discardBtn = document.getElementById('discardBtn');
+  if (discardBtn) {
+    discardBtn.addEventListener('click', () => {
+      showToast('Modifications discarded', 'history');
+    });
+  }
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface-container-lowest/85 backdrop-blur-xl shadow-[0_-2px_12px_rgba(15,30,20,0.06)]" data-active-classes="text-primary font-bold"><div class="h-16 px-2 flex items-center justify-around"><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-primary transition-colors" data-path="pipeline" href="#"><span class="material-symbols-outlined text-[24px]">view_kanban</span><span class="text-[11px] font-headline font-medium tracking-tight mt-0.5">Pipeline</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-primary transition-colors" data-path="workspace" href="#"><span class="material-symbols-outlined text-[24px]">dashboard</span><span class="text-[11px] font-headline font-medium tracking-tight mt-0.5">Workspace</span></a><a aria-current="page" class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 transition-colors text-primary font-bold" data-path="safety-admin" href="#"><span class="material-symbols-outlined text-[24px]">shield</span><span class="text-[11px] font-headline font-medium tracking-tight mt-0.5">Safety Admin</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-primary transition-colors" data-path="help" href="#"><span class="material-symbols-outlined text-[24px]">help_outline</span><span class="text-[11px] font-headline font-medium tracking-tight mt-0.5">Help</span></a></div></nav></body></html>

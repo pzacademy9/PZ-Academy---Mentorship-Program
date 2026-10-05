@@ -1,0 +1,228 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { SalesBudgetContext, type SalesBudgetValue } from "@/components/sales/SalesBudgetProvider";
+import { SendPanel } from "@/components/sales/SendPanel";
+import { openWhatsAppLink, type AgentBudgetJson, type BudgetJson } from "@/lib/crm/sales-ui";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+
+const budget = (over: Partial<BudgetJson> = {}): BudgetJson => ({
+  dailyUsed: 12, dailyCap: 60, hourlyUsed: 2, hourlyCap: 20, hourlyWarning: false,
+  quietHours: false, quietEndsAt: null, frozen: false, frozenUntil: null, nextUnlockAt: null, ...over,
+});
+const num = (b = budget()): AgentBudgetJson => ({ number: { id: "n1", label: "My phone", phone_e164: null }, budget: b });
+const contact: { id: string; full_name: string; phone_e164: string | null; warm: boolean; recently_contacted: boolean } = { id: "c1", full_name: "Ayesha Tariq", phone_e164: "+923001234567", warm: false, recently_contacted: false };
+
+function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValue> = {}, c = contact, templates: { id: string; name: string; body: string }[] = []) {
+  const value: SalesBudgetValue = {
+    budgets,
+    loadError: false,
+    selectedId: budgets?.[0]?.number.id ?? null,
+    selected: budgets?.[0] ?? null,
+    select: vi.fn(),
+    refresh: vi.fn(async () => {}),
+    applyBudget: vi.fn(),
+    ...extra,
+  };
+  const onOutcome = vi.fn();
+  const openLink = vi.fn();
+  render(
+    <ConfirmProvider>
+      <SalesBudgetContext.Provider value={value}>
+        <SendPanel contact={c} templates={templates} onOutcome={onOutcome} openLink={openLink} />
+      </SalesBudgetContext.Provider>
+    </ConfirmProvider>,
+  );
+  return { onOutcome, openLink, value };
+}
+
+let fetchMock: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  vi.unstubAllGlobals();
+  fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/send")) {
+      return { ok: true, json: async () => ({ link: "whatsapp://send?phone=923001234567&text=hi", nextUnlockAt: new Date(Date.now() + 90_000).toISOString(), warnings: [], isNewChat: true, budget: budget({ dailyUsed: 13 }) }) };
+    }
+    if (url.endsWith("/outcome")) return { ok: true, json: async () => ({ ok: true, nextFollowupAt: null, echo: init?.body }) };
+    return { ok: false, json: async () => ({}) };
+  });
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+describe("SendPanel", () => {
+  it("sends from the selected number with the edited message and opens WhatsApp", async () => {
+    const { openLink, value } = setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(openLink).toHaveBeenCalledWith("whatsapp://send?phone=923001234567&text=hi"));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/sales/contacts/c1/send");
+    expect(JSON.parse(init.body)).toEqual({ numberId: "n1", messageTemplate: expect.stringContaining("{{first_name}}"), followupInHours: 24 });
+    expect(value.applyBudget).toHaveBeenCalledWith("n1", expect.objectContaining({ dailyUsed: 13 }));
+  });
+
+  it("offers 'Bring them back in' chips with 1 day chosen, and sends the chosen hours", async () => {
+    setup([num()]);
+    const group = screen.getByRole("group", { name: "Bring them back in" });
+    expect(Array.from(group.querySelectorAll("button")).map((b) => b.textContent)).toEqual(["8 hours", "1 day", "2 days", "3 days"]);
+    expect(screen.getByRole("button", { name: "1 day" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "3 days" }));
+    expect(screen.getByRole("button", { name: "3 days" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "1 day" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).followupInHours).toBe(72);
+    expect((await screen.findByRole("status")).textContent).toContain("3 days");
+    // The choice is spent once the message is sent.
+    expect((screen.getByRole("button", { name: "8 hours" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("two fast taps request only one send", async () => {
+    setup([num()]);
+    const btn = screen.getByRole("button", { name: "Message on WhatsApp" });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("is locked with an explanation when the agent has no number", () => {
+    setup([]);
+    const btn = screen.getByRole("button", { name: "No WhatsApp number yet" });
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+    expect(btn.className).toContain("disabled:opacity-100");
+    expect(screen.getByText(/ask your admin/i)).toBeTruthy();
+  });
+
+  it("shows the countdown while spacing is running", () => {
+    setup([num(budget({ nextUnlockAt: new Date(Date.now() + 74_000).toISOString() }))]);
+    expect(screen.getByRole("button", { name: /^Next message unlocks in 7[34]s$/ })).toBeTruthy();
+  });
+
+  it("a server refusal shows when to try again and refreshes the budget", async () => {
+    fetchMock.mockImplementationOnce(async () => ({
+      ok: false,
+      json: async () => ({ error: "That is the limit for this hour. Take a short break.", reason: "hourly_cap", retryAt: new Date(Date.now() + 600_000).toISOString() }),
+    }));
+    const { value } = setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Try again in 10 min\.$/)));
+    expect(value.refresh).toHaveBeenCalled();
+  });
+});
+
+describe("SendPanel guards", () => {
+  it("keeps an 'Open WhatsApp again' link after a send", async () => {
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    const link = await screen.findByRole("link", { name: "Open WhatsApp again" });
+    expect(link.getAttribute("href")).toBe("whatsapp://send?phone=923001234567&text=hi");
+  });
+
+  it("on desktop the fallback link opens a new tab; on phones it stays in place", async () => {
+    const stub = (m: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: m, media: q, addEventListener: () => {}, removeEventListener: () => {} }));
+    stub(true);
+    const first = render(
+      <ConfirmProvider>
+        <SalesBudgetContext.Provider value={{ budgets: [num()], loadError: false, selectedId: "n1", selected: num(), select: vi.fn(), refresh: vi.fn(async () => {}), applyBudget: vi.fn() }}>
+          <SendPanel contact={contact} templates={[]} onOutcome={vi.fn()} openLink={vi.fn()} />
+        </SalesBudgetContext.Provider>
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    const link = await screen.findByRole("link", { name: "Open WhatsApp again" });
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    first.unmount();
+    stub(false);
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    const phoneLink = await screen.findByRole("link", { name: "Open WhatsApp again" });
+    expect(phoneLink.getAttribute("target")).toBeNull();
+  });
+
+  it("locks the button when the contact has no phone number", () => {
+    setup([num()], {}, { ...contact, phone_e164: null });
+    const btn = screen.getByRole("button", { name: "No phone number for this person" });
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("locks the button when the message is empty", () => {
+    setup([num()]);
+    fireEvent.change(screen.getByRole("textbox", { name: /Your message/ }), { target: { value: "   " } });
+    expect((screen.getByRole("button", { name: "Message on WhatsApp" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("explains a do-not-contact refusal in plain words", async () => {
+    fetchMock.mockImplementationOnce(async () => ({ ok: false, json: async () => ({ error: "x", reason: "do-not-contact" }) }));
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This person asked not to be messaged."));
+  });
+});
+
+describe("message length", () => {
+  it("disables send over 1000 characters and says so", () => {
+    setup([num()], {}, contact, [{ id: "t1", name: "Long", body: "x".repeat(1001) }]);
+    const btn = screen.getByRole("button", { name: "Message is too long (max 1000)" }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+  it("allows exactly 1000", () => {
+    setup([num()], {}, contact, [{ id: "t1", name: "Ok", body: "x".repeat(1000) }]);
+    expect((screen.getByRole("button", { name: "Message on WhatsApp" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("openWhatsAppLink", () => {
+  const env = (desktop: boolean, openResult: unknown) => ({
+    matchMedia: (q: string) => ({ matches: desktop && q.includes("1024") }),
+    open: vi.fn(() => openResult),
+    location: { assign: vi.fn() },
+  });
+  it("desktop opens a new tab with noopener and does not navigate", () => {
+    const e = env(true, {});
+    openWhatsAppLink("https://wa.me/1?text=hi", e as never);
+    expect(e.open).toHaveBeenCalledWith("https://wa.me/1?text=hi", "_blank", "noopener");
+    expect(e.location.assign).not.toHaveBeenCalled();
+  });
+  it("desktop with a blocked popup does not navigate either", () => {
+    const e = env(true, null);
+    openWhatsAppLink("https://wa.me/1?text=hi", e as never);
+    expect(e.location.assign).not.toHaveBeenCalled();
+  });
+  it("phone navigates in place", () => {
+    const e = env(false, {});
+    openWhatsAppLink("https://wa.me/1?text=hi", e as never);
+    expect(e.location.assign).toHaveBeenCalledWith("https://wa.me/1?text=hi");
+    expect(e.open).not.toHaveBeenCalled();
+  });
+});
+
+describe("Not interested", () => {
+  it("Escape logs nothing", async () => {
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Not interested" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("'They asked me to stop' sends askedToStop", async () => {
+    const { onOutcome } = setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Not interested" }));
+    fireEvent.click(await screen.findByRole("button", { name: "They asked me to stop" }));
+    await waitFor(() => expect(onOutcome).toHaveBeenCalledWith("c1", "not_interested", null));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/sales/contacts/c1/outcome");
+    expect(JSON.parse(init.body)).toEqual({ kind: "not_interested", askedToStop: true });
+  });
+
+  it("'Just not interested' does not mark do-not-contact", async () => {
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Not interested" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Just not interested" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ kind: "not_interested" });
+  });
+});

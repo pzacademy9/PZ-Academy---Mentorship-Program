@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;family=Fredoka:wght@300;400;500;600;700&amp;family=Handlee&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-tertiary-fixed": "#00210e", "tertiary-fixed-dim": "#a2d2ac", "surface-bright": "#f9f9f9", "inverse-primary": "#81dc5a", "on-error-container": "#93000a", "on-secondary": "#ffffff", "on-secondary-fixed-variant": "#5c4300", "inverse-surface": "#2f3131", "tertiary-fixed": "#bdeec7", "on-secondary-fixed": "#261900", "tertiary": "#3b6849", "on-primary-fixed": "#062100", "surface-container-lowest": "#ffffff", "surface-container-high": "#e8e8e8", "surface-container-highest": "#e2e2e2", "surface-container-low": "#f3f3f4", "background": "#f9f9f9", "on-primary-container": "#1d5d00", "surface-variant": "#e2e2e2", "surface-dim": "#dadada", "secondary-fixed-dim": "#f6be3b", "on-tertiary-fixed-variant": "#234f33", "on-primary": "#ffffff", "surface": "#f9f9f9", "secondary-container": "#ffc644", "on-tertiary-container": "#2d593c", "secondary": "#7a5900", "tertiary-container": "#9fcfa9", "primary-fixed": "#9cf973", "outline-variant": "#bfcab5", "on-background": "#1a1c1c", "on-primary-fixed-variant": "#195200", "primary-container": "#7ed957", "inverse-on-surface": "#f0f1f1", "on-surface-variant": "#404a3a", "secondary-fixed": "#ffdea1", "on-tertiary": "#ffffff", "on-surface": "#1a1c1c", "surface-tint": "#246d00", "primary": "#246d00", "on-error": "#ffffff", "error-container": "#ffdad6", "primary-fixed-dim": "#81dc5a", "error": "#ba1a1a", "surface-container": "#eeeeee", "on-secondary-container": "#715300", "outline": "#707a68" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": {}, "fontFamily": { "headline": [ "Montserrat" ], "display": [ "Montserrat" ], "body": [ "Fredoka" ], "label": [ "Handlee" ] }, "fontSize": {} } } };</script></head><body class="bg-surface font-body text-on-surface min-h-screen"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_1px_16px_rgba(15,30,20,0.06)] z-50 flex flex-col justify-between"><div class="flex flex-col"><div class="h-16 px-6 flex items-center gap-3 bg-surface-container-lowest"><img alt="Modern sleek emblem for PharmaZyme Academy Sales &amp; Admissions CRM, featuring an academic graduation cap fused with clinical DNA leaf motif in deep navy and forest teal. Design context: - Primary color: #006b5f - Font: plusJakartaSans - Mode: light - Roundness: rounded-md . The logo should be visually consistent with these brand tokens." class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VAI1D7PiUDHVJA3fuK93mIaev4HPW2PZJBd_YpbkHZXiiaTRZGeJ-RiUUpXJ4y-IAkLvoeqhJTuVrnEehafRdTDqYKZCq4vwfgAMDpvj16cynGY4DZtzfHvcsdhpWbboTs5ynludqjwJDd7_z-OAzi-EnEKAzkF0klhHl36XPBocxeT0LfeWiV8UiGttwhOh-Nluf4AlC6o396dfLgfq_8XX3iZhPDjlPXDXuMDEHrnd1xDOgxPFK0aSI"/><div class="flex flex-col"><span class="font-headline font-bold text-base tracking-tight text-on-surface leading-tight">PZ Academy</span><span class="font-label text-xs text-primary font-medium tracking-wide">Admissions CRM</span></div></div><div class="px-4 py-2"><div class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant/70">Sales Workspace</div></div><nav class="flex flex-col gap-1 px-4" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-[0_2px_8px_rgba(36,109,0,0.12)]"><a aria-current="page" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors bg-primary-container text-on-primary-container font-semibold shadow-[0_2px_8px_rgba(36,109,0,0.12)]" data-path="today-queue" href="#"><span class="material-symbols-outlined text-[20px]">checklist</span><span class="font-body text-sm font-medium">Today Queue</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-path="admissions-pipeline" href="#"><span class="material-symbols-outlined text-[20px]">view_kanban</span><span class="font-body text-sm font-medium">Admissions Pipeline</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-path="campaigns" href="#"><span class="material-symbols-outlined text-[20px]">campaign</span><span class="font-body text-sm font-medium">Campaigns</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-path="students" href="#"><span class="material-symbols-outlined text-[20px]">school</span><span class="font-body text-sm font-medium">Students</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-path="analytics" href="#"><span class="material-symbols-outlined text-[20px]">monitoring</span><span class="font-body text-sm font-medium">Analytics</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[20px]">tune</span><span class="font-body text-sm font-medium">Settings</span></a></nav></div><div class="p-4"><div class="bg-surface-container-low rounded-lg p-3.5 flex flex-col gap-2"><div class="flex items-center justify-between"><span class="text-xs font-semibold text-on-surface-variant">Target Milestone</span><span class="font-label text-xs text-secondary font-bold">18 / 25 Enrolled</span></div><div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-primary rounded-full" style="width: 72%"></div></div><span class="text-[11px] text-on-surface-variant leading-tight">Cohort 2024-B closes in 4 days</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 flex items-center justify-between px-8 shadow-[0_1px_8px_rgba(15,30,20,0.04)]"><div class="flex items-center gap-4 flex-1 max-w-md"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 text-sm bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant/60 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 shadow-[0_1px_4px_rgba(15,30,20,0.04)]" placeholder="Search leads, phone, email, DMC cohort..." type="text"/></div></div><div class="flex items-center gap-4"><div class="flex items-center gap-2.5 px-3 py-1.5 bg-tertiary-fixed/30 rounded-full"><span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span class="text-xs font-headline font-semibold text-on-tertiary-fixed">Shift Active – DMC Campaign 2</span></div><button aria-label="Notifications" class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span></button><div class="flex items-center gap-3 pl-2"><div class="flex flex-col items-end"><span class="text-xs font-headline font-semibold text-on-surface">Dr. Marcus Vance</span><span class="text-[11px] text-on-surface-variant">Senior Advisor</span></div><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-container" src="https://lh3.googleusercontent.com/aida/AEtjO1Wo0unsaNIMTpMaLEvVuKc6ZlWRtC1jtYLVHpM8a_Fmgro5KMuOjY-ziZN4-ij89l4L92Y1q_GB0m86Um48zYXrGFlLYaWebtgja67lGixFnxsVVH9WNHEMa3ORhdaGd_8AHHe0Ia1Nd0qlvyyg7peXVSgAlU6iwwfvzRzpi22f0nIxrFKX0nsHr3eDpeZHw_4up7Ai3ve37XuOc8FHzKhmTLZgBQ6_IHXQ582eoDC9kG5n3-6YGNwQdA"/></div></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Interactive State Controller & Demo Banner -->
+<div class="bg-surface-container-low px-8 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+<div class="flex items-center gap-2.5">
+<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">i</span>
+<span class="text-xs font-headline font-semibold text-on-surface">Queue Mode Simulator:</span>
+<span class="text-xs text-on-surface-variant">Switch views to review WhatsApp pacing, cooldown, and compliance states:</span>
+</div>
+<div class="inline-flex items-center bg-surface-container-lowest p-1 rounded-lg shadow-sm gap-1" id="state-tab-group">
+<button class="state-btn active-state-pill px-3 py-1.5 rounded text-xs font-headline font-semibold transition-all bg-primary text-on-primary" data-state="normal" onclick="switchQueueState('normal')" type="button">
+        1. Normal Flow
+      </button>
+<button class="state-btn px-3 py-1.5 rounded text-xs font-headline font-medium text-on-surface-variant hover:text-on-surface transition-all" data-state="spacing" onclick="switchQueueState('spacing')" type="button">
+        2. Spacing Wait (1:32)
+      </button>
+<button class="state-btn px-3 py-1.5 rounded text-xs font-headline font-medium text-on-surface-variant hover:text-on-surface transition-all" data-state="break" onclick="switchQueueState('break')" type="button">
+        3. 10-Min Rest Break
+      </button>
+<button class="state-btn px-3 py-1.5 rounded text-xs font-headline font-medium text-on-surface-variant hover:text-on-surface transition-all" data-state="quiet" onclick="switchQueueState('quiet')" type="button">
+        4. Quiet Hours (9am-8pm)
+      </button>
+</div>
+</div>
+<div class="p-8 max-w-7xl mx-auto w-full flex flex-col gap-6">
+<!-- Top Bar: Greeting, Sender Switcher, Rate Limit Meters -->
+<header class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<!-- Left: Agent Greeting & Campaign Identity -->
+<div class="flex flex-col gap-2 min-w-0">
+<div class="flex items-center gap-3 flex-wrap">
+<h1 class="text-2xl lg:text-3xl font-headline font-black text-on-surface tracking-tight">
+            Good morning, Sarah! <span class="inline-block animate-bounce">👋</span>
+</h1>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-headline font-semibold bg-tertiary-fixed text-on-tertiary-fixed">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Morning Shift (09:00 - 14:00)
+          </span>
+<span class="text-xs font-headline font-medium text-on-surface-variant">Wednesday, 23 Oct 2024</span>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<!-- WhatsApp Number Switcher Chip -->
+<div class="inline-flex items-center gap-2 bg-surface-container-low px-3.5 py-1.5 rounded-lg text-xs font-headline font-medium text-on-surface hover:bg-surface-container transition-colors cursor-pointer group">
+<span class="flex h-2 w-2 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span>Using: <strong class="font-semibold text-on-surface">DMC campaign number 2</strong> (+92 300 1234567)</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant group-hover:translate-y-0.5 transition-transform">expand_more</span>
+</div>
+<div class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-low text-[11px] text-on-surface-variant font-headline">
+<span class="material-symbols-outlined text-[15px] text-primary">security</span>
+            Anti-Ban Shield Active • 90-120s humanized pacing
+          </div>
+</div>
+</div>
+<!-- Right: Real-time WhatsApp Meters -->
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
+<!-- Daily Send Meter -->
+<div class="bg-surface-container-low rounded-lg p-3.5 flex flex-col gap-2 min-w-[220px]">
+<div class="flex items-center justify-between text-xs">
+<span class="font-headline font-bold text-on-surface">14 of 60</span>
+<span class="text-[11px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 rounded">Pacing healthy</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 23%"></div>
+</div>
+<div class="flex justify-between items-center text-[11px] text-on-surface-variant">
+<span>New daily chats</span>
+<span class="font-medium text-on-surface">46 available</span>
+</div>
+</div>
+<!-- Hourly Safe Velocity Meter -->
+<div class="bg-surface-container-low rounded-lg p-3.5 flex flex-col gap-2 min-w-[200px]">
+<div class="flex items-center justify-between text-xs">
+<span class="font-headline font-bold text-on-surface">4 of 20</span>
+<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary">
+<span class="material-symbols-outlined text-[13px]">check_circle</span> Safe window
+            </span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container rounded-full transition-all duration-500" style="width: 20%"></div>
+</div>
+<div class="flex justify-between items-center text-[11px] text-on-surface-variant">
+<span>Current hour speed</span>
+<span class="text-on-surface-variant/80" title="Turns amber at 15, stops at 20 for safety">Amber at 15 • Red at 20</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Global State Banner Displays (Dynamic based on selected state) -->
+<!-- State 2: Spacing Wait State Notice -->
+<div class="hidden bg-secondary-fixed/40 rounded-xl p-4 flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-fadeIn" id="banner-spacing">
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl animate-spin" style="animation-duration: 4s;">hourglass_top</span>
+</div>
+<div>
+<h2 class="text-sm font-headline font-bold text-on-secondary-container">Pacing Cooldown in Progress • Next message in 1:32</h2>
+<p class="text-xs text-on-secondary-container/80">Automated buffer prevents carrier blacklisting. WhatsApp button unlocked shortly.</p>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto">
+<div class="w-32 h-2 bg-secondary-fixed rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full animate-pulse" style="width: 58%"></div>
+</div>
+<span class="text-xs font-headline font-bold text-secondary">92s</span>
+</div>
+</div>
+<!-- State 3: 10-Minute Break State Notice -->
+<div class="hidden bg-tertiary-fixed/50 rounded-xl p-5 flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fadeIn" id="banner-break">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-tertiary text-on-tertiary flex items-center justify-center shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-2xl">local_cafe</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center gap-2">
+<h2 class="text-base font-headline font-bold text-on-tertiary-fixed">Take a 10-minute break — You've sent 10 messages!</h2>
+<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-primary text-on-primary">Milestone Met</span>
+</div>
+<p class="text-xs text-on-tertiary-fixed/80 max-w-xl">
+            Step back, hydrate, and stretch. WhatsApp algorithm cooloff in progress to keep your trust-score peak.
+          </p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0 w-full md:w-auto justify-between md:justify-end">
+<div class="flex flex-col items-end">
+<span class="text-xs text-on-tertiary-fixed font-medium">Cooldown timer</span>
+<span class="text-xl font-headline font-black text-on-tertiary-fixed tracking-wider" id="break-timer-display">07:45</span>
+</div>
+<button class="h-10 px-4 rounded-lg bg-surface-container-lowest text-tertiary font-headline text-xs font-bold hover:bg-surface-container transition-colors shadow-sm" onclick="switchQueueState('normal')" type="button">
+          Resume Early
+        </button>
+</div>
+</div>
+<!-- State 4: Quiet Hours State Notice -->
+<div class="hidden bg-inverse-surface text-inverse-on-surface rounded-xl p-5 flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-fadeIn" id="banner-quiet">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-variant/20 flex items-center justify-center shrink-0 text-secondary-container">
+<span class="material-symbols-outlined text-2xl">bedtime</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="text-base font-headline font-bold text-surface-container-lowest">Messaging Resumes at 9:00 AM</h2>
+<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-secondary text-on-secondary">Quiet Hours Active</span>
+</div>
+<p class="text-xs text-inverse-on-surface/80 max-w-xl">
+            Outreach is paused outside 9:00 AM – 8:00 PM to respect doctor clinic schedules and guarantee compliance. You can still review files and prepare replies.
+          </p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-xs text-inverse-on-surface/70">Next window opens in</span>
+<span class="font-headline font-bold text-sm text-secondary-container">13h 24m</span>
+</div>
+</div>
+<!-- MAIN TWO-COLUMN WORKSPACE -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- LEFT COLUMN: Prioritized Contact Queue (5 Cols) -->
+<section class="lg:col-span-5 flex flex-col gap-4">
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<h2 class="text-lg font-headline font-bold text-on-surface">Priority Outreach Today</h2>
+<span class="px-2 py-0.5 rounded-full text-xs font-headline font-bold bg-primary/10 text-primary">18 queued</span>
+</div>
+<button aria-label="Sort queue" class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">sort</span>
+</button>
+</div>
+<!-- Queue Filter Tabs -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+<button class="px-3 py-1.5 rounded-lg text-xs font-headline font-semibold bg-primary text-on-primary shrink-0 shadow-sm" type="button">
+              All (18)
+            </button>
+<button class="px-3 py-1.5 rounded-lg text-xs font-headline font-medium bg-surface-container-lowest text-on-surface-variant hover:text-on-surface shrink-0" type="button">
+              New Leads (8)
+            </button>
+<button class="px-3 py-1.5 rounded-lg text-xs font-headline font-medium bg-surface-container-lowest text-on-surface-variant hover:text-on-surface shrink-0" type="button">
+              Follow-ups (6)
+            </button>
+<button class="px-3 py-1.5 rounded-lg text-xs font-headline font-medium bg-surface-container-lowest text-on-surface-variant hover:text-on-surface shrink-0" type="button">
+              Urgent (4)
+            </button>
+</div>
+</div>
+<!-- Contact Cards List -->
+<div class="flex flex-col gap-3.5" id="leads-container">
+<!-- Card 1: Dr. Ayesha Tariq (Active Selected) -->
+<article class="bg-surface-container-lowest rounded-xl p-4 shadow-md transition-all relative overflow-hidden" style="box-shadow: 0 4px 20px rgba(36,109,0,0.12);">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
+<div class="flex items-start justify-between gap-3 pl-1.5">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-11 h-11 rounded-full bg-primary/15 text-primary flex items-center justify-center font-headline font-bold text-base shrink-0">
+                  AT
+                </div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">Dr. Ayesha Tariq</h3>
+<span class="material-symbols-outlined text-primary text-[17px]" style="font-variation-settings: 'FILL' 1;" title="Verified Physician">verified</span>
+</div>
+<span class="text-xs text-on-surface-variant font-mono font-medium">+92 300 4589211</span>
+<span class="text-xs text-on-surface-variant/90 truncate mt-0.5">Clinical Pharmacy Masterclass</span>
+</div>
+</div>
+<!-- Why Today Tag -->
+<span class="px-2 py-0.5 rounded text-[11px] font-headline font-bold bg-primary-container/30 text-on-primary-container shrink-0">
+                New lead (12m ago)
+              </span>
+</div>
+<!-- Last Touchpoint / Outcome Summary -->
+<div class="mt-3.5 pl-1.5 pt-2.5 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low rounded-lg p-2.5">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-tertiary">ads_click</span>
+<span class="truncate">Meta Ads: “Weekend Hospital Batch Inquiry”</span>
+</div>
+<span class="font-label text-[11px] text-secondary font-bold shrink-0">High Intent</span>
+</div>
+<!-- Action CTAs: Min 48px Target -->
+<div class="mt-3.5 pl-1.5 flex items-center gap-2">
+<button class="queue-send-btn flex-1 h-12 rounded-lg bg-primary hover:bg-primary/95 text-on-primary font-headline font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99]" id="card-action-btn-1" type="button">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+                Message on WhatsApp
+              </button>
+<button aria-label="Skip lead" class="h-12 px-3.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors font-headline text-xs font-semibold shrink-0" type="button">
+                Skip
+              </button>
+</div>
+</article>
+<!-- Card 2: Bilal Ahmed Khan -->
+<article class="bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+<div class="flex items-start justify-between gap-3">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-11 h-11 rounded-full bg-secondary-fixed/50 text-secondary flex items-center justify-center font-headline font-bold text-base shrink-0">
+                  BK
+                </div>
+<div class="flex flex-col min-w-0">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">Bilal Ahmed Khan</h3>
+<span class="text-xs text-on-surface-variant font-mono font-medium">+92 321 7843109</span>
+<span class="text-xs text-on-surface-variant/90 truncate mt-0.5">Enzyme Kinetics &amp; Drug Design</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded text-[11px] font-headline font-bold bg-secondary-fixed text-on-secondary-fixed shrink-0">
+                Follow-up due
+              </span>
+</div>
+<div class="mt-3.5 pt-2 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low rounded-lg p-2.5">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">description</span>
+<span class="truncate">Syllabus sent yesterday • No response yet</span>
+</div>
+<span class="text-[11px] text-on-surface-variant/70 shrink-0">24h ago</span>
+</div>
+<div class="mt-3.5 flex items-center gap-2">
+<button class="queue-send-btn flex-1 h-12 rounded-lg bg-primary hover:bg-primary/95 text-on-primary font-headline font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99]" type="button">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+                Message on WhatsApp
+              </button>
+<button aria-label="Skip lead" class="h-12 px-3.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors font-headline text-xs font-semibold shrink-0" type="button">
+                Skip
+              </button>
+</div>
+</article>
+<!-- Card 3: Dr. Hamza Siddiqui -->
+<article class="bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+<div class="flex items-start justify-between gap-3">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-11 h-11 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center font-headline font-bold text-base shrink-0">
+                  HS
+                </div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">Dr. Hamza Siddiqui</h3>
+<span class="material-symbols-outlined text-primary text-[17px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<span class="text-xs text-on-surface-variant font-mono font-medium">+92 345 6781200</span>
+<span class="text-xs text-on-surface-variant/90 truncate mt-0.5">Clinical Pharmacology 101</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded text-[11px] font-headline font-bold bg-tertiary-container/60 text-on-tertiary-container shrink-0">
+                Replied
+              </span>
+</div>
+<div class="mt-3.5 pt-2 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low rounded-lg p-2.5">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-primary">reply</span>
+<span class="truncate">Asked: “Are weekend lectures live or recorded?”</span>
+</div>
+<span class="text-[11px] font-semibold text-primary shrink-0">45m ago</span>
+</div>
+<div class="mt-3.5 flex items-center gap-2">
+<button class="queue-send-btn flex-1 h-12 rounded-lg bg-primary hover:bg-primary/95 text-on-primary font-headline font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99]" type="button">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+                Message on WhatsApp
+              </button>
+<button aria-label="Skip lead" class="h-12 px-3.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors font-headline text-xs font-semibold shrink-0" type="button">
+                Skip
+              </button>
+</div>
+</article>
+<!-- Card 4: Mariam Noor -->
+<article class="bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+<div class="flex items-start justify-between gap-3">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-11 h-11 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center font-headline font-bold text-base shrink-0">
+                  MN
+                </div>
+<div class="flex flex-col min-w-0">
+<h3 class="text-sm font-headline font-bold text-on-surface truncate">Mariam Noor</h3>
+<span class="text-xs text-on-surface-variant font-mono font-medium">+92 312 8841923</span>
+<span class="text-xs text-on-surface-variant/90 truncate mt-0.5">Clinical Pharmacy Masterclass</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded text-[11px] font-headline font-bold bg-error-container text-on-error-container shrink-0">
+                Gone quiet 3 days
+              </span>
+</div>
+<div class="mt-3.5 pt-2 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low rounded-lg p-2.5">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">visibility</span>
+<span class="truncate">Fee brochure opened twice • Needs soft follow-up</span>
+</div>
+<span class="text-[11px] text-on-surface-variant/70 shrink-0">Oct 20</span>
+</div>
+<div class="mt-3.5 flex items-center gap-2">
+<button class="queue-send-btn flex-1 h-12 rounded-lg bg-primary hover:bg-primary/95 text-on-primary font-headline font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99]" type="button">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+                Message on WhatsApp
+              </button>
+<button aria-label="Skip lead" class="h-12 px-3.5 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors font-headline text-xs font-semibold shrink-0" type="button">
+                Skip
+              </button>
+</div>
+</article>
+</div>
+</section>
+<!-- RIGHT COLUMN: Focused Contact Detail & WhatsApp Action Pane (7 Cols) -->
+<section class="lg:col-span-7 flex flex-col gap-5">
+<!-- Contact Identity Header Card -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-4">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex items-center gap-3.5">
+<div class="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center font-headline font-black text-xl shrink-0">
+                AT
+              </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h2 class="text-xl font-headline font-bold text-on-surface">Dr. Ayesha Tariq</h2>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-headline font-semibold bg-tertiary-fixed text-on-tertiary-fixed">
+<span class="material-symbols-outlined text-[14px]">verified</span>
+                    Verified Clinician
+                  </span>
+</div>
+<span class="text-xs text-on-surface-variant font-medium mt-0.5">
+                  Hospital Pharmacist at Shaukat Khanum Memorial Hospital
+                </span>
+</div>
+</div>
+<div class="flex items-center gap-2 self-start sm:self-auto">
+<a class="p-2.5 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" href="tel:+923004589211" title="Voice call">
+<span class="material-symbols-outlined text-[20px]">call</span>
+</a>
+<button class="p-2.5 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="View Full Academic Profile" type="button">
+<span class="material-symbols-outlined text-[20px]">account_box</span>
+</button>
+</div>
+</div>
+<!-- Lead Metadata Strip -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col">
+<span class="text-[11px] text-on-surface-variant font-medium">WhatsApp Number</span>
+<span class="text-xs font-headline font-semibold text-on-surface mt-0.5 font-mono">+92 300 4589211</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col">
+<span class="text-[11px] text-on-surface-variant font-medium">Target Program</span>
+<span class="text-xs font-headline font-semibold text-primary mt-0.5 truncate">Clinical Pharmacy</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col">
+<span class="text-[11px] text-on-surface-variant font-medium">Inquiry Received</span>
+<span class="text-xs font-headline font-semibold text-on-surface mt-0.5">12 mins ago</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col">
+<span class="text-[11px] text-on-surface-variant font-medium">Cohort Availability</span>
+<span class="text-xs font-headline font-semibold text-secondary mt-0.5">Weekend Batch (Nov)</span>
+</div>
+</div>
+</div>
+<!-- WhatsApp Direct Action Box -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">forum</span>
+<h3 class="text-base font-headline font-bold text-on-surface">Compose WhatsApp Dispatch</h3>
+</div>
+<span class="text-xs font-headline text-on-surface-variant flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span> Ready to send
+            </span>
+</div>
+<!-- Template Selector Dropdown (Accessible plain language) -->
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-headline font-semibold text-on-surface-variant" for="template-select">
+              Message Template
+            </label>
+<div class="relative">
+<select class="w-full bg-surface-container-low rounded-lg px-3.5 py-3 text-sm font-body text-on-surface appearance-none outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium" id="template-select">
+<option value="welcome">Initial Greeting + Course Brochure (Clinical Pharmacy)</option>
+<option value="syllabus">Curriculum Highlights + CME Credit Breakdown</option>
+<option value="scholarship">Early-Bird Discount (Cohort 2024-B - Rs. 15,000 off)</option>
+<option value="custom">Quick Custom Check-in</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3.5 text-on-surface-variant pointer-events-none text-[20px]">expand_more</span>
+</div>
+</div>
+<!-- Dynamic Live Message Preview (Styled like authentic WhatsApp bubble) -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-xs">
+<span class="font-headline font-semibold text-on-surface-variant">Live Preview (Prospect will see this):</span>
+<span class="text-primary font-label text-xs font-bold">Auto-personalized</span>
+</div>
+<!-- WhatsApp Bubble Container -->
+<div class="bg-surface-container-low rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden">
+<div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm text-sm text-on-surface leading-relaxed max-w-lg">
+<p>Salam <strong class="font-semibold text-primary">Dr. Ayesha</strong>! 👋</p>
+<p class="mt-2">
+                  Thank you for inquiring about PharmaZyme Academy's <strong>Clinical Pharmacy Masterclass</strong>.
+                </p>
+<p class="mt-2">
+                  I saw you're currently working in hospital practice at <em>Shaukat Khanum</em> — our upcoming weekend cohort covers intensive therapeutic drug monitoring (TDM) and oncology dosing protocols designed for senior clinicians.
+                </p>
+<p class="mt-2">
+                  Would you like me to share the full 6-week curriculum and fee breakdown here on WhatsApp?
+                </p>
+<div class="flex items-center justify-end gap-1 mt-2 text-[11px] text-on-surface-variant/70">
+<span>10:42 AM</span>
+<span class="material-symbols-outlined text-[14px] text-primary">done_all</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Cooldown & Safety Status Indicator -->
+<div class="bg-surface-container-low rounded-lg p-3 flex items-center justify-between gap-3 text-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+<span class="text-on-surface-variant font-medium">Safe buffer: Pacing shield verified for +92 300 series.</span>
+</div>
+<span class="text-[11px] font-headline font-bold text-on-surface bg-surface-container-highest px-2 py-0.5 rounded">0 delays</span>
+</div>
+<!-- WhatsApp Action Button: Solid Green, Min 48px Target -->
+<div class="flex flex-col gap-2">
+<a class="w-full h-14 rounded-xl bg-primary hover:bg-primary/95 text-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99]" href="https://wa.me/923004589211?text=Salam%20Dr.%20Ayesha!%20Thank%20you%20for%20inquiring%20about%20PharmaZyme%20Academy%27s%20Clinical%20Pharmacy%20Masterclass." id="main-wa-cta" rel="noopener noreferrer" target="_blank">
+<!-- WhatsApp Icon SVG -->
+<svg aria-hidden="true" class="w-6 h-6 fill-current" viewbox="0 0 24 24">
+<path d="M12.031 2C6.496 2 2 6.496 2 12.031c0 1.968.563 3.867 1.63 5.498L2 22l4.609-1.594A9.99 9.99 0 0012.031 22C17.566 22 22 17.504 22 12.031 22 6.496 17.566 2 12.031 2zm5.782 14.281c-.242.684-1.391 1.332-1.922 1.375-.5.039-.992.195-3.211-.727-2.672-1.109-4.383-3.836-4.516-4.016-.133-.18-1.07-1.422-1.07-2.711 0-1.289.672-1.922.91-2.18.238-.258.523-.32.699-.32.176 0 .352.004.508.012.168.008.39-.063.609.461.227.547.781 1.906.848 2.047.07.141.117.309.023.492-.094.184-.141.297-.281.461-.141.164-.297.367-.422.492-.141.141-.289.297-.125.578.164.281.727 1.2 1.563 1.945 1.078.961 1.984 1.258 2.266 1.402.281.145.445.121.609-.07.164-.191.703-.816.891-1.098.188-.281.375-.234.633-.141.258.094 1.641.773 1.922.914.281.141.469.211.539.328.07.117.07.684-.172 1.367z"></path>
+</svg>
+<span>Open WhatsApp &amp; Send (+92 300 4589211)</span>
+</a>
+<p class="text-[11px] text-center text-on-surface-variant">
+              Opens WhatsApp Web or Desktop instantly with message pre-filled. Pacing timer activates upon click.
+            </p>
+</div>
+<!-- Quick Outcome Logger Pills -->
+<div class="flex flex-col gap-2 pt-2">
+<span class="text-xs font-headline font-semibold text-on-surface-variant">
+              Log Touchpoint Outcome (One-click record):
+            </span>
+<div class="flex flex-wrap gap-2">
+<button class="outcome-pill px-3.5 py-2 rounded-lg bg-surface-container-low hover:bg-primary-container hover:text-on-primary-container text-xs font-headline font-semibold text-on-surface transition-colors flex items-center gap-1.5" onclick="logOutcome(this, 'Sent &amp; Waiting')" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                Sent &amp; Waiting
+              </button>
+<button class="outcome-pill px-3.5 py-2 rounded-lg bg-surface-container-low hover:bg-secondary-fixed hover:text-on-secondary-fixed text-xs font-headline font-semibold text-on-surface transition-colors flex items-center gap-1.5" onclick="logOutcome(this, 'Follow-up Scheduled')" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">event</span>
+                Follow-up Scheduled
+              </button>
+<button class="outcome-pill px-3.5 py-2 rounded-lg bg-surface-container-low hover:bg-tertiary-fixed hover:text-on-tertiary-fixed text-xs font-headline font-semibold text-on-surface transition-colors flex items-center gap-1.5" onclick="logOutcome(this, 'Fee Discussion')" type="button">
+<span class="material-symbols-outlined text-[16px] text-tertiary">payments</span>
+                Fee Discussion
+              </button>
+<button class="outcome-pill px-3.5 py-2 rounded-lg bg-surface-container-low hover:bg-error-container hover:text-on-error-container text-xs font-headline font-semibold text-on-surface transition-colors flex items-center gap-1.5" onclick="logOutcome(this, 'Not Interested')" type="button">
+<span class="material-symbols-outlined text-[16px] text-error">close</span>
+                Not Interested
+              </button>
+</div>
+</div>
+<!-- Inline Agent Quick Notes -->
+<div class="flex flex-col gap-1.5 pt-1">
+<label class="text-xs font-headline font-semibold text-on-surface-variant flex items-center justify-between" for="agent-notes">
+<span>Agent Notes (Private)</span>
+<span class="font-label text-xs text-secondary font-bold">Auto-saves to student CRM</span>
+</label>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low text-on-surface text-sm rounded-lg p-3 placeholder:text-on-surface-variant/50 outline-none focus:ring-2 focus:ring-primary/20 resize-none font-body" id="agent-notes" placeholder="e.g. Inquires about Saturday morning timing vs evening shift..." rows="2"></textarea>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- State Toggle Micro-interaction Script -->
+<script>
+    function switchQueueState(state) {
+      // Update Tab Pill styles
+      document.querySelectorAll('.state-btn').forEach(btn => {
+        btn.classList.remove('bg-primary', 'text-on-primary', 'font-semibold');
+        btn.classList.add('text-on-surface-variant', 'font-medium');
+      });
+      const activeBtn = document.querySelector(`[data-state="${state}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-primary', 'text-on-primary', 'font-semibold');
+        activeBtn.classList.remove('text-on-surface-variant', 'font-medium');
+      }
+
+      // Hide all dynamic banners
+      document.getElementById('banner-spacing').classList.add('hidden');
+      document.getElementById('banner-break').classList.add('hidden');
+      document.getElementById('banner-quiet').classList.add('hidden');
+
+      const waBtn = document.getElementById('main-wa-cta');
+      const cardAction1 = document.getElementById('card-action-btn-1');
+
+      if (state === 'normal') {
+        enableCTA(waBtn, cardAction1, 'Open WhatsApp & Send (+92 300 4589211)', 'Message on WhatsApp');
+      } else if (state === 'spacing') {
+        document.getElementById('banner-spacing').classList.remove('hidden');
+        disableCTA(waBtn, cardAction1, 'Next message in 1:32 (Pacing Shield Active)', 'Pacing (1:32)');
+      } else if (state === 'break') {
+        document.getElementById('banner-break').classList.remove('hidden');
+        disableCTA(waBtn, cardAction1, 'On 10-Minute Break (07:45 remaining)', 'Cooldown Active');
+      } else if (state === 'quiet') {
+        document.getElementById('banner-quiet').classList.remove('hidden');
+        disableCTA(waBtn, cardAction1, 'Outreach Paused — Resumes 9:00 AM', 'Quiet Hours');
+      }
+    }
+
+    function disableCTA(mainBtn, cardBtn, mainText, cardText) {
+      if (mainBtn) {
+        mainBtn.classList.add('opacity-50', 'pointer-events-none', 'grayscale-[30%]');
+        mainBtn.querySelector('span').innerText = mainText;
+      }
+      if (cardBtn) {
+        cardBtn.classList.add('opacity-50', 'pointer-events-none');
+        cardBtn.innerText = cardText;
+      }
+    }
+
+    function enableCTA(mainBtn, cardBtn, mainText, cardText) {
+      if (mainBtn) {
+        mainBtn.classList.remove('opacity-50', 'pointer-events-none', 'grayscale-[30%]');
+        mainBtn.querySelector('span').innerText = mainText;
+      }
+      if (cardBtn) {
+        cardBtn.classList.remove('opacity-50', 'pointer-events-none');
+        cardBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">chat</span> ' + cardText;
+      }
+    }
+
+    function logOutcome(buttonElement, outcomeLabel) {
+      // Visual feedback
+      const originalText = buttonElement.innerHTML;
+      buttonElement.innerHTML = '<span class="material-symbols-outlined text-[16px] text-primary">check</span> Logged: ' + outcomeLabel;
+      buttonElement.classList.add('bg-primary-container', 'text-on-primary-container');
+      setTimeout(() => {
+        buttonElement.innerHTML = originalText;
+        buttonElement.classList.remove('bg-primary-container', 'text-on-primary-container');
+      }, 2000);
+    }
+  </script>
+</div></main></div></body></html>

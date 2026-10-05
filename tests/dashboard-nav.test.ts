@@ -1,7 +1,7 @@
 import { NAV_ITEMS, navForRole, activeHrefFor, splitMobileNav } from "@/components/dashboard/nav";
 import type { Role } from "@/lib/roles";
 
-const ROLES: Role[] = ["student", "mentor", "admin", "super_admin"];
+const ROLES: Role[] = ["student", "mentor", "admin", "super_admin", "sales_agent"];
 
 describe.each(ROLES)("role %s", (role) => {
   it("every role item appears exactly once across bar and more", () => {
@@ -39,4 +39,32 @@ it("activeHrefFor picks the longest matching href, not ancestors", () => {
 it("NAV_ITEMS is non-empty and every item has at least one role", () => {
   expect(NAV_ITEMS.length).toBeGreaterThan(0);
   for (const i of NAV_ITEMS) expect(i.roles.length).toBeGreaterThan(0);
+});
+
+it("sales_agent sees Today, Contacts, Add lead, Help, then alerts and settings, nothing under /dashboard/admin", () => {
+  const items = navForRole("sales_agent");
+  expect(items.map((i) => i.href)).toEqual([
+    "/dashboard/sales",
+    "/dashboard/sales/contacts",
+    "/dashboard/sales/add-lead",
+    "/dashboard/sales/help",
+    "/dashboard/notifications",
+    "/dashboard/settings",
+  ]);
+  const { bar } = splitMobileNav(items, undefined);
+  expect(bar.map((i) => i.shortLabel ?? i.label)).toEqual(["Today", "Contacts", "Add lead", "Help"]);
+  expect(items.some((i) => i.href.startsWith("/dashboard/admin"))).toBe(false);
+  expect(activeHrefFor(items, "/dashboard/sales/contacts")).toBe("/dashboard/sales/contacts");
+});
+
+it("admins get the WhatsApp Safety page, others do not", () => {
+  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-safety");
+  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-safety");
+  expect(navForRole("sales_agent").map((i) => i.href)).not.toContain("/dashboard/admin/sales-safety");
+});
+
+it("admin sees Sales Team, sales_agent does not see admin items", () => {
+  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-team");
+  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-team");
+  expect(navForRole("mentor").map((i) => i.href)).not.toContain("/dashboard/admin/sales-team");
 });

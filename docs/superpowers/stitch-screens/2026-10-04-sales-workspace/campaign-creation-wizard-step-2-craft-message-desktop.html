@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&amp;family=Handlee&amp;family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"inverse-primary":"#81dc5a","tertiary-container":"#9fcfa9","surface":"#f9f9f9","on-secondary":"#ffffff","inverse-on-surface":"#f0f1f1","on-primary-fixed-variant":"#195200","inverse-surface":"#2f3131","on-surface-variant":"#404a3a","secondary-fixed-dim":"#f6be3b","surface-variant":"#e2e2e2","background":"#f9f9f9","surface-container-low":"#f3f3f4","on-primary-container":"#1d5d00","on-secondary-fixed-variant":"#5c4300","on-tertiary-fixed-variant":"#234f33","secondary-container":"#ffc644","surface-dim":"#dadada","on-primary-fixed":"#062100","on-tertiary-fixed":"#00210e","surface-bright":"#f9f9f9","on-primary":"#ffffff","tertiary-fixed":"#bdeec7","surface-container-high":"#e8e8e8","surface-container-highest":"#e2e2e2","on-tertiary-container":"#2d593c","on-error":"#ffffff","primary-fixed-dim":"#81dc5a","primary":"#246d00","outline-variant":"#bfcab5","surface-container-lowest":"#ffffff","tertiary":"#3b6849","tertiary-fixed-dim":"#a2d2ac","on-background":"#1a1c1c","on-secondary-fixed":"#261900","error":"#ba1a1a","secondary":"#7a5900","surface-container":"#eeeeee","outline":"#707a68","on-error-container":"#93000a","primary-fixed":"#9cf973","on-surface":"#1a1c1c","primary-container":"#7ed957","surface-tint":"#246d00","on-secondary-container":"#715300","on-tertiary":"#ffffff","error-container":"#ffdad6","secondary-fixed":"#ffdea1"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{},fontFamily:{headline:["Montserrat"],display:["Montserrat"],body:["Fredoka"],label:["Handlee"]},fontSize:{}}}}</script></head><body class="bg-surface font-body text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(15,30,20,0.06)]"><div class="h-16 w-full px-6 lg:px-12 flex items-center justify-between gap-6"><div class="flex items-center gap-6"><div class="flex items-center gap-2.5"><div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container font-headline font-bold text-lg shadow-sm">PZ</div><div class="flex flex-col"><span class="font-headline font-bold tracking-tight text-primary text-base leading-tight">PharmaZyme</span><span class="text-[11px] font-label text-secondary leading-none tracking-wide">ACADEMY OUTREACH</span></div></div><div class="h-5 w-[1px] bg-outline-variant/60 hidden sm:block"></div><nav class="hidden md:flex items-center gap-2 text-sm text-on-surface-variant font-headline" data-active-classes="text-primary font-semibold"><a class="hover:text-primary transition-colors" data-path="outreach-overview" href="#">Outreach</a><span class="material-symbols-outlined text-outline text-[16px]">chevron_right</span><a class="hover:text-primary transition-colors" data-path="campaign-list" href="#">Campaigns</a><span class="material-symbols-outlined text-outline text-[16px]">chevron_right</span><a aria-current="page" class="transition-colors text-primary font-semibold" data-path="campaign-creation-wizard" href="#">New Campaign</a></nav></div><div class="flex items-center gap-4 lg:gap-6"><div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-xs"><span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-headline font-medium text-tertiary">Active Agent:</span><span class="font-semibold text-on-surface">Dr. Sarah Chen</span></div><a class="flex items-center gap-1.5 text-xs font-headline font-medium text-on-surface-variant hover:text-primary transition-colors" data-path="help-and-support" href="#"><span class="material-symbols-outlined text-[18px]">help</span><span class="hidden lg:inline">Support &amp; SOPs</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-[calc(100vh-4rem)]"><div class="flex flex-col w-full">
+<!-- Top Stepper Header -->
+<section class="w-full bg-surface-container-lowest px-4 sm:px-8 lg:px-12 py-6 shadow-sm">
+<div class="max-w-7xl mx-auto">
+<div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6">
+<div>
+<div class="flex items-center gap-2">
+<span class="font-label text-secondary text-sm tracking-wide">Outreach Campaign Studio</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+<span class="text-xs font-headline font-semibold text-tertiary uppercase tracking-wider">Spring Admissions 2025</span>
+</div>
+<h1 class="font-headline font-extrabold text-2xl lg:text-3xl text-on-surface tracking-tight mt-1">
+            Build Personalized Campaign
+          </h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container text-xs font-headline font-medium text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-tertiary">shield_lock</span>
+            FERPA &amp; HIPAA Safe
+          </span>
+<span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-secondary-fixed/50 text-xs font-headline font-bold text-on-secondary-fixed">
+<span class="material-symbols-outlined text-[16px] text-secondary">bolt</span>
+            High Response Mode
+          </span>
+</div>
+</div>
+<!-- 3-Step Wizard Navigation -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+<!-- Step 1: Completed -->
+<div class="group flex items-center gap-3.5 p-3.5 rounded-xl bg-surface-container-low transition-all cursor-pointer hover:bg-surface-container">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-headline font-bold shadow-sm shrink-0">
+<span class="material-symbols-outlined text-xl">check</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-headline text-xs font-bold uppercase tracking-wider text-primary">Step 1</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed text-[11px] font-headline font-semibold text-on-primary-fixed">
+                85 Leads Selected
+              </span>
+</div>
+<p class="font-headline text-sm font-semibold text-on-surface truncate">Select Audience</p>
+</div>
+</div>
+<!-- Step 2: Active (Current) -->
+<div class="flex items-center gap-3.5 p-3.5 rounded-xl bg-surface-container-lowest shadow-md ring-2 ring-primary-container">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-headline font-bold shadow-sm shrink-0 relative">
+<span>2</span>
+<span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-primary-container rounded-full ring-2 ring-surface-container-lowest animate-pulse"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-headline text-xs font-bold uppercase tracking-wider text-primary">Step 2</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container text-[11px] font-headline font-bold text-on-primary-container">
+                In Progress
+              </span>
+</div>
+<p class="font-headline text-sm font-bold text-on-surface truncate">Craft Message</p>
+</div>
+</div>
+<!-- Step 3: Pending -->
+<div class="flex items-center gap-3.5 p-3.5 rounded-xl bg-surface-container-low opacity-75">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-headline font-bold shrink-0">
+<span>3</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-headline text-xs font-bold uppercase tracking-wider text-outline">Step 3</span>
+<span class="text-[11px] font-headline text-outline truncate">Estimated reach: 85</span>
+</div>
+<p class="font-headline text-sm font-medium text-outline truncate">Review &amp; Launch</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Workspace: 2-Column Grid -->
+<main class="w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 pb-32">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left Composer Column (7 cols) -->
+<div class="lg:col-span-7 flex flex-col gap-6">
+<!-- Composer Main Card -->
+<div class="bg-surface-container-lowest rounded-xl p-6 sm:p-8 shadow-sm">
+<!-- Friendly Header -->
+<div class="flex items-start justify-between gap-4 mb-6">
+<div>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-tertiary-fixed text-on-tertiary-fixed text-xs font-headline font-bold mb-2">
+<span class="material-symbols-outlined text-[16px]">draw</span>
+                Step 2: Write your message
+              </div>
+<h2 class="font-headline font-bold text-xl sm:text-2xl text-on-surface">Compose Engaging Content</h2>
+<p class="font-body text-sm text-on-surface-variant mt-1 leading-relaxed">
+                Personalize your message using one-click tags. We will automatically replace them for each recipient with verified physician records.
+              </p>
+</div>
+<span class="hidden sm:flex w-12 h-12 rounded-xl bg-primary-fixed/40 items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl">chat_bubble</span>
+</span>
+</div>
+<!-- Form Controls -->
+<div class="space-y-6">
+<!-- Campaign Name -->
+<div>
+<div class="flex items-center justify-between mb-2">
+<label class="font-headline font-semibold text-xs text-on-surface uppercase tracking-wider" for="campaign-name">
+                  Campaign Title
+                </label>
+<span class="font-label text-xs text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+                  Only visible to your team
+                </span>
+</div>
+<div class="relative">
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg font-headline text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="campaign-name" type="text" value="Ramadan Special Offer — 20% Off Clinical Pharmacology"/>
+<span class="absolute right-3 top-3 text-tertiary">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+</span>
+</div>
+</div>
+<!-- Delivery Channel Selector -->
+<div>
+<label class="block font-headline font-semibold text-xs text-on-surface uppercase tracking-wider mb-2">
+                Select Dispatch Channel
+              </label>
+<div class="grid grid-cols-2 gap-3 p-1.5 rounded-xl bg-surface-container-low">
+<!-- WhatsApp Option (Active) -->
+<button class="flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-lg bg-surface-container-lowest shadow-sm font-headline text-sm font-bold text-on-surface transition-all" type="button">
+<span class="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">chat</span>
+</span>
+<span>WhatsApp Business</span>
+<span class="material-symbols-outlined text-primary text-lg ml-auto">check_circle</span>
+</button>
+<!-- Email Option (Inactive) -->
+<button class="flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-lg text-outline font-headline text-sm font-medium hover:bg-surface-container-lowest/50 transition-all" type="button">
+<span class="w-6 h-6 rounded-full bg-surface-container-high text-outline flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">mail</span>
+</span>
+<span>Institutional Email</span>
+<span class="text-[10px] font-label text-secondary ml-auto">Optional</span>
+</button>
+</div>
+</div>
+<!-- Template Quick-Picker -->
+<div>
+<div class="flex items-center justify-between mb-2">
+<label class="font-headline font-semibold text-xs text-on-surface uppercase tracking-wider" for="template-select">
+                  Template Quick-Picker
+                </label>
+<button class="text-xs font-headline font-semibold text-primary hover:underline flex items-center gap-0.5" type="button">
+<span class="material-symbols-outlined text-[14px]">bookmark_add</span>
+                  + Save as New Template
+                </button>
+</div>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low px-4 py-3 pr-10 rounded-lg font-headline text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner cursor-pointer" id="template-select">
+<option selected="">Discount Announcement (20% Off)</option>
+<option>Workshop Reminder &amp; CME Details</option>
+<option>Free Clinical Consultation Invite</option>
+<option>Course Enrollment Follow-up</option>
+<option>Specialty Board Review Masterclass</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-on-surface-variant">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Dynamic Variables Insertion -->
+<div>
+<div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+<span class="font-headline font-semibold text-xs text-on-surface uppercase tracking-wider">
+                  Click to insert personalization:
+                </span>
+<span class="inline-flex items-center gap-1 text-[11px] font-label font-bold text-secondary bg-secondary-fixed/40 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[13px]">lightbulb</span>
+                  Tip: Personalizing boosts replies by 42%!
+                </span>
+</div>
+<!-- Variable Pill Chips -->
+<div class="flex flex-wrap gap-2">
+<button class="var-chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-primary-container/30 text-on-surface text-xs font-headline font-semibold transition-transform active:scale-95 shadow-sm" data-tag="{{first_name}}" type="button">
+<span class="text-primary font-bold">+</span> First Name <span class="font-label text-outline text-[11px]">({{first_name}})</span>
+</button>
+<button class="var-chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-primary-container/30 text-on-surface text-xs font-headline font-semibold transition-transform active:scale-95 shadow-sm" data-tag="{{course_title}}" type="button">
+<span class="text-primary font-bold">+</span> Course Title <span class="font-label text-outline text-[11px]">({{course_title}})</span>
+</button>
+<button class="var-chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-primary-container/30 text-on-surface text-xs font-headline font-semibold transition-transform active:scale-95 shadow-sm" data-tag="{{discount_code}}" type="button">
+<span class="text-secondary font-bold">+</span> Discount Code <span class="font-label text-outline text-[11px]">({{discount_code}})</span>
+</button>
+<button class="var-chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-primary-container/30 text-on-surface text-xs font-headline font-semibold transition-transform active:scale-95 shadow-sm" data-tag="{{expiry_date}}" type="button">
+<span class="text-primary font-bold">+</span> Expiry Date <span class="font-label text-outline text-[11px]">({{expiry_date}})</span>
+</button>
+<button class="var-chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-primary-container/30 text-on-surface text-xs font-headline font-semibold transition-transform active:scale-95 shadow-sm" data-tag="{{agent_name}}" type="button">
+<span class="text-primary font-bold">+</span> Advisor Name <span class="font-label text-outline text-[11px]">({{agent_name}})</span>
+</button>
+</div>
+</div>
+<!-- Message Textarea -->
+<div>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low p-4 rounded-xl font-body text-base text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner resize-y leading-relaxed" id="message-editor" rows="7">Salam {{first_name}}! 🌿 We're pleased to offer you an exclusive 20% scholarship on our upcoming {{course_title}} batch. Use code {{discount_code}} at checkout or reply directly to this message to reserve your clinical seat: academy.pharmazyme.com/apply. Offer valid till {{expiry_date}}.</textarea>
+</div>
+<!-- Message Bar Info & Actions -->
+<div class="flex flex-wrap items-center justify-between gap-3 mt-2.5 px-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="text-xs font-headline font-medium text-on-surface-variant" id="char-counter">
+                    238 characters • 1 WhatsApp message
+                  </span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-2.5 py-1 rounded-md bg-surface-container text-xs font-headline font-medium text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1" id="btn-add-emoji" type="button">
+<span>Add Emoji</span> 😊
+                  </button>
+<button class="px-2.5 py-1 rounded-md text-xs font-headline font-medium text-error hover:bg-error-container/40 transition-colors" id="btn-clear-text" type="button">
+                    Clear Text
+                  </button>
+</div>
+</div>
+</div>
+<!-- Safety / Compliance Callout -->
+<div class="p-4 rounded-xl bg-tertiary-container/30 flex items-start gap-3">
+<span class="material-symbols-outlined text-tertiary text-xl shrink-0 mt-0.5">verified_user</span>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-xs text-on-tertiary-container">Safe Send • Active &amp; Verified</span>
+<p class="font-body text-xs text-on-tertiary-container/90 mt-0.5">
+                  Messages are spaced naturally (3-7s intervals) to prevent carrier spam flags. Standard opt-out and clinician verification tags are appended automatically.
+                </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Outreach Knowledge Quick Tip -->
+<div class="bg-surface-container-low rounded-xl p-5 flex items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-headline font-bold shrink-0">
+<span class="material-symbols-outlined text-xl">school</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-xs uppercase tracking-wide text-on-surface">Outreach Best Practice</h3>
+<p class="font-body text-xs text-on-surface-variant">Physicians respond best between 11:30 AM &amp; 1:30 PM post-ward rounds.</p>
+</div>
+</div>
+<span class="text-xs font-headline font-bold text-secondary cursor-pointer hover:underline hidden sm:inline whitespace-nowrap">
+            View Analytics →
+          </span>
+</div>
+</div>
+<!-- Right Column: Live Phone Mockup Preview (5 cols) -->
+<div class="lg:col-span-5 flex flex-col items-center">
+<!-- Live Preview Header with Recipient Switcher -->
+<div class="w-full max-w-sm flex items-center justify-between mb-3 px-2">
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+<span class="font-headline text-xs font-bold text-on-surface tracking-wide uppercase">Real-Time Lead View</span>
+</div>
+<!-- Sample Contact Switcher Dropdown -->
+<div class="relative">
+<select class="appearance-none bg-surface-container-lowest px-2.5 py-1.5 pr-7 rounded-lg text-xs font-headline font-bold text-primary shadow-sm focus:outline-none cursor-pointer" id="contact-switcher">
+<option selected="" value="ayesha">Dr. Ayesha Khan</option>
+<option value="tariq">Dr. Tariq Al-Mansoor</option>
+<option value="fatima">Dr. Fatima Zahra</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-primary">
+<span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</div>
+</div>
+</div>
+<!-- iPhone Smartphone Chassis -->
+<div class="w-full max-w-sm bg-[#121212] p-3 rounded-[2.5rem] shadow-2xl relative">
+<!-- Dynamic Island / Top Notch -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-4 bg-black rounded-full z-30 flex items-center justify-end px-2">
+<div class="w-2 h-2 rounded-full bg-neutral-800"></div>
+</div>
+<!-- Phone Screen Container -->
+<div class="w-full rounded-[2rem] overflow-hidden bg-[#efeae2] relative flex flex-col min-h-[580px] shadow-inner">
+<!-- WhatsApp Chat Header -->
+<div class="bg-[#075E54] text-white px-3.5 py-3 pt-6 flex items-center justify-between shadow-sm z-20">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-xl">arrow_back</span>
+<div class="relative">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container font-headline font-bold flex items-center justify-center text-xs shadow-sm">
+                    PZ
+                  </div>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full ring-1 ring-white"></span>
+</div>
+<div class="flex flex-col leading-tight">
+<div class="flex items-center gap-1">
+<span class="font-headline font-bold text-xs tracking-tight">PZ Admissions</span>
+<span class="material-symbols-outlined text-primary-container text-[14px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<span class="text-[10px] text-white/80 font-headline">Clinical Outreach Team</span>
+</div>
+</div>
+<div class="flex items-center gap-3 text-white/90">
+<span class="material-symbols-outlined text-lg">videocam</span>
+<span class="material-symbols-outlined text-lg">call</span>
+<span class="material-symbols-outlined text-lg">more_vert</span>
+</div>
+</div>
+<!-- WhatsApp Chat Background Canvas -->
+<div class="flex-1 p-3.5 flex flex-col justify-end relative bg-[#EFEAE2]">
+<!-- Subtle Wallpaper Pattern Overlay -->
+<div class="absolute inset-0 opacity-[0.035] pointer-events-none" style="background-image: radial-gradient(#075e54 1px, transparent 1px); background-size: 16px 16px;"></div>
+<!-- Date Separator Badge -->
+<div class="flex justify-center mb-3">
+<span class="px-3 py-1 rounded-full bg-white/80 backdrop-blur-sm text-[11px] font-headline font-medium text-neutral-600 shadow-xs uppercase tracking-wide">
+                  Today
+                </span>
+</div>
+<!-- WhatsApp Outgoing Speech Bubble -->
+<div class="relative ml-6 mr-1 mb-2">
+<div class="bg-[#DCF8C6] text-neutral-900 rounded-2xl rounded-tr-xs p-3 shadow-sm flex flex-col gap-2 relative">
+<!-- Dynamic Rendered Text -->
+<p class="text-xs font-body text-neutral-900 leading-relaxed break-words whitespace-pre-wrap" id="chat-preview-text">Salam Dr. Ayesha! 🌿 We're pleased to offer you an exclusive 20% scholarship on our upcoming Clinical Pharmacology 101 batch. Use code PZ-RAMADAN20 at checkout or reply directly to this message to reserve your clinical seat: academy.pharmazyme.com/apply. Offer valid till 28 Feb 2025.</p>
+<!-- Rich Link Preview OpenGraph Card -->
+<div class="rounded-xl bg-white/70 overflow-hidden shadow-xs hover:bg-white transition-colors cursor-pointer">
+<div class="h-24 bg-surface-container-high relative overflow-hidden flex items-center justify-center">
+<div class="w-full h-full bg-cover bg-center" data-alt="Modern medical academy laboratory with clean glassware and high tech digital microscope displays with PharmaZyme green ambient glow and scientific excellence certificates on the wall" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD6GlpLLlGQrBuBVpL47pXcIBdcZXGnQUGOLLjk3be9H12KCksmvd8Exq13KhOzJqAKGUdEeDXZXxRidtlrbpKrzlrHVdJG7puECvegL_z8jIQycn238egPkVkNytQvrH97qQuc8qbyn9tRVTMu5g39zaUXWeQmKnhXHPDQzRjQeI-CgAF59jyP90J7DYwQ7rSoNrp24mhdK26fNl1MmJ1J19sGlVuiO9UwCPdA2nkZhUhAZRVyozci')"></div>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded bg-primary text-[10px] font-headline font-bold text-white shadow-xs">
+                        Accredited CME
+                      </div>
+</div>
+<div class="p-2.5">
+<div class="flex items-center gap-1 text-[10px] text-tertiary font-headline font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+                        PharmaZyme Academy Portal
+                      </div>
+<h4 class="font-headline font-bold text-xs text-neutral-900 mt-0.5 line-clamp-1">
+                        Clinical Pharmacology 101 Certification
+                      </h4>
+<p class="font-body text-[11px] text-neutral-600 line-clamp-1">
+                        Exclusive cohort scholarship for registered hospital medical officers.
+                      </p>
+<span class="text-[10px] text-neutral-400 mt-1 block">academy.pharmazyme.com</span>
+</div>
+</div>
+<!-- Bubble Meta: Timestamp + Double Blue Ticks -->
+<div class="flex items-center justify-end gap-1 -mt-1">
+<span class="text-[10px] text-neutral-500 font-headline">10:42 AM</span>
+<span class="material-symbols-outlined text-[#34B7F1] text-[15px]" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+</div>
+<!-- WhatsApp Chat Input Bar Simulation -->
+<div class="w-full bg-white/95 rounded-full px-3 py-1.5 mt-2 flex items-center justify-between shadow-xs">
+<div class="flex items-center gap-2 text-neutral-400">
+<span class="material-symbols-outlined text-lg">mood</span>
+<span class="text-[11px] font-body text-neutral-400">Message</span>
+</div>
+<div class="flex items-center gap-2 text-neutral-500">
+<span class="material-symbols-outlined text-lg">attach_file</span>
+<span class="w-6 h-6 rounded-full bg-[#128C7E] text-white flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">mic</span>
+</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sample Lead Quick Info Card -->
+<div class="w-full max-w-sm mt-4 bg-surface-container-lowest p-3.5 rounded-xl shadow-xs flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-headline font-bold text-xs">
+            DA
+          </div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline text-xs font-bold text-on-surface truncate" id="contact-name-label">Dr. Ayesha Khan</span>
+<span class="font-body text-[11px] text-on-surface-variant truncate" id="contact-sub-label">MBBS • Resident Registrar, Jinnah Hospital</span>
+</div>
+<span class="ml-auto px-2 py-0.5 rounded-full bg-primary-fixed text-[10px] font-headline font-bold text-on-primary-fixed whitespace-nowrap">
+            Opted In
+          </span>
+</div>
+</div>
+</div>
+</main>
+<!-- Sticky Bottom Action Bar -->
+<aside class="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-4px_16px_rgba(15,30,20,0.06)] py-3.5 px-4 sm:px-8 lg:px-12">
+<div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+<!-- Left: Audience Summary Badge & Mini Lead Avatars -->
+<div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+<div class="flex items-center gap-2.5">
+<!-- Lead Avatars Cluster -->
+<div class="flex -space-x-2 overflow-hidden">
+<div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-primary-container flex items-center justify-center text-[10px] font-headline font-bold text-on-primary-container">
+              AK
+            </div>
+<div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-secondary-fixed flex items-center justify-center text-[10px] font-headline font-bold text-on-secondary-fixed">
+              TM
+            </div>
+<div class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-tertiary-fixed flex items-center justify-center text-[10px] font-headline font-bold text-on-tertiary-fixed">
+              FZ
+            </div>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-headline font-bold text-xs text-on-surface">85 Medical Leads</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="text-[11px] font-headline font-semibold text-primary">All Verified</span>
+</div>
+<span class="font-body text-[11px] text-on-surface-variant truncate max-w-[200px] sm:max-w-xs">
+              Target: Uncontacted MBBS &amp; Pharma Registrars
+            </span>
+</div>
+</div>
+</div>
+<!-- Right: Action Buttons -->
+<div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+<!-- Back to Step 1 Button -->
+<button class="px-4 py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-headline font-semibold text-xs transition-colors flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[16px]">arrow_back</span>
+<span>Back to Audience</span>
+</button>
+<!-- Save Draft Button -->
+<button class="hidden sm:inline-flex px-3.5 py-2.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant font-headline font-semibold text-xs transition-colors items-center gap-1" id="btn-save-draft" type="button">
+<span class="material-symbols-outlined text-[16px]">save</span>
+<span>Save Draft</span>
+</button>
+<!-- Primary Launch / Proceed Button -->
+<button class="flex-1 sm:flex-none px-6 py-2.5 rounded-lg bg-primary-container hover:bg-primary hover:text-on-primary text-on-primary-container font-headline font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 group" type="button">
+<span>Proceed to Review</span>
+<span class="material-symbols-outlined text-lg group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+</aside>
+</div>
+<!-- Interactive Client-side Script for Composer & Live Sync -->
+<script>
+  (function initCampaignWizard() {
+    const editor = document.getElementById('message-editor');
+    const preview = document.getElementById('chat-preview-text');
+    const charCounter = document.getElementById('char-counter');
+    const contactSwitcher = document.getElementById('contact-switcher');
+    const contactNameLabel = document.getElementById('contact-name-label');
+    const contactSubLabel = document.getElementById('contact-sub-label');
+    const clearBtn = document.getElementById('btn-clear-text');
+    const emojiBtn = document.getElementById('btn-add-emoji');
+    const chips = document.querySelectorAll('.var-chip');
+
+    // Contact dataset for live simulation
+    const contacts = {
+      ayesha: {
+        first_name: "Dr. Ayesha",
+        full_name: "Dr. Ayesha Khan",
+        course_title: "Clinical Pharmacology 101",
+        discount_code: "PZ-RAMADAN20",
+        expiry_date: "28 Feb 2025",
+        agent_name: "Dr. Sarah Chen",
+        role: "MBBS • Resident Registrar, Jinnah Hospital"
+      },
+      tariq: {
+        first_name: "Dr. Tariq",
+        full_name: "Dr. Tariq Al-Mansoor",
+        course_title: "Pediatric Toxicology & Dosing",
+        discount_code: "PZ-RAMADAN20",
+        expiry_date: "05 Mar 2025",
+        agent_name: "Dr. Sarah Chen",
+        role: "MD • Pediatric Fellow, Royal Specialty Clinic"
+      },
+      fatima: {
+        first_name: "Dr. Fatima",
+        full_name: "Dr. Fatima Zahra",
+        course_title: "Advanced Pharmacokinetics Diploma",
+        discount_code: "PZ-RAMADAN20",
+        expiry_date: "12 Mar 2025",
+        agent_name: "Dr. Sarah Chen",
+        role: "PharmD • Clinical Research Associate"
+      }
+    };
+
+    function updatePreview() {
+      if (!editor || !preview) return;
+      const rawText = editor.value;
+      const selectedKey = contactSwitcher ? contactSwitcher.value : 'ayesha';
+      const c = contacts[selectedKey] || contacts.ayesha;
+
+      let rendered = rawText
+        .replace(/\{\{first_name\}\}/g, c.first_name)
+        .replace(/\{\{course_title\}\}/g, c.course_title)
+        .replace(/\{\{discount_code\}\}/g, c.discount_code)
+        .replace(/\{\{expiry_date\}\}/g, c.expiry_date)
+        .replace(/\{\{agent_name\}\}/g, c.agent_name);
+
+      preview.textContent = rendered;
+
+      // Update counters
+      const len = rawText.length;
+      const segments = Math.max(1, Math.ceil(len / 160));
+      if (charCounter) {
+        charCounter.textContent = `${len} characters • ${segments} WhatsApp message${segments > 1 ? 's' : ''}`;
+      }
+    }
+
+    if (editor) {
+      editor.addEventListener('input', updatePreview);
+    }
+
+    // Dynamic tag chip insertion
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const tag = chip.getAttribute('data-tag');
+        if (!editor || !tag) return;
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const text = editor.value;
+        editor.value = text.substring(0, start) + tag + text.substring(end);
+        editor.focus();
+        editor.selectionStart = editor.selectionEnd = start + tag.length;
+        updatePreview();
+      });
+    });
+
+    // Contact switcher behavior
+    if (contactSwitcher) {
+      contactSwitcher.addEventListener('change', () => {
+        const selected = contacts[contactSwitcher.value];
+        if (selected) {
+          if (contactNameLabel) contactNameLabel.textContent = selected.full_name;
+          if (contactSubLabel) contactSubLabel.textContent = selected.role;
+        }
+        updatePreview();
+      });
+    }
+
+    // Emoji insert
+    if (emojiBtn && editor) {
+      emojiBtn.addEventListener('click', () => {
+        editor.value += " 🩺✨";
+        updatePreview();
+      });
+    }
+
+    // Clear text
+    if (clearBtn && editor) {
+      clearBtn.addEventListener('click', () => {
+        if (confirm("Reset composer message?")) {
+          editor.value = "";
+          updatePreview();
+        }
+      });
+    }
+
+    // Initial render
+    updatePreview();
+  })();
+</script></main><footer class="w-full bg-surface-container-low shadow-[0_-1px_6px_rgba(15,30,20,0.03)] py-6 mt-auto"><div class="w-full px-6 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-on-surface-variant font-headline"><div>© 2024 PharmaZyme Academy • Enterprise Sales &amp; Clinical Outreach Division</div><div class="flex items-center gap-6"><a class="hover:text-primary transition-colors" data-path="compliance-guidelines" href="#">HIPAA &amp; Outreach Compliance</a><a class="hover:text-primary transition-colors" data-path="institutional-portal" href="#">Institutional Registry</a><a class="hover:text-primary transition-colors" data-path="system-status" href="#">API &amp; System Status</a></div></div></footer></body></html>

@@ -260,7 +260,7 @@ export function WhatsAppBatchDetailClient({
 
       {queueMode ? (
         (() => {
-          const pending = detail.recipients.filter((r) => r.status === "pending");
+          const pending = detail.recipients.filter((r) => r.status === "pending" && !r.doNotContact);
           const current = pending[0];
           return (
             <div className="bg-pz-surface-container-highest rounded-xl p-4 space-y-3">
@@ -326,9 +326,13 @@ export function WhatsAppBatchDetailClient({
               r.phoneE164,
               r.contactId && manualSet.has(r.contactId) ? "Manually converted" : null,
               detail.conversion ? (r.convertedAt ? `Converted ${new Date(r.convertedAt).toLocaleDateString()}` : "Not converted (yet)") : null,
-              <a key="chat" href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)} className="inline-flex min-h-11 items-center text-pz-primary underline text-sm font-semibold">
-                Open chat
-              </a>,
+              r.doNotContact ? (
+                <span key="chat" className="inline-flex min-h-11 items-center text-pz-error text-sm font-semibold">Do not contact</span>
+              ) : (
+                <a key="chat" href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)} className="inline-flex min-h-11 items-center text-pz-primary underline text-sm font-semibold">
+                  Open chat
+                </a>
+              ),
             ].filter(Boolean),
           }}
           table={
@@ -355,9 +359,13 @@ export function WhatsAppBatchDetailClient({
                     </td>
                     <td>{r.phoneE164}</td>
                     <td>
-                      <a href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)} className="text-pz-primary underline text-xs font-semibold">
-                        Open chat
-                      </a>
+                      {r.doNotContact ? (
+                        <span className="text-pz-error text-xs font-semibold">Do not contact</span>
+                      ) : (
+                        <a href={buildWhatsAppLink(r.phoneE164, detail.messageTemplate, r.fullName)} className="text-pz-primary underline text-xs font-semibold">
+                          Open chat
+                        </a>
+                      )}
                     </td>
                     <td>
                       <label className="flex items-center gap-1.5 text-xs cursor-pointer">

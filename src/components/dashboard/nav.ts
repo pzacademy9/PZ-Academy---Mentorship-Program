@@ -2,6 +2,7 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
+  ClipboardList, UserPlus, LifeBuoy, ShieldCheck,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 
@@ -14,6 +15,10 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { label: "Today", href: "/dashboard/sales", icon: ClipboardList, roles: ["sales_agent"] },
+  { label: "My Contacts", shortLabel: "Contacts", href: "/dashboard/sales/contacts", icon: Users, roles: ["sales_agent"] },
+  { label: "Add a Lead", shortLabel: "Add lead", href: "/dashboard/sales/add-lead", icon: UserPlus, roles: ["sales_agent"] },
+  { label: "Help & Safety", shortLabel: "Help", href: "/dashboard/sales/help", icon: LifeBuoy, roles: ["sales_agent"] },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["student", "mentor", "admin", "super_admin"] },
   { label: "My Courses", shortLabel: "Courses", href: "/dashboard/courses", icon: BookOpen, roles: ["student"] },
   { label: "My Notes", shortLabel: "Notes", href: "/dashboard/notes", icon: NotebookPen, roles: ["student"] },
@@ -33,13 +38,15 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "super_admin"] },
   { label: "Marketing", href: "/dashboard/admin/marketing", icon: Image, roles: ["admin", "super_admin"] },
   { label: "CRM", href: "/dashboard/admin/crm", icon: Contact, roles: ["admin", "super_admin"] },
+  { label: "Sales Team", href: "/dashboard/admin/sales-team", icon: UserPlus, roles: ["admin", "super_admin"] },
+  { label: "WhatsApp Safety", shortLabel: "Safety", href: "/dashboard/admin/sales-safety", icon: ShieldCheck, roles: ["admin", "super_admin"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
   { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "super_admin"] },
   { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "super_admin"] },
   { label: "Analytics", href: "/dashboard/admin", icon: BarChart3, roles: ["admin", "super_admin"] },
-  { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "super_admin"] },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["student", "mentor", "admin", "super_admin"] },
+  { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "super_admin", "sales_agent"] },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["student", "mentor", "admin", "super_admin", "sales_agent"] },
 ];
 
 export function navForRole(role: Role): NavItem[] {

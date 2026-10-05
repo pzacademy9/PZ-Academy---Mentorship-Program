@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&amp;family=Handlee&amp;family=Montserrat:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#ffffff","on-tertiary-fixed-variant":"#234f33","outline":"#707a68","primary-container":"#7ed957","surface-bright":"#f9f9f9","outline-variant":"#bfcab5","error":"#ba1a1a","on-tertiary-fixed":"#00210e","error-container":"#ffdad6","tertiary-container":"#9fcfa9","surface-dim":"#dadada","on-tertiary":"#ffffff","on-primary-fixed-variant":"#195200","on-tertiary-container":"#2d593c","primary-fixed-dim":"#81dc5a","on-secondary-container":"#715300","surface-variant":"#e2e2e2","secondary-container":"#ffc644","on-surface-variant":"#404a3a","tertiary-fixed-dim":"#a2d2ac","surface-container":"#eeeeee","tertiary":"#3b6849","on-primary-fixed":"#062100","on-secondary-fixed-variant":"#5c4300","background":"#f9f9f9","on-error-container":"#93000a","primary":"#246d00","inverse-surface":"#2f3131","on-primary-container":"#1d5d00","surface-container-low":"#f3f3f4","surface-container-lowest":"#ffffff","secondary-fixed":"#ffdea1","secondary":"#7a5900","secondary-fixed-dim":"#f6be3b","surface-tint":"#246d00","surface-container-highest":"#e2e2e2","on-background":"#1a1c1c","surface":"#f9f9f9","inverse-primary":"#81dc5a","primary-fixed":"#9cf973","inverse-on-surface":"#f0f1f1","surface-container-high":"#e8e8e8","on-secondary":"#ffffff","on-error":"#ffffff","on-secondary-fixed":"#261900","tertiary-fixed":"#bdeec7","on-surface":"#1a1c1c"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{},"fontFamily":{"headline":["Montserrat"],"display":["Montserrat"],"body":["Fredoka"],"label":["Handlee"]},"fontSize":{}}}}</script></head><body class="bg-surface font-body text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between py-6"><div class="flex flex-col gap-6"><div class="px-6 flex items-center gap-3"><img alt="Modern sleek emblem for PharmaZyme Academy Sales &amp; Admissions CRM, featuring an academic graduation cap fused with clinical DNA leaf motif in deep navy and forest teal. Design context: - Primary color: #006b5f
+- Font: plusJakartaSans
+- Mode: light
+- Roundness: rounded-md
+. The logo should be visually consistent with these brand tokens." class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VAI1D7PiUDHVJA3fuK93mIaev4HPW2PZJBd_YpbkHZXiiaTRZGeJ-RiUUpXJ4y-IAkLvoeqhJTuVrnEehafRdTDqYKZCq4vwfgAMDpvj16cynGY4DZtzfHvcsdhpWbboTs5ynludqjwJDd7_z-OAzi-EnEKAzkF0klhHl36XPBocxeT0LfeWiV8UiGttwhOh-Nluf4AlC6o396dfLgfq_8XX3iZhPDjlPXDXuMDEHrnd1xDOgxPFK0aSI"/><div class="flex flex-col"><span class="font-headline font-bold text-base tracking-tight text-primary leading-tight">PZ Academy</span><span class="font-label text-xs text-tertiary">Admissions CRM</span></div></div><div class="px-6"><span class="text-xs font-headline font-bold uppercase tracking-wider text-outline">Admissions Desk</span></div><nav class="flex flex-col gap-1 px-4" data-active-classes="bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm"><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="today-queue" href="#"><span class="material-symbols-outlined text-xl">today</span><span>Today Queue</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="my-contacts" href="#"><span class="material-symbols-outlined text-xl">contacts</span><span>My Contacts</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="add-lead" href="#"><span class="material-symbols-outlined text-xl">person_add</span><span>Add Lead</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="admissions-pipeline" href="#"><span class="material-symbols-outlined text-xl">view_kanban</span><span>Admissions Pipeline</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="campaigns" href="#"><span class="material-symbols-outlined text-xl">campaign</span><span>Campaigns</span></a><a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="analytics" href="#"><span class="material-symbols-outlined text-xl">analytics</span><span>Analytics</span></a><div class="my-2 border-t border-surface-container-high mx-2"></div><span class="px-2 py-1 text-xs font-headline font-bold uppercase tracking-wider text-outline">Governance</span><a aria-current="page" class="flex items-center gap-3 px-3.5 py-2.5 transition-all bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm" data-path="whatsapp-safety-and-limits" href="#"><span class="material-symbols-outlined text-xl">shield_locked</span><span>WhatsApp Safety &amp; Limits</span></a></nav></div><div class="px-4"><div class="bg-surface-container-low rounded-xl p-3.5 flex items-center justify-between"><div class="flex items-center gap-2.5"><div class="h-2 w-2 rounded-full bg-primary animate-pulse"></div><div class="flex flex-col"><span class="text-xs font-semibold text-on-surface leading-tight">WA API Status</span><span class="font-label text-xs text-tertiary">Tier 2 Active • Safe</span></div></div><span class="material-symbols-outlined text-sm text-outline">verified</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-8"><div class="flex items-center gap-6"><nav class="flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span class="text-outline">Admissions CRM</span><span class="material-symbols-outlined text-xs text-outline">chevron_right</span><span class="text-on-surface font-semibold">Settings</span><span class="material-symbols-outlined text-xs text-outline">chevron_right</span><span class="text-primary font-bold">WhatsApp Safety &amp; Limits</span></nav><div class="relative hidden xl:flex items-center w-72"><span class="material-symbols-outlined absolute left-3 text-outline text-lg">search</span><input class="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-container-low text-on-surface rounded-lg focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline" placeholder="Search leads, phone, or cohort..." type="text"/></div></div><div class="flex items-center gap-4"><button class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-xl">notifications</span><span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-error ring-2 ring-surface-container-lowest"></span></button><button class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-xl">help_outline</span></button><div class="h-6 w-px bg-surface-container-high"></div><div class="flex items-center gap-3 pl-1"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-primary/20" src="https://lh3.googleusercontent.com/aida/AEtjO1Wo0unsaNIMTpMaLEvVuKc6ZlWRtC1jtYLVHpM8a_Fmgro5KMuOjY-ziZN4-ij89l4L92Y1q_GB0m86Um48zYXrGFlLYaWebtgja67lGixFnxsVVH9WNHEMa3ORhdaGd_8AHHe0Ia1Nd0qlvyyg7peXVSgAlU6iwwfvzRzpi22f0nIxrFKX0nsHr3eDpeZHw_4up7Ai3ve37XuOc8FHzKhmTLZgBQ6_IHXQ582eoDC9kG5n3-6YGNwQdA"/><div class="flex flex-col text-left"><span class="text-xs font-headline font-bold text-on-surface leading-tight">Dr. Eleanor Vance</span><span class="font-label text-xs text-tertiary leading-none">Senior Admin</span></div><button class="p-1 text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-base">expand_more</span></button></div></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<div class="p-6 md:p-8 xl:p-10 flex flex-col gap-8 max-w-[1400px] mx-auto w-full">
+<!-- Top Breadcrumb & Page Heading Area -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-tertiary">
+<span class="inline-block w-2 h-2 rounded-full bg-primary"></span>
+<span>Meta Cloud API • Carrier Governance Tier 2</span>
+</div>
+<h1 class="text-3xl md:text-4xl font-headline font-black text-on-surface tracking-tight">WhatsApp Safety &amp; Limits</h1>
+<p class="text-sm md:text-base font-body text-on-surface-variant max-w-2xl leading-relaxed">
+          Configure team-wide pacing, warm-up thresholds, and anti-ban safeguards across all connected SIM lines.
+        </p>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center gap-3 shrink-0">
+<button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-surface-container-lowest text-on-surface font-headline font-semibold text-xs tracking-wide shadow-sm hover:bg-surface-container-low transition-all" type="button">
+<span class="material-symbols-outlined text-lg text-primary">add_call</span>
+<span>+ Add WhatsApp Line</span>
+</button>
+<button class="inline-flex items-center gap-2 px-6 py-2.5 min-h-[44px] rounded-lg bg-primary text-on-primary font-headline font-bold text-xs tracking-wider uppercase shadow-md hover:bg-on-primary-container transition-all" onclick="triggerNotification('All WhatsApp safety policies synchronized across 12 sales seats.')" type="button">
+<span class="material-symbols-outlined text-lg">verified_user</span>
+<span>Save Settings</span>
+</button>
+</div>
+</div>
+<!-- Honest Caution Advisory Banner -->
+<div class="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+<div class="flex items-start md:items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-tertiary-container/40 flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-2xl">shield</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-headline font-bold text-sm text-on-surface">Defensive Fleet Governance Advisory</span>
+<span class="px-2 py-0.5 text-[11px] font-label font-bold rounded-full bg-secondary-fixed text-on-secondary-fixed leading-tight">Proactive Safeguards</span>
+</div>
+<p class="font-body text-xs md:text-sm text-on-surface-variant leading-relaxed max-w-3xl">
+            These are cautious estimates, not guarantees from WhatsApp. WhatsApp does not publish official limits, so we operate well within defensive thresholds to keep company SIM cards healthy and avoid temporary metadata freezes.
+          </p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0 self-end md:self-center">
+<div class="text-right">
+<div class="text-[11px] font-headline font-bold text-primary uppercase tracking-wider">Sim Risk Score</div>
+<div class="text-xs font-body font-semibold text-on-surface-variant">Low (0.4% flag chance)</div>
+</div>
+<div class="w-9 h-9 rounded-lg bg-surface-container-low flex items-center justify-center text-primary font-headline font-black text-sm">
+          99%
+        </div>
+</div>
+</div>
+<!-- SECTION 1: Connected WhatsApp Numbers (Table & Cards) -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<h2 class="text-xl md:text-2xl font-headline font-bold text-on-surface tracking-tight">Connected Lines &amp; SIM Health</h2>
+<span class="px-3 py-1 text-xs font-headline font-bold rounded-full bg-primary-fixed text-on-primary-fixed">4 active numbers</span>
+</div>
+<div class="hidden sm:flex items-center gap-2 text-xs font-body text-outline">
+<span class="material-symbols-outlined text-sm text-primary">sync</span>
+<span>Health sync refreshed 2m ago</span>
+</div>
+</div>
+<!-- Main Table Container -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs md:text-sm font-body">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant font-headline font-bold uppercase tracking-wider text-[11px]">
+<th class="py-4 px-6">Phone Number &amp; Label</th>
+<th class="py-4 px-4">Line Status</th>
+<th class="py-4 px-6">Today's Sends &amp; Velocity</th>
+<th class="py-4 px-4">Assigned Agents</th>
+<th class="py-4 px-6 text-right">Safety Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+<!-- Line 1: DMC #1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-lg">cell_tower</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-on-surface text-sm">DMC campaign number 1</span>
+<span class="text-xs text-outline font-sans tracking-tight font-medium">+92 300 1234567</span>
+<span class="text-[11px] font-label text-tertiary">Owner: Admissions Team / Shared</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-headline font-bold bg-primary-fixed/50 text-on-primary-fixed-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+<span>Active</span>
+</span>
+</td>
+<td class="py-4 px-6 min-w-[200px]">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-xs">
+<span class="font-semibold text-on-surface">38 of 60 sent today</span>
+<span class="text-outline font-headline font-bold">63%</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full rounded-full bg-primary-container" style="width: 63%;"></div>
+</div>
+<span class="text-[11px] text-outline font-sans">Avg pace: 1 message every 3.2m</span>
+</div>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center -space-x-2">
+<img alt="Sarah J." class="w-7 h-7 rounded-full object-cover shadow-sm ring-2 ring-surface-container-lowest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDi64o_aCQde3bCqlrOc2y6wfIFLtUbToCoT9r46cs-hL4kY50ju70wL1hq_pFbZf7LTVtoCDpIyNSc56Vpa0VX5RB7-hR6-h4F-qZA_jhhTV26B3tx0wGRMl5CFRqk00X5iiBGIAktGFIQXnraAxzj-pdR3qsc9-t8sK24DZMqNkhccD6lP-EjJfs5OUsZXZ3kBao4lBBaPmOLJ5UjgCfHVY5EiSMkdSoqgKn3SjvOKm-Xk57ZaNzW"/>
+<img alt="Bilal A." class="w-7 h-7 rounded-full object-cover shadow-sm ring-2 ring-surface-container-lowest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeSJL88ycSkXkEvXsVNbm38mScZpTBEvPANac0wDXelZtTr6gyIduXSlDpkcXRgLCcmERrX04FEIwWaSAVW77w_opRufO6am2abGfCLzADFDOH7LCgG9_bKNsoF2tLqCZuXUHvli8nMv5VrRXAhAy17Jxv8s8tF2AzuoS0wVqL_elNqZvqiedNOVUxOZXk6MxPPmMdPhsH8H-WbhDXjgsprvqm8CoqPatOvPCeQ0BleP4NtM6pyXI1"/>
+<span class="w-7 h-7 rounded-full bg-surface-container font-headline font-bold text-[10px] text-on-surface-variant flex items-center justify-center ring-2 ring-surface-container-lowest">+3</span>
+</div>
+</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface-variant hover:bg-secondary-fixed/50 hover:text-on-secondary-fixed-variant transition-colors text-xs font-headline font-bold" title="Temporarily pause sending from this line" type="button">
+<span class="material-symbols-outlined text-sm">pause_circle</span>
+<span>Freeze line</span>
+</button>
+<button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low transition-colors" type="button">
+<span class="material-symbols-outlined text-base">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Line 2: DMC #2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-lg">sim_card</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-on-surface text-sm">DMC campaign number 2</span>
+<span class="text-xs text-outline font-sans tracking-tight font-medium">+92 312 9988112</span>
+<span class="text-[11px] font-label text-tertiary">Owner: Sarah Jenkins - Dedicated</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-headline font-bold bg-primary-fixed/50 text-on-primary-fixed-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>Active</span>
+</span>
+</td>
+<td class="py-4 px-6 min-w-[200px]">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-xs">
+<span class="font-semibold text-on-surface">14 of 60 sent today</span>
+<span class="text-outline font-headline font-bold">23%</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full rounded-full bg-primary-container" style="width: 23%;"></div>
+</div>
+<span class="text-[11px] text-outline font-sans">Cooling down (Last sent 18m ago)</span>
+</div>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-1.5">
+<img alt="Sarah J." class="w-7 h-7 rounded-full object-cover shadow-sm ring-2 ring-surface-container-lowest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_JKd3CUAEw25BEYxgFZ-pngBPAvRKfFZt0W1ip879bKVhcOzHI1vkFB19DEgVhhCaO_WUZQuWsW03iA_tkoNi2ogzW5htmkSRHeg8TRBQFLuX9tcmm0uf0gF-J1Fgm6fc82b-3lecAQovT-mWZCVl8b7V3djK0lHU4oKyssWR06IpepOzW-0oqVhwtn816t-5la26UaBxrz8vJehl9WNnmCNbIF93d3leDkDvmDoy9gBCraEao84W"/>
+<span class="text-xs font-headline font-semibold text-on-surface">Sarah J.</span>
+</div>
+</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface-variant hover:bg-secondary-fixed/50 hover:text-on-secondary-fixed-variant transition-colors text-xs font-headline font-bold" title="Temporarily pause sending from this line" type="button">
+<span class="material-symbols-outlined text-sm">pause_circle</span>
+<span>Freeze line</span>
+</button>
+<button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low transition-colors" type="button">
+<span class="material-symbols-outlined text-base">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Line 3: Outreach SIM 3 (Warming up) -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-lg">local_fire_department</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-on-surface text-sm">Outreach SIM 3</span>
+<span class="text-xs text-outline font-sans tracking-tight font-medium">+92 333 4589211</span>
+<span class="text-[11px] font-label text-tertiary">Owner: Dr. Eleanor Vance - Dedicated</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-headline font-bold bg-secondary-container text-on-secondary-container">
+<span class="material-symbols-outlined text-xs">trending_up</span>
+<span>Warming up</span>
+</span>
+</td>
+<td class="py-4 px-6 min-w-[200px]">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-xs">
+<span class="font-semibold text-secondary">8 of 10 sent (Warm-up cap)</span>
+<span class="text-secondary font-headline font-bold">80%</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full rounded-full bg-secondary-container" style="width: 80%;"></div>
+</div>
+<span class="text-[11px] text-secondary font-medium">Day 2 of 7 in ramp schedule</span>
+</div>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-1.5">
+<img alt="Dr. Vance" class="w-7 h-7 rounded-full object-cover shadow-sm ring-2 ring-surface-container-lowest" src="https://lh3.googleusercontent.com/aida/AEtjO1Wo0unsaNIMTpMaLEvVuKc6ZlWRtC1jtYLVHpM8a_Fmgro5KMuOjY-ziZN4-ij89l4L92Y1q_GB0m86Um48zYXrGFlLYaWebtgja67lGixFnxsVVH9WNHEMa3ORhdaGd_8AHHe0Ia1Nd0qlvyyg7peXVSgAlU6iwwfvzRzpi22f0nIxrFKX0nsHr3eDpeZHw_4up7Ai3ve37XuOc8FHzKhmTLZgBQ6_IHXQ582eoDC9kG5n3-6YGNwQdA"/>
+<span class="text-xs font-headline font-semibold text-on-surface">Dr. Vance</span>
+</div>
+</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface-variant hover:bg-secondary-fixed/50 hover:text-on-secondary-fixed-variant transition-colors text-xs font-headline font-bold" title="Temporarily pause sending from this line" type="button">
+<span class="material-symbols-outlined text-sm">pause_circle</span>
+<span>Freeze line</span>
+</button>
+<button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low transition-colors" type="button">
+<span class="material-symbols-outlined text-base">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Line 4: New Inbound Line 4 (Frozen) -->
+<tr class="hover:bg-surface-container-low/50 transition-colors bg-error-container/10">
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-lg">ac_unit</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-on-surface text-sm">New Inbound Line 4</span>
+<span class="text-xs text-outline font-sans tracking-tight font-medium">+92 345 6781200</span>
+<span class="text-[11px] font-label text-outline">Owner: Unassigned / New Setup</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-headline font-bold bg-error-container text-on-error-container">
+<span class="material-symbols-outlined text-xs">ac_unit</span>
+<span>Frozen (48h safety)</span>
+</span>
+</td>
+<td class="py-4 px-6 min-w-[200px]">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-xs">
+<span class="font-semibold text-error">0 sends (Frozen by Agent)</span>
+<span class="text-xs font-label text-error">Locked</span>
+</div>
+<div class="w-full h-2 rounded-full bg-error-container/50 overflow-hidden">
+<div class="h-full rounded-full bg-error" style="width: 0%;"></div>
+</div>
+<span class="text-[11px] font-sans text-error">Quarantine active • 14h remaining</span>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 text-xs text-outline font-label italic">
+<span>Unassigned</span>
+</span>
+</td>
+<td class="py-4 px-6 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-fixed text-on-primary-fixed font-headline font-bold text-xs shadow-sm hover:bg-primary-container transition-all" type="button">
+<span class="material-symbols-outlined text-sm">play_circle</span>
+<span>Unfreeze line</span>
+</button>
+<button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low transition-colors" type="button">
+<span class="material-symbols-outlined text-base">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- SECTION 2: Team-Wide Safety Rules & Pacing Defaults (Settings Form) -->
+<div class="flex flex-col gap-6">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-2">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">tune</span>
+<h2 class="text-xl md:text-2xl font-headline font-bold text-on-surface tracking-tight">Team-Wide Safety Rules &amp; Pacing Defaults</h2>
+</div>
+<p class="text-xs md:text-sm text-on-surface-variant font-body">Defensive velocity caps configured here automatically bind across all active admission advisor web sessions.</p>
+</div>
+<div class="text-xs font-label text-tertiary">
+          * Real-time dispatch throttler enabled
+        </div>
+</div>
+<!-- Settings Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Card Group 1: Daily & Hourly Outbound Throttle -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-6">
+<div class="flex flex-col gap-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">speed</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline font-bold text-base text-on-surface">1. Daily &amp; Hourly Outbound Throttle</h3>
+<span class="text-xs text-outline font-body">Control total volume of unsolicited outreach per SIM</span>
+</div>
+</div>
+<!-- Field 1.1 -->
+<div class="flex flex-col gap-2 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<label class="font-headline font-bold text-xs text-on-surface" for="limit-daily">New chats per day limit</label>
+<div class="flex items-center gap-1">
+<input class="w-20 px-3 py-1.5 text-center font-headline font-bold text-sm bg-surface-container-lowest text-on-surface rounded-lg shadow-sm focus:outline-none focus:bg-primary-fixed/20 transition-all" id="limit-daily" max="250" min="10" type="number" value="60"/>
+<span class="text-xs text-outline font-sans">chats</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Maximum number of new, unsaved WhatsApp contacts an agent can initiate outreach with per calendar day.
+              </p>
+</div>
+<!-- Field 1.2 -->
+<div class="flex flex-col gap-2 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<label class="font-headline font-bold text-xs text-on-surface" for="limit-hourly">Hourly send ceiling</label>
+<div class="flex items-center gap-1">
+<input class="w-20 px-3 py-1.5 text-center font-headline font-bold text-sm bg-surface-container-lowest text-on-surface rounded-lg shadow-sm focus:outline-none focus:bg-primary-fixed/20 transition-all" id="limit-hourly" max="60" min="5" type="number" value="20"/>
+<span class="text-xs text-outline font-sans">msgs</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Hard cap on messages dispatched within any rolling 60-minute window across CRM templates.
+              </p>
+</div>
+<!-- Field 1.3 -->
+<div class="flex flex-col gap-2 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<label class="font-headline font-bold text-xs text-on-surface" for="limit-amber">Hourly amber warning threshold</label>
+<div class="flex items-center gap-1">
+<input class="w-20 px-3 py-1.5 text-center font-headline font-bold text-sm bg-surface-container-lowest text-on-surface rounded-lg shadow-sm focus:outline-none focus:bg-primary-fixed/20 transition-all" id="limit-amber" max="50" min="5" type="number" value="15"/>
+<span class="text-xs text-outline font-sans">msgs</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Changes the agent hourly meter to amber when approaching the cap to encourage natural pauses.
+              </p>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-2 text-xs font-label text-tertiary">
+<span class="material-symbols-outlined text-sm">verified</span>
+<span>Recommended baseline for Pakistani telco SIMs (Jazz, Zong, Telenor)</span>
+</div>
+</div>
+<!-- Card Group 2: Message Spacing & Rest Breaks -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-6">
+<div class="flex flex-col gap-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary-container/30 text-tertiary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">hourglass_bottom</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline font-bold text-base text-on-surface">2. Message Spacing &amp; Rest Breaks</h3>
+<span class="text-xs text-outline font-body">Human cadence simulation &amp; queue dispersion</span>
+</div>
+</div>
+<!-- Field 2.1 -->
+<div class="flex flex-col gap-3 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<span class="font-headline font-bold text-xs text-on-surface">Randomized spacing between sends</span>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1">
+<span class="text-[11px] text-outline">Min</span>
+<input class="w-16 px-2 py-1 text-center font-headline font-bold text-xs bg-surface-container-lowest text-on-surface rounded-lg shadow-sm" type="number" value="90"/>
+</div>
+<span class="text-xs text-outline">to</span>
+<div class="flex items-center gap-1">
+<span class="text-[11px] text-outline">Max</span>
+<input class="w-16 px-2 py-1 text-center font-headline font-bold text-xs bg-surface-container-lowest text-on-surface rounded-lg shadow-sm" type="number" value="180"/>
+</div>
+<span class="text-xs text-outline font-sans">sec</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Introduces human-like irregular delays between consecutive dispatches so messages never look automated.
+              </p>
+<!-- Micro visual bar indicating variation window -->
+<div class="flex items-center gap-2 text-[11px] font-sans text-tertiary">
+<span class="material-symbols-outlined text-sm">shuffle</span>
+<span>Random jitter interval: ~1.5m to 3.0m per chat initiation</span>
+</div>
+</div>
+<!-- Field 2.2 -->
+<div class="flex flex-col gap-3 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<span class="font-headline font-bold text-xs text-on-surface">Mandatory rest break</span>
+<div class="flex items-center gap-2">
+<input class="w-16 px-2 py-1 text-center font-headline font-bold text-xs bg-surface-container-lowest text-on-surface rounded-lg shadow-sm" type="number" value="10"/>
+<span class="text-xs text-outline">min rest after every</span>
+<input class="w-16 px-2 py-1 text-center font-headline font-bold text-xs bg-surface-container-lowest text-on-surface rounded-lg shadow-sm" type="number" value="10"/>
+<span class="text-xs text-outline">msgs</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Locks the dispatch queue and invites the agent to step away, mimicking natural human messaging patterns.
+              </p>
+<div class="flex items-center gap-2 text-[11px] font-headline font-semibold text-secondary">
+<span class="material-symbols-outlined text-sm">coffee</span>
+<span>Automated tea break countdown displays in Advisor Console</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-2 text-xs font-label text-tertiary">
+<span class="material-symbols-outlined text-sm">lock_clock</span>
+<span>Forces 100% compliance via agent browser lock</span>
+</div>
+</div>
+<!-- Card Group 3: Safe Hours & Schedule -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-6">
+<div class="flex flex-col gap-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary-container/20 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">bedtime</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline font-bold text-base text-on-surface">3. Safe Hours &amp; Schedule</h3>
+<span class="text-xs text-outline font-body">Nighttime quarantine &amp; circadian compliance</span>
+</div>
+</div>
+<!-- Field 3.1 -->
+<div class="flex flex-col gap-3 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<span class="font-headline font-bold text-xs text-on-surface">Quiet hours (No outreach)</span>
+<div class="flex items-center gap-2">
+<input class="px-2.5 py-1 text-center font-headline font-bold text-xs bg-surface-container-lowest text-on-surface rounded-lg shadow-sm" type="time" value="21:00"/>
+<span class="text-xs text-outline font-headline font-bold">to</span>
+<input class="px-2.5 py-1 text-center font-headline font-bold text-xs bg-surface-container-lowest text-on-surface rounded-lg shadow-sm" type="time" value="09:00"/>
+<span class="text-xs text-outline font-sans">PKT</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Automatically blocks batch messaging during late evenings and early mornings to respect doctor rest hours and prevent spam reports.
+              </p>
+<div class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-lowest">
+<span class="material-symbols-outlined text-sm text-secondary">info</span>
+<span class="text-xs font-sans text-on-surface-variant">Inbound lead responses are permitted 24/7 if initiated by the candidate.</span>
+</div>
+</div>
+<!-- Schedule Preview Widget -->
+<div class="flex flex-col gap-2 p-3 bg-surface-container-low/30 rounded-lg">
+<div class="flex items-center justify-between text-[11px] font-headline font-bold text-outline">
+<span>00:00</span>
+<span>09:00 (Start)</span>
+<span>21:00 (Halt)</span>
+<span>24:00</span>
+</div>
+<div class="w-full h-3 rounded-full bg-surface-container-high overflow-hidden flex">
+<div class="h-full bg-surface-variant text-outline flex items-center justify-center text-[9px] font-bold" style="width: 37.5%;">QUIET</div>
+<div class="h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[9px] font-bold" style="width: 50%;">OUTREACH PERMITTED (12H)</div>
+<div class="h-full bg-surface-variant text-outline flex items-center justify-center text-[9px] font-bold" style="width: 12.5%;">QUIET</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-2 text-xs font-label text-tertiary">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>Current timezone: Asia/Karachi (GMT+5)</span>
+</div>
+</div>
+<!-- Card Group 4: Line Warm-Up & Emergency Safeguards -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-6">
+<div class="flex flex-col gap-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container/30 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">shield_moon</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline font-bold text-base text-on-surface">4. Line Warm-Up &amp; Emergency Safeguards</h3>
+<span class="text-xs text-outline font-body">Burn-in curves &amp; automatic quarantine protocols</span>
+</div>
+</div>
+<!-- Field 4.1 -->
+<div class="flex flex-col gap-2 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<label class="font-headline font-bold text-xs text-on-surface" for="warmup-initial">Warm-up initial daily limit</label>
+<div class="flex items-center gap-1">
+<input class="w-20 px-3 py-1.5 text-center font-headline font-bold text-sm bg-surface-container-lowest text-on-surface rounded-lg shadow-sm focus:outline-none focus:bg-primary-fixed/20 transition-all" id="warmup-initial" max="30" min="5" type="number" value="10"/>
+<span class="text-xs text-outline font-sans">chats/day</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Starting daily ceiling for brand-new SIMs during their first week.
+              </p>
+</div>
+<!-- Field 4.2 -->
+<div class="flex flex-col gap-2 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<label class="font-headline font-bold text-xs text-on-surface" for="warmup-ramp">Daily warm-up ramp rate</label>
+<div class="flex items-center gap-1">
+<input class="w-20 px-3 py-1.5 text-center font-headline font-bold text-sm bg-surface-container-lowest text-on-surface rounded-lg shadow-sm focus:outline-none focus:bg-primary-fixed/20 transition-all" id="warmup-ramp" max="25" min="1" type="number" value="10"/>
+<span class="text-xs text-outline font-sans">chats/day</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Gradual increase applied every 24 hours if zero carrier warnings are detected.
+              </p>
+</div>
+<!-- Field 4.3 -->
+<div class="flex flex-col gap-2 bg-surface-container-low/50 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<label class="font-headline font-bold text-xs text-error" for="panic-duration">Emergency panic freeze duration</label>
+<div class="flex items-center gap-1">
+<input class="w-20 px-3 py-1.5 text-center font-headline font-bold text-sm bg-surface-container-lowest text-error rounded-lg shadow-sm focus:outline-none focus:bg-error-container/20 transition-all" id="panic-duration" max="168" min="12" type="number" value="48"/>
+<span class="text-xs text-outline font-sans">hours</span>
+</div>
+</div>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed">
+                Standard quarantine lockout duration when an agent taps "Something is wrong, stop" or carrier rate warnings occur.
+              </p>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-2 text-xs font-label text-error">
+<span class="material-symbols-outlined text-sm">emergency</span>
+<span>Emergency Killswitch overrides all ongoing agent queues immediately</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Sticky / Action Footer Bar -->
+<div class="sticky bottom-6 z-30 bg-surface-container-lowest/95 backdrop-blur-md rounded-xl p-4 md:p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-primary animate-ping"></div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-xs text-on-surface">Universal Compliance Engine Active</span>
+<span class="text-xs font-body text-on-surface-variant">All changes apply immediately across 12 sales advisor desks.</span>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+<button class="px-5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-headline font-semibold text-xs hover:bg-surface-container-high transition-colors" onclick="triggerNotification('Draft settings discarded.')" type="button">
+          Discard Changes
+        </button>
+<button class="px-6 py-2.5 min-h-[44px] rounded-lg bg-primary text-on-primary font-headline font-bold text-xs tracking-wider uppercase shadow-md hover:bg-on-primary-container transition-all flex items-center justify-center gap-2" onclick="triggerNotification('Success! Safety limits updated and deployed to all active CRM desks.')" type="button">
+<span class="material-symbols-outlined text-sm">cloud_done</span>
+<span>Save All Safety Settings</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Toast Notification Container for interactions -->
+<div class="fixed bottom-24 right-8 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none bg-inverse-surface text-inverse-on-surface px-5 py-3 rounded-lg shadow-xl flex items-center gap-3 text-xs font-headline font-semibold" id="toast">
+<span class="material-symbols-outlined text-primary-fixed text-lg">check_circle</span>
+<span id="toast-text">Settings updated</span>
+</div>
+</div>
+<script>
+  function triggerNotification(message) {
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+    if (!toast || !toastText) return;
+    toastText.textContent = message;
+    toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+    }, 3500);
+  }
+</script></main></div></body></html>

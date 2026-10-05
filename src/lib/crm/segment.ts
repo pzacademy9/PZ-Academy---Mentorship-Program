@@ -72,6 +72,7 @@ export const EMAIL_SENDABLE_GUARD: QueryOp[] = [{ kind: "eq", column: "is_sendab
 export const WHATSAPP_REACHABLE_GUARD: QueryOp[] = [
   { kind: "not-null", column: "phone_e164" },
   { kind: "is-null", column: "whatsapp_unsubscribed_at" },
+  { kind: "is-null", column: "do_not_contact_at" },
 ];
 
 export function buildSegmentFilters(filters: SegmentFilter[], guard: QueryOp[] = EMAIL_SENDABLE_GUARD): QueryOp[] {

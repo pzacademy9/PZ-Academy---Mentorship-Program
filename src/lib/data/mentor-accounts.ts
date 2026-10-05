@@ -74,7 +74,7 @@ export async function inviteOrCheckMentorAccount(
 
 export type ConfirmLinkResult =
   | { ok: true }
-  | { ok: false; reason: "mentor-not-found" | "account-not-found" | "db-error" };
+  | { ok: false; reason: "mentor-not-found" | "account-not-found" | "is-sales-agent" | "db-error" };
 
 /**
  * Step 2 of the invite flow, only reached after the admin confirms the
@@ -89,6 +89,11 @@ export type ConfirmLinkResult =
  * those roles, so no role change is needed for them to use the mentor
  * dashboard, and demoting an admin to 'mentor' here would lock them out of
  * /dashboard/admin with no in-app way back.
+ *
+ * Refuses a sales_agent account outright (no conversion, no demotion): a
+ * mentor cannot also be a sales agent, and promoting one would leave any
+ * claimed contacts owned by a mentor with no UI path to release them. The
+ * Sales Team side refuses mentors the same way.
  */
 export async function confirmLinkExistingAccount(mentorId: string, email: string): Promise<ConfirmLinkResult> {
   const admin = createAdminSupabase();
@@ -100,6 +105,8 @@ export async function confirmLinkExistingAccount(mentorId: string, email: string
   if (!accountId) return { ok: false, reason: "account-not-found" };
 
   const { data: account } = await admin.from("profiles").select("role").eq("id", accountId).maybeSingle();
+
+  if (account?.role === "sales_agent") return { ok: false, reason: "is-sales-agent" };
 
   if (!isAdminRole(account?.role)) {
     const { error: profileError } = await admin.from("profiles").update({ role: "mentor" }).eq("id", accountId);

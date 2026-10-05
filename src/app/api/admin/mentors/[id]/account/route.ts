@@ -51,6 +51,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (result.reason === "account-not-found") {
       return NextResponse.json({ error: "That account no longer exists" }, { status: 404 });
     }
+    if (result.reason === "is-sales-agent") {
+      return NextResponse.json(
+        { error: "That account is a sales agent. A sales agent cannot also be a mentor" },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: "Could not link account" }, { status: 500 });
   }
 

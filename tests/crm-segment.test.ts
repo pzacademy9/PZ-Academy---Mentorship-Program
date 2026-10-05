@@ -103,6 +103,7 @@ describe("buildSegmentFilters", () => {
     expect(WHATSAPP_REACHABLE_GUARD).toEqual([
       { kind: "not-null", column: "phone_e164" },
       { kind: "is-null", column: "whatsapp_unsubscribed_at" },
+      { kind: "is-null", column: "do_not_contact_at" },
     ]);
   });
 
@@ -112,6 +113,7 @@ describe("buildSegmentFilters", () => {
       { kind: "in", column: "country", values: ["PK"] },
       { kind: "not-null", column: "phone_e164" },
       { kind: "is-null", column: "whatsapp_unsubscribed_at" },
+      { kind: "is-null", column: "do_not_contact_at" },
     ]);
   });
 });
