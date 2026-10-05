@@ -1,23 +1,14 @@
-import { ClipboardList } from "lucide-react";
 import { requireSalesAgentPage } from "@/lib/auth/require-sales";
-import { EmptyState } from "@/components/ui/empty-state";
+import { TodayQueue } from "@/components/sales/TodayQueue";
+import { firstNameOf } from "@/lib/crm/whatsapp-link";
+import { DEFAULT_SETTINGS, localParts } from "@/lib/crm/send-limits";
+import { greetingFor } from "@/lib/crm/sales-ui";
 
-export const metadata = { title: "Sales Workspace — PZ Academy" };
+export const metadata = { title: "Today — Sales Workspace" };
 
 export default async function SalesWorkspacePage() {
-  await requireSalesAgentPage();
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-headline font-bold text-2xl text-pz-secondary">Today</h1>
-        <p className="font-body text-pz-on-surface-variant text-sm mt-1">Your daily workspace for messaging contacts.</p>
-      </div>
-      <EmptyState
-        icon={ClipboardList}
-        title="Your workspace is being set up"
-        description="Your contacts and tools will appear here soon. Nothing is needed from you yet."
-      />
-    </div>
-  );
+  const { user, supabase } = await requireSalesAgentPage();
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+  const greeting = greetingFor(localParts(new Date(), DEFAULT_SETTINGS.timezone).hour);
+  return <TodayQueue greeting={greeting} firstName={firstNameOf(profile?.full_name ?? "")} />;
 }

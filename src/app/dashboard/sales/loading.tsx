@@ -1,5 +1,5 @@
-import { TableSkeleton } from "@/components/ui/skeletons";
+import { DetailSkeleton } from "@/components/ui/skeletons";
 
 export default function Loading() {
-  return <TableSkeleton cols={3} />;
+  return <DetailSkeleton sections={3} />;
 }
