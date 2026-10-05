@@ -53,6 +53,22 @@ export function ContactsWorkspace({
     };
   }, [sheetOpen]);
 
+  // Escape goes back to the list from anywhere while the phone sheet is open. Focus can fall back to the body
+  // after an inner dialog closes, so this listens on the document rather than on the sheet. While a Radix
+  // dialog is open (focus is inside it) Escape belongs to that dialog alone.
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const t = e.target as Element | null;
+      if (t && (!t.isConnected || t.closest?.('[role="dialog"][data-state="open"]'))) return;
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+      setOpenId(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sheetOpen]);
+
   // Debounce search typing.
   useEffect(() => {
     const t = setTimeout(() => {
@@ -265,12 +281,6 @@ export function ContactsWorkspace({
           aria-label="Contact details"
           role={isPhone ? "dialog" : undefined}
           aria-modal={isPhone ? true : undefined}
-          onKeyDown={(e) => {
-            if (isPhone && e.key === "Escape" && !e.defaultPrevented && e.currentTarget.contains(e.target as Node)) {
-              e.stopPropagation();
-              setOpenId(null);
-            }
-          }}
           className="lg:col-span-7 fixed inset-0 z-40 overflow-y-auto bg-pz-surface p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none lg:static lg:z-auto lg:p-0 lg:bg-transparent"
         >
           {templates === null ? (

@@ -151,6 +151,22 @@ describe("phone contact sheet", () => {
   });
 });
 
+describe("phone sheet Escape after an inner dialog closes", () => {
+  it("still closes the sheet when focus fell back to the body", async () => {
+    stubPhone(true);
+    mockApi([row("a", "Ayesha")], { a: ownDetail("a") });
+    const { container } = renderWs("a");
+    fireEvent.click(await screen.findByRole("button", { name: "Not interested" }));
+    const dialog = await screen.findByRole("dialog", { name: /ask you to stop/i });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /ask you to stop/i })).toBeNull());
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await waitFor(() => expect(sheetEl(container)).toBeNull());
+  });
+});
+
 describe("standalone note box", () => {
   const noteLabel = /Note \(your team can see it\)/;
   it("shows for an own do-not-contact contact and saves a note", async () => {
