@@ -169,15 +169,15 @@ export function WelcomeTour({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) finish(); }}>
-      <DialogContent className="sm:max-w-4xl max-md:h-full max-md:w-full overflow-y-auto font-body bg-pz-surface-container-lowest border-0 sm:rounded-2xl p-0 gap-0">
-        <div className="px-6 sm:px-8 pt-6 pb-2 pr-14">
+      <DialogContent className="sm:max-w-4xl max-md:h-full max-md:w-full overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)] font-body bg-pz-surface-container-lowest border-0 sm:rounded-2xl p-0 gap-0">
+        <div className="min-w-0 px-6 sm:px-8 pt-6 pb-2 pr-14">
           <p className="text-xs font-headline font-bold uppercase tracking-wider text-pz-tertiary">Quick 4-step tour</p>
-          <DialogTitle className="mt-2 text-2xl sm:text-3xl font-headline font-black text-pz-on-surface tracking-tight leading-tight">Welcome to your sales desk</DialogTitle>
+          <DialogTitle className="mt-2 text-2xl sm:text-3xl font-headline font-black text-pz-on-surface tracking-tight leading-tight break-words">Welcome to your sales desk</DialogTitle>
           <DialogDescription className="mt-1 text-sm sm:text-base text-pz-on-surface-variant font-medium">Here is how a day works, in under two minutes.</DialogDescription>
         </div>
 
-        <div className="px-6 sm:px-8 py-4">
-          <div role="tablist" aria-label="Tour steps" className="flex sm:grid sm:grid-cols-4 gap-2.5 overflow-x-auto pb-1">
+        <div className="min-w-0 px-6 sm:px-8 py-4">
+          <div role="tablist" aria-label="Tour steps" className="min-w-0 max-w-full flex sm:grid sm:grid-cols-4 gap-2.5 overflow-x-auto pb-1">
             {TOUR_STEPS.map((s, i) => (
               <button
                 key={s.title}
@@ -202,7 +202,7 @@ export function WelcomeTour({
           </div>
         </div>
 
-        <div className="px-6 sm:px-8 pb-4">
+        <div className="min-w-0 px-6 sm:px-8 pb-4">
           <section aria-live="polite" className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-pz-surface-container-low rounded-xl p-5 sm:p-6 items-center">
             <div className="md:col-span-5"><Illustration step={step} /></div>
             <div className="md:col-span-7 flex flex-col gap-2">
@@ -235,7 +235,7 @@ export function WelcomeTour({
           )}
         </div>
 
-        <div className="px-6 sm:px-8 py-4 bg-pz-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="min-w-0 px-6 sm:px-8 py-4 bg-pz-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
             type="button"
             onClick={finish}
@@ -253,7 +253,7 @@ export function WelcomeTour({
             ))}
             <span className="ml-2 text-xs font-label text-pz-on-surface-variant font-bold">Step {step + 1} of {TOUR_STEPS.length}</span>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full min-w-0 sm:w-auto">
             {step > 0 && (
               <button
                 type="button"

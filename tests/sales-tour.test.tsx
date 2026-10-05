@@ -33,6 +33,19 @@ describe("WelcomeTour", () => {
     expect(markSeen).toHaveBeenCalledTimes(1);
   });
 
+  it("cannot grow wider than the dialog on a phone (min-w-0 grid track, chip row scrolls on its own)", async () => {
+    render(<WelcomeTour role="sales_agent" metadataSeen={false} markSeen={vi.fn(async () => {})} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.className).toContain("grid-cols-[minmax(0,1fr)]");
+    expect(dialog.className).toContain("overflow-x-hidden");
+    for (const child of Array.from(dialog.children).filter((c) => c.tagName === "DIV")) {
+      expect(child.className, child.outerHTML.slice(0, 60)).toContain("min-w-0");
+    }
+    const chips = screen.getByRole("tablist", { name: "Tour steps" });
+    expect(chips.className).toContain("overflow-x-auto");
+    expect(chips.className).toContain("min-w-0");
+  });
+
   it("Skip tour also marks it seen", async () => {
     const markSeen = vi.fn(async () => {});
     render(<WelcomeTour role="sales_agent" metadataSeen={false} markSeen={markSeen} />);
