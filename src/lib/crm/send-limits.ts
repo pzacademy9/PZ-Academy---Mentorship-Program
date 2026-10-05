@@ -1,6 +1,6 @@
 // WhatsApp send limits for the Sales Workspace (spec Section 5). Pure: no I/O,
 // `now` and the random source are injected. These numbers are cautious guesses
-// at what protects a sending number; WhatsApp does not publish its limits, so
+// at a sustainable sending pace; WhatsApp does not publish its limits, so
 // nothing here (or in copy that uses it) may promise safety.
 
 export type SafetySettings = {
@@ -188,7 +188,7 @@ export function evaluateSend(input: {
     return {
       ok: false,
       reason: "frozen",
-      message: "This number is paused to protect it. Ask your admin when it will be back.",
+      message: "This number is paused. Ask your admin when it will be back.",
       retryAt: state.frozenUntil ? outsideQuietHours(state.frozenUntil, s) : null,
     };
   }

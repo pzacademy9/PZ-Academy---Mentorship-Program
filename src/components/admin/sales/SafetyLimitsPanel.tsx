@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ShieldAlert, Snowflake } from "lucide-react";
 import type { SafetySettings } from "@/lib/crm/send-limits";
 import type { AgentBudgetJson, BudgetJson } from "@/lib/crm/sales-ui";
-import { HONEST_NOTE } from "@/lib/crm/sales-help-copy";
+import { ADMIN_HONEST_NOTE } from "@/lib/crm/sales-help-copy";
 import { ADMIN_BATCH_NOTE, pausedNumbers, type BlockedAttemptJson, type NumberAdminJson } from "@/lib/crm/sales-admin-ui";
 import { formatDateTime } from "@/lib/format";
 import { NumbersSection } from "./NumbersSection";
@@ -94,7 +94,7 @@ export function SafetyLimitsPanel({ agents }: { agents: { id: string; fullName: 
           <ShieldAlert className="w-5 h-5 md:w-6 md:h-6" aria-hidden="true" />
         </div>
         <div className="flex flex-col gap-1 font-body text-xs md:text-sm text-pz-on-surface-variant leading-relaxed max-w-3xl">
-          <p>{HONEST_NOTE}</p>
+          <p>{ADMIN_HONEST_NOTE}</p>
           <p>{ADMIN_BATCH_NOTE}</p>
         </div>
       </div>

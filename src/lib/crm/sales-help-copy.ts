@@ -9,6 +9,8 @@ const hh = (h: number) => `${String(h).padStart(2, "0")}:00`;
 export const HONEST_NOTE =
   "WhatsApp does not publish its limits. The limits in this app are our cautious guesses, and your admin can change them. They lower the risk to your number but cannot remove it. A personal number carries the same risk as a company number.";
 
+export const ADMIN_HONEST_NOTE = HONEST_NOTE.replace("your admin can change them", "you can change them");
+
 export function helpFaq(s: SafetySettings): FaqItem[] {
   return [
     {
@@ -16,7 +18,7 @@ export function helpFaq(s: SafetySettings): FaqItem[] {
       question: "Why do I have to wait between messages?",
       answer: [
         `After each message the next one unlocks after a random gap of ${s.spacing_min_s} to ${s.spacing_max_s} seconds.`,
-        "The pauses keep your number's activity steady and reduce the chance of WhatsApp limiting it. They cannot promise that it will not happen.",
+        "The pauses slow you down so you stay inside the limits and lower the chance of WhatsApp limiting your number. They cannot promise that it will not happen.",
       ],
     },
     {

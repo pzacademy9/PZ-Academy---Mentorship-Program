@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_SETTINGS } from "@/lib/crm/send-limits";
-import { GOLDEN_RULES, HONEST_NOTE, TOUR_STEPS, helpFaq } from "@/lib/crm/sales-help-copy";
+import { ADMIN_HONEST_NOTE, GOLDEN_RULES, HONEST_NOTE, TOUR_STEPS, helpFaq } from "@/lib/crm/sales-help-copy";
 
 const all = (s = DEFAULT_SETTINGS) =>
   [HONEST_NOTE, ...GOLDEN_RULES.flatMap((r) => [r.title, r.body]), ...TOUR_STEPS.flatMap((t) => [t.title, t.body]),
@@ -23,6 +23,15 @@ describe("help copy", () => {
   });
   it("never promises safety", () => {
     expect(all()).not.toMatch(/\bsafe\b|\bsafely\b|guarantee|anti-ban/i);
+  });
+  it("the admin note says the admin can change the limits, and neither note promises more than it can", () => {
+    expect(ADMIN_HONEST_NOTE).toMatch(/you can change them/i);
+    expect(ADMIN_HONEST_NOTE).not.toMatch(/your admin/i);
+    expect(HONEST_NOTE).toMatch(/your admin can change them/i);
+  });
+  it("does not frame the limits as avoiding detection", () => {
+    expect(all()).not.toMatch(/bulk sender|protect|shield|detect|activity steady/i);
+    expect(all()).toMatch(/slow you down so you stay inside the limits/i);
   });
   it("has exactly four tour steps, the last about automatic follow-ups", () => {
     expect(TOUR_STEPS.map((t) => t.title)).toEqual([

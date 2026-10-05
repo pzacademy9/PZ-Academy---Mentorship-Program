@@ -15,7 +15,7 @@ const files = [
   ...walk(join(ROOT, "src", "app", "dashboard", "sales")),
   ...walk(join(ROOT, "src", "app", "dashboard", "admin", "sales-safety")),
   ...walk(join(ROOT, "src", "components", "admin", "sales")).filter((f) => !f.endsWith("SalesTeamPanel.tsx")),
-  ...["sales-ui.ts", "sales-admin-ui.ts", "sales-help-copy.ts"]
+  ...["sales-ui.ts", "sales-admin-ui.ts", "sales-help-copy.ts", "send-limits.ts"]
     .map((n) => join(ROOT, "src", "lib", "crm", n))
     .filter(existsSync),
 ];
@@ -58,7 +58,7 @@ describe("sales UI guards", () => {
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       expect(src, rel(f)).not.toMatch(/\bsafe\b(?!-area)/i);
-      expect(src, rel(f)).not.toMatch(/\bsafely\b|guarantee|anti-ban|risk score|100%/i);
+      expect(src, rel(f)).not.toMatch(/\bsafely\b|guarantee|anti-ban|risk score|100%|bulk sender|protect|\bshield\b|detect/i);
     }
   });
 });
