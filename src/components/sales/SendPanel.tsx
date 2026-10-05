@@ -222,7 +222,7 @@ export function SendPanel({
           disabled={locked || sending || emptyMessage}
           loading={sending}
           onClick={() => void send()}
-          className="w-full h-14 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none"
+          className="w-full h-14 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none disabled:opacity-100"
         >
           <MessageCircle className="w-6 h-6" />
           {buttonText}

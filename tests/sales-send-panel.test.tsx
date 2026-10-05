@@ -90,6 +90,7 @@ describe("SendPanel", () => {
     setup([]);
     const btn = screen.getByRole("button", { name: "No WhatsApp number yet" });
     expect((btn as HTMLButtonElement).disabled).toBe(true);
+    expect(btn.className).toContain("disabled:opacity-100");
     expect(screen.getByText(/ask your admin/i)).toBeTruthy();
   });
 
