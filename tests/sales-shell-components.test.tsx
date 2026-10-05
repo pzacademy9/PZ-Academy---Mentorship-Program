@@ -58,4 +58,21 @@ describe("BudgetBar", () => {
       expect(fetchMock).toHaveBeenCalledWith("/api/sales/numbers/b/freeze", expect.objectContaining({ method: "POST" })),
     );
   });
+
+  it("shows an error with a retry (not a skeleton) when the first load fails", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderBar();
+    expect(await screen.findByText("Could not load your sending budget.")).toBeTruthy();
+    const calls = fetchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(calls));
+  });
+
+  it("hides the panic button when the selected number is already paused", async () => {
+    mockFetch([num("a", "My phone", budget({ frozen: true, frozenUntil: "2026-10-07T10:00:00.000Z" }))]);
+    renderBar();
+    expect(await screen.findByText(/paused until/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /my whatsapp warns or restricts me/i })).toBeNull();
+  });
 });

@@ -9,11 +9,28 @@ import { PanicButton } from "./PanicButton";
 const pct = (used: number, cap: number) => (cap <= 0 ? 100 : Math.min(100, Math.round((used / cap) * 100)));
 
 export function BudgetBar() {
-  const { budgets, loadError, selected, select } = useSalesBudget();
+  const { budgets, loadError, selected, select, refresh } = useSalesBudget();
 
+  if (budgets === null && loadError) {
+    return (
+      <section
+        role="status"
+        className="bg-pz-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-wrap items-center gap-3 font-body text-sm text-pz-on-surface"
+      >
+        <span>Could not load your sending budget.</span>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="px-3.5 py-2 max-md:min-h-11 rounded-lg bg-pz-surface-container-low font-headline text-xs font-bold text-pz-on-surface hover:shadow-sm transition-all"
+        >
+          Try again
+        </button>
+      </section>
+    );
+  }
   if (budgets === null) {
     return (
-      <div className="h-20 rounded-xl bg-pz-surface-container-low animate-pulse" aria-hidden="true" />
+      <div role="status" aria-label="Loading your sending budget" className="h-20 rounded-xl bg-pz-surface-container-low animate-pulse" />
     );
   }
   if (budgets.length === 0) {
@@ -55,7 +72,7 @@ export function BudgetBar() {
           </span>
         )}
         {b.frozen && (
-          <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-pz-academy-error">
+          <p role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-pz-academy-error">
             <Snowflake className="w-4 h-4" />
             {b.frozenUntil ? `Paused until ${formatDateTime(b.frozenUntil)}` : "Paused by your admin"}
           </p>
@@ -66,7 +83,7 @@ export function BudgetBar() {
             Paused overnight{b.quietEndsAt ? `, opens at ${formatTime(b.quietEndsAt)}` : ""}
           </p>
         )}
-        {loadError && <p className="text-xs text-pz-academy-error">Could not refresh your budget. Showing the last known numbers.</p>}
+        {loadError && <p role="status" className="text-xs text-pz-academy-error">Could not refresh your budget. Showing the last known numbers.</p>}
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
@@ -92,7 +109,7 @@ export function BudgetBar() {
             />
           </div>
         </div>
-        <PanicButton />
+        {!b.frozen && <PanicButton />}
       </div>
     </section>
   );

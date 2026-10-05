@@ -33,7 +33,7 @@ export function PanicButton({ className }: { className?: string }) {
       }
       toast.success(
         body?.changed === false || !body?.frozenUntil
-          ? "This number was already paused by your admin."
+          ? "This number is already paused."
           : `Paused until ${formatDateTime(body.frozenUntil)}. Your admin has been told.`,
       );
       await refresh();
@@ -41,7 +41,7 @@ export function PanicButton({ className }: { className?: string }) {
       toast.error("Could not pause this number.");
     }
   });
-  if (!selected) return null;
+  if (!selected || selected.budget.frozen) return null;
   return (
     <Button
       type="button"
