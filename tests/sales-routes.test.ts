@@ -32,6 +32,7 @@ describe("sales route files", () => {
         "/src/app/api/sales/contacts/route.ts",
         "/src/app/api/sales/leads/route.ts",
         "/src/app/api/sales/numbers/[id]/freeze/route.ts",
+        "/src/app/api/sales/templates/route.ts",
         "/src/app/api/sales/today/route.ts",
       ].sort(),
     );
@@ -78,5 +79,13 @@ describe("sales route files", () => {
   it("the contact detail route passes the restricted flag through", () => {
     const src = readFileSync(join(salesRoot, "contacts", "[id]", "route.ts"), "utf8");
     expect(src).toContain("restricted: result.restricted");
+  });
+
+  it("the templates route is read-only", () => {
+    const src = readFileSync(join(salesRoot, "templates", "route.ts"), "utf8");
+    expect(src).toContain('listTemplates("whatsapp")');
+    expect(src).not.toMatch(/export async function (POST|PUT|PATCH|DELETE)/);
+    expect(src).not.toContain("createTemplate");
+    expect(src).not.toContain("deleteTemplate");
   });
 });
