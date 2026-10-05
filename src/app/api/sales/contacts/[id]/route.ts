@@ -11,5 +11,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!result.ok) {
     return NextResponse.json({ error: "Could not open this contact.", reason: result.reason }, { status: statusForReason(result.reason) });
   }
-  return NextResponse.json({ contact: result.contact, timeline: result.timeline, canAct: result.canAct });
+  return NextResponse.json({
+    contact: result.contact,
+    timeline: result.timeline,
+    canAct: result.canAct,
+    restricted: result.restricted,
+  });
 }

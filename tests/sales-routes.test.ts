@@ -74,4 +74,9 @@ describe("sales route files", () => {
     const src = readFileSync(join(salesRoot, "contacts", "[id]", "send", "route.ts"), "utf8");
     expect(src).toContain("followupInHours: parsed.data.followupInHours");
   });
+
+  it("the contact detail route passes the restricted flag through", () => {
+    const src = readFileSync(join(salesRoot, "contacts", "[id]", "route.ts"), "utf8");
+    expect(src).toContain("restricted: result.restricted");
+  });
 });

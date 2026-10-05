@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   assignSchema,
+  contactSearchFilter,
   contactsQuerySchema,
   leadSchema,
   noteSchema,
   numberCreateSchema,
   outcomeSchema,
+  phoneNeedle,
   sanitizeSearch,
   sendRequestSchema,
   settingsUpdateSchema,
@@ -136,5 +138,36 @@ describe("B2: sendRequestSchema followupInHours", () => {
     for (const h of [0, 12, 24.5, 96, 168, -24, "24", null]) {
       expect(sendRequestSchema.safeParse({ ...base, followupInHours: h }).success, String(h)).toBe(false);
     }
+  });
+});
+
+describe("B2: contact search", () => {
+  const me = "11111111-1111-4111-8111-111111111111";
+  it("turns typed phone digits into a needle inside +E.164", () => {
+    expect(phoneNeedle("0300 1234")).toBe("3001234");
+    expect(phoneNeedle("+92 300")).toBe("92300");
+    expect(phoneNeedle("Ayesha")).toBe("");
+  });
+  it("searches name only when the term has fewer than 3 digits", () => {
+    expect(contactSearchFilter("Ayesha", { id: me, isAdmin: false, tab: "all" })).toBe("full_name.ilike.%Ayesha%");
+  });
+  it("on the All tab an agent's phone search only matches unclaimed or own contacts", () => {
+    expect(contactSearchFilter("0300", { id: me, isAdmin: false, tab: "all" })).toBe(
+      `full_name.ilike.%0300%,and(phone_e164.ilike.%300%,or(owner_id.is.null,owner_id.eq.${me}))`,
+    );
+  });
+  it("admins and the Mine/Unclaimed tabs search phones freely", () => {
+    expect(contactSearchFilter("0300", { id: me, isAdmin: true, tab: "all" })).toBe(
+      "full_name.ilike.%0300%,phone_e164.ilike.%300%",
+    );
+    expect(contactSearchFilter("0300", { id: me, isAdmin: false, tab: "mine" })).toBe(
+      "full_name.ilike.%0300%,phone_e164.ilike.%300%",
+    );
+  });
+  it("an empty id can only match unclaimed phones; blank input gives no filter", () => {
+    expect(contactSearchFilter("0300", { id: "", isAdmin: false, tab: "all" })).toBe(
+      "full_name.ilike.%0300%,and(phone_e164.ilike.%300%,owner_id.is.null)",
+    );
+    expect(contactSearchFilter("  (,)  ", { id: me, isAdmin: false, tab: "all" })).toBeNull();
   });
 });

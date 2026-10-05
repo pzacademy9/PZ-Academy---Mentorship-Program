@@ -10,7 +10,7 @@ import {
   type OutcomeKind,
 } from "@/lib/crm/followup";
 import { normalizePhone } from "@/lib/crm/phone";
-import { sanitizeSearch } from "@/lib/validations/sales";
+import { contactSearchFilter } from "@/lib/validations/sales";
 
 const PAGE_SIZE = 30;
 const QUEUE_LIMIT = 50;
@@ -165,8 +165,10 @@ export async function listContacts(
       });
     if (query.tab === "mine") q = actor.id === "" ? q.eq("id", "00000000-0000-0000-0000-000000000000") : q.eq("owner_id", actor.id);
     if (query.tab === "unclaimed") q = q.is("owner_id", null);
-    const term = query.q ? sanitizeSearch(query.q) : "";
-    if (term) q = q.or(`full_name.ilike.%${term}%,phone_e164.ilike.%${term}%`);
+    const filter = query.q
+      ? contactSearchFilter(query.q, { id: actor.id, isAdmin: isAdminRole(actor), tab: query.tab })
+      : null;
+    if (filter) q = q.or(filter);
     const from = (query.page - 1) * PAGE_SIZE;
     const { data, count, error } = await q
       .order("updated_at", { ascending: false })
@@ -376,7 +378,7 @@ export async function addLead(
 ): Promise<
   | { ok: true; contactId: string }
   | { ok: false; reason: "invalid-phone"; detail: "empty" | "ambiguous" }
-  | { ok: false; reason: "duplicate"; contactId: string; ownerName: string | null }
+  | { ok: false; reason: "duplicate"; contactId: string | null; ownerName: string | null }
   | Fail<"not-allowed" | "db-error">
 > {
   if (actor.role !== "sales_agent" && actor.role !== "admin" && actor.role !== "super_admin") {
@@ -419,7 +421,7 @@ export async function addLead(
       .select("id")
       .single();
     if (error) {
-      if (error.code === "23505") return { ok: false, reason: "duplicate", contactId: "", ownerName: null };
+      if (error.code === "23505") return { ok: false, reason: "duplicate", contactId: null, ownerName: null };
       throw error;
     }
     const rows = [{ contact_id: data.id, agent_id: actor.id, kind: "claimed", created_at: iso }] as {

@@ -121,4 +121,10 @@ describe("data layer guards", () => {
     expect(body.indexOf("violationAfterInsert(")).toBeLessThan(body.indexOf("nextFollowupAfterSend(now, followupInHours)"));
     expect(body).toContain("outsideQuietHours(");
   });
+
+  it("list search goes through contactSearchFilter and duplicates never carry an empty id", () => {
+    expect(fnBody(contacts, "listContacts")).toContain("contactSearchFilter(");
+    expect(fnBody(contacts, "listContacts")).not.toContain("phone_e164.ilike");
+    expect(fnBody(contacts, "addLead")).not.toContain('contactId: ""');
+  });
 });

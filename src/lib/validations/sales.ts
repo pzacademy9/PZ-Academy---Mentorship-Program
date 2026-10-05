@@ -107,3 +107,36 @@ export const assignSchema = z.object({
   contactIds: z.array(z.string().uuid()).min(1).max(500),
   agentId: z.string().uuid().nullable(),
 });
+
+/** The digits a person types for a phone, matched inside +E.164: "0300 123" -> "300123". */
+export function phoneNeedle(term: string): string {
+  return term.replace(/\D/g, "").replace(/^0+/, "");
+}
+
+/**
+ * PostgREST or() body for contact search. On the All tab a sales agent sees other
+ * agents' contacts with the phone masked, so matching on their phone would reveal that
+ * the person exists; phone matches there are limited to unclaimed and own contacts.
+ */
+export function contactSearchFilter(
+  q: string,
+  viewer: { id: string; isAdmin: boolean; tab: "mine" | "unclaimed" | "all" },
+): string | null {
+  const term = sanitizeSearch(q);
+  if (!term) return null;
+  const parts = [`full_name.ilike.%${term}%`];
+  const needle = phoneNeedle(term);
+  if (needle.length >= 3) {
+    const phone = `phone_e164.ilike.%${needle}%`;
+    if (viewer.tab === "all" && !viewer.isAdmin) {
+      parts.push(
+        viewer.id === ""
+          ? `and(${phone},owner_id.is.null)`
+          : `and(${phone},or(owner_id.is.null,owner_id.eq.${viewer.id}))`,
+      );
+    } else {
+      parts.push(phone);
+    }
+  }
+  return parts.join(",");
+}
