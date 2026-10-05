@@ -8,6 +8,7 @@ import {
   isIndefinitelyFrozen,
   warmupStartAfterFreeze,
   startOfLocalDay,
+  shouldLogBlockedAttempt,
   type BudgetSummary,
   type NumberState,
   type SafetySettings,
@@ -91,7 +92,7 @@ export async function getNumberUsage(
   const db = createAdminSupabase();
   const dayStart = startOfLocalDay(now, settings.timezone).toISOString();
   const hourAgo = new Date(now.getTime() - 3_600_000).toISOString();
-  const [newChatsToday, newChatsLastHour, lastRes] = await Promise.all([
+  const [newChatsToday, newChatsLastHour, lastRes, oldestRes] = await Promise.all([
     countNewChats(numberId, dayStart),
     countNewChats(numberId, hourAgo),
     db
@@ -101,12 +102,24 @@ export async function getNumberUsage(
       .eq("kind", "sent")
       .order("created_at", { ascending: false })
       .limit(1),
+    db
+      .from("contact_activities")
+      .select("created_at")
+      .eq("number_id", numberId)
+      .eq("kind", "sent")
+      .eq("is_new_chat", true)
+      .gte("created_at", hourAgo)
+      .order("created_at", { ascending: true })
+      .limit(1),
   ]);
   if (lastRes.error) throw lastRes.error;
+  if (oldestRes.error) throw oldestRes.error;
   const row = lastRes.data?.[0];
+  const oldest = oldestRes.data?.[0];
   return {
     newChatsToday,
     newChatsLastHour,
+    hourWindowOldestAt: oldest ? new Date(oldest.created_at) : null,
     lastSend:
       row && row.next_unlock_at
         ? {
@@ -185,13 +198,24 @@ export async function getBudgetsForAgent(
   }
 }
 
-export async function logBlockedAttempt(row: {
-  numberId: string | null;
-  agentId: string | null;
-  contactId: string | null;
-  reason: string;
-}): Promise<void> {
+export async function logBlockedAttempt(
+  row: { numberId: string | null; agentId: string | null; contactId: string | null; reason: string },
+  opts: { now?: Date; throttle?: boolean } = {},
+): Promise<void> {
   const db = createAdminSupabase();
+  const now = opts.now ?? new Date();
+  if (opts.throttle !== false && row.agentId && row.numberId) {
+    const { data: last, error: lastErr } = await db
+      .from("whatsapp_blocked_attempts")
+      .select("created_at")
+      .eq("agent_id", row.agentId)
+      .eq("number_id", row.numberId)
+      .eq("reason", row.reason)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    // On a read error, log anyway: a missing row is worse than a duplicate.
+    if (!lastErr && !shouldLogBlockedAttempt(last?.[0] ? new Date(last[0].created_at) : null, now)) return;
+  }
   const { error } = await db.from("whatsapp_blocked_attempts").insert({
     number_id: row.numberId,
     agent_id: row.agentId,
@@ -236,7 +260,7 @@ export async function freezeNumber(
       })
       .eq("id", numberId);
     if (error) throw error;
-    await logBlockedAttempt({ numberId, agentId: userId, contactId: null, reason: "panic_freeze" });
+    await logBlockedAttempt({ numberId, agentId: userId, contactId: null, reason: "panic_freeze" }, { throttle: false });
     return { ok: true, changed: true, frozenUntil };
   } catch (e) {
     console.error("[sales-numbers] freezeNumber", e);

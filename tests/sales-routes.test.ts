@@ -69,4 +69,9 @@ describe("sales route files", () => {
       expect(src, rel(f)).not.toContain("createAdminSupabase");
     }
   });
+
+  it("the send route passes the chosen follow-up hours to requestSend", () => {
+    const src = readFileSync(join(salesRoot, "contacts", "[id]", "send", "route.ts"), "utf8");
+    expect(src).toContain("followupInHours: parsed.data.followupInHours");
+  });
 });

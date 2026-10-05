@@ -17,6 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     contactId: id,
     numberId: parsed.data.numberId,
     messageTemplate: parsed.data.messageTemplate,
+    followupInHours: parsed.data.followupInHours,
   });
   if (!result.ok) {
     return NextResponse.json(

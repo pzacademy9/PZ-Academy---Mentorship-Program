@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OUTCOME_KINDS } from "@/lib/crm/followup";
+import { DEFAULT_FOLLOWUP_HOURS, OUTCOME_KINDS, isFollowupHours } from "@/lib/crm/followup";
 
 const text = (max: number) => z.string().trim().min(1, "Required").max(max);
 
@@ -18,6 +18,12 @@ export const noteSchema = z.object({ body: text(2000) });
 export const sendRequestSchema = z.object({
   numberId: z.string().uuid(),
   messageTemplate: text(1000),
+  // How long until the contact comes back to Today if they do not answer: 8 hours, 1 day, 2 days or 3 days.
+  followupInHours: z
+    .number()
+    .int()
+    .refine((h) => isFollowupHours(h), "Pick 8 hours, 1 day, 2 days or 3 days.")
+    .default(DEFAULT_FOLLOWUP_HOURS),
 });
 
 export const leadSchema = z.object({

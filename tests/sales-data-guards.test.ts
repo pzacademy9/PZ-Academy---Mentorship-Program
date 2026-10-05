@@ -93,4 +93,23 @@ describe("data layer guards", () => {
       expect(src).not.toMatch(/\b100% safe\b/i);
     }
   });
+
+  it("usage reports the oldest new chat in the rolling hour", () => {
+    const body = fnBody(numbers, "getNumberUsage");
+    expect(body).toContain("hourWindowOldestAt");
+    expect(body).toContain('.order("created_at", { ascending: true })');
+  });
+
+  it("blocked attempts are throttled, but the panic freeze always logs", () => {
+    expect(fnBody(numbers, "logBlockedAttempt")).toContain("shouldLogBlockedAttempt(");
+    expect(fnBody(numbers, "freezeNumber")).toContain("throttle: false");
+  });
+
+  it("an accepted send moves the follow-up by the chosen hours, only after the race re-check passed", () => {
+    const body = fnBody(send, "requestSend");
+    expect(body).toContain("nextFollowupAfterSend(now, followupInHours)");
+    expect(body).not.toContain('nextFollowupFor("sent"');
+    expect(body.indexOf("violationAfterInsert(")).toBeLessThan(body.indexOf("nextFollowupAfterSend(now, followupInHours)"));
+    expect(body).toContain("outsideQuietHours(");
+  });
 });

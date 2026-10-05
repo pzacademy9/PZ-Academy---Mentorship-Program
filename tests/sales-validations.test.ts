@@ -117,3 +117,24 @@ describe("statusForReason", () => {
     expect(statusForReason("something-new")).toBe(400);
   });
 });
+
+describe("B2: sendRequestSchema followupInHours", () => {
+  const base = { numberId: uuid, messageTemplate: "Hi {{first_name}}" };
+  it("defaults to 24 hours (1 day) when the field is missing", () => {
+    const r = sendRequestSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.followupInHours).toBe(24);
+  });
+  it("accepts 8, 24, 48 and 72", () => {
+    for (const h of [8, 24, 48, 72]) {
+      const r = sendRequestSchema.safeParse({ ...base, followupInHours: h });
+      expect(r.success, String(h)).toBe(true);
+      if (r.success) expect(r.data.followupInHours).toBe(h);
+    }
+  });
+  it("rejects anything else", () => {
+    for (const h of [0, 12, 24.5, 96, 168, -24, "24", null]) {
+      expect(sendRequestSchema.safeParse({ ...base, followupInHours: h }).success, String(h)).toBe(false);
+    }
+  });
+});

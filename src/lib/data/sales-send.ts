@@ -1,10 +1,12 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { canActOnContact, type Actor } from "@/lib/crm/ownership";
+import { nextFollowupAfterSend } from "@/lib/crm/followup";
 import { buildWhatsAppLink, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
   budgetSummary,
   evaluateSend,
+  outsideQuietHours,
   violationAfterInsert,
   type BlockReason,
   type BudgetSummary,
@@ -51,10 +53,11 @@ export async function requestSend(args: {
   contactId: string;
   numberId: string;
   messageTemplate: string;
+  followupInHours?: number;
   now?: Date;
   rand?: () => number;
 }): Promise<SendResult> {
-  const { actor, contactId, numberId, messageTemplate } = args;
+  const { actor, contactId, numberId, messageTemplate, followupInHours } = args;
   const now = args.now ?? new Date();
   const rand = args.rand ?? Math.random;
   try {
@@ -94,7 +97,7 @@ export async function requestSend(args: {
     const usage = await getNumberUsage(numberId, now, settings);
     const decision = evaluateSend({ now, settings, state, usage, isNewChat, rand });
     if (!decision.ok) {
-      await logBlockedAttempt({ numberId, agentId: actor.id, contactId, reason: decision.reason });
+      await logBlockedAttempt({ numberId, agentId: actor.id, contactId, reason: decision.reason }, { now });
       return {
         ok: false,
         reason: decision.reason,
@@ -166,19 +169,30 @@ export async function requestSend(args: {
     if (violation) {
       const { error: delErr } = await db.from("contact_activities").delete().eq("id", row.id);
       if (delErr) console.error("[sales-send] could not remove over-limit send", row.id, delErr);
-      await logBlockedAttempt({ numberId, agentId: actor.id, contactId, reason: violation });
+      await logBlockedAttempt({ numberId, agentId: actor.id, contactId, reason: violation }, { now });
       return {
         ok: false,
         reason: violation,
         message: "Another message was just sent from this number. Try again in a moment.",
-        retryAt: violation === "spacing" && conflict ? new Date(conflict.next_unlock_at).toISOString() : null,
+        retryAt:
+          violation === "spacing" && conflict
+            ? outsideQuietHours(new Date(conflict.next_unlock_at), settings).toISOString()
+            : null,
       };
     }
+
+    // The person leaves Today until the time THEY chose (plan decision D1, default 1 day).
+    // A failure here must not hide a send that was already counted, so it is logged, not thrown.
+    const { error: bumpErr } = await db
+      .from("contacts")
+      .update({ next_followup_at: nextFollowupAfterSend(now, followupInHours).toISOString() })
+      .eq("id", contactId);
+    if (bumpErr) console.error("[sales-send] could not move the follow-up after a send", contactId, bumpErr);
 
     return {
       ok: true,
       link: buildWhatsAppLink(contact.phone_e164, messageTemplate, contact.full_name),
-      nextUnlockAt: decision.nextUnlockAt.toISOString(),
+      nextUnlockAt: outsideQuietHours(decision.nextUnlockAt, settings).toISOString(),
       warnings: decision.warnings,
       isNewChat,
       budget: budgetSummary({ now, settings, state, usage: after }),
