@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SalesBudgetContext, type SalesBudgetValue } from "@/components/sales/SalesBudgetProvider";
@@ -13,9 +13,9 @@ const budget = (over: Partial<BudgetJson> = {}): BudgetJson => ({
   quietHours: false, quietEndsAt: null, frozen: false, frozenUntil: null, nextUnlockAt: null, ...over,
 });
 const num = (b = budget()): AgentBudgetJson => ({ number: { id: "n1", label: "My phone", phone_e164: null }, budget: b });
-const contact = { id: "c1", full_name: "Ayesha Tariq", phone_e164: "+923001234567", warm: false, recently_contacted: false };
+const contact: { id: string; full_name: string; phone_e164: string | null; warm: boolean; recently_contacted: boolean } = { id: "c1", full_name: "Ayesha Tariq", phone_e164: "+923001234567", warm: false, recently_contacted: false };
 
-function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValue> = {}) {
+function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValue> = {}, c = contact) {
   const value: SalesBudgetValue = {
     budgets,
     loadError: false,
@@ -31,7 +31,7 @@ function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValu
   render(
     <ConfirmProvider>
       <SalesBudgetContext.Provider value={value}>
-        <SendPanel contact={contact} templates={[]} onOutcome={onOutcome} openLink={openLink} />
+        <SendPanel contact={c} templates={[]} onOutcome={onOutcome} openLink={openLink} />
       </SalesBudgetContext.Provider>
     </ConfirmProvider>,
   );
@@ -107,6 +107,34 @@ describe("SendPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Try again in 10 min\.$/)));
     expect(value.refresh).toHaveBeenCalled();
+  });
+});
+
+describe("SendPanel guards", () => {
+  it("keeps an 'Open WhatsApp again' link after a send", async () => {
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    const link = await screen.findByRole("link", { name: "Open WhatsApp again" });
+    expect(link.getAttribute("href")).toBe("whatsapp://send?phone=923001234567&text=hi");
+  });
+
+  it("locks the button when the contact has no phone number", () => {
+    setup([num()], {}, { ...contact, phone_e164: null });
+    const btn = screen.getByRole("button", { name: "No phone number for this person" });
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("locks the button when the message is empty", () => {
+    setup([num()]);
+    fireEvent.change(screen.getByRole("textbox", { name: /Your message/ }), { target: { value: "   " } });
+    expect((screen.getByRole("button", { name: "Message on WhatsApp" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("explains a do-not-contact refusal in plain words", async () => {
+    fetchMock.mockImplementationOnce(async () => ({ ok: false, json: async () => ({ error: "x", reason: "do-not-contact" }) }));
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This person asked not to be messaged."));
   });
 });
 

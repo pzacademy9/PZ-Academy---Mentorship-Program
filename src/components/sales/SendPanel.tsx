@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MessageCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,10 @@ export function SendPanel({
   const [templateId, setTemplateId] = useState<string>(templates[0]?.id ?? "");
   const [message, setMessage] = useState<string>(templates[0]?.body ?? DEFAULT_MESSAGE);
   const [sent, setSent] = useState(false);
+  const [sentLink, setSentLink] = useState<string | null>(null);
+  const currentId = useRef(contact.id);
+  currentId.current = contact.id;
+  const refreshedFor = useRef<string | null>(null);
   const [note, setNote] = useState("");
   // The person decides when this contact comes back to Today if they do not answer (decision D1).
   const [followupHours, setFollowupHours] = useState<FollowupHours>(DEFAULT_FOLLOWUP_HOURS);
@@ -57,6 +61,7 @@ export function SendPanel({
   // A new contact resets the panel.
   useEffect(() => {
     setSent(false);
+    setSentLink(null);
     setNote("");
     setFollowupHours(DEFAULT_FOLLOWUP_HOURS);
   }, [contact.id]);
@@ -68,11 +73,15 @@ export function SendPanel({
   // When a pause or quiet hours ends, fetch fresh numbers once.
   const until = lock.kind === "frozen" || lock.kind === "quiet" ? lock.until : null;
   useEffect(() => {
-    if (until && Date.parse(until) <= now.getTime()) void refresh();
+    if (until && Date.parse(until) <= now.getTime() && refreshedFor.current !== until) {
+      refreshedFor.current = until;
+      void refresh();
+    }
   }, [until, now, refresh]);
 
   const { run: send, pending: sending } = useAsyncAction(async () => {
     if (!selected || lock.kind !== "ready") return;
+    const startedFor = contact.id;
     try {
       const res = await fetch(`/api/sales/contacts/${contact.id}/send`, {
         method: "POST",
@@ -88,8 +97,11 @@ export function SendPanel({
       const ok = body as SendOkJson;
       applyBudget(selected.number.id, ok.budget);
       for (const w of ok.warnings) toast.warning(w);
-      setSent(true);
-      onSent?.(contact.id);
+      if (currentId.current === startedFor) {
+        setSent(true);
+        setSentLink(ok.link);
+      }
+      onSent?.(startedFor);
       openLink(ok.link);
     } catch {
       toast.error("Could not send this message.");
@@ -118,7 +130,11 @@ export function SendPanel({
     }
   });
 
-  const locked = lock.kind !== "ready";
+  const noPhone = !contact.phone_e164;
+  const emptyMessage = message.trim().length === 0;
+  const locked = lock.kind !== "ready" || noPhone;
+  const buttonText = noPhone ? "No phone number for this person" : copy.button;
+  const detailText = noPhone ? null : copy.detail;
 
   return (
     <div className="bg-pz-surface-container-lowest rounded-xl p-4 sm:p-6 shadow-sm flex flex-col gap-5 font-body">
@@ -203,19 +219,27 @@ export function SendPanel({
           type="button"
           variant="bare"
           size="bare"
-          disabled={locked || sending}
+          disabled={locked || sending || emptyMessage}
           loading={sending}
           onClick={() => void send()}
-          className="w-full h-14 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99] disabled:opacity-50"
+          className="w-full h-14 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none"
         >
           <MessageCircle className="w-6 h-6" />
-          {copy.button}
+          {buttonText}
         </Button>
-        {copy.detail && <p className="text-xs text-center text-pz-on-surface-variant">{copy.detail}</p>}
-        {!locked && !copy.detail && (
+        {detailText && <p className="text-xs text-center text-pz-on-surface-variant">{detailText}</p>}
+        {!locked && !detailText && (
           <p className="text-[11px] text-center text-pz-on-surface-variant">
             Opens WhatsApp with the message filled in. Check it, then press send in WhatsApp.
           </p>
+        )}
+        {sent && sentLink && (
+          <a
+            href={sentLink}
+            className="min-h-11 inline-flex items-center justify-center rounded-lg bg-pz-surface-container-low text-pz-on-surface font-headline font-semibold text-sm px-4"
+          >
+            Open WhatsApp again
+          </a>
         )}
         {sent && (
           <p role="status" className="text-xs text-center font-semibold text-pz-primary">

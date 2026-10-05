@@ -134,7 +134,16 @@ export function hourLine(b: BudgetJson): string {
   return `${b.hourlyUsed} of ${b.hourlyCap} this hour`;
 }
 
+const CONTACT_REFUSALS: Record<string, string> = {
+  "do-not-contact": "This person asked not to be messaged.",
+  "not-owner": "This contact belongs to someone else.",
+  "number-not-assigned": "No WhatsApp number is assigned to you yet. Ask your admin.",
+  "no-phone": "No phone number for this person.",
+};
+
 export function explainSendError(body: ApiErrorJson | null, now: Date): string {
+  const known = body?.reason ? CONTACT_REFUSALS[body.reason] : undefined;
+  if (known) return known;
   const base = body?.error ?? "Could not send this message.";
   if (!body?.retryAt) return base;
   return `${base} Try again ${formatWait(secondsUntil(body.retryAt, now), body.retryAt)}.`;

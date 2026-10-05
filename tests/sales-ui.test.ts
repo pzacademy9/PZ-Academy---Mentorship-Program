@@ -112,6 +112,8 @@ describe("budget lines and errors", () => {
       "Wait a moment before the next message. Try again in 74s.",
     );
     expect(explainSendError(null, NOW)).toBe("Could not send this message.");
+    expect(explainSendError({ reason: "not-owner" }, NOW)).toBe("This contact belongs to someone else.");
+    expect(explainSendError({ reason: "number-not-assigned" }, NOW)).toBe("No WhatsApp number is assigned to you yet. Ask your admin.");
   });
 });
 
