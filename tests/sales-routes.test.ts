@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { statusForReason } from "@/lib/api/sales-http";
 
 function walk(dir: string): string[] {
   let out: string[] = [];
@@ -87,5 +88,15 @@ describe("sales route files", () => {
     expect(src).not.toMatch(/export async function (POST|PUT|PATCH|DELETE)/);
     expect(src).not.toContain("createTemplate");
     expect(src).not.toContain("deleteTemplate");
+  });
+
+  it("admin number routes pass the plain duplicate / invalid-phone message through with its status", () => {
+    const create = readFileSync(join(adminSalesRoot, "numbers", "route.ts"), "utf8");
+    const update = readFileSync(join(adminSalesRoot, "numbers", "[id]", "route.ts"), "utf8");
+    expect(create).toContain("result.message");
+    expect(create).toContain("statusForReason(result.reason)");
+    expect(update).toContain("result.message");
+    expect(statusForReason("duplicate")).toBe(409);
+    expect(statusForReason("invalid-phone")).toBe(400);
   });
 });

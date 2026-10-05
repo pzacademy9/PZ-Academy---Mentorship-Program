@@ -10,7 +10,7 @@ export type NumberAdminJson = {
 };
 export type BlockedAttemptJson = {
   id: string; reason: string; created_at: string;
-  number_label: string | null; agent_name: string | null; contact_name: string | null;
+  number_label: string | null; agent_name: string | null; agent_role?: string | null; contact_name: string | null;
 };
 
 export const ADMIN_BATCH_NOTE =
@@ -72,7 +72,9 @@ export function pausedNumbers(
     .filter((n) => n.status === "frozen" && (n.frozen_until === null || Date.parse(n.frozen_until) > now.getTime()))
     .map((n) => {
       const panic = log.find((l) => l.reason === "panic_freeze" && l.number_label === n.label);
-      return { id: n.id, label: n.label, until: n.frozen_until, byAgent: panic?.agent_name ?? null };
+      // An admin's own pause is not an agent's WhatsApp warning, so it is not credited to an agent.
+      const byAdmin = panic?.agent_role === "admin" || panic?.agent_role === "super_admin";
+      return { id: n.id, label: n.label, until: n.frozen_until, byAgent: byAdmin ? null : panic?.agent_name ?? null };
     });
 }
 

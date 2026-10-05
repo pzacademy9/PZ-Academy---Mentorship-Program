@@ -60,4 +60,46 @@ describe("SafetyLimitsPanel", () => {
       expect(patch && JSON.parse(patch[1].body)).toEqual({ unfreeze: true });
     });
   });
+
+  it("keeps unsaved rule edits when a number action refreshes the page data", async () => {
+    renderPanel();
+    const input = (await screen.findByLabelText("New chats per day, per number")) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "40" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Unpause DMC 2" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Unpause" }));
+    await waitFor(() => {
+      const gets = fetchMock.mock.calls.filter(([u, i]) => u === "/api/admin/sales/settings" && !i?.method);
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
+    expect((screen.getByLabelText("New chats per day, per number") as HTMLInputElement).value).toBe("40");
+  });
+
+  it("rejects an invalid phone before sending and sends the E.164 form otherwise", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Add WhatsApp number" }));
+    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "New one" } });
+    fireEvent.change(screen.getByLabelText("Phone number (optional)"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add number" }));
+    expect((await screen.findAllByRole("alert")).some((a) => /not valid/.test(a.textContent ?? ""))).toBe(true);
+    expect(fetchMock.mock.calls.some(([u, i]) => u === "/api/admin/sales/numbers" && i?.method === "POST")).toBe(false);
+    fireEvent.change(screen.getByLabelText("Phone number (optional)"), { target: { value: "0300 1234567" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add number" }));
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find(([u, i]) => u === "/api/admin/sales/numbers" && i?.method === "POST");
+      expect(post && JSON.parse(post[1].body).phoneE164).toBe("+923001234567");
+    });
+  });
+
+  it("says how long an admin pause lasts", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/admin/sales/numbers" && !init?.method) return { ok: true, json: async () => ({ numbers: [{ ...numbers[0], status: "active", frozen_until: null }] }) };
+      if (url.startsWith("/api/sales/budget")) return { ok: true, json: async () => ({ budgets: [{ ...budgets[0], budget: { ...budgets[0].budget, frozen: false } }] }) };
+      if (url === "/api/admin/sales/settings") return { ok: true, json: async () => ({ settings: DEFAULT_SETTINGS }) };
+      if (url.startsWith("/api/admin/sales/blocked-attempts")) return { ok: true, json: async () => ({ rows: [] }) };
+      return { ok: false, json: async () => ({}) };
+    });
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: "Pause DMC 2" }));
+    expect(await screen.findByText(/for 48 hours/)).toBeTruthy();
+  });
 });

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { normalizePhone } from "@/lib/crm/phone";
 import { budgetLine, hourLine, type BudgetJson } from "@/lib/crm/sales-ui";
 import { numberStatusLabel, type NumberAdminJson } from "@/lib/crm/sales-admin-ui";
 
@@ -37,8 +38,14 @@ function NumberForm({
     if (v.label.trim() === "") return setProblem("Give the number a label, for example the campaign name.");
     if (!whole(v.daily, 1, 500)) return setProblem("The daily limit must be a whole number from 1 to 500, or blank.");
     if (!whole(v.hourly, 1, 200)) return setProblem("The hourly limit must be a whole number from 1 to 200, or blank.");
+    let phone = "";
+    if (v.phone.trim() !== "") {
+      const norm = normalizePhone(v.phone);
+      if (!norm.ok) return setProblem("That phone number is not valid. Use the full number, for example +923001234567.");
+      phone = norm.e164;
+    }
     setProblem(null);
-    const ok = await onSubmit(v);
+    const ok = await onSubmit({ ...v, phone });
     if (ok) onCancel();
   });
 
@@ -97,10 +104,10 @@ function NumberForm({
 }
 
 export function NumbersSection({
-  numbers, budgets, agents, plainDailyCap, onChanged,
+  numbers, budgets, agents, plainDailyCap, freezeHours, onChanged,
 }: {
   numbers: NumberAdminJson[]; budgets: Map<string, BudgetJson>; agents: Agent[];
-  plainDailyCap: number; onChanged: () => void;
+  plainDailyCap: number; freezeHours: number; onChanged: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -130,7 +137,7 @@ export function NumbersSection({
   const { run: pauseNow } = useAsyncAction(async (row: NumberAdminJson) => {
     const ok = await confirm({
       title: `Pause ${row.label}?`,
-      description: "Agents cannot send from it until the pause ends or you unpause it.",
+      description: `Agents cannot send from it for ${freezeHours} hours, or until you unpause it.`,
       confirmLabel: "Pause now",
       destructive: true,
     });

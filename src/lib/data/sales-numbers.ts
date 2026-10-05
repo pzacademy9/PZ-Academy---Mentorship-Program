@@ -14,6 +14,7 @@ import {
   type SafetySettings,
   type Usage,
 } from "@/lib/crm/send-limits";
+import { normalizePhone } from "@/lib/crm/phone";
 
 export type NumberRow = {
   id: string;
@@ -333,21 +334,49 @@ async function syncAgents(numberId: string, agentIds: string[]): Promise<void> {
   }
 }
 
+export type NumberWriteFailure =
+  | { ok: false; reason: "db-error" }
+  | { ok: false; reason: "invalid-phone"; message: string }
+  | { ok: false; reason: "duplicate"; message: string };
+
+/** Blank means no phone. Anything else must normalise to +E.164 and not belong to another number. */
+async function checkPhone(
+  raw: string | null | undefined,
+  selfId: string | null,
+): Promise<{ ok: true; e164: string | null } | NumberWriteFailure> {
+  if (raw === undefined || raw === null || raw.trim() === "") return { ok: true, e164: null };
+  const norm = normalizePhone(raw);
+  if (!norm.ok) {
+    return { ok: false, reason: "invalid-phone", message: "That phone number is not valid. Use the full number, for example +923001234567." };
+  }
+  const db = createAdminSupabase();
+  let q = db.from("whatsapp_numbers").select("id, label").eq("phone_e164", norm.e164);
+  if (selfId) q = q.neq("id", selfId);
+  const { data, error } = await q.limit(1);
+  if (error) throw error;
+  if (data && data.length > 0) {
+    return { ok: false, reason: "duplicate", message: `This number is already added as ${data[0].label}.` };
+  }
+  return { ok: true, e164: norm.e164 };
+}
+
 export async function createNumber(input: {
   label: string;
   phoneE164?: string;
   dailyCap?: number | null;
   hourlyCap?: number | null;
   agentIds: string[];
-}): Promise<{ ok: true; id: string } | { ok: false; reason: "db-error" }> {
+}): Promise<{ ok: true; id: string } | NumberWriteFailure> {
   try {
+    const phone = await checkPhone(input.phoneE164, null);
+    if (!phone.ok) return phone;
     const db = createAdminSupabase();
     const settings = await getSafetySettings();
     const { data, error } = await db
       .from("whatsapp_numbers")
       .insert({
         label: input.label,
-        phone_e164: input.phoneE164 ?? null,
+        phone_e164: phone.e164,
         daily_cap: input.dailyCap ?? null,
         hourly_cap: input.hourlyCap ?? null,
         warmup_started_on: localParts(new Date(), settings.timezone).dateKey,
@@ -380,7 +409,7 @@ export async function updateNumber(
     agentIds?: string[];
     unfreeze?: true;
   },
-): Promise<{ ok: true } | { ok: false; reason: "not-found" | "db-error" }> {
+): Promise<{ ok: true } | { ok: false; reason: "not-found" } | NumberWriteFailure> {
   try {
     const db = createAdminSupabase();
     const { data: existing } = await db.from("whatsapp_numbers").select("id").eq("id", id).maybeSingle();
@@ -388,7 +417,11 @@ export async function updateNumber(
 
     const patch: Partial<NumberRow> = {};
     if (input.label !== undefined) patch.label = input.label;
-    if (input.phoneE164 !== undefined) patch.phone_e164 = input.phoneE164;
+    if (input.phoneE164 !== undefined) {
+      const phone = await checkPhone(input.phoneE164, id);
+      if (!phone.ok) return phone;
+      patch.phone_e164 = phone.e164;
+    }
     if (input.dailyCap !== undefined) patch.daily_cap = input.dailyCap;
     if (input.hourlyCap !== undefined) patch.hourly_cap = input.hourlyCap;
     if (input.unfreeze) {
@@ -435,6 +468,7 @@ export type BlockedAttemptRow = {
   created_at: string;
   number_label: string | null;
   agent_name: string | null;
+  agent_role: string | null;
   contact_name: string | null;
 };
 
@@ -450,7 +484,13 @@ export async function listBlockedAttempts(
       .limit(limit);
     if (error) throw error;
     const rows = data ?? [];
-    const agentNames = await profileNames(Array.from(new Set(rows.map((r) => r.agent_id).filter((x): x is string => !!x))));
+    const agentIds = Array.from(new Set(rows.map((r) => r.agent_id).filter((x): x is string => !!x)));
+    const agentNames = await profileNames(agentIds);
+    const agentRoles = new Map<string, string>();
+    if (agentIds.length > 0) {
+      const { data: roleRows } = await db.from("profiles").select("id, role").in("id", agentIds);
+      for (const p of roleRows ?? []) if (p.role) agentRoles.set(p.id, p.role);
+    }
     const numberIds = Array.from(new Set(rows.map((r) => r.number_id).filter((x): x is string => !!x)));
     const contactIds = Array.from(new Set(rows.map((r) => r.contact_id).filter((x): x is string => !!x)));
     const [{ data: nums }, { data: cons }] = await Promise.all([
@@ -467,6 +507,7 @@ export async function listBlockedAttempts(
         created_at: r.created_at,
         number_label: r.number_id ? numLabel.get(r.number_id) ?? null : null,
         agent_name: r.agent_id ? agentNames.get(r.agent_id) ?? null : null,
+        agent_role: r.agent_id ? agentRoles.get(r.agent_id) ?? null : null,
         contact_name: r.contact_id ? conName.get(r.contact_id) ?? null : null,
       })),
     };

@@ -127,4 +127,13 @@ describe("data layer guards", () => {
     expect(fnBody(contacts, "listContacts")).not.toContain("phone_e164.ilike");
     expect(fnBody(contacts, "addLead")).not.toContain('contactId: ""');
   });
+
+  it("number create and update normalise the phone and refuse duplicates", () => {
+    const check = fnBody(numbers, "checkPhone");
+    expect(check).toContain("normalizePhone(");
+    expect(check).toContain('"duplicate"');
+    expect(check).toContain(".neq(");
+    expect(fnBody(numbers, "createNumber")).toContain("checkPhone(");
+    expect(fnBody(numbers, "updateNumber")).toContain("checkPhone(");
+  });
 });

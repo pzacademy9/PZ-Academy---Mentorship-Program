@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createNumber, listNumbersAdmin } from "@/lib/data/sales-numbers";
+import { statusForReason } from "@/lib/api/sales-http";
 import { numberCreateSchema } from "@/lib/validations/sales";
 
 export async function GET() {
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const result = await createNumber(parsed.data);
-  if (!result.ok) return NextResponse.json({ error: "Could not add this number." }, { status: 500 });
+  if (!result.ok) {
+    if (result.reason === "db-error") return NextResponse.json({ error: "Could not add this number." }, { status: 500 });
+    return NextResponse.json({ error: result.message, reason: result.reason }, { status: statusForReason(result.reason) });
+  }
   return NextResponse.json({ ok: true, id: result.id }, { status: 201 });
 }

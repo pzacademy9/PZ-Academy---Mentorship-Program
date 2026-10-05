@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Gauge, Hourglass, Moon, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -39,7 +39,13 @@ const inputClass =
 
 export function SettingsSection({ settings, onSaved }: { settings: SafetySettings; onSaved: (s: SafetySettings) => void }) {
   const [draft, setDraft] = useState<SafetySettings>(settings);
-  useEffect(() => setDraft(settings), [settings]);
+  // Reset the draft only when the stored values really changed, so a refresh
+  // triggered by a number action does not wipe unsaved edits.
+  const lastStored = useRef(settings);
+  useEffect(() => {
+    if (Object.keys(settingsPatch(lastStored.current, settings)).length > 0) setDraft(settings);
+    lastStored.current = settings;
+  }, [settings]);
   const patch = settingsPatch(settings, draft);
   const dirty = Object.keys(patch).length > 0;
   const problems = dirty ? validateSettings(draft) : [];

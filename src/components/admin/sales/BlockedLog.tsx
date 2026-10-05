@@ -28,7 +28,7 @@ export function BlockedLog({ rows }: { rows: BlockedAttemptJson[] }) {
                 <span><span className="lg:hidden text-xs text-pz-on-surface-variant">Number: </span>{r.number_label ?? "—"}</span>
                 <span><span className="lg:hidden text-xs text-pz-on-surface-variant">Agent: </span>{r.agent_name ?? "—"}</span>
                 <span><span className="lg:hidden text-xs text-pz-on-surface-variant">Contact: </span>{r.contact_name ?? "—"}</span>
-                <span className="font-semibold">{blockedReasonLabel(r.reason)}</span>
+                <span className="font-semibold">{r.reason === "panic_freeze" && (r.agent_role === "admin" || r.agent_role === "super_admin") ? "Admin paused this number" : blockedReasonLabel(r.reason)}</span>
               </li>
             ))}
           </ul>

@@ -71,6 +71,11 @@ export function SafetyLimitsPanel({ agents }: { agents: { id: string; fullName: 
 
   return (
     <div className="flex flex-col gap-6">
+      {error && (
+        <p role="status" className="bg-pz-surface-container-low rounded-lg px-4 py-3 text-sm text-pz-on-surface">
+          Could not refresh. Showing the last numbers we have.
+        </p>
+      )}
       {paused.length > 0 && (
         <div role="alert" className="bg-pz-error-container text-pz-on-error-container rounded-xl p-4 text-sm flex flex-col gap-1">
           {paused.map((p) => (
@@ -93,8 +98,11 @@ export function SafetyLimitsPanel({ agents }: { agents: { id: string; fullName: 
           <p>{ADMIN_BATCH_NOTE}</p>
         </div>
       </div>
-      <NumbersSection numbers={data.numbers} budgets={data.budgets} agents={agents} plainDailyCap={data.settings.daily_cap} onChanged={load} />
-      <SettingsSection settings={data.settings} onSaved={(settings) => setData((d) => (d ? { ...d, settings } : d))} />
+      <NumbersSection numbers={data.numbers} budgets={data.budgets} agents={agents} plainDailyCap={data.settings.daily_cap} freezeHours={data.settings.freeze_hours} onChanged={load} />
+      <SettingsSection settings={data.settings} onSaved={(settings) => {
+          setData((d) => (d ? { ...d, settings } : d));
+          void load();
+        }} />
       <BlockedLog rows={data.log} />
     </div>
   );

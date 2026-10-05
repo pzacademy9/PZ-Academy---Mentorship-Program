@@ -14,7 +14,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const result = await updateNumber(id, parsed.data);
   if (!result.ok) {
-    return NextResponse.json({ error: "Could not update this number.", reason: result.reason }, { status: statusForReason(result.reason) });
+    const error = "message" in result ? result.message : "Could not update this number.";
+    return NextResponse.json({ error, reason: result.reason }, { status: statusForReason(result.reason) });
   }
   return NextResponse.json({ ok: true });
 }
