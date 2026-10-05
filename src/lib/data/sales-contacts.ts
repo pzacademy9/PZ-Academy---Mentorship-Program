@@ -1,13 +1,22 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { canActOnContact, canClaimContact, canSeeDetails, type Actor } from "@/lib/crm/ownership";
-import { nextFollowupFor, rankQueue, type OutcomeKind } from "@/lib/crm/followup";
+import {
+  coldQueueFilter,
+  isWarmOutcome,
+  nextFollowupFor,
+  rankQueue,
+  WARM_OUTCOMES,
+  type OutcomeKind,
+} from "@/lib/crm/followup";
 import { normalizePhone } from "@/lib/crm/phone";
 import { sanitizeSearch } from "@/lib/validations/sales";
 
 const PAGE_SIZE = 30;
 const QUEUE_LIMIT = 50;
 const DAY_MS = 86_400_000;
+/** PostgREST returns at most 1000 rows; activity reads below are capped at it explicitly. */
+const ACTIVITY_READ_LIMIT = 1000;
 
 export type QueueCard = {
   id: string;
@@ -64,56 +73,79 @@ export async function getTodayQueue(
   if (actor.id === "") return { ok: true, items: [], remaining: 0 };
   try {
     const db = createAdminSupabase();
-    const { data, error } = await db
-      .from("contacts")
-      .select("id, full_name, phone_e164, last_outcome, next_followup_at")
-      .eq("owner_id", actor.id)
-      .is("do_not_contact_at", null)
-      .is("whatsapp_unsubscribed_at", null)
-      .not("phone_e164", "is", null)
-      .or(`next_followup_at.is.null,next_followup_at.lte.${now.toISOString()}`)
-      .order("next_followup_at", { ascending: true, nullsFirst: true })
-      .limit(200);
-    if (error) throw error;
-    const rows = data ?? [];
-    if (rows.length === 0) return { ok: true, items: [], remaining: 0 };
-    const ids = rows.map((r) => r.id);
+    const nowIso = now.toISOString();
+    const owned = () =>
+      db
+        .from("contacts")
+        .select("id, full_name, phone_e164, last_outcome, next_followup_at", { count: "exact" })
+        .eq("owner_id", actor.id)
+        .is("do_not_contact_at", null)
+        .is("whatsapp_unsubscribed_at", null)
+        .not("phone_e164", "is", null);
 
-    const [warmRes, recentRes, noteRes] = await Promise.all([
-      db.from("contact_activities").select("contact_id").in("contact_id", ids).in("kind", ["replied", "interested", "bought"]),
+    // Warm first (spec 5.8). The limit applies to each half separately, so a long cold
+    // backlog can never push people who already replied out of the list.
+    const [warmRes, coldRes] = await Promise.all([
+      owned()
+        .in("last_outcome", [...WARM_OUTCOMES])
+        .lte("next_followup_at", nowIso)
+        .order("next_followup_at", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(QUEUE_LIMIT),
+      owned()
+        .or(coldQueueFilter(nowIso))
+        .order("next_followup_at", { ascending: true, nullsFirst: true })
+        .order("id", { ascending: true })
+        .limit(QUEUE_LIMIT),
+    ]);
+    if (warmRes.error) throw warmRes.error;
+    if (coldRes.error) throw coldRes.error;
+    const remaining = (warmRes.count ?? 0) + (coldRes.count ?? 0);
+
+    const ranked = rankQueue(
+      [...(warmRes.data ?? []), ...(coldRes.data ?? [])].map((r) => ({ ...r, warm: isWarmOutcome(r.last_outcome) })),
+      now,
+    ).slice(0, QUEUE_LIMIT);
+    if (ranked.length === 0) return { ok: true, items: [], remaining };
+    const ids = ranked.map((r) => r.id);
+
+    const [recentRes, noteRes] = await Promise.all([
       db
         .from("contact_activities")
         .select("contact_id")
         .in("contact_id", ids)
         .eq("kind", "sent")
-        .gte("created_at", new Date(now.getTime() - DAY_MS).toISOString()),
+        .gte("created_at", new Date(now.getTime() - DAY_MS).toISOString())
+        .limit(ACTIVITY_READ_LIMIT),
       db
         .from("contact_activities")
         .select("contact_id, body")
         .in("contact_id", ids)
         .eq("kind", "note")
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(ACTIVITY_READ_LIMIT),
     ]);
-    for (const r of [warmRes, recentRes, noteRes]) if (r.error) throw r.error;
-    const warm = new Set((warmRes.data ?? []).map((r) => r.contact_id));
+    for (const r of [recentRes, noteRes]) if (r.error) throw r.error;
     const recent = new Set((recentRes.data ?? []).map((r) => r.contact_id));
     const lastNote = new Map<string, string>();
     for (const n of noteRes.data ?? []) {
       if (!lastNote.has(n.contact_id) && n.body) lastNote.set(n.contact_id, n.body);
     }
 
-    const cards = rows.map((r) => ({
-      id: r.id,
-      full_name: r.full_name,
-      phone_e164: r.phone_e164 as string,
-      last_outcome: r.last_outcome,
-      next_followup_at: r.next_followup_at,
-      last_note: lastNote.get(r.id) ?? null,
-      warm: warm.has(r.id),
-      recently_contacted: recent.has(r.id),
-    }));
-    const ranked = rankQueue(cards, now);
-    return { ok: true, items: ranked.slice(0, QUEUE_LIMIT), remaining: ranked.length };
+    return {
+      ok: true,
+      remaining,
+      items: ranked.map((r) => ({
+        id: r.id,
+        full_name: r.full_name,
+        phone_e164: r.phone_e164 as string,
+        last_outcome: r.last_outcome,
+        next_followup_at: r.next_followup_at,
+        last_note: lastNote.get(r.id) ?? null,
+        warm: r.warm,
+        recently_contacted: recent.has(r.id),
+      })),
+    };
   } catch (e) {
     return dbError("getTodayQueue", e);
   }

@@ -72,6 +72,15 @@ describe("data layer guards", () => {
     expect(queue).toContain('.is("whatsapp_unsubscribed_at", null)');
   });
 
+  it("Today splits warm and cold before limiting, and every activity read is bounded", () => {
+    const queue = fnBody(contacts, "getTodayQueue");
+    expect(queue).toContain("WARM_OUTCOMES");
+    expect(queue).toContain("coldQueueFilter(");
+    expect(queue).not.toContain(".limit(200)");
+    expect(queue.match(/\.limit\(ACTIVITY_READ_LIMIT\)/g)?.length).toBe(2);
+    expect(queue).not.toContain('"replied", "interested", "bought"]'); // no unbounded warm scan of activities
+  });
+
   it("only the send module produces WhatsApp links", () => {
     expect(contacts).not.toContain("buildWhatsAppLink");
     expect(numbers).not.toContain("buildWhatsAppLink");
