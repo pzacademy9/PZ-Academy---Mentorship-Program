@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { MessageCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
   DEFAULT_MESSAGE,
@@ -48,6 +49,7 @@ export function SendPanel({
 }) {
   const { budgets, selected, refresh, applyBudget } = useSalesBudget();
   const now = useNow();
+  const desktop = useMediaQuery("(min-width: 1024px)");
   const [templateId, setTemplateId] = useState<string>(templates[0]?.id ?? "");
   const [message, setMessage] = useState<string>(templates[0]?.body ?? DEFAULT_MESSAGE);
   const [sent, setSent] = useState(false);
@@ -214,6 +216,7 @@ export function SendPanel({
         {sent && sentLink && (
           <a
             href={sentLink}
+            {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             className="min-h-11 inline-flex items-center justify-center rounded-lg bg-pz-surface-container-low text-pz-on-surface font-headline font-semibold text-sm px-4"
           >
             Open WhatsApp again
