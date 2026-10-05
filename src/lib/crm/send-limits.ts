@@ -50,6 +50,8 @@ export type Usage = {
   newChatsToday: number;
   newChatsLastHour: number;
   lastSend: LastSend | null;
+  /** Oldest new chat inside the rolling hour; lets the hourly block say when a slot frees up. */
+  hourWindowOldestAt?: Date | null;
 };
 
 export type BlockReason = "frozen" | "quiet_hours" | "daily_cap" | "hourly_cap" | "spacing";
@@ -121,6 +123,11 @@ function quietEndsAt(now: Date, s: SafetySettings): Date {
   return new Date(target);
 }
 
+/** A retry or unlock time that falls inside quiet hours is moved to when quiet hours end. */
+export function outsideQuietHours(at: Date, s: SafetySettings): Date {
+  return isQuietHours(at, s) ? quietEndsAt(at, s) : at;
+}
+
 function daysBetween(fromKey: string, toKey: string): number {
   const parse = (k: string) => {
     const [y, m, d] = k.split("-").map(Number);
@@ -135,8 +142,31 @@ export function effectiveDailyCap(state: NumberState, s: SafetySettings, now: Da
   return Math.min(base, s.warmup_start + s.warmup_step * days);
 }
 
-function effectiveHourlyCap(state: NumberState, s: SafetySettings): number {
+export function effectiveHourlyCap(state: NumberState, s: SafetySettings): number {
   return state.hourlyCapOverride ?? s.hourly_cap;
+}
+
+/** The hourly warning scales with the number's own cap: defaults 15 of 20, an override of 10 warns at 8. */
+export function hourlyWarnAt(state: NumberState, s: SafetySettings): number {
+  const cap = effectiveHourlyCap(state, s);
+  return Math.max(1, Math.min(cap, Math.ceil((cap * s.hourly_warn_at) / s.hourly_cap)));
+}
+
+export function hourlyWarningText(left: number): string {
+  if (left <= 0) return "That was the last new chat for this hour. Take a break.";
+  if (left === 1) return "1 left this hour, slow down";
+  return `${left} left this hour, slow down`;
+}
+
+export const BLOCKED_LOG_WINDOW_MS = 60_000;
+
+/** One blocked-attempt row per agent, number and reason per window, so a tapped-at locked button does not flood the log. */
+export function shouldLogBlockedAttempt(
+  lastLoggedAt: Date | null,
+  now: Date,
+  windowMs: number = BLOCKED_LOG_WINDOW_MS,
+): boolean {
+  return lastLoggedAt === null || now.getTime() - lastLoggedAt.getTime() >= windowMs;
 }
 
 function isFrozen(state: NumberState, now: Date): boolean {
@@ -159,7 +189,7 @@ export function evaluateSend(input: {
       ok: false,
       reason: "frozen",
       message: "This number is paused to protect it. Ask your admin when it will be back.",
-      retryAt: state.frozenUntil,
+      retryAt: state.frozenUntil ? outsideQuietHours(state.frozenUntil, s) : null,
     };
   }
 
@@ -178,7 +208,7 @@ export function evaluateSend(input: {
       ok: false,
       reason: "spacing",
       message: "Wait a moment before the next message.",
-      retryAt: last.nextUnlockAt,
+      retryAt: outsideQuietHours(last.nextUnlockAt, s),
     };
   }
 
@@ -189,7 +219,7 @@ export function evaluateSend(input: {
         ok: false,
         reason: "daily_cap",
         message: "You have reached today's limit for new chats on this number.",
-        retryAt: new Date(startOfLocalDay(now, s.timezone).getTime() + DAY_MS),
+        retryAt: outsideQuietHours(new Date(startOfLocalDay(now, s.timezone).getTime() + DAY_MS), s),
       };
     }
     const hourlyCap = effectiveHourlyCap(state, s);
@@ -198,7 +228,10 @@ export function evaluateSend(input: {
         ok: false,
         reason: "hourly_cap",
         message: "That is the limit for this hour. Take a short break.",
-        retryAt: null,
+        retryAt: outsideQuietHours(
+          new Date((usage.hourWindowOldestAt ?? now).getTime() + 3_600_000),
+          s,
+        ),
       };
     }
   }
@@ -219,10 +252,9 @@ export function evaluateSend(input: {
 
   const warnings: string[] = [];
   if (isNewChat) {
-    const hourlyCap = effectiveHourlyCap(state, s);
     const usedAfter = usage.newChatsLastHour + 1;
-    if (usedAfter >= s.hourly_warn_at) {
-      warnings.push(`${Math.max(0, hourlyCap - usedAfter)} left this hour, slow down`);
+    if (usedAfter >= hourlyWarnAt(state, s)) {
+      warnings.push(hourlyWarningText(effectiveHourlyCap(state, s) - usedAfter));
     }
   }
 
@@ -237,6 +269,7 @@ export type BudgetSummary = {
   hourlyWarning: boolean;
   quietHours: boolean;
   quietEndsAt: Date | null;
+  frozen: boolean;
   frozenUntil: Date | null;
   nextUnlockAt: Date | null;
 };
@@ -255,11 +288,12 @@ export function budgetSummary(input: {
     dailyCap: effectiveDailyCap(state, s, now),
     hourlyUsed: usage.newChatsLastHour,
     hourlyCap: effectiveHourlyCap(state, s),
-    hourlyWarning: usage.newChatsLastHour >= s.hourly_warn_at,
+    hourlyWarning: usage.newChatsLastHour >= hourlyWarnAt(state, s),
     quietHours: quiet,
     quietEndsAt: quiet ? quietEndsAt(now, s) : null,
+    frozen: isFrozen(state, now),
     frozenUntil: isFrozen(state, now) ? state.frozenUntil : null,
-    nextUnlockAt: unlock && unlock.getTime() > now.getTime() ? unlock : null,
+    nextUnlockAt: unlock && unlock.getTime() > now.getTime() ? outsideQuietHours(unlock, s) : null,
   };
 }
 

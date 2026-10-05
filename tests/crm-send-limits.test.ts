@@ -1,13 +1,18 @@
 import { describe, it, expect } from "vitest";
 import {
+  BLOCKED_LOG_WINDOW_MS,
   DEFAULT_SETTINGS,
   budgetSummary,
   effectiveDailyCap,
   evaluateSend,
+  hourlyWarnAt,
+  hourlyWarningText,
   isQuietHours,
   laterFreezeEnd,
   isIndefinitelyFrozen,
   localParts,
+  outsideQuietHours,
+  shouldLogBlockedAttempt,
   startOfLocalDay,
   violationAfterInsert,
   warmupStartAfterFreeze,
@@ -141,12 +146,12 @@ describe("evaluateSend", () => {
     expect(base({ usage: { ...idle, lastSend: lastSend(0) } }).ok).toBe(true);
   });
 
-  it("enforces the daily cap for new chats only, retrying at local midnight", () => {
+  it("enforces the daily cap for new chats only, retrying when quiet hours end (09:00), not at midnight", () => {
     const full: Usage = { ...idle, newChatsToday: 60 };
     expect(base({ usage: full })).toMatchObject({
       ok: false,
       reason: "daily_cap",
-      retryAt: at("2026-10-05T19:00:00.000Z"),
+      retryAt: at("2026-10-06T04:00:00.000Z"), // 09:00 local next day
     });
     expect(base({ usage: full, isNewChat: false }).ok).toBe(true);
   });
@@ -327,5 +332,112 @@ describe("isIndefinitelyFrozen", () => {
     expect(isIndefinitelyFrozen("frozen", null)).toBe(true);
     expect(isIndefinitelyFrozen("frozen", "2026-10-05T00:00:00Z")).toBe(false);
     expect(isIndefinitelyFrozen("active", null)).toBe(false);
+  });
+});
+
+describe("B2: retry times never land in quiet hours", () => {
+  it("outsideQuietHours leaves daytime alone and moves a quiet instant to 09:00", () => {
+    expect(outsideQuietHours(AFTERNOON, S)).toEqual(AFTERNOON);
+    expect(outsideQuietHours(at("2026-10-05T15:59:59.000Z"), S)).toEqual(at("2026-10-05T15:59:59.000Z")); // 20:59:59
+    expect(outsideQuietHours(at("2026-10-05T16:00:00.000Z"), S)).toEqual(at("2026-10-06T04:00:00.000Z")); // 21:00 -> 09:00
+    expect(outsideQuietHours(at("2026-10-05T21:00:00.000Z"), S)).toEqual(at("2026-10-06T04:00:00.000Z")); // 02:00 -> 09:00
+  });
+
+  it("a freeze ending at 23:00 local retries at 09:00 the next morning", () => {
+    const r = base({ state: { ...oldNumber, status: "frozen", frozenUntil: at("2026-10-05T18:00:00.000Z") } });
+    expect(r).toMatchObject({ ok: false, reason: "frozen", retryAt: at("2026-10-06T04:00:00.000Z") });
+  });
+
+  it("spacing that unlocks after 21:00 retries at 09:00", () => {
+    const now = at("2026-10-05T15:59:00.000Z"); // 20:59 local
+    const r = base({
+      now,
+      usage: {
+        ...idle,
+        lastSend: { createdAt: new Date(now.getTime() - 10_000), nextUnlockAt: at("2026-10-05T16:01:00.000Z"), burstPos: 1 },
+      },
+    });
+    expect(r).toMatchObject({ ok: false, reason: "spacing", retryAt: at("2026-10-06T04:00:00.000Z") });
+  });
+});
+
+describe("B2: hourly cap retry time", () => {
+  it("retries when the oldest new chat of the hour drops out", () => {
+    const r = base({
+      usage: { ...idle, newChatsLastHour: 20, hourWindowOldestAt: new Date(AFTERNOON.getTime() - 40 * 60_000) },
+    });
+    expect(r).toMatchObject({ ok: false, reason: "hourly_cap", retryAt: new Date(AFTERNOON.getTime() + 20 * 60_000) });
+  });
+  it("without the oldest time it retries in one hour", () => {
+    expect(base({ usage: { ...idle, newChatsLastHour: 20 } })).toMatchObject({
+      reason: "hourly_cap",
+      retryAt: new Date(AFTERNOON.getTime() + 3_600_000),
+    });
+  });
+  it("an hourly retry at 21:00 or later moves to 09:00", () => {
+    const now = at("2026-10-05T15:30:00.000Z"); // 20:30 local
+    const r = base({ now, usage: { ...idle, newChatsLastHour: 20, hourWindowOldestAt: at("2026-10-05T15:00:00.000Z") } });
+    expect(r).toMatchObject({ reason: "hourly_cap", retryAt: at("2026-10-06T04:00:00.000Z") });
+  });
+});
+
+describe("B2: hourly warning relative to the number's own cap", () => {
+  it("defaults warn from the 15th of 20", () => {
+    expect(hourlyWarnAt(oldNumber, S)).toBe(15);
+  });
+  it("scales with an override and never exceeds the cap", () => {
+    expect(hourlyWarnAt({ ...oldNumber, hourlyCapOverride: 10 }, S)).toBe(8);
+    expect(hourlyWarnAt({ ...oldNumber, hourlyCapOverride: 40 }, S)).toBe(30);
+    expect(hourlyWarnAt({ ...oldNumber, hourlyCapOverride: 1 }, S)).toBe(1);
+  });
+  it("warns on an overridden cap of 10 from the 8th new chat", () => {
+    const state = { ...oldNumber, hourlyCapOverride: 10 };
+    const r = base({ state, usage: { ...idle, newChatsLastHour: 7 } });
+    expect(r.ok && r.warnings).toEqual(["2 left this hour, slow down"]);
+    const none = base({ state, usage: { ...idle, newChatsLastHour: 6 } });
+    expect(none.ok && none.warnings).toEqual([]);
+  });
+  it("says plainly when the last new chat of the hour was used, and handles 1 left", () => {
+    const last = base({ usage: { ...idle, newChatsLastHour: 19 } });
+    expect(last.ok && last.warnings).toEqual(["That was the last new chat for this hour. Take a break."]);
+    const one = base({ usage: { ...idle, newChatsLastHour: 18 } });
+    expect(one.ok && one.warnings).toEqual(["1 left this hour, slow down"]);
+    expect(hourlyWarningText(3)).toBe("3 left this hour, slow down");
+  });
+});
+
+describe("B2: budgetSummary", () => {
+  it("uses the relative warning threshold", () => {
+    const state = { ...oldNumber, hourlyCapOverride: 10 };
+    const warn = budgetSummary({ now: AFTERNOON, settings: S, state, usage: { ...idle, newChatsLastHour: 8 } });
+    const calm = budgetSummary({ now: AFTERNOON, settings: S, state, usage: { ...idle, newChatsLastHour: 7 } });
+    expect(warn.hourlyWarning).toBe(true);
+    expect(calm.hourlyWarning).toBe(false);
+  });
+  it("reports frozen for an indefinite freeze (no end date) and for a running timed freeze", () => {
+    const indefinite = budgetSummary({ now: AFTERNOON, settings: S, state: { ...oldNumber, status: "frozen", frozenUntil: null }, usage: idle });
+    expect(indefinite).toMatchObject({ frozen: true, frozenUntil: null });
+    const timed = budgetSummary({ now: AFTERNOON, settings: S, state: { ...oldNumber, status: "frozen", frozenUntil: at("2026-10-06T10:00:00.000Z") }, usage: idle });
+    expect(timed).toMatchObject({ frozen: true, frozenUntil: at("2026-10-06T10:00:00.000Z") });
+    expect(budgetSummary({ now: AFTERNOON, settings: S, state: oldNumber, usage: idle }).frozen).toBe(false);
+  });
+  it("moves a next-unlock time that lands in quiet hours to the morning", () => {
+    const now = at("2026-10-05T15:59:00.000Z"); // 20:59 local
+    const b = budgetSummary({
+      now,
+      settings: S,
+      state: oldNumber,
+      usage: { ...idle, lastSend: { createdAt: new Date(now.getTime() - 10_000), nextUnlockAt: at("2026-10-05T16:01:00.000Z"), burstPos: 1 } },
+    });
+    expect(b.nextUnlockAt).toEqual(at("2026-10-06T04:00:00.000Z"));
+  });
+});
+
+describe("B2: shouldLogBlockedAttempt", () => {
+  it("logs the first attempt and again only after the window", () => {
+    expect(BLOCKED_LOG_WINDOW_MS).toBe(60_000);
+    expect(shouldLogBlockedAttempt(null, AFTERNOON)).toBe(true);
+    expect(shouldLogBlockedAttempt(new Date(AFTERNOON.getTime() - 59_999), AFTERNOON)).toBe(false);
+    expect(shouldLogBlockedAttempt(new Date(AFTERNOON.getTime() - 60_000), AFTERNOON)).toBe(true);
   });
 });
