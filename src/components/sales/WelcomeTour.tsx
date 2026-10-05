@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Bell, CheckCheck, ClipboardList, MessageCircle, ThumbsUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { createBrowserSupabase } from "@/lib/supabase/client";
@@ -8,11 +9,17 @@ import { TOUR_STEPS } from "@/lib/crm/sales-help-copy";
 import { shouldShowTour, TOUR_LOCAL_KEY } from "@/lib/crm/tour";
 import type { Role } from "@/lib/roles";
 
-async function defaultMarkSeen() {
-  try {
-    await createBrowserSupabase().auth.updateUser({ data: { sales_tour_seen_at: new Date().toISOString() } });
-  } catch {
-    // fall through to the local flag
+async function defaultMarkSeen(alreadySaved: boolean) {
+  // Replays (?tour=1) must not overwrite the original timestamp.
+  if (!alreadySaved) {
+    try {
+      const { error } = await createBrowserSupabase().auth.updateUser({ data: { sales_tour_seen_at: new Date().toISOString() } });
+      if (error) {
+        // updateUser returns errors rather than throwing; the local flag below is the fallback
+      }
+    } catch {
+      // fall through to the local flag
+    }
   }
   try {
     localStorage.setItem(TOUR_LOCAL_KEY, "1");
@@ -109,7 +116,7 @@ function Illustration({ step }: { step: number }) {
 export function WelcomeTour({
   role,
   metadataSeen,
-  markSeen = defaultMarkSeen,
+  markSeen,
 }: {
   role: Role;
   metadataSeen: boolean;
@@ -117,24 +124,32 @@ export function WelcomeTour({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const searchParams = useSearchParams();
+  const forced = searchParams
+    ? searchParams.get("tour") === "1"
+    : typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tour") === "1";
 
   // Decide after mount (localStorage and the URL are browser-only; avoids a hydration mismatch).
   useEffect(() => {
-    let forced = false;
-    try {
-      forced = new URLSearchParams(window.location.search).get("tour") === "1";
-    } catch {
-      // ignore
-    }
     setOpen(shouldShowTour({ role, metadataSeen, localSeen: readLocalSeen(), forced }));
-  }, [role, metadataSeen]);
+  }, [role, metadataSeen, forced]);
 
   const finish = () => {
     setOpen(false);
     setStep(0);
+    // Drop ?tour=1 so a re-render never reopens it and the Help link can replay again.
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tour") === "1") {
+        url.searchParams.delete("tour");
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+      }
+    } catch {
+      // ignore
+    }
     // Saving must never block or break the app.
     Promise.resolve()
-      .then(() => markSeen())
+      .then(() => (markSeen ? markSeen() : defaultMarkSeen(metadataSeen)))
       .catch(() => {});
   };
 

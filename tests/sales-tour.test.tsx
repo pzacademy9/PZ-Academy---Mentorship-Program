@@ -5,6 +5,8 @@ import { WelcomeTour } from "@/components/sales/WelcomeTour";
 
 vi.mock("@/lib/supabase/client", () => ({ createBrowserSupabase: () => ({ auth: { updateUser: vi.fn(async () => ({ error: null })) } }) }));
 
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }));
+
 describe("shouldShowTour", () => {
   it("shows once for sales agents only, unless forced", () => {
     expect(shouldShowTour({ role: "sales_agent", metadataSeen: false, localSeen: false, forced: false })).toBe(true);
@@ -63,5 +65,19 @@ describe("WelcomeTour", () => {
     window.history.replaceState(null, "", "/dashboard/sales?tour=1");
     render(<WelcomeTour role="sales_agent" metadataSeen={true} markSeen={vi.fn(async () => {})} />);
     expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("?tour=1 replays on client-side navigation while the component stays mounted", async () => {
+    const props = { role: "sales_agent" as const, metadataSeen: true, markSeen: vi.fn(async () => {}) };
+    const { rerender } = render(<WelcomeTour {...props} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    window.history.replaceState(null, "", "/dashboard/sales?tour=1");
+    rerender(<WelcomeTour {...props} />);
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(window.location.search).toBe("");
+    rerender(<WelcomeTour {...props} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
