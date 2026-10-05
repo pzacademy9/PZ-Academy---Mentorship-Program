@@ -178,12 +178,17 @@ export async function listContacts(
     const names = await ownerNames(Array.from(new Set(rows.map((r) => r.owner_id).filter((x): x is string => !!x))));
     return {
       ok: true,
-      rows: rows.map((r) => ({
-        ...r,
-        // Others' contacts: mask the phone for non-admin viewers.
-        phone_e164: canSeeDetails({ viewerId: actor.id, viewerRole: actor.role, ownerId: r.owner_id }) ? r.phone_e164 : null,
-        owner_name: r.owner_id ? names.get(r.owner_id) ?? null : null,
-      })),
+      rows: rows.map((r) => {
+        const visible = canSeeDetails({ viewerId: actor.id, viewerRole: actor.role, ownerId: r.owner_id });
+        return {
+          ...r,
+          // Others' contacts: mask the phone, follow-up time and do-not-contact status for non-admin viewers.
+          phone_e164: visible ? r.phone_e164 : null,
+          next_followup_at: visible ? r.next_followup_at : null,
+          do_not_contact_at: visible ? r.do_not_contact_at : null,
+          owner_name: r.owner_id ? names.get(r.owner_id) ?? null : null,
+        };
+      }),
       total: count ?? 0,
       pageSize: PAGE_SIZE,
     };
