@@ -1,4 +1,4 @@
-// Client-safe helpers for the Sales Workspace screens. Pure: no I/O, `now` injected.
+// Helpers that run in the browser for the Sales Workspace screens. Pure: no I/O, `now` injected.
 // Never import server-only modules here; components import this file.
 import type { OutcomeKind } from "@/lib/crm/followup";
 import { formatDateTime, formatTime } from "@/lib/format";

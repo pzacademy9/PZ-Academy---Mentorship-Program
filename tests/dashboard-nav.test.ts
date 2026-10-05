@@ -41,10 +41,26 @@ it("NAV_ITEMS is non-empty and every item has at least one role", () => {
   for (const i of NAV_ITEMS) expect(i.roles.length).toBeGreaterThan(0);
 });
 
-it("sales_agent sees only the workspace, alerts and settings, nothing under /dashboard/admin", () => {
+it("sales_agent sees Today, Contacts, Add lead, Help, then alerts and settings, nothing under /dashboard/admin", () => {
   const items = navForRole("sales_agent");
-  expect(items.map((i) => i.href)).toEqual(["/dashboard/sales", "/dashboard/notifications", "/dashboard/settings"]);
+  expect(items.map((i) => i.href)).toEqual([
+    "/dashboard/sales",
+    "/dashboard/sales/contacts",
+    "/dashboard/sales/add-lead",
+    "/dashboard/sales/help",
+    "/dashboard/notifications",
+    "/dashboard/settings",
+  ]);
+  const { bar } = splitMobileNav(items, undefined);
+  expect(bar.map((i) => i.shortLabel ?? i.label)).toEqual(["Today", "Contacts", "Add lead", "Help"]);
   expect(items.some((i) => i.href.startsWith("/dashboard/admin"))).toBe(false);
+  expect(activeHrefFor(items, "/dashboard/sales/contacts")).toBe("/dashboard/sales/contacts");
+});
+
+it("admins get the WhatsApp Safety page, others do not", () => {
+  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-safety");
+  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-safety");
+  expect(navForRole("sales_agent").map((i) => i.href)).not.toContain("/dashboard/admin/sales-safety");
 });
 
 it("admin sees Sales Team, sales_agent does not see admin items", () => {
