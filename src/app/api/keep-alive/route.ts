@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 
+// Cron target: must run per request. Without this Next prerenders the GET at build time (no header read when
+// CRON_SECRET is unset), which needs Supabase env vars during the build and would bake the result into the output.
+export const dynamic = "force-dynamic";
+
 /**
  * Vercel Cron target — a trivial read keeps the free-tier Supabase project
  * from auto-pausing after ~7 days of total inactivity. Reads `agents`
