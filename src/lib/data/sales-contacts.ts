@@ -200,7 +200,7 @@ export async function listContacts(
 export async function getContactDetail(actor: Actor, contactId: string): Promise<
   | {
       ok: true;
-      contact: ContactRow & { email: string | null; profession: string | null };
+      contact: ContactRow & { email: string | null; profession: string | null; whatsapp_unsubscribed_at: string | null };
       timeline: TimelineEntry[];
       canAct: boolean;
       /** True when the viewer may only see name, owner and status (another agent's contact). */
@@ -215,7 +215,7 @@ export async function getContactDetail(actor: Actor, contactId: string): Promise
     const db = createAdminSupabase();
     const { data: c, error } = await db
       .from("contacts")
-      .select("id, full_name, phone_e164, email, profession, owner_id, last_outcome, next_followup_at, do_not_contact_at")
+      .select("id, full_name, phone_e164, email, profession, owner_id, last_outcome, next_followup_at, do_not_contact_at, whatsapp_unsubscribed_at")
       .eq("id", contactId)
       .maybeSingle();
     if (error) throw error;
@@ -235,6 +235,7 @@ export async function getContactDetail(actor: Actor, contactId: string): Promise
           last_outcome: c.last_outcome,
           next_followup_at: null,
           do_not_contact_at: null,
+          whatsapp_unsubscribed_at: null,
         },
         timeline: [],
         canAct: false,

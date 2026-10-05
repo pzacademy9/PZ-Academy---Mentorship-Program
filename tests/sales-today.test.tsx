@@ -38,6 +38,12 @@ const renderToday = () =>
 beforeEach(() => vi.unstubAllGlobals());
 
 describe("TodayQueue", () => {
+  it("the loading skeleton is announced", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    renderToday();
+    expect(screen.getByRole("status", { name: /loading/i })).toBeTruthy();
+  });
+
   it("greets, counts and selects the first card", async () => {
     mockApi([card("a", "Ayesha Tariq", { warm: true }), card("b", "Bilal Khan")], 7);
     renderToday();

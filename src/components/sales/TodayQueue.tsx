@@ -50,7 +50,7 @@ export function TodayQueue({ greeting, firstName }: { greeting: string; firstNam
   };
 
   if (error) return <ErrorState onRetry={() => void load()} />;
-  if (items === null) return <div className="h-64 rounded-xl bg-pz-surface-container-low animate-pulse" aria-hidden="true" />;
+  if (items === null) return <div role="status" aria-label="Loading your list" className="h-64 rounded-xl bg-pz-surface-container-low animate-pulse" />;
 
   return (
     <div className="flex flex-col gap-6">

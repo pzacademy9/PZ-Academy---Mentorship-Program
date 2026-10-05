@@ -11,6 +11,7 @@ import { isWarmOutcome } from "@/lib/crm/followup";
 import { outcomeLabel, recentlySent, type ContactDetailJson, type TemplateJson } from "@/lib/crm/sales-ui";
 import { SendPanel } from "./SendPanel";
 import { Timeline } from "./Timeline";
+import { NoteBox } from "./NoteBox";
 
 export function ContactDetailPane({
   contactId,
@@ -105,10 +106,19 @@ export function ContactDetailPane({
     );
   }
 
+  const unsubscribed = !!c.whatsapp_unsubscribed_at;
+  const sendVisible = detail.canAct && !unclaimed && !c.do_not_contact_at && !unsubscribed && !!c.phone_e164;
+  const noteOnly = detail.canAct && !unclaimed && !sendVisible;
+
   return (
     <div className="flex flex-col gap-5 font-body">
       {back}
       {header}
+      {unsubscribed && !c.do_not_contact_at && (
+        <p className="bg-pz-error-container text-pz-on-error-container rounded-lg p-4 text-sm flex items-start gap-2">
+          <Ban className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> This person unsubscribed from WhatsApp messages. Nobody can message them from the app.
+        </p>
+      )}
       {c.do_not_contact_at && (
         <p className="bg-pz-error-container text-pz-on-error-container rounded-lg p-4 text-sm flex items-start gap-2">
           <Ban className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> Asked not to be contacted. Nobody can message them from the app.
@@ -125,7 +135,7 @@ export function ContactDetailPane({
           {claiming ? "Claiming…" : "Claim to my list"}
         </Button>
       )}
-      {detail.canAct && !unclaimed && !c.do_not_contact_at && c.phone_e164 && (
+      {sendVisible && c.phone_e164 && (
         <SendPanel
           key={c.id}
           contact={{
@@ -143,6 +153,11 @@ export function ContactDetailPane({
           }}
           onNoteSaved={() => void load()}
         />
+      )}
+      {noteOnly && (
+        <div className="bg-pz-surface-container-lowest rounded-xl p-4 sm:p-6 shadow-sm">
+          <NoteBox key={c.id} contactId={c.id} onSaved={() => void load()} />
+        </div>
       )}
       <Timeline entries={detail.timeline} />
     </div>

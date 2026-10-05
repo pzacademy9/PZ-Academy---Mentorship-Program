@@ -6,6 +6,7 @@ import { Search, Lock, Users, UserPlus, AlarmClock } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { initials } from "@/lib/format";
 import { outcomeLabel, type ContactRowJson, type TemplateJson } from "@/lib/crm/sales-ui";
 import { ContactDetailPane } from "./ContactDetailPane";
@@ -34,6 +35,23 @@ export function ContactsWorkspace({
   const [paneVersion, setPaneVersion] = useState(0);
   const [now] = useState(() => new Date());
   const latest = useRef(0);
+  // Below lg the contact pane is a full-screen modal sheet; from lg it sits beside the list.
+  const isPhone = useMediaQuery("(max-width: 1023px)");
+  const sheetRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const sheetOpen = openId !== null && isPhone;
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const list = listRef.current as (HTMLElement & { inert?: boolean }) | null;
+    if (list) list.inert = true;
+    sheetRef.current?.focus();
+    return () => {
+      if (list) list.inert = false;
+      returnFocus.current?.focus();
+    };
+  }, [sheetOpen]);
 
   // Debounce search typing.
   useEffect(() => {
@@ -93,9 +111,11 @@ export function ContactsWorkspace({
   const owner = (r: ContactRowJson) =>
     r.owner_id === null ? "unclaimed" : r.owner_id === viewerId ? "mine" : "other";
 
+  // The phone sheet uses z-40: above the top bar (z-30), below the z-50 dialog layers, so the
+  // Not interested dialog opens on top of it.
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-      <section className="lg:col-span-5 flex flex-col gap-4">
+      <section ref={listRef} className="lg:col-span-5 flex flex-col gap-4">
         <div className="bg-pz-surface-container-lowest rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-headline font-bold text-pz-on-surface tracking-tight">My Contacts</h1>
@@ -161,13 +181,16 @@ export function ContactsWorkspace({
                   <div
                     className={`rounded-xl p-4 flex flex-col gap-3 transition-all ${
                       o === "other"
-                        ? "bg-pz-surface-container opacity-60"
+                        ? "bg-pz-surface-container"
                         : `bg-pz-surface-container-lowest shadow-sm hover:shadow-md ${selected ? "ring-2 ring-pz-primary bg-gradient-to-r from-pz-tertiary-fixed/30 to-pz-surface-container-lowest" : ""}`
                     }`}
                   >
                     <button
                       type="button"
-                      onClick={() => setOpenId(r.id)}
+                      onClick={(e) => {
+                        returnFocus.current = e.currentTarget;
+                        setOpenId(r.id);
+                      }}
                       className="flex items-start justify-between gap-3 text-left min-w-0 w-full min-h-11"
                     >
                       <span className="flex items-center gap-3 min-w-0">
@@ -176,7 +199,7 @@ export function ContactsWorkspace({
                             o === "unclaimed"
                               ? "bg-pz-secondary-fixed/50 text-pz-on-secondary-fixed"
                               : o === "other"
-                                ? "bg-pz-surface-container-high text-pz-on-surface-variant"
+                                ? "bg-pz-surface-container-high text-pz-on-surface-variant opacity-60"
                                 : "bg-pz-primary/15 text-pz-primary"
                           }`}
                         >
@@ -236,7 +259,20 @@ export function ContactsWorkspace({
       </section>
 
       {openId && (
-        <section className="lg:col-span-7 fixed inset-0 z-[60] overflow-y-auto bg-pz-surface p-4 lg:static lg:z-auto lg:p-0 lg:bg-transparent">
+        <section
+          ref={sheetRef}
+          tabIndex={-1}
+          aria-label="Contact details"
+          role={isPhone ? "dialog" : undefined}
+          aria-modal={isPhone ? true : undefined}
+          onKeyDown={(e) => {
+            if (isPhone && e.key === "Escape" && !e.defaultPrevented && e.currentTarget.contains(e.target as Node)) {
+              e.stopPropagation();
+              setOpenId(null);
+            }
+          }}
+          className="lg:col-span-7 fixed inset-0 z-40 overflow-y-auto bg-pz-surface p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none lg:static lg:z-auto lg:p-0 lg:bg-transparent"
+        >
           {templates === null ? (
             <div role="status" aria-label="Loading contact" className="h-64 rounded-xl bg-pz-surface-container-low animate-pulse" />
           ) : (

@@ -19,7 +19,7 @@ export type ContactRowJson = {
 };
 export type TimelineEntryJson = { id: string; kind: string; body: string | null; agent_name: string | null; created_at: string };
 export type ContactDetailJson = {
-  contact: ContactRowJson & { email: string | null; profession: string | null };
+  contact: ContactRowJson & { email: string | null; profession: string | null; whatsapp_unsubscribed_at?: string | null };
   timeline: TimelineEntryJson[]; canAct: boolean; restricted: boolean;
 };
 export type TemplateJson = { id: string; name: string; body: string };
@@ -110,7 +110,7 @@ export function lockCopy(lock: SendLock, now: Date): { button: string; detail: s
         detail:
           s > 240
             ? "Break time. After a run of messages the app pauses for a few minutes."
-            : "The app leaves a gap between messages so your sending looks less like a bulk sender.",
+            : "The app leaves a gap between messages to keep your sending slow and steady.",
       };
     }
     case "daily-cap":
@@ -188,3 +188,25 @@ export function recentlySent(timeline: TimelineEntryJson[], now: Date): boolean 
   return timeline.some((t) => t.kind === "sent" && now.getTime() - Date.parse(t.created_at) < DAY_MS);
 }
 
+
+export const MAX_MESSAGE_LENGTH = 1000;
+
+type LinkEnv = {
+  matchMedia?: (q: string) => { matches: boolean };
+  open: (url: string, target: string, features: string) => unknown;
+  location: { assign: (url: string) => void };
+};
+
+/**
+ * Hands the wa.me link to the browser. Desktop opens a new tab so the agent keeps the workspace; if the popup
+ * is blocked we do nothing more (the visible "Open WhatsApp again" link is the fallback, no navigation).
+ * Phones keep navigating in place, which the OS routes into the WhatsApp app.
+ */
+export function openWhatsAppLink(url: string, env: LinkEnv = window as unknown as LinkEnv): void {
+  const desktop = env.matchMedia?.("(min-width: 1024px)").matches === true;
+  if (desktop) {
+    env.open(url, "_blank", "noopener");
+    return;
+  }
+  env.location.assign(url);
+}
