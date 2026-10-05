@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Bell, CheckCheck, ClipboardList, MessageCircle, ThumbsUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -124,6 +124,7 @@ export function WelcomeTour({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const dismissedRef = useRef(false);
   const searchParams = useSearchParams();
   const forced = searchParams
     ? searchParams.get("tour") === "1"
@@ -131,10 +132,19 @@ export function WelcomeTour({
 
   // Decide after mount (localStorage and the URL are browser-only; avoids a hydration mismatch).
   useEffect(() => {
+    // Once dismissed this session, only a fresh ?tour=1 may reopen it (the server prop can lag the save).
+    if (dismissedRef.current && !forced) return;
+    if (forced) dismissedRef.current = false;
     setOpen(shouldShowTour({ role, metadataSeen, localSeen: readLocalSeen(), forced }));
   }, [role, metadataSeen, forced]);
 
   const finish = () => {
+    dismissedRef.current = true;
+    try {
+      localStorage.setItem(TOUR_LOCAL_KEY, "1");
+    } catch {
+      // private mode: the in-memory flag above still holds for this session
+    }
     setOpen(false);
     setStep(0);
     // Drop ?tour=1 so a re-render never reopens it and the Help link can replay again.

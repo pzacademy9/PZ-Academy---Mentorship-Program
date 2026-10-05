@@ -80,4 +80,15 @@ describe("WelcomeTour", () => {
     rerender(<WelcomeTour {...props} />);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("an unseen agent who skips ?tour=1 does not see it reopen while the save is pending", async () => {
+    window.history.replaceState(null, "", "/dashboard/sales?tour=1");
+    const markSeen = vi.fn(() => new Promise<void>(() => {}));
+    const props = { role: "sales_agent" as const, metadataSeen: false, markSeen };
+    const { rerender } = render(<WelcomeTour {...props} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Skip tour" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    rerender(<WelcomeTour {...props} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });
