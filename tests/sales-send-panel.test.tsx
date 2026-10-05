@@ -119,6 +119,28 @@ describe("SendPanel guards", () => {
     expect(link.getAttribute("href")).toBe("whatsapp://send?phone=923001234567&text=hi");
   });
 
+  it("on desktop the fallback link opens a new tab; on phones it stays in place", async () => {
+    const stub = (m: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: m, media: q, addEventListener: () => {}, removeEventListener: () => {} }));
+    stub(true);
+    const first = render(
+      <ConfirmProvider>
+        <SalesBudgetContext.Provider value={{ budgets: [num()], loadError: false, selectedId: "n1", selected: num(), select: vi.fn(), refresh: vi.fn(async () => {}), applyBudget: vi.fn() }}>
+          <SendPanel contact={contact} templates={[]} onOutcome={vi.fn()} openLink={vi.fn()} />
+        </SalesBudgetContext.Provider>
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    const link = await screen.findByRole("link", { name: "Open WhatsApp again" });
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    first.unmount();
+    stub(false);
+    setup([num()]);
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    const phoneLink = await screen.findByRole("link", { name: "Open WhatsApp again" });
+    expect(phoneLink.getAttribute("target")).toBeNull();
+  });
+
   it("locks the button when the contact has no phone number", () => {
     setup([num()], {}, { ...contact, phone_e164: null });
     const btn = screen.getByRole("button", { name: "No phone number for this person" });
