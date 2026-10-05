@@ -3,7 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { SalesBudgetContext, type SalesBudgetValue } from "@/components/sales/SalesBudgetProvider";
 import { SendPanel } from "@/components/sales/SendPanel";
-import type { AgentBudgetJson, BudgetJson } from "@/lib/crm/sales-ui";
+import { openWhatsAppLink, type AgentBudgetJson, type BudgetJson } from "@/lib/crm/sales-ui";
 import { toast } from "sonner";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
@@ -15,7 +15,7 @@ const budget = (over: Partial<BudgetJson> = {}): BudgetJson => ({
 const num = (b = budget()): AgentBudgetJson => ({ number: { id: "n1", label: "My phone", phone_e164: null }, budget: b });
 const contact: { id: string; full_name: string; phone_e164: string | null; warm: boolean; recently_contacted: boolean } = { id: "c1", full_name: "Ayesha Tariq", phone_e164: "+923001234567", warm: false, recently_contacted: false };
 
-function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValue> = {}, c = contact) {
+function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValue> = {}, c = contact, templates: { id: string; name: string; body: string }[] = []) {
   const value: SalesBudgetValue = {
     budgets,
     loadError: false,
@@ -31,7 +31,7 @@ function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValu
   render(
     <ConfirmProvider>
       <SalesBudgetContext.Provider value={value}>
-        <SendPanel contact={c} templates={[]} onOutcome={onOutcome} openLink={openLink} />
+        <SendPanel contact={c} templates={templates} onOutcome={onOutcome} openLink={openLink} />
       </SalesBudgetContext.Provider>
     </ConfirmProvider>,
   );
@@ -136,6 +136,43 @@ describe("SendPanel guards", () => {
     setup([num()]);
     fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This person asked not to be messaged."));
+  });
+});
+
+describe("message length", () => {
+  it("disables send over 1000 characters and says so", () => {
+    setup([num()], {}, contact, [{ id: "t1", name: "Long", body: "x".repeat(1001) }]);
+    const btn = screen.getByRole("button", { name: "Message is too long (max 1000)" }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+  it("allows exactly 1000", () => {
+    setup([num()], {}, contact, [{ id: "t1", name: "Ok", body: "x".repeat(1000) }]);
+    expect((screen.getByRole("button", { name: "Message on WhatsApp" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("openWhatsAppLink", () => {
+  const env = (desktop: boolean, openResult: unknown) => ({
+    matchMedia: (q: string) => ({ matches: desktop && q.includes("1024") }),
+    open: vi.fn(() => openResult),
+    location: { assign: vi.fn() },
+  });
+  it("desktop opens a new tab with noopener and does not navigate", () => {
+    const e = env(true, {});
+    openWhatsAppLink("https://wa.me/1?text=hi", e as never);
+    expect(e.open).toHaveBeenCalledWith("https://wa.me/1?text=hi", "_blank", "noopener");
+    expect(e.location.assign).not.toHaveBeenCalled();
+  });
+  it("desktop with a blocked popup does not navigate either", () => {
+    const e = env(true, null);
+    openWhatsAppLink("https://wa.me/1?text=hi", e as never);
+    expect(e.location.assign).not.toHaveBeenCalled();
+  });
+  it("phone navigates in place", () => {
+    const e = env(false, {});
+    openWhatsAppLink("https://wa.me/1?text=hi", e as never);
+    expect(e.location.assign).toHaveBeenCalledWith("https://wa.me/1?text=hi");
+    expect(e.open).not.toHaveBeenCalled();
   });
 });
 

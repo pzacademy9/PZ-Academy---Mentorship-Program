@@ -8,6 +8,8 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
   DEFAULT_MESSAGE,
+  MAX_MESSAGE_LENGTH,
+  openWhatsAppLink,
   explainSendError,
   lockCopy,
   sendLock,
@@ -25,10 +27,9 @@ import {
 import { useSalesBudget } from "./SalesBudgetProvider";
 import { useNow } from "./useNow";
 import { OutcomeButtons } from "./OutcomeButtons";
+import { NoteBox } from "./NoteBox";
 
 export type SendPanelContact = { id: string; full_name: string; phone_e164: string | null; warm: boolean; recently_contacted: boolean };
-
-const defaultOpen = (url: string) => window.location.assign(url);
 
 export function SendPanel({
   contact,
@@ -36,7 +37,7 @@ export function SendPanel({
   onSent,
   onOutcome,
   onNoteSaved,
-  openLink = defaultOpen,
+  openLink = openWhatsAppLink,
 }: {
   contact: SendPanelContact;
   templates: TemplateJson[];
@@ -54,7 +55,6 @@ export function SendPanel({
   const currentId = useRef(contact.id);
   currentId.current = contact.id;
   const refreshedFor = useRef<string | null>(null);
-  const [note, setNote] = useState("");
   // The person decides when this contact comes back to Today if they do not answer (decision D1).
   const [followupHours, setFollowupHours] = useState<FollowupHours>(DEFAULT_FOLLOWUP_HOURS);
 
@@ -62,7 +62,6 @@ export function SendPanel({
   useEffect(() => {
     setSent(false);
     setSentLink(null);
-    setNote("");
     setFollowupHours(DEFAULT_FOLLOWUP_HOURS);
   }, [contact.id]);
 
@@ -108,32 +107,11 @@ export function SendPanel({
     }
   });
 
-  const { run: saveNote, pending: savingNote } = useAsyncAction(async () => {
-    const body = note.trim();
-    if (!body) return;
-    try {
-      const res = await fetch(`/api/sales/contacts/${contact.id}/note`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      });
-      if (!res.ok) {
-        const err = (await res.json().catch(() => null)) as ApiErrorJson | null;
-        toast.error(err?.error ?? "Could not save the note.");
-        return;
-      }
-      toast.success("Note saved.");
-      setNote("");
-      onNoteSaved?.(contact.id);
-    } catch {
-      toast.error("Could not save the note.");
-    }
-  });
-
   const noPhone = !contact.phone_e164;
   const emptyMessage = message.trim().length === 0;
+  const tooLong = message.length > MAX_MESSAGE_LENGTH;
   const locked = lock.kind !== "ready" || noPhone;
-  const buttonText = noPhone ? "No phone number for this person" : copy.button;
+  const buttonText = noPhone ? "No phone number for this person" : tooLong ? `Message is too long (max ${MAX_MESSAGE_LENGTH})` : copy.button;
   const detailText = noPhone ? null : copy.detail;
 
   return (
@@ -180,7 +158,7 @@ export function SendPanel({
         <textarea
           id={`msg-${contact.id}`}
           rows={4}
-          maxLength={1000}
+          maxLength={MAX_MESSAGE_LENGTH}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           className="w-full bg-pz-surface-container-low text-pz-on-surface text-sm rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 resize-none font-body"
@@ -219,7 +197,7 @@ export function SendPanel({
           type="button"
           variant="bare"
           size="bare"
-          disabled={locked || sending || emptyMessage}
+          disabled={locked || sending || emptyMessage || tooLong}
           loading={sending}
           onClick={() => void send()}
           className="w-full h-14 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none disabled:opacity-100"
@@ -228,7 +206,7 @@ export function SendPanel({
           {buttonText}
         </Button>
         {detailText && <p className="text-xs text-center text-pz-on-surface-variant">{detailText}</p>}
-        {!locked && !detailText && (
+        {!locked && !detailText && !tooLong && (
           <p className="text-[11px] text-center text-pz-on-surface-variant">
             Opens WhatsApp with the message filled in. Check it, then press send in WhatsApp.
           </p>
@@ -250,31 +228,7 @@ export function SendPanel({
 
       <OutcomeButtons contactId={contact.id} onLogged={(kind, next) => onOutcome(contact.id, kind, next)} />
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`note-${contact.id}`} className="text-xs font-headline font-semibold text-pz-on-surface-variant">
-          Note (your team can see it)
-        </label>
-        <textarea
-          id={`note-${contact.id}`}
-          rows={2}
-          maxLength={2000}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="e.g. Asked about weekend classes"
-          className="w-full bg-pz-surface-container-low text-pz-on-surface text-sm rounded-lg p-3 placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 resize-none font-body"
-        />
-        <Button
-          type="button"
-          variant="bare"
-          size="bare"
-          disabled={note.trim().length === 0}
-          loading={savingNote}
-          onClick={() => void saveNote()}
-          className="self-end px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-xs"
-        >
-          Save note
-        </Button>
-      </div>
+      <NoteBox key={contact.id} contactId={contact.id} onSaved={onNoteSaved} />
     </div>
   );
 }
