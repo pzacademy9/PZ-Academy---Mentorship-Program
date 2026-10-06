@@ -2567,6 +2567,7 @@ export type Database = {
       }
       whatsapp_safety_settings: {
         Row: {
+          agents_can_claim: boolean
           burst_break_min: number
           burst_size: number
           daily_cap: number
@@ -2584,6 +2585,7 @@ export type Database = {
           warmup_step: number
         }
         Insert: {
+          agents_can_claim?: boolean
           burst_break_min?: number
           burst_size?: number
           daily_cap?: number
@@ -2601,6 +2603,7 @@ export type Database = {
           warmup_step?: number
         }
         Update: {
+          agents_can_claim?: boolean
           burst_break_min?: number
           burst_size?: number
           daily_cap?: number
