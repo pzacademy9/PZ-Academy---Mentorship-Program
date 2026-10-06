@@ -54,7 +54,8 @@ Routes under `/dashboard/admin/sales-hub`:
 - Target: an active sales agent.
 - Preview before commit: counts to assign, already owned (skipped), do-not-contact (skipped). Optional checkbox "also reassign owned contacts" with the count that would move.
 - Commit is one DB function (atomic). It sets `owner_id` and `claimed_at`, writes a `claimed` (was unowned) or `reassigned` (was owned) timeline event per contact with the admin as actor, and returns counts.
-- The same page lists each agent's assigned counts and supports bulk release/reassign.
+- The same page lists each agent's assigned counts. Bulk release/reassign of an agent's contacts is deferred to a follow-up (removing an agent already releases their contacts; "also reassign owned contacts" covers reassigning within a cohort or selection).
+- Commit runs chunked conditional updates from code rather than one DB function; a failure midway keeps earlier chunks assigned, still notifies the agent, and reports partial counts. Re-running is safe.
 
 **Agent side:**
 - Assigned contacts show in My Contacts and Today like any owned contact. The agent gets a notification: "N contacts assigned to you".
