@@ -85,7 +85,7 @@ export function LeadCaptureForm({ token, agentName }: { token: string; agentName
 
     const normalized = normalizePhone(phone);
     if (!normalized.ok) {
-      toast.error("Enter a valid phone number (e.g. 03001234567).");
+      toast.error("Enter a valid phone number with its country code (e.g. +92 300 1234567 or 03001234567).");
       return;
     }
 

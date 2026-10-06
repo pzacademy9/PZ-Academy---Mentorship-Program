@@ -47,11 +47,11 @@ describe("AddLeadForm", () => {
   });
 
   it("shows the server's phone error inline", async () => {
-    mockLeads(400, { error: "Enter a valid phone number (e.g. 03001234567).", reason: "invalid-phone" });
+    mockLeads(400, { error: "Enter a valid phone number with its country code (e.g. +92 300 1234567 or 03001234567).", reason: "invalid-phone" });
     render(<AddLeadForm />);
     fireEvent.change(screen.getByLabelText("WhatsApp phone"), { target: { value: "12" } });
     fireEvent.click(screen.getByRole("button", { name: "Save to My Contacts" }));
-    expect(await screen.findByText("Enter a valid phone number (e.g. 03001234567).")).toBeTruthy();
+    expect(await screen.findByText("Enter a valid phone number with its country code (e.g. +92 300 1234567 or 03001234567).")).toBeTruthy();
   });
 
   it("save stays disabled without a phone", () => {

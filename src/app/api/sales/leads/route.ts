@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const result = await addLead({ id: auth.user.id, role: auth.role }, parsed.data);
   if (!result.ok) {
     if (result.reason === "invalid-phone") {
-      return NextResponse.json({ error: "Enter a valid phone number (e.g. 03001234567).", reason: "invalid-phone" }, { status: 400 });
+      return NextResponse.json({ error: "Enter a valid phone number with its country code (e.g. +92 300 1234567 or 03001234567).", reason: "invalid-phone" }, { status: 400 });
     }
     if (result.reason === "duplicate") {
       return NextResponse.json(
