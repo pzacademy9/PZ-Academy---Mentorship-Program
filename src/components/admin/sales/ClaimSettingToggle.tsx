@@ -48,15 +48,19 @@ export function ClaimSettingToggle({ initial }: { initial: boolean }) {
         aria-labelledby="claim-setting-label"
         disabled={pending}
         onClick={() => change(!value)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors max-md:min-h-11 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 ${
-          value ? "bg-pz-primary" : "bg-pz-outline-variant"
-        }`}
+        className="group inline-flex shrink-0 items-center justify-center max-md:min-h-11 max-md:min-w-11 disabled:opacity-60 focus:outline-none"
       >
         <span
-          className={`inline-block h-5 w-5 rounded-full bg-pz-surface-container-lowest shadow transition-transform ${
-            value ? "translate-x-6" : "translate-x-1"
+          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-pz-primary/40 ${
+            value ? "bg-pz-primary" : "bg-pz-outline"
           }`}
-        />
+        >
+          <span
+            className={`inline-block h-5 w-5 rounded-full bg-pz-surface-container-lowest shadow transition-transform ${
+              value ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </span>
       </button>
     </section>
   );

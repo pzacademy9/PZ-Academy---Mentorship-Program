@@ -24,7 +24,10 @@ export async function POST(req: Request) {
         : result.reason === "not-found"
           ? "No contacts found for that list."
           : "Could not assign these contacts.";
-    return NextResponse.json({ error, reason: result.reason }, { status: statusForReason(result.reason) });
+    return NextResponse.json(
+      { error, reason: result.reason, ...(result.partial ? { partial: result.partial } : {}) },
+      { status: statusForReason(result.reason) },
+    );
   }
   return NextResponse.json({ result: result.result });
 }

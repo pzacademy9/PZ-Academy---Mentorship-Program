@@ -22,7 +22,7 @@ export default async function AdminSalesHubPage() {
           <Link
             key={c.label}
             href={c.href}
-            className="rounded-2xl bg-pz-surface-container p-5 hover:bg-pz-surface-container-high transition-colors"
+            className="rounded-2xl bg-pz-surface-container p-5 hover:bg-pz-surface-container-high transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary/30"
           >
             <p className="font-body text-sm text-pz-on-surface-variant">{c.label}</p>
             <p

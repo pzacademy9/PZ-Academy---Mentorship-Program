@@ -12,7 +12,7 @@ export default async function SalesWorkspacePage() {
   const [{ data: profile }, canClaim] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     // Admins are exempt from the claim setting server-side, so their UI always offers Claim.
-    role === "admin" ? Promise.resolve(true) : getAgentsCanClaim(),
+    role === "admin" || role === "super_admin" ? Promise.resolve(true) : getAgentsCanClaim(),
   ]);
   const greeting = greetingFor(localParts(new Date(), DEFAULT_SETTINGS.timezone).hour);
   return <TodayQueue greeting={greeting} firstName={firstNameOf(profile?.full_name ?? "")} canClaim={canClaim} />;

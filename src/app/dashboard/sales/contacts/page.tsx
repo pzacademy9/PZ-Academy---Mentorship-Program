@@ -18,6 +18,6 @@ export default async function SalesContactsPage({
   const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? "") ? (sp.tab as Tab) : "mine";
   const open = sp.open && /^[0-9a-f-]{36}$/i.test(sp.open) ? sp.open : null;
   // Admins are exempt from the claim setting server-side, so their UI always offers Claim.
-  const canClaim = role === "admin" ? true : await getAgentsCanClaim();
+  const canClaim = role === "admin" || role === "super_admin" ? true : await getAgentsCanClaim();
   return <ContactsWorkspace viewerId={user.id} initialTab={tab} initialOpenId={open} canClaim={canClaim} />;
 }

@@ -137,9 +137,15 @@ export function AssignListsPanel({
         body: JSON.stringify(body),
       });
       const payload = (await res.json().catch(() => null)) as
-        | { result?: { assigned: number; reassigned: number }; error?: string }
+        | { result?: { assigned: number; reassigned: number }; partial?: { assigned: number; reassigned: number }; error?: string }
         | null;
       if (!res.ok || !payload?.result) {
+        if (payload?.partial && payload.partial.assigned > 0) {
+          toast.error(`Assigned ${payload.partial.assigned} before an error stopped it. Preview again and re-run to finish.`);
+          invalidate();
+          startTransition(() => router.refresh());
+          return;
+        }
         toast.error(payload?.error ?? "Could not assign these contacts.");
         return;
       }

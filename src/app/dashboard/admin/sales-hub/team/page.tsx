@@ -4,7 +4,7 @@ import { getAgentsCanClaim } from "@/lib/data/sales-assignment";
 import { ClaimSettingToggle } from "@/components/admin/sales/ClaimSettingToggle";
 import { SalesTeamPanel } from "@/components/admin/sales/SalesTeamPanel";
 
-export const metadata = { title: "Sales Team — PZ Academy" };
+export const metadata = { title: "Sales Team — Sales Hub — PZ Academy" };
 
 export default async function AdminSalesTeamPage() {
   await requireAdminPage();

@@ -20,7 +20,7 @@ export type AssignPreview = {
 };
 export type AssignResult = { assigned: number; reassigned: number };
 
-type Fail<R extends string> = { ok: false; reason: R };
+type Fail<R extends string> = { ok: false; reason: R; partial?: AssignResult };
 const dbError = (tag: string, e: unknown): Fail<"db-error"> => {
   console.error(`[sales-assignment] ${tag}`, e);
   return { ok: false, reason: "db-error" };
@@ -117,44 +117,54 @@ export async function commitAssignment(
     const followup = nextFollowupFor("claimed", now)!.toISOString();
     let assigned = 0;
     let reassigned = 0;
-    for (const slice of chunk(plan.toAssign, ID_CHUNK)) {
-      let q = db
-        .from("contacts")
-        .update({ owner_id: agentId, claimed_at: iso, next_followup_at: followup })
-        .in("id", slice)
-        .is("do_not_contact_at", null); // never assign do-not-contact, even if flagged since load
-      if (!includeOwned) q = q.is("owner_id", null); // guards against a concurrent claim
-      const { data: updated, error } = await q.select("id");
-      if (error) throw error;
-      const done = updated ?? [];
-      if (done.length === 0) continue;
-      assigned += done.length;
-      reassigned += done.filter((c) => reassigning.has(c.id)).length;
-      const { error: actErr } = await db.from("contact_activities").insert(
-        done.map((c) => ({
-          contact_id: c.id,
-          agent_id: admin.id,
-          kind: reassigning.has(c.id) ? "reassigned" : "claimed",
-          body: `Assigned to ${agent.full_name ?? "agent"}`,
-          created_at: iso,
-        })),
-      );
-      if (actErr) throw actErr;
+    let failure: unknown = null;
+    try {
+      for (const slice of chunk(plan.toAssign, ID_CHUNK)) {
+        let q = db
+          .from("contacts")
+          .update({ owner_id: agentId, claimed_at: iso, next_followup_at: followup })
+          .in("id", slice)
+          .is("do_not_contact_at", null); // never assign do-not-contact, even if flagged since load
+        if (!includeOwned) q = q.is("owner_id", null); // guards against a concurrent claim
+        const { data: updated, error } = await q.select("id");
+        if (error) throw error;
+        const done = updated ?? [];
+        if (done.length === 0) continue;
+        assigned += done.length;
+        reassigned += done.filter((c) => reassigning.has(c.id)).length;
+        const { error: actErr } = await db.from("contact_activities").insert(
+          done.map((c) => ({
+            contact_id: c.id,
+            agent_id: admin.id,
+            kind: reassigning.has(c.id) ? "reassigned" : "claimed",
+            body: `Assigned to ${agent.full_name ?? "agent"}`,
+            created_at: iso,
+          })),
+        );
+        if (actErr) throw actErr;
+      }
+    } catch (e) {
+      failure = e;
     }
 
+    // One notification for whatever was assigned, even when a later chunk failed.
     if (assigned > 0) {
       try {
         const { error: nErr } = await db.from("notifications").insert({
           user_id: agentId,
           type: "contacts_assigned",
           title: "New contacts assigned",
-          body: `${assigned} contacts were assigned to you.`,
+          body: assigned === 1 ? "1 contact was assigned to you." : `${assigned} contacts were assigned to you.`,
           link: "/dashboard/sales/contacts",
         });
         if (nErr) throw nErr;
       } catch (e) {
         console.error("[sales-assignment] notify failed", e);
       }
+    }
+    if (failure) {
+      const fail = dbError("commitAssignment", failure);
+      return assigned > 0 ? { ...fail, partial: { assigned, reassigned } } : fail;
     }
     return { ok: true, result: { assigned, reassigned } };
   } catch (e) {
