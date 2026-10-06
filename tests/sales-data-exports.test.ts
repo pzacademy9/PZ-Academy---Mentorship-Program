@@ -76,3 +76,13 @@ describe("sales-send exports", () => {
     expect(typeof send.requestSend).toBe("function");
   });
 });
+
+import * as assignment from "@/lib/data/sales-assignment";
+
+describe("sales-assignment exports", () => {
+  it("exposes the assignment data layer", () => {
+    for (const name of ["previewAssignment", "commitAssignment", "listAgentAssignmentCounts", "getAgentsCanClaim", "setAgentsCanClaim", "releaseOwnContact"]) {
+      expect(typeof (assignment as Record<string, unknown>)[name]).toBe("function");
+    }
+  });
+});

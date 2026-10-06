@@ -31,11 +31,11 @@ function mockApi(rows: ContactRowJson[], details: Record<string, ContactDetailJs
   return f;
 }
 
-const renderWs = (initialOpenId: string | null = null, initialTab: "mine" | "unclaimed" | "all" = "all") =>
+const renderWs = (initialOpenId: string | null = null, initialTab: "mine" | "unclaimed" | "all" = "all", canClaim = true) =>
   render(
     <ConfirmProvider>
       <SalesBudgetContext.Provider value={budgetValue}>
-        <ContactsWorkspace viewerId={ME} initialTab={initialTab} initialOpenId={initialOpenId} />
+        <ContactsWorkspace viewerId={ME} initialTab={initialTab} initialOpenId={initialOpenId} canClaim={canClaim} />
       </SalesBudgetContext.Provider>
     </ConfirmProvider>,
   );
@@ -87,6 +87,56 @@ describe("ContactsWorkspace", () => {
     expect(await screen.findByText(/asked not to be contacted/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /message on whatsapp/i })).toBeNull();
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeTruthy();
+  });
+});
+
+describe("claiming turned off (canClaim false)", () => {
+  const unclaimedDetail: ContactDetailJson = {
+    contact: { id: "u", full_name: "Chand", phone_e164: "+923001234567", owner_id: null, owner_name: null, last_outcome: null, next_followup_at: null, do_not_contact_at: null, whatsapp_unsubscribed_at: null, email: null, profession: null },
+    timeline: [],
+    canAct: true,
+    restricted: false,
+  };
+
+  it("an unclaimed row has no Claim button and the Unclaimed tab shows the view-only note", async () => {
+    mockApi([row("c", "Chand", { owner_id: null, owner_name: null })], {});
+    renderWs(null, "unclaimed", false);
+    expect(await screen.findByText("Chand")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Claim" })).toBeNull();
+    expect(screen.getByText("Unassigned contacts are view-only. Your admin assigns contacts to you.")).toBeTruthy();
+  });
+
+  it("with canClaim true the Claim button still renders and there is no view-only note", async () => {
+    mockApi([row("c", "Chand", { owner_id: null, owner_name: null })], {});
+    renderWs(null, "unclaimed", true);
+    expect(await screen.findByRole("button", { name: "Claim" })).toBeTruthy();
+    expect(screen.queryByText("Unassigned contacts are view-only. Your admin assigns contacts to you.")).toBeNull();
+  });
+
+  it("the Mine empty state tells the agent the admin assigns contacts", async () => {
+    mockApi([], {});
+    renderWs(null, "mine", false);
+    expect(await screen.findByText("Your admin assigns contacts to you. They will show up here.")).toBeTruthy();
+    expect(screen.queryByText("Claim contacts from the Unclaimed tab to start.")).toBeNull();
+  });
+
+  it("the Mine empty state keeps the claim hint when claiming is on", async () => {
+    mockApi([], {});
+    renderWs(null, "mine", true);
+    expect(await screen.findByText("Claim contacts from the Unclaimed tab to start.")).toBeTruthy();
+  });
+
+  it("the detail pane has no Claim to my list button for an unclaimed contact", async () => {
+    mockApi([], { u: unclaimedDetail });
+    renderWs("u", "all", false);
+    expect(await screen.findByRole("heading", { level: 2, name: "Chand" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Claim to my list" })).toBeNull();
+  });
+
+  it("the detail pane keeps Claim to my list when claiming is on", async () => {
+    mockApi([], { u: unclaimedDetail });
+    renderWs("u", "all", true);
+    expect(await screen.findByRole("button", { name: "Claim to my list" })).toBeTruthy();
   });
 });
 
@@ -224,5 +274,42 @@ describe("locked cards", () => {
     const name = await screen.findByText("Bilal");
     const card = name.closest("li")!.firstElementChild as HTMLElement;
     expect(card.className).not.toMatch(/\bopacity-\d+/);
+  });
+});
+
+describe("hand back", () => {
+  const detail = (owner: string | null, canAct: boolean): ContactDetailJson => ({
+    contact: { id: "h", full_name: "Hira", phone_e164: "+923001234567", owner_id: owner, owner_name: "Sara", last_outcome: null, next_followup_at: null, do_not_contact_at: null, email: null, profession: null },
+    timeline: [],
+    canAct,
+    restricted: false,
+  });
+
+  it("shows Hand back only for the owner, and confirms before posting", async () => {
+    const f = mockApi([], { h: detail(ME, true) });
+    f.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.startsWith("/api/sales/templates")) return { ok: true, json: async () => ({ templates: [] }) } as Response;
+      if (url.endsWith("/release") && init?.method === "POST") return { ok: true, status: 200, json: async () => ({ ok: true }) } as Response;
+      if (/^\/api\/sales\/contacts\/h$/.test(url)) return { ok: true, json: async () => detail(ME, true) } as Response;
+      return { ok: false, json: async () => ({}) } as Response;
+    });
+    renderWs("h");
+    fireEvent.click(await screen.findByRole("button", { name: "Hand back" }));
+    expect(f).not.toHaveBeenCalledWith("/api/sales/contacts/h/release", expect.anything());
+    expect(await screen.findByText("Hand this contact back?")).toBeTruthy();
+    expect(screen.getByText("It goes back to your admin and leaves your list.")).toBeTruthy();
+    // The open dialog hides the page behind it, so this is the dialog's own confirm button.
+    fireEvent.click(screen.getByRole("button", { name: "Hand back" }));
+    await waitFor(() => expect(f).toHaveBeenCalledWith("/api/sales/contacts/h/release", expect.objectContaining({ method: "POST" })));
+  });
+
+  it("is hidden for unowned, someone else's, and non-actionable contacts", async () => {
+    for (const d of [detail(null, true), detail("other", false), detail(ME, false)]) {
+      mockApi([], { h: d });
+      const { unmount } = renderWs("h");
+      await screen.findByText("Hira");
+      expect(screen.queryByRole("button", { name: "Hand back" })).toBeNull();
+      unmount();
+    }
   });
 });

@@ -57,14 +57,10 @@ it("sales_agent sees Today, Contacts, Add lead, Help, then alerts and settings, 
   expect(activeHrefFor(items, "/dashboard/sales/contacts")).toBe("/dashboard/sales/contacts");
 });
 
-it("admins get the WhatsApp Safety page, others do not", () => {
-  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-safety");
-  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-safety");
-  expect(navForRole("sales_agent").map((i) => i.href)).not.toContain("/dashboard/admin/sales-safety");
-});
-
-it("admin sees Sales Team, sales_agent does not see admin items", () => {
-  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-team");
-  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-team");
-  expect(navForRole("mentor").map((i) => i.href)).not.toContain("/dashboard/admin/sales-team");
+it("admins get the Sales Hub entry, others do not", () => {
+  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-hub");
+  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-hub");
+  for (const r of ["sales_agent", "mentor", "student"] as const) {
+    expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
+  }
 });

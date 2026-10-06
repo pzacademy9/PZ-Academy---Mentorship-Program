@@ -55,32 +55,6 @@ export async function countRecentLeadsByAgent(agentId: string, sinceIso: string)
   return count ?? 0;
 }
 
-export type AgentLeadRow = {
-  id: string;
-  name: string | null;
-  phone: string;
-  profession: string | null;
-  status: string;
-  createdAt: string;
-};
-
-export async function listLeadsByAgent(agentId: string): Promise<AgentLeadRow[]> {
-  const admin = createAdminSupabase();
-  const { data } = await admin
-    .from("leads")
-    .select("id, name, phone, profession, status, created_at")
-    .eq("agent_id", agentId)
-    .order("created_at", { ascending: false });
-  return (data ?? []).map((l) => ({
-    id: l.id,
-    name: l.name,
-    phone: l.phone,
-    profession: l.profession,
-    status: l.status,
-    createdAt: l.created_at,
-  }));
-}
-
 export type LeadFields = {
   name: string | null;
   email: string | null;

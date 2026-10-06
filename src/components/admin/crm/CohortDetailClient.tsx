@@ -19,7 +19,7 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
     <div className="space-y-6">
       <div>
         <Link
-          href="/dashboard/admin/crm?tab=cohorts"
+          href="/dashboard/admin/sales-hub/cohorts"
           className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors max-md:min-h-11"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Cohorts
@@ -57,7 +57,7 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
         mobile={{
           title: (c) => c.fullName || "—",
           meta: (c) => [c.email, c.phoneE164, c.productLabel].filter(Boolean),
-          href: (c) => `/dashboard/admin/crm/contacts/${c.contactId}`,
+          href: (c) => `/dashboard/admin/sales-hub/contacts/${c.contactId}`,
         }}
         table={
             <table className="w-full text-left font-body text-sm">
@@ -68,7 +68,7 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
                 {filtered.map((c) => (
                   <tr key={`${c.contactId}-${c.productLabel}`} className="border-t border-pz-outline-variant">
                     <td className="py-1">
-                      <Link href={`/dashboard/admin/crm/contacts/${c.contactId}`} className="underline">
+                      <Link href={`/dashboard/admin/sales-hub/contacts/${c.contactId}`} className="underline">
                         {c.fullName || "—"}
                       </Link>
                     </td>

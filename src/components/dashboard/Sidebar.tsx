@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { navForRole, activeHrefFor, splitMobileNav, type NavItem } from "./nav";
+import { isSalesHubPath } from "@/lib/crm/sales-hub-routes";
+import { navForRole, activeHrefFor, splitMobileNav, SALES_HUB_ITEMS, SALES_HUB_BACK, type NavItem, type HubGroup } from "./nav";
+
+const HUB_GROUPS: HubGroup[] = ["Overview", "Audience", "Outreach", "Team"];
 
 interface SidebarProps {
   role: Role;
@@ -15,7 +18,8 @@ interface SidebarProps {
 
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
-  const items = navForRole(role);
+  const hubMode = (role === "admin" || role === "super_admin") && isSalesHubPath(pathname);
+  const items: NavItem[] = hubMode ? [...SALES_HUB_ITEMS, SALES_HUB_BACK] : navForRole(role);
   const activeHref = activeHrefFor(items, pathname);
   const { bar, more, moreActive } = splitMobileNav(items, activeHref);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -27,6 +31,14 @@ export function Sidebar({ role }: SidebarProps) {
     );
   const pill = (active: boolean) =>
     cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-pz-secondary-container text-pz-on-secondary-container");
+
+  const desktopLink = (active: boolean) =>
+    cn(
+      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-label font-medium transition-colors",
+      active
+        ? "bg-pz-primary-container text-pz-on-primary-container font-bold"
+        : "text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-container-high"
+    );
 
   return (
     <>
@@ -40,24 +52,35 @@ export function Sidebar({ role }: SidebarProps) {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {items.map((item) => {
-            const active = item.href === activeHref;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-label font-medium transition-colors",
-                  active
-                    ? "bg-pz-primary-container text-pz-on-primary-container font-bold"
-                    : "text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-container-high"
-                )}
-              >
+          {hubMode ? (
+            <>
+              <Link href={SALES_HUB_BACK.href} className={desktopLink(false)}>
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                Back to Admin
+              </Link>
+              <p className="px-3 pt-2 font-headline font-bold text-pz-secondary text-sm">Sales Hub</p>
+              {HUB_GROUPS.map((group) => (
+                <div key={group}>
+                  {group !== "Overview" && (
+                    <p className="px-3 pt-4 pb-1 text-[11px] font-label font-bold uppercase tracking-wide text-pz-on-surface-variant">{group}</p>
+                  )}
+                  {SALES_HUB_ITEMS.filter((item) => item.group === group).map((item) => (
+                    <Link key={item.href} href={item.href} className={desktopLink(item.href === activeHref)}>
+                      <item.icon className="w-4 h-4 shrink-0" />
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+            </>
+          ) : (
+            items.map((item) => (
+              <Link key={item.href} href={item.href} className={desktopLink(item.href === activeHref)}>
                 <item.icon className="w-4 h-4 shrink-0" />
                 {item.label}
               </Link>
-            );
-          })}
+            ))
+          )}
         </nav>
       </aside>
 

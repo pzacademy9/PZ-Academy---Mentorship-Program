@@ -276,7 +276,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
             {filteredBatches.map((b) => (
               <div key={b.id} className="bg-pz-surface-container-high rounded-2xl p-4">
                 <div className="flex items-center gap-2 max-md:flex-wrap">
-                  <Link href={`/dashboard/admin/crm/whatsapp/${b.id}`} className="flex-1 flex items-center justify-between text-left max-md:basis-full max-md:flex-col max-md:items-start max-md:min-h-11 max-md:justify-center">
+                  <Link href={`/dashboard/admin/sales-hub/whatsapp/${b.id}`} className="flex-1 flex items-center justify-between text-left max-md:basis-full max-md:flex-col max-md:items-start max-md:min-h-11 max-md:justify-center">
                   <span className="font-body font-semibold text-sm">{b.name}</span>
                   <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
                     {b.sentCount} / {b.recipientCount} sent

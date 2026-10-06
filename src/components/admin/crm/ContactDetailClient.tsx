@@ -101,7 +101,7 @@ export function ContactDetailClient({
     <div className="space-y-6">
       <div>
         <Link
-          href="/dashboard/admin/crm?tab=contacts"
+          href="/dashboard/admin/sales-hub/contacts"
           className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors max-md:min-h-11"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Contacts

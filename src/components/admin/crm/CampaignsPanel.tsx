@@ -508,7 +508,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
             getKey={(c) => c.id}
             mobile={{
               title: (c) => (
-                <Link href={`/dashboard/admin/crm/campaigns/${c.id}`} className="inline-flex min-h-11 items-center underline">
+                <Link href={`/dashboard/admin/sales-hub/campaigns/${c.id}`} className="inline-flex min-h-11 items-center underline">
                   {c.name}
                 </Link>
               ),
@@ -546,7 +546,7 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
                     {filteredCampaigns.map((c) => (
                       <tr key={c.id} className="border-t border-pz-outline-variant">
                         <td className="py-2">
-                          <Link href={`/dashboard/admin/crm/campaigns/${c.id}`} className="underline">
+                          <Link href={`/dashboard/admin/sales-hub/campaigns/${c.id}`} className="underline">
                             {c.name}
                           </Link>
                         </td>

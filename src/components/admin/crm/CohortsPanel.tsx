@@ -71,7 +71,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
           icon={Layers}
           title="No cohorts imported yet"
           description="Each imported sheet tab becomes a cohort."
-          action={{ label: "Import contacts", href: "/dashboard/admin/crm?tab=import" }}
+          action={{ label: "Import contacts", href: "/dashboard/admin/sales-hub/import" }}
         />
       ) : filtered.length === 0 ? (
         <EmptyState icon={SearchX} title="No cohorts match" description={`Nothing matches "${search}".`} />
@@ -81,7 +81,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
           getKey={(c) => c.id}
           mobile={{
             title: (c) => (
-              <Link href={`/dashboard/admin/crm/cohorts/${c.id}`} className="inline-flex min-h-11 items-center underline">
+              <Link href={`/dashboard/admin/sales-hub/cohorts/${c.id}`} className="inline-flex min-h-11 items-center underline">
                 {c.sheetName}
               </Link>
             ),
@@ -119,7 +119,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
                   {filtered.map((c) => (
                     <tr key={c.id} className="border-t border-pz-outline-variant">
                       <td className="py-2">
-                        <Link href={`/dashboard/admin/crm/cohorts/${c.id}`} className="underline">
+                        <Link href={`/dashboard/admin/sales-hub/cohorts/${c.id}`} className="underline">
                           {c.sheetName}
                         </Link>
                       </td>

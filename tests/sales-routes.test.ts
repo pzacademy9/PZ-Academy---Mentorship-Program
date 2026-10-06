@@ -28,6 +28,7 @@ describe("sales route files", () => {
         "/src/app/api/sales/contacts/[id]/claim/route.ts",
         "/src/app/api/sales/contacts/[id]/note/route.ts",
         "/src/app/api/sales/contacts/[id]/outcome/route.ts",
+        "/src/app/api/sales/contacts/[id]/release/route.ts",
         "/src/app/api/sales/contacts/[id]/route.ts",
         "/src/app/api/sales/contacts/[id]/send/route.ts",
         "/src/app/api/sales/contacts/route.ts",
@@ -37,7 +38,7 @@ describe("sales route files", () => {
         "/src/app/api/sales/today/route.ts",
       ].sort(),
     );
-    expect(adminSales).toHaveLength(5);
+    expect(adminSales).toHaveLength(8);
   });
 
   it("every agent route gates with requireSalesAgent and never requireAdmin", () => {
@@ -88,6 +89,17 @@ describe("sales route files", () => {
     expect(src).not.toMatch(/export async function (POST|PUT|PATCH|DELETE)/);
     expect(src).not.toContain("createTemplate");
     expect(src).not.toContain("deleteTemplate");
+  });
+
+  it("the claim route enforces the agents-can-claim setting for sales agents only", () => {
+    const src = readFileSync(join(salesRoot, "contacts", "[id]", "claim", "route.ts"), "utf8");
+    expect(src).toContain("getAgentsCanClaim()");
+    expect(src).toMatch(/auth\.role === "sales_agent" && !\(await getAgentsCanClaim\(\)\)/);
+    expect(src).toContain('"Claiming is turned off. Ask your admin to assign contacts to you."');
+    expect(src).toContain('reason: "claim-disabled"');
+    // The setting check runs before the data-layer claim.
+    expect(src.indexOf("getAgentsCanClaim()")).toBeLessThan(src.indexOf("claimContact("));
+    expect(statusForReason("claim-disabled")).toBe(403);
   });
 
   it("admin number routes pass the plain duplicate / invalid-phone message through with its status", () => {

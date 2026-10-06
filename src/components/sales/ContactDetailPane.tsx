@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Ban, Lock, UserPlus } from "lucide-react";
+import { ArrowLeft, Ban, Lock, Undo2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/ui/error-state";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { initials } from "@/lib/format";
@@ -16,12 +17,14 @@ import { NoteBox } from "./NoteBox";
 export function ContactDetailPane({
   contactId,
   viewerId,
+  canClaim,
   templates,
   onClose,
   onChanged,
 }: {
   contactId: string;
   viewerId: string;
+  canClaim: boolean;
   templates: TemplateJson[];
   onClose: () => void;
   onChanged: () => void;
@@ -52,6 +55,26 @@ export function ContactDetailPane({
       else toast.success("Claimed. They are in your Today list now.");
     } catch {
       toast.error("Could not claim this contact.");
+    }
+    await load();
+    onChanged();
+  });
+
+  const confirm = useConfirm();
+  const { run: release, pending: releasing } = useAsyncAction(async () => {
+    const ok = await confirm({
+      title: "Hand this contact back?",
+      description: "It goes back to your admin and leaves your list.",
+      confirmLabel: "Hand back",
+    });
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/sales/contacts/${contactId}/release`, { method: "POST" });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) toast.error(body?.error ?? "Could not hand this contact back.");
+      else toast.success("Handed back.");
+    } catch {
+      toast.error("Could not hand this contact back.");
     }
     await load();
     onChanged();
@@ -124,7 +147,7 @@ export function ContactDetailPane({
           <Ban className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> Asked not to be contacted. Nobody can message them from the app.
         </p>
       )}
-      {unclaimed && (
+      {unclaimed && canClaim && (
         <Button
           type="button"
           disabled={claiming}
@@ -133,6 +156,18 @@ export function ContactDetailPane({
         >
           <UserPlus className="w-5 h-5" aria-hidden="true" />
           {claiming ? "Claiming…" : "Claim to my list"}
+        </Button>
+      )}
+      {detail.canAct && c.owner_id === viewerId && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={releasing}
+          onClick={() => void release()}
+          className="self-start max-md:min-h-11 gap-2"
+        >
+          <Undo2 className="w-4 h-4" aria-hidden="true" />
+          Hand back
         </Button>
       )}
       {sendVisible && c.phone_e164 && (

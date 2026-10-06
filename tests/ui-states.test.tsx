@@ -6,11 +6,11 @@ import { ChipTabs } from "@/components/ui/chip-tabs";
 
 it("EmptyState renders title, description and a link action", () => {
   render(<EmptyState icon={Inbox} title="No contacts yet" description="Import a sheet."
-    action={{ label: "Import contacts", href: "/dashboard/admin/crm?tab=import" }} />);
+    action={{ label: "Import contacts", href: "/dashboard/admin/sales-hub/import" }} />);
   expect(screen.getByRole("heading", { name: "No contacts yet" })).toBeTruthy();
   expect(screen.getByText("Import a sheet.")).toBeTruthy();
   expect(screen.getByRole("link", { name: "Import contacts" }).getAttribute("href"))
-    .toBe("/dashboard/admin/crm?tab=import");
+    .toBe("/dashboard/admin/sales-hub/import");
 });
 
 it("EmptyState renders a button action that calls onClick", () => {
