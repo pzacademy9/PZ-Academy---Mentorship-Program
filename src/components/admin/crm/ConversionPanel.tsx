@@ -43,7 +43,7 @@ export function ConversionPanel({ items }: { items: ConversionTrackedItem[] }) {
                 : item.conversionTag.kind === "label"
                   ? `"${item.conversionTag.pattern}"`
                   : "";
-            const href = item.kind === "whatsapp" ? `/dashboard/admin/crm/whatsapp/${item.id}` : `/dashboard/admin/crm/campaigns/${item.id}`;
+            const href = item.kind === "whatsapp" ? `/dashboard/admin/sales-hub/whatsapp/${item.id}` : `/dashboard/admin/sales-hub/campaigns/${item.id}`;
             return (
               <Link key={`${item.kind}:${item.id}`} href={href} className="block bg-pz-surface-container-high rounded-2xl p-4 hover:bg-pz-surface-container-highest transition-colors">
                 <div className="w-full flex items-center justify-between text-left gap-3">

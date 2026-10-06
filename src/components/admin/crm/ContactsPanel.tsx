@@ -128,7 +128,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       toast.error("Could not hand off the selection — try again.");
       return;
     }
-    router.push("/dashboard/admin/crm?tab=campaigns");
+    router.push("/dashboard/admin/sales-hub/campaigns");
   }
 
   function useSelectedInWhatsApp() {
@@ -138,7 +138,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       toast.error("Could not hand off the selection — try again.");
       return;
     }
-    router.push("/dashboard/admin/crm?tab=whatsapp");
+    router.push("/dashboard/admin/sales-hub/whatsapp");
   }
 
   const { run: markSelectedConverted, pending: bulkSaving } = useAsyncAction(async () => {
@@ -295,7 +295,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
             icon={Users}
             title="No contacts yet"
             description="Use the Import tab to bring in a cohort sheet."
-            action={{ label: "Import contacts", href: "/dashboard/admin/crm?tab=import" }}
+            action={{ label: "Import contacts", href: "/dashboard/admin/sales-hub/import" }}
           />
         }
         mobile={{
@@ -306,7 +306,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
             c.productLabels.length > 0 ? courseSummary(c.productLabels) : null,
             c.unsubscribed ? "Unsubscribed" : null,
           ].filter(Boolean),
-          href: (c) => `/dashboard/admin/crm/contacts/${c.id}`,
+          href: (c) => `/dashboard/admin/sales-hub/contacts/${c.id}`,
         }}
         selection={{
           isSelected: (c) => selected.has(c.id),
@@ -341,7 +341,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
                           />
                         </td>
                         <td>
-                          <Link href={`/dashboard/admin/crm/contacts/${c.id}`} className="text-left underline">
+                          <Link href={`/dashboard/admin/sales-hub/contacts/${c.id}`} className="text-left underline">
                             {c.fullName || "—"}
                           </Link>
                           {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}

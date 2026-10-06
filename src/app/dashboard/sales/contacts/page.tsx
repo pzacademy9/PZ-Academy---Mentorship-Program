@@ -6,7 +6,7 @@ export const metadata = { title: "My Contacts — Sales Workspace" };
 const TABS = ["mine", "unclaimed", "all"] as const;
 type Tab = (typeof TABS)[number];
 
-// Same searchParams convention as src/app/dashboard/admin/crm/page.tsx (a Promise, awaited).
+// Same searchParams convention as src/app/dashboard/admin/sales-hub/contacts/page.tsx (a Promise, awaited).
 export default async function SalesContactsPage({
   searchParams,
 }: {

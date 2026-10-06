@@ -137,7 +137,7 @@ export function WhatsAppBatchDetailClient({
     <div className="space-y-6">
       <div>
         <Link
-          href="/dashboard/admin/crm?tab=whatsapp"
+          href="/dashboard/admin/sales-hub/whatsapp"
           className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors max-md:min-h-11"
         >
           <ArrowLeft className="w-4 h-4" /> Back to WhatsApp
@@ -316,7 +316,7 @@ export function WhatsAppBatchDetailClient({
           mobile={{
             title: (r) =>
               r.contactId ? (
-                <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="inline-flex min-h-11 items-center underline">
+                <Link href={`/dashboard/admin/sales-hub/contacts/${r.contactId}`} className="inline-flex min-h-11 items-center underline">
                   {r.fullName || "—"}
                 </Link>
               ) : (
@@ -345,7 +345,7 @@ export function WhatsAppBatchDetailClient({
                   <tr key={r.id} className="border-t border-pz-outline-variant">
                     <td className="py-1">
                       {r.contactId ? (
-                        <Link href={`/dashboard/admin/crm/contacts/${r.contactId}`} className="underline">
+                        <Link href={`/dashboard/admin/sales-hub/contacts/${r.contactId}`} className="underline">
                           {r.fullName || "—"}
                         </Link>
                       ) : (
