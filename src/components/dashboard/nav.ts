@@ -2,9 +2,10 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, UserPlus, LifeBuoy, ShieldCheck,
+  ClipboardList, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
+import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
 
 export interface NavItem {
   label: string;
@@ -37,9 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "super_admin"] },
   { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "super_admin"] },
   { label: "Marketing", href: "/dashboard/admin/marketing", icon: Image, roles: ["admin", "super_admin"] },
-  { label: "CRM", href: "/dashboard/admin/crm", icon: Contact, roles: ["admin", "super_admin"] },
-  { label: "Sales Team", href: "/dashboard/admin/sales-team", icon: UserPlus, roles: ["admin", "super_admin"] },
-  { label: "WhatsApp Safety", shortLabel: "Safety", href: "/dashboard/admin/sales-safety", icon: ShieldCheck, roles: ["admin", "super_admin"] },
+  { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "super_admin"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
   { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "super_admin"] },
@@ -65,3 +64,26 @@ export function splitMobileNav(items: NavItem[], activeHref: string | undefined,
   const more = items.slice(barSize);
   return { bar, more, moreActive: more.some((i) => i.href === activeHref) };
 }
+
+export type HubGroup = "Overview" | "Audience" | "Outreach" | "Team";
+export interface HubNavItem extends NavItem { group: HubGroup }
+
+const ADMINS: Role[] = ["admin", "super_admin"];
+const hub = (group: HubGroup, label: string, href: string, icon: NavItem["icon"], shortLabel?: string): HubNavItem =>
+  ({ group, label, shortLabel, href, icon, roles: ADMINS });
+
+export const SALES_HUB_ITEMS: HubNavItem[] = [
+  hub("Overview", "Overview", SALES_HUB_BASE, LayoutDashboard),
+  hub("Audience", "Contacts", hubPath("contacts"), Users),
+  hub("Team", "Assign Lists", hubPath("assign"), ClipboardList, "Assign"),
+  hub("Team", "Sales Team", hubPath("team"), UserPlus, "Team"),
+  hub("Audience", "Import", hubPath("import"), Link2),
+  hub("Audience", "Merge Review", hubPath("merge"), UserCheck, "Merge"),
+  hub("Audience", "Cohorts", hubPath("cohorts"), GraduationCap),
+  hub("Outreach", "Campaigns", hubPath("campaigns"), Megaphone),
+  hub("Outreach", "WhatsApp Batches", hubPath("whatsapp"), MessageCircle, "WhatsApp"),
+  hub("Outreach", "Conversion", hubPath("conversion"), BarChart3),
+  hub("Team", "WhatsApp Safety", hubPath("safety"), ShieldCheck, "Safety"),
+];
+
+export const SALES_HUB_BACK: NavItem = { label: "Back to Admin", shortLabel: "Admin", href: "/dashboard/admin", icon: ArrowLeft, roles: ADMINS };
