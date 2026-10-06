@@ -197,11 +197,13 @@ export async function getAgentsCanClaim(): Promise<boolean> {
 export async function setAgentsCanClaim(value: boolean): Promise<{ ok: true } | { ok: false }> {
   try {
     const db = createAdminSupabase();
-    const { error } = await db
+    const { data, error } = await db
       .from("whatsapp_safety_settings")
       .update({ agents_can_claim: value, updated_at: new Date().toISOString() })
-      .eq("id", true);
-    return error ? { ok: false } : { ok: true };
+      .eq("id", true)
+      .select("id");
+    // Zero rows updated (missing singleton row) must not read as success.
+    return error || !data || data.length === 0 ? { ok: false } : { ok: true };
   } catch {
     return { ok: false };
   }

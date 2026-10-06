@@ -20,6 +20,8 @@ describe("agents_can_claim setting", () => {
     const body = fnBody(src, "getAgentsCanClaim");
     expect(body).toContain("return false");
     expect(body).toContain("catch");
+    expect(body).toMatch(/if \(error \|\| !data\) return false;/);
+    expect(body).toMatch(/catch\s*\{\s*return false;?\s*\}/);
     expect(body).not.toMatch(/return true\s*;\s*}\s*catch/);
   });
 
