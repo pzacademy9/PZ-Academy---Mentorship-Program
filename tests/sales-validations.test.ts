@@ -111,6 +111,7 @@ describe("statusForReason", () => {
     expect(statusForReason("not-owner")).toBe(403);
     expect(statusForReason("not-allowed")).toBe(403);
     expect(statusForReason("number-not-assigned")).toBe(403);
+    expect(statusForReason("claim-disabled")).toBe(403);
     expect(statusForReason("already-claimed")).toBe(409);
     expect(statusForReason("do-not-contact")).toBe(409);
     expect(statusForReason("daily_cap")).toBe(429);

@@ -90,6 +90,17 @@ describe("sales route files", () => {
     expect(src).not.toContain("deleteTemplate");
   });
 
+  it("the claim route enforces the agents-can-claim setting for sales agents only", () => {
+    const src = readFileSync(join(salesRoot, "contacts", "[id]", "claim", "route.ts"), "utf8");
+    expect(src).toContain("getAgentsCanClaim()");
+    expect(src).toMatch(/auth\.role === "sales_agent" && !\(await getAgentsCanClaim\(\)\)/);
+    expect(src).toContain('"Claiming is turned off. Ask your admin to assign contacts to you."');
+    expect(src).toContain('reason: "claim-disabled"');
+    // The setting check runs before the data-layer claim.
+    expect(src.indexOf("getAgentsCanClaim()")).toBeLessThan(src.indexOf("claimContact("));
+    expect(statusForReason("claim-disabled")).toBe(403);
+  });
+
   it("admin number routes pass the plain duplicate / invalid-phone message through with its status", () => {
     const create = readFileSync(join(adminSalesRoot, "numbers", "route.ts"), "utf8");
     const update = readFileSync(join(adminSalesRoot, "numbers", "[id]", "route.ts"), "utf8");

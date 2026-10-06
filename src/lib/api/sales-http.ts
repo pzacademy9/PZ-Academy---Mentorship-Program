@@ -6,6 +6,7 @@ export function statusForReason(reason: string): number {
     case "not-owner":
     case "not-allowed":
     case "number-not-assigned":
+    case "claim-disabled":
       return 403;
     case "already-claimed":
     case "do-not-contact":

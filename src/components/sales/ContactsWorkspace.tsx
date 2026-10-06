@@ -18,10 +18,12 @@ export function ContactsWorkspace({
   viewerId,
   initialTab,
   initialOpenId,
+  canClaim,
 }: {
   viewerId: string;
   initialTab: Tab;
   initialOpenId: string | null;
+  canClaim: boolean;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [input, setInput] = useState("");
@@ -175,6 +177,13 @@ export function ContactsWorkspace({
           </div>
         </div>
 
+        {tab === "unclaimed" && !canClaim && (
+          <p className="bg-pz-surface-container-low rounded-lg p-4 text-sm text-pz-on-surface-variant flex items-start gap-2">
+            <Lock className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            Unassigned contacts are view-only. Your admin assigns contacts to you.
+          </p>
+        )}
+
         {error ? (
           <ErrorState onRetry={() => void load()} />
         ) : data === null ? (
@@ -183,7 +192,7 @@ export function ContactsWorkspace({
           <EmptyState
             icon={Users}
             title="No contacts here"
-            description={q ? "Nothing matches that search." : tab === "mine" ? "Claim contacts from the Unclaimed tab to start." : "Nothing to show yet."}
+            description={q ? "Nothing matches that search." : tab === "mine" ? (canClaim ? "Claim contacts from the Unclaimed tab to start." : "Your admin assigns contacts to you. They will show up here.") : "Nothing to show yet."}
           />
         ) : (
           <ul className="flex flex-col gap-3">
@@ -248,7 +257,7 @@ export function ContactsWorkspace({
                       )}
                       {stop && <span className="font-headline font-semibold">Do not contact</span>}
                     </div>
-                    {o === "unclaimed" && (
+                    {o === "unclaimed" && canClaim && (
                       <button
                         type="button"
                         disabled={pendingKey === r.id}
@@ -290,6 +299,7 @@ export function ContactsWorkspace({
               key={`${openId}:${paneVersion}`}
               contactId={openId}
               viewerId={viewerId}
+              canClaim={canClaim}
               templates={templates}
               onClose={() => setOpenId(null)}
               onChanged={() => void load()}

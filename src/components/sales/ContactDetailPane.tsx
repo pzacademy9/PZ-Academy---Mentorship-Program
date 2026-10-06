@@ -16,12 +16,14 @@ import { NoteBox } from "./NoteBox";
 export function ContactDetailPane({
   contactId,
   viewerId,
+  canClaim,
   templates,
   onClose,
   onChanged,
 }: {
   contactId: string;
   viewerId: string;
+  canClaim: boolean;
   templates: TemplateJson[];
   onClose: () => void;
   onChanged: () => void;
@@ -124,7 +126,7 @@ export function ContactDetailPane({
           <Ban className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> Asked not to be contacted. Nobody can message them from the app.
         </p>
       )}
-      {unclaimed && (
+      {unclaimed && canClaim && (
         <Button
           type="button"
           disabled={claiming}

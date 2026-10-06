@@ -26,11 +26,11 @@ function mockApi(items: QueueCardJson[], remaining = items.length) {
   }));
 }
 
-const renderToday = () =>
+const renderToday = (canClaim = true) =>
   render(
     <ConfirmProvider>
       <SalesBudgetContext.Provider value={budgetValue}>
-        <TodayQueue greeting="Good morning" firstName="Sara" />
+        <TodayQueue greeting="Good morning" firstName="Sara" canClaim={canClaim} />
       </SalesBudgetContext.Provider>
     </ConfirmProvider>,
   );
@@ -75,5 +75,15 @@ describe("TodayQueue", () => {
     expect(screen.getByRole("link", { name: "Claim more contacts" }).getAttribute("href")).toBe(
       "/dashboard/sales/contacts?tab=unclaimed",
     );
+    expect(screen.getByText("Nobody is due a message right now. Claim more contacts to keep going.")).toBeTruthy();
+  });
+
+  it("with claiming off the empty state has no claim action and says the admin assigns contacts", async () => {
+    mockApi([], 0);
+    renderToday(false);
+    expect(await screen.findByRole("heading", { name: "All caught up" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Claim more contacts" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Claim more contacts" })).toBeNull();
+    expect(screen.getByText("Nothing is due right now. New contacts appear here when your admin assigns them.")).toBeTruthy();
   });
 });

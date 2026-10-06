@@ -9,7 +9,7 @@ import type { QueueCardJson, TemplateJson } from "@/lib/crm/sales-ui";
 import { QueueCard } from "./QueueCard";
 import { SendPanel } from "./SendPanel";
 
-export function TodayQueue({ greeting, firstName }: { greeting: string; firstName: string }) {
+export function TodayQueue({ greeting, firstName, canClaim }: { greeting: string; firstName: string; canClaim: boolean }) {
   const [items, setItems] = useState<QueueCardJson[] | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [templates, setTemplates] = useState<TemplateJson[]>([]);
@@ -63,8 +63,12 @@ export function TodayQueue({ greeting, firstName }: { greeting: string; firstNam
           <EmptyState
             icon={CheckCircle2}
             title="All caught up"
-            description="Nobody is due a message right now. Claim more contacts to keep going."
-            action={{ label: "Claim more contacts", href: "/dashboard/sales/contacts?tab=unclaimed" }}
+            description={
+              canClaim
+                ? "Nobody is due a message right now. Claim more contacts to keep going."
+                : "Nothing is due right now. New contacts appear here when your admin assigns them."
+            }
+            action={canClaim ? { label: "Claim more contacts", href: "/dashboard/sales/contacts?tab=unclaimed" } : undefined}
           />
         </section>
       ) : (
