@@ -86,3 +86,13 @@ describe("sales-assignment exports", () => {
     }
   });
 });
+
+import * as campaigns from "@/lib/data/sales-campaigns";
+
+describe("sales-campaigns exports", () => {
+  it("exposes the campaign data layer", () => {
+    for (const name of ["loadCampaignAudience", "createCampaign", "listMyCampaigns", "getMyCampaign"]) {
+      expect(typeof (campaigns as Record<string, unknown>)[name]).toBe("function");
+    }
+  });
+});
