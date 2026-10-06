@@ -31,6 +31,21 @@ const ID_CHUNK = 200;
 const MAX_AUDIENCE = 3000;
 const AUDIENCE_PAGE = 1000;
 const RECIPIENT_INSERT_CHUNK = 500;
+/** PostgREST returns at most 1000 rows per request, so large reads page with .range. */
+const READ_PAGE = 1000;
+
+async function readAllPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += READ_PAGE) {
+    const { data, error } = await fetchPage(from, from + READ_PAGE - 1);
+    if (error) throw error;
+    const page = data ?? [];
+    out.push(...page);
+    if (page.length < READ_PAGE) return out;
+  }
+}
 
 export async function loadCampaignAudience(
   actor: Actor,
@@ -188,13 +203,16 @@ export async function listMyCampaigns(
     const pending = new Map<string, number>();
     const sent = new Map<string, number>();
     for (const slice of chunk(batches.map((b) => b.id), ID_CHUNK)) {
-      const { data: rec, error: rErr } = await db
-        .from("whatsapp_batch_recipients")
-        .select("batch_id, status")
-        .in("batch_id", slice)
-        .in("status", ["pending", "sent"]);
-      if (rErr) throw rErr;
-      for (const r of rec ?? []) {
+      const rec = await readAllPages((from, to) =>
+        db
+          .from("whatsapp_batch_recipients")
+          .select("batch_id, status")
+          .in("batch_id", slice)
+          .in("status", ["pending", "sent"])
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      for (const r of rec) {
         const m = r.status === "pending" ? pending : sent;
         m.set(r.batch_id, (m.get(r.batch_id) ?? 0) + 1);
       }
@@ -220,14 +238,16 @@ export async function getMyCampaign(
     if (error) throw error;
     // Another agent's campaign looks exactly like a missing one, so ids cannot be probed.
     if (!b || b.owner_agent_id !== actor.id) return { ok: false, reason: "not-found" };
-    const { data: rec, error: rErr } = await db
-      .from("whatsapp_batch_recipients")
-      .select("id, contact_id, full_name, phone_e164, status")
-      .eq("batch_id", id)
-      .order("full_name", { ascending: true })
-      .order("id", { ascending: true });
-    if (rErr) throw rErr;
-    const recipients = (rec ?? []).map((r) => ({
+    const rec = await readAllPages((from, to) =>
+      db
+        .from("whatsapp_batch_recipients")
+        .select("id, contact_id, full_name, phone_e164, status")
+        .eq("batch_id", id)
+        .order("full_name", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    const recipients = rec.map((r) => ({
       id: r.id,
       contactId: r.contact_id,
       fullName: r.full_name,

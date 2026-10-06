@@ -31,7 +31,7 @@ vi.mock("@/lib/supabase/admin", () => ({
           if (name === "eq") out = out.filter((r) => r[args[0] as string] === args[1]);
           if (name === "range") out = out.slice(args[0] as number, (args[1] as number) + 1);
         }
-        return { data: out, error: null };
+        return { data: out.slice(0, 1000), error: null }; // PostgREST row cap
       };
       const chain: Record<string, unknown> = new Proxy({}, {
         get: (_t, prop: string) => {
@@ -189,6 +189,37 @@ describe("getMyCampaign / listMyCampaigns", () => {
   });
 });
 
+describe("large campaigns beyond the 1000-row cap", () => {
+  const big = (n: number, pendingEvery: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `r${String(i).padStart(4, "0")}`, batch_id: "b1", contact_id: `c${i}`, full_name: `N${String(i).padStart(4, "0")}`,
+      phone_e164: "+1", status: i % pendingEvery === 0 ? "pending" : "sent",
+    }));
+  const batch = { id: "b1", name: "Big", status: "active", recipient_count: 2000, owner_agent_id: "agent", message_template: "Hi",
+    number_id: "n1", followup_in_hours: 24, paused_reason: null, created_at: "2026-10-06T00:00:00Z" };
+
+  it("getMyCampaign returns all 2000 recipients with correct counts", async () => {
+    tables.whatsapp_batches = [batch];
+    tables.whatsapp_batch_recipients = big(2000, 2);
+    const res = await getMyCampaign(actor, "b1");
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.campaign.recipients).toHaveLength(2000);
+    expect(res.campaign.pendingCount).toBe(1000);
+    expect(res.campaign.sentCount).toBe(1000);
+  });
+
+  it("listMyCampaigns counts pending and sent correctly for 2000 recipients", async () => {
+    tables.whatsapp_batches = [batch];
+    tables.whatsapp_batch_recipients = big(2000, 4);
+    const res = await listMyCampaigns(actor);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.campaigns[0].pendingCount).toBe(500);
+    expect(res.campaigns[0].sentCount).toBe(1500);
+  });
+});
+
 describe("loadCampaignAudience", () => {
   it("selects only own contacts, drops unsendable rows and attaches courses from the segment view", async () => {
     tables.contacts = [
@@ -198,7 +229,7 @@ describe("loadCampaignAudience", () => {
       contact("4", { whatsapp_unsubscribed_at: "x" }),
       contact("5", { phone_e164: null }),
     ];
-    tables.crm_contact_segment_source = [{ id: "1", product_labels: ["PPC Batch 3", "PPC Batch 3"] }];
+    tables.crm_contact_segment_source = [{ id: "1", product_labels: ["PPC - Individual USD 100", "PPC - Group USD 50"] }];
     const res = await loadCampaignAudience(actor);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -206,9 +237,7 @@ describe("loadCampaignAudience", () => {
     expect(cc.filters).toContainEqual(["eq", ["owner_id", "agent"]]);
     expect(res.rows.map((r) => r.id)).toEqual(["1"]);
     expect(res.truncated).toBe(false);
-    expect(res.rows[0].courses).toEqual([courseNameFromLabel("PPC Batch 3")].filter(Boolean));
+    expect(res.rows[0].courses).toEqual(["PPC"]);
     expect(calls.some((c) => c.table === "crm_contact_segment_source")).toBe(true);
   });
 });
-
-import { courseNameFromLabel } from "@/lib/crm/product-label";
