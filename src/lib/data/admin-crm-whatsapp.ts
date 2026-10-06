@@ -248,7 +248,7 @@ export type WhatsAppRecipientRow = {
   contactId: string | null;
   fullName: string;
   phoneE164: string;
-  status: "pending" | "sent";
+  status: "pending" | "sent" | "skipped" | "blocked";
   sentAt: string | null;
   convertedAt: string | null;
   /** Contact is flagged do-not-contact: the UI must not render a live wa.me link. */
