@@ -414,11 +414,11 @@ export function courseOptions(rows: AudienceRowJson[]): string[] {
 import { outcomeLabel } from "@/lib/crm/sales-ui";
 export function outcomeOptions(rows: AudienceRowJson[]): { value: string; label: string }[] {
   const seen = new Set(rows.map((r) => r.lastOutcome ?? "new"));
-  const order = ["new", "replied", "interested", "bought", "not_interested"];
+  const order = ["new", "interested", "replied", "bought", "not_interested"];
   return order.filter((v) => seen.has(v)).map((v) => ({ value: v, label: v === "new" ? "New" : outcomeLabel(v) }));
 }
 ```
-(The test above expects order `new, interested, replied` for its data — so use the order `["new", "interested", "replied", "bought", "not_interested"]`; keep the test and code in agreement.) `sales-campaigns.ts` begins `import "server-only";`, defines `type Fail<R extends string> = { ok: false; reason: R }`, a local `dbError(tag, e)` that logs `[sales-campaigns] <tag>` and returns `{ ok:false, reason:"db-error" }`, `const canUse = (a: Actor) => a.role === "sales_agent" || a.role === "admin" || a.role === "super_admin"`, `ID_CHUNK = 200`, `MAX_AUDIENCE = 3000`.
+`sales-campaigns.ts` begins `import "server-only";`, defines `type Fail<R extends string> = { ok: false; reason: R }`, a local `dbError(tag, e)` that logs `[sales-campaigns] <tag>` and returns `{ ok:false, reason:"db-error" }`, `const canUse = (a: Actor) => a.role === "sales_agent" || a.role === "admin" || a.role === "super_admin"`, `ID_CHUNK = 200`, `MAX_AUDIENCE = 3000`.
 
 `loadCampaignAudience`: if `!canUse(actor) || actor.id === ""` return `not-allowed`. Page the agent's contacts 1000 at a time with `.from("contacts").select("id, full_name, phone_e164, last_outcome, do_not_contact_at, whatsapp_unsubscribed_at").eq("owner_id", actor.id).order("updated_at", { ascending: false }).range(from, from + 999)` until fewer than 1000 rows or `MAX_AUDIENCE` reached (`truncated = true` when more existed). Keep rows with a phone and no do-not-contact/unsubscribe. Then for each `chunk(ids, ID_CHUNK)` query `crm_contact_segment_source` `select("id, product_labels").in("id", slice)` and set `courses = unique(product_labels.map(courseNameFromLabel).filter(Boolean))`.
 
