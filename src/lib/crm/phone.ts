@@ -7,11 +7,17 @@
  * visible after the WhatsApp Business API is bought. A short manual review
  * list is far cheaper than silent data loss.
  *
- * Markets served: Pakistan (+92), UAE (+971), Saudi Arabia (+966).
+ * Every country is supported when the number carries its country code
+ * ("+63 ..." or "0063 ..."), validated with libphonenumber-js. Pakistan
+ * (+92), UAE (+971) and Saudi Arabia (+966) additionally accept local and
+ * bare-prefixed formats. Digits without a "+" or "00" that match none of
+ * those rules stay ambiguous: no country is ever guessed.
  */
 
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
 export type PhoneResult =
-  | { ok: true; e164: string; country: "PK" | "AE" | "SA" }
+  | { ok: true; e164: string; country: string }
   | { ok: false; reason: "empty" | "ambiguous" };
 
 /** Digit counts include the country code. */
@@ -36,7 +42,8 @@ export function normalizePhone(raw: string | null | undefined): PhoneResult {
   if (digits === "") return { ok: false, reason: "ambiguous" };
 
   // International dialling prefix.
-  if (digits.startsWith("00")) digits = digits.slice(2);
+  const hadDoubleZero = digits.startsWith("00");
+  if (hadDoubleZero) digits = digits.slice(2);
 
   for (const rule of RULES) {
     if (digits.startsWith(rule.prefix) && digits.length === rule.totalDigits) {
@@ -53,14 +60,24 @@ export function normalizePhone(raw: string | null | undefined): PhoneResult {
     return { ok: true, e164: `+92${digits}`, country: "PK" };
   }
 
+  // Any other country: only when the number explicitly carries its country
+  // code ("+" or "00"), and only if libphonenumber confirms it is valid.
+  if (trimmed.startsWith("+") || hadDoubleZero) {
+    const parsed = parsePhoneNumberFromString(`+${digits}`);
+    if (parsed && parsed.isValid() && parsed.country) {
+      return { ok: true, e164: parsed.number, country: parsed.country };
+    }
+  }
+
   return { ok: false, reason: "ambiguous" };
 }
 
 /**
  * Last nine digits of a normalized number, used by duplicate scoring to
  * catch the same human entered under two different formats. Nine rather
- * than ten because that is the subscriber-number length shared by all three
- * supported countries once the country code is removed.
+ * than ten because that is the subscriber-number length shared by the
+ * PK/AE/SA numbers once the country code is removed; longer international
+ * numbers still match on their last nine digits.
  */
 export function phoneTail(e164: string): string {
   const digits = e164.replace(/\D/g, "");

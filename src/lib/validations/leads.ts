@@ -10,7 +10,7 @@ const leadPhoneSchema = z
     if (!result.ok) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Enter a valid phone number (e.g. 03001234567).",
+        message: "Enter a valid phone number with its country code (e.g. +92 300 1234567 or 03001234567).",
       });
       return z.NEVER;
     }

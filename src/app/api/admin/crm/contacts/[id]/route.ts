@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const result = await updateContactPhone(id, parsed.data.phoneRaw);
   if (!result.ok) {
     if (result.reason === "invalid") {
-      return NextResponse.json({ error: "Could not recognize this as a PK/AE/SA number." }, { status: 400 });
+      return NextResponse.json({ error: "Could not recognize this number. Include the country code, e.g. +63 917 591 8807." }, { status: 400 });
     }
     if (result.reason === "conflict") {
       const owner = result.ownerName ? ` (already used by ${result.ownerName})` : "";

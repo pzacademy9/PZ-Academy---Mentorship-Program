@@ -50,4 +50,29 @@ describe("normalizePhone", () => {
     expect(normalizePhone("N/A")).toEqual({ ok: false, reason: "ambiguous" });
     expect(normalizePhone("4234567890")).toEqual({ ok: false, reason: "ambiguous" });
   });
+  describe("international numbers", () => {
+    it("accepts a Philippines number with + or 00", () => {
+      const want = { ok: true, e164: "+639175918807", country: "PH" };
+      expect(normalizePhone("+63 9175918807")).toEqual(want);
+      expect(normalizePhone("0063 917 591 8807")).toEqual(want);
+    });
+
+    it("accepts US and UK numbers", () => {
+      expect(normalizePhone("+1 415 555 2671")).toEqual({ ok: true, e164: "+14155552671", country: "US" });
+      expect(normalizePhone("+44 7400 123456")).toEqual({ ok: true, e164: "+447400123456", country: "GB" });
+    });
+
+    it("rejects invalid international numbers", () => {
+      expect(normalizePhone("+63 123")).toEqual({ ok: false, reason: "ambiguous" });
+    });
+
+    it("does not guess a country for bare digits", () => {
+      expect(normalizePhone("9175918807")).toEqual({ ok: false, reason: "ambiguous" });
+      expect(normalizePhone("4234567890")).toEqual({ ok: false, reason: "ambiguous" });
+    });
+
+    it("flags two international numbers in one cell as ambiguous", () => {
+      expect(normalizePhone("+63 9175918807 / +1 415 555 2671")).toEqual({ ok: false, reason: "ambiguous" });
+    });
+  });
 });
