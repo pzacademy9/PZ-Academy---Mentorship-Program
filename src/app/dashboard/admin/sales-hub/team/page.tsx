@@ -1,12 +1,14 @@
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listSalesAgents } from "@/lib/data/sales-agents";
+import { getAgentsCanClaim } from "@/lib/data/sales-assignment";
+import { ClaimSettingToggle } from "@/components/admin/sales/ClaimSettingToggle";
 import { SalesTeamPanel } from "@/components/admin/sales/SalesTeamPanel";
 
 export const metadata = { title: "Sales Team — PZ Academy" };
 
 export default async function AdminSalesTeamPage() {
   await requireAdminPage();
-  const agents = await listSalesAgents();
+  const [agents, agentsCanClaim] = await Promise.all([listSalesAgents(), getAgentsCanClaim()]);
 
   return (
     <div className="space-y-6">
@@ -16,6 +18,7 @@ export default async function AdminSalesTeamPage() {
           Add the people who work contacts in the Sales Workspace. They see only that workspace, nothing else.
         </p>
       </div>
+      <ClaimSettingToggle initial={agentsCanClaim} />
       <SalesTeamPanel agents={agents} />
     </div>
   );

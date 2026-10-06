@@ -177,3 +177,32 @@ export async function listAgentAssignmentCounts(): Promise<{ agentId: string; fu
     }),
   );
 }
+
+/** Admin switch for agents claiming unassigned contacts. Fails closed: any error or missing row is off. */
+export async function getAgentsCanClaim(): Promise<boolean> {
+  try {
+    const db = createAdminSupabase();
+    const { data, error } = await db
+      .from("whatsapp_safety_settings")
+      .select("agents_can_claim")
+      .eq("id", true)
+      .maybeSingle();
+    if (error || !data) return false;
+    return data.agents_can_claim === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function setAgentsCanClaim(value: boolean): Promise<{ ok: true } | { ok: false }> {
+  try {
+    const db = createAdminSupabase();
+    const { error } = await db
+      .from("whatsapp_safety_settings")
+      .update({ agents_can_claim: value, updated_at: new Date().toISOString() })
+      .eq("id", true);
+    return error ? { ok: false } : { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
