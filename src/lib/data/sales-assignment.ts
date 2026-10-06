@@ -121,7 +121,8 @@ export async function commitAssignment(
       let q = db
         .from("contacts")
         .update({ owner_id: agentId, claimed_at: iso, next_followup_at: followup })
-        .in("id", slice);
+        .in("id", slice)
+        .is("do_not_contact_at", null); // never assign do-not-contact, even if flagged since load
       if (!includeOwned) q = q.is("owner_id", null); // guards against a concurrent claim
       const { data: updated, error } = await q.select("id");
       if (error) throw error;

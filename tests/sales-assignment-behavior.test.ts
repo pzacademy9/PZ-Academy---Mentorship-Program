@@ -83,6 +83,20 @@ describe("assignment behavior", () => {
     expect(calls.filter((c) => c.table === "notifications")).toHaveLength(1);
   });
 
+  it("reassign mode drops the owner guard, moves other-owned contacts and labels events", async () => {
+    const res = await commitAssignment(admin, source, "agent", true);
+    expect(res).toEqual({ ok: true, result: { assigned: 3, reassigned: 1 } });
+    const update = calls.find((c) => c.table === "contacts" && c.op === "update")!;
+    expect(update.filters).not.toContain("is:owner_id");
+    expect(update.filters).toContain("is:do_not_contact_at");
+    const acts = calls.find((c) => c.table === "contact_activities")!.payload as { contact_id: string; kind: string }[];
+    expect(Object.fromEntries(acts.map((a) => [a.contact_id, a.kind]))).toEqual({
+      other: "reassigned",
+      free1: "claimed",
+      free2: "claimed",
+    });
+  });
+
   it("a notification failure does not fail the commit", async () => {
     notifyError = new Error("boom");
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});

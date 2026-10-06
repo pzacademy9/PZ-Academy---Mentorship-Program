@@ -28,6 +28,10 @@ describe("assignment data layer guards", () => {
     expect(body).toContain("chunk(");
   });
 
+  it("the update itself excludes do-not-contact in every mode", () => {
+    expect(fnBody(src, "commitAssignment")).toContain('.is("do_not_contact_at", null)');
+  });
+
   it("default mode guards the update against a concurrent claim", () => {
     expect(fnBody(src, "commitAssignment")).toContain('.is("owner_id", null)');
   });
