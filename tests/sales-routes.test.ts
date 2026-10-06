@@ -28,6 +28,7 @@ describe("sales route files", () => {
         "/src/app/api/sales/contacts/[id]/claim/route.ts",
         "/src/app/api/sales/contacts/[id]/note/route.ts",
         "/src/app/api/sales/contacts/[id]/outcome/route.ts",
+        "/src/app/api/sales/contacts/[id]/release/route.ts",
         "/src/app/api/sales/contacts/[id]/route.ts",
         "/src/app/api/sales/contacts/[id]/send/route.ts",
         "/src/app/api/sales/contacts/route.ts",

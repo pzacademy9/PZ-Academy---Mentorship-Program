@@ -52,4 +52,12 @@ describe("assignment data layer guards", () => {
     expect(src).toContain("const ID_CHUNK = 200");
     expect(fnBody(src, "loadCandidates")).toContain("chunk(ids, ID_CHUNK)");
   });
+  it("releaseOwnContact only releases the caller's own contact and logs it", () => {
+    const body = fnBody(src, "releaseOwnContact");
+    expect(body).toContain("canActOnContact(");
+    expect(body).toContain('.eq("owner_id", actor.id)');
+    expect(body).toContain("owner_id: null");
+    expect(body).toContain("claimed_at: null");
+    expect(body).toContain('kind: "released"');
+  });
 });

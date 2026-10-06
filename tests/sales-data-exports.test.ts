@@ -81,7 +81,7 @@ import * as assignment from "@/lib/data/sales-assignment";
 
 describe("sales-assignment exports", () => {
   it("exposes the assignment data layer", () => {
-    for (const name of ["previewAssignment", "commitAssignment", "listAgentAssignmentCounts", "getAgentsCanClaim", "setAgentsCanClaim"]) {
+    for (const name of ["previewAssignment", "commitAssignment", "listAgentAssignmentCounts", "getAgentsCanClaim", "setAgentsCanClaim", "releaseOwnContact"]) {
       expect(typeof (assignment as Record<string, unknown>)[name]).toBe("function");
     }
   });

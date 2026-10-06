@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import type { Actor } from "@/lib/crm/ownership";
+import { canActOnContact, type Actor } from "@/lib/crm/ownership";
 import { nextFollowupFor } from "@/lib/crm/followup";
 import { planAssignment, chunk, type AssignCandidate } from "@/lib/crm/assignment";
 
@@ -206,5 +206,37 @@ export async function setAgentsCanClaim(value: boolean): Promise<{ ok: true } | 
     return error || !data || data.length === 0 ? { ok: false } : { ok: true };
   } catch {
     return { ok: false };
+  }
+}
+
+/** A sales agent hands one of their own contacts back to admin. Admins use the assign API instead. */
+export async function releaseOwnContact(
+  actor: Actor,
+  contactId: string,
+  now: Date = new Date(),
+): Promise<{ ok: true } | Fail<"not-found" | "not-owner" | "db-error">> {
+  try {
+    const db = createAdminSupabase();
+    const { data: c, error } = await db.from("contacts").select("id, owner_id").eq("id", contactId).maybeSingle();
+    if (error) throw error;
+    if (!c) return { ok: false, reason: "not-found" };
+    if (!canActOnContact({ owner_id: c.owner_id }, actor).ok || c.owner_id !== actor.id) {
+      return { ok: false, reason: "not-owner" };
+    }
+    const { data: done, error: upErr } = await db
+      .from("contacts")
+      .update({ owner_id: null, claimed_at: null, next_followup_at: null })
+      .eq("id", contactId)
+      .eq("owner_id", actor.id) // guards against a concurrent reassignment
+      .select("id");
+    if (upErr) throw upErr;
+    if (!done || done.length === 0) return { ok: false, reason: "not-owner" };
+    const { error: actErr } = await db
+      .from("contact_activities")
+      .insert({ contact_id: contactId, agent_id: actor.id, kind: "released", body: "Handed back to admin", created_at: now.toISOString() });
+    if (actErr) throw actErr;
+    return { ok: true };
+  } catch (e) {
+    return dbError("releaseOwnContact", e);
   }
 }

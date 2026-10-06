@@ -276,3 +276,40 @@ describe("locked cards", () => {
     expect(card.className).not.toMatch(/\bopacity-\d+/);
   });
 });
+
+describe("hand back", () => {
+  const detail = (owner: string | null, canAct: boolean): ContactDetailJson => ({
+    contact: { id: "h", full_name: "Hira", phone_e164: "+923001234567", owner_id: owner, owner_name: "Sara", last_outcome: null, next_followup_at: null, do_not_contact_at: null, email: null, profession: null },
+    timeline: [],
+    canAct,
+    restricted: false,
+  });
+
+  it("shows Hand back only for the owner, and confirms before posting", async () => {
+    const f = mockApi([], { h: detail(ME, true) });
+    f.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.startsWith("/api/sales/templates")) return { ok: true, json: async () => ({ templates: [] }) } as Response;
+      if (url.endsWith("/release") && init?.method === "POST") return { ok: true, status: 200, json: async () => ({ ok: true }) } as Response;
+      if (/^\/api\/sales\/contacts\/h$/.test(url)) return { ok: true, json: async () => detail(ME, true) } as Response;
+      return { ok: false, json: async () => ({}) } as Response;
+    });
+    renderWs("h");
+    fireEvent.click(await screen.findByRole("button", { name: "Hand back" }));
+    expect(f).not.toHaveBeenCalledWith("/api/sales/contacts/h/release", expect.anything());
+    expect(await screen.findByText("Hand this contact back?")).toBeTruthy();
+    expect(screen.getByText("It goes back to your admin and leaves your list.")).toBeTruthy();
+    // The open dialog hides the page behind it, so this is the dialog's own confirm button.
+    fireEvent.click(screen.getByRole("button", { name: "Hand back" }));
+    await waitFor(() => expect(f).toHaveBeenCalledWith("/api/sales/contacts/h/release", expect.objectContaining({ method: "POST" })));
+  });
+
+  it("is hidden for unowned, someone else's, and non-actionable contacts", async () => {
+    for (const d of [detail(null, true), detail("other", false), detail(ME, false)]) {
+      mockApi([], { h: d });
+      const { unmount } = renderWs("h");
+      await screen.findByText("Hira");
+      expect(screen.queryByRole("button", { name: "Hand back" })).toBeNull();
+      unmount();
+    }
+  });
+});
