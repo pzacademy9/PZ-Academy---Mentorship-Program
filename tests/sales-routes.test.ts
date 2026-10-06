@@ -37,7 +37,7 @@ describe("sales route files", () => {
         "/src/app/api/sales/today/route.ts",
       ].sort(),
     );
-    expect(adminSales).toHaveLength(5);
+    expect(adminSales).toHaveLength(7);
   });
 
   it("every agent route gates with requireSalesAgent and never requireAdmin", () => {

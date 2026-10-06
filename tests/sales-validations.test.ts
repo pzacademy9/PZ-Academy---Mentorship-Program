@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   assignSchema,
+  bulkAssignSchema,
   contactSearchFilter,
   contactsQuerySchema,
   leadSchema,
@@ -169,5 +170,27 @@ describe("B2: contact search", () => {
       "full_name.ilike.%0300%,and(phone_e164.ilike.%300%,owner_id.is.null)",
     );
     expect(contactSearchFilter("  (,)  ", { id: me, isAdmin: false, tab: "all" })).toBeNull();
+  });
+});
+
+describe("bulkAssignSchema", () => {
+  const agentId = "11111111-1111-4111-8111-111111111111";
+  const batchId = "22222222-2222-4222-8222-222222222222";
+  it("accepts a cohort source", () => {
+    expect(bulkAssignSchema.safeParse({ source: { kind: "cohort", batchId }, agentId, includeOwned: false }).success).toBe(true);
+  });
+  it("accepts hand-picked contacts up to 5000", () => {
+    const ids = Array.from({ length: 5000 }, () => batchId);
+    expect(bulkAssignSchema.safeParse({ source: { kind: "contacts", contactIds: ids }, agentId, includeOwned: true }).success).toBe(true);
+    expect(bulkAssignSchema.safeParse({ source: { kind: "contacts", contactIds: [...ids, batchId] }, agentId, includeOwned: true }).success).toBe(false);
+  });
+  it("rejects empty contacts, a missing agent and a bad source kind", () => {
+    expect(bulkAssignSchema.safeParse({ source: { kind: "contacts", contactIds: [] }, agentId, includeOwned: false }).success).toBe(false);
+    expect(bulkAssignSchema.safeParse({ source: { kind: "cohort", batchId }, includeOwned: false }).success).toBe(false);
+    expect(bulkAssignSchema.safeParse({ source: { kind: "other" }, agentId, includeOwned: false }).success).toBe(false);
+  });
+  it("includeOwned defaults to false", () => {
+    const r = bulkAssignSchema.parse({ source: { kind: "cohort", batchId }, agentId });
+    expect(r.includeOwned).toBe(false);
   });
 });

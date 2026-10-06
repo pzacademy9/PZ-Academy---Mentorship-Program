@@ -108,6 +108,15 @@ export const assignSchema = z.object({
   agentId: z.string().uuid().nullable(),
 });
 
+export const bulkAssignSchema = z.object({
+  source: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("cohort"), batchId: z.string().uuid() }),
+    z.object({ kind: z.literal("contacts"), contactIds: z.array(z.string().uuid()).min(1).max(5000) }),
+  ]),
+  agentId: z.string().uuid(),
+  includeOwned: z.boolean().default(false),
+});
+
 /** The digits a person types for a phone, matched inside +E.164: "0300 123" -> "300123". */
 export function phoneNeedle(term: string): string {
   return term.replace(/\D/g, "").replace(/^0+/, "");
