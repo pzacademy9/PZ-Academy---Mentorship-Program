@@ -11,6 +11,7 @@ import { ResponsiveList } from "@/components/ui/responsive-list";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { SELECTED_CONTACTS_STORAGE_KEY } from "@/lib/crm/segment";
+import { ASSIGN_CONTACTS_STORAGE_KEY } from "@/lib/crm/assignment";
 
 type ContactRow = {
   id: string;
@@ -141,6 +142,20 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     router.push("/dashboard/admin/sales-hub/whatsapp");
   }
 
+  function assignSelectedToAgent() {
+    if (selected.size > 5000) {
+      toast.error("Select 5000 contacts or fewer at a time.");
+      return;
+    }
+    try {
+      sessionStorage.setItem(ASSIGN_CONTACTS_STORAGE_KEY, JSON.stringify(Array.from(selected)));
+    } catch {
+      toast.error("Could not hand off the selection — try again.");
+      return;
+    }
+    router.push("/dashboard/admin/sales-hub/assign");
+  }
+
   const { run: markSelectedConverted, pending: bulkSaving } = useAsyncAction(async () => {
     const program = bulkProgramMode === "course" ? { kind: "course" as const, courseId: bulkCourseId } : { kind: "label" as const, pattern: bulkLabel.trim() };
     if (bulkProgramMode === "course" && !bulkCourseId) return;
@@ -236,6 +251,12 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
               className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
             >
               Use in WhatsApp batch
+            </button>
+            <button
+              onClick={assignSelectedToAgent}
+              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
+            >
+              Assign to a sales agent
             </button>
             <button
               onClick={() => setShowBulkConvertForm((v) => !v)}
