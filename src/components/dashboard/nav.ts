@@ -18,6 +18,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Today", href: "/dashboard/sales", icon: ClipboardList, roles: ["sales_agent"] },
   { label: "My Contacts", shortLabel: "Contacts", href: "/dashboard/sales/contacts", icon: Users, roles: ["sales_agent"] },
+  { label: "Campaigns", href: "/dashboard/sales/campaigns", icon: Megaphone, roles: ["sales_agent"] },
   { label: "Add a Lead", shortLabel: "Add lead", href: "/dashboard/sales/add-lead", icon: UserPlus, roles: ["sales_agent"] },
   { label: "Help & Safety", shortLabel: "Help", href: "/dashboard/sales/help", icon: LifeBuoy, roles: ["sales_agent"] },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["student", "mentor", "admin", "super_admin"] },
