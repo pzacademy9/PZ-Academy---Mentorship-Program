@@ -25,6 +25,8 @@ export type WhatsAppBatchListRow = {
   /** Set when a sales agent runs this batch as a campaign; admins see it read-only. */
   ownerAgentId: string | null;
   ownerAgentName: string | null;
+  /** Agent campaign, including an orphaned one whose owner profile was deleted (owner null, follow-up set). */
+  isAgentCampaign: boolean;
   status: string;
 };
 
@@ -33,7 +35,7 @@ export async function listWhatsAppBatches(): Promise<WhatsAppBatchListRow[]> {
   const { data } = await admin
     .from("whatsapp_batches")
     .select(
-      "id, name, message_template, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, owner_agent_id, status, paused_reason, courses(title)",
+      "id, name, message_template, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, owner_agent_id, followup_in_hours, status, paused_reason, courses(title)",
     )
     .order("created_at", { ascending: false });
 
@@ -57,6 +59,7 @@ export async function listWhatsAppBatches(): Promise<WhatsAppBatchListRow[]> {
     conversion: conversions[i].summary,
     ownerAgentId: b.owner_agent_id ?? null,
     ownerAgentName: b.owner_agent_id ? (ownerNames.get(b.owner_agent_id) ?? null) : null,
+    isAgentCampaign: b.owner_agent_id != null || b.followup_in_hours != null,
     status: b.status ?? "active",
   }));
 }
@@ -144,7 +147,7 @@ export async function updateWhatsAppBatch(
   // agent picked by hand). Checked before any write or segment resolve.
   const owner = await fetchBatchOwner(batchId);
   if (!owner.ok) return { ok: false, reason: owner.reason };
-  if (owner.ownerAgentId !== null) return { ok: false, reason: "agent-campaign" };
+  if (owner.isAgentCampaign) return { ok: false, reason: "agent-campaign" };
 
   if (updates.segment !== undefined) {
     const resolved = await resolveWhatsAppSegment(updates.segment);
@@ -285,7 +288,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   const { data: batch } = await admin
     .from("whatsapp_batches")
     .select(
-      "id, name, message_template, segment, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, owner_agent_id, status, paused_reason, courses(title)",
+      "id, name, message_template, segment, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, owner_agent_id, followup_in_hours, status, paused_reason, courses(title)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -333,6 +336,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
     conversion: summary,
     ownerAgentId,
     ownerAgentName: ownerAgentId ? (ownerNames.get(ownerAgentId) ?? null) : null,
+    isAgentCampaign: ownerAgentId !== null || batch.followup_in_hours != null,
     status: batch.status ?? "active",
     pausedReason: batch.paused_reason ?? null,
     recipients: rows.map((r) => ({
@@ -373,7 +377,7 @@ export async function updateRecipientStatus(
 
   const owner = await fetchBatchOwner(batchId);
   if (!owner.ok) return { ok: false, reason: owner.reason };
-  if (owner.ownerAgentId !== null) return { ok: false, reason: "agent-campaign" };
+  if (owner.isAgentCampaign) return { ok: false, reason: "agent-campaign" };
 
   const { data: recipient, error: fetchError } = await admin
     .from("whatsapp_batch_recipients")
@@ -452,11 +456,11 @@ async function fetchBatchConversion(
 /** Looks up who owns a batch. not-found when the batch doesn't exist. */
 async function fetchBatchOwner(
   batchId: string,
-): Promise<{ ok: true; ownerAgentId: string | null } | { ok: false; reason: "not-found" | "db-error" }> {
+): Promise<{ ok: true; isAgentCampaign: boolean } | { ok: false; reason: "not-found" | "db-error" }> {
   const admin = createAdminSupabase();
   const { data, error } = await admin
     .from("whatsapp_batches")
-    .select("id, owner_agent_id")
+    .select("id, owner_agent_id, followup_in_hours")
     .eq("id", batchId)
     .maybeSingle();
   if (error) {
@@ -464,7 +468,8 @@ async function fetchBatchOwner(
     return { ok: false, reason: "db-error" };
   }
   if (!data) return { ok: false, reason: "not-found" };
-  return { ok: true, ownerAgentId: data.owner_agent_id ?? null };
+  // Admin batches never set followup_in_hours, so it also catches an orphaned campaign (owner set null).
+  return { ok: true, isAgentCampaign: data.owner_agent_id != null || data.followup_in_hours != null };
 }
 
 /** One profiles lookup for every distinct owner id; skipped when there are none. */

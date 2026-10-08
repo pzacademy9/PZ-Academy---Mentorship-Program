@@ -51,6 +51,21 @@ describe("campaign routes auth", () => {
   }
 });
 
+describe("campaign routes reject a non-uuid id with 404 before touching data", () => {
+  const bad = { params: Promise.resolve({ id: "not-a-uuid" }) };
+  it("GET / PATCH / send / skip", async () => {
+    const rs = [
+      await detailGET(new Request("http://x"), bad),
+      await detailPATCH(body({ status: "paused" }), bad),
+      await sendPOST(body({ recipientId: uid }), bad),
+      await skipPOST(body({ recipientId: uid }), bad),
+    ];
+    expect(rs.map((r) => r.status)).toEqual([404, 404, 404, 404]);
+    for (const r of rs) expect(await r.json()).toEqual({ error: "Campaign not found." });
+    for (const fn of Object.values(data)) expect(fn).not.toHaveBeenCalled();
+  });
+});
+
 describe("campaign routes behaviour", () => {
   it("GET detail returns 404 with no data for another agent's campaign", async () => {
     data.getMyCampaign.mockResolvedValue({ ok: false, reason: "not-found" });

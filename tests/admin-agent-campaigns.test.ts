@@ -68,6 +68,37 @@ beforeEach(() => {
   };
 });
 
+const orphanBatch = { ...agentBatch, id: "b-orphan", name: "Orphan campaign", owner_agent_id: null, followup_in_hours: 24 };
+
+describe("orphaned agent campaign (owner profile deleted)", () => {
+  beforeEach(() => {
+    tables.whatsapp_batches = [...tables.whatsapp_batches, orphanBatch];
+    tables.whatsapp_batch_recipients = [
+      ...tables.whatsapp_batch_recipients,
+      { id: "r-orphan", batch_id: "b-orphan", status: "pending", contact_id: "c3", full_name: "C", phone_e164: "+3", sent_at: null, contacts: { do_not_contact_at: null } },
+    ];
+  });
+
+  it("updateRecipientStatus refuses it", async () => {
+    expect(await updateRecipientStatus("b-orphan", "r-orphan", "sent", "admin-user")).toEqual({ ok: false, reason: "agent-campaign" });
+    expect(calls.some((c) => c.op === "update")).toBe(false);
+  });
+
+  it("updateWhatsAppBatch refuses it without resolving a segment", async () => {
+    expect(await updateWhatsAppBatch("b-orphan", { name: "x", segment: [] })).toEqual({ ok: false, reason: "agent-campaign" });
+    expect(resolveSegment).not.toHaveBeenCalled();
+    expect(calls.some((c) => c.op === "update" || c.op === "insert" || c.op === "delete")).toBe(false);
+  });
+
+  it("list and detail flag it as an agent campaign with a null owner; admin batches are not flagged", async () => {
+    const rows = await listWhatsAppBatches();
+    expect(rows.find((r) => r.id === "b-orphan")).toMatchObject({ ownerAgentId: null, ownerAgentName: null, isAgentCampaign: true });
+    expect(rows.find((r) => r.id === "b-admin")!.isAgentCampaign).toBe(false);
+    expect(rows.find((r) => r.id === "b-agent")!.isAgentCampaign).toBe(true);
+    expect((await getWhatsAppBatchDetail("b-orphan"))!.isAgentCampaign).toBe(true);
+  });
+});
+
 describe("listWhatsAppBatches", () => {
   it("resolves the owner's name for agent campaigns and null for admin batches", async () => {
     const rows = await listWhatsAppBatches();
@@ -83,7 +114,7 @@ describe("listWhatsAppBatches", () => {
     expect(row).toEqual({
       id: "b-admin", name: "Admin batch", messageTemplate: "Hi", recipientCount: 2, sentCount: 1,
       createdAt: "2026-10-01T10:00:00Z", conversionTag: { kind: "none" }, conversionCourseTitle: null, conversion: null,
-      ownerAgentId: null, ownerAgentName: null, status: "active",
+      ownerAgentId: null, ownerAgentName: null, isAgentCampaign: false, status: "active",
     });
     // no owners -> no profiles lookup
     expect(calls.some((c) => c.table === "profiles")).toBe(false);

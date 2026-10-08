@@ -16,7 +16,7 @@ beforeEach(() => {
 const row = (over: Partial<WhatsAppBatchListRow> = {}): WhatsAppBatchListRow => ({
   id: "b-admin", name: "Admin batch", messageTemplate: "Hi {{first_name}}", recipientCount: 4, sentCount: 1,
   createdAt: "2026-10-01T10:00:00Z", conversionTag: { kind: "none" }, conversionCourseTitle: null, conversion: null,
-  ownerAgentId: null, ownerAgentName: null, status: "active", ...over,
+  ownerAgentId: null, ownerAgentName: null, isAgentCampaign: false, status: "active", ...over,
 });
 
 const recipients: WhatsAppBatchDetail["recipients"] = (["pending", "sent", "skipped", "blocked"] as const).map((s, i) => ({
@@ -28,7 +28,8 @@ const detail = (over: Partial<WhatsAppBatchDetail> = {}): WhatsAppBatchDetail =>
   ...row(), segment: [], recipients, pausedReason: null, ...over,
 });
 
-const agentOver = { id: "b-agent", name: "Agent campaign", ownerAgentId: "agent-1", ownerAgentName: "Sara Agent", status: "paused" };
+const agentOver = { id: "b-agent", name: "Agent campaign", ownerAgentId: "agent-1", ownerAgentName: "Sara Agent", isAgentCampaign: true, status: "paused" };
+const orphanOver = { id: "b-orphan", name: "Orphan campaign", ownerAgentId: null, ownerAgentName: null, isAgentCampaign: true, status: "paused" };
 
 describe("WhatsAppPanel", () => {
   it("shows owner and status chip for an agent campaign only", () => {
@@ -74,5 +75,21 @@ describe("WhatsAppBatchDetailClient", () => {
     expect(screen.getByText("Switch to queue mode")).toBeTruthy();
     expect(container.querySelectorAll('a[href^="whatsapp://"]').length).toBeGreaterThan(0);
     expect(container.querySelectorAll('input[type="checkbox"]').length).toBeGreaterThan(0);
+  });
+});
+
+describe("orphaned agent campaign UI (owner profile deleted)", () => {
+  it("list row hides Duplicate and says by a sales agent", () => {
+    render(<ConfirmProvider><WhatsAppPanel initialBatches={[row(), row(orphanOver)]} /></ConfirmProvider>);
+    expect(screen.getByText("by a sales agent")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Duplicate" })).toHaveLength(1);
+  });
+
+  it("detail is read-only with a sensible banner", () => {
+    const { container } = render(<WhatsAppBatchDetailClient initialDetail={detail(orphanOver)} manualConvertedContactIds={[]} />);
+    expect(screen.getByText("Run by a sales agent. You can watch progress here; sending happens in their workspace.")).toBeTruthy();
+    expect(screen.queryByText("Edit batch")).toBeNull();
+    expect(screen.queryByText("Edit message")).toBeNull();
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
   });
 });

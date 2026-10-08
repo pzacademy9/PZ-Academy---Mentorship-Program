@@ -130,7 +130,7 @@ export function WhatsAppBatchDetailClient({
 
   // Agent campaigns are watch-only here: the agent sends from their own
   // workspace, and the API refuses admin edits with a 409 anyway.
-  const readOnly = detail.ownerAgentId !== null;
+  const readOnly = detail.isAgentCampaign;
 
   const filteredRecipients =
     recipientSearch.trim() === ""

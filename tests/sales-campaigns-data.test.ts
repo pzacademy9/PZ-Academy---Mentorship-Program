@@ -24,7 +24,7 @@ vi.mock("@/lib/supabase/admin", () => ({
           if (table === "whatsapp_batches") return { data: { id: "b-new" }, error: null };
           return { data: null, error: null };
         }
-        if (call.op === "delete") return { data: null, error: null };
+        if (call.op === "delete" || call.op === "update") return { data: null, error: null };
         let out = rows;
         for (const [name, args] of call.filters) {
           if (name === "in") out = out.filter((r) => (args[1] as unknown[]).includes(r[args[0] as string]));
@@ -42,7 +42,7 @@ vi.mock("@/lib/supabase/admin", () => ({
             return { data: Array.isArray(r.data) ? (r.data[0] ?? null) : r.data, error: r.error };
           };
           return (...args: unknown[]) => {
-            if (prop === "insert" || prop === "delete") { call.op = prop; call.payload = args[0]; }
+            if (prop === "insert" || prop === "delete" || prop === "update") { call.op = prop; call.payload = args[0]; }
             else call.filters.push([prop, args]);
             return chain;
           };
@@ -171,6 +171,28 @@ describe("getMyCampaign / listMyCampaigns", () => {
     expect(res.campaign.messageTemplate).toBe("Hi");
     expect(res.campaign.followupInHours).toBe(24);
     expect(res.campaign.recipients).toHaveLength(3);
+  });
+
+  it("reopens a done campaign that still has pending recipients and returns it active", async () => {
+    tables.whatsapp_batches = [{ ...batch("b1", "agent"), status: "done", paused_reason: "old" }];
+    tables.whatsapp_batch_recipients = [
+      { id: "r1", batch_id: "b1", contact_id: "c1", full_name: "Zed", phone_e164: "+1", status: "pending" },
+      { id: "r2", batch_id: "b1", contact_id: "c2", full_name: "Amy", phone_e164: "+2", status: "sent" },
+    ];
+    const res = await getMyCampaign(actor, "b1");
+    expect(res.ok && res.campaign.status).toBe("active");
+    const upd = calls.find((c) => c.table === "whatsapp_batches" && c.op === "update")!;
+    expect(upd.payload).toEqual({ status: "active", paused_reason: null });
+    expect(upd.filters).toContainEqual(["eq", ["id", "b1"]]);
+    expect(upd.filters).toContainEqual(["eq", ["status", "done"]]);
+  });
+
+  it("leaves a done campaign with nothing pending alone", async () => {
+    tables.whatsapp_batches = [{ ...batch("b1", "agent"), status: "done" }];
+    tables.whatsapp_batch_recipients = [{ id: "r2", batch_id: "b1", contact_id: "c2", full_name: "Amy", phone_e164: "+2", status: "sent" }];
+    const res = await getMyCampaign(actor, "b1");
+    expect(res.ok && res.campaign.status).toBe("done");
+    expect(calls.some((c) => c.op === "update")).toBe(false);
   });
 
   it("lists only the actor's campaigns via owner_agent_id filter, with pending counts", async () => {

@@ -260,10 +260,22 @@ export async function getMyCampaign(
       status: r.status as CampaignRecipientStatus,
     }));
     const pending = recipients.filter((r) => r.status === "pending").length;
+    let current = b;
+    if (b.status === "done" && pending > 0) {
+      // A racing refreshCounts can leave a campaign done while someone is still
+      // pending; reopen it here (guarded) so those people are not lost.
+      const { error: reopenErr } = await db
+        .from("whatsapp_batches")
+        .update({ status: "active", paused_reason: null })
+        .eq("id", id)
+        .eq("status", "done");
+      if (reopenErr) throw reopenErr;
+      current = { ...b, status: "active", paused_reason: null };
+    }
     return {
       ok: true,
       campaign: {
-        ...toListItem(b, pending, recipients.filter((r) => r.status === "sent").length),
+        ...toListItem(current, pending, recipients.filter((r) => r.status === "sent").length),
         messageTemplate: b.message_template,
         numberId: b.number_id,
         followupInHours: b.followup_in_hours ?? 24,

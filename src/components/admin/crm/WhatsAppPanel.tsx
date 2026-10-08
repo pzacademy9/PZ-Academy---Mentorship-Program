@@ -25,6 +25,7 @@ type BatchListRow = {
   conversion: { converted: number; total: number } | null;
   ownerAgentId: string | null;
   ownerAgentName: string | null;
+  isAgentCampaign: boolean;
   status: string;
 };
 
@@ -289,7 +290,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
               <div key={b.id} className="bg-pz-surface-container-high rounded-2xl p-4">
                 <div className="flex items-center gap-2 max-md:flex-wrap">
                   <Link href={`/dashboard/admin/sales-hub/whatsapp/${b.id}`} className="flex-1 flex items-center justify-between text-left max-md:basis-full max-md:flex-col max-md:items-start max-md:min-h-11 max-md:justify-center">
-                  {b.ownerAgentId !== null ? (
+                  {b.isAgentCampaign ? (
                     <span className="flex items-center gap-2 flex-wrap">
                       <span className="font-body font-semibold text-sm">{b.name}</span>
                       <span className="font-body text-xs text-pz-on-surface-variant">by {b.ownerAgentName ?? "a sales agent"}</span>
@@ -314,7 +315,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                 </Link>
                   {/* An agent campaign's segment is empty (hand-picked recipients), so
                       duplicating it would re-resolve to everyone reachable. */}
-                  {b.ownerAgentId === null && (
+                  {!b.isAgentCampaign && (
                   <Button
                     variant="bare"
                     size="bare"

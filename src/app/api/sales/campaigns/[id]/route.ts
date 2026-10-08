@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireSalesAgent } from "@/lib/auth/require-sales";
 import { getMyCampaign, setCampaignStatus } from "@/lib/data/sales-campaigns";
 import { campaignStatusSchema } from "@/lib/validations/sales";
 import { statusForReason } from "@/lib/api/sales-http";
 
+const idSchema = z.string().uuid();
+const notFound = () => NextResponse.json({ error: "Campaign not found." }, { status: 404 });
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSalesAgent();
   if (!auth.ok) return auth.response;
   const { id } = await params;
+  if (!idSchema.safeParse(id).success) return notFound();
   const result = await getMyCampaign({ id: auth.user.id, role: auth.role }, id);
   if (!result.ok) {
     return NextResponse.json(
@@ -21,11 +26,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSalesAgent();
   if (!auth.ok) return auth.response;
+  const { id } = await params;
+  if (!idSchema.safeParse(id).success) return notFound();
   const parsed = campaignStatusSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { id } = await params;
   const result = await setCampaignStatus({ id: auth.user.id, role: auth.role }, id, parsed.data.status);
   if (!result.ok) {
     return NextResponse.json(
