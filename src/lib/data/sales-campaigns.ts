@@ -3,9 +3,14 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Actor } from "@/lib/crm/ownership";
 import { chunk } from "@/lib/crm/assignment";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
+import { DEFAULT_FOLLOWUP_HOURS } from "@/lib/crm/followup";
+import type { BudgetSummary } from "@/lib/crm/send-limits";
 import { getNumberForAgent } from "@/lib/data/sales-numbers";
+import { requestSend } from "@/lib/data/sales-send";
 import {
+  classifyRefusal,
   defaultCampaignName,
+  pauseReasonText,
   MAX_CAMPAIGN_RECIPIENTS,
   varietyBlocked,
   type CampaignRecipientStatus,
@@ -267,5 +272,228 @@ export async function getMyCampaign(
     };
   } catch (e) {
     return dbError("getMyCampaign", e);
+  }
+}
+
+type Db = ReturnType<typeof createAdminSupabase>;
+
+type OwnedCampaign = {
+  id: string;
+  status: string;
+  number_id: string | null;
+  message_template: string;
+  followup_in_hours: number | null;
+  recipient_count: number;
+};
+
+/** Another agent's campaign looks exactly like a missing one, so ids cannot be probed. */
+async function loadOwnedCampaign(db: Db, actor: Actor, id: string): Promise<OwnedCampaign | null> {
+  const { data, error } = await db
+    .from("whatsapp_batches")
+    .select("id, status, number_id, message_template, followup_in_hours, recipient_count, owner_agent_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.owner_agent_id !== actor.id) return null;
+  return data;
+}
+
+async function countRecipients(db: Db, campaignId: string, status: CampaignRecipientStatus): Promise<number> {
+  // Exact head count: a plain select would stop at PostgREST's 1000-row cap.
+  const { count, error } = await db
+    .from("whatsapp_batch_recipients")
+    .select("id", { count: "exact", head: true })
+    .eq("batch_id", campaignId)
+    .eq("status", status);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Recounts, stores sent_count, and flips the campaign to done when nothing is pending. */
+async function refreshCounts(
+  db: Db,
+  campaignId: string,
+  recipientCount: number,
+  patch: { status?: CampaignStatus; paused_reason?: string | null } = {},
+  now: Date = new Date(),
+): Promise<{ sentCount: number; pendingCount: number; done: boolean }> {
+  const sentCount = await countRecipients(db, campaignId, "sent");
+  const pendingCount = await countRecipients(db, campaignId, "pending");
+  const done = pendingCount === 0 && recipientCount > 0;
+  const update: { status?: string; paused_reason?: string | null; sent_count: number; updated_at: string } = {
+    ...patch,
+    sent_count: sentCount,
+    updated_at: now.toISOString(),
+  };
+  if (done) {
+    update.status = "done";
+    update.paused_reason = null;
+  }
+  const { error } = await db.from("whatsapp_batches").update(update).eq("id", campaignId);
+  if (error) throw error;
+  return { sentCount, pendingCount, done };
+}
+
+export type SendCampaignResult =
+  | { ok: true; link: string; nextUnlockAt: string; warnings: string[]; budget: BudgetSummary; sentCount: number; pendingCount: number; done: boolean }
+  | { ok: false; reason: string; message?: string; retryAt?: string | null; paused?: boolean; recipientBlocked?: boolean; pendingCount?: number };
+
+export async function sendCampaignRecipient(
+  actor: Actor,
+  campaignId: string,
+  recipientId: string,
+  now: Date = new Date(),
+): Promise<SendCampaignResult | Fail<"not-found" | "not-allowed" | "already-handled" | "campaign-done" | "db-error">> {
+  if (!canUse(actor) || actor.id === "") return { ok: false, reason: "not-allowed" };
+  try {
+    const db = createAdminSupabase();
+    const campaign = await loadOwnedCampaign(db, actor, campaignId);
+    if (!campaign) return { ok: false, reason: "not-found" };
+    if (campaign.status === "done") return { ok: false, reason: "campaign-done" };
+
+    if (!campaign.number_id) {
+      const message = pauseReasonText("number-not-assigned");
+      const counts = await refreshCounts(db, campaignId, campaign.recipient_count, { status: "paused", paused_reason: message }, now);
+      return { ok: false, reason: "number-not-assigned", message, paused: true, pendingCount: counts.pendingCount };
+    }
+
+    // Reserve first: only one caller can flip pending -> sent, so a double tap or a
+    // second tab never reaches requestSend twice for the same person.
+    const { data: reserved, error: resErr } = await db
+      .from("whatsapp_batch_recipients")
+      .update({ status: "sent", sent_at: now.toISOString(), sent_by: actor.id })
+      .eq("id", recipientId)
+      .eq("batch_id", campaignId)
+      .eq("status", "pending")
+      .select("id, contact_id");
+    if (resErr) throw resErr;
+    if (!reserved || reserved.length === 0) {
+      const { data: exists, error: exErr } = await db
+        .from("whatsapp_batch_recipients")
+        .select("id")
+        .eq("id", recipientId)
+        .eq("batch_id", campaignId)
+        .maybeSingle();
+      if (exErr) throw exErr;
+      return { ok: false, reason: exists ? "already-handled" : "not-found" };
+    }
+
+    // Moves the reserved recipient on; only touches a row this actor still holds.
+    const release = async (to: "pending" | "blocked") => {
+      const { error } = await db
+        .from("whatsapp_batch_recipients")
+        .update({ status: to, sent_at: null, sent_by: null })
+        .eq("id", recipientId)
+        .eq("batch_id", campaignId)
+        .eq("status", "sent")
+        .eq("sent_by", actor.id);
+      if (error) throw error;
+    };
+
+    const contactId = reserved[0].contact_id;
+    if (!contactId) {
+      await release("blocked");
+      const counts = await refreshCounts(db, campaignId, campaign.recipient_count, {}, now);
+      return { ok: false, reason: "not-found", recipientBlocked: true, pendingCount: counts.pendingCount };
+    }
+
+    let result;
+    try {
+      result = await requestSend({
+        actor,
+        contactId,
+        numberId: campaign.number_id,
+        messageTemplate: campaign.message_template,
+        followupInHours: campaign.followup_in_hours ?? DEFAULT_FOLLOWUP_HOURS,
+        now,
+      });
+    } catch (e) {
+      // No link was produced, so hand the person back rather than losing them.
+      try { await release("pending"); } catch (re) { console.error("[sales-campaigns] revert after send error", re); }
+      throw e;
+    }
+
+    if (result.ok) {
+      const counts = await refreshCounts(db, campaignId, campaign.recipient_count, { status: "active", paused_reason: null }, now);
+      return {
+        ok: true,
+        link: result.link,
+        nextUnlockAt: result.nextUnlockAt,
+        warnings: result.warnings,
+        budget: result.budget,
+        sentCount: counts.sentCount,
+        pendingCount: counts.pendingCount,
+        done: counts.done,
+      };
+    }
+
+    const kind = classifyRefusal(result.reason);
+    if (kind === "block-recipient") {
+      await release("blocked");
+      const counts = await refreshCounts(db, campaignId, campaign.recipient_count, {}, now);
+      return { ok: false, reason: result.reason, message: result.message, recipientBlocked: true, pendingCount: counts.pendingCount };
+    }
+    await release("pending");
+    if (kind === "pause") {
+      const counts = await refreshCounts(
+        db, campaignId, campaign.recipient_count,
+        { status: "paused", paused_reason: pauseReasonText(result.reason, result.message) }, now,
+      );
+      return { ok: false, reason: result.reason, message: result.message, retryAt: result.retryAt, paused: true, pendingCount: counts.pendingCount };
+    }
+    const counts = await refreshCounts(db, campaignId, campaign.recipient_count, {}, now);
+    return { ok: false, reason: result.reason, message: result.message, retryAt: result.retryAt, pendingCount: counts.pendingCount };
+  } catch (e) {
+    return dbError("sendCampaignRecipient", e);
+  }
+}
+
+export async function skipCampaignRecipient(
+  actor: Actor,
+  campaignId: string,
+  recipientId: string,
+): Promise<
+  { ok: true; pendingCount: number; done: boolean } | Fail<"not-found" | "not-allowed" | "already-handled" | "db-error">
+> {
+  if (!canUse(actor) || actor.id === "") return { ok: false, reason: "not-allowed" };
+  try {
+    const db = createAdminSupabase();
+    const campaign = await loadOwnedCampaign(db, actor, campaignId);
+    if (!campaign) return { ok: false, reason: "not-found" };
+    const { data, error } = await db
+      .from("whatsapp_batch_recipients")
+      .update({ status: "skipped" })
+      .eq("id", recipientId)
+      .eq("batch_id", campaignId)
+      .eq("status", "pending")
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) return { ok: false, reason: "already-handled" };
+    const counts = await refreshCounts(db, campaignId, campaign.recipient_count);
+    return { ok: true, pendingCount: counts.pendingCount, done: counts.done };
+  } catch (e) {
+    return dbError("skipCampaignRecipient", e);
+  }
+}
+
+export async function setCampaignStatus(
+  actor: Actor,
+  campaignId: string,
+  status: "active" | "paused",
+): Promise<{ ok: true; status: CampaignStatus } | Fail<"not-found" | "not-allowed" | "campaign-done" | "db-error">> {
+  if (!canUse(actor) || actor.id === "") return { ok: false, reason: "not-allowed" };
+  try {
+    const db = createAdminSupabase();
+    const campaign = await loadOwnedCampaign(db, actor, campaignId);
+    if (!campaign) return { ok: false, reason: "not-found" };
+    if (campaign.status === "done") return { ok: false, reason: "campaign-done" };
+    const { error } = await db
+      .from("whatsapp_batches")
+      .update({ status, paused_reason: status === "paused" ? "Paused by you" : null, updated_at: new Date().toISOString() })
+      .eq("id", campaignId);
+    if (error) throw error;
+    return { ok: true, status };
+  } catch (e) {
+    return dbError("setCampaignStatus", e);
   }
 }
