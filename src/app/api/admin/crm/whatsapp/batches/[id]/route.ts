@@ -24,6 +24,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const result = await updateWhatsAppBatch(id, parsed.data);
   if (!result.ok) {
+    if (result.reason === "agent-campaign") {
+      return NextResponse.json({ error: "This campaign belongs to a sales agent. You can watch its progress but not change it." }, { status: 409 });
+    }
     const status = result.reason === "not-found" ? 404 : 500;
     return NextResponse.json({ error: "Could not update this batch." }, { status });
   }

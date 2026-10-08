@@ -23,6 +23,18 @@ type BatchListRow = {
   conversionTag: ConversionTag;
   conversionCourseTitle: string | null;
   conversion: { converted: number; total: number } | null;
+  ownerAgentId: string | null;
+  ownerAgentName: string | null;
+  status: string;
+};
+
+// Agent campaigns only (admin batches show no chip). Same tokens as the
+// agent's own My campaigns list.
+const AGENT_STATUS_CHIP: Record<string, { text: string; cls: string }> = {
+  draft: { text: "Draft", cls: "bg-pz-surface-variant text-pz-on-surface-variant" },
+  active: { text: "Active", cls: "bg-pz-primary-container/30 text-pz-on-primary-container" },
+  paused: { text: "Paused", cls: "bg-pz-secondary-fixed text-pz-on-secondary-fixed" },
+  done: { text: "Done", cls: "bg-pz-tertiary-fixed text-pz-on-tertiary-fixed" },
 };
 
 // Minimal type for duplicateBatch API response casting
@@ -277,7 +289,18 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
               <div key={b.id} className="bg-pz-surface-container-high rounded-2xl p-4">
                 <div className="flex items-center gap-2 max-md:flex-wrap">
                   <Link href={`/dashboard/admin/sales-hub/whatsapp/${b.id}`} className="flex-1 flex items-center justify-between text-left max-md:basis-full max-md:flex-col max-md:items-start max-md:min-h-11 max-md:justify-center">
-                  <span className="font-body font-semibold text-sm">{b.name}</span>
+                  {b.ownerAgentId !== null ? (
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span className="font-body font-semibold text-sm">{b.name}</span>
+                      <span className="font-body text-xs text-pz-on-surface-variant">by {b.ownerAgentName ?? "a sales agent"}</span>
+                      {(() => {
+                        const chip = AGENT_STATUS_CHIP[b.status] ?? AGENT_STATUS_CHIP.active;
+                        return <span className={`px-2 py-0.5 rounded text-[11px] font-headline font-bold ${chip.cls}`}>{chip.text}</span>;
+                      })()}
+                    </span>
+                  ) : (
+                    <span className="font-body font-semibold text-sm">{b.name}</span>
+                  )}
                   <span className="font-body text-xs text-pz-on-surface-variant tabular-nums">
                     {b.sentCount} / {b.recipientCount} sent
                     {b.conversion && (
@@ -289,6 +312,9 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                     )}
                   </span>
                 </Link>
+                  {/* An agent campaign's segment is empty (hand-picked recipients), so
+                      duplicating it would re-resolve to everyone reachable. */}
+                  {b.ownerAgentId === null && (
                   <Button
                     variant="bare"
                     size="bare"
@@ -299,6 +325,7 @@ export function WhatsAppPanel({ initialBatches }: { initialBatches: BatchListRow
                   >
                     {duplicatingId === b.id ? "Duplicating…" : "Duplicate"}
                   </Button>
+                  )}
                   <Button
                     variant="bare"
                     size="bare"

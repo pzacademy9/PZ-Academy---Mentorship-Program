@@ -22,6 +22,10 @@ export type WhatsAppBatchListRow = {
   conversionTag: ConversionTag;
   conversionCourseTitle: string | null;
   conversion: { converted: number; total: number } | null;
+  /** Set when a sales agent runs this batch as a campaign; admins see it read-only. */
+  ownerAgentId: string | null;
+  ownerAgentName: string | null;
+  status: string;
 };
 
 export async function listWhatsAppBatches(): Promise<WhatsAppBatchListRow[]> {
@@ -29,11 +33,12 @@ export async function listWhatsAppBatches(): Promise<WhatsAppBatchListRow[]> {
   const { data } = await admin
     .from("whatsapp_batches")
     .select(
-      "id, name, message_template, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, courses(title)",
+      "id, name, message_template, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, owner_agent_id, status, paused_reason, courses(title)",
     )
     .order("created_at", { ascending: false });
 
   const rows = data ?? [];
+  const ownerNames = await fetchOwnerNames(rows.map((b) => b.owner_agent_id));
   const conversions = await Promise.all(
     rows.map((b) =>
       fetchBatchConversion(b.id, b.recipient_count, toConversionTag(b.conversion_course_id, b.conversion_label_match)),
@@ -50,6 +55,9 @@ export async function listWhatsAppBatches(): Promise<WhatsAppBatchListRow[]> {
     conversionTag: toConversionTag(b.conversion_course_id, b.conversion_label_match),
     conversionCourseTitle: (b.courses as { title: string } | null)?.title ?? null,
     conversion: conversions[i].summary,
+    ownerAgentId: b.owner_agent_id ?? null,
+    ownerAgentName: b.owner_agent_id ? (ownerNames.get(b.owner_agent_id) ?? null) : null,
+    status: b.status ?? "active",
   }));
 }
 
@@ -111,7 +119,7 @@ export async function createWhatsAppBatch(
   return { ok: true, batchId: batch.id, recipientCount: resolved.contacts.length };
 }
 
-export type UpdateWhatsAppBatchResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
+export type UpdateWhatsAppBatchResult = { ok: true } | { ok: false; reason: "not-found" | "agent-campaign" | "db-error" };
 
 /**
  * Edits an already-created batch: name, message template, and/or segment,
@@ -130,6 +138,13 @@ export async function updateWhatsAppBatch(
   updates: { name?: string; messageTemplate?: string; segment?: SegmentFilter[]; conversionTag?: ConversionTag },
 ): Promise<UpdateWhatsAppBatchResult> {
   const admin = createAdminSupabase();
+
+  // Agent campaigns are read-only for admins: never rename, re-word or
+  // re-apply a segment on one (a re-apply would drop pending recipients the
+  // agent picked by hand). Checked before any write or segment resolve.
+  const owner = await fetchBatchOwner(batchId);
+  if (!owner.ok) return { ok: false, reason: owner.reason };
+  if (owner.ownerAgentId !== null) return { ok: false, reason: "agent-campaign" };
 
   if (updates.segment !== undefined) {
     const resolved = await resolveWhatsAppSegment(updates.segment);
@@ -224,7 +239,11 @@ export async function updateWhatsAppBatch(
 
 export type DeleteWhatsAppBatchResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
 
-/** whatsapp_batch_recipients cascade-deletes via its batch_id FK (0054). */
+/**
+ * whatsapp_batch_recipients cascade-deletes via its batch_id FK (0054).
+ * Deliberately NOT guarded for agent campaigns: admins can still remove one
+ * (e.g. test cleanup) even though they can't edit it.
+ */
 export async function deleteWhatsAppBatch(batchId: string): Promise<DeleteWhatsAppBatchResult> {
   const admin = createAdminSupabase();
   const { data, error } = await admin
@@ -256,6 +275,7 @@ export type WhatsAppRecipientRow = {
 };
 
 export type WhatsAppBatchDetail = WhatsAppBatchListRow & {
+  pausedReason: string | null;
   segment: SegmentFilter[];
   recipients: WhatsAppRecipientRow[];
 };
@@ -265,7 +285,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   const { data: batch } = await admin
     .from("whatsapp_batches")
     .select(
-      "id, name, message_template, segment, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, courses(title)",
+      "id, name, message_template, segment, recipient_count, sent_count, created_at, conversion_course_id, conversion_label_match, owner_agent_id, status, paused_reason, courses(title)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -281,6 +301,8 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   const tag = toConversionTag(batch.conversion_course_id, batch.conversion_label_match);
   const { summary, convertedAtByRecipientId } = await fetchBatchConversion(id, batch.recipient_count, tag);
   const rows = recipients ?? [];
+  const ownerAgentId = batch.owner_agent_id ?? null;
+  const ownerNames = await fetchOwnerNames([ownerAgentId]);
 
   // DNC flag comes from the embedded contacts relation in the same query (no
   // second id-list lookup: URL-length limits on big batches). Fails
@@ -309,6 +331,10 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
     conversionTag: tag,
     conversionCourseTitle: (batch.courses as { title: string } | null)?.title ?? null,
     conversion: summary,
+    ownerAgentId,
+    ownerAgentName: ownerAgentId ? (ownerNames.get(ownerAgentId) ?? null) : null,
+    status: batch.status ?? "active",
+    pausedReason: batch.paused_reason ?? null,
     recipients: rows.map((r) => ({
       id: r.id,
       contactId: r.contact_id,
@@ -322,7 +348,7 @@ export async function getWhatsAppBatchDetail(id: string): Promise<WhatsAppBatchD
   };
 }
 
-export type UpdateRecipientStatusResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
+export type UpdateRecipientStatusResult = { ok: true } | { ok: false; reason: "not-found" | "agent-campaign" | "db-error" };
 
 /**
  * Scoped by BOTH batchId and recipientId — a recipient id that's real but
@@ -332,6 +358,10 @@ export type UpdateRecipientStatusResult = { ok: true } | { ok: false; reason: "n
  * sent_count is recomputed with a COUNT query after the update rather than
  * incremented/decremented in place, so it can never drift even if this is
  * ever called concurrently or from a future bulk-status path.
+ *
+ * `status` stays pending|sent on purpose: skipped/blocked only exist on agent
+ * campaigns, which this refuses outright ("agent-campaign") before touching
+ * anything, so the agent's own send flow stays the only writer there.
  */
 export async function updateRecipientStatus(
   batchId: string,
@@ -340,6 +370,10 @@ export async function updateRecipientStatus(
   userId: string,
 ): Promise<UpdateRecipientStatusResult> {
   const admin = createAdminSupabase();
+
+  const owner = await fetchBatchOwner(batchId);
+  if (!owner.ok) return { ok: false, reason: owner.reason };
+  if (owner.ownerAgentId !== null) return { ok: false, reason: "agent-campaign" };
 
   const { data: recipient, error: fetchError } = await admin
     .from("whatsapp_batch_recipients")
@@ -413,4 +447,31 @@ async function fetchBatchConversion(
   const convertedAtByRecipientId = new Map(sent.map((r) => [r.recipientId, convertedAtByContact.get(r.contactId) ?? null]));
 
   return { summary, convertedAtByRecipientId };
+}
+
+/** Looks up who owns a batch. not-found when the batch doesn't exist. */
+async function fetchBatchOwner(
+  batchId: string,
+): Promise<{ ok: true; ownerAgentId: string | null } | { ok: false; reason: "not-found" | "db-error" }> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("whatsapp_batches")
+    .select("id, owner_agent_id")
+    .eq("id", batchId)
+    .maybeSingle();
+  if (error) {
+    console.error("[crm-whatsapp] batch owner lookup failed:", error);
+    return { ok: false, reason: "db-error" };
+  }
+  if (!data) return { ok: false, reason: "not-found" };
+  return { ok: true, ownerAgentId: data.owner_agent_id ?? null };
+}
+
+/** One profiles lookup for every distinct owner id; skipped when there are none. */
+async function fetchOwnerNames(ids: (string | null | undefined)[]): Promise<Map<string, string | null>> {
+  const ownerIds = Array.from(new Set(ids.filter((id): id is string => !!id)));
+  if (ownerIds.length === 0) return new Map();
+  const admin = createAdminSupabase();
+  const { data } = await admin.from("profiles").select("id, full_name").in("id", ownerIds);
+  return new Map((data ?? []).map((p) => [p.id, p.full_name]));
 }

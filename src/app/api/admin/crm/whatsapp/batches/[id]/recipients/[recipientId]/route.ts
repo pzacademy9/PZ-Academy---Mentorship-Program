@@ -16,6 +16,9 @@ export async function PATCH(
 
   const result = await updateRecipientStatus(id, recipientId, parsed.data.status, auth.user.id);
   if (!result.ok) {
+    if (result.reason === "agent-campaign") {
+      return NextResponse.json({ error: "This campaign belongs to a sales agent. You can watch its progress but not change it." }, { status: 409 });
+    }
     const status = result.reason === "not-found" ? 404 : 500;
     return NextResponse.json({ error: "Could not update this recipient." }, { status });
   }
