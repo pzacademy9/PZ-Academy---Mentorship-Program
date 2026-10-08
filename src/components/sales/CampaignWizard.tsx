@@ -1,10 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronRight, Search, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ArrowLeft, ArrowRight, ChevronRight, Clock, Plus, Search, Send, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { useSalesBudget } from "@/components/sales/SalesBudgetProvider";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import {
   courseOptions,
   filterAudience,
@@ -12,9 +16,17 @@ import {
   type AudienceFilter,
   type AudienceRowJson,
 } from "@/lib/crm/campaign-ui";
-import { MAX_CAMPAIGN_RECIPIENTS, splitTodayTomorrow } from "@/lib/crm/campaign-rules";
-import { DEFAULT_MESSAGE, outcomeLabel, type AgentBudgetJson } from "@/lib/crm/sales-ui";
-import { DEFAULT_FOLLOWUP_HOURS, type FollowupHours } from "@/lib/crm/followup";
+import { MAX_CAMPAIGN_RECIPIENTS, splitTodayTomorrow, varietyBlocked, VARIETY_MESSAGE } from "@/lib/crm/campaign-rules";
+import {
+  DEFAULT_MESSAGE,
+  MAX_MESSAGE_LENGTH,
+  outcomeLabel,
+  type AgentBudgetJson,
+  type TemplateJson,
+} from "@/lib/crm/sales-ui";
+import { DEFAULT_FOLLOWUP_HOURS, FOLLOWUP_CHOICES, type FollowupHours } from "@/lib/crm/followup";
+import { DEFAULT_SETTINGS } from "@/lib/crm/send-limits";
+import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 
 export type WizardStep = 1 | 2 | 3;
 
@@ -118,12 +130,56 @@ export function CampaignWizard() {
   }, []);
   useEffect(() => void load(), [load]);
 
+  // Saved messages load once, the first time step 2 opens.
+  const [templates, setTemplates] = useState<TemplateJson[] | null>(null);
+  const [templatesError, setTemplatesError] = useState(false);
+  const wantTemplates = step >= 2;
+  useEffect(() => {
+    if (!wantTemplates || templates !== null) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/sales/templates", { cache: "no-store" });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { templates?: TemplateJson[] };
+        if (alive) setTemplates(data.templates ?? []);
+      } catch {
+        if (alive) {
+          setTemplatesError(true);
+          setTemplates([]);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [wantTemplates, templates]);
+
+  // The preview uses the first person picked (Set keeps insertion order).
+  const previewName = useMemo(() => {
+    const firstId = Array.from(selected)[0];
+    if (firstId === undefined) return "";
+    return audience?.rows.find((r) => r.id === firstId)?.fullName ?? "";
+  }, [selected, audience]);
+
   const draft: CampaignDraft = { message, setMessage, templateId, setTemplateId, followupHours, setFollowupHours };
 
   return (
     <div className="flex flex-col gap-5 max-lg:pb-24">
       <Stepper step={step} />
-      {step === 1 ? (
+      {step === 2 ? (
+        <StepWrite
+          draft={draft}
+          count={selected.size}
+          previewName={previewName}
+          templates={templates}
+          templatesError={templatesError}
+          onBack={() => setStep(1)}
+          onNext={() => setStep(3)}
+        />
+      ) : step === 3 ? (
+        <StepCheck draft={draft} selected={selected} previewName={previewName} onBack={() => setStep(2)} />
+      ) : (
         <StepWho
           audience={audience}
           loadError={loadError}
@@ -136,8 +192,6 @@ export function CampaignWizard() {
           remainingToday={number ? Math.max(0, number.budget.dailyCap - number.budget.dailyUsed) : null}
           onNext={() => setStep(2)}
         />
-      ) : (
-        <StepPlaceholder draft={draft} onBack={() => setStep(1)} />
       )}
     </div>
   );
@@ -203,6 +257,8 @@ function StepWho({
     });
   const split = remainingToday === null ? null : splitTodayTomorrow(count, remainingToday);
   const filtered = filter.q !== "" || filter.course !== "" || filter.outcome !== "";
+  const shownIds = new Set(shown.map((r) => r.id));
+  const hiddenSelected = Array.from(selected).filter((id) => !shownIds.has(id)).length;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
@@ -350,6 +406,9 @@ function StepWho({
           <div className="flex items-center justify-between gap-3 max-w-lg mx-auto lg:max-w-none lg:flex-col lg:items-stretch">
             <div className="flex flex-col min-w-0">
               <span className="text-base font-headline font-bold text-pz-on-surface" aria-live="polite">{count} selected</span>
+              {hiddenSelected > 0 && (
+                <span className="text-xs text-pz-on-surface-variant">{hiddenSelected} hidden by filters</span>
+              )}
               {tooMany && <span className="text-xs text-pz-danger">Pick {MAX_CAMPAIGN_RECIPIENTS} people or fewer.</span>}
             </div>
             <button
@@ -374,14 +433,329 @@ export type CampaignDraft = {
   followupHours: FollowupHours; setFollowupHours: (v: FollowupHours) => void;
 };
 
-// Task 8 replaces this with the real Write message and Check and send steps, which read and change `draft`.
-function StepPlaceholder({ onBack }: { draft: CampaignDraft; onBack: () => void }) {
+const NAME_TAGS: readonly { label: string; tag: string }[] = [
+  { label: "First name", tag: "{{first_name}}" },
+  { label: "Full name", tag: "{{full_name}}" },
+];
+
+/** Appends a tag at the end of the message, with a space when the text does not already end in one. */
+function withTag(message: string, tag: string): string {
+  return message === "" || /\s$/.test(message) ? message + tag : `${message} ${tag}`;
+}
+
+const backBtnCls =
+  "inline-flex items-center justify-center gap-1.5 h-12 max-md:min-h-11 px-4 rounded-lg bg-pz-surface-container-low hover:bg-pz-surface-container-high text-pz-on-surface font-headline font-bold text-sm transition-colors";
+// Mirrors SendPanel's primary button: the disabled state stays readable instead of fading out.
+const startBtnCls =
+  "h-12 max-md:min-h-11 px-5 rounded-lg bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none disabled:opacity-100";
+// Fixed above the phone tab bar, an ordinary card from lg up (same as step 1).
+const actionBarCls =
+  "fixed bottom-16 inset-x-0 z-40 lg:static lg:z-auto bg-pz-surface-container-lowest px-4 py-3 shadow-lg lg:shadow-sm lg:rounded-xl lg:p-5";
+
+function MessagePreview({ text }: { text: string }) {
   return (
-    <section className="bg-pz-surface-container-lowest rounded-xl p-5 shadow-sm flex flex-col gap-3 items-start">
-      <button type="button" onClick={onBack} className={ghostBtnCls}>
-        <ArrowLeft className="inline h-4 w-4 mr-1" aria-hidden="true" />
-        Back
-      </button>
+    <section aria-label="What they will see" className="bg-pz-surface-container-lowest p-4 md:p-5 rounded-xl shadow-sm flex flex-col gap-3">
+      <h2 className="text-xs font-headline font-bold text-pz-on-surface-variant">What they will see</h2>
+      <div className="bg-pz-surface-container-low rounded-xl p-4">
+        <p className="bg-pz-surface-container-lowest rounded-lg p-4 shadow-sm text-sm text-pz-on-surface leading-relaxed whitespace-pre-wrap break-words">
+          {text}
+        </p>
+      </div>
     </section>
+  );
+}
+
+function StepWrite({
+  draft, count, previewName, templates, templatesError, onBack, onNext,
+}: {
+  draft: CampaignDraft;
+  count: number;
+  previewName: string;
+  templates: TemplateJson[] | null;
+  templatesError: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const { message, setMessage, templateId, setTemplateId } = draft;
+  const empty = message.trim() === "";
+  const tooLong = message.length > MAX_MESSAGE_LENGTH;
+  const blocked = varietyBlocked(message, count);
+
+  const pickTemplate = (id: string) => {
+    setTemplateId(id);
+    const t = templates?.find((x) => x.id === id);
+    if (t) setMessage(t.body);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
+      <div className="lg:col-span-7 flex flex-col gap-4 min-w-0">
+        <div className="bg-pz-secondary-fixed/30 rounded-xl p-4 flex items-start gap-3 shadow-sm">
+          <span className="w-8 h-8 shrink-0 rounded-lg bg-pz-secondary-container text-pz-on-secondary-container flex items-center justify-center">
+            <Clock className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <p className="text-sm text-pz-on-surface leading-relaxed">
+            Messages go out one at a time from your own WhatsApp, with pauses.
+          </p>
+        </div>
+
+        <section aria-label="Your message" className="bg-pz-surface-container-lowest p-4 md:p-5 rounded-xl shadow-sm flex flex-col gap-4">
+          <label className="flex flex-col gap-1 text-xs font-headline font-bold text-pz-on-surface-variant">
+            Saved message
+            <select
+              aria-label="Saved message"
+              value={templateId}
+              onChange={(e) => pickTemplate(e.target.value)}
+              disabled={templates === null || templates.length === 0}
+              className={`${fieldCls} disabled:opacity-60`}
+            >
+              <option value="">{templates !== null && templates.length === 0 ? "No saved messages yet" : "Pick a saved message"}</option>
+              {(templates ?? []).map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </label>
+          {templates === null && (
+            <span role="status" aria-label="Loading saved messages" className="text-xs text-pz-on-surface-variant -mt-2">Loading saved messages…</span>
+          )}
+          {templatesError && (
+            <span className="text-xs text-pz-on-surface-variant -mt-2">Saved messages could not load. You can still write your own.</span>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-headline font-bold text-pz-on-surface-variant">Add their name</span>
+            <div className="flex flex-wrap gap-2">
+              {NAME_TAGS.map(({ label, tag }) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setMessage(withTag(message, tag))}
+                  disabled={withTag(message, tag).length > MAX_MESSAGE_LENGTH}
+                  className="inline-flex items-center gap-1.5 h-9 max-md:min-h-11 px-3 rounded-lg bg-pz-surface-container-high hover:bg-pz-primary-container/30 text-pz-on-surface text-xs font-headline font-semibold transition-colors disabled:opacity-50"
+                >
+                  <Plus className="h-3.5 w-3.5 text-pz-primary" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="campaign-message" className="text-xs font-headline font-bold text-pz-on-surface-variant">
+              Message
+            </label>
+            <textarea
+              id="campaign-message"
+              rows={7}
+              maxLength={MAX_MESSAGE_LENGTH}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              aria-describedby={blocked ? "campaign-variety" : undefined}
+              className="w-full rounded-lg bg-pz-surface-container-low p-3.5 text-sm text-pz-on-surface leading-relaxed resize-y focus:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary"
+            />
+            <span className={`text-[11px] self-end tabular-nums ${tooLong ? "text-pz-danger" : "text-pz-on-surface-variant"}`}>
+              {message.length} / {MAX_MESSAGE_LENGTH}
+            </span>
+            {blocked && (
+              <p id="campaign-variety" role="alert" className="text-xs text-pz-danger leading-relaxed">
+                {VARIETY_MESSAGE}
+              </p>
+            )}
+            {tooLong && (
+              <p role="alert" className="text-xs text-pz-danger">Keep the message to {MAX_MESSAGE_LENGTH} characters or fewer.</p>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <aside className="lg:col-span-5 flex flex-col gap-4 lg:sticky lg:top-24">
+        <MessagePreview text={renderWhatsAppMessage(message, previewName)} />
+        <div className={actionBarCls}>
+          <div className="flex items-center gap-3 max-w-lg mx-auto lg:max-w-none">
+            <button type="button" onClick={onBack} className={backBtnCls}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back
+            </button>
+            <button type="button" onClick={onNext} disabled={empty || tooLong || blocked} className={`${primaryBtnCls} flex-1`}>
+              Next: Check and send
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+type CreateCampaignJson = { campaignId?: string; droppedText?: string[]; error?: string };
+
+function StepCheck({
+  draft, selected, previewName, onBack,
+}: {
+  draft: CampaignDraft;
+  selected: Set<string>;
+  previewName: string;
+  onBack: () => void;
+}) {
+  const router = useRouter();
+  const { budgets, loadError, selected: number, selectedId, select } = useSalesBudget();
+  const { message, followupHours, setFollowupHours } = draft;
+  const [started, setStarted] = useState(false);
+  const count = selected.size;
+
+  const { run, pending } = useAsyncAction(async () => {
+    if (!number) return;
+    let res: Response;
+    try {
+      res = await fetch("/api/sales/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageTemplate: message,
+          contactIds: Array.from(selected),
+          numberId: number.number.id,
+          followupInHours: followupHours,
+        }),
+      });
+    } catch {
+      toast.error("We couldn't reach the server. Check your connection and try again.");
+      return;
+    }
+    const body = (await res.json().catch(() => null)) as CreateCampaignJson | null;
+    if (!res.ok || !body?.campaignId) {
+      toast.error(body?.error ?? "Could not start this campaign.");
+      return;
+    }
+    setStarted(true);
+    for (const line of body.droppedText ?? []) toast.warning(line);
+    router.push(`/dashboard/sales/campaigns/${body.campaignId}`);
+  });
+
+  const loading = budgets === null && !loadError;
+  const remaining = number ? Math.max(0, number.budget.dailyCap - number.budget.dailyUsed) : null;
+  const split = remaining === null ? null : splitTodayTomorrow(count, remaining);
+  const warmingUp = number !== null && number.budget.dailyCap < DEFAULT_SETTINGS.daily_cap;
+  const blocked = message.trim() === "" || message.length > MAX_MESSAGE_LENGTH || varietyBlocked(message, count);
+  const canStart = number !== null && !blocked && !started;
+
+  let note: React.ReactNode = null;
+  if (loading) {
+    note = <span role="status" aria-label="Checking your limits" className="text-xs text-pz-on-surface-variant">Checking your limits…</span>;
+  } else if (budgets === null) {
+    note = <span className="text-xs text-pz-danger">We couldn&apos;t check your limits. Refresh the page to try again.</span>;
+  } else if (number === null) {
+    note = (
+      <span className="text-xs text-pz-on-surface-variant">
+        No WhatsApp number yet. Ask your admin to give you one before you can start.
+      </span>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
+      <div className="lg:col-span-7 flex flex-col gap-4 min-w-0">
+        <section aria-label="Summary" className="bg-pz-surface-container-lowest p-4 md:p-6 rounded-xl shadow-sm flex flex-col gap-5">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 shrink-0 rounded-full bg-pz-primary-container/30 text-pz-on-primary-container flex items-center justify-center">
+              <Users className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="flex flex-col">
+              <span className="text-xs font-headline font-bold text-pz-on-surface-variant">Sending to</span>
+              <span className="text-xl font-headline font-bold text-pz-on-surface">{count} people</span>
+            </div>
+          </div>
+
+          {split !== null && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-pz-tertiary-fixed/30 rounded-xl p-4 flex flex-col gap-1">
+                <span className="text-base font-headline font-bold text-pz-on-surface">Today: {split.today}</span>
+                <span className="text-xs text-pz-on-surface-variant">Within today&apos;s limit</span>
+              </div>
+              <div className="bg-pz-surface-container-low rounded-xl p-4 flex flex-col gap-1">
+                <span className="text-base font-headline font-bold text-pz-on-surface">Tomorrow: {split.tomorrow}</span>
+                <span className="text-xs text-pz-on-surface-variant">Wait for tomorrow</span>
+              </div>
+            </div>
+          )}
+
+          {budgets !== null && budgets.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              {budgets.length > 1 ? (
+                <label className="flex flex-col gap-1 text-xs font-headline font-bold text-pz-on-surface-variant">
+                  WhatsApp number
+                  <select
+                    value={selectedId ?? ""}
+                    onChange={(e) => select(e.target.value)}
+                    disabled={pending || started}
+                    className={fieldCls}
+                  >
+                    {budgets.map((b) => (
+                      <option key={b.number.id} value={b.number.id}>{b.number.label}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <>
+                  <span className="text-xs font-headline font-bold text-pz-on-surface-variant">Sending from</span>
+                  <span className="text-sm font-headline font-bold text-pz-on-surface">{number?.number.label}</span>
+                </>
+              )}
+              {warmingUp && number && (
+                <p className="text-xs text-pz-on-surface-variant">
+                  This number is warming up: {number.budget.dailyCap} new chats a day.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div role="group" aria-label="Bring them back in" className="flex flex-col gap-1.5">
+            <span className="text-xs font-headline font-bold text-pz-on-surface-variant">Bring them back in</span>
+            <div className="flex flex-wrap gap-2">
+              {FOLLOWUP_CHOICES.map(({ hours, label }) => (
+                <button
+                  key={hours}
+                  type="button"
+                  aria-pressed={followupHours === hours}
+                  disabled={pending || started}
+                  onClick={() => setFollowupHours(hours)}
+                  className={`min-h-11 px-3.5 py-2 rounded-lg text-xs font-headline font-semibold transition-colors disabled:opacity-50 ${
+                    followupHours === hours ? "bg-pz-primary text-pz-on-primary" : "bg-pz-surface-container-low text-pz-on-surface"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside className="lg:col-span-5 flex flex-col gap-4 lg:sticky lg:top-24">
+        <MessagePreview text={renderWhatsAppMessage(message, previewName)} />
+        <div className={actionBarCls}>
+          <div className="flex flex-col gap-2 max-w-lg mx-auto lg:max-w-none">
+            {note}
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={onBack} disabled={pending || started} className={`${backBtnCls} disabled:opacity-50`}>
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back
+              </button>
+              <Button
+                type="button"
+                variant="bare"
+                size="bare"
+                disabled={!canStart}
+                loading={pending}
+                onClick={() => void run()}
+                className={`${startBtnCls} flex-1`}
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+                Start sending
+              </Button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
   );
 }
