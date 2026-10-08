@@ -331,6 +331,16 @@ async function refreshCounts(
   }
   const { error } = await db.from("whatsapp_batches").update(update).eq("id", campaignId);
   if (error) throw error;
+  if (!done && pendingCount > 0) {
+    // A racing tab may have marked the campaign done while this recipient was still
+    // reserved; once it is back to pending the campaign must reopen or they are lost.
+    const { error: reopenErr } = await db
+      .from("whatsapp_batches")
+      .update({ status: "active", paused_reason: null })
+      .eq("id", campaignId)
+      .eq("status", "done");
+    if (reopenErr) throw reopenErr;
+  }
   return { sentCount, pendingCount, done };
 }
 
@@ -487,11 +497,14 @@ export async function setCampaignStatus(
     const campaign = await loadOwnedCampaign(db, actor, campaignId);
     if (!campaign) return { ok: false, reason: "not-found" };
     if (campaign.status === "done") return { ok: false, reason: "campaign-done" };
-    const { error } = await db
+    const { data, error } = await db
       .from("whatsapp_batches")
       .update({ status, paused_reason: status === "paused" ? "Paused by you" : null, updated_at: new Date().toISOString() })
-      .eq("id", campaignId);
+      .eq("id", campaignId)
+      .neq("status", "done")
+      .select("id");
     if (error) throw error;
+    if (!data || data.length === 0) return { ok: false, reason: "campaign-done" };
     return { ok: true, status };
   } catch (e) {
     return dbError("setCampaignStatus", e);

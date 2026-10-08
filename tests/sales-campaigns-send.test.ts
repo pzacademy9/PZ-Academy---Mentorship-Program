@@ -30,6 +30,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         for (const [name, args] of call.filters) {
           if (name === "in") out = out.filter((r) => (args[1] as unknown[]).includes(r[args[0] as string]));
           if (name === "eq") out = out.filter((r) => r[args[0] as string] === args[1]);
+          if (name === "neq") out = out.filter((r) => r[args[0] as string] !== args[1]);
         }
         return out;
       };
@@ -242,6 +243,24 @@ describe("sendCampaignRecipient", () => {
     await expect(sendCampaignRecipient(actor, "b1", "r1", NOW)).resolves.toEqual({ ok: false, reason: "db-error" });
   });
 
+  it("two tabs on the last two recipients: a refusal reverting the second reopens a campaign the first marked done", async () => {
+    requestSendMock.mockImplementationOnce(async () => {
+      // Tab A runs entirely while tab B (r2, already reserved) is inside requestSend.
+      requestSendMock.mockResolvedValueOnce(okSend);
+      const a = await sendCampaignRecipient(actor, "b1", "r1", NOW);
+      expect(a).toMatchObject({ ok: true, done: true });
+      return { ok: false, reason: "spacing", message: "wait" };
+    });
+    // r1 is the only other pending one; reserve r2 first via tab B.
+    const b = await sendCampaignRecipient(actor, "b1", "r2", NOW);
+    expect(b).toMatchObject({ ok: false, reason: "spacing", pendingCount: 1 });
+    expect(recipient("r2").status).toBe("pending");
+    expect(batchRow().status).toBe("active");
+    requestSendMock.mockResolvedValueOnce(okSend);
+    const again = await sendCampaignRecipient(actor, "b1", "r2", NOW);
+    expect(again).toMatchObject({ ok: true, done: true });
+  });
+
   it("returns db-error when requestSend itself throws", async () => {
     requestSendMock.mockRejectedValue(new Error("kaboom"));
     await expect(sendCampaignRecipient(actor, "b1", "r1", NOW)).resolves.toEqual({ ok: false, reason: "db-error" });
@@ -271,5 +290,17 @@ describe("setCampaignStatus", () => {
     batchRow().status = "done";
     expect(await setCampaignStatus(actor, "b1", "active")).toEqual({ ok: false, reason: "campaign-done" });
     expect(batchRow().status).toBe("done");
+  });
+
+  it("does not overwrite a campaign that became done after it was loaded (guarded update)", async () => {
+    const rows = tables.whatsapp_batches;
+    // Simulate the race: the campaign flips to done between the owner check and the update.
+    const real = rows[0];
+    let reads = 0;
+    Object.defineProperty(real, "status", {
+      configurable: true, enumerable: true,
+      get: () => (reads++ < 1 ? "active" : "done"), set: () => {},
+    });
+    expect(await setCampaignStatus(actor, "b1", "paused")).toEqual({ ok: false, reason: "campaign-done" });
   });
 });
