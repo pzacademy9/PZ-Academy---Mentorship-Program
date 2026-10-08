@@ -128,6 +128,10 @@ export function WhatsAppBatchDetailClient({
     await toggleSent(recipient);
   }
 
+  // Agent campaigns are watch-only here: the agent sends from their own
+  // workspace, and the API refuses admin edits with a 409 anyway.
+  const readOnly = detail.isAgentCampaign;
+
   const filteredRecipients =
     recipientSearch.trim() === ""
       ? detail.recipients
@@ -155,8 +159,15 @@ export function WhatsAppBatchDetailClient({
         </p>
       </div>
 
+      {readOnly && (
+        <div role="note" className="bg-pz-secondary-fixed text-pz-on-secondary-fixed rounded-xl p-3 font-body text-sm space-y-1">
+          <p>Run by {detail.ownerAgentName ?? "a sales agent"}. You can watch progress here; sending happens in their workspace.</p>
+          {detail.status === "paused" && detail.pausedReason && <p className="text-xs">Paused: {detail.pausedReason}</p>}
+        </div>
+      )}
+
       <div className="bg-pz-surface-container-highest rounded-xl p-3">
-        {editingBatch ? (
+        {editingBatch && !readOnly ? (
           <div className="space-y-3">
             <input
               value={nameDraft}
@@ -209,18 +220,20 @@ export function WhatsAppBatchDetailClient({
         ) : (
           <div className="flex items-start justify-between gap-3">
             <p className="font-body font-semibold text-sm flex-1">{detail.name}</p>
+            {!readOnly && (
             <button
               onClick={() => { setNameDraft(detail.name); setSegmentDraft(detail.segment); loadEditConversionTag(); setEditingBatch(true); }}
               className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0 max-md:min-h-11 max-md:min-w-11"
             >
               Edit batch
             </button>
+            )}
           </div>
         )}
       </div>
 
       <div className="bg-pz-surface-container-highest rounded-xl p-3">
-        {editingMessage ? (
+        {editingMessage && !readOnly ? (
           <div className="space-y-2">
             <textarea value={messageDraft} onChange={(e) => setMessageDraft(e.target.value)} rows={4}
               className="w-full rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:text-base" />
@@ -238,10 +251,12 @@ export function WhatsAppBatchDetailClient({
         ) : (
           <div className="flex items-start justify-between gap-3">
             <p className="font-body text-xs text-pz-on-surface-variant whitespace-pre-wrap flex-1">{detail.messageTemplate}</p>
+            {!readOnly && (
             <button onClick={() => { setMessageDraft(detail.messageTemplate); setEditingMessage(true); }}
               className="font-body text-xs font-semibold text-pz-primary hover:underline shrink-0 max-md:min-h-11 max-md:min-w-11">
               Edit message
             </button>
+            )}
           </div>
         )}
       </div>
@@ -253,12 +268,68 @@ export function WhatsAppBatchDetailClient({
           placeholder="Search recipients…"
           className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base"
         />
+        {!readOnly && (
         <button onClick={() => setQueueMode((v) => !v)} className="font-body text-xs font-semibold text-pz-primary hover:underline max-md:min-h-11">
           {queueMode ? "Switch to table view" : "Switch to queue mode"}
         </button>
+        )}
       </div>
 
-      {queueMode ? (
+      {readOnly ? (
+        <ResponsiveList
+          rows={filteredRecipients}
+          getKey={(r) => r.id}
+          empty={
+            <EmptyState
+              icon={Users}
+              title={recipientSearch ? "No recipients match" : "No recipients yet"}
+              description={recipientSearch ? `Nothing matches "${recipientSearch}".` : "This campaign has no recipients."}
+            />
+          }
+          mobile={{
+            title: (r) =>
+              r.contactId ? (
+                <Link href={`/dashboard/admin/sales-hub/contacts/${r.contactId}`} className="inline-flex min-h-11 items-center underline">
+                  {r.fullName || "—"}
+                </Link>
+              ) : (
+                r.fullName || "—"
+              ),
+            meta: (r) => [
+              r.phoneE164,
+              r.status,
+              detail.conversion ? (r.convertedAt ? `Converted ${new Date(r.convertedAt).toLocaleDateString()}` : "Not converted (yet)") : null,
+            ].filter(Boolean),
+          }}
+          table={
+            <table className="w-full text-left font-body text-sm">
+              <thead className="text-pz-on-surface-variant text-xs uppercase">
+                <tr><th className="py-1">Name</th><th>Phone</th><th>Status</th><th>Converted</th></tr>
+              </thead>
+              <tbody>
+                {filteredRecipients.map((r) => (
+                  <tr key={r.id} className="border-t border-pz-outline-variant">
+                    <td className="py-1">
+                      {r.contactId ? (
+                        <Link href={`/dashboard/admin/sales-hub/contacts/${r.contactId}`} className="underline">
+                          {r.fullName || "—"}
+                        </Link>
+                      ) : (
+                        r.fullName || "—"
+                      )}
+                    </td>
+                    <td>{r.phoneE164}</td>
+                    <td className="text-xs">{r.status}</td>
+                    <td className="text-xs">
+                      {detail.conversion ? (r.convertedAt ? new Date(r.convertedAt).toLocaleDateString() : "Not converted (yet)") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          }
+        />
+      ) : queueMode ? (
         (() => {
           const pending = detail.recipients.filter((r) => r.status === "pending" && !r.doNotContact);
           const current = pending[0];

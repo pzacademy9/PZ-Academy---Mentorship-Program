@@ -5,7 +5,7 @@
  */
 
 export type ReconcileMatchedContact = { id: string; fullName: string; phoneE164: string };
-export type ReconcileExistingRecipient = { id: string; contactId: string | null; status: "pending" | "sent" };
+export type ReconcileExistingRecipient = { id: string; contactId: string | null; status: "pending" | "sent" | "skipped" | "blocked" };
 
 export type WhatsAppSegmentReconciliation = {
   toInsert: { contactId: string; fullName: string; phoneE164: string }[];

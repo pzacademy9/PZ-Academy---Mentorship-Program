@@ -2666,41 +2666,73 @@ export type Database = {
           conversion_label_match: string | null
           created_at: string
           created_by: string | null
+          followup_in_hours: number | null
           id: string
           message_template: string
           name: string
+          number_id: string | null
+          owner_agent_id: string | null
+          paused_reason: string | null
           recipient_count: number
           segment: Json
           sent_count: number
+          status: string
+          updated_at: string
         }
         Insert: {
           conversion_course_id?: string | null
           conversion_label_match?: string | null
           created_at?: string
           created_by?: string | null
+          followup_in_hours?: number | null
           id?: string
           message_template: string
           name: string
+          number_id?: string | null
+          owner_agent_id?: string | null
+          paused_reason?: string | null
           recipient_count?: number
           segment?: Json
           sent_count?: number
+          status?: string
+          updated_at?: string
         }
         Update: {
           conversion_course_id?: string | null
           conversion_label_match?: string | null
           created_at?: string
           created_by?: string | null
+          followup_in_hours?: number | null
           id?: string
           message_template?: string
           name?: string
+          number_id?: string | null
+          owner_agent_id?: string | null
+          paused_reason?: string | null
           recipient_count?: number
           segment?: Json
           sent_count?: number
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "whatsapp_batches_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_batches_number_id_fkey"
+            columns: ["number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_batches_owner_agent_id_fkey"
+            columns: ["owner_agent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2961,7 +2993,7 @@ export type Database = {
         | "interview_prep"
         | "career_guidance"
       user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent"
-      whatsapp_send_status: "pending" | "sent"
+      whatsapp_send_status: "pending" | "sent" | "skipped" | "blocked"
     }
     CompositeTypes: {
       [_ in never]: never

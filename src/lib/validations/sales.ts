@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_FOLLOWUP_HOURS, OUTCOME_KINDS, isFollowupHours } from "@/lib/crm/followup";
+import { MAX_CAMPAIGN_RECIPIENTS } from "@/lib/crm/campaign-rules";
 
 const text = (max: number) => z.string().trim().min(1, "Required").max(max);
 
@@ -149,3 +150,17 @@ export function contactSearchFilter(
   }
   return parts.join(",");
 }
+
+export const campaignCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  messageTemplate: text(1000),
+  contactIds: z.array(z.string().uuid()).min(1).max(MAX_CAMPAIGN_RECIPIENTS),
+  numberId: z.string().uuid(),
+  followupInHours: z
+    .number()
+    .int()
+    .refine((h) => isFollowupHours(h), "Pick 8 hours, 1 day, 2 days or 3 days.")
+    .default(DEFAULT_FOLLOWUP_HOURS),
+});
+export const campaignRecipientSchema = z.object({ recipientId: z.string().uuid() });
+export const campaignStatusSchema = z.object({ status: z.enum(["active", "paused"]) });

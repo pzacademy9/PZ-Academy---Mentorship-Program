@@ -12,6 +12,8 @@ export function statusForReason(reason: string): number {
     case "do-not-contact":
     case "no-phone":
     case "duplicate":
+    case "already-handled":
+    case "campaign-done":
       return 409;
     case "frozen":
     case "quiet_hours":
