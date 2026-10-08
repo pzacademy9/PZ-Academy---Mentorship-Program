@@ -25,6 +25,11 @@ describe("sales route files", () => {
     expect(sales.map(rel).sort()).toEqual(
       [
         "/src/app/api/sales/budget/route.ts",
+        "/src/app/api/sales/campaigns/[id]/route.ts",
+        "/src/app/api/sales/campaigns/[id]/send/route.ts",
+        "/src/app/api/sales/campaigns/[id]/skip/route.ts",
+        "/src/app/api/sales/campaigns/audience/route.ts",
+        "/src/app/api/sales/campaigns/route.ts",
         "/src/app/api/sales/contacts/[id]/claim/route.ts",
         "/src/app/api/sales/contacts/[id]/note/route.ts",
         "/src/app/api/sales/contacts/[id]/outcome/route.ts",
