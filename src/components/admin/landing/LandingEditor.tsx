@@ -12,7 +12,7 @@ import { useAutosaveDraft, type SaveState } from "@/hooks/useAutosaveDraft";
 import type { LandingPage, LandingVersion } from "@/lib/data/landing-pages";
 import {
   addSection, moveSection, removeSection, toggleSection, updateSectionData, updateSeo, updateSettings,
-  type LandingContent, type PageKind,
+  type LandingContent, type PageKind, type Problem,
 } from "@/lib/landing/content";
 import { SECTION_DEFS } from "@/lib/landing/sections";
 import { SectionList } from "./SectionList";
@@ -86,9 +86,11 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
   // Always derive edits from the freshest content, never from a render-time capture: an image upload
   // can finish seconds later and must not revert what was typed meanwhile.
   const contentRef = useRef(content);
+  const [serverProblems, setServerProblems] = useState<Problem[] | null>(null);
   const apply = useCallback((next: LandingContent) => {
     contentRef.current = next;
     setContent(next);
+    setServerProblems(null); // the server's list described the old content; the local check takes over again
     schedule(next);
   }, [schedule]);
 
@@ -191,7 +193,10 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
     if (selection === id) setSelection(next.sections[0]?.id ?? SETTINGS);
   }
 
-  const slotProps = { page, title, versions, content, saveState: state, saveNow };
+  const slotProps = {
+    page, title, versions, content, saveState: state, saveNow,
+    onSelectSection: select, serverProblems, onServerProblems: setServerProblems,
+  };
 
   return (
     <div className="fixed inset-0 z-50 hidden flex-col bg-pz-surface md:flex">

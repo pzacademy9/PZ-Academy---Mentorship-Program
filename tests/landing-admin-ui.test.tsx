@@ -691,3 +691,175 @@ describe("LandingEditor fix round 1", () => {
     expect(cta.data.headline).toBe("B edit");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 11: readiness checklist, publish flow, versions and restore
+// ---------------------------------------------------------------------------
+import { ReadinessPanel } from "@/components/admin/landing/ReadinessPanel";
+import { VersionsPanel } from "@/components/admin/landing/VersionsPanel";
+import { removeSection as removeSectionT11, updateSettings as updateSettingsT11, updateSeo as updateSeoT11 } from "@/lib/landing/content";
+
+describe("ReadinessPanel", () => {
+  it("lists plain-language problems with Fix buttons that jump to the section", () => {
+    const onGoto = vi.fn();
+    render(<ReadinessPanel problems={[{ message: 'Fill in "Headline" in "Hero".', sectionId: "s1" }, { message: "Give the page a name." }]} onGoto={onGoto} />);
+    expect(screen.getByText(/Fill in "Headline"/)).toBeTruthy();
+    const fix = screen.getAllByRole("button", { name: /fix/i });
+    expect(fix).toHaveLength(1);
+    fireEvent.click(fix[0]);
+    expect(onGoto).toHaveBeenCalledWith("s1");
+  });
+  it("says everything is filled in when there are no problems", () => {
+    render(<ReadinessPanel problems={[]} onGoto={() => {}} />);
+    expect(screen.getByText(/everything is filled in/i)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Ready to publish?" })).toBeTruthy();
+  });
+});
+
+describe("VersionsPanel", () => {
+  it("restores the chosen version after confirmation", async () => {
+    const onRestore = vi.fn();
+    render(<VersionsPanel versions={[{ version: 3, createdAt: "2026-10-03T10:00:00Z" }, { version: 2, createdAt: "2026-10-02T10:00:00Z" }]} onRestore={onRestore} />);
+    expect(screen.getByText(/Version 3 · 3 Oct 2026/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: /restore this version/i })[1]);
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(2));
+    expect(confirmFn).toHaveBeenCalledWith(expect.objectContaining({ description: "Restore version 2? This replaces the live page and your draft." }));
+  });
+  it("does not restore when the confirm is declined", async () => {
+    confirmFn.mockResolvedValue(false);
+    const onRestore = vi.fn();
+    render(<VersionsPanel versions={[{ version: 1, createdAt: "2026-10-01T10:00:00Z" }]} onRestore={onRestore} />);
+    fireEvent.click(screen.getByRole("button", { name: /restore this version/i }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+  it("shows a helpful empty message before the first publish", () => {
+    render(<VersionsPanel versions={[]} onRestore={() => {}} />);
+    expect(screen.getByText(/no published versions yet/i)).toBeTruthy();
+  });
+});
+
+describe("LandingEditor publish and versions", () => {
+  const incomplete = emptyContent("webinar");
+  let complete = emptyContent("webinar");
+  for (const s of complete.sections) if (s.type !== "hero") complete = removeSectionT11(complete, s.id);
+  complete = updateSectionData(complete, complete.sections[0].id, { headline: "Diabetes webinar" });
+  complete = updateSettingsT11(complete, { registerUrl: "https://pharmacozyme.com/register" });
+  complete = updateSeoT11(complete, { description: "A one hour webinar." });
+  const mk = (over: Partial<Parameters<typeof LandingEditor>[0]["page"]> = {}) => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+  });
+  const publishBtn = () => screen.getByRole("button", { name: /^(publish|published)$/i }) as HTMLButtonElement;
+  const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  beforeEach(() => {
+    autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); autosave.saveNow.mockResolvedValue(true);
+    refresh.mockReset(); toastError.mockReset();
+    confirmFn.mockReset(); confirmFn.mockResolvedValue(true);
+  });
+
+  it("disables Publish while the page has problems and lists them in the checklist", () => {
+    render(<LandingEditor page={mk({ draft: incomplete })} versions={[]} />);
+    expect(publishBtn().disabled).toBe(true);
+    expect(publishBtn().textContent).toBe("Publish");
+    expect(screen.getByRole("heading", { name: "Ready to publish?" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^fix/i }).length).toBeGreaterThan(0);
+  });
+  it("enables Publish when complete, saves first, then posts to the publish route and refreshes", async () => {
+    const order: string[] = [];
+    autosave.saveNow.mockImplementation(async () => { order.push("save"); return true; });
+    (fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => { order.push(`fetch:${url}`); return jsonRes(200, { ok: true }); });
+    render(<LandingEditor page={mk()} versions={[]} />);
+    expect(screen.getByText(/everything is filled in/i)).toBeTruthy();
+    expect(screen.getByText("Not published yet")).toBeTruthy();
+    expect(publishBtn().disabled).toBe(false);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(order).toEqual(["save", "fetch:/api/admin/landing-pages/p1/publish"]);
+  });
+  it("disables Publish while saving", () => {
+    autosave.state = "saving";
+    render(<LandingEditor page={mk()} versions={[]} />);
+    expect(publishBtn().disabled).toBe(true);
+  });
+  it("aborts without calling the publish route when the save fails", async () => {
+    autosave.saveNow.mockResolvedValue(false);
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Your latest changes could not be saved. Try again."));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+  it("shows the server's problems on a 422, does not refresh, and tells the admin", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(422, { error: "not ready", problems: [{ message: "Server says: add a banner." }] }));
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(screen.getByText("Server says: add a banner.")).toBeTruthy());
+    expect(toastError).toHaveBeenCalledWith("Not ready to publish yet");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+  it("toasts and changes nothing on a network error", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new TypeError("network"));
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(refresh).not.toHaveBeenCalled();
+    expect(publishBtn().disabled).toBe(false);
+  });
+  it("shows Live, and Published (disabled) when the draft equals the published copy", () => {
+    render(<LandingEditor page={mk({ status: "published", published: complete })} versions={[]} />);
+    expect(screen.getAllByText("Live").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Unpublished changes")).toBeNull();
+    expect(publishBtn().textContent).toBe("Published");
+    expect(publishBtn().disabled).toBe(true);
+  });
+  it("shows Unpublished changes and keeps the label Publish when the draft differs", () => {
+    const published = updateSectionData(complete, complete.sections[0].id, { headline: "Older headline" });
+    render(<LandingEditor page={mk({ status: "published", published })} versions={[]} />);
+    expect(screen.getByText("Unpublished changes")).toBeTruthy();
+    expect(publishBtn().textContent).toBe("Publish");
+    expect(publishBtn().disabled).toBe(false);
+  });
+  it("shows Closed for a closed page", () => {
+    render(<LandingEditor page={mk({ status: "closed", published: complete })} versions={[]} />);
+    expect(screen.getAllByText("Closed").length).toBeGreaterThan(0);
+  });
+  it("Fix buttons select the section in the editor", () => {
+    render(<LandingEditor page={mk({ draft: incomplete })} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    expect(screen.queryByLabelText("Headline")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: /^fix/i })[0]);
+    expect(screen.getByLabelText("Headline")).toBeTruthy();
+  });
+
+  const openVersions = () => fireEvent.click(screen.getByRole("button", { name: /versions/i }));
+  const versions = [{ version: 2, createdAt: "2026-10-02T10:00:00Z" }, { version: 1, createdAt: "2026-10-01T10:00:00Z" }];
+  it("restore needs confirmation and does nothing when declined", async () => {
+    confirmFn.mockResolvedValue(false);
+    render(<LandingEditor page={mk({ status: "published", published: complete })} versions={versions} />);
+    openVersions();
+    fireEvent.click(screen.getAllByRole("button", { name: /restore this version/i })[1]);
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+  it("restore posts the version, refreshes, and never saves the pending local edits", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true }));
+    render(<LandingEditor page={mk({ status: "published", published: complete })} versions={versions} />);
+    openVersions();
+    fireEvent.click(screen.getAllByRole("button", { name: /restore this version/i })[1]);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("/api/admin/landing-pages/p1/rollback");
+    expect(JSON.parse(init.body)).toEqual({ version: 1 });
+    expect(autosave.saveNow).not.toHaveBeenCalled();
+  });
+  it("on a restore conflict shows the conflict toast and does not refresh", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(409, { code: "conflict", error: "x" }));
+    render(<LandingEditor page={mk({ status: "published", published: complete })} versions={versions} />);
+    openVersions();
+    fireEvent.click(screen.getAllByRole("button", { name: /restore this version/i })[0]);
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Someone else changed this page. Reload and try again."));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
