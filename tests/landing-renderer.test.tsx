@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string; children: React.ReactNode }) => <a href={href} {...r}>{children}</a> }));
@@ -8,6 +9,8 @@ import { SimpleText } from "@/components/landing/SimpleText";
 import { LandingImage } from "@/components/landing/LandingImage";
 import { Countdown } from "@/components/landing/Countdown";
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
+import { RegisterButton } from "@/components/landing/RegisterButton";
+import { Hero } from "@/components/landing/sections/Hero";
 import { emptyContent, updateSectionData, toggleSection, updateSettings, addSection } from "@/lib/landing/content";
 
 afterEach(() => vi.useRealTimers());
@@ -52,19 +55,53 @@ describe("LandingImage", () => {
 });
 
 describe("Countdown", () => {
-  it("shows remaining days/hours for a future date and nothing for a past or invalid one", async () => {
+  it("server/first render is a fixed-height shell with label and placeholder (no numbers, no shift)", () => {
+    const html = renderToString(<Countdown to="2026-10-15T03:00:00Z" label="Early Bird ends" />);
+    expect(html).toContain("Early Bird ends");
+    expect(html).toContain("–d –h –m");
+    expect(html).toContain("min-h-[2.5rem]");
+    expect(html).not.toMatch(/d+d d+h/);
+  });
+  it("fills in the numbers after mount for a future date, and renders nothing for a past or invalid one", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-12T00:00:00Z"));
     const { container, rerender } = render(<Countdown to="2026-10-15T03:00:00Z" label="Early Bird ends" />);
     await vi.advanceTimersByTimeAsync(0);
     expect(container.textContent).toMatch(/Early Bird ends/);
-    expect(container.textContent).toMatch(/3\s*d/i);
+    expect(container.textContent).toContain("3d 3h 0m");
+    expect(container.textContent).not.toContain("–");
     rerender(<Countdown to="2026-10-01T00:00:00Z" label="x" />);
     await vi.advanceTimersByTimeAsync(0);
     expect(container.textContent).toBe("");
     rerender(<Countdown to="garbage" label="x" />);
     await vi.advanceTimersByTimeAsync(0);
     expect(container.textContent).toBe("");
+  });
+});
+
+describe("RegisterButton guard", () => {
+  it("never renders an anchor for an unsafe URL (guard exercised directly, not via normalizeContent)", () => {
+    for (const url of ["javascript:alert(1)", "//evil.com", ""]) {
+      const { container, unmount } = render(<RegisterButton register={{ url, label: "Register now", closed: false }} />);
+      expect(container.querySelector("a")).toBeNull();
+      expect(container.textContent).toBe("Register now");
+      unmount();
+    }
+    const ok = render(<RegisterButton register={{ url: "https://x.com/r", label: "Register now", closed: false }} />);
+    expect(ok.container.querySelector("a")!.getAttribute("href")).toBe("https://x.com/r");
+  });
+});
+
+describe("Hero secondary CTA guard", () => {
+  it("does not render an anchor for a hostile secondaryCtaUrl passed directly to Hero", () => {
+    for (const url of ["javascript:alert(1)", "//evil.com"]) {
+      const { container, unmount } = render(
+        <>{Hero({ data: { headline: "H", secondaryCtaLabel: "Watch", secondaryCtaUrl: url }, register: { url: "https://x.com/r", label: "Register now", closed: false } })}</>,
+      );
+      expect(Array.from(container.querySelectorAll("a")).some((a) => a.getAttribute("href") === url)).toBe(false);
+      expect(container.textContent).not.toContain("Watch");
+      unmount();
+    }
   });
 });
 

@@ -10,7 +10,11 @@ function remaining(to: string, now: number) {
   return { d: Math.floor(mins / 1440), h: Math.floor((mins % 1440) / 60), m: mins % 60 };
 }
 
-/** Renders nothing on the server / before mount, so it can never cause a hydration mismatch. */
+/**
+ * Server and first client render are identical: a fixed-height banner with a placeholder, so the page
+ * never shifts when the numbers arrive. The numbers appear only after mount; the banner collapses
+ * (renders null) only if the date turns out to be past or invalid.
+ */
 export function Countdown({ to, label }: { to: string; label: string }) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -18,13 +22,12 @@ export function Countdown({ to, label }: { to: string; label: string }) {
     const id = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(id);
   }, []);
-  if (now === null) return null;
-  const r = remaining(to, now);
-  if (!r) return null;
+  const r = now === null ? null : remaining(to, now);
+  if (now !== null && !r) return null;
   return (
-    <div role="status" className="border-b border-landing-on-primary/10 bg-landing-deep px-4 py-2.5 text-center text-xs font-medium text-landing-on-primary md:text-sm">
-      {label ? `${label} ` : ""}
-      <strong className="font-bold tracking-wide tabular-nums text-landing-mint">{r.d}d {r.h}h {r.m}m</strong>
+    <div role="status" className="flex min-h-[2.5rem] items-center justify-center gap-1.5 border-b border-landing-on-primary/10 bg-landing-deep px-4 py-2.5 text-center text-xs font-medium text-landing-on-primary md:text-sm">
+      {label ? <span>{label}</span> : null}
+      <strong className="font-bold tracking-wide tabular-nums text-landing-mint">{r ? `${r.d}d ${r.h}h ${r.m}m` : <span aria-hidden="true">–d –h –m</span>}</strong>
     </div>
   );
 }
