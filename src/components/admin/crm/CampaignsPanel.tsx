@@ -13,6 +13,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
+import { mergeContactIds } from "@/lib/crm/contact-picker";
 import type { ConversionTag } from "@/lib/crm/conversion";
 
 type Campaign = {
@@ -106,7 +107,11 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
     }
     if (!Array.isArray(ids) || ids.length === 0) return;
 
-    setSegment((prev) => [...prev, { field: "contact_id", op: "in", values: ids as string[] }]);
+    setSegment((prev) => {
+      const at = prev.findIndex((f) => f.field === "contact_id");
+      if (at === -1) return [...prev, { field: "contact_id", op: "in", values: mergeContactIds([], ids as string[]) }];
+      return prev.map((f, i) => (i === at && f.field === "contact_id" ? { ...f, values: mergeContactIds(f.values, ids as string[]) } : f));
+    });
     setDraftId(null);
     toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} added from Contacts.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps

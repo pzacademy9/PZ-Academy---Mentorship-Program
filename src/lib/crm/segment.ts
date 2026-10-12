@@ -42,9 +42,9 @@ export type QueryOp =
  * Field metadata for the builder UI's manual "+ Add a filter" dropdown.
  * Keeping it beside the type prevents drift.
  *
- * contact_id is deliberately absent: it never comes from the dropdown, only
- * from the Contacts tab's bulk-select handoff, and SegmentBuilder renders it
- * as a read-only chip rather than a picker.
+ * contact_id ("Specific contacts") is offered here too: SegmentBuilder renders
+ * it as a search-and-pick control, and it is also seeded from the Contacts
+ * tab's bulk-select handoff. A segment holds at most one contact_id filter.
  */
 export const SEGMENT_FIELDS: ReadonlyArray<{ field: SegmentFilter["field"]; label: string; hint: string }> = [
   { field: "row_type", label: "Row type", hint: "group_leader finds people who recruited other buyers" },
@@ -58,6 +58,7 @@ export const SEGMENT_FIELDS: ReadonlyArray<{ field: SegmentFilter["field"]; labe
   { field: "course_id", label: "Course", hint: "which program the contact registered for" },
   { field: "promo_code", label: "Promo code", hint: "exact match" },
   { field: "profession", label: "Profession contains", hint: "substring" },
+  { field: "contact_id", label: "Specific contacts", hint: "search and pick individual people" },
 ];
 
 /**

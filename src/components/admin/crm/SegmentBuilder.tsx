@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SEGMENT_FIELDS, type SegmentFilter } from "@/lib/crm/segment";
 import { Button } from "@/components/ui/button";
+import { ContactPicker } from "@/components/admin/crm/ContactPicker";
 
 type ImportBatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number; createdAt: string };
 type CourseOption = { id: string; title: string; type: string };
@@ -124,6 +125,9 @@ export function SegmentBuilder({
       last_purchase_at: { field: "last_purchase_at", op: "before", value: "" },
       has_platform_account: { field: "has_platform_account", op: "eq", value: false },
     };
+    // A segment holds a single contact_id filter; picking "Specific contacts"
+    // again just points at the row that is already there.
+    if (field === "contact_id" && value.some((f) => f.field === "contact_id")) return;
     update([...value, defaults[field]]);
   }
 
@@ -181,9 +185,15 @@ export function SegmentBuilder({
           </span>
 
           {filter.field === "contact_id" ? (
-            <span className="flex-1 font-body text-xs text-pz-on-surface-variant">
-              {filter.values.length} contact{filter.values.length === 1 ? "" : "s"} — picked from the Contacts tab
-            </span>
+            <ContactPicker
+              values={filter.values}
+              channel={channel}
+              onChange={(ids) =>
+                ids.length === 0
+                  ? update(value.filter((_, i) => i !== index))
+                  : patch(index, { ...filter, values: ids })
+              }
+            />
           ) : filter.field === "import_batch_id" ? (
             <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">
               {batches.length === 0 ? (
