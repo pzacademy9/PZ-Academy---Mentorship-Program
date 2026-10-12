@@ -141,6 +141,12 @@ describe("rollback / duplicate / status", () => {
     expect((await rollback(req({ version: 2 }), ctx)).status).toBe(200);
     expect(rollbackLandingPage).toHaveBeenCalledWith("admin-user", "p1", 2);
   });
+  it("rollback maps a concurrent-save conflict to 409", async () => {
+    rollbackLandingPage.mockResolvedValue({ ok: false, reason: "conflict" });
+    const res = await rollback(req({ version: 2 }), ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "Someone else changed this page. Reload and try again.", code: "conflict" });
+  });
   it("duplicate creates a copy and returns its id; slug-taken is 409", async () => {
     duplicateLandingPage.mockResolvedValue({ ok: true, id: "copy" });
     const ok = await duplicate(req({ title: "PPC Batch 4" }), ctx);

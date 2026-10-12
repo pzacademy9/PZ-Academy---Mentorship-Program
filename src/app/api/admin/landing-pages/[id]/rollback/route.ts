@@ -15,6 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const result = await rollbackLandingPage(auth.user.id, id, parsed.data.version);
   if (!result.ok) {
     if (result.reason === "not-found") return NextResponse.json({ error: "Version not found" }, { status: 404 });
+    if (result.reason === "conflict") {
+      return NextResponse.json({ error: "Someone else changed this page. Reload and try again.", code: "conflict" }, { status: 409 });
+    }
     return NextResponse.json({ error: "Could not restore that version" }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

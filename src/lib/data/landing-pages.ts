@@ -25,7 +25,7 @@ export type CreateResult = { ok: true; id: string } | { ok: false; reason: "slug
 export type SaveResult = { ok: true; revision: number } | { ok: false; reason: "conflict" | "not-found" | "db-error" };
 export type PublishResult =
   | { ok: true }
-  | { ok: false; reason: "not-found" | "db-error" }
+  | { ok: false; reason: "not-found" | "db-error" | "conflict" }
   | { ok: false; reason: "not-ready"; problems: Problem[] };
 export type SimpleResult = { ok: true } | { ok: false; reason: "not-found" | "not-published" | "db-error" };
 
@@ -150,7 +150,7 @@ async function applyPublish(
   if (vErr) return { ok: false, reason: "db-error" };
 
   const now = new Date().toISOString();
-  const { error } = await admin
+  let q = admin
     .from("landing_pages")
     .update({
       published: asJson(content),
@@ -161,7 +161,14 @@ async function applyPublish(
       updated_at: now,
     })
     .eq("id", page.id);
+  // A rollback also rewrites the draft, so it must only land if no draft save happened since we read the page.
+  if (resetDraft) q = q.eq("revision", page.revision);
+  const { data: updated, error } = await q.select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
+  if (!updated) {
+    await admin.from("landing_page_versions").delete().eq("page_id", page.id).eq("version", version);
+    return { ok: false, reason: "conflict" };
+  }
   revalidatePath(`/e/${page.slug}`);
   return { ok: true };
 }
