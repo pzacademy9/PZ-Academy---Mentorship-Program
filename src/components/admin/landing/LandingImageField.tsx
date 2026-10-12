@@ -1,0 +1,58 @@
+"use client";
+
+import { useRef } from "react";
+import { ImageUploadField } from "@/components/admin/program/ImageUploadField";
+import { compressImage } from "@/lib/landing/compress-image";
+
+const INPUT =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-pz-on-surface shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+/**
+ * ImageUploadField is shared with other screens and uploads whatever file is picked, as-is, so it
+ * is not changed. This wrapper catches the file input's change event on the way in (capture phase),
+ * shrinks the picture (see compressImage), swaps the smaller file into the input and lets the
+ * change event carry on to the shared field. If anything about that is unsupported the original
+ * file simply goes through untouched.
+ */
+export function LandingImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const passThrough = useRef(false);
+
+  function onChangeCapture(e: React.ChangeEvent<HTMLDivElement>) {
+    const input = e.target as unknown as HTMLInputElement;
+    if (input.type !== "file") return;
+    if (passThrough.current) {
+      passThrough.current = false;
+      return;
+    }
+    const file = input.files?.[0];
+    if (!file) return;
+    e.stopPropagation();
+    void (async () => {
+      try {
+        const small = await compressImage(file);
+        if (small !== file && typeof DataTransfer !== "undefined") {
+          const dt = new DataTransfer();
+          dt.items.add(small);
+          input.files = dt.files;
+        }
+      } catch {
+        /* keep the original file */
+      }
+      passThrough.current = true;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    })();
+  }
+
+  return (
+    <div onChangeCapture={onChangeCapture}>
+      <ImageUploadField
+        value={value}
+        onChange={onChange}
+        courseSlug="landing-pages"
+        kind="landing"
+        inputClassName={INPUT}
+        shape="square"
+      />
+    </div>
+  );
+}

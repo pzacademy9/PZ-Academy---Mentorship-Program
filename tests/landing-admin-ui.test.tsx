@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 
 const push = vi.fn();
@@ -188,5 +188,106 @@ describe("DuplicatePageDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /duplicate page/i }));
     await waitFor(() => expect(screen.getByText(/already exists/i)).toBeTruthy());
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 10 stage 1: FieldInput, SectionForm, compress-image
+// ---------------------------------------------------------------------------
+import { SectionForm } from "@/components/admin/landing/SectionForm";
+import { FieldInput } from "@/components/admin/landing/FieldInput";
+import { compressImage } from "@/lib/landing/compress-image";
+import { emptyContent, updateSectionData } from "@/lib/landing/content";
+import { SECTION_DEFS } from "@/lib/landing/sections";
+
+describe("SectionForm", () => {
+  it("shows plain labels, help text and a required marker, and reports edits as the full data object", () => {
+    const onChange = vi.fn();
+    const data = updateSectionData(emptyContent("course"), emptyContent("course").sections[0].id, {}).sections[0].data;
+    render(<SectionForm type="hero" data={data} onChange={onChange} />);
+    expect(screen.getByLabelText("Headline")).toBeTruthy();
+    expect(screen.getAllByText(/required to publish/i).length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "New title" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ headline: "New title" }));
+  });
+  it("adds, reorders and removes list items, and stops adding at maxItems", () => {
+    const onChange = vi.fn();
+    render(<SectionForm type="faq" data={{ heading: "H", items: [{ q: "1", a: "a" }, { q: "2", a: "b" }] }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /add question/i }));
+    expect(onChange.mock.calls.at(-1)![0].items).toHaveLength(3);
+    fireEvent.click(screen.getAllByRole("button", { name: /move question 2 up/i })[0]);
+    expect(onChange.mock.calls.at(-1)![0].items.map((i: { q: string }) => i.q)).toEqual(["2", "1"]);
+    fireEvent.click(screen.getAllByRole("button", { name: /remove question 1/i })[0]);
+    expect(onChange.mock.calls.at(-1)![0].items).toHaveLength(1);
+  });
+  it("disables Add at maxItems and Move up/down at the ends", () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ text: `b${i}` }));
+    render(<SectionForm type="hero" data={{ badges: six }} onChange={() => {}} />);
+    expect((screen.getByRole("button", { name: "Add highlight" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Move Highlight 1 up" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Move Highlight 6 down" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("flags an unsafe link inline", () => {
+    render(<SectionForm type="hero" data={{ secondaryCtaUrl: "javascript:alert(1)" }} onChange={() => {}} />);
+    expect(screen.getByText(/starting with https/i)).toBeTruthy();
+  });
+});
+
+describe("FieldInput validation messages", () => {
+  const urlField = SECTION_DEFS.hero.fields.find((f) => f.key === "secondaryCtaUrl")!;
+  const yt = (SECTION_DEFS.video_reviews.fields.find((f) => f.key === "items")!.itemFields ?? []).find((f) => f.kind === "youtube")!;
+
+  it("shows no message for an empty or valid link, and never blocks typing", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<FieldInput field={urlField} value="" onChange={onChange} />);
+    expect(screen.queryByText(/starting with https/i)).toBeNull();
+    rerender(<FieldInput field={urlField} value="https://example.com" onChange={onChange} />);
+    expect(screen.queryByText(/starting with https/i)).toBeNull();
+    rerender(<FieldInput field={urlField} value="not a link" onChange={onChange} />);
+    expect(screen.getByText(/starting with https/i)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(urlField.label), { target: { value: "still not" } });
+    expect(onChange).toHaveBeenCalledWith("still not");
+  });
+  it("explains a bad YouTube link in plain words and accepts a good one", () => {
+    const { rerender } = render(<FieldInput field={yt} value="https://example.com/x" onChange={() => {}} />);
+    expect(screen.getByText(/doesn't look like a youtube link/i)).toBeTruthy();
+    rerender(<FieldInput field={yt} value="https://youtu.be/dQw4w9WgXcQ" onChange={() => {}} />);
+    expect(screen.queryByText(/doesn't look like a youtube link/i)).toBeNull();
+  });
+});
+
+describe("compressImage", () => {
+  const realCreate = document.createElement.bind(document);
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it("falls back to the original file when the image cannot be decoded (no canvas support)", async () => {
+    const file = new File(["abc"], "pic.png", { type: "image/png" });
+    expect(await compressImage(file, { timeoutMs: 50 })).toBe(file);
+  });
+  it("never produces a 0-pixel canvas side for an extreme aspect ratio", async () => {
+    const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: () => {} }), toBlob: (cb: (b: Blob | null) => void) => cb(new Blob(["x"], { type: "image/webp" })) };
+    vi.spyOn(document, "createElement").mockImplementation(((tag: string) => (tag === "canvas" ? canvas : realCreate(tag))) as never);
+    class FakeImage {
+      naturalWidth = 10000; naturalHeight = 1; onload: (() => void) | null = null; onerror: (() => void) | null = null;
+      set src(_v: string) { queueMicrotask(() => this.onload?.()); }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    URL.createObjectURL = vi.fn(() => "blob:x");
+    URL.revokeObjectURL = vi.fn();
+    const file = new File(["a".repeat(5000)], "wide.png", { type: "image/png" });
+    const out = await compressImage(file);
+    expect(canvas.width).toBe(1600);
+    expect(canvas.height).toBeGreaterThanOrEqual(1);
+    expect(out.type).toBe("image/webp");
+  });
+  it("falls back to the original when toBlob returns nothing or throws", async () => {
+    const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: () => {} }), toBlob: () => { throw new Error("no"); } };
+    vi.spyOn(document, "createElement").mockImplementation(((tag: string) => (tag === "canvas" ? canvas : realCreate(tag))) as never);
+    class FakeImage { naturalWidth = 100; naturalHeight = 100; onload: (() => void) | null = null; onerror: (() => void) | null = null; set src(_v: string) { queueMicrotask(() => this.onload?.()); } }
+    vi.stubGlobal("Image", FakeImage);
+    URL.createObjectURL = vi.fn(() => "blob:x");
+    URL.revokeObjectURL = vi.fn();
+    const file = new File(["abc"], "pic.png", { type: "image/png" });
+    expect(await compressImage(file)).toBe(file);
   });
 });
