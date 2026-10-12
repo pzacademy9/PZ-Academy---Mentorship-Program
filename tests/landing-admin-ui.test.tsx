@@ -291,3 +291,62 @@ describe("compressImage", () => {
     expect(await compressImage(file)).toBe(file);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 10 stage 2: SectionList + AddSectionMenu
+// ---------------------------------------------------------------------------
+import { SectionList } from "@/components/admin/landing/SectionList";
+
+describe("SectionList", () => {
+  const c = emptyContent("webinar");
+  const handlers = () => ({ onSelect: vi.fn(), onToggle: vi.fn(), onMove: vi.fn(), onRemove: vi.fn(), onAdd: vi.fn() });
+
+  it("renders one row per section with a labelled switch, and disables Move up on the first and Move down on the last", () => {
+    render(<SectionList sections={c.sections} selectedId={c.sections[0].id} {...handlers()} />);
+    expect(screen.getAllByRole("switch")).toHaveLength(c.sections.length);
+    expect(screen.getByRole("switch", { name: "Show Hero (top of page)" })).toBeTruthy();
+    expect((screen.getAllByRole("button", { name: /move .* up/i })[0] as HTMLButtonElement).disabled).toBe(true);
+    const downs = screen.getAllByRole("button", { name: /move .* down/i });
+    expect((downs[downs.length - 1] as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("calls onMove with the section id and direction, and onToggle with the id", () => {
+    const h = handlers();
+    render(<SectionList sections={c.sections} selectedId={null} {...h} />);
+    fireEvent.click(screen.getAllByRole("button", { name: /move .* down/i })[0]);
+    expect(h.onMove).toHaveBeenCalledWith(c.sections[0].id, 1);
+    fireEvent.click(screen.getAllByRole("switch")[1]);
+    expect(h.onToggle).toHaveBeenCalledWith(c.sections[1].id);
+  });
+  it("selects a section by its name and reflects hidden state in the switch", () => {
+    const h = handlers();
+    const hidden = { ...c, sections: c.sections.map((s, i) => (i === 1 ? { ...s, enabled: false } : s)) };
+    render(<SectionList sections={hidden.sections} selectedId={null} {...h} />);
+    expect(screen.getAllByRole("switch")[1].getAttribute("aria-checked")).toBe("false");
+    expect(screen.getAllByRole("switch")[0].getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getAllByRole("button", { name: /^edit /i })[0]);
+    expect(h.onSelect).toHaveBeenCalledWith(c.sections[0].id);
+  });
+  it("only removes a section after the admin confirms", async () => {
+    const h = handlers();
+    render(<SectionList sections={c.sections} selectedId={null} {...h} />);
+    confirmFn.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getAllByRole("button", { name: /^remove /i })[0]);
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(h.onRemove).not.toHaveBeenCalled();
+    confirmFn.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getAllByRole("button", { name: /^remove /i })[0]);
+    await waitFor(() => expect(h.onRemove).toHaveBeenCalledWith(c.sections[0].id));
+  });
+  it("lists every section type with its description in the add menu and reports the pick", () => {
+    const h = handlers();
+    render(<SectionList sections={c.sections} selectedId={null} {...h} />);
+    fireEvent.click(screen.getByRole("button", { name: /add section/i }));
+    const menu = screen.getByText(/choose section type/i).parentElement as HTMLElement;
+    for (const def of Object.values(SECTION_DEFS)) {
+      expect(within(menu).getByRole("button", { name: new RegExp(def.label.replace(/[()/]/g, "\\$&")) })).toBeTruthy();
+      expect(screen.getByText(def.description)).toBeTruthy();
+    }
+    fireEvent.click(within(menu).getByRole("button", { name: /questions and answers/i }));
+    expect(h.onAdd).toHaveBeenCalledWith("faq");
+  });
+});
