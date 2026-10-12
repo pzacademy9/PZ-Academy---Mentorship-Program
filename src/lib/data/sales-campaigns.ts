@@ -329,8 +329,10 @@ async function refreshCounts(
   patch: { status?: CampaignStatus; paused_reason?: string | null } = {},
   now: Date = new Date(),
 ): Promise<{ sentCount: number; pendingCount: number; done: boolean }> {
-  const sentCount = await countRecipients(db, campaignId, "sent");
-  const pendingCount = await countRecipients(db, campaignId, "pending");
+  const [sentCount, pendingCount] = await Promise.all([
+    countRecipients(db, campaignId, "sent"),
+    countRecipients(db, campaignId, "pending"),
+  ]);
   const done = pendingCount === 0 && recipientCount > 0;
   const update: { status?: string; paused_reason?: string | null; sent_count: number; updated_at: string } = {
     ...patch,

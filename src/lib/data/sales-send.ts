@@ -63,11 +63,31 @@ export async function requestSend(args: {
   try {
     const db = createAdminSupabase();
 
-    const { data: contact, error } = await db
-      .from("contacts")
-      .select("id, full_name, phone_e164, owner_id, do_not_contact_at, whatsapp_unsubscribed_at")
-      .eq("id", contactId)
-      .maybeSingle();
+    const isAdmin = actor.role === "admin" || actor.role === "super_admin";
+
+    // The four start-of-send lookups do not depend on each other, so they are issued together
+    // (the database is far away, so each sequential round trip is costly). They are SETTLED, not
+    // rejected-fast, and judged below in the original order, so the refusal priority and the
+    // "an error only matters if its decision is reached" behaviour are identical to the sequential code.
+    const [contactR, numberR, settingsR, twoWayR] = await Promise.allSettled([
+      db
+        .from("contacts")
+        .select("id, full_name, phone_e164, owner_id, do_not_contact_at, whatsapp_unsubscribed_at")
+        .eq("id", contactId)
+        .maybeSingle(),
+      getNumberForAgent(actor.id, isAdmin, numberId),
+      getSafetySettings(),
+      // A "new chat" is a contact with no two-way history yet.
+      db
+        .from("contact_activities")
+        .select("id")
+        .eq("contact_id", contactId)
+        .in("kind", ["replied", "interested", "bought"])
+        .limit(1),
+    ]);
+
+    if (contactR.status === "rejected") throw contactR.reason;
+    const { data: contact, error } = contactR.value;
     if (error) throw error;
     if (!contact) return { ok: false, reason: "not-found" };
 
@@ -77,20 +97,16 @@ export async function requestSend(args: {
     }
     if (!contact.phone_e164) return { ok: false, reason: "no-phone" };
 
-    const isAdmin = actor.role === "admin" || actor.role === "super_admin";
-    const number = await getNumberForAgent(actor.id, isAdmin, numberId);
+    if (numberR.status === "rejected") throw numberR.reason;
+    const number = numberR.value;
     if (!number) return { ok: false, reason: "number-not-assigned" };
 
-    const settings = await getSafetySettings();
+    if (settingsR.status === "rejected") throw settingsR.reason;
+    const settings = settingsR.value;
     const state = toNumberState(number);
 
-    // A "new chat" is a contact with no two-way history yet.
-    const { data: twoWay, error: twErr } = await db
-      .from("contact_activities")
-      .select("id")
-      .eq("contact_id", contactId)
-      .in("kind", ["replied", "interested", "bought"])
-      .limit(1);
+    if (twoWayR.status === "rejected") throw twoWayR.reason;
+    const { data: twoWay, error: twErr } = twoWayR.value;
     if (twErr) throw twErr;
     const isNewChat = (twoWay ?? []).length === 0;
 
@@ -132,20 +148,26 @@ export async function requestSend(args: {
     // with the latest unlock time as the previous send. The later inserter always
     // sees the earlier row and rejects itself; if both insert before either
     // re-checks, both reject (fails closed).
-    const after = await getNumberUsage(numberId, now, settings);
+    // The usage recount and the neighbouring-rows read are independent, so they run together.
+    const nearQuery =
+      settings.spacing_min_s > 0
+        ? (() => {
+            const spanMs = settings.spacing_min_s * 1000;
+            return db
+              .from("contact_activities")
+              .select("created_at, next_unlock_at, burst_pos")
+              .eq("number_id", numberId)
+              .eq("kind", "sent")
+              .neq("id", row.id)
+              .gt("created_at", new Date(now.getTime() - spanMs).toISOString())
+              .lt("created_at", new Date(now.getTime() + spanMs).toISOString());
+          })()
+        : null;
+    const [after, nearRes] = await Promise.all([getNumberUsage(numberId, now, settings), nearQuery]);
     let conflict: { created_at: string; next_unlock_at: string; burst_pos: number | null } | null = null;
-    if (settings.spacing_min_s > 0) {
-      const spanMs = settings.spacing_min_s * 1000;
-      const { data: nearRows, error: nearErr } = await db
-        .from("contact_activities")
-        .select("created_at, next_unlock_at, burst_pos")
-        .eq("number_id", numberId)
-        .eq("kind", "sent")
-        .neq("id", row.id)
-        .gt("created_at", new Date(now.getTime() - spanMs).toISOString())
-        .lt("created_at", new Date(now.getTime() + spanMs).toISOString());
-      if (nearErr) throw nearErr;
-      for (const r of nearRows ?? []) {
+    if (nearRes) {
+      if (nearRes.error) throw nearRes.error;
+      for (const r of nearRes.data ?? []) {
         if (!r.next_unlock_at) continue;
         if (!conflict || new Date(r.next_unlock_at).getTime() > new Date(conflict.next_unlock_at).getTime()) {
           conflict = { created_at: r.created_at, next_unlock_at: r.next_unlock_at, burst_pos: r.burst_pos };
