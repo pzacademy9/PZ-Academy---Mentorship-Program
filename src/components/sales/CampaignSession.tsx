@@ -37,7 +37,14 @@ import { ChangeModeLink, WebShortcutButton, WhatsAppChooserDialog } from "./What
 const LIST_HREF = "/dashboard/sales/campaigns";
 const QUEUE_PREVIEW = 10;
 
-type SendOk = { link: string; warnings: string[]; budget: BudgetJson; done: boolean };
+type SendOk = {
+  link: string;
+  warnings: string[];
+  budget: BudgetJson;
+  done: boolean;
+  messageTemplate?: string;
+  templateSaved?: boolean;
+};
 type SendFail = ApiErrorJson & { paused?: boolean; recipientBlocked?: boolean };
 
 const initials = (name: string) =>
@@ -70,6 +77,9 @@ export function CampaignSession({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [applyRest, setApplyRest] = useState(false);
+  const editLinkRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasEditing = useRef(false);
   const selectedOnce = useRef(false);
   const refreshedFor = useRef<string | null>(null);
 
@@ -109,6 +119,18 @@ export function CampaignSession({
       void refresh();
     }
   }, [until, now, refresh]);
+
+  // The draft belongs to one person: close it when the queue moves on (send, skip, another tab).
+  const currentId = current?.id ?? null;
+  useEffect(() => {
+    setEditing(false);
+  }, [currentId]);
+  // Focus follows the editor: into the box on open, back to the link on close.
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus();
+    else if (wasEditing.current) editLinkRef.current?.focus();
+    wasEditing.current = editing;
+  }, [editing]);
 
   const template = editing ? draft : detail.messageTemplate;
   const preview = useMemo(
@@ -172,6 +194,11 @@ export function CampaignSession({
           toast.error(`Skipped ${target.fullName}: ${explainSendError(fail, new Date())}`);
           return;
         }
+        if (fail.reason === "variety") {
+          // The server is the authority on the same-text rule: keep the editor and text as they are.
+          toast.error(fail.error ?? VARIETY_MESSAGE);
+          return;
+        }
         if (fail.paused) {
           setDetail((d) => ({ ...d, status: "paused", pausedReason: fail.error ?? null }));
           setRetryAt(fail.retryAt ?? null);
@@ -197,7 +224,14 @@ export function CampaignSession({
       mark(target.id, "sent");
       if (override !== null) {
         setEditing(false);
-        if (keepForRest) setDetail((d) => ({ ...d, messageTemplate: override }));
+      }
+      // The stored wording only changes when the server says it did; never from the draft.
+      if (typeof ok.messageTemplate === "string") {
+        const stored = ok.messageTemplate;
+        setDetail((d) => ({ ...d, messageTemplate: stored }));
+      }
+      if (keepForRest && ok.templateSaved === false) {
+        toast.warning("Sent, but the new wording could not be kept for the others. They will get the campaign message.");
       }
       if (ok.done) setDetail((d) => ({ ...d, status: "done" }));
       setLastSent({ name: target.fullName, link: ok.link, mode: chosen });
@@ -371,6 +405,7 @@ export function CampaignSession({
                 <span className="text-xs font-headline font-semibold text-pz-on-surface-variant">What they will see</span>
                 {!editing && (
                   <button
+                    ref={editLinkRef}
                     type="button"
                     onClick={openEditor}
                     disabled={busy}
@@ -386,15 +421,17 @@ export function CampaignSession({
                     Message for this person
                   </label>
                   <textarea
+                    ref={textareaRef}
                     id="campaign-edit-message"
+                    aria-describedby={draftHint ? "campaign-edit-hint campaign-edit-count" : "campaign-edit-count"}
                     rows={4}
                     maxLength={MAX_MESSAGE_LENGTH}
                     value={draft}
                     disabled={sending}
                     onChange={(e) => setDraft(e.target.value)}
-                    className="w-full bg-pz-surface-container-lowest text-pz-on-surface text-sm rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 resize-none font-body disabled:opacity-50"
+                    className="w-full bg-pz-surface-container-lowest text-pz-on-surface text-sm rounded-lg p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary resize-none font-body disabled:opacity-50"
                   />
-                  <p className="text-[11px] text-pz-on-surface-variant">
+                  <p id="campaign-edit-count" className="text-[11px] text-pz-on-surface-variant">
                     {"{{first_name}}"} becomes their first name. {draft.length} / {MAX_MESSAGE_LENGTH}
                   </p>
                   <label className="min-h-11 flex items-center gap-3 text-sm text-pz-on-surface">
@@ -408,7 +445,7 @@ export function CampaignSession({
                     Use this wording for everyone after them too
                   </label>
                   {draftHint && (
-                    <p role="alert" className="text-xs text-pz-danger">
+                    <p id="campaign-edit-hint" role="alert" className="text-xs text-pz-danger">
                       {draftHint}
                     </p>
                   )}

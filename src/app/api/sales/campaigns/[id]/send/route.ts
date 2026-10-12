@@ -52,5 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     sentCount: result.sentCount,
     pendingCount: result.pendingCount,
     done: result.done,
+    messageTemplate: result.messageTemplate,
+    templateSaved: result.templateSaved,
   });
 }

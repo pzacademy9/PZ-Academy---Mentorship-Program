@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_FOLLOWUP_HOURS, OUTCOME_KINDS, isFollowupHours } from "@/lib/crm/followup";
+import { MAX_MESSAGE_LENGTH } from "@/lib/crm/sales-ui";
 import { MAX_CAMPAIGN_RECIPIENTS } from "@/lib/crm/campaign-rules";
 
 const text = (max: number) => z.string().trim().min(1, "Required").max(max);
@@ -165,7 +166,7 @@ export const campaignCreateSchema = z.object({
 export const campaignRecipientSchema = z.object({
   recipientId: z.string().uuid(),
   // Reworded message for this send; applyToRest also keeps it for everyone after.
-  messageOverride: z.string().trim().min(1, "Write a message first.").max(1000, "Keep the message to 1000 characters or fewer.").optional(),
+  messageOverride: z.string().trim().min(1, "Write a message first.").max(MAX_MESSAGE_LENGTH, `Keep the message to ${MAX_MESSAGE_LENGTH} characters or fewer.`).optional(),
   applyToRest: z.boolean().default(false),
 });
 export const campaignStatusSchema = z.object({ status: z.enum(["active", "paused"]) });

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { toast } from "sonner";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
@@ -109,6 +109,7 @@ describe("campaign edit message", () => {
   });
 
   it("applyToRest keeps the new wording for the next person", async () => {
+    reply = { status: 200, body: { ...okBody(), messageTemplate: "Salam {{first_name}}!", templateSaved: true } };
     renderIt();
     fireEvent.click(editLink());
     fireEvent.change(box(), { target: { value: "Salam {{first_name}}!" } });
@@ -166,6 +167,63 @@ describe("campaign edit message", () => {
     fireEvent.click(editLink());
     fireEvent.change(box(), { target: { value: "Salam {{first_name}}!" } });
     fireEvent.click(screen.getByRole("button", { name: "Open in WhatsApp Web" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(sentBody().messageOverride).toBe("Salam {{first_name}}!");
+  });
+
+  it("after a server variety refusal the editor and text stay and the message is shown", async () => {
+    reply = { status: 400, body: { error: "Add a name please", reason: "variety" } };
+    renderIt();
+    fireEvent.click(editLink());
+    fireEvent.change(box(), { target: { value: "Same for everyone" } });
+    fireEvent.click(send());
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Add a name please"));
+    expect(box().value).toBe("Same for everyone");
+  });
+
+  it("the stored template comes from the response, not the draft", async () => {
+    reply = { status: 200, body: { ...okBody(), messageTemplate: TEMPLATE, templateSaved: false } };
+    renderIt();
+    fireEvent.click(editLink());
+    fireEvent.change(box(), { target: { value: "Salam {{first_name}}!" } });
+    fireEvent.click(rest());
+    fireEvent.click(send());
+    await waitFor(() => expect(screen.queryByLabelText("Message for this person")).toBeNull());
+    expect(screen.getByText("Hi Zainab, this is PZ Academy.")).toBeTruthy();
+    expect(toast.warning).toHaveBeenCalled();
+  });
+
+  it("the editor closes when the person is skipped", async () => {
+    fetchMock.mockImplementation(async (url: string) => ({
+      ok: true, status: 200, json: async () => (String(url).endsWith("/skip") ? { done: false } : okBody()),
+    }));
+    renderIt();
+    fireEvent.click(editLink());
+    fireEvent.click(screen.getByRole("button", { name: /Skip this person/ }));
+    await waitFor(() => expect(screen.queryByLabelText("Message for this person")).toBeNull());
+  });
+
+  it("moves focus into the box on open, links the hint, and returns focus to the link on close", () => {
+    renderIt();
+    fireEvent.click(editLink());
+    expect(document.activeElement).toBe(box());
+    fireEvent.change(box(), { target: { value: "" } });
+    const ids = box().getAttribute("aria-describedby")!.split(" ");
+    expect(ids.some((id) => document.getElementById(id)?.getAttribute("role") === "alert")).toBe(true);
+    expect(box().className).toContain("focus-visible:ring-pz-primary");
+    fireEvent.click(screen.getByRole("button", { name: "Use the campaign message" }));
+    expect(document.activeElement).toBe(editLink());
+  });
+
+  it("the chooser dialog path carries the override", async () => {
+    stubDesktop(true);
+    window.sessionStorage.clear();
+    renderIt();
+    fireEvent.click(editLink());
+    fireEvent.change(box(), { target: { value: "Salam {{first_name}}!" } });
+    fireEvent.click(send());
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getAllByRole("button")[0]);
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(sentBody().messageOverride).toBe("Salam {{first_name}}!");
   });

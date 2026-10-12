@@ -154,11 +154,74 @@ describe("sendCampaignRecipient message override", () => {
     expect(batchRow().message_template).toBe("Hi {{first_name}}");
   });
 
-  it("a nameless override is fine for one send (no applyToRest) even with many pending", async () => {
-    tables = { whatsapp_batches: [batch({ recipient_count: 5 })], whatsapp_batch_recipients: ["r1", "r2", "r3", "r4", "r5"].map((i) => rec(i)) };
+  const sentRows = (body: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({ kind: "sent", number_id: "n1", body, created_at: `2026-10-06T09:0${i}:00Z` }));
+  const withContact = () => {
+    tables.contacts = [{ id: "c-r1", full_name: "Ayesha Khan" }];
+  };
+
+  it("one nameless override is fine for one send", async () => {
+    withContact();
+    tables.contact_activities = sentRows("something else", 3);
     requestSendMock.mockResolvedValue(okSend);
     const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" });
     expect(res.ok).toBe(true);
+  });
+
+  it("the 4th identical nameless send in a row on the number is refused before reserve", async () => {
+    withContact();
+    tables.contact_activities = sentRows("Same text for all", 3);
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" });
+    expect(res).toMatchObject({ ok: false, reason: "variety", message: expect.stringContaining("first_name") });
+    expect(requestSendMock).not.toHaveBeenCalled();
+    expect(log).toEqual([]);
+    expect(recipient("r1").status).toBe("pending");
+  });
+
+  it("only 2 identical in a row is still fine", async () => {
+    withContact();
+    tables.contact_activities = [...sentRows("Same text for all", 2), ...sentRows("other", 1)];
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" })).ok).toBe(true);
+  });
+
+  it("a name-tagged override is fine because each person renders differently", async () => {
+    withContact();
+    tables.contact_activities = ["Hello Bilal", "Hello Sana", "Hello Omar"].flatMap((b) => sentRows(b, 1));
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Hello {{first_name}}" })).ok).toBe(true);
+  });
+
+  it("a send that matches the stored template is unaffected by the run rule", async () => {
+    withContact();
+    tables.whatsapp_batches = [batch({ message_template: "Same text for all" })];
+    tables.contact_activities = sentRows("Same text for all", 3);
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" })).ok).toBe(true);
+    expect((await sendCampaignRecipient(actor, "b1", "r2", NOW)).ok).toBe(true);
+  });
+
+  it("applyToRest refuses with exactly 4 pending and allows exactly 3", async () => {
+    tables = { whatsapp_batches: [batch({ recipient_count: 4 })], whatsapp_batch_recipients: ["r1", "r2", "r3", "r4"].map((i) => rec(i)) };
+    expect(await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same", applyToRest: true })).toMatchObject({ ok: false, reason: "variety" });
+    tables = { whatsapp_batches: [batch({ recipient_count: 3 })], whatsapp_batch_recipients: ["r1", "r2", "r3"].map((i) => rec(i)) };
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same", applyToRest: true })).ok).toBe(true);
+  });
+
+  it("already-handled wins over a variety refusal", async () => {
+    tables = { whatsapp_batches: [batch({ recipient_count: 5 })], whatsapp_batch_recipients: [rec("r1", { status: "sent" }), ...["r2", "r3", "r4", "r5"].map((i) => rec(i))] };
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same", applyToRest: true });
+    expect(res).toEqual({ ok: false, reason: "already-handled" });
+  });
+
+  it("returns the stored template and templateSaved", async () => {
+    requestSendMock.mockResolvedValue(okSend);
+    const kept = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "New {{first_name}}", applyToRest: true });
+    expect(kept).toMatchObject({ ok: true, messageTemplate: "New {{first_name}}", templateSaved: true });
+    failUpdate = (c) => c.table === "whatsapp_batches" && !!c.payload && "message_template" in c.payload;
+    const failed = await sendCampaignRecipient(actor, "b1", "r2", NOW, { messageOverride: "Newer {{first_name}}", applyToRest: true });
+    expect(failed).toMatchObject({ ok: true, messageTemplate: "New {{first_name}}", templateSaved: false });
   });
 
   it("another agent's campaign is still not-found even with an override", async () => {
