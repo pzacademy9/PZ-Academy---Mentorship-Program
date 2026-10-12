@@ -9,7 +9,10 @@ export function isSafeUrl(url: string): boolean {
   const v = url.trim();
   if (v === "") return false;
   if (v.startsWith("#")) return true;
-  if (v.startsWith("/") && !v.startsWith("//")) return true;
+  // Browsers treat a backslash as "/" and strip tab/CR/LF, so "/\x" and "/<TAB>/x"
+  // would become protocol-relative. Reject backslashes and control characters.
+  if (/[\\\u0000-\u001f\u007f]/.test(v)) return false;
+  if (/^\/(?![\/\\])/.test(v)) return true;
   try {
     return ["http:", "https:", "mailto:", "tel:"].includes(new URL(v).protocol);
   } catch {

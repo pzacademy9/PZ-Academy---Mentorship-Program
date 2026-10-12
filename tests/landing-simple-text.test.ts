@@ -5,7 +5,8 @@ import { isSafeUrl, youtubeId, parseSimpleText } from "@/lib/landing/simple-text
 describe("isSafeUrl", () => {
   it.each(["https://a.com/x", "http://a.com", "mailto:a@b.com", "tel:+923001234567", "#registration", "/e/ppc-b3"])(
     "accepts %s", (u) => expect(isSafeUrl(u)).toBe(true));
-  it.each(["", "javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,<script>", "//evil.com", "vbscript:x", "ftp://a.com", "not a url"])(
+  it.each(["", "javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,<script>", "//evil.com", "vbscript:x", "ftp://a.com", "not a url",
+    "/\\evil.com", "/\t/evil.com", " javascript:alert(1)", "java\nscript:alert(1)"])(
     "rejects %s", (u) => expect(isSafeUrl(u)).toBe(false));
 });
 
@@ -16,7 +17,7 @@ describe("youtubeId", () => {
     ["https://youtube.com/shorts/dQw4w9WgXcQ", "dQw4w9WgXcQ"],
     ["https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"],
   ])("extracts from %s", (u, id) => expect(youtubeId(u)).toBe(id));
-  it.each(["", "https://vimeo.com/123", "https://youtube.com/watch?v=short", "javascript:alert(1)"])(
+  it.each(["", "https://vimeo.com/123", "https://youtube.com/watch?v=short", "javascript:alert(1)", "https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ"])(
     "returns null for %s", (u) => expect(youtubeId(u)).toBeNull());
 });
 
@@ -43,6 +44,10 @@ describe("parseSimpleText", () => {
     const [p] = parseSimpleText("[click](javascript:alert(1))");
     expect(JSON.stringify(p)).not.toContain('"t":"link"');
     expect(JSON.stringify(p)).toContain("click");
+  });
+  it("renders a backslash-relative link as plain text", () => {
+    const [p] = parseSimpleText("[x](/\\evil.com)");
+    expect(JSON.stringify(p)).not.toContain('"t":"link"');
   });
   it("keeps HTML as literal text", () => {
     const [p] = parseSimpleText("<script>alert(1)</script>");
