@@ -87,6 +87,8 @@ const openBtn = () => screen.getByTestId("campaign-send");
 const currentHeading = () => screen.getByRole("heading", { level: 2 });
 
 beforeEach(() => {
+  // The chooser has its own tests (sales-whatsapp-chooser.test.tsx); these assume the choice is already made.
+  window.sessionStorage.setItem("pz-whatsapp-mode:campaign:camp-1", "app");
   vi.unstubAllGlobals();
   vi.mocked(toast.error).mockClear();
   vi.mocked(toast.warning).mockClear();

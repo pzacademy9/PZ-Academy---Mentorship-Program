@@ -1,0 +1,112 @@
+import { toWebLink } from "@/lib/crm/whatsapp-link";
+
+/** How the person wants WhatsApp opened for the rest of this session. */
+export type WhatsAppMode = "web" | "app";
+
+export const WEB_TAB_NAME = "pz-whatsapp-web";
+
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+export const modeStorageKey = (scope: string) => `pz-whatsapp-mode:${scope}`;
+
+function defaultStorage(): StorageLike | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readMode(scope: string, storage: StorageLike | null = defaultStorage()): WhatsAppMode | null {
+  try {
+    const v = storage?.getItem(modeStorageKey(scope));
+    return v === "web" || v === "app" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeMode(scope: string, mode: WhatsAppMode, storage: StorageLike | null = defaultStorage()): void {
+  try {
+    storage?.setItem(modeStorageKey(scope), mode);
+  } catch {
+    /* storage unavailable: the choice just lasts until the page reloads */
+  }
+}
+
+export function clearMode(scope: string, storage: StorageLike | null = defaultStorage()): void {
+  try {
+    storage?.removeItem(modeStorageKey(scope));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** The link to hand the browser (or show as an anchor) for the chosen mode. */
+export function linkForMode(appLink: string, mode: WhatsAppMode | null): string {
+  return mode === "web" ? toWebLink(appLink) : appLink;
+}
+
+/** Anchor attributes for an "open again" link: Web reuses the named tab, the app opens a fresh one on desktop. */
+export function linkTargetProps(mode: WhatsAppMode | null, desktop: boolean): { target?: string; rel?: string } {
+  // No noopener for Web: noopener always forces a brand new tab, defeating the named-tab reuse.
+  if (mode === "web") return { target: WEB_TAB_NAME };
+  return desktop ? { target: "_blank", rel: "noopener noreferrer" } : {};
+}
+
+type TabLike = { location: { href: string }; close: () => void; closed?: boolean; opener?: unknown };
+export type WebTabHandle = {
+  /** True when the browser refused the popup. */
+  blocked: boolean;
+  /** True when the person closed the tab before the server answered. */
+  isClosed: () => boolean;
+  navigate: (url: string) => void;
+  /** Closes the tab only if it is still an empty placeholder we created. A live WhatsApp tab is never closed. */
+  closeIfBlank: () => void;
+};
+
+/**
+ * Must be called synchronously inside the click handler, before any await,
+ * so the browser treats it as user-initiated. An empty URL means an existing
+ * tab with this name is returned as-is (not reloaded); only if there is none
+ * does the browser create a fresh about:blank one.
+ */
+export function preOpenWebTab(
+  env: { open: (url: string, name: string) => TabLike | null } = window as unknown as {
+    open: (url: string, name: string) => TabLike | null;
+  },
+): WebTabHandle {
+  let tab: TabLike | null = null;
+  try {
+    tab = env.open("", WEB_TAB_NAME);
+  } catch {
+    tab = null;
+  }
+  try {
+    if (tab) tab.opener = null;
+  } catch {
+    /* cross-origin existing tab: nothing to detach */
+  }
+  return {
+    blocked: tab === null,
+    isClosed: () => {
+      try {
+        return tab?.closed === true;
+      } catch {
+        return false;
+      }
+    },
+    navigate(url) {
+      if (tab) tab.location.href = url;
+    },
+    closeIfBlank() {
+      if (!tab) return;
+      try {
+        // A live WhatsApp tab is cross-origin: reading its location throws, so it is never ours to close.
+        if (tab.location.href === "about:blank") tab.close();
+      } catch {
+        /* not ours */
+      }
+    },
+  };
+}

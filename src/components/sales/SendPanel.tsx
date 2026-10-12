@@ -8,6 +8,15 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
+  linkForMode,
+  linkTargetProps,
+  preOpenWebTab,
+  readMode,
+  writeMode,
+  type WebTabHandle,
+  type WhatsAppMode,
+} from "@/lib/crm/whatsapp-mode";
+import {
   DEFAULT_MESSAGE,
   MAX_MESSAGE_LENGTH,
   openWhatsAppLink,
@@ -29,6 +38,10 @@ import { useSalesBudget } from "./SalesBudgetProvider";
 import { useNow } from "./useNow";
 import { OutcomeButtons } from "./OutcomeButtons";
 import { NoteBox } from "./NoteBox";
+import { ChangeModeLink, WhatsAppChooserDialog } from "./WhatsAppChooser";
+
+// One choice for the whole browser tab session, shared by every contact in the panel.
+const MODE_SCOPE = "send-panel";
 
 export type SendPanelContact = { id: string; full_name: string; phone_e164: string | null; warm: boolean; recently_contacted: boolean };
 
@@ -39,6 +52,7 @@ export function SendPanel({
   onOutcome,
   onNoteSaved,
   openLink = openWhatsAppLink,
+  preOpen = preOpenWebTab,
 }: {
   contact: SendPanelContact;
   templates: TemplateJson[];
@@ -46,6 +60,7 @@ export function SendPanel({
   onOutcome: (contactId: string, kind: OutcomeKind, nextFollowupAt: string | null) => void;
   onNoteSaved?: (contactId: string) => void;
   openLink?: (url: string) => void;
+  preOpen?: () => WebTabHandle;
 }) {
   const { budgets, selected, refresh, applyBudget } = useSalesBudget();
   const now = useNow();
@@ -54,11 +69,19 @@ export function SendPanel({
   const [message, setMessage] = useState<string>(templates[0]?.body ?? DEFAULT_MESSAGE);
   const [sent, setSent] = useState(false);
   const [sentLink, setSentLink] = useState<string | null>(null);
+  const [mode, setMode] = useState<WhatsAppMode | null>(null);
+  const [sentMode, setSentMode] = useState<WhatsAppMode>("app");
+  const [choosing, setChoosing] = useState(false);
   const currentId = useRef(contact.id);
   currentId.current = contact.id;
   const refreshedFor = useRef<string | null>(null);
   // The person decides when this contact comes back to Today if they do not answer (decision D1).
   const [followupHours, setFollowupHours] = useState<FollowupHours>(DEFAULT_FOLLOWUP_HOURS);
+
+  // sessionStorage is not available during server render, so the remembered choice is read after mount.
+  useEffect(() => {
+    setMode(readMode(MODE_SCOPE));
+  }, []);
 
   // A new contact resets the panel.
   useEffect(() => {
@@ -80,9 +103,13 @@ export function SendPanel({
     }
   }, [until, now, refresh]);
 
-  const { run: send, pending: sending } = useAsyncAction(async () => {
-    if (!selected || lock.kind !== "ready") return;
+  const { run: send, pending: sending } = useAsyncAction(async (chosen: WhatsAppMode, tab: WebTabHandle | null) => {
+    if (!selected || lock.kind !== "ready") {
+      tab?.closeIfBlank();
+      return;
+    }
     const startedFor = contact.id;
+    let opened = false;
     try {
       const res = await fetch(`/api/sales/contacts/${contact.id}/send`, {
         method: "POST",
@@ -96,18 +123,64 @@ export function SendPanel({
         return;
       }
       const ok = body as SendOkJson;
+      const link = linkForMode(ok.link, chosen);
+      // The pre-opened tab only gets the chat now that the server has approved the send.
+      opened = true;
+      if (tab && !tab.blocked && !tab.isClosed()) {
+        tab.navigate(link);
+      } else {
+        if (chosen === "web") toast.warning("Your browser blocked the WhatsApp tab. Allow popups, or use the Open WhatsApp again button.");
+        openLink(link);
+      }
       applyBudget(selected.number.id, ok.budget);
       for (const w of ok.warnings) toast.warning(w);
       if (currentId.current === startedFor) {
         setSent(true);
         setSentLink(ok.link);
+        setSentMode(chosen);
       }
-      onSent?.(startedFor);
-      openLink(ok.link);
+      try {
+        onSent?.(startedFor);
+      } catch (e) {
+        console.error("[SendPanel] onSent failed", e);
+      }
     } catch {
       toast.error("Could not send this message.");
+    } finally {
+      if (!opened) tab?.closeIfBlank();
     }
   });
+
+  // Runs inside the click, before any await: a Web tab opened here counts as user-initiated.
+  const startSend = (chosen: WhatsAppMode) => {
+    if (sending) return;
+    const tab = chosen === "web" ? preOpen() : null;
+    void send(chosen, tab);
+  };
+
+  const onOpenClick = () => {
+    // Phones have no usable WhatsApp Web, so they never see the chooser.
+    if (!desktop) {
+      startSend("app");
+      return;
+    }
+    const saved = readMode(MODE_SCOPE) ?? mode;
+    if (!saved) {
+      setChoosing(true);
+      return;
+    }
+    startSend(saved);
+  };
+
+  const onChoose = (chosen: WhatsAppMode) => {
+    writeMode(MODE_SCOPE, chosen);
+    setMode(chosen);
+    setChoosing(false);
+    startSend(chosen);
+  };
+
+  // The old choice stays until a new one is picked, so dismissing the dialog loses nothing.
+  const onChange = () => setChoosing(true);
 
   const noPhone = !contact.phone_e164;
   const emptyMessage = message.trim().length === 0;
@@ -201,12 +274,13 @@ export function SendPanel({
           size="bare"
           disabled={locked || sending || emptyMessage || tooLong}
           loading={sending}
-          onClick={() => void send()}
+          onClick={onOpenClick}
           className="w-full h-14 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none disabled:opacity-100"
         >
           <MessageCircle className="w-6 h-6" />
           {buttonText}
         </Button>
+        {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={sending} />}
         {detailText && <p className="text-xs text-center text-pz-on-surface-variant">{detailText}</p>}
         {!locked && !detailText && !tooLong && (
           <p className="text-[11px] text-center text-pz-on-surface-variant">
@@ -215,8 +289,8 @@ export function SendPanel({
         )}
         {sent && sentLink && (
           <a
-            href={sentLink}
-            {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            href={linkForMode(sentLink, sentMode)}
+            {...linkTargetProps(sentMode, desktop)}
             className="min-h-11 inline-flex items-center justify-center rounded-lg bg-pz-surface-container-low text-pz-on-surface font-headline font-semibold text-sm px-4"
           >
             Open WhatsApp again
@@ -228,6 +302,8 @@ export function SendPanel({
           </p>
         )}
       </div>
+
+      <WhatsAppChooserDialog open={choosing && desktop} onChoose={onChoose} onCancel={() => setChoosing(false)} />
 
       <OutcomeButtons contactId={contact.id} onLogged={(kind, next) => onOutcome(contact.id, kind, next)} />
 

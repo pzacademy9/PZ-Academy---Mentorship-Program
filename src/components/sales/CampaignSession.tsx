@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
+import {
+  linkForMode,
+  linkTargetProps,
+  preOpenWebTab,
+  readMode,
+  writeMode,
+  type WebTabHandle,
+  type WhatsAppMode,
+} from "@/lib/crm/whatsapp-mode";
 import { formatDateTime } from "@/lib/format";
 import {
   explainSendError,
@@ -22,6 +31,7 @@ import type { CampaignRecipientStatus } from "@/lib/crm/campaign-rules";
 import { useSalesBudget } from "./SalesBudgetProvider";
 import { useNow } from "./useNow";
 import { PanicButton } from "./PanicButton";
+import { ChangeModeLink, WhatsAppChooserDialog } from "./WhatsAppChooser";
 
 const LIST_HREF = "/dashboard/sales/campaigns";
 const QUEUE_PREVIEW = 10;
@@ -40,9 +50,11 @@ const initials = (name: string) =>
 export function CampaignSession({
   initial,
   openLink = openWhatsAppLink,
+  preOpen = preOpenWebTab,
 }: {
   initial: CampaignDetailJson;
   openLink?: (url: string) => void;
+  preOpen?: () => WebTabHandle;
 }) {
   const { budgets, selectedId, select, refresh, applyBudget } = useSalesBudget();
   const now = useNow();
@@ -50,11 +62,19 @@ export function CampaignSession({
   const [detail, setDetail] = useState<CampaignDetailJson>(initial);
   const [retryAt, setRetryAt] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [lastSent, setLastSent] = useState<{ name: string; link: string } | null>(null);
+  const [lastSent, setLastSent] = useState<{ name: string; link: string; mode: WhatsAppMode } | null>(null);
+  const [mode, setMode] = useState<WhatsAppMode | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const selectedOnce = useRef(false);
   const refreshedFor = useRef<string | null>(null);
 
   const base = `/api/sales/campaigns/${detail.id}`;
+  const modeScope = `campaign:${initial.id}`;
+
+  // sessionStorage is not available during server render, so the remembered choice is read after mount.
+  useEffect(() => {
+    setMode(readMode(modeScope));
+  }, [modeScope]);
   const current = detail.recipients.find((r) => r.status === "pending") ?? null;
   const upcoming = detail.recipients.filter((r) => r.status === "pending" && r.id !== current?.id);
   const total = detail.recipients.length;
@@ -104,9 +124,13 @@ export function CampaignSession({
     }
   };
 
-  const { run: send, pending: sending } = useAsyncAction(async () => {
-    if (!current || !campaignNumber || lock.kind !== "ready" || paused || done) return;
+  const { run: send, pending: sending } = useAsyncAction(async (chosen: WhatsAppMode, tab: WebTabHandle | null) => {
+    if (!current || !campaignNumber || lock.kind !== "ready" || paused || done) {
+      tab?.closeIfBlank();
+      return;
+    }
     const target = current;
+    let opened = false;
     try {
       const res = await fetch(`${base}/send`, {
         method: "POST",
@@ -137,16 +161,57 @@ export function CampaignSession({
         return;
       }
       const ok = body as SendOk;
+      const link = linkForMode(ok.link, chosen);
+      // The pre-opened tab only gets the chat now that the server has approved the send.
+      opened = true;
+      if (tab && !tab.blocked && !tab.isClosed()) {
+        tab.navigate(link);
+      } else {
+        if (chosen === "web") toast.warning("Your browser blocked the WhatsApp tab. Allow popups, or use the Open WhatsApp again button.");
+        openLink(link);
+      }
       applyBudget(campaignNumber.number.id, ok.budget);
       for (const w of ok.warnings) toast.warning(w);
       mark(target.id, "sent");
       if (ok.done) setDetail((d) => ({ ...d, status: "done" }));
-      setLastSent({ name: target.fullName, link: ok.link });
-      openLink(ok.link);
+      setLastSent({ name: target.fullName, link: ok.link, mode: chosen });
     } catch {
       toast.error("Could not send this message.");
+    } finally {
+      if (!opened) tab?.closeIfBlank();
     }
   });
+
+  // Runs inside the click, before any await: a Web tab opened here counts as user-initiated.
+  const startSend = (chosen: WhatsAppMode) => {
+    if (sending) return;
+    const tab = chosen === "web" ? preOpen() : null;
+    void send(chosen, tab);
+  };
+
+  const onOpenClick = () => {
+    // Phones have no usable WhatsApp Web, so they never see the chooser.
+    if (!desktop) {
+      startSend("app");
+      return;
+    }
+    const saved = readMode(modeScope) ?? mode;
+    if (!saved) {
+      setChoosing(true);
+      return;
+    }
+    startSend(saved);
+  };
+
+  const onChoose = (chosen: WhatsAppMode) => {
+    writeMode(modeScope, chosen);
+    setMode(chosen);
+    setChoosing(false);
+    startSend(chosen);
+  };
+
+  // The old choice stays until a new one is picked, so dismissing the dialog loses nothing.
+  const onChange = () => setChoosing(true);
 
   const { run: skip, pending: skipping } = useAsyncAction(async () => {
     if (!current || done) return;
@@ -199,6 +264,7 @@ export function CampaignSession({
 
   return (
     <div className="flex flex-col gap-6 font-body">
+      <WhatsAppChooserDialog open={choosing && desktop} onChoose={onChoose} onCancel={() => setChoosing(false)} />
       <div className="bg-pz-surface-container-lowest rounded-xl p-4 sm:p-6 shadow-sm flex flex-col gap-4">
         <Link
           href={LIST_HREF}
@@ -255,8 +321,8 @@ export function CampaignSession({
           </p>
           {lastSent && (
             <a
-              href={lastSent.link}
-              {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              href={linkForMode(lastSent.link, lastSent.mode)}
+              {...linkTargetProps(lastSent.mode, desktop)}
               className="min-h-11 inline-flex items-center justify-center rounded-lg bg-pz-surface-container-low text-pz-on-surface font-headline font-semibold text-sm px-4"
             >
               Open WhatsApp again for {lastSent.name}
@@ -313,12 +379,13 @@ export function CampaignSession({
                   data-testid="campaign-send"
                   disabled={locked || busy}
                   loading={sending}
-                  onClick={() => void send()}
+                  onClick={onOpenClick}
                   className="w-full min-h-14 px-4 py-3 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 whitespace-normal text-center transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none disabled:opacity-100"
                 >
                   <MessageCircle className="w-6 h-6" />
                   {locked ? copy.button : "Open WhatsApp"}
                 </Button>
+                {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={busy} />}
                 {locked && copy.detail && (
                   <p className="text-xs text-center text-pz-on-surface-variant">{copy.detail}</p>
                 )}
@@ -341,8 +408,8 @@ export function CampaignSession({
                 </Button>
                 {lastSent && (
                   <a
-                    href={lastSent.link}
-                    {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    href={linkForMode(lastSent.link, lastSent.mode)}
+                    {...linkTargetProps(lastSent.mode, desktop)}
                     className="min-h-11 inline-flex items-center justify-center rounded-lg text-pz-primary font-headline font-semibold text-xs px-4 underline-offset-4 hover:underline"
                   >
                     Open WhatsApp again for {lastSent.name}

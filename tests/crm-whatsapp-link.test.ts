@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWhatsAppLink, firstNameOf, renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
+import { buildWhatsAppLink, firstNameOf, renderWhatsAppMessage, toWebLink } from "@/lib/crm/whatsapp-link";
 
 describe("firstNameOf", () => {
   it("returns the first token of a multi-word name", () => {
@@ -68,5 +68,21 @@ describe("renderWhatsAppMessage", () => {
 
   it("falls back to 'there' for a blank name", () => {
     expect(renderWhatsAppMessage("Hi {{first_name}}", "   ")).toBe("Hi there");
+  });
+});
+
+describe("toWebLink", () => {
+  it("turns the app link into a web.whatsapp.com link with the same phone and text", () => {
+    const app = buildWhatsAppLink("+923001234567", "Hi {{first_name}} & co? 100%", "Ayesha Khan");
+    const web = toWebLink(app);
+    const u = new URL(web);
+    expect(u.origin).toBe("https://web.whatsapp.com");
+    expect(u.pathname).toBe("/send");
+    expect(u.searchParams.get("phone")).toBe("923001234567");
+    expect(u.searchParams.get("text")).toBe("Hi Ayesha & co? 100%");
+  });
+
+  it("leaves a link that is not in the app form untouched", () => {
+    expect(toWebLink("https://wa.me/923001234567?text=hi")).toBe("https://wa.me/923001234567?text=hi");
   });
 });

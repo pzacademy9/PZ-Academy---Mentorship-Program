@@ -140,17 +140,22 @@ export async function getNumberForAgent(
 ): Promise<NumberRow | null> {
   if (userId === "") return null;
   const db = createAdminSupabase();
-  if (!isAdmin) {
-    const { data: link } = await db
-      .from("whatsapp_number_agents")
-      .select("number_id")
-      .eq("number_id", numberId)
-      .eq("agent_id", userId)
-      .maybeSingle();
-    if (!link) return null;
-  }
-  const { data } = await db.from("whatsapp_numbers").select("*").eq("id", numberId).maybeSingle();
-  return (data as NumberRow | null) ?? null;
+  // The assignment link and the number row are independent reads, so they run together; the row is
+  // only returned if (for an agent) the link exists.
+  const linkQuery = isAdmin
+    ? null
+    : db
+        .from("whatsapp_number_agents")
+        .select("number_id")
+        .eq("number_id", numberId)
+        .eq("agent_id", userId)
+        .maybeSingle();
+  const [linkRes, numRes] = await Promise.all([
+    linkQuery,
+    db.from("whatsapp_numbers").select("*").eq("id", numberId).maybeSingle(),
+  ]);
+  if (linkQuery && !linkRes?.data) return null;
+  return (numRes.data as NumberRow | null) ?? null;
 }
 
 async function numbersForAgent(userId: string, isAdmin: boolean): Promise<NumberRow[]> {
