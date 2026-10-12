@@ -431,3 +431,121 @@ describe("PreviewTarget", () => {
     expect(document.body).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 10 stage 5: PreviewFrame + LandingEditor shell
+// ---------------------------------------------------------------------------
+const autosave = vi.hoisted(() => ({ state: "saved" as string, schedule: vi.fn(), saveNow: vi.fn() }));
+vi.mock("@/hooks/useAutosaveDraft", () => ({
+  useAutosaveDraft: () => ({ state: autosave.state, schedule: autosave.schedule, saveNow: autosave.saveNow }),
+}));
+import { PreviewFrame } from "@/components/admin/landing/PreviewFrame";
+import { LandingEditor } from "@/components/admin/landing/LandingEditor";
+
+describe("PreviewFrame", () => {
+  it("renders the preview route in an iframe and posts every content change to it, same-origin only", () => {
+    const c1 = emptyContent("webinar");
+    const { rerender } = render(<PreviewFrame content={c1} pageId="p1" />);
+    const frame = screen.getByTitle("Page preview") as HTMLIFrameElement;
+    expect(frame.getAttribute("src")).toBe("/dashboard/admin/landing-pages/p1/preview");
+    const postMessage = vi.fn();
+    Object.defineProperty(frame, "contentWindow", { value: { postMessage }, configurable: true });
+    const c2 = updateSectionData(c1, c1.sections[0].id, { headline: "Hello" });
+    rerender(<PreviewFrame content={c2} pageId="p1" />);
+    expect(postMessage).toHaveBeenLastCalledWith({ type: "landing-preview", content: c2 }, window.location.origin);
+    fireEvent.load(frame);
+    expect(postMessage).toHaveBeenCalledTimes(2);
+  });
+  it("switches between Laptop and Phone widths", () => {
+    render(<PreviewFrame content={emptyContent("webinar")} pageId="p1" />);
+    const laptop = screen.getByRole("button", { name: /laptop/i });
+    const phone = screen.getByRole("button", { name: /phone/i });
+    expect(laptop.getAttribute("aria-pressed")).toBe("true");
+    const frame = screen.getByTitle("Page preview") as HTMLIFrameElement;
+    expect(frame.style.width).toBe("1280px");
+    fireEvent.click(phone);
+    expect(phone.getAttribute("aria-pressed")).toBe("true");
+    expect(frame.style.width).toBe("390px");
+  });
+});
+
+describe("LandingEditor", () => {
+  const draft = emptyContent("webinar");
+  const page = {
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+  };
+  beforeEach(() => { autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); refresh.mockReset(); });
+
+  it("shows the page name, a preview-in-new-tab link and the section list, with the first section open", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    expect(screen.getAllByText("Webinar 21").length).toBeGreaterThan(0);
+    const link = screen.getByRole("link", { name: /preview in new tab/i });
+    expect(link.getAttribute("href")).toBe("/dashboard/admin/landing-pages/p1/preview");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(screen.getAllByRole("switch")).toHaveLength(draft.sections.length);
+    expect(screen.getByLabelText("Headline")).toBeTruthy();
+  });
+  it("schedules an autosave with the full updated content when a field changes", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Brand new" } });
+    expect(autosave.schedule).toHaveBeenCalledTimes(1);
+    const sent = autosave.schedule.mock.calls[0][0];
+    expect(sent.sections[0].data.headline).toBe("Brand new");
+    expect(sent.sections).toHaveLength(draft.sections.length);
+  });
+  it("opens Page settings and routes edits into settings, not sections", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
+    expect(autosave.schedule.mock.calls.at(-1)![0].settings.registerLabel).toBe("Join");
+  });
+  it("adds a section and selects it", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /add section/i }));
+    const menu = screen.getByText(/choose section type/i).parentElement as HTMLElement;
+    fireEvent.click(within(menu).getByRole("button", { name: /questions and answers/i }));
+    const sent = autosave.schedule.mock.calls.at(-1)![0];
+    expect(sent.sections.at(-1).type).toBe("faq");
+    expect(screen.getByRole("heading", { name: "Questions and answers" })).toBeTruthy();
+  });
+  it.each([
+    ["saved", "Saved"],
+    ["saving", "Saving…"],
+    ["dirty", "Unsaved changes"],
+    ["error", "Couldn't save, retrying when you keep typing"],
+  ])("shows the %s save state as %s", (state, text) => {
+    autosave.state = state;
+    render(<LandingEditor page={page} versions={[]} />);
+    expect(screen.getByText(text)).toBeTruthy();
+  });
+  it.each([["dirty", true], ["saving", true], ["error", true], ["conflict", true], ["saved", false]])(
+    "registers the beforeunload guard for state %s: %s", (state, expected) => {
+      autosave.state = state;
+      const add = vi.spyOn(window, "addEventListener");
+      const { unmount } = render(<LandingEditor page={page} versions={[]} />);
+      const registered = add.mock.calls.some(([type]) => type === "beforeunload");
+      expect(registered).toBe(expected);
+      const remove = vi.spyOn(window, "removeEventListener");
+      unmount();
+      if (expected) expect(remove.mock.calls.some(([type]) => type === "beforeunload")).toBe(true);
+      add.mockRestore(); remove.mockRestore();
+    });
+  it("on conflict shows the banner and only reloads after the admin confirms discarding their edits", async () => {
+    autosave.state = "conflict";
+    render(<LandingEditor page={page} versions={[]} />);
+    expect(screen.getByText("Someone else changed this page. Reload to see their changes.")).toBeTruthy();
+    confirmFn.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("Reloading discards the changes you just made. Reload anyway?") })));
+    expect(refresh).not.toHaveBeenCalled();
+    confirmFn.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+  it("shows the phone notice with a link back to the list", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    expect(screen.getByText(/works best on a laptop or tablet/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /back to landing pages/i }).getAttribute("href")).toBe("/dashboard/admin/landing-pages");
+  });
+});
