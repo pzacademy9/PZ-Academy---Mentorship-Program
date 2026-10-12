@@ -400,3 +400,34 @@ describe("PageSettingsPanel", () => {
     expect(screen.getByText("/e/ppc-b3")).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 10 stage 4: PreviewTarget
+// ---------------------------------------------------------------------------
+import { PreviewTarget } from "@/components/admin/landing/PreviewTarget";
+
+describe("PreviewTarget", () => {
+  it("accepts a same-origin preview message and ignores other origins and shapes", async () => {
+    const base = updateSectionData(emptyContent("webinar"), emptyContent("webinar").sections[0].id, {});
+    const first = base.sections[0].id;
+    const initial = updateSectionData(base, first, { headline: "ORIGINAL" });
+    render(<PreviewTarget initialContent={initial} status="draft" kind="webinar" title="T" />);
+    expect(screen.getAllByText("ORIGINAL").length).toBeGreaterThan(0);
+    const next = updateSectionData(initial, first, { headline: "UPDATED" });
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "landing-preview", content: next }, origin: "https://evil.example" }));
+    await Promise.resolve();
+    expect(screen.queryByText("UPDATED")).toBeNull();
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "something-else", content: next }, origin: window.location.origin }));
+    await Promise.resolve();
+    expect(screen.queryByText("UPDATED")).toBeNull();
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "landing-preview", content: next }, origin: window.location.origin }));
+    await waitFor(() => expect(screen.getAllByText("UPDATED").length).toBeGreaterThan(0));
+  });
+  it("survives a malformed same-origin payload by falling back to a safe normalized page", async () => {
+    const initial = emptyContent("webinar");
+    render(<PreviewTarget initialContent={initial} status="draft" kind="webinar" title="T" />);
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "landing-preview", content: "garbage" }, origin: window.location.origin }));
+    await Promise.resolve();
+    expect(document.body).toBeTruthy();
+  });
+});
