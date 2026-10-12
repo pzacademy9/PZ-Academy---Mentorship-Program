@@ -7,6 +7,7 @@ import {
   linkForMode,
   preOpenWebTab,
   WEB_TAB_NAME,
+  linkTargetProps,
 } from "@/lib/crm/whatsapp-mode";
 
 const mem = () => {
@@ -48,29 +49,53 @@ describe("linkForMode", () => {
   });
 });
 
+describe("linkTargetProps", () => {
+  it("web reuses the named tab with no noopener; app on desktop opens a fresh tab; phones stay in place", () => {
+    expect(linkTargetProps("web", true)).toEqual({ target: WEB_TAB_NAME });
+    expect(linkTargetProps("app", true)).toEqual({ target: "_blank", rel: "noopener noreferrer" });
+    expect(linkTargetProps("app", false)).toEqual({});
+  });
+});
+
+type FakeTab = { location: { href: string }; close: ReturnType<typeof vi.fn<() => void>>; closed: boolean; opener: unknown };
+const freshTab = (): FakeTab => ({ location: { href: "about:blank" }, close: vi.fn<() => void>(), closed: false, opener: {} });
+// A live WhatsApp Web tab: reading its location from our origin throws, like a real cross-origin window.
+const liveTab = () => ({
+  get location(): never { throw new Error("cross-origin"); },
+  close: vi.fn<() => void>(), closed: false, opener: {},
+});
+
 describe("preOpenWebTab", () => {
-  it("opens a named blank tab and navigates it later", () => {
-    const tab = { location: { href: "about:blank" }, close: vi.fn(), closed: false };
+  it("opens with an empty URL (so an existing named tab is not navigated), drops the opener, and navigates later", () => {
+    const tab = freshTab();
     const open = vi.fn(() => tab);
     const h = preOpenWebTab({ open });
-    expect(open).toHaveBeenCalledWith("about:blank", WEB_TAB_NAME);
+    expect(open).toHaveBeenCalledWith("", WEB_TAB_NAME);
+    expect(tab.opener).toBeNull();
     h.navigate("https://web.whatsapp.com/send?phone=1");
     expect(tab.location.href).toBe("https://web.whatsapp.com/send?phone=1");
   });
-  it("closes a still-blank tab on refusal but not one that moved on", () => {
-    const blank = { location: { href: "about:blank" }, close: vi.fn(), closed: false };
-    preOpenWebTab({ open: () => blank }).closeIfBlank();
-    expect(blank.close).toHaveBeenCalled();
-    const live = { location: { href: "https://web.whatsapp.com/" }, close: vi.fn(), closed: false };
-    preOpenWebTab({ open: () => live }).closeIfBlank();
-    expect(live.close).not.toHaveBeenCalled();
-    const cross = { get location(): never { throw new Error("cross-origin"); }, close: vi.fn(), closed: false };
-    preOpenWebTab({ open: () => cross as never }).closeIfBlank();
-    expect(cross.close).not.toHaveBeenCalled();
+  it("closes a tab it just created on refusal", () => {
+    const tab = freshTab();
+    preOpenWebTab({ open: () => tab }).closeIfBlank();
+    expect(tab.close).toHaveBeenCalled();
   });
-  it("reports a blocked popup and falls back on navigate", () => {
-    const h = preOpenWebTab({ open: () => null });
-    expect(h.blocked).toBe(true);
-    expect(() => h.closeIfBlank()).not.toThrow();
+  it("never closes an existing live WhatsApp tab on refusal", () => {
+    const live = liveTab();
+    preOpenWebTab({ open: () => live as never }).closeIfBlank();
+    expect(live.close).not.toHaveBeenCalled();
+    const moved = { ...freshTab(), location: { href: "https://web.whatsapp.com/" } };
+    preOpenWebTab({ open: () => moved }).closeIfBlank();
+    expect(moved.close).not.toHaveBeenCalled();
+  });
+  it("reports closed and blocked state", () => {
+    const tab = freshTab();
+    const h = preOpenWebTab({ open: () => tab });
+    expect(h.isClosed()).toBe(false);
+    tab.closed = true;
+    expect(h.isClosed()).toBe(true);
+    const b = preOpenWebTab({ open: () => null });
+    expect(b.blocked).toBe(true);
+    expect(() => b.closeIfBlank()).not.toThrow();
   });
 });

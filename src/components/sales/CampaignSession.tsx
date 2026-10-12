@@ -9,8 +9,8 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
-  clearMode,
   linkForMode,
+  linkTargetProps,
   preOpenWebTab,
   readMode,
   writeMode,
@@ -62,7 +62,7 @@ export function CampaignSession({
   const [detail, setDetail] = useState<CampaignDetailJson>(initial);
   const [retryAt, setRetryAt] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [lastSent, setLastSent] = useState<{ name: string; link: string } | null>(null);
+  const [lastSent, setLastSent] = useState<{ name: string; link: string; mode: WhatsAppMode } | null>(null);
   const [mode, setMode] = useState<WhatsAppMode | null>(null);
   const [choosing, setChoosing] = useState(false);
   const selectedOnce = useRef(false);
@@ -161,16 +161,20 @@ export function CampaignSession({
         return;
       }
       const ok = body as SendOk;
+      const link = linkForMode(ok.link, chosen);
+      // The pre-opened tab only gets the chat now that the server has approved the send.
+      opened = true;
+      if (tab && !tab.blocked && !tab.isClosed()) {
+        tab.navigate(link);
+      } else {
+        if (chosen === "web") toast.warning("Your browser blocked the WhatsApp tab. Allow popups, or use the Open WhatsApp again button.");
+        openLink(link);
+      }
       applyBudget(campaignNumber.number.id, ok.budget);
       for (const w of ok.warnings) toast.warning(w);
       mark(target.id, "sent");
       if (ok.done) setDetail((d) => ({ ...d, status: "done" }));
-      setLastSent({ name: target.fullName, link: ok.link });
-      // The pre-opened tab only gets the chat once the server has approved the send.
-      opened = true;
-      const link = linkForMode(ok.link, chosen);
-      if (tab && !tab.blocked) tab.navigate(link);
-      else openLink(link);
+      setLastSent({ name: target.fullName, link: ok.link, mode: chosen });
     } catch {
       toast.error("Could not send this message.");
     } finally {
@@ -186,7 +190,12 @@ export function CampaignSession({
   };
 
   const onOpenClick = () => {
-    const saved = readMode(modeScope);
+    // Phones have no usable WhatsApp Web, so they never see the chooser.
+    if (!desktop) {
+      startSend("app");
+      return;
+    }
+    const saved = readMode(modeScope) ?? mode;
     if (!saved) {
       setChoosing(true);
       return;
@@ -201,11 +210,8 @@ export function CampaignSession({
     startSend(chosen);
   };
 
-  const onChange = () => {
-    clearMode(modeScope);
-    setMode(null);
-    setChoosing(true);
-  };
+  // The old choice stays until a new one is picked, so dismissing the dialog loses nothing.
+  const onChange = () => setChoosing(true);
 
   const { run: skip, pending: skipping } = useAsyncAction(async () => {
     if (!current || done) return;
@@ -258,7 +264,7 @@ export function CampaignSession({
 
   return (
     <div className="flex flex-col gap-6 font-body">
-      <WhatsAppChooserDialog open={choosing} onChoose={onChoose} onCancel={() => setChoosing(false)} />
+      <WhatsAppChooserDialog open={choosing && desktop} onChoose={onChoose} onCancel={() => setChoosing(false)} />
       <div className="bg-pz-surface-container-lowest rounded-xl p-4 sm:p-6 shadow-sm flex flex-col gap-4">
         <Link
           href={LIST_HREF}
@@ -315,8 +321,8 @@ export function CampaignSession({
           </p>
           {lastSent && (
             <a
-              href={linkForMode(lastSent.link, mode)}
-              {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              href={linkForMode(lastSent.link, lastSent.mode)}
+              {...linkTargetProps(lastSent.mode, desktop)}
               className="min-h-11 inline-flex items-center justify-center rounded-lg bg-pz-surface-container-low text-pz-on-surface font-headline font-semibold text-sm px-4"
             >
               Open WhatsApp again for {lastSent.name}
@@ -379,7 +385,7 @@ export function CampaignSession({
                   <MessageCircle className="w-6 h-6" />
                   {locked ? copy.button : "Open WhatsApp"}
                 </Button>
-                {!locked && <ChangeModeLink mode={mode} onChange={onChange} />}
+                {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={busy} />}
                 {locked && copy.detail && (
                   <p className="text-xs text-center text-pz-on-surface-variant">{copy.detail}</p>
                 )}
@@ -402,8 +408,8 @@ export function CampaignSession({
                 </Button>
                 {lastSent && (
                   <a
-                    href={linkForMode(lastSent.link, mode)}
-                    {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    href={linkForMode(lastSent.link, lastSent.mode)}
+                    {...linkTargetProps(lastSent.mode, desktop)}
                     className="min-h-11 inline-flex items-center justify-center rounded-lg text-pz-primary font-headline font-semibold text-xs px-4 underline-offset-4 hover:underline"
                   >
                     Open WhatsApp again for {lastSent.name}

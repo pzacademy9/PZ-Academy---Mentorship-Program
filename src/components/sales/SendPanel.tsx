@@ -8,8 +8,8 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
-  clearMode,
   linkForMode,
+  linkTargetProps,
   preOpenWebTab,
   readMode,
   writeMode,
@@ -70,6 +70,7 @@ export function SendPanel({
   const [sent, setSent] = useState(false);
   const [sentLink, setSentLink] = useState<string | null>(null);
   const [mode, setMode] = useState<WhatsAppMode | null>(null);
+  const [sentMode, setSentMode] = useState<WhatsAppMode>("app");
   const [choosing, setChoosing] = useState(false);
   const currentId = useRef(contact.id);
   currentId.current = contact.id;
@@ -123,17 +124,26 @@ export function SendPanel({
       }
       const ok = body as SendOkJson;
       const link = linkForMode(ok.link, chosen);
+      // The pre-opened tab only gets the chat now that the server has approved the send.
+      opened = true;
+      if (tab && !tab.blocked && !tab.isClosed()) {
+        tab.navigate(link);
+      } else {
+        if (chosen === "web") toast.warning("Your browser blocked the WhatsApp tab. Allow popups, or use the Open WhatsApp again button.");
+        openLink(link);
+      }
       applyBudget(selected.number.id, ok.budget);
       for (const w of ok.warnings) toast.warning(w);
       if (currentId.current === startedFor) {
         setSent(true);
         setSentLink(ok.link);
+        setSentMode(chosen);
       }
-      onSent?.(startedFor);
-      // The pre-opened tab only gets the chat once the server has approved the send.
-      opened = true;
-      if (tab && !tab.blocked) tab.navigate(link);
-      else openLink(link);
+      try {
+        onSent?.(startedFor);
+      } catch (e) {
+        console.error("[SendPanel] onSent failed", e);
+      }
     } catch {
       toast.error("Could not send this message.");
     } finally {
@@ -149,7 +159,12 @@ export function SendPanel({
   };
 
   const onOpenClick = () => {
-    const saved = readMode(MODE_SCOPE);
+    // Phones have no usable WhatsApp Web, so they never see the chooser.
+    if (!desktop) {
+      startSend("app");
+      return;
+    }
+    const saved = readMode(MODE_SCOPE) ?? mode;
     if (!saved) {
       setChoosing(true);
       return;
@@ -164,11 +179,8 @@ export function SendPanel({
     startSend(chosen);
   };
 
-  const onChange = () => {
-    clearMode(MODE_SCOPE);
-    setMode(null);
-    setChoosing(true);
-  };
+  // The old choice stays until a new one is picked, so dismissing the dialog loses nothing.
+  const onChange = () => setChoosing(true);
 
   const noPhone = !contact.phone_e164;
   const emptyMessage = message.trim().length === 0;
@@ -268,7 +280,7 @@ export function SendPanel({
           <MessageCircle className="w-6 h-6" />
           {buttonText}
         </Button>
-        {!locked && <ChangeModeLink mode={mode} onChange={onChange} />}
+        {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={sending} />}
         {detailText && <p className="text-xs text-center text-pz-on-surface-variant">{detailText}</p>}
         {!locked && !detailText && !tooLong && (
           <p className="text-[11px] text-center text-pz-on-surface-variant">
@@ -277,8 +289,8 @@ export function SendPanel({
         )}
         {sent && sentLink && (
           <a
-            href={linkForMode(sentLink, mode)}
-            {...(desktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            href={linkForMode(sentLink, sentMode)}
+            {...linkTargetProps(sentMode, desktop)}
             className="min-h-11 inline-flex items-center justify-center rounded-lg bg-pz-surface-container-low text-pz-on-surface font-headline font-semibold text-sm px-4"
           >
             Open WhatsApp again
@@ -291,7 +303,7 @@ export function SendPanel({
         )}
       </div>
 
-      <WhatsAppChooserDialog open={choosing} onChoose={onChoose} onCancel={() => setChoosing(false)} />
+      <WhatsAppChooserDialog open={choosing && desktop} onChoose={onChoose} onCancel={() => setChoosing(false)} />
 
       <OutcomeButtons contactId={contact.id} onLogged={(kind, next) => onOutcome(contact.id, kind, next)} />
 

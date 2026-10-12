@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { WhatsAppMode } from "@/lib/crm/whatsapp-mode";
 
 const choiceClass =
-  "min-h-11 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-headline font-bold text-sm transition-colors";
+  "min-h-11 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-headline font-bold text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary focus-visible:ring-offset-2";
 
 /**
  * Asked once per session on the first Open WhatsApp click. The choice buttons are themselves
@@ -53,7 +53,15 @@ export function WhatsAppChooserDialog({
 }
 
 /** Small "Using WhatsApp Web. Change" line under the open button. */
-export function ChangeModeLink({ mode, onChange }: { mode: WhatsAppMode | null; onChange: () => void }) {
+export function ChangeModeLink({
+  mode,
+  onChange,
+  disabled = false,
+}: {
+  mode: WhatsAppMode | null;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
   if (!mode) return null;
   return (
     <p className="text-[11px] text-center text-pz-on-surface-variant">
@@ -61,7 +69,8 @@ export function ChangeModeLink({ mode, onChange }: { mode: WhatsAppMode | null; 
       <button
         type="button"
         onClick={onChange}
-        className="min-h-11 px-2 font-headline font-semibold text-pz-primary underline underline-offset-4"
+        disabled={disabled}
+        className="min-h-11 px-2 disabled:opacity-50 font-headline font-semibold text-pz-primary underline underline-offset-4"
       >
         Change
       </button>
