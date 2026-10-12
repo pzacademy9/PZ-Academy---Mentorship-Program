@@ -17,7 +17,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const result = await sendCampaignRecipient({ id: auth.user.id, role: auth.role }, id, parsed.data.recipientId);
+  const actor = { id: auth.user.id, role: auth.role };
+  const { recipientId, messageOverride, applyToRest } = parsed.data;
+  const result = messageOverride
+    ? await sendCampaignRecipient(actor, id, recipientId, undefined, { messageOverride, applyToRest })
+    : await sendCampaignRecipient(actor, id, recipientId);
   if (!result.ok) {
     const r = result as {
       reason: string;

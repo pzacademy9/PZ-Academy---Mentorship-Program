@@ -13,6 +13,7 @@ import {
   pauseReasonText,
   MAX_CAMPAIGN_RECIPIENTS,
   varietyBlocked,
+  VARIETY_MESSAGE,
   type CampaignRecipientStatus,
   type CampaignStatus,
   type DroppedCounts,
@@ -367,6 +368,7 @@ export async function sendCampaignRecipient(
   campaignId: string,
   recipientId: string,
   now: Date = new Date(),
+  opts: { messageOverride?: string; applyToRest?: boolean } = {},
 ): Promise<SendCampaignResult | Fail<"not-found" | "not-allowed" | "already-handled" | "campaign-done" | "db-error">> {
   if (!canUse(actor) || actor.id === "") return { ok: false, reason: "not-allowed" };
   try {
@@ -379,6 +381,16 @@ export async function sendCampaignRecipient(
       const message = pauseReasonText("number-not-assigned");
       const counts = await refreshCounts(db, campaignId, campaign.recipient_count, { status: "paused", paused_reason: message }, now);
       return { ok: false, reason: "number-not-assigned", message, paused: true, pendingCount: counts.pendingCount };
+    }
+
+    const override = opts.messageOverride;
+    const applyToRest = !!override && opts.applyToRest === true;
+    if (applyToRest) {
+      // Checked before anything is reserved so a refusal leaves no trace. This recipient is still pending here.
+      const pending = await countRecipients(db, campaignId, "pending");
+      if (varietyBlocked(override, pending)) {
+        return { ok: false, reason: "variety", message: VARIETY_MESSAGE, pendingCount: pending };
+      }
     }
 
     // Reserve first: only one caller can flip pending -> sent, so a double tap or a
@@ -427,7 +439,7 @@ export async function sendCampaignRecipient(
         actor,
         contactId,
         numberId: campaign.number_id,
-        messageTemplate: campaign.message_template,
+        messageTemplate: override ?? campaign.message_template,
         followupInHours: campaign.followup_in_hours ?? DEFAULT_FOLLOWUP_HOURS,
         now,
       });
@@ -438,6 +450,19 @@ export async function sendCampaignRecipient(
     }
 
     if (result.ok) {
+      if (applyToRest) {
+        // The send already counted, so a failure here is logged rather than thrown.
+        try {
+          const { error: tplErr } = await db
+            .from("whatsapp_batches")
+            .update({ message_template: override })
+            .eq("id", campaignId)
+            .eq("owner_agent_id", actor.id);
+          if (tplErr) throw tplErr;
+        } catch (te) {
+          console.error("[sales-campaigns] keep new wording failed", te);
+        }
+      }
       const counts = await refreshCounts(db, campaignId, campaign.recipient_count, { status: "active", paused_reason: null }, now);
       return {
         ok: true,

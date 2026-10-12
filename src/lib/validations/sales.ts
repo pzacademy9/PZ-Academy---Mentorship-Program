@@ -162,5 +162,10 @@ export const campaignCreateSchema = z.object({
     .refine((h) => isFollowupHours(h), "Pick 8 hours, 1 day, 2 days or 3 days.")
     .default(DEFAULT_FOLLOWUP_HOURS),
 });
-export const campaignRecipientSchema = z.object({ recipientId: z.string().uuid() });
+export const campaignRecipientSchema = z.object({
+  recipientId: z.string().uuid(),
+  // Reworded message for this send; applyToRest also keeps it for everyone after.
+  messageOverride: z.string().trim().min(1, "Write a message first.").max(1000, "Keep the message to 1000 characters or fewer.").optional(),
+  applyToRest: z.boolean().default(false),
+});
 export const campaignStatusSchema = z.object({ status: z.enum(["active", "paused"]) });
