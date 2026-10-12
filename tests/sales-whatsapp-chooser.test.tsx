@@ -77,14 +77,14 @@ function renderSession(extra: { pre?: ReturnType<typeof tab> } = {}) {
   const openLink = vi.fn<(url: string) => void>();
   const pre = extra.pre ?? tab();
   const preOpen = vi.fn<() => WebTabHandle>(() => pre);
-  render(
+  const { unmount } = render(
     <ConfirmProvider>
       <SalesBudgetContext.Provider value={value()}>
         <CampaignSession initial={campaign} openLink={openLink} preOpen={preOpen} />
       </SalesBudgetContext.Provider>
     </ConfirmProvider>,
   );
-  return { openLink, pre, preOpen };
+  return { openLink, pre, preOpen, unmount };
 }
 
 describe("SendPanel chooser", () => {
@@ -311,6 +311,96 @@ describe("fix round", () => {
     fireEvent.click(screen.getByTestId("campaign-send"));
     await waitFor(() => expect(openLink).toHaveBeenCalledWith(WEB));
     expect(toast.warning).toHaveBeenCalledWith(expect.stringMatching(/popup/i));
+  });
+});
+
+describe("small Open in WhatsApp Web button", () => {
+  const LABEL = "Open in WhatsApp Web";
+  const KEY_P = "pz-whatsapp-mode:send-panel";
+  const KEY_C = "pz-whatsapp-mode:campaign:camp-1";
+
+  it("SendPanel: shown on desktop when no mode or app is saved, hidden on phones and when Web is saved", () => {
+    renderPanel();
+    expect(screen.getByRole("button", { name: LABEL })).toBeTruthy();
+  });
+  it("SendPanel: hidden when Web is already the saved mode (Change link shows instead)", async () => {
+    window.sessionStorage.setItem(KEY_P, "web");
+    renderPanel();
+    await screen.findByRole("button", { name: "Change" });
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+  });
+  it("SendPanel: hidden on phones", () => {
+    stubDesktop(false);
+    renderPanel();
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+  });
+  it("SendPanel: click skips the chooser, pre-opens before the fetch resolves, navigates after approval, keeps the saved mode", async () => {
+    window.sessionStorage.setItem(KEY_P, "app");
+    let release!: () => void;
+    fetchMock.mockImplementation(() => new Promise((r) => { release = () => r({ ok: true, status: 200, json: async () => sendReply.body }); }));
+    const { pre, preOpen, openLink } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(preOpen).toHaveBeenCalledTimes(1);
+    expect(pre.navigate).not.toHaveBeenCalled();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    release();
+    await waitFor(() => expect(pre.navigate).toHaveBeenCalledWith(WEB));
+    expect(openLink).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem(KEY_P)).toBe("app");
+  });
+  it("SendPanel: click with no saved mode does not save one and does not show the chooser", async () => {
+    const { pre } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    await waitFor(() => expect(pre.navigate).toHaveBeenCalledWith(WEB));
+    expect(window.sessionStorage.getItem(KEY_P)).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("SendPanel: refusal closes the blank tab", async () => {
+    sendReply = { ok: false, status: 429, body: { error: "Too soon", reason: "spacing" } };
+    const { pre } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    await waitFor(() => expect(pre.closeIfBlank).toHaveBeenCalled());
+    expect(pre.navigate).not.toHaveBeenCalled();
+  });
+  it("SendPanel: disabled while sending", async () => {
+    fetchMock.mockImplementation(() => new Promise(() => {}));
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    await waitFor(() => expect((screen.getByRole("button", { name: LABEL }) as HTMLButtonElement).disabled).toBe(true));
+  });
+
+  it("CampaignSession: present, click skips chooser, pre-opens first, keeps saved mode", async () => {
+    window.sessionStorage.setItem(KEY_C, "app");
+    let release!: () => void;
+    fetchMock.mockImplementation(() => new Promise((r) => { release = () => r({ ok: true, status: 200, json: async () => sendReply.body }); }));
+    const { pre, preOpen } = renderSession();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(preOpen).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(pre.navigate).not.toHaveBeenCalled();
+    release();
+    await waitFor(() => expect(pre.navigate).toHaveBeenCalledWith(WEB));
+    expect(window.sessionStorage.getItem(KEY_C)).toBe("app");
+  });
+  it("CampaignSession: refusal closes the blank tab", async () => {
+    sendReply = { ok: false, status: 429, body: { error: "Too soon", reason: "spacing" } };
+    const { pre } = renderSession();
+    fireEvent.click(screen.getByRole("button", { name: LABEL }));
+    await waitFor(() => expect(pre.closeIfBlank).toHaveBeenCalled());
+    expect(pre.navigate).not.toHaveBeenCalled();
+  });
+  it("CampaignSession: hidden on phones and when Web is saved", async () => {
+    stubDesktop(false);
+    const first = renderSession();
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+    first.unmount();
+    stubDesktop(true);
+    window.sessionStorage.setItem(KEY_C, "web");
+    renderSession();
+    await screen.findByRole("button", { name: "Change" });
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
   });
 });
 
