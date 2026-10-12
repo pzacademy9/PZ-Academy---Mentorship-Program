@@ -105,6 +105,15 @@ describe("campaign routes behaviour", () => {
     expect(data.createCampaign).not.toHaveBeenCalled();
   });
 
+  it("send passes messageOverride and applyToRest through; a bare body passes none", async () => {
+    data.sendCampaignRecipient.mockResolvedValue({ ok: false, reason: "variety", message: "Add a name" });
+    const res = await sendPOST(body({ recipientId: uid, messageOverride: " Hi {{first_name}} ", applyToRest: true }), ctx);
+    expect(res.status).toBe(400);
+    expect(data.sendCampaignRecipient.mock.calls[0][4]).toEqual({ messageOverride: "Hi {{first_name}}", applyToRest: true });
+    const bad = await sendPOST(body({ recipientId: uid, messageOverride: "" }), ctx);
+    expect(bad.status).toBe(400);
+  });
+
   it("send failure has the full body shape and statusForReason status", async () => {
     data.sendCampaignRecipient.mockResolvedValue({
       ok: false,

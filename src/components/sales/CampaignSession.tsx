@@ -21,13 +21,14 @@ import { formatDateTime } from "@/lib/format";
 import {
   explainSendError,
   lockCopy,
+  MAX_MESSAGE_LENGTH,
   openWhatsAppLink,
   sendLock,
   type ApiErrorJson,
   type BudgetJson,
 } from "@/lib/crm/sales-ui";
 import type { CampaignDetailJson, CampaignRecipientJson } from "@/lib/crm/campaign-ui";
-import type { CampaignRecipientStatus } from "@/lib/crm/campaign-rules";
+import { varietyBlocked, VARIETY_MESSAGE, type CampaignRecipientStatus } from "@/lib/crm/campaign-rules";
 import { useSalesBudget } from "./SalesBudgetProvider";
 import { useNow } from "./useNow";
 import { PanicButton } from "./PanicButton";
@@ -36,7 +37,14 @@ import { ChangeModeLink, WebShortcutButton, WhatsAppChooserDialog } from "./What
 const LIST_HREF = "/dashboard/sales/campaigns";
 const QUEUE_PREVIEW = 10;
 
-type SendOk = { link: string; warnings: string[]; budget: BudgetJson; done: boolean };
+type SendOk = {
+  link: string;
+  warnings: string[];
+  budget: BudgetJson;
+  done: boolean;
+  messageTemplate?: string;
+  templateSaved?: boolean;
+};
 type SendFail = ApiErrorJson & { paused?: boolean; recipientBlocked?: boolean };
 
 const initials = (name: string) =>
@@ -65,6 +73,13 @@ export function CampaignSession({
   const [lastSent, setLastSent] = useState<{ name: string; link: string; mode: WhatsAppMode } | null>(null);
   const [mode, setMode] = useState<WhatsAppMode | null>(null);
   const [choosing, setChoosing] = useState(false);
+  // Reworded message for the current person only; closes again after a successful send.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [applyRest, setApplyRest] = useState(false);
+  const editLinkRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasEditing = useRef(false);
   const selectedOnce = useRef(false);
   const refreshedFor = useRef<string | null>(null);
 
@@ -105,10 +120,37 @@ export function CampaignSession({
     }
   }, [until, now, refresh]);
 
+  // The draft belongs to one person: close it when the queue moves on (send, skip, another tab).
+  const currentId = current?.id ?? null;
+  useEffect(() => {
+    setEditing(false);
+  }, [currentId]);
+  // Focus follows the editor: into the box on open, back to the link on close.
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus();
+    else if (wasEditing.current) editLinkRef.current?.focus();
+    wasEditing.current = editing;
+  }, [editing]);
+
+  const template = editing ? draft : detail.messageTemplate;
   const preview = useMemo(
-    () => (current ? renderWhatsAppMessage(detail.messageTemplate, current.fullName) : ""),
-    [detail.messageTemplate, current],
+    () => (current ? renderWhatsAppMessage(template, current.fullName) : ""),
+    [template, current],
   );
+  const draftHint = !editing
+    ? null
+    : draft.trim() === ""
+      ? "Write a message first."
+      : draft.length > MAX_MESSAGE_LENGTH
+        ? `Keep the message to ${MAX_MESSAGE_LENGTH} characters or fewer.`
+        : applyRest && varietyBlocked(draft, upcoming.length + (current ? 1 : 0))
+          ? VARIETY_MESSAGE
+          : null;
+  const openEditor = () => {
+    setDraft(detail.messageTemplate);
+    setApplyRest(false);
+    setEditing(true);
+  };
 
   const mark = (id: string, status: CampaignRecipientStatus) =>
     setDetail((d) => ({ ...d, recipients: d.recipients.map((r) => (r.id === id ? { ...r, status } : r)) }));
@@ -125,17 +167,19 @@ export function CampaignSession({
   };
 
   const { run: send, pending: sending } = useAsyncAction(async (chosen: WhatsAppMode, tab: WebTabHandle | null) => {
-    if (!current || !campaignNumber || lock.kind !== "ready" || paused || done) {
+    if (!current || !campaignNumber || lock.kind !== "ready" || paused || done || draftHint) {
       tab?.closeIfBlank();
       return;
     }
     const target = current;
+    const override = editing ? draft.trim() : null;
+    const keepForRest = override !== null && applyRest;
     let opened = false;
     try {
       const res = await fetch(`${base}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientId: target.id }),
+        body: JSON.stringify(override === null ? { recipientId: target.id } : { recipientId: target.id, messageOverride: override, applyToRest: keepForRest }),
       });
       const body = (await res.json().catch(() => null)) as SendOk | SendFail | null;
       if (!res.ok) {
@@ -148,6 +192,11 @@ export function CampaignSession({
         if (fail.recipientBlocked) {
           mark(target.id, "skipped");
           toast.error(`Skipped ${target.fullName}: ${explainSendError(fail, new Date())}`);
+          return;
+        }
+        if (fail.reason === "variety") {
+          // The server is the authority on the same-text rule: keep the editor and text as they are.
+          toast.error(fail.error ?? VARIETY_MESSAGE);
           return;
         }
         if (fail.paused) {
@@ -173,6 +222,17 @@ export function CampaignSession({
       applyBudget(campaignNumber.number.id, ok.budget);
       for (const w of ok.warnings) toast.warning(w);
       mark(target.id, "sent");
+      if (override !== null) {
+        setEditing(false);
+      }
+      // The stored wording only changes when the server says it did; never from the draft.
+      if (typeof ok.messageTemplate === "string") {
+        const stored = ok.messageTemplate;
+        setDetail((d) => ({ ...d, messageTemplate: stored }));
+      }
+      if (keepForRest && ok.templateSaved === false) {
+        toast.warning("Sent, but the new wording could not be kept for the others. They will get the campaign message.");
+      }
       if (ok.done) setDetail((d) => ({ ...d, status: "done" }));
       setLastSent({ name: target.fullName, link: ok.link, mode: chosen });
     } catch {
@@ -341,7 +401,64 @@ export function CampaignSession({
             {current && <CurrentPerson person={current} />}
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-headline font-semibold text-pz-on-surface-variant">What they will see</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-headline font-semibold text-pz-on-surface-variant">What they will see</span>
+                {!editing && (
+                  <button
+                    ref={editLinkRef}
+                    type="button"
+                    onClick={openEditor}
+                    disabled={busy}
+                    className="min-h-11 inline-flex items-center rounded px-2 text-xs font-headline font-semibold text-pz-primary underline underline-offset-4 hover:text-pz-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:no-underline"
+                  >
+                    Edit message
+                  </button>
+                )}
+              </div>
+              {editing && (
+                <div className="flex flex-col gap-2 rounded-xl bg-pz-surface-container-low p-3">
+                  <label htmlFor="campaign-edit-message" className="text-xs font-headline font-semibold text-pz-on-surface-variant">
+                    Message for this person
+                  </label>
+                  <textarea
+                    ref={textareaRef}
+                    id="campaign-edit-message"
+                    aria-describedby={draftHint ? "campaign-edit-hint campaign-edit-count" : "campaign-edit-count"}
+                    rows={4}
+                    maxLength={MAX_MESSAGE_LENGTH}
+                    value={draft}
+                    disabled={sending}
+                    onChange={(e) => setDraft(e.target.value)}
+                    className="w-full bg-pz-surface-container-lowest text-pz-on-surface text-sm rounded-lg p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary resize-none font-body disabled:opacity-50"
+                  />
+                  <p id="campaign-edit-count" className="text-[11px] text-pz-on-surface-variant">
+                    {"{{first_name}}"} becomes their first name. {draft.length} / {MAX_MESSAGE_LENGTH}
+                  </p>
+                  <label className="min-h-11 flex items-center gap-3 text-sm text-pz-on-surface">
+                    <input
+                      type="checkbox"
+                      checked={applyRest}
+                      disabled={sending}
+                      onChange={(e) => setApplyRest(e.target.checked)}
+                      className="w-5 h-5 shrink-0 accent-pz-primary disabled:opacity-50"
+                    />
+                    Use this wording for everyone after them too
+                  </label>
+                  {draftHint && (
+                    <p id="campaign-edit-hint" role="alert" className="text-xs text-pz-danger">
+                      {draftHint}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    disabled={sending}
+                    className="self-start min-h-11 rounded px-2 text-xs font-headline font-semibold text-pz-on-surface-variant underline underline-offset-4 hover:text-pz-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:no-underline"
+                  >
+                    Use the campaign message
+                  </button>
+                </div>
+              )}
               <div className="bg-pz-surface-container-low rounded-xl p-4">
                 <p className="bg-pz-surface-container-lowest rounded-lg p-4 shadow-sm text-sm text-pz-on-surface leading-relaxed whitespace-pre-wrap">
                   {preview}
@@ -377,7 +494,7 @@ export function CampaignSession({
                   variant="bare"
                   size="bare"
                   data-testid="campaign-send"
-                  disabled={locked || busy}
+                  disabled={locked || busy || !!draftHint}
                   loading={sending}
                   onClick={onOpenClick}
                   className="w-full min-h-14 px-4 py-3 rounded-xl bg-pz-primary hover:bg-pz-primary/95 text-pz-on-primary font-headline font-bold text-base flex items-center justify-center gap-3 whitespace-normal text-center transition-all shadow-md active:scale-[0.99] disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant disabled:shadow-none disabled:opacity-100"
@@ -385,7 +502,7 @@ export function CampaignSession({
                   <MessageCircle className="w-6 h-6" />
                   {locked ? copy.button : "Open WhatsApp"}
                 </Button>
-                {desktop && mode !== "web" && <WebShortcutButton onClick={() => startSend("web")} disabled={locked || busy} />}
+                {desktop && mode !== "web" && <WebShortcutButton onClick={() => startSend("web")} disabled={locked || busy || !!draftHint} />}
                 {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={busy} />}
                 {locked && copy.detail && (
                   <p className="text-xs text-center text-pz-on-surface-variant">{copy.detail}</p>

@@ -98,6 +98,140 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
+describe("sendCampaignRecipient message override", () => {
+  const tplUpdates = () => calls.filter((c) => c.table === "whatsapp_batches" && c.op === "update" && c.payload && "message_template" in c.payload);
+
+  it("uses the override for this send only and leaves the stored template alone", async () => {
+    requestSendMock.mockResolvedValue(okSend);
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Hello {{first_name}}!" });
+    expect(res.ok).toBe(true);
+    expect(requestSendMock.mock.calls[0][0].messageTemplate).toBe("Hello {{first_name}}!");
+    expect(tplUpdates()).toHaveLength(0);
+    expect(batchRow().message_template).toBe("Hi {{first_name}}");
+  });
+
+  it("falls back to the campaign template without an override", async () => {
+    requestSendMock.mockResolvedValue(okSend);
+    await sendCampaignRecipient(actor, "b1", "r1", NOW);
+    expect(requestSendMock.mock.calls[0][0].messageTemplate).toBe("Hi {{first_name}}");
+  });
+
+  it("applyToRest stores the override only after requestSend approves", async () => {
+    requestSendMock.mockImplementation(async () => {
+      expect(batchRow().message_template).toBe("Hi {{first_name}}");
+      return okSend;
+    });
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "New {{first_name}}", applyToRest: true });
+    expect(res.ok).toBe(true);
+    expect(batchRow().message_template).toBe("New {{first_name}}");
+    const upd = tplUpdates()[0];
+    expect(upd.filters).toEqual(expect.arrayContaining([["eq", ["id", "b1"]], ["eq", ["owner_agent_id", "agent"]]]));
+  });
+
+  it("applyToRest does not store anything when the send is refused", async () => {
+    requestSendMock.mockResolvedValue({ ok: false, reason: "spacing", message: "Wait" });
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "New {{first_name}}", applyToRest: true });
+    expect(res.ok).toBe(false);
+    expect(batchRow().message_template).toBe("Hi {{first_name}}");
+    expect(tplUpdates()).toHaveLength(0);
+  });
+
+  it("a failed template update is logged, not thrown, and the send still succeeds", async () => {
+    requestSendMock.mockResolvedValue(okSend);
+    failUpdate = (c) => c.table === "whatsapp_batches" && !!c.payload && "message_template" in c.payload;
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "New {{first_name}}", applyToRest: true });
+    expect(res).toMatchObject({ ok: true, sentCount: 1 });
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it("a variety-blocked override with applyToRest is refused before any reserve or requestSend", async () => {
+    tables = { whatsapp_batches: [batch({ recipient_count: 5 })], whatsapp_batch_recipients: ["r1", "r2", "r3", "r4", "r5"].map((i) => rec(i)) };
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all", applyToRest: true });
+    expect(res).toMatchObject({ ok: false, reason: "variety", message: expect.stringContaining("first_name") });
+    expect(requestSendMock).not.toHaveBeenCalled();
+    expect(log).toEqual([]);
+    expect(recipient("r1").status).toBe("pending");
+    expect(batchRow().message_template).toBe("Hi {{first_name}}");
+  });
+
+  const sentRows = (body: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({ kind: "sent", number_id: "n1", body, created_at: `2026-10-06T09:0${i}:00Z` }));
+  const withContact = () => {
+    tables.contacts = [{ id: "c-r1", full_name: "Ayesha Khan" }];
+  };
+
+  it("one nameless override is fine for one send", async () => {
+    withContact();
+    tables.contact_activities = sentRows("something else", 3);
+    requestSendMock.mockResolvedValue(okSend);
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" });
+    expect(res.ok).toBe(true);
+  });
+
+  it("the 4th identical nameless send in a row on the number is refused before reserve", async () => {
+    withContact();
+    tables.contact_activities = sentRows("Same text for all", 3);
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" });
+    expect(res).toMatchObject({ ok: false, reason: "variety", message: expect.stringContaining("first_name") });
+    expect(requestSendMock).not.toHaveBeenCalled();
+    expect(log).toEqual([]);
+    expect(recipient("r1").status).toBe("pending");
+  });
+
+  it("only 2 identical in a row is still fine", async () => {
+    withContact();
+    tables.contact_activities = [...sentRows("Same text for all", 2), ...sentRows("other", 1)];
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" })).ok).toBe(true);
+  });
+
+  it("a name-tagged override is fine because each person renders differently", async () => {
+    withContact();
+    tables.contact_activities = ["Hello Bilal", "Hello Sana", "Hello Omar"].flatMap((b) => sentRows(b, 1));
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Hello {{first_name}}" })).ok).toBe(true);
+  });
+
+  it("a send that matches the stored template is unaffected by the run rule", async () => {
+    withContact();
+    tables.whatsapp_batches = [batch({ message_template: "Same text for all" })];
+    tables.contact_activities = sentRows("Same text for all", 3);
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same text for all" })).ok).toBe(true);
+    expect((await sendCampaignRecipient(actor, "b1", "r2", NOW)).ok).toBe(true);
+  });
+
+  it("applyToRest refuses with exactly 4 pending and allows exactly 3", async () => {
+    tables = { whatsapp_batches: [batch({ recipient_count: 4 })], whatsapp_batch_recipients: ["r1", "r2", "r3", "r4"].map((i) => rec(i)) };
+    expect(await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same", applyToRest: true })).toMatchObject({ ok: false, reason: "variety" });
+    tables = { whatsapp_batches: [batch({ recipient_count: 3 })], whatsapp_batch_recipients: ["r1", "r2", "r3"].map((i) => rec(i)) };
+    requestSendMock.mockResolvedValue(okSend);
+    expect((await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same", applyToRest: true })).ok).toBe(true);
+  });
+
+  it("already-handled wins over a variety refusal", async () => {
+    tables = { whatsapp_batches: [batch({ recipient_count: 5 })], whatsapp_batch_recipients: [rec("r1", { status: "sent" }), ...["r2", "r3", "r4", "r5"].map((i) => rec(i))] };
+    const res = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "Same", applyToRest: true });
+    expect(res).toEqual({ ok: false, reason: "already-handled" });
+  });
+
+  it("returns the stored template and templateSaved", async () => {
+    requestSendMock.mockResolvedValue(okSend);
+    const kept = await sendCampaignRecipient(actor, "b1", "r1", NOW, { messageOverride: "New {{first_name}}", applyToRest: true });
+    expect(kept).toMatchObject({ ok: true, messageTemplate: "New {{first_name}}", templateSaved: true });
+    failUpdate = (c) => c.table === "whatsapp_batches" && !!c.payload && "message_template" in c.payload;
+    const failed = await sendCampaignRecipient(actor, "b1", "r2", NOW, { messageOverride: "Newer {{first_name}}", applyToRest: true });
+    expect(failed).toMatchObject({ ok: true, messageTemplate: "New {{first_name}}", templateSaved: false });
+  });
+
+  it("another agent's campaign is still not-found even with an override", async () => {
+    const res = await sendCampaignRecipient({ id: "other", role: "sales_agent" }, "b1", "r1", NOW, { messageOverride: "x", applyToRest: true });
+    expect(res).toEqual({ ok: false, reason: "not-found" });
+    expect(requestSendMock).not.toHaveBeenCalled();
+    expect(tplUpdates()).toHaveLength(0);
+  });
+});
+
 describe("sendCampaignRecipient", () => {
   it("reserves pending -> sent BEFORE requestSend, recounts and returns the link", async () => {
     requestSendMock.mockResolvedValue(okSend);

@@ -7,12 +7,15 @@ import { DEFAULT_FOLLOWUP_HOURS } from "@/lib/crm/followup";
 import type { BudgetSummary } from "@/lib/crm/send-limits";
 import { getNumberForAgent } from "@/lib/data/sales-numbers";
 import { requestSend } from "@/lib/data/sales-send";
+import { renderWhatsAppMessage } from "@/lib/crm/whatsapp-link";
 import {
   classifyRefusal,
   defaultCampaignName,
   pauseReasonText,
   MAX_CAMPAIGN_RECIPIENTS,
   varietyBlocked,
+  VARIETY_MESSAGE,
+  MAX_SAME_TEXT_RUN,
   type CampaignRecipientStatus,
   type CampaignStatus,
   type DroppedCounts,
@@ -359,7 +362,7 @@ async function refreshCounts(
 }
 
 export type SendCampaignResult =
-  | { ok: true; link: string; nextUnlockAt: string; warnings: string[]; budget: BudgetSummary; sentCount: number; pendingCount: number; done: boolean }
+  | { ok: true; link: string; nextUnlockAt: string; warnings: string[]; budget: BudgetSummary; sentCount: number; pendingCount: number; done: boolean; messageTemplate: string; templateSaved: boolean }
   | { ok: false; reason: string; message?: string; retryAt?: string | null; paused?: boolean; recipientBlocked?: boolean; pendingCount?: number };
 
 export async function sendCampaignRecipient(
@@ -367,6 +370,7 @@ export async function sendCampaignRecipient(
   campaignId: string,
   recipientId: string,
   now: Date = new Date(),
+  opts: { messageOverride?: string; applyToRest?: boolean } = {},
 ): Promise<SendCampaignResult | Fail<"not-found" | "not-allowed" | "already-handled" | "campaign-done" | "db-error">> {
   if (!canUse(actor) || actor.id === "") return { ok: false, reason: "not-allowed" };
   try {
@@ -379,6 +383,50 @@ export async function sendCampaignRecipient(
       const message = pauseReasonText("number-not-assigned");
       const counts = await refreshCounts(db, campaignId, campaign.recipient_count, { status: "paused", paused_reason: message }, now);
       return { ok: false, reason: "number-not-assigned", message, paused: true, pendingCount: counts.pendingCount };
+    }
+
+    const override = opts.messageOverride;
+    const applyToRest = override !== undefined && opts.applyToRest === true;
+    if (override !== undefined) {
+      // Both checks run before anything is reserved so a refusal leaves no trace. A recipient that is not
+      // pending is left to the reserve step below, which reports already-handled / not-found.
+      const { data: pre, error: preErr } = await db
+        .from("whatsapp_batch_recipients")
+        .select("id, contact_id, status")
+        .eq("id", recipientId)
+        .eq("batch_id", campaignId)
+        .maybeSingle();
+      if (preErr) throw preErr;
+      if (pre && pre.status === "pending") {
+        if (applyToRest) {
+          // This recipient is still pending here, so the count includes them.
+          const pending = await countRecipients(db, campaignId, "pending");
+          if (varietyBlocked(override, pending)) {
+            return { ok: false, reason: "variety", message: VARIETY_MESSAGE, pendingCount: pending };
+          }
+        }
+        if (override !== campaign.message_template && pre.contact_id) {
+          // Same-text-in-a-row rule: this send must not make a run longer than the max on this number.
+          const { data: contact, error: cErr } = await db
+            .from("contacts").select("full_name").eq("id", pre.contact_id).maybeSingle();
+          if (cErr) throw cErr;
+          if (contact) {
+            const body = renderWhatsAppMessage(override, contact.full_name);
+            const { data: recent, error: rErr } = await db
+              .from("contact_activities")
+              .select("body")
+              .eq("kind", "sent")
+              .eq("number_id", campaign.number_id)
+              .order("created_at", { ascending: false })
+              .limit(MAX_SAME_TEXT_RUN);
+            if (rErr) throw rErr;
+            const last = (recent ?? []).slice(0, MAX_SAME_TEXT_RUN);
+            if (last.length === MAX_SAME_TEXT_RUN && last.every((r) => r.body === body)) {
+              return { ok: false, reason: "variety", message: VARIETY_MESSAGE };
+            }
+          }
+        }
+      }
     }
 
     // Reserve first: only one caller can flip pending -> sent, so a double tap or a
@@ -427,7 +475,7 @@ export async function sendCampaignRecipient(
         actor,
         contactId,
         numberId: campaign.number_id,
-        messageTemplate: campaign.message_template,
+        messageTemplate: override ?? campaign.message_template,
         followupInHours: campaign.followup_in_hours ?? DEFAULT_FOLLOWUP_HOURS,
         now,
       });
@@ -438,6 +486,23 @@ export async function sendCampaignRecipient(
     }
 
     if (result.ok) {
+      let storedTemplate = campaign.message_template;
+      let templateSaved = false;
+      if (applyToRest) {
+        // The send already counted, so a failure here is logged rather than thrown.
+        try {
+          const { error: tplErr } = await db
+            .from("whatsapp_batches")
+            .update({ message_template: override })
+            .eq("id", campaignId)
+            .eq("owner_agent_id", actor.id);
+          if (tplErr) throw tplErr;
+          storedTemplate = override;
+          templateSaved = true;
+        } catch (te) {
+          console.error("[sales-campaigns] keep new wording failed", te);
+        }
+      }
       const counts = await refreshCounts(db, campaignId, campaign.recipient_count, { status: "active", paused_reason: null }, now);
       return {
         ok: true,
@@ -448,6 +513,8 @@ export async function sendCampaignRecipient(
         sentCount: counts.sentCount,
         pendingCount: counts.pendingCount,
         done: counts.done,
+        messageTemplate: storedTemplate,
+        templateSaved,
       };
     }
 
