@@ -24,6 +24,22 @@
 - Links accepted only if `http:`, `https:`, `mailto:`, `tel:`, or relative starting `#` or `/`. Anything else is rendered inert.
 - Performance targets: LCP < 2.5 s on a mid-range Android phone on 4G, CLS < 0.1 (measured in Task 12).
 - **UI must come from Stitch.** No Stitch screens for the builder or the public landing page exist yet. The user generates them from `docs/superpowers/stitch-prompts-landing-page-builder.md`. Tasks 7–11 start with a gate: the implementer must fetch and port the named Stitch screens (see `CLAUDE.md` "Stitch is the design source of truth") and stop and report if a screen is missing. The logic/tests in those tasks are authoritative; the Stitch screens supply layout, spacing and copy only.
+- **Stitch screens now exist** (generated 2026-10-12). Project `4651274386787527431` ("PZ Academy Platform 2"). Fetch with `mcp__stitch__get_screen` using name `projects/4651274386787527431/screens/<id>`, then download `htmlCode.downloadUrl` (and `screenshot`) for the real markup:
+
+  | Use | Screen id | Title |
+  |---|---|---|
+  | Task 7 public laptop | `6be7624e557d4c0da1ce18c2b305c3eb` | Public landing page - Clinical Pharmacotherapy Masterclass (1440 px) |
+  | Task 7 public phone | `058589ccb3b9461fb6d60156c5669873` | PZ Academy - Public Landing Page (Mobile 390px) (stored at a 2560-wide frame; port the 390 px layout) |
+  | Task 9 list laptop | `b40acc35c25244cfa692db8d3b4b4fd3` | Landing Pages - Admin Dashboard (Desktop) |
+  | Task 9 list phone | `bc526bf4152e4f93804436f5baf8f783` | Landing Pages - Admin Mobile List |
+  | Task 9 dialogs laptop | `47f28d9dbb62483f83b5e9abde6916f0` | New & Duplicate Page Dialogs - Admin (Desktop) |
+  | Task 9 dialogs phone | `c3e41b90e0a849169eaab5326307a005` and `75f9ab43e3f543519545ec3f27b76227` | New & Duplicate Page Dialogs - Mobile (two versions; compare, prefer the more complete) |
+  | Tasks 10–11 editor laptop | `f09c249455f54eaebac863dcc488bf33` | Landing Page Editor - Admin (Laptop 1440px) |
+  | Task 10 editor tablet + phone notice | `93225b0100384fbfa2e4b1d275517aa1` | Landing Page Editor - Tablet (820px) & Phone Fallback |
+  | Phase 2 (not this plan) | `e73340449f6e4491a30934cebfb14664`, `268dde14826340f5bf6ac02a1eb9e480`, `d7900177ed324b01acd71bb3ba420100` | Registration modal, mobile sheet, success/status |
+  | Phase 3 (not this plan) | `80ceb29219f840a6a2077f0c6a873d4b`, `7779f4eb79d44077bafd80aa23b95f13`, `219963feb6aa4431aa036d5564833c2d`, `82d1ee7564774829b1c6ad2ac326bd38` | Registrations, promo codes, agent performance, Meta tracking |
+
+  The Stitch palette on the public screens may drift from the landing brand; the Global Constraint palette (`landing-*` tokens) wins over any hex in the exported markup. Where a screen shows a feature this phase does not build (for example the registration modal opened by the Register button), keep the layout but wire the button to `settings.registerUrl` and stub the rest, per the project's "port every section" rule.
 - Commit trailer on every commit: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Fixes get NEW commits, never `git commit --amend`.
 - Known pre-existing failure: `tests/pz-tokens.test.ts` (SalesTeamPanel.tsx adaptive danger token). Ignore it; add no new violations.
 - Parallel implementers must `git add` explicit paths only.
