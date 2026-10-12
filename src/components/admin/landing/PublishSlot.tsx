@@ -37,7 +37,10 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
 
   const local = computeReadiness(content, { title, slug: page.slug });
   const changed = page.published ? hasUnpublishedChanges(normalizeContent(content), normalizeContent(page.published)) : true;
-  const upToDate = page.status === "published" && !changed;
+  const closed = page.status === "closed";
+  const upToDate = (page.status === "published" || closed) && !changed;
+  const conflict = saveState === "conflict";
+  const serverBlocked = (props.serverProblems?.length ?? 0) > 0;
 
   const publish = useAsyncAction(async () => {
     // Flush every edit first: the refresh below is only safe when nothing is left unsaved.
@@ -50,7 +53,7 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
       const res = await fetch(`/api/admin/landing-pages/${page.id}/publish`, { method: "POST" });
       if (res.ok) {
         onServerProblems?.(null);
-        toast.success("Page published");
+        toast.success(closed ? "Changes published. Registration stays closed." : "Page published");
         router.refresh();
         return;
       }
@@ -98,12 +101,14 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
     return () => window.removeEventListener("keydown", onKey);
   }, [sheet]);
 
-  const blocked = local.problems.length > 0 || saveState === "saving" || upToDate;
+  const blocked = local.problems.length > 0 || serverBlocked || saveState === "saving" || conflict || upToDate;
 
   return (
     <>
       <span className="inline-flex items-center gap-1.5 font-body text-xs text-pz-on-surface-variant">
         <span>{STATUS_TEXT[page.status]}</span>
+        {closed && <span>Registration is closed. Reopen it from the Landing Pages list.</span>}
+        {conflict && <span>Someone else changed this page. Reload to see their changes first.</span>}
         {page.published && changed && (
           <span className="rounded-full bg-pz-secondary-container px-2 py-0.5 font-headline text-[11px] font-semibold text-pz-on-secondary-container">Unpublished changes</span>
         )}

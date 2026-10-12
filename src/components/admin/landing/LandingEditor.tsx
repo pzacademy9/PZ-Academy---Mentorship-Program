@@ -46,10 +46,20 @@ const SAVE_DOT: Record<SaveState, string> = {
  * reload really does drop the local edits and restart autosave from the fresh revision.
  */
 export function LandingEditor({ page, versions }: { page: LandingPage; versions: LandingVersion[] }) {
+  // Remount only when the revision moved past what this editor itself last saved (a rollback or a
+  // confirmed Reload). A refresh that merely echoes our own autosaves must not reset the editor.
+  const known = useRef(page.revision);
+  const [epoch, setEpoch] = useState(0);
+  const lastId = useRef(page.id);
+  useEffect(() => {
+    if (lastId.current !== page.id) { lastId.current = page.id; known.current = page.revision; setEpoch((e) => e + 1); return; }
+    if (page.revision > known.current) { known.current = page.revision; setEpoch((e) => e + 1); }
+  }, [page.id, page.revision]);
+  const onRevision = useCallback((rev: number) => { if (rev > known.current) known.current = rev; }, []);
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${page.revision}`} page={page} versions={versions} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} onRevision={onRevision} />
     </>
   );
 }
@@ -74,10 +84,10 @@ function PhoneNotice() {
   );
 }
 
-function EditorShell({ page, versions }: { page: LandingPage; versions: LandingVersion[] }) {
+function EditorShell({ page, versions, onRevision }: { page: LandingPage; versions: LandingVersion[]; onRevision: (rev: number) => void }) {
   const router = useRouter();
   const confirm = useConfirm();
-  const { state, schedule, saveNow } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision });
+  const { state, schedule, saveNow } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
   const [content, setContent] = useState<LandingContent>(page.draft);
   const [selection, setSelection] = useState<string>(page.draft.sections[0]?.id ?? SETTINGS);
   const [pane, setPane] = useState<"edit" | "preview">("edit");
@@ -126,6 +136,7 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
         return;
       }
       setTitle(next);
+      setServerProblems(null);
       setNameDraft(next);
       toast.success("Page renamed.");
     } catch {

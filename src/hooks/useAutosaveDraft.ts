@@ -13,7 +13,9 @@ export type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
  *  - 409 = someone else saved: stop, surface "conflict", never retry;
  *  - network/5xx = keep the content and surface "error"; saveNow() retries.
  */
-export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800 }: { pageId: string; initialRevision: number; delayMs?: number }) {
+export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800, onRevision }: { pageId: string; initialRevision: number; delayMs?: number; onRevision?: (revision: number) => void }) {
+  const onRevisionRef = useRef(onRevision);
+  onRevisionRef.current = onRevision;
   const [state, setState] = useState<SaveState>("saved");
   const revision = useRef(initialRevision);
   const pending = useRef<LandingContent | null>(null);
@@ -47,6 +49,7 @@ export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800 }: { p
           if (!res.ok) throw new Error(String(res.status));
           const json = (await res.json()) as { revision: number };
           revision.current = json.revision;
+          onRevisionRef.current?.(json.revision);
         } catch {
           pending.current = pending.current ?? content;
           setState("error");

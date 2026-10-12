@@ -442,9 +442,9 @@ vi.mock("@/components/admin/program/ImageUploadField", () => ({
     <button type="button" onClick={() => { const captured = onChange; uploads.pending.push((u) => captured(u)); }}>Fake pick file</button>
   ),
 }));
-const autosave = vi.hoisted(() => ({ state: "saved" as string, schedule: vi.fn(), saveNow: vi.fn() }));
+const autosave = vi.hoisted(() => ({ state: "saved" as string, schedule: vi.fn(), saveNow: vi.fn(), onRevision: undefined as undefined | ((r: number) => void) }));
 vi.mock("@/hooks/useAutosaveDraft", () => ({
-  useAutosaveDraft: () => ({ state: autosave.state, schedule: autosave.schedule, saveNow: autosave.saveNow }),
+  useAutosaveDraft: (args: { onRevision?: (r: number) => void }) => { autosave.onRevision = args.onRevision; return { state: autosave.state, schedule: autosave.schedule, saveNow: autosave.saveNow }; },
 }));
 import { PreviewFrame } from "@/components/admin/landing/PreviewFrame";
 import { LandingEditor } from "@/components/admin/landing/LandingEditor";
@@ -695,6 +695,7 @@ describe("LandingEditor fix round 1", () => {
 // ---------------------------------------------------------------------------
 // Task 11: readiness checklist, publish flow, versions and restore
 // ---------------------------------------------------------------------------
+import { toast } from "sonner";
 import { ReadinessPanel } from "@/components/admin/landing/ReadinessPanel";
 import { VersionsPanel } from "@/components/admin/landing/VersionsPanel";
 import { removeSection as removeSectionT11, updateSettings as updateSettingsT11, updateSeo as updateSeoT11 } from "@/lib/landing/content";
@@ -861,5 +862,86 @@ describe("LandingEditor publish and versions", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /restore this version/i })[0]);
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("Someone else changed this page. Reload and try again."));
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("LandingEditor fix round (closed, remount, conflict)", () => {
+  let complete = emptyContent("webinar");
+  for (const s of complete.sections) if (s.type !== "hero") complete = removeSectionT11(complete, s.id);
+  complete = updateSectionData(complete, complete.sections[0].id, { headline: "Diabetes webinar" });
+  complete = updateSettingsT11(complete, { registerUrl: "https://pharmacozyme.com/register" });
+  complete = updateSeoT11(complete, { description: "A one hour webinar." });
+  const mk = (over: Record<string, unknown> = {}) => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+  }) as Parameters<typeof LandingEditor>[0]["page"];
+  const publishBtn = () => screen.getByRole("button", { name: /^(publish|published)$/i }) as HTMLButtonElement;
+  const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  const toastSuccess = toast.success as unknown as ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); autosave.saveNow.mockResolvedValue(true);
+    refresh.mockReset(); toastError.mockReset(); toastSuccess.mockReset(); confirmFn.mockReset(); confirmFn.mockResolvedValue(true);
+  });
+
+  it("closed page with an unchanged draft: Publish is disabled, labelled Published, and explains how to reopen", () => {
+    render(<LandingEditor page={mk({ status: "closed", published: complete })} versions={[]} />);
+    expect(publishBtn().textContent).toBe("Published");
+    expect(publishBtn().disabled).toBe(true);
+    expect(screen.getByText("Registration is closed. Reopen it from the Landing Pages list.")).toBeTruthy();
+  });
+  it("closed page with changes: Publish is enabled and the success toast says registration stays closed", async () => {
+    const published = updateSectionData(complete, complete.sections[0].id, { headline: "Older" });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true }));
+    render(<LandingEditor page={mk({ status: "closed", published })} versions={[]} />);
+    expect(publishBtn().disabled).toBe(false);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Changes published. Registration stays closed."));
+  });
+  it("does not remount when the refreshed revision is one this editor saved itself", () => {
+    const { rerender } = render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Typed" } });
+    act(() => autosave.onRevision?.(5));
+    rerender(<LandingEditor page={mk({ revision: 5 })} versions={[]} />);
+    expect((screen.getByLabelText("Register button text") as HTMLInputElement).value).toBe("Typed");
+  });
+  it("remounts to the new draft when the revision changed from outside (rollback or Reload)", () => {
+    const { rerender } = render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Typed" } });
+    act(() => autosave.onRevision?.(5));
+    const restored = updateSectionData(complete, complete.sections[0].id, { headline: "Restored headline" });
+    rerender(<LandingEditor page={mk({ revision: 9, draft: restored })} versions={[]} />);
+    expect(screen.getByLabelText("Headline")).toBeTruthy();
+    expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Restored headline");
+  });
+  it("conflict state disables Publish, shows why, and never calls the publish route", () => {
+    autosave.state = "conflict";
+    render(<LandingEditor page={mk()} versions={[]} />);
+    expect(publishBtn().disabled).toBe(true);
+    expect(screen.getByText("Someone else changed this page. Reload to see their changes first.")).toBeTruthy();
+    fireEvent.click(publishBtn());
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("server problems keep Publish disabled until the next edit", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(422, { error: "x", problems: [{ message: "Server says no." }] }));
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(screen.getByText("Server says no.")).toBeTruthy());
+    expect(publishBtn().disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Edited" } });
+    expect(screen.queryByText("Server says no.")).toBeNull();
+    expect(publishBtn().disabled).toBe(false);
+  });
+  it("a rename clears the server's problem list", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(jsonRes(422, { error: "x", problems: [{ message: "Server says no." }] }));
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(screen.getByText("Server says no.")).toBeTruthy());
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(jsonRes(200, { ok: true }));
+    const name = screen.getByLabelText("Page name");
+    fireEvent.change(name, { target: { value: "Renamed" } });
+    fireEvent.blur(name);
+    await waitFor(() => expect(screen.queryByText("Server says no.")).toBeNull());
   });
 });

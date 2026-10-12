@@ -101,3 +101,16 @@ describe("useAutosaveDraft", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe("useAutosaveDraft onRevision", () => {
+  it("reports the new revision after each successful save", async () => {
+    fetchMock.mockImplementationOnce(() => ok(2)).mockImplementationOnce(() => ok(3));
+    const seen: number[] = [];
+    const { result } = renderHook(() => useAutosaveDraft({ pageId: "p1", initialRevision: 1, delayMs: 100, onRevision: (r) => seen.push(r) }));
+    act(() => result.current.schedule(c));
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    act(() => result.current.schedule({ ...c, seo: { ...c.seo, title: "B" } }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(seen).toEqual([2, 3]);
+  });
+});
