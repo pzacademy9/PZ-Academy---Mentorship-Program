@@ -142,7 +142,7 @@ function NewPageForm({ onDone }: { onDone: () => void }) {
         )}
       </div>
 
-      <PageLinkField slug={slug} onChange={setSlugOverride} showValidation={name.trim().length > 0 || slugOverride !== null} />
+      <PageLinkField slug={slug} onChange={(s) => { setSlugOverride(s); setError(null); }} showValidation={name.trim().length > 0 || slugOverride !== null} />
 
       {error && (
         <p role="alert" className="rounded-lg bg-pz-error-container px-3 py-2 text-sm text-pz-on-error-container">{error}</p>

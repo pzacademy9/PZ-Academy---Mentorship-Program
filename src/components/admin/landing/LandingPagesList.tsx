@@ -40,7 +40,7 @@ const ICON_LINK =
   "inline-flex h-9 w-9 items-center justify-center rounded-md text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Karachi" });
 }
 
 export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
@@ -79,18 +79,22 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
         destructive: closing,
       });
       if (!ok) return;
-      const res = await fetch(`/api/admin/landing-pages/${page.id}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) {
-        toast.error(payload?.error ?? "Could not update the page.");
-        return;
+      try {
+        const res = await fetch(`/api/admin/landing-pages/${page.id}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        if (!res.ok) {
+          toast.error(payload?.error ?? "Could not update the page.");
+          return;
+        }
+        toast.success(closing ? "Registration closed." : "Registration reopened.");
+        router.refresh();
+      } catch {
+        toast.error("Could not reach the server. Please try again.");
       }
-      toast.success(closing ? "Registration closed." : "Registration reopened.");
-      router.refresh();
     },
     { getKey: (page) => page.id },
   );
@@ -179,6 +183,36 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
             New page
           </Button>
         </div>
+      </div>
+
+      <div className="hidden gap-3 md:grid md:grid-cols-5">
+        {[
+          { label: "Total pages", value: counts.all, note: "All created" },
+          { label: "Live & active", value: counts.published, note: "Accepting registrations" },
+          { label: "Drafting", value: counts.draft, note: "Unpublished" },
+          { label: "Closed", value: counts.closed, note: "Registration ended" },
+        ].map((t) => (
+          <div key={t.label} className="rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
+            <p className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">{t.label}</p>
+            <p className="mt-1 font-headline text-2xl font-bold tabular-nums text-pz-on-surface">{t.value}</p>
+            <p className="text-xs text-pz-on-surface-variant">{t.note}</p>
+          </div>
+        ))}
+        <div className="rounded-xl border border-dashed border-pz-outline-variant bg-pz-surface-container-lowest p-4">
+          <p className="font-headline text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">Traffic (30d)</p>
+          <p className="mt-2 text-sm text-pz-on-surface-variant">Analytics coming soon</p>
+        </div>
+      </div>
+
+      <div className="hidden gap-2 md:flex" role="tablist" aria-label="Landing page views">
+        <span role="tab" aria-selected="true" className="rounded-full bg-pz-primary-container px-4 py-2 font-headline text-sm font-semibold text-pz-on-primary-container">
+          All landing pages ({counts.all})
+        </span>
+        {["Conversion funnel analytics", "Archived"].map((t) => (
+          <span key={t} role="tab" aria-selected="false" aria-disabled="true" className="cursor-not-allowed rounded-full bg-pz-surface-container-high px-4 py-2 font-headline text-sm font-medium text-pz-on-surface-variant">
+            {t} <span className="ml-1 text-xs">Coming soon</span>
+          </span>
+        ))}
       </div>
 
       {visible.length === 0 ? (
@@ -289,6 +323,9 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
                 })}
               </tbody>
             </table>
+            <p className="border-t border-pz-outline-variant px-4 py-3 text-xs text-pz-on-surface-variant">
+              Showing {visible.length} of {pages.length} pages
+            </p>
           </div>
         </>
       )}

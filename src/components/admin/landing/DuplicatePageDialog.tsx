@@ -72,7 +72,7 @@ function DuplicateForm({ page, onDone }: { page: LandingPageSummary; onDone: () 
         />
       </div>
 
-      <PageLinkField slug={slug} onChange={setSlugOverride} showValidation />
+      <PageLinkField slug={slug} onChange={(s) => { setSlugOverride(s); setError(null); }} showValidation />
 
       <p className="flex items-start gap-2 text-xs text-pz-on-surface-variant">
         <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
