@@ -187,7 +187,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const slug = validateSlug(page.slug);
   if (!slug.ok) problems.push({ message: slug.message });
   if (c.seo.description.trim() === "") problems.push({ message: "Add a short description for Google and WhatsApp previews (Page settings)." });
-  if (!isSafeUrl(c.settings.registerUrl)) problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
+  if (!(/^https?:\/\//i.test(c.settings.registerUrl.trim()) && isSafeUrl(c.settings.registerUrl))) problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
   if (c.settings.whatsappNumber.trim() !== "") {
     const digits = c.settings.whatsappNumber.replace(/\D/g, "");
     if (digits.length < 8 || digits.length > 15) problems.push({ message: "The WhatsApp number looks wrong. Include the country code, for example 923001234567." });

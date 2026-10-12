@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   emptyContent, normalizeContent, addSection, removeSection, moveSection, toggleSection,
-  updateSectionData, computeReadiness, hasUnpublishedChanges, contentSchema, KIND_SECTIONS,
+  updateSectionData, updateSettings, computeReadiness, hasUnpublishedChanges, contentSchema, KIND_SECTIONS,
 } from "@/lib/landing/content";
 
 const ids = (c: ReturnType<typeof emptyContent>) => c.sections.map((s) => s.id);
@@ -128,5 +128,42 @@ describe("hasUnpublishedChanges", () => {
     const a = emptyContent("course");
     expect(hasUnpublishedChanges(a, structuredClone(a))).toBe(false);
     expect(hasUnpublishedChanges(updateSectionData(a, a.sections[0].id, { headline: "x" }), a)).toBe(true);
+  });
+});
+
+describe("register link must be an absolute http(s) URL", () => {
+  const page = { title: "PPC Batch 4", slug: "ppc-b4" };
+  const withUrl = (registerUrl: string) => computeReadiness(updateSettings(emptyContent("webinar"), { registerUrl }), page).problems.some((p) => /Register button/i.test(p.message));
+  it("flags dead or non-web links", () => {
+    for (const bad of ["#", "/x", "mailto:a@b.com", ""]) expect(withUrl(bad)).toBe(true);
+  });
+  it("accepts a real https link", () => expect(withUrl("https://pharmacozyme.com/register")).toBe(false));
+});
+
+describe("contentSchema rejects bad input", () => {
+  const ok = () => emptyContent("webinar");
+  it("accepts the happy path", () => expect(contentSchema.safeParse(ok()).success).toBe(true));
+  it("rejects duplicate section ids", () => {
+    const c = ok();
+    c.sections[1].id = c.sections[0].id;
+    expect(contentSchema.safeParse(c).success).toBe(false);
+  });
+  it("rejects an unsafe hero image", () => {
+    const c = ok();
+    c.sections[0].data = { ...c.sections[0].data, image: "javascript:alert(1)" };
+    expect(contentSchema.safeParse(c).success).toBe(false);
+  });
+  it("rejects an unknown section type", () => {
+    const c = ok() as unknown as { sections: { type: string }[] };
+    c.sections[0].type = "nope";
+    expect(contentSchema.safeParse(c).success).toBe(false);
+  });
+  it("rejects 41 sections", () => {
+    const c = ok();
+    c.sections = Array.from({ length: 41 }, (_, i) => ({ ...c.sections[0], id: `s${i}` }));
+    expect(contentSchema.safeParse(c).success).toBe(false);
+  });
+  it("rejects an unsafe register link", () => {
+    expect(contentSchema.safeParse(updateSettings(ok(), { registerUrl: "javascript:x" })).success).toBe(false);
   });
 });
