@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Monitor, PanelLeft, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -82,7 +83,70 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [drawer, setDrawer] = useState(false);
 
-  const apply = useCallback((next: LandingContent) => { setContent(next); schedule(next); }, [schedule]);
+  // Always derive edits from the freshest content, never from a render-time capture: an image upload
+  // can finish seconds later and must not revert what was typed meanwhile.
+  const contentRef = useRef(content);
+  const apply = useCallback((next: LandingContent) => {
+    contentRef.current = next;
+    setContent(next);
+    schedule(next);
+  }, [schedule]);
+
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const saveNowRef = useRef(saveNow);
+  saveNowRef.current = saveNow;
+  // Best effort for the browser Back button and other in-app exits: flush a pending edit on unmount.
+  useEffect(() => () => { if (stateRef.current === "dirty") void saveNowRef.current(); }, []);
+
+  const [title, setTitle] = useState(page.title);
+  const [nameDraft, setNameDraft] = useState(page.title);
+  const renaming = useRef(false);
+  async function commitName() {
+    if (renaming.current) return;
+    const next = nameDraft.trim();
+    if (next === "" || next === title) { setNameDraft(title); return; }
+    renaming.current = true;
+    try {
+      const res = await fetch(`/api/admin/landing-pages/${page.id}/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: next }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(payload?.error ?? "Couldn't rename the page.");
+        setNameDraft(title);
+        return;
+      }
+      setTitle(next);
+      setNameDraft(next);
+      toast.success("Page renamed.");
+    } catch {
+      toast.error("Couldn't rename the page.");
+      setNameDraft(title);
+    } finally {
+      renaming.current = false;
+    }
+  }
+
+  async function leaveToList(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    const st = stateRef.current;
+    if (st === "saved") return;
+    e.preventDefault();
+    let ok = st !== "error" && st !== "conflict";
+    if (ok) ok = await saveNow();
+    if (!ok) {
+      ok = await confirm({
+        title: "Leave without saving?",
+        description: "Your latest changes were not saved. Leave anyway?",
+        confirmLabel: "Leave anyway",
+        destructive: true,
+      });
+    }
+    if (ok) router.push(LIST_HREF);
+  }
 
   // Warn before leaving while anything could be lost: unsaved, in flight, failed, or conflicted
   // (after a conflict, further edits are not saved at all).
@@ -110,32 +174,45 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
   const select = (id: string) => { setSelection(id); setPane("edit"); setDrawer(false); };
 
   function onAdd(type: Parameters<typeof addSection>[1]) {
-    const next = addSection(content, type);
+    const before = contentRef.current;
+    const next = addSection(before, type);
     apply(next);
-    const known = new Set(content.sections.map((s) => s.id));
+    const known = new Set(before.sections.map((s) => s.id));
     const created = next.sections.find((s) => !known.has(s.id));
     if (created) select(created.id);
   }
   function onRemove(id: string) {
-    const next = removeSection(content, id);
+    const next = removeSection(contentRef.current, id);
     apply(next);
     if (selection === id) setSelection(next.sections[0]?.id ?? SETTINGS);
   }
 
-  const slotProps = { page, versions, content, saveState: state, saveNow };
+  const slotProps = { page, title, versions, content, saveState: state, saveNow };
 
   return (
     <div className="fixed inset-0 z-50 hidden flex-col bg-pz-surface md:flex">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-pz-outline-variant bg-pz-surface-container-lowest px-4 py-2">
         <Link
           href={LIST_HREF}
+          onClick={(e) => void leaveToList(e)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-pz-outline-variant px-2.5 py-1.5 font-body text-xs font-semibold text-pz-on-surface-variant hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Landing Pages
         </Link>
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="min-w-0 truncate font-headline text-sm font-bold text-pz-on-surface">{page.title}</h1>
+          <input
+            aria-label="Page name"
+            value={nameDraft}
+            maxLength={120}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={() => void commitName()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void commitName();
+              if (e.key === "Escape") { setNameDraft(title); e.currentTarget.blur(); }
+            }}
+            className="w-56 min-w-0 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 font-headline text-sm font-bold text-pz-on-surface hover:border-pz-outline-variant focus-visible:border-pz-outline-variant focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
           <span className="shrink-0 rounded-full bg-pz-surface-container-high px-2 py-0.5 font-body text-[11px] font-medium text-pz-on-surface-variant">{KIND_LABEL[page.kind]}</span>
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
@@ -231,8 +308,8 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
             sections={content.sections}
             selectedId={showSettings ? null : current?.id ?? null}
             onSelect={select}
-            onToggle={(id) => apply(toggleSection(content, id))}
-            onMove={(id, dir) => apply(moveSection(content, id, dir))}
+            onToggle={(id) => apply(toggleSection(contentRef.current, id))}
+            onMove={(id, dir) => apply(moveSection(contentRef.current, id, dir))}
             onRemove={onRemove}
             onAdd={onAdd}
           />
@@ -245,9 +322,9 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
               settings={content.settings}
               seo={content.seo}
               slug={page.slug}
-              pageTitle={page.title}
-              onSettings={(patch) => apply(updateSettings(content, patch))}
-              onSeo={(patch) => apply(updateSeo(content, patch))}
+              pageTitle={title}
+              onSettings={(patch) => apply(updateSettings(contentRef.current, patch))}
+              onSeo={(patch) => apply(updateSeo(contentRef.current, patch))}
             />
           ) : current ? (
             <div className="space-y-5">
@@ -267,7 +344,7 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
                 key={current.id}
                 type={current.type}
                 data={current.data}
-                onChange={(data) => apply(updateSectionData(content, current.id, data))}
+                onChange={(data) => apply(updateSectionData(contentRef.current, current.id, data))}
               />
             </div>
           ) : (

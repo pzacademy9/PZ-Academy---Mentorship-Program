@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -435,6 +435,13 @@ describe("PreviewTarget", () => {
 // ---------------------------------------------------------------------------
 // Task 10 stage 5: PreviewFrame + LandingEditor shell
 // ---------------------------------------------------------------------------
+const uploads = vi.hoisted(() => ({ pending: [] as ((url: string) => void)[] }));
+vi.mock("@/components/admin/program/ImageUploadField", () => ({
+  // Models the real field: the upload captures onChange when the file is picked and calls it later.
+  ImageUploadField: ({ onChange }: { onChange: (u: string) => void }) => (
+    <button type="button" onClick={() => { const captured = onChange; uploads.pending.push((u) => captured(u)); }}>Fake pick file</button>
+  ),
+}));
 const autosave = vi.hoisted(() => ({ state: "saved" as string, schedule: vi.fn(), saveNow: vi.fn() }));
 vi.mock("@/hooks/useAutosaveDraft", () => ({
   useAutosaveDraft: () => ({ state: autosave.state, schedule: autosave.schedule, saveNow: autosave.saveNow }),
@@ -479,7 +486,7 @@ describe("LandingEditor", () => {
 
   it("shows the page name, a preview-in-new-tab link and the section list, with the first section open", () => {
     render(<LandingEditor page={page} versions={[]} />);
-    expect(screen.getAllByText("Webinar 21").length).toBeGreaterThan(0);
+    expect((screen.getByLabelText("Page name") as HTMLInputElement).value).toBe("Webinar 21");
     const link = screen.getByRole("link", { name: /preview in new tab/i });
     expect(link.getAttribute("href")).toBe("/dashboard/admin/landing-pages/p1/preview");
     expect(link.getAttribute("target")).toBe("_blank");
@@ -547,5 +554,105 @@ describe("LandingEditor", () => {
     render(<LandingEditor page={page} versions={[]} />);
     expect(screen.getByText(/works best on a laptop or tablet/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /back to landing pages/i }).getAttribute("href")).toBe("/dashboard/admin/landing-pages");
+  });
+});
+
+describe("LandingEditor fix round 1", () => {
+  const draft = emptyContent("webinar");
+  const page = {
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+  };
+  beforeEach(() => {
+    autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); refresh.mockReset();
+    push.mockReset(); uploads.pending = [];
+  });
+
+  it("an upload that finishes late keeps edits made while it was running", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "A edit" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Fake pick file" })[0]);
+    fireEvent.change(screen.getByLabelText("Short description"), { target: { value: "B edit" } });
+    act(() => uploads.pending[0]("https://img.example/new.webp"));
+    const last = autosave.schedule.mock.calls.at(-1)![0];
+    expect(last.sections[0].data.headline).toBe("A edit");
+    expect(last.sections[0].data.subheadline).toBe("B edit");
+    expect(last.sections[0].data.image).toBe("https://img.example/new.webp");
+  });
+  it("a late share-image upload keeps settings edits made meanwhile", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Fake pick file" })[0]);
+    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
+    act(() => uploads.pending[0]("https://img.example/share.webp"));
+    const last = autosave.schedule.mock.calls.at(-1)![0];
+    expect(last.settings.registerLabel).toBe("Join");
+    expect(last.seo.ogImage).toBe("https://img.example/share.webp");
+  });
+
+  it("back link while dirty saves first, then navigates", async () => {
+    autosave.state = "dirty";
+    autosave.saveNow.mockResolvedValue(true);
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.click(screen.getByRole("link", { name: "Landing Pages" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/admin/landing-pages"));
+    expect(autosave.saveNow).toHaveBeenCalled();
+  });
+  it("back link in the error state asks first and stays put when declined", async () => {
+    autosave.state = "error";
+    render(<LandingEditor page={page} versions={[]} />);
+    confirmFn.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole("link", { name: "Landing Pages" }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("Your latest changes were not saved. Leave anyway?") })));
+    expect(push).not.toHaveBeenCalled();
+    confirmFn.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole("link", { name: "Landing Pages" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/admin/landing-pages"));
+  });
+  it("unmounting while dirty fires a best-effort save", () => {
+    autosave.state = "dirty";
+    autosave.saveNow.mockResolvedValue(true);
+    const { unmount } = render(<LandingEditor page={page} versions={[]} />);
+    expect(autosave.saveNow).not.toHaveBeenCalled();
+    unmount();
+    expect(autosave.saveNow).toHaveBeenCalledTimes(1);
+  });
+  it("unmounting when saved does not save", () => {
+    const { unmount } = render(<LandingEditor page={page} versions={[]} />);
+    unmount();
+    expect(autosave.saveNow).not.toHaveBeenCalled();
+  });
+
+  it("renames on blur by posting to the rename route", async () => {
+    const f = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    vi.stubGlobal("fetch", f);
+    render(<LandingEditor page={page} versions={[]} />);
+    const input = screen.getByLabelText("Page name");
+    fireEvent.change(input, { target: { value: "  Better name " } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(f).toHaveBeenCalled());
+    expect(f.mock.calls[0][0]).toBe("/api/admin/landing-pages/p1/rename");
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ title: "Better name" });
+  });
+  it("does not send an empty or unchanged name, and restores the old one", () => {
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    render(<LandingEditor page={page} versions={[]} />);
+    const input = screen.getByLabelText("Page name") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.blur(input);
+    expect(f).not.toHaveBeenCalled();
+    expect(input.value).toBe("Webinar 21");
+    fireEvent.blur(input);
+    expect(f).not.toHaveBeenCalled();
+  });
+  it("reverts and reports when the rename fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Could not rename the page" }) }));
+    render(<LandingEditor page={page} versions={[]} />);
+    const input = screen.getByLabelText("Page name") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Nope" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Could not rename the page"));
+    await waitFor(() => expect(input.value).toBe("Webinar 21"));
   });
 });

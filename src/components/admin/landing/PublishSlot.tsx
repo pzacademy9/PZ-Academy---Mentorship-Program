@@ -4,6 +4,8 @@ import type { SaveState } from "@/hooks/useAutosaveDraft";
 
 export interface EditorSlotProps {
   page: LandingPage;
+  /** The current saved page name (may be newer than page.title after a rename). Readiness should use this. */
+  title: string;
   versions: LandingVersion[];
   content: LandingContent;
   saveState: SaveState;

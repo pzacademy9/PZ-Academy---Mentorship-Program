@@ -16,6 +16,10 @@ const INPUT =
  */
 export function LandingImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const passThrough = useRef(false);
+  // An upload finishes seconds after it started and calls onChange from the render it began in; always
+  // go through the latest handler so edits made meanwhile are not reverted.
+  const latest = useRef(onChange);
+  latest.current = onChange;
 
   function onChangeCapture(e: React.ChangeEvent<HTMLDivElement>) {
     const input = e.target as unknown as HTMLInputElement;
@@ -47,7 +51,7 @@ export function LandingImageField({ value, onChange }: { value: string; onChange
     <div onChangeCapture={onChangeCapture}>
       <ImageUploadField
         value={value}
-        onChange={onChange}
+        onChange={(url) => latest.current(url)}
         courseSlug="landing-pages"
         kind="landing"
         inputClassName={INPUT}
