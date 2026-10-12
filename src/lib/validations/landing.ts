@@ -32,6 +32,8 @@ export const saveDraftSchema = z.object({
 });
 
 export const rollbackSchema = z.object({ version: z.number().int().min(1) });
+export const renameSchema = z.object({ title: z.string().trim().min(1, "Give the page a name.").max(120, "Use 120 characters or fewer.") });
+
 export const statusSchema = z.object({ status: z.enum(["closed", "published"]) });
 
 export { MAX_CONTENT_BYTES };

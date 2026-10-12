@@ -35,7 +35,7 @@ function builder(table: string) {
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from: builder }) }));
 
 import {
-  rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage,
+  rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage, renameLandingPage,
 } from "@/lib/data/landing-pages";
 import { emptyContent } from "@/lib/landing/content";
 
@@ -130,5 +130,26 @@ describe("getPublishedLandingPage", () => {
   it("returns a published page", async () => {
     handler = () => ({ data: pageRow(), error: null });
     expect((await getPublishedLandingPage("ppc-b4"))?.page.slug).toBe("ppc-b4");
+  });
+});
+
+describe("renameLandingPage", () => {
+  it("updates only the title and updated_at, never slug, revision or draft", async () => {
+    handler = () => ({ data: { id: "p1", slug: "ppc-b4" }, error: null });
+    expect(await renameLandingPage("p1", "New name")).toEqual({ ok: true });
+    const upd = find("landing_pages", "update");
+    expect(upd).toHaveLength(1);
+    expect(Object.keys(upd[0].payload!).sort()).toEqual(["title", "updated_at"]);
+    expect(upd[0].payload!.title).toBe("New name");
+    expect(upd[0].filters).toContainEqual(["id", "p1"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
+  });
+  it("missing page is not-found", async () => {
+    handler = () => ({ data: null, error: null });
+    expect(await renameLandingPage("p1", "x")).toEqual({ ok: false, reason: "not-found" });
+  });
+  it("database error is db-error", async () => {
+    handler = () => ({ data: null, error: { message: "boom" } });
+    expect(await renameLandingPage("p1", "x")).toEqual({ ok: false, reason: "db-error" });
   });
 });

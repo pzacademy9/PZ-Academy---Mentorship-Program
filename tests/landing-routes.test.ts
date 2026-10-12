@@ -10,6 +10,7 @@ const publishLandingPage = vi.fn();
 const rollbackLandingPage = vi.fn();
 const duplicateLandingPage = vi.fn();
 const setPageStatus = vi.fn();
+const renameLandingPage = vi.fn();
 vi.mock("@/lib/data/landing-pages", () => ({
   createLandingPage: (...a: unknown[]) => createLandingPage(...a),
   saveDraft: (...a: unknown[]) => saveDraft(...a),
@@ -17,6 +18,7 @@ vi.mock("@/lib/data/landing-pages", () => ({
   rollbackLandingPage: (...a: unknown[]) => rollbackLandingPage(...a),
   duplicateLandingPage: (...a: unknown[]) => duplicateLandingPage(...a),
   setPageStatus: (...a: unknown[]) => setPageStatus(...a),
+  renameLandingPage: (...a: unknown[]) => renameLandingPage(...a),
 }));
 
 import { POST as create } from "@/app/api/admin/landing-pages/route";
@@ -25,13 +27,14 @@ import { POST as publish } from "@/app/api/admin/landing-pages/[id]/publish/rout
 import { POST as rollback } from "@/app/api/admin/landing-pages/[id]/rollback/route";
 import { POST as duplicate } from "@/app/api/admin/landing-pages/[id]/duplicate/route";
 import { POST as status } from "@/app/api/admin/landing-pages/[id]/status/route";
+import { POST as rename } from "@/app/api/admin/landing-pages/[id]/rename/route";
 import { emptyContent, MAX_CONTENT_BYTES } from "@/lib/landing/content";
 
 const req = (body: unknown, method = "POST") => new Request("http://x", { method, body: JSON.stringify(body) }) as never;
 const ctx = { params: Promise.resolve({ id: "p1" }) };
 
 beforeEach(() => {
-  for (const m of [createLandingPage, saveDraft, publishLandingPage, rollbackLandingPage, duplicateLandingPage, setPageStatus]) m.mockReset();
+  for (const m of [createLandingPage, saveDraft, publishLandingPage, rollbackLandingPage, duplicateLandingPage, setPageStatus, renameLandingPage]) m.mockReset();
 });
 
 describe("POST /api/admin/landing-pages", () => {
@@ -161,5 +164,28 @@ describe("rollback / duplicate / status", () => {
     expect((await status(req({ status: "closed" }), ctx)).status).toBe(409);
     setPageStatus.mockResolvedValue({ ok: true });
     expect((await status(req({ status: "closed" }), ctx)).status).toBe(200);
+  });
+});
+
+describe("POST /api/admin/landing-pages/[id]/rename", () => {
+  it("renames with a trimmed title", async () => {
+    renameLandingPage.mockResolvedValue({ ok: true });
+    const res = await rename(req({ title: "  New name  " }), ctx);
+    expect(res.status).toBe(200);
+    expect(renameLandingPage).toHaveBeenCalledWith("p1", "New name");
+  });
+  it("rejects an empty, blank or over-long name with a plain message", async () => {
+    for (const title of ["", "   ", "x".repeat(121)]) {
+      const res = await rename(req({ title }), ctx);
+      expect(res.status).toBe(400);
+    }
+    expect((await (await rename(req({ title: " " }), ctx)).json()).error).toBe("Give the page a name.");
+    expect(renameLandingPage).not.toHaveBeenCalled();
+  });
+  it("maps not-found to 404 and db errors to 500", async () => {
+    renameLandingPage.mockResolvedValue({ ok: false, reason: "not-found" });
+    expect((await rename(req({ title: "A" }), ctx)).status).toBe(404);
+    renameLandingPage.mockResolvedValue({ ok: false, reason: "db-error" });
+    expect((await rename(req({ title: "A" }), ctx)).status).toBe(500);
   });
 });

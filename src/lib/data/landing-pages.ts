@@ -209,3 +209,19 @@ export async function setPageStatus(id: string, status: "closed" | "published"):
   revalidatePath(`/e/${page.slug}`);
   return { ok: true };
 }
+
+/** Renames a page. Only `title` (and updated_at) change: not the slug, the draft or the revision. */
+export async function renameLandingPage(id: string, title: string): Promise<SimpleResult> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("landing_pages")
+    .update({ title, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, slug")
+    .maybeSingle();
+  if (error) return { ok: false, reason: "db-error" };
+  if (!data) return { ok: false, reason: "not-found" };
+  revalidatePath(`/e/${data.slug}`);
+  revalidatePath("/dashboard/admin/landing-pages");
+  return { ok: true };
+}
