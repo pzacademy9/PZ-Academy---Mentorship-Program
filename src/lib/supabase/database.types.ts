@@ -1372,6 +1372,86 @@ export type Database = {
           },
         ]
       }
+      landing_page_versions: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          page_id: string
+          version: number
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          page_id: string
+          version: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          page_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_page_versions_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_pages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          draft: Json
+          id: string
+          kind: string
+          published: Json | null
+          published_at: string | null
+          revision: number
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          draft: Json
+          id?: string
+          kind: string
+          published?: Json | null
+          published_at?: string | null
+          revision?: number
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          draft?: Json
+          id?: string
+          kind?: string
+          published?: Json | null
+          published_at?: string | null
+          revision?: number
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lead_campaigns: {
         Row: {
           active: boolean

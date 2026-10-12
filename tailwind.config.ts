@@ -31,11 +31,17 @@ const config: Config = {
   			label:      ['var(--font-handlee)', 'cursive'],
   			// Mentorship section only
   			allura:     ['var(--font-allura)', 'cursive'],
+  			// Public landing pages (/e/*) only: Inter body via src/app/e/layout.tsx; headlines use `headline` (Montserrat)
+  			'landing-body': ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
   		},
   		boxShadow: {
   			card:    '0 4px 24px rgba(25,75,50,.10)',
   			'card-lg': '0 16px 48px rgba(25,75,50,.18)',
   			gold:    '0 4px 20px rgba(201,150,10,.25)',
+  			// Public landing pages only
+  			'landing-soft':    '0 4px 20px -2px rgba(13,27,19,.06), 0 2px 6px -1px rgba(13,27,19,.04)',
+  			'landing-soft-lg': '0 10px 30px -4px rgba(13,27,19,.08), 0 4px 12px -2px rgba(13,27,19,.04)',
+  			'landing-bar':     '0 -4px 16px rgba(13,27,19,.08)',
   			// Mentorship section only
   			'gold-sm': '0 0 12px rgba(201,168,76,0.25)',
   			'gold-md': '0 0 20px 4px rgba(201,168,76,0.35)',
@@ -49,6 +55,7 @@ const config: Config = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)',
+  			landing: '8px',
   		},
   		colors: {
   			// Mentorship section only — do not use elsewhere, use colors.pz instead
@@ -64,6 +71,27 @@ const config: Config = {
   				'card-border':'#E5E1D8',
   			},
   			pz: pzTailwindColors(),
+  			// Public landing pages (/e/*) use their OWN fixed light brand. Defined once, here;
+  			// components use only bg-landing-*/text-landing-*/border-landing-* classes.
+  			landing: {
+  				primary:                     '#04704D',
+  				'primary-hover':             '#035A3D',
+  				'on-primary':                '#FFFFFF',
+  				deep:                        '#023122',
+  				mint:                        '#80D8AD',
+  				'mint-light':                '#E8F8F0',
+  				'near-black':                '#0D1B13',
+  				surface:                     '#F8F9FA',
+  				'surface-container-lowest':  '#FFFFFF',
+  				'surface-container-low':     '#F3F4F5',
+  				'on-surface':                '#191C1D',
+  				'on-surface-variant':        '#3F4943',
+  				muted:                       '#56605A',
+  				'outline-variant':           '#BEC9C1',
+  				border:                      '#E2E6E4',
+  				whatsapp:                    '#25D366',
+  				'whatsapp-hover':            '#20BD5A',
+  			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
