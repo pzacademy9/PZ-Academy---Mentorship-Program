@@ -350,3 +350,53 @@ describe("SectionList", () => {
     expect(h.onAdd).toHaveBeenCalledWith("faq");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 10 stage 3: PageSettingsPanel
+// ---------------------------------------------------------------------------
+import { PageSettingsPanel } from "@/components/admin/landing/PageSettingsPanel";
+
+describe("PageSettingsPanel", () => {
+  const base = emptyContent("course");
+  const setup = (over: Partial<typeof base.settings> = {}) => {
+    const onSettings = vi.fn();
+    const onSeo = vi.fn();
+    render(<PageSettingsPanel settings={{ ...base.settings, ...over }} seo={base.seo} slug="ppc-b3" onSettings={onSettings} onSeo={onSeo} />);
+    return { onSettings, onSeo };
+  };
+
+  it("reports each settings edit as a patch", () => {
+    const { onSettings, onSeo } = setup();
+    fireEvent.change(screen.getByLabelText("Register button link"), { target: { value: "https://forms.example.com/x" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ registerUrl: "https://forms.example.com/x" });
+    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join now" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ registerLabel: "Join now" });
+    fireEvent.change(screen.getByLabelText("WhatsApp number"), { target: { value: "923001234567" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ whatsappNumber: "923001234567" });
+    fireEvent.change(screen.getByLabelText("Countdown label"), { target: { value: "Early Bird ends in" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ countdownLabel: "Early Bird ends in" });
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "My title" } });
+    expect(onSeo).toHaveBeenLastCalledWith({ title: "My title" });
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Short text" } });
+    expect(onSeo).toHaveBeenLastCalledWith({ description: "Short text" });
+  });
+  it("converts the countdown date (entered in Pakistan time) to an ISO instant, and back", () => {
+    const { onSettings } = setup();
+    fireEvent.change(screen.getByLabelText("Countdown ends (Pakistan time)"), { target: { value: "2026-10-15T19:30" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ countdownTo: "2026-10-15T14:30:00.000Z" });
+  });
+  it("clears the countdown when the date is emptied", () => {
+    const { onSettings } = setup({ countdownTo: "2026-10-15T14:30:00.000Z" });
+    fireEvent.change(screen.getByLabelText("Countdown ends (Pakistan time)"), { target: { value: "" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ countdownTo: "" });
+  });
+  it("shows the stored countdown in Pakistan time", () => {
+    setup({ countdownTo: "2026-10-15T14:30:00.000Z" });
+    expect((screen.getByLabelText("Countdown ends (Pakistan time)") as HTMLInputElement).value).toBe("2026-10-15T19:30");
+  });
+  it("flags a bad register link inline without blocking, and previews the share card", () => {
+    setup({ registerUrl: "javascript:alert(1)" });
+    expect(screen.getByText(/starting with https/i)).toBeTruthy();
+    expect(screen.getByText("/e/ppc-b3")).toBeTruthy();
+  });
+});

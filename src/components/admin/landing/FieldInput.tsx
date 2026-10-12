@@ -33,7 +33,7 @@ function RequiredMarker() {
 /** Plain-language problem with the current value, or null. Never used to block typing. */
 function problemFor(field: FieldDef, value: string): string | null {
   if (value === "") return null;
-  if (field.kind === "url" && !isSafeUrl(value)) return "Enter a full link starting with https:// (for example https://pzacademy.org).";
+  if (field.kind === "url" && !isSafeUrl(value)) return "Enter a full link starting with https://";
   if (field.kind === "youtube" && !youtubeId(value)) return "That doesn't look like a YouTube link. Paste the YouTube or YouTube Shorts link.";
   if ((field.kind === "text" || field.kind === "textarea") && field.max && value.length > field.max) {
     return `This is ${value.length - field.max} characters too long. Please keep it under ${field.max} characters.`;
