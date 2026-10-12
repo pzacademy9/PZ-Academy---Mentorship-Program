@@ -31,7 +31,7 @@ import type { CampaignRecipientStatus } from "@/lib/crm/campaign-rules";
 import { useSalesBudget } from "./SalesBudgetProvider";
 import { useNow } from "./useNow";
 import { PanicButton } from "./PanicButton";
-import { ChangeModeLink, WhatsAppChooserDialog } from "./WhatsAppChooser";
+import { ChangeModeLink, WebShortcutButton, WhatsAppChooserDialog } from "./WhatsAppChooser";
 
 const LIST_HREF = "/dashboard/sales/campaigns";
 const QUEUE_PREVIEW = 10;
@@ -385,6 +385,7 @@ export function CampaignSession({
                   <MessageCircle className="w-6 h-6" />
                   {locked ? copy.button : "Open WhatsApp"}
                 </Button>
+                {desktop && mode !== "web" && <WebShortcutButton onClick={() => startSend("web")} disabled={locked || busy} />}
                 {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={busy} />}
                 {locked && copy.detail && (
                   <p className="text-xs text-center text-pz-on-surface-variant">{copy.detail}</p>

@@ -38,7 +38,7 @@ import { useSalesBudget } from "./SalesBudgetProvider";
 import { useNow } from "./useNow";
 import { OutcomeButtons } from "./OutcomeButtons";
 import { NoteBox } from "./NoteBox";
-import { ChangeModeLink, WhatsAppChooserDialog } from "./WhatsAppChooser";
+import { ChangeModeLink, WebShortcutButton, WhatsAppChooserDialog } from "./WhatsAppChooser";
 
 // One choice for the whole browser tab session, shared by every contact in the panel.
 const MODE_SCOPE = "send-panel";
@@ -280,6 +280,7 @@ export function SendPanel({
           <MessageCircle className="w-6 h-6" />
           {buttonText}
         </Button>
+        {desktop && mode !== "web" && <WebShortcutButton onClick={() => startSend("web")} disabled={locked || sending || emptyMessage || tooLong} />}
         {!locked && desktop && <ChangeModeLink mode={mode} onChange={onChange} disabled={sending} />}
         {detailText && <p className="text-xs text-center text-pz-on-surface-variant">{detailText}</p>}
         {!locked && !detailText && !tooLong && (

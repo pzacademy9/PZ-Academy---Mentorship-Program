@@ -77,3 +77,20 @@ export function ChangeModeLink({
     </p>
   );
 }
+
+/**
+ * Small desktop-only shortcut for people whose saved mode is not Web. It is a per-click override:
+ * the caller runs the normal send flow with "web" and the saved mode is left alone.
+ */
+export function WebShortcutButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="self-center rounded px-2 py-1 text-xs font-headline font-semibold text-pz-primary underline underline-offset-4 hover:text-pz-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:no-underline"
+    >
+      Open in WhatsApp Web
+    </button>
+  );
+}
