@@ -655,4 +655,39 @@ describe("LandingEditor fix round 1", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("Could not rename the page"));
     await waitFor(() => expect(input.value).toBe("Webinar 21"));
   });
+  it("Escape restores the saved name and sends no request", () => {
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    render(<LandingEditor page={page} versions={[]} />);
+    const input = screen.getByLabelText("Page name") as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: "Foo" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(f).not.toHaveBeenCalled();
+    expect(input.value).toBe("Webinar 21");
+  });
+  it("back link when the dirty save fails asks before leaving", async () => {
+    autosave.state = "dirty";
+    autosave.saveNow.mockResolvedValue(false);
+    render(<LandingEditor page={page} versions={[]} />);
+    confirmFn.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole("link", { name: "Landing Pages" }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("Your latest changes were not saved. Leave anyway?") })));
+    expect(push).not.toHaveBeenCalled();
+    confirmFn.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole("link", { name: "Landing Pages" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/admin/landing-pages"));
+  });
+  it("an upload started in one section keeps edits made in another section after switching", () => {
+    render(<LandingEditor page={page} versions={[]} />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Fake pick file" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Closing call to action" }));
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "B edit" } });
+    act(() => uploads.pending[0]("https://img.example/a.webp"));
+    const last = autosave.schedule.mock.calls.at(-1)![0];
+    const hero = last.sections.find((x: { type: string }) => x.type === "hero");
+    const cta = last.sections.find((x: { type: string }) => x.type === "final_cta");
+    expect(hero.data.image).toBe("https://img.example/a.webp");
+    expect(cta.data.headline).toBe("B edit");
+  });
 });

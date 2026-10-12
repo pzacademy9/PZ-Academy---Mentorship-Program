@@ -102,7 +102,11 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
   const [title, setTitle] = useState(page.title);
   const [nameDraft, setNameDraft] = useState(page.title);
   const renaming = useRef(false);
+  const cancelNextCommit = useRef(false);
   async function commitName() {
+    // Escape blurs the field inside the same event, before state re-renders, so this closure still
+    // holds the typed draft; the flag makes that blur a cancel instead of a commit.
+    if (cancelNextCommit.current) { cancelNextCommit.current = false; setNameDraft(title); return; }
     if (renaming.current) return;
     const next = nameDraft.trim();
     if (next === "" || next === title) { setNameDraft(title); return; }
@@ -209,7 +213,7 @@ function EditorShell({ page, versions }: { page: LandingPage; versions: LandingV
             onBlur={() => void commitName()}
             onKeyDown={(e) => {
               if (e.key === "Enter") void commitName();
-              if (e.key === "Escape") { setNameDraft(title); e.currentTarget.blur(); }
+              if (e.key === "Escape") { cancelNextCommit.current = true; setNameDraft(title); e.currentTarget.blur(); cancelNextCommit.current = false; }
             }}
             className="w-56 min-w-0 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 font-headline text-sm font-bold text-pz-on-surface hover:border-pz-outline-variant focus-visible:border-pz-outline-variant focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
