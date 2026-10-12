@@ -16,11 +16,19 @@ describe("templates", () => {
     }
   });
   it("seeded templates are publishable once they have a slug and title", () => {
-    for (const id of ["ppc-batch-3", "mdc-batch-3", "w20-diabetes"]) {
+    for (const id of ["ppc-batch-3", "mdc-batch-3"]) {
       const t = TEMPLATES.find((x) => x.id === id)!;
       const r = computeReadiness(buildTemplate(id, t.kind)!, { title: t.label, slug: id });
       expect(r.problems, id).toEqual([]);
     }
+  });
+  it("W20 ships with a blank Register link so readiness blocks publish until the admin sets one", () => {
+    const t = TEMPLATES.find((x) => x.id === "w20-diabetes")!;
+    const c = buildTemplate(t.id, t.kind)!;
+    expect(c.settings.registerUrl).toBe("");
+    const r = computeReadiness(c, { title: t.label, slug: t.id });
+    expect(r.ready).toBe(false);
+    expect(r.problems.some((p) => /Register button/i.test(p.message))).toBe(true);
   });
   it("gives fresh section ids on every build", () => {
     const a = buildTemplate("ppc-batch-3", "course")!;

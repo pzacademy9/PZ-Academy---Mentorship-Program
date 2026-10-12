@@ -42,8 +42,9 @@ const SAVE_DOT: Record<SaveState, string> = {
 };
 
 /**
- * The editor remounts whenever the server hands it a newer revision (after a confirmed Reload), so a
- * reload really does drop the local edits and restart autosave from the fresh revision.
+ * The editor remounts when the server hands it a revision newer than this editor last saved (a rollback),
+ * and Reload from the conflict banner does a full browser reload (a router refresh cannot always signal
+ * a remount, since the revision may not exceed what this editor already saw). Local edits are dropped.
  */
 export function LandingEditor({ page, versions }: { page: LandingPage; versions: LandingVersion[] }) {
   // Remount only when the revision moved past what this editor itself last saved (a rollback or a
@@ -182,7 +183,7 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
       confirmLabel: "Reload",
       destructive: true,
     });
-    if (ok) router.refresh();
+    if (ok) window.location.reload();
   }
 
   const selected = content.sections.find((s) => s.id === selection) ?? null;

@@ -129,6 +129,14 @@ describe("LandingRenderer", () => {
     const links = Array.from(container.querySelectorAll("a")).filter((a) => a.getAttribute("href") === "https://pharmacozyme.com/register");
     expect(links.length).toBeGreaterThan(0);
   });
+  it("hides the countdown strip on a closed page but shows it on an open one", () => {
+    const c = updateSettings(base(), { countdownTo: "2099-01-01T00:00:00Z", countdownLabel: "Registration closes in" });
+    const open = render(<LandingRenderer content={c} status="published" kind="webinar" />);
+    expect(open.container.textContent).toMatch(/Registration closes in/);
+    open.unmount();
+    const closed = render(<LandingRenderer content={c} status="closed" kind="webinar" />);
+    expect(closed.container.textContent).not.toMatch(/Registration closes in/);
+  });
   it("shows a closed notice and no Register link when status is closed", () => {
     const { container } = render(<LandingRenderer content={base()} status="closed" kind="webinar" />);
     expect(container.textContent).toMatch(/registration is closed/i);

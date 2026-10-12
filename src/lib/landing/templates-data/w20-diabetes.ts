@@ -4,9 +4,9 @@ import type { LandingContent } from "@/lib/landing/content";
 
 export const W20_DIABETES: LandingContent = {
   settings: {
-    // The W20 page registers in an in-page modal and the file shows no registration or canonical
-    // URL of its own, so this points at the PZ Academy site root. Replace it with the live page.
-    registerUrl: "https://pharmacozyme.com/",
+    // The W20 page registers in an in-page modal and the file shows no registration URL of its own.
+    // Left blank on purpose: the readiness checklist blocks publish until the admin sets a real link.
+    registerUrl: "",
     registerLabel: "Register now",
     whatsappNumber: "923155614490",
     countdownTo: "",

@@ -57,14 +57,18 @@ export async function listLandingPages(): Promise<LandingPageSummary[]> {
 
 export async function getLandingPage(id: string): Promise<LandingPage | null> {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("landing_pages").select(COLUMNS).eq("id", id).maybeSingle();
+  const { data, error } = await admin.from("landing_pages").select(COLUMNS).eq("id", id).maybeSingle();
+  // A read error is not "not found": throw so callers never treat a DB blip as a missing page.
+  if (error) throw error;
   return data ? mapRow(data) : null;
 }
 
 /** Public read. Only published or closed pages with a published copy are visible. */
 export async function getPublishedLandingPage(slug: string) {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("landing_pages").select(COLUMNS).eq("slug", slug).maybeSingle();
+  const { data, error } = await admin.from("landing_pages").select(COLUMNS).eq("slug", slug).maybeSingle();
+  // Throw so ISR keeps the previous good page instead of caching a 404 for a live page.
+  if (error) throw error;
   if (!data || data.status === "draft" || !data.published) return null;
   const p = mapRow(data);
   return {

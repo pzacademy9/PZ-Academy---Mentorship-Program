@@ -60,7 +60,7 @@ export function LandingRenderer({
       style={{ colorScheme: "light" }}
     >
       <div className="sticky top-0 z-40">
-        {c.settings.countdownTo ? <Countdown to={c.settings.countdownTo} label={c.settings.countdownLabel} /> : null}
+        {!closed && c.settings.countdownTo ? <Countdown to={c.settings.countdownTo} label={c.settings.countdownLabel} /> : null}
         <header className="relative border-b border-landing-border bg-landing-surface-container-lowest/95 backdrop-blur-md">
           <nav aria-label="Page" className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:h-20 md:px-6">
             <div className="flex min-w-0 items-center gap-2.5 md:gap-3">

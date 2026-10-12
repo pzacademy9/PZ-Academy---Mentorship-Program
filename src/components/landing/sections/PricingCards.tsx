@@ -22,13 +22,13 @@ export function PricingCards({ data, register }: SectionProps) {
           </div>
         ) : null}
         {/* Phone: swipeable snap carousel. Desktop: plain row of cards. */}
-        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 pt-5 [scrollbar-width:none] md:px-6 lg:snap-none lg:items-stretch lg:justify-center lg:gap-8 lg:overflow-visible">
+        <div className="flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-4 pt-5 [scrollbar-width:none] md:scroll-px-6 md:px-6 lg:snap-none lg:flex-wrap lg:items-stretch lg:justify-center lg:gap-8 lg:overflow-visible">
           {items.map((it, i) => {
             const featured = it.badge !== "";
             return (
               <div
                 key={i}
-                className={`relative flex w-[295px] shrink-0 snap-start flex-col justify-between rounded-landing p-5 md:p-8 lg:w-auto lg:max-w-sm lg:flex-1 ${
+                className={`relative flex w-[295px] shrink-0 snap-start flex-col justify-between rounded-landing p-5 md:p-8 lg:w-auto lg:max-w-sm lg:flex-1 lg:basis-[300px] ${
                   featured
                     ? "border-2 border-landing-primary bg-landing-surface-container-lowest shadow-landing-soft-lg lg:-translate-y-2"
                     : "border border-landing-border bg-landing-surface"

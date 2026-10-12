@@ -1,7 +1,7 @@
 // src/components/landing/MobileMenu.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RegisterButton, type Register } from "./RegisterButton";
 
 export interface NavItem { id: string; label: string }
@@ -9,10 +9,22 @@ export interface NavItem { id: string; label: string }
 /** Phone-only hamburger for the top nav (the Stitch phone design's slide-down menu). */
 export function MobileMenu({ items, register }: { items: NavItem[]; register: Register }) {
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      toggleRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
   if (items.length === 0) return null;
   return (
     <div className="md:hidden">
       <button
+        ref={toggleRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

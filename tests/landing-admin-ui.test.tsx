@@ -540,15 +540,19 @@ describe("LandingEditor", () => {
     });
   it("on conflict shows the banner and only reloads after the admin confirms discarding their edits", async () => {
     autosave.state = "conflict";
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
     render(<LandingEditor page={page} versions={[]} />);
     expect(screen.getByText("Someone else changed this page. Reload to see their changes.")).toBeTruthy();
     confirmFn.mockResolvedValueOnce(false);
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
     await waitFor(() => expect(confirmFn).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("Reloading discards the changes you just made. Reload anyway?") })));
-    expect(refresh).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
     confirmFn.mockResolvedValueOnce(true);
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
-    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    // A full browser reload always recovers; router.refresh() can be a no-op when the revision did not advance.
+    await waitFor(() => expect(reload).toHaveBeenCalled());
+    expect(refresh).not.toHaveBeenCalled();
   });
   it("shows the phone notice with a link back to the list", () => {
     render(<LandingEditor page={page} versions={[]} />);

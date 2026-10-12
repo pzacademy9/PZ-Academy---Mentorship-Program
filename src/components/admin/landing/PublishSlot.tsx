@@ -129,7 +129,7 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
         disabled={blocked}
         onClick={() => void publish.run()}
         title={local.problems.length > 0 ? `${local.problems.length} checklist item${local.problems.length === 1 ? "" : "s"} to fix before publishing` : undefined}
-        className="bg-pz-solid-forest text-pz-on-primary hover:bg-pz-solid-forest/90 disabled:opacity-100 disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant"
+        className="bg-pz-solid-forest text-white hover:bg-pz-solid-forest/90 disabled:opacity-100 disabled:bg-pz-surface-container-high disabled:text-pz-on-surface-variant"
       >
         <Rocket aria-hidden="true" />
         {upToDate ? "Published" : "Publish"}

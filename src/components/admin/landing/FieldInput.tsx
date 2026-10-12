@@ -124,7 +124,7 @@ function ListField({ field, value, onChange }: { field: FieldDef; value: unknown
           <li key={i} className="rounded-xl border border-pz-outline-variant bg-pz-surface-container-low p-3 sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 font-headline text-sm font-bold text-pz-on-surface">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pz-solid-forest text-xs text-pz-on-primary" aria-hidden="true">{i + 1}</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pz-solid-forest text-xs text-white" aria-hidden="true">{i + 1}</span>
                 {itemLabel} {i + 1}
               </span>
               <span className="flex items-center gap-1.5">

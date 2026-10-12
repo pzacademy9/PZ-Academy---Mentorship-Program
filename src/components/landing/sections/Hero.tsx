@@ -66,14 +66,14 @@ export function Hero({ data, register }: SectionProps) {
             ) : null}
           </div>
           {image ? (
-            <div className="lg:col-span-5">
+            <div className="aspect-[3/2] overflow-hidden rounded-landing lg:col-span-5">
               <LandingImage
                 src={image}
                 alt={headline}
                 width={1200}
                 height={800}
                 priority
-                className="h-auto w-full rounded-landing border border-landing-border object-cover shadow-landing-soft-lg lg:border-4 lg:border-landing-surface-container-lowest"
+                className="h-full w-full rounded-landing border border-landing-border object-cover shadow-landing-soft-lg lg:border-4 lg:border-landing-surface-container-lowest"
               />
             </div>
           ) : null}

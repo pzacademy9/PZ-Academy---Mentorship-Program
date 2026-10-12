@@ -35,7 +35,7 @@ function builder(table: string) {
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from: builder }) }));
 
 import {
-  rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage, renameLandingPage,
+  rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage, getLandingPage, renameLandingPage,
 } from "@/lib/data/landing-pages";
 import { emptyContent } from "@/lib/landing/content";
 
@@ -126,6 +126,20 @@ describe("getPublishedLandingPage", () => {
   it("hides pages with no published copy", async () => {
     handler = () => ({ data: pageRow({ published: null }), error: null });
     expect(await getPublishedLandingPage("ppc-b4")).toBeNull();
+  });
+  it("throws on a DB error so ISR never caches a 404 for a live page", async () => {
+    handler = () => ({ data: null, error: { code: "08006", message: "down" } });
+    await expect(getPublishedLandingPage("ppc-b4")).rejects.toBeTruthy();
+  });
+  it("still returns null for a genuinely missing slug", async () => {
+    handler = () => ({ data: null, error: null });
+    expect(await getPublishedLandingPage("nope")).toBeNull();
+  });
+  it("getLandingPage throws on a DB error but returns null when the row is missing", async () => {
+    handler = () => ({ data: null, error: { code: "08006", message: "down" } });
+    await expect(getLandingPage("p1")).rejects.toBeTruthy();
+    handler = () => ({ data: null, error: null });
+    expect(await getLandingPage("p1")).toBeNull();
   });
   it("returns a published page", async () => {
     handler = () => ({ data: pageRow(), error: null });
