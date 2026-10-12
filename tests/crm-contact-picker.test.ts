@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { mergeContactIds, contactSendFlag, MAX_PICKED_CONTACTS, type PickerContact } from "@/lib/crm/contact-picker";
-import { SEGMENT_FIELDS } from "@/lib/crm/segment";
+import { SEGMENT_FIELDS, buildSegmentFilters } from "@/lib/crm/segment";
+import { segmentFilterSchema, segmentPreviewSchema } from "@/lib/validations/crm";
 
 const c = (over: Partial<PickerContact> = {}): PickerContact => ({
   id: "c1", fullName: "A", email: "a@x.com", phoneE164: "+92300", unsubscribed: false, ...over,
@@ -14,7 +15,13 @@ describe("mergeContactIds", () => {
     expect(mergeContactIds(["a", "b"], ["c", "d"], 3)).toEqual(["a", "b", "c"]);
   });
   it("cap matches the validation schema", () => {
-    expect(MAX_PICKED_CONTACTS).toBe(500);
+    const f = (n: number) => ({ field: "contact_id", op: "in", values: Array.from({ length: n }, () => "11111111-1111-4111-8111-111111111111") });
+    expect(segmentFilterSchema.safeParse(f(MAX_PICKED_CONTACTS)).success).toBe(true);
+    expect(segmentFilterSchema.safeParse(f(MAX_PICKED_CONTACTS + 1)).success).toBe(false);
+  });
+  it("server rejects an empty contact_id filter instead of matching everyone", () => {
+    expect(segmentFilterSchema.safeParse({ field: "contact_id", op: "in", values: [] }).success).toBe(false);
+    expect(segmentPreviewSchema.safeParse({ segment: [{ field: "contact_id", op: "in", values: [] }] }).success).toBe(false);
   });
 });
 
@@ -33,5 +40,11 @@ describe("contactSendFlag", () => {
 describe("SEGMENT_FIELDS", () => {
   it("offers Specific contacts in the dropdown", () => {
     expect(SEGMENT_FIELDS.find((f) => f.field === "contact_id")?.label).toBe("Specific contacts");
+  });
+});
+
+describe("buildSegmentFilters", () => {
+  it("refuses an empty contact_id filter rather than matching everyone", () => {
+    expect(() => buildSegmentFilters([{ field: "contact_id", op: "in", values: [] }])).toThrow();
   });
 });

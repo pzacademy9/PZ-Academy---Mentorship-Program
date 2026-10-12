@@ -13,7 +13,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { SegmentBuilder } from "./SegmentBuilder";
 import { TemplatePicker } from "./TemplatePicker";
 import { SELECTED_CONTACTS_STORAGE_KEY, type SegmentFilter } from "@/lib/crm/segment";
-import { mergeContactIds } from "@/lib/crm/contact-picker";
+import { mergeContactIds, MAX_PICKED_CONTACTS } from "@/lib/crm/contact-picker";
 import type { ConversionTag } from "@/lib/crm/conversion";
 
 type Campaign = {
@@ -113,7 +113,9 @@ export function CampaignsPanel({ initialCampaigns }: { initialCampaigns: Campaig
       return prev.map((f, i) => (i === at && f.field === "contact_id" ? { ...f, values: mergeContactIds(f.values, ids as string[]) } : f));
     });
     setDraftId(null);
-    toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} added from Contacts.`);
+    const added = Math.min(ids.length, MAX_PICKED_CONTACTS);
+    if (added < ids.length) toast.error(`Added ${added} of ${ids.length} contacts - the limit is ${MAX_PICKED_CONTACTS} per segment.`);
+    else toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} added from Contacts.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

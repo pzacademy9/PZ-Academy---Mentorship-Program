@@ -82,7 +82,10 @@ export function buildSegmentFilters(filters: SegmentFilter[], guard: QueryOp[] =
   for (const filter of filters) {
     switch (filter.field) {
       case "contact_id":
-        if (filter.values.length > 0) ops.push({ kind: "in", column: "id", values: filter.values });
+        // An empty list must never degrade to "no restriction": that would
+        // turn "these specific people" into every sendable contact.
+        if (filter.values.length === 0) throw new Error("contact_id filter requires at least one id");
+        ops.push({ kind: "in", column: "id", values: filter.values });
         break;
       case "import_batch_id":
         if (filter.values.length > 0) ops.push({ kind: "overlaps", column: "import_batch_ids", values: filter.values });

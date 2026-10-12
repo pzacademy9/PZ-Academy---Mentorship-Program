@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SEGMENT_FIELDS, type SegmentFilter } from "@/lib/crm/segment";
 import { Button } from "@/components/ui/button";
+import type { PickerContact } from "@/lib/crm/contact-picker";
 import { ContactPicker } from "@/components/admin/crm/ContactPicker";
 
 type ImportBatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number; createdAt: string };
@@ -38,6 +39,9 @@ export function SegmentBuilder({
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
+  // Names of people picked here live above the per-row picker so they survive
+  // the row remounting when another row is added or removed.
+  const [pickedNames, setPickedNames] = useState<Record<string, PickerContact>>({});
   const autoCountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -63,7 +67,14 @@ export function SegmentBuilder({
     return () => { if (autoCountTimer.current) clearTimeout(autoCountTimer.current); };
   }, []);
 
+  const EMPTY_PICK_HINT = "Pick at least one person, or remove this filter.";
+
   async function refreshCount(filters: SegmentFilter[]) {
+    if (filters.some((f) => f.field === "contact_id" && f.values.length === 0)) {
+      setCount(null);
+      setError(EMPTY_PICK_HINT);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -98,7 +109,7 @@ export function SegmentBuilder({
   function update(next: SegmentFilter[]) {
     onChange(next);
     setCount(null);
-    setError(null);
+    setError(next.some((f) => f.field === "contact_id" && f.values.length === 0) ? EMPTY_PICK_HINT : null);
     // Debounced so a segment being actively edited (e.g. typing a country
     // code) does not fire a count request on every keystroke.
     if (autoCountTimer.current) clearTimeout(autoCountTimer.current);
@@ -166,7 +177,7 @@ export function SegmentBuilder({
         )}
       </div>
 
-      {error && <p className="font-body text-sm text-pz-danger">{error}</p>}
+      {error && <p role="status" className="font-body text-sm text-pz-danger">{error}</p>}
 
       {value.length === 0 && (
         <p className="font-body text-xs text-pz-on-surface-variant">
@@ -179,20 +190,16 @@ export function SegmentBuilder({
       {value.map((filter, index) => (
         <div key={index} className="flex gap-2 items-center flex-wrap bg-pz-surface-container-high rounded-xl px-3 py-2">
           <span className="font-body text-sm font-medium">
-            {filter.field === "contact_id"
-              ? "Specific contacts"
-              : SEGMENT_FIELDS.find((f) => f.field === filter.field)?.label ?? filter.field}
+            {SEGMENT_FIELDS.find((f) => f.field === filter.field)?.label ?? filter.field}
           </span>
 
           {filter.field === "contact_id" ? (
             <ContactPicker
               values={filter.values}
               channel={channel}
-              onChange={(ids) =>
-                ids.length === 0
-                  ? update(value.filter((_, i) => i !== index))
-                  : patch(index, { ...filter, values: ids })
-              }
+              named={pickedNames}
+              onName={(c) => setPickedNames((prev) => ({ ...prev, [c.id]: c }))}
+              onChange={(ids) => patch(index, { ...filter, values: ids })}
             />
           ) : filter.field === "import_batch_id" ? (
             <div className="flex-1 min-w-[220px] flex flex-wrap gap-2">

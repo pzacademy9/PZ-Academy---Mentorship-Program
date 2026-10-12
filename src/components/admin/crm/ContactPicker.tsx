@@ -14,17 +14,21 @@ const RESULT_LIMIT = 10;
 export function ContactPicker({
   values,
   channel,
+  named,
+  onName,
   onChange,
 }: {
   values: string[];
   channel: "email" | "whatsapp";
+  /** Names of people picked here, owned by the parent so they survive remounts. */
+  named: Record<string, PickerContact>;
+  onName: (contact: PickerContact) => void;
   onChange: (ids: string[]) => void;
 }) {
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<PickerContact[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
-  const [named, setNamed] = useState<Record<string, PickerContact>>({});
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -33,6 +37,7 @@ export function ContactPicker({
       requestId.current += 1;
       setResults([]);
       setSearching(false);
+      setSearchError(false);
       return;
     }
     const timer = setTimeout(async () => {
@@ -51,7 +56,11 @@ export function ContactPicker({
         if (mine === requestId.current) setSearching(false);
       }
     }, SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Invalidate any in-flight response so it cannot render for a stale term.
+      requestId.current += 1;
+    };
   }, [term]);
 
   const atCap = values.length >= MAX_PICKED_CONTACTS;
@@ -59,7 +68,7 @@ export function ContactPicker({
   const unnamedCount = values.length - chips.length;
 
   function add(contact: PickerContact) {
-    setNamed((prev) => ({ ...prev, [contact.id]: contact }));
+    onName(contact);
     onChange(mergeContactIds(values, [contact.id]));
   }
 
@@ -69,7 +78,7 @@ export function ContactPicker({
         <div className="flex flex-wrap items-center gap-2">
           {unnamedCount > 0 && (
             <span className="font-body text-xs text-pz-on-surface-variant">
-              {unnamedCount} contact{unnamedCount === 1 ? "" : "s"} picked from the Contacts tab
+              {unnamedCount} contact{unnamedCount === 1 ? "" : "s"} selected
             </span>
           )}
           {chips.map((id) => (
@@ -99,19 +108,21 @@ export function ContactPicker({
       <input
         value={term}
         onChange={(e) => setTerm(e.target.value)}
+        type="search"
+        aria-label="Search contacts"
         placeholder="Search by name, email or phone…"
         className="w-full rounded-lg border border-pz-outline-variant px-3 py-1 font-body text-sm max-md:min-h-11 max-md:text-base"
       />
 
       {atCap && (
-        <p className="font-body text-xs text-pz-danger">
+        <p role="status" className="font-body text-xs text-pz-danger">
           You have reached the limit of {MAX_PICKED_CONTACTS} specific contacts. Remove some to add more.
         </p>
       )}
-      {searching && <p className="font-body text-xs text-pz-on-surface-variant">Searching…</p>}
-      {searchError && <p className="font-body text-xs text-pz-danger">Could not search contacts.</p>}
+      {searching && <p role="status" className="font-body text-xs text-pz-on-surface-variant">Searching…</p>}
+      {searchError && <p role="status" className="font-body text-xs text-pz-danger">Could not search contacts.</p>}
       {!searching && !searchError && term.trim() !== "" && results.length === 0 && (
-        <p className="font-body text-xs text-pz-on-surface-variant">No contacts found.</p>
+        <p role="status" className="font-body text-xs text-pz-on-surface-variant">No contacts found.</p>
       )}
 
       {results.length > 0 && (
@@ -119,15 +130,18 @@ export function ContactPicker({
           {results.map((c) => {
             const flag = contactSendFlag(c, channel);
             const picked = values.includes(c.id);
+            const label = c.fullName || c.email || c.phoneE164 || "contact";
+            const detail = channel === "whatsapp" ? (c.phoneE164 ?? c.email) : (c.email ?? c.phoneE164);
             return (
               <li key={c.id} className="flex items-center gap-2 flex-wrap rounded-lg bg-pz-surface px-2 py-1 max-md:min-h-11">
-                <span className="font-body text-sm">{c.fullName}</span>
-                <span className="font-body text-xs text-pz-on-surface-variant flex-1 min-w-[120px] break-all">{c.email ?? c.phoneE164}</span>
-                {flag && <span className="px-2 py-0.5 rounded-full bg-pz-surface-variant font-body text-xs text-pz-danger">{flag}</span>}
+                <span className="font-body text-sm">{label}</span>
+                <span className="font-body text-xs text-pz-on-surface-variant flex-1 min-w-[120px] break-all">{detail}</span>
+                {flag && <span id={`flag-${c.id}`} className="px-2 py-0.5 rounded-full bg-pz-surface-variant font-body text-xs text-pz-danger">{flag}</span>}
                 <button
                   type="button"
                   disabled={picked || atCap || flag !== null}
-                  aria-label={picked ? `${c.fullName} picked` : `Add ${c.fullName}`}
+                  aria-label={picked ? `${label} picked` : `Add ${label}`}
+                  aria-describedby={flag ? `flag-${c.id}` : undefined}
                   onClick={() => add(c)}
                   className="px-3 py-1 rounded-full bg-pz-surface-variant font-body text-xs disabled:opacity-50 max-md:min-h-11"
                 >

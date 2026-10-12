@@ -73,21 +73,50 @@ describe("SegmentBuilder contact picker", () => {
 
   it("seeded ids show as a count; clear all drops the row", async () => {
     render(<Harness initial={[{ field: "contact_id", op: "in", values: ["s1", "s2"] }]} />);
-    expect(screen.getByText(/2 contacts picked from the Contacts tab/)).toBeTruthy();
+    expect(screen.getByText(/2 contacts selected/)).toBeTruthy();
     await search();
     fireEvent.click(screen.getAllByRole("button", { name: /^Add/ })[0]);
     expect(out()[0]).toMatchObject({ values: ["s1", "s2", "c1"] });
-    expect(screen.getByText(/2 contacts picked from the Contacts tab/)).toBeTruthy();
+    expect(screen.getByText(/2 contacts selected/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
-    expect(out()).toEqual([]);
+    expect(out()).toEqual([{ field: "contact_id", op: "in", values: [] }]);
   });
 
-  it("removing the last chip removes the filter row", async () => {
+  it("removing the last chip keeps an empty row (never widens the send) and blocks counting", async () => {
     render(<Harness initial={empty} />);
     await search();
     fireEvent.click(screen.getAllByRole("button", { name: /^Add/ })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Remove Amy Ok" }));
+    expect(out()).toEqual(empty);
+    expect(screen.getByText(/Pick at least one person, or remove this filter/)).toBeTruthy();
+    const before = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter((c) => String(c[0]).includes("preview")).length;
+    fireEvent.click(screen.getByRole("button", { name: /Count matches/ }));
+    const after = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter((c) => String(c[0]).includes("preview")).length;
+    expect(after).toBe(before);
+    fireEvent.click(screen.getByRole("button", { name: "remove" }));
     expect(out()).toEqual([]);
+  });
+
+  it("keeps chip names when a row above is removed (remount)", async () => {
+    render(<Harness initial={[{ field: "row_type", op: "eq", value: "group_leader" }, ...empty]} />);
+    await search();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Add/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "remove" })[0]);
+    expect(screen.getByRole("button", { name: "Remove Amy Ok" })).toBeTruthy();
+  });
+
+  it("Add stays enabled at 499 picks", async () => {
+    const ids = Array.from({ length: 499 }, (_, i) => `id${i}`);
+    render(<Harness initial={[{ field: "contact_id", op: "in", values: ids }]} />);
+    await search();
+    expect((screen.getAllByRole("button", { name: /^Add/ })[0] as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("search input is labelled and whatsapp results show the phone", async () => {
+    render(<Harness channel="whatsapp" initial={empty} />);
+    expect(screen.getByLabelText("Search contacts")).toBeTruthy();
+    await search();
+    expect(screen.getByText("+1")).toBeTruthy();
   });
 
   it("disables Add at the cap with a message", async () => {
