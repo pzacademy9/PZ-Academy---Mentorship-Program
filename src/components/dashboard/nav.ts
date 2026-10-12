@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft,
+  ClipboardList, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
@@ -39,6 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "super_admin"] },
   { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "super_admin"] },
   { label: "Marketing", href: "/dashboard/admin/marketing", icon: Image, roles: ["admin", "super_admin"] },
+  { label: "Landing Pages", href: "/dashboard/admin/landing-pages", icon: LayoutTemplate, roles: ["admin", "super_admin"] },
   { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "super_admin"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
