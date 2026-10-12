@@ -40,6 +40,8 @@ function setup(budgets: AgentBudgetJson[] | null, extra: Partial<SalesBudgetValu
 
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
+  // The chooser has its own tests (sales-whatsapp-chooser.test.tsx); these assume the choice is already made.
+  window.sessionStorage.setItem("pz-whatsapp-mode:send-panel", "app");
   vi.unstubAllGlobals();
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/send")) {

@@ -64,3 +64,14 @@ export function buildWhatsAppLink(phoneE164: string, messageTemplate: string, fu
   const message = renderWhatsAppMessage(messageTemplate, fullName);
   return `whatsapp://send?phone=${digits}&text=${encodeURIComponent(message)}`;
 }
+
+/**
+ * Converts the app-form link (whatsapp://send?phone=&text=) into the WhatsApp
+ * Web form. Same query string, different origin. Anything that is not in the
+ * app form is returned untouched.
+ */
+export function toWebLink(appLink: string): string {
+  const prefix = "whatsapp://send?";
+  if (!appLink.startsWith(prefix)) return appLink;
+  return `https://web.whatsapp.com/send?${appLink.slice(prefix.length)}`;
+}

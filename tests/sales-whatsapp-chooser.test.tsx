@@ -1,0 +1,197 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { SalesBudgetContext, type SalesBudgetValue } from "@/components/sales/SalesBudgetProvider";
+import { SendPanel } from "@/components/sales/SendPanel";
+import { CampaignSession } from "@/components/sales/CampaignSession";
+import type { CampaignDetailJson } from "@/lib/crm/campaign-ui";
+import type { AgentBudgetJson, BudgetJson } from "@/lib/crm/sales-ui";
+import type { WebTabHandle } from "@/lib/crm/whatsapp-mode";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+
+const APP = "whatsapp://send?phone=923001234567&text=hi";
+const WEB = "https://web.whatsapp.com/send?phone=923001234567&text=hi";
+
+const budget = (): BudgetJson => ({
+  dailyUsed: 3, dailyCap: 30, hourlyUsed: 1, hourlyCap: 10, hourlyWarning: false, quietHours: false,
+  quietEndsAt: null, frozen: false, frozenUntil: null, nextUnlockAt: null,
+});
+const num: AgentBudgetJson = { number: { id: "n1", label: "My phone", phone_e164: null }, budget: budget() };
+const value = (): SalesBudgetValue => ({
+  budgets: [num], loadError: false, selectedId: "n1", selected: num,
+  select: vi.fn(), refresh: vi.fn(async () => {}), applyBudget: vi.fn(),
+});
+
+const tab = () => ({
+  blocked: false,
+  navigate: vi.fn<(url: string) => void>(),
+  closeIfBlank: vi.fn<() => void>(),
+}) satisfies WebTabHandle;
+
+let sendReply: { ok: boolean; status: number; body: unknown };
+let fetchMock: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  vi.unstubAllGlobals();
+  window.sessionStorage.clear();
+  sendReply = { ok: true, status: 200, body: { link: APP, warnings: [], isNewChat: true, nextUnlockAt: "x", budget: budget(), sentCount: 1, pendingCount: 1, done: false } };
+  fetchMock = vi.fn(async () => ({ ok: sendReply.ok, status: sendReply.status, json: async () => sendReply.body }));
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+const contact = { id: "c1", full_name: "Ayesha Tariq", phone_e164: "+923001234567", warm: false, recently_contacted: false };
+
+function renderPanel() {
+  const openLink = vi.fn<(url: string) => void>();
+  const pre = tab();
+  const preOpen = vi.fn<() => WebTabHandle>(() => pre);
+  render(
+    <ConfirmProvider>
+      <SalesBudgetContext.Provider value={value()}>
+        <SendPanel contact={contact} templates={[]} onOutcome={vi.fn()} openLink={openLink} preOpen={preOpen} />
+      </SalesBudgetContext.Provider>
+    </ConfirmProvider>,
+  );
+  return { openLink, pre, preOpen };
+}
+
+const campaign: CampaignDetailJson = {
+  id: "camp-1", name: "Oct", status: "active", recipientCount: 3, sentCount: 0, pendingCount: 3, pausedReason: null,
+  createdAt: "2026-10-01T09:00:00.000Z", messageTemplate: "Hi", numberId: "n1", followupInHours: 24,
+  recipients: [
+    { id: "r1", contactId: "c-r1", fullName: "Ayesha Tariq", phone: "+923000000001", status: "pending" },
+    { id: "r2", contactId: "c-r2", fullName: "Bilal Khan", phone: "+923000000002", status: "pending" },
+    { id: "r3", contactId: "c-r3", fullName: "Zainab Fatima", phone: "+923000000003", status: "pending" },
+  ],
+};
+function renderSession() {
+  const openLink = vi.fn<(url: string) => void>();
+  const pre = tab();
+  const preOpen = vi.fn<() => WebTabHandle>(() => pre);
+  render(
+    <ConfirmProvider>
+      <SalesBudgetContext.Provider value={value()}>
+        <CampaignSession initial={campaign} openLink={openLink} preOpen={preOpen} />
+      </SalesBudgetContext.Provider>
+    </ConfirmProvider>,
+  );
+  return { openLink, pre, preOpen };
+}
+
+describe("SendPanel chooser", () => {
+  it("asks on the first click, sends nothing yet, then remembers the choice", async () => {
+    const { openLink } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "WhatsApp app" }));
+    await waitFor(() => expect(openLink).toHaveBeenCalledWith(APP));
+    expect(window.sessionStorage.getItem("pz-whatsapp-mode:send-panel")).toBe("app");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("does not ask on the second click", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:send-panel", "app");
+    const { openLink } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(openLink).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Change asks again", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:send-panel", "app");
+    renderPanel();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("Web: pre-opens the tab synchronously at the click, before the server answers, then navigates it", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:send-panel", "web");
+    let release!: () => void;
+    fetchMock.mockImplementation(() => new Promise((r) => { release = () => r({ ok: true, status: 200, json: async () => sendReply.body }); }));
+    const { pre, preOpen, openLink } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    expect(preOpen).toHaveBeenCalledTimes(1);
+    expect(pre.navigate).not.toHaveBeenCalled();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    release();
+    await waitFor(() => expect(pre.navigate).toHaveBeenCalledWith(WEB));
+    expect(openLink).not.toHaveBeenCalled();
+    expect(pre.closeIfBlank).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Open WhatsApp again" }).getAttribute("href")).toBe(WEB);
+  });
+
+  it("Web: closes the placeholder tab when the server refuses", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:send-panel", "web");
+    sendReply = { ok: false, status: 429, body: { error: "Too soon", reason: "spacing" } };
+    const { pre } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(pre.closeIfBlank).toHaveBeenCalled());
+    expect(pre.navigate).not.toHaveBeenCalled();
+  });
+
+  it("App: never pre-opens", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:send-panel", "app");
+    const { preOpen, openLink } = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Message on WhatsApp" }));
+    await waitFor(() => expect(openLink).toHaveBeenCalledWith(APP));
+    expect(preOpen).not.toHaveBeenCalled();
+  });
+});
+
+describe("CampaignSession chooser", () => {
+  it("asks once per campaign, then web pre-opens and navigates; the again link uses the web form", async () => {
+    const { pre, preOpen } = renderSession();
+    fireEvent.click(screen.getByTestId("campaign-send"));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "WhatsApp Web" }));
+    expect(preOpen).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(pre.navigate).toHaveBeenCalledWith(WEB));
+    expect(window.sessionStorage.getItem("pz-whatsapp-mode:campaign:camp-1")).toBe("web");
+    expect(screen.getByRole("link", { name: /Open WhatsApp again for Ayesha/ }).getAttribute("href")).toBe(WEB);
+    fireEvent.click(screen.getByTestId("campaign-send"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes the placeholder when the server refuses", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:campaign:camp-1", "web");
+    sendReply = { ok: false, status: 429, body: { error: "Too soon", reason: "spacing" } };
+    const { pre } = renderSession();
+    fireEvent.click(screen.getByTestId("campaign-send"));
+    await waitFor(() => expect(pre.closeIfBlank).toHaveBeenCalled());
+    expect(pre.navigate).not.toHaveBeenCalled();
+  });
+
+  it("Change re-asks", async () => {
+    window.sessionStorage.setItem("pz-whatsapp-mode:campaign:camp-1", "app");
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+});
+
+describe("source guards", () => {
+  const read = (f: string) => readFileSync(join(process.cwd(), "src", "components", "sales", f), "utf8");
+  for (const f of ["SendPanel.tsx", "CampaignSession.tsx"]) {
+    it(`${f} pre-opens the tab before the first await in its click path`, () => {
+      const src = read(f);
+      const start = src.indexOf("const startSend");
+      expect(start).toBeGreaterThan(-1);
+      const firstAwait = src.indexOf("await", start);
+      const pre = src.indexOf("preOpen()", start);
+      expect(pre).toBeGreaterThan(-1);
+      expect(firstAwait === -1 || pre < firstAwait).toBe(true);
+    });
+    it(`${f} closes the placeholder on refusal and navigates only on approval`, () => {
+      const src = read(f);
+      expect(src).toMatch(/closeIfBlank\(\)/);
+      expect(src).toMatch(/\.navigate\(/);
+      expect(src).toMatch(/linkForMode\(/);
+    });
+  }
+});
