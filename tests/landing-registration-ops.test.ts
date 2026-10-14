@@ -19,37 +19,51 @@ const OTHER = "00000000-0000-4000-8000-000000000002";
 const ctx = (id = PAGE) => ({ params: Promise.resolve({ id }) });
 const req = () => new Request("http://x") as never;
 
-const reg = (id: string, page: string, rowType: string, refId: string | null, name: string, isTest = false) =>
-  ({ id, page_id: page, row_type: rowType, ref_id: refId, name, email: `${id}@mail.com`, is_test: isTest });
-const job = (id: string, registrationId: string, type: string, status: string, nextRunAt: string, attempts = 1, lastError: string | null = null) =>
-  ({ id, registration_id: registrationId, type, status, attempts, last_error: lastError, next_run_at: nextRunAt });
+type Reg = { page_id: string; ref_id: string | null; name: string; email: string; is_test: boolean };
+type Job = { id: string; type: string; status: string; attempts: number; last_error: string | null; next_run_at: string; reg: Reg };
+const mkReg = (page: string, refId: string | null, name: string, isTest = false): Reg =>
+  ({ page_id: page, ref_id: refId, name, email: `${name.split(" ")[0].toLowerCase()}@mail.com`, is_test: isTest });
+const job = (id: string, reg: Reg, type: string, status: string, nextRunAt: string, attempts = 1, lastError: string | null = null): Job =>
+  ({ id, type, status, attempts, last_error: lastError, next_run_at: nextRunAt, reg });
 
-function seed() {
-  db.state.handler = memoryHandler({
-    landing_pages: [{ id: PAGE }, { id: OTHER }],
-    landing_registrations: [
-      reg("r1", PAGE, "individual", "PZA-PPC-001", "Sara Ali"),
-      reg("r2", PAGE, "lead", "PZA-PPC-002", "Ali Raza"),
-      reg("r3", PAGE, "member", null, "Member Three"),
-      reg("r4", OTHER, "individual", "PZA-MDC-001", "Other Page"),
-      reg("r5", PAGE, "individual", "TEST-12345", "Admin Test", true),
-    ],
-    landing_jobs: [
-      job("j1", "r1", "sheet_append", "failed", "2026-10-13T10:00:00Z", 5, "Apps Script timed out."),
-      job("j2", "r1", "email_received", "done", "2026-10-13T10:00:00Z"),
-      job("j3", "r2", "email_members", "pending", "2026-10-13T10:05:00Z", 2, "Brevo 502"),
-      job("j4", "r2", "sheet_append", "running", "2026-10-13T10:01:00Z"),
-      job("j5", "r4", "sheet_append", "failed", "2026-10-13T08:00:00Z", 5, "x"),
-      job("j6", "r5", "email_admin", "failed", "2026-10-13T09:00:00Z", 5, "Brevo 401"),
-    ],
-  });
+const sara = mkReg(PAGE, "PZA-PPC-001", "Sara Ali");
+const ali = mkReg(PAGE, "PZA-PPC-002", "Ali Raza");
+const tester = mkReg(PAGE, "TEST-12345", "Admin Test", true);
+const stranger = mkReg(OTHER, "PZA-MDC-001", "Other Page");
+const JOBS = [
+  job("j1", sara, "sheet_append", "failed", "2026-10-13T10:00:00Z", 5, "Apps Script timed out."),
+  job("j2", sara, "email_received", "done", "2026-10-13T10:00:00Z"),
+  job("j3", ali, "email_members", "pending", "2026-10-13T10:05:00Z", 2, "Brevo 502"),
+  job("j4", ali, "sheet_append", "running", "2026-10-13T10:01:00Z"),
+  job("j5", stranger, "sheet_append", "failed", "2026-10-13T08:00:00Z", 5, "x"),
+  job("j6", tester, "email_admin", "failed", "2026-10-13T09:00:00Z", 5, "Brevo 401"),
+];
+
+/** The fake DB has no embedded joins or counts, so this handler scripts the four job reads. */
+function seed(jobs: Job[], bonus?: { failed?: number; waiting?: number }) {
+  db.state.handler = (op) => {
+    if (op.table === "landing_pages") return { data: { id: PAGE }, error: null };
+    const pageEq = op.filters.find(([k, f]) => k === "eq" && f === "landing_registrations.page_id")?.[2];
+    const statusEq = op.filters.find(([k, f]) => k === "eq" && f === "status")?.[2];
+    const statusIn = op.filters.find(([k, f]) => k === "in" && f === "status")?.[2] as string[] | undefined;
+    let rows = jobs.filter((j) => j.reg.page_id === pageEq && (statusEq ? j.status === statusEq : statusIn!.includes(j.status)));
+    if (op.head) {
+      const extra = statusEq === "failed" ? bonus?.failed ?? 0 : bonus?.waiting ?? 0;
+      return { data: null, error: null, count: rows.length + extra };
+    }
+    for (const [key, asc] of [...op.orders].reverse()) {
+      rows = [...rows].sort((x, y) => (asc ? 1 : -1) * String((x as never)[key]).localeCompare(String((y as never)[key])));
+    }
+    if (op.limit !== undefined) rows = rows.slice(0, op.limit);
+    return { data: rows.map((j) => ({ ...j, landing_registrations: j.reg })), error: null };
+  };
 }
 
 beforeEach(() => { db.reset(); adminOk = true; });
 
 describe("getPageJobSummary", () => {
   it("counts this page's unfinished jobs and lists failed ones first", async () => {
-    seed();
+    seed(JOBS);
     const s = await getPageJobSummary(PAGE);
     expect(s).not.toBeNull();
     expect(s!.waiting).toBe(2);
@@ -57,17 +71,61 @@ describe("getPageJobSummary", () => {
     expect(s!.issues.map((i) => i.id)).toEqual(["j6", "j1", "j4", "j3"]);
     expect(s!.issues[0]).toEqual({
       id: "j6", type: "email_admin", status: "failed", attempts: 5, lastError: "Brevo 401", nextRunAt: "2026-10-13T09:00:00Z",
-      refId: "TEST-12345", name: "Admin Test", email: "r5@mail.com", isTest: true,
+      refId: "TEST-12345", name: "Admin Test", email: "admin@mail.com", isTest: true,
     });
   });
-  it("is null for an unknown page and empty for a page with no registrations", async () => {
-    db.state.handler = memoryHandler({ landing_pages: [{ id: OTHER }], landing_registrations: [], landing_jobs: [] });
+  it("never counts or lists another page's jobs", async () => {
+    seed(JOBS);
+    const s = await getPageJobSummary(PAGE);
+    expect(s!.issues.map((i) => i.id)).not.toContain("j5");
+    expect(s!.failed).toBe(2);
+    const reads = db.find("landing_jobs", "select");
+    expect(reads).toHaveLength(4);
+    for (const r of reads) expect(r.filters).toContainEqual(["eq", "landing_registrations.page_id", PAGE]);
+  });
+  it("uses exact head counts, so a big page is not truncated by max_rows or long id lists", async () => {
+    seed(JOBS, { failed: 1500, waiting: 2400 });
+    const s = await getPageJobSummary(PAGE);
+    expect(s!.failed).toBe(1502);
+    expect(s!.waiting).toBe(2402);
+    expect(s!.issues).toHaveLength(4);
+    const reads = db.find("landing_jobs", "select");
+    expect(reads.filter((r) => r.head && r.count)).toHaveLength(2);
+    expect(reads.some((r) => r.filters.some(([k, f]) => k === "in" && f === "registration_id"))).toBe(false);
+    expect(db.find("landing_registrations", "select")).toHaveLength(0);
+  });
+  it("caps the issue list at 50 with failed jobs first", async () => {
+    const many = Array.from({ length: 80 }, (_, i) =>
+      job(`p${String(i).padStart(2, "0")}`, ali, "email_members", "pending", `2026-10-13T11:${String(i % 60).padStart(2, "0")}:00Z`));
+    seed([...many, job("f1", sara, "sheet_append", "failed", "2026-10-13T23:00:00Z", 5, "late failure")]);
+    const s = await getPageJobSummary(PAGE);
+    expect(s!.issues).toHaveLength(50);
+    expect(s!.issues[0].id).toBe("f1");
+    expect(db.find("landing_jobs", "select").some((r) => r.limit === 50)).toBe(true);
+  });
+  it("is null for an unknown page and empty for a page with no jobs", async () => {
+    db.state.handler = memoryHandler({ landing_pages: [] });
     expect(await getPageJobSummary(PAGE)).toBeNull();
-    expect(await getPageJobSummary(OTHER)).toEqual({ waiting: 0, failed: 0, issues: [] });
-    expect(db.find("landing_jobs", "select")).toHaveLength(0);
+    seed([]);
+    expect(await getPageJobSummary(PAGE)).toEqual({ waiting: 0, failed: 0, issues: [] });
   });
   it("throws on a read error instead of reporting all clear", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006", message: "down" } });
+    await expect(getPageJobSummary(PAGE)).rejects.toBeTruthy();
+  });
+  it.each(["failed", "waiting", "issues"])("throws when only the %s read fails", async (which) => {
+    seed(JOBS);
+    const ok = db.state.handler;
+    db.state.handler = (op) => {
+      if (op.table === "landing_jobs") {
+        const isFailedCount = op.head && op.filters.some(([k, f, v]) => k === "eq" && f === "status" && v === "failed");
+        const isWaitingCount = op.head && !isFailedCount;
+        if ((which === "failed" && isFailedCount) || (which === "waiting" && isWaitingCount) || (which === "issues" && !op.head)) {
+          return { data: null, error: { code: "57014", message: "timeout" } };
+        }
+      }
+      return ok(op);
+    };
     await expect(getPageJobSummary(PAGE)).rejects.toBeTruthy();
   });
 });
@@ -87,7 +145,7 @@ describe("GET /api/admin/landing-pages/[id]/jobs", () => {
     expect((await getJobs(req(), ctx())).status).toBe(404);
   });
   it("returns the summary uncached", async () => {
-    seed();
+    seed(JOBS);
     const res = await getJobs(req(), ctx());
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
