@@ -1,7 +1,8 @@
 // src/components/landing/RegisterButton.tsx
 import { isSafeUrl } from "@/lib/landing/simple-text";
+import { RegistrationLauncher } from "./registration/RegistrationLauncher";
 
-export interface Register { url: string; label: string; closed: boolean }
+export interface Register { url: string; label: string; closed: boolean; /** true on the public page when the built-in form is on */ builtIn?: boolean }
 
 type Variant = "primary" | "mint" | "outline";
 type Size = "sm" | "md" | "lg";
@@ -42,17 +43,26 @@ export function RegisterButton({
   }
   const text = ctaLabel(label, register.label);
   const classes = `${BASE} ${SIZE[size]} ${className}`;
+  const arrowIcon = arrow ? (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  ) : null;
+  if (register.builtIn) {
+    return (
+      <RegistrationLauncher className={`${classes} ${VARIANT[variant]}`}>
+        <span>{text}</span>
+        {arrowIcon}
+      </RegistrationLauncher>
+    );
+  }
   if (!isSafeUrl(register.url)) {
     return <span aria-disabled="true" className={`${classes} cursor-not-allowed bg-landing-surface-container-low text-landing-on-surface-variant opacity-70`}>{text}</span>;
   }
   return (
     <a href={register.url} className={`${classes} ${VARIANT[variant]}`}>
       <span>{text}</span>
-      {arrow ? (
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14M13 6l6 6-6 6" />
-        </svg>
-      ) : null}
+      {arrowIcon}
     </a>
   );
 }
