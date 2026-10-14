@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { roleHome, type Role } from "@/lib/roles";
 import { linkGuestRegistrations } from "@/lib/landing/registration/link-student";
+import { runInBackground } from "@/lib/landing/registration/background";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -15,8 +16,8 @@ export async function GET(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // Landing-page registrations made as a guest with this email now belong to this account.
-        // One indexed update; never throws, so it can never break a sign-in.
-        await linkGuestRegistrations(user);
+        // Runs after the redirect is sent, so sign-in never waits on it; it never throws.
+        runInBackground(linkGuestRegistrations(user));
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")

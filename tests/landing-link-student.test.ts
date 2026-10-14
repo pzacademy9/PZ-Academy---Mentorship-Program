@@ -49,11 +49,17 @@ describe("linkGuestRegistrations", () => {
 });
 
 describe("/auth/callback", () => {
-  it("links, then redirects to the role's home exactly as before", async () => {
+  it("links in the background, so sign-in never waits on it, and redirects to the role's home exactly as before", async () => {
     const res = await callback(callbackReq());
+    expect(m.runInBackground).toHaveBeenCalledTimes(1);
     expect(m.link).toHaveBeenCalledWith("user-1", "ayesha@example.com");
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(`http://localhost:3000${roleHome("student")}`);
+  });
+  it("a link that never finishes does not hold up the redirect", async () => {
+    m.link.mockReturnValue(new Promise(() => {}));
+    const res = await callback(callbackReq());
+    expect(res.status).toBe(307);
   });
   it("a linking failure never blocks the sign-in", async () => {
     m.link.mockRejectedValue(new Error("down"));
