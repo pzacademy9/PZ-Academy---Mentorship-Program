@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getLandingPage } from "@/lib/data/landing-pages";
+import { isPageId } from "@/lib/validations/landing";
 import { PreviewTarget } from "@/components/admin/landing/PreviewTarget";
 
 // Same body face as the public /e/* pages (see src/app/e/layout.tsx) so the preview matches.
@@ -13,6 +14,7 @@ export const metadata: Metadata = { title: "Page preview — PZ Academy", robots
 export default async function LandingPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();
   const { id } = await params;
+  if (!isPageId(id)) notFound();
   const page = await getLandingPage(id);
   if (!page) notFound();
   return (

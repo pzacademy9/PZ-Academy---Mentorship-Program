@@ -2,11 +2,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { publishLandingPage } from "@/lib/data/landing-pages";
+import { isPageId } from "@/lib/validations/landing";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
+  if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
   const result = await publishLandingPage(auth.user.id, id);
   if (!result.ok) {

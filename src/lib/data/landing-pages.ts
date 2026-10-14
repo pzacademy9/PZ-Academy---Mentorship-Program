@@ -79,12 +79,14 @@ export async function getPublishedLandingPage(slug: string) {
 
 export async function listVersions(id: string): Promise<LandingVersion[]> {
   const admin = createAdminSupabase();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("landing_page_versions")
     .select("version, created_at")
     .eq("page_id", id)
     .order("version", { ascending: false })
     .limit(50);
+  // Throw rather than tell the admin "no published versions yet" for a page that has some.
+  if (error) throw error;
   return (data ?? []).map((v) => ({ version: v.version, createdAt: v.created_at }));
 }
 
@@ -108,7 +110,12 @@ export async function duplicateLandingPage(
   id: string,
   input: { title: string; slug: string },
 ): Promise<CreateResult | { ok: false; reason: "not-found" }> {
-  const source = await getLandingPage(id);
+  let source: LandingPage | null;
+  try {
+    source = await getLandingPage(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
   if (!source) return { ok: false, reason: "not-found" };
   return createLandingPage(userId, { title: input.title, slug: input.slug, kind: source.kind, content: source.draft });
 }
@@ -129,7 +136,9 @@ export async function saveDraft(id: string, content: LandingContent, baseRevisio
     .maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (data) return { ok: true, revision: data.revision };
-  const { data: exists } = await admin.from("landing_pages").select("id").eq("id", id).maybeSingle();
+  const { data: exists, error: readError } = await admin.from("landing_pages").select("id").eq("id", id).maybeSingle();
+  // A failed read says nothing about whether the page exists: never report it as missing.
+  if (readError) return { ok: false, reason: "db-error" };
   return { ok: false, reason: exists ? "conflict" : "not-found" };
 }
 
@@ -182,7 +191,12 @@ export async function rollbackLandingPage(userId: string, id: string, version: n
 }
 
 export async function setPageStatus(id: string, status: "closed" | "published"): Promise<SimpleResult> {
-  const page = await getLandingPage(id);
+  let page: LandingPage | null;
+  try {
+    page = await getLandingPage(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
   if (!page) return { ok: false, reason: "not-found" };
   if (!page.published) return { ok: false, reason: "not-published" };
   const admin = createAdminSupabase();

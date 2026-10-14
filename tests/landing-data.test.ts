@@ -43,6 +43,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import {
   rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage, getLandingPage, renameLandingPage,
+  duplicateLandingPage, setPageStatus, listVersions,
 } from "@/lib/data/landing-pages";
 import { emptyContent } from "@/lib/landing/content";
 
@@ -94,6 +95,10 @@ describe("saveDraft", () => {
   it("missing page is not-found", async () => {
     handler = () => ({ data: null, error: null });
     expect(await saveDraft("p1", content, 1)).toEqual({ ok: false, reason: "not-found" });
+  });
+  it("a read error while telling conflict from not-found is db-error, never a 404", async () => {
+    handler = (o) => (o.op === "update" ? { data: null, error: null } : { data: null, error: { code: "08006", message: "down" } });
+    expect(await saveDraft("p1", content, 1)).toEqual({ ok: false, reason: "db-error" });
   });
 });
 
@@ -186,5 +191,21 @@ describe("renameLandingPage", () => {
   it("database error is db-error", async () => {
     handler = () => ({ data: null, error: { message: "boom" } });
     expect(await renameLandingPage("p1", "x")).toEqual({ ok: false, reason: "db-error" });
+  });
+});
+
+describe("read errors are never reported as missing", () => {
+  const down = () => ({ data: null, error: { code: "08006", message: "down" } });
+  it("setPageStatus returns db-error", async () => {
+    handler = down;
+    expect(await setPageStatus("p1", "closed")).toEqual({ ok: false, reason: "db-error" });
+  });
+  it("duplicateLandingPage returns db-error", async () => {
+    handler = down;
+    expect(await duplicateLandingPage("u", "p1", { title: "Copy", slug: "copy-page" })).toEqual({ ok: false, reason: "db-error" });
+  });
+  it("listVersions throws instead of claiming there are no versions", async () => {
+    handler = down;
+    await expect(listVersions("p1")).rejects.toBeTruthy();
   });
 });
