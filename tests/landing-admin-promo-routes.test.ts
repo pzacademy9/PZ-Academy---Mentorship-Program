@@ -7,9 +7,9 @@ vi.mock("@/lib/auth/require-admin", () => ({
     ? { ok: true, user: { id: "admin-1" } }
     : { ok: false, response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) }),
 }));
-const m = vi.hoisted(() => ({ listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getOrCreateAgentLink: vi.fn() }));
+const m = vi.hoisted(() => ({ listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), getOrCreateAgentLink: vi.fn() }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({
-  listPromoCodes: m.listPromoCodes, createPromoCode: m.createPromoCode, updatePromoCode: m.updatePromoCode,
+  listPromoCodes: m.listPromoCodes, createPromoCode: m.createPromoCode, updatePromoCode: m.updatePromoCode, getPromoById: m.getPromoById,
 }));
 vi.mock("@/lib/data/landing-agent-links", async (orig) => ({
   ...(await orig<typeof import("@/lib/data/landing-agent-links")>()),
@@ -122,6 +122,43 @@ describe("PATCH /api/admin/landing-promo-codes/[id]", () => {
     expect((await patchPromo(req({ code: "PZ10" }, "PATCH"), ctx())).status).toBe(409);
     m.updatePromoCode.mockResolvedValue({ ok: false, reason: "db-error" });
     expect((await patchPromo(req({ active: true }, "PATCH"), ctx())).status).toBe(500);
+  });
+});
+
+describe("PATCH merges the patch into the stored row before checking the rules", () => {
+  const stored = (over: Record<string, unknown> = {}) => ({ id: ID, code: "PZ10", type: "percent", value: 10, fixedAmounts: {}, startsAt: null, endsAt: "2026-10-31T23:59:00+05:00", ...over });
+  it("rejects a value outside 0-100 on a stored percent code", async () => {
+    m.getPromoById.mockResolvedValue(stored());
+    expect(await fieldOf(await patchPromo(req({ value: 500 }, "PATCH"), ctx()))).toBe("value");
+    expect((await patchPromo(req({ value: 0 }, "PATCH"), ctx())).status).toBe(400);
+    expect(m.updatePromoCode).not.toHaveBeenCalled();
+  });
+  it("rejects emptying the amounts of a stored fixed code", async () => {
+    m.getPromoById.mockResolvedValue(stored({ type: "fixed", value: 0, fixedAmounts: { PKR: 500 } }));
+    expect(await fieldOf(await patchPromo(req({ fixedAmounts: {} }, "PATCH"), ctx()))).toBe("fixedAmounts");
+    expect(m.updatePromoCode).not.toHaveBeenCalled();
+  });
+  it("rejects a start after the stored end", async () => {
+    m.getPromoById.mockResolvedValue(stored());
+    const res = await patchPromo(req({ startsAt: "2026-11-05T00:00:00Z" }, "PATCH"), ctx());
+    expect(res.status).toBe(400);
+    expect(await fieldOf(res)).toBe("endsAt");
+    expect(m.updatePromoCode).not.toHaveBeenCalled();
+  });
+  it("lets valid partial patches through, and skips the read for non-rule fields", async () => {
+    m.updatePromoCode.mockResolvedValue({ ok: true, id: ID });
+    m.getPromoById.mockResolvedValue(stored());
+    expect((await patchPromo(req({ value: 25 }, "PATCH"), ctx())).status).toBe(200);
+    expect((await patchPromo(req({ startsAt: "2026-10-01T00:00:00Z" }, "PATCH"), ctx())).status).toBe(200);
+    m.getPromoById.mockClear();
+    expect((await patchPromo(req({ active: false }, "PATCH"), ctx())).status).toBe(200);
+    expect(m.getPromoById).not.toHaveBeenCalled();
+  });
+  it("404 when the row is gone, 400 when the database check still fails", async () => {
+    m.getPromoById.mockResolvedValue(null);
+    expect((await patchPromo(req({ value: 5 }, "PATCH"), ctx())).status).toBe(404);
+    m.updatePromoCode.mockResolvedValue({ ok: false, reason: "invalid" });
+    expect((await patchPromo(req({ active: true }, "PATCH"), ctx())).status).toBe(400);
   });
 });
 

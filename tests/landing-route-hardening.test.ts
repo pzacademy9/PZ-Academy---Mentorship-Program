@@ -22,14 +22,14 @@ vi.mock("@/components/admin/landing/PreviewTarget", () => ({ PreviewTarget: () =
 const extra = vi.hoisted(() => ({
   getPageSheetInfo: vi.fn(), saveEventSheet: vi.fn(), createEventSheet: vi.fn(),
   retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), runInBackground: vi.fn(),
-  listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getOrCreateAgentLink: vi.fn(),
+  listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), getOrCreateAgentLink: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
 vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
 vi.mock("@/lib/data/landing-jobs", () => ({ retryFailedJobs: extra.retryFailedJobs, drainDueJobs: extra.drainDueJobs }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: extra.runInBackground }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({
-  listPromoCodes: extra.listPromoCodes, createPromoCode: extra.createPromoCode, updatePromoCode: extra.updatePromoCode,
+  listPromoCodes: extra.listPromoCodes, createPromoCode: extra.createPromoCode, updatePromoCode: extra.updatePromoCode, getPromoById: extra.getPromoById,
 }));
 vi.mock("@/lib/data/landing-agent-links", () => ({
   getOrCreateAgentLink: extra.getOrCreateAgentLink,

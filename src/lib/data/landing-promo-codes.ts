@@ -9,11 +9,18 @@ type Insert = Database["public"]["Tables"]["landing_promo_codes"]["Insert"];
 type Update = Database["public"]["Tables"]["landing_promo_codes"]["Update"];
 
 export type PromoCodeInput = Omit<PromoCode, "id" | "usedCount">;
-export type PromoWriteResult = { ok: true; id: string } | { ok: false; reason: "duplicate" | "not-found" | "db-error" };
+export type PromoWriteResult = { ok: true; id: string } | { ok: false; reason: "duplicate" | "not-found" | "invalid" | "db-error" };
 
 const COLUMNS =
   "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id";
 const UNIQUE_VIOLATION = "23505";
+const CHECK_VIOLATION = "23514";
+
+function failure(code: string | undefined): PromoWriteResult {
+  if (code === UNIQUE_VIOLATION) return { ok: false, reason: "duplicate" };
+  if (code === CHECK_VIOLATION) return { ok: false, reason: "invalid" };
+  return { ok: false, reason: "db-error" };
+}
 
 export function normalizePromoCode(raw: string): string {
   return raw.trim().toUpperCase();
@@ -76,6 +83,14 @@ export async function getPromoByCode(code: string): Promise<PromoCode | null> {
   return data ? mapRow(data as Row) : null;
 }
 
+/** One code by id, or null. Throws on a read error. */
+export async function getPromoById(id: string): Promise<PromoCode | null> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("landing_promo_codes").select(COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapRow(data as Row) : null;
+}
+
 export async function listPromoCodes(): Promise<PromoCode[]> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("landing_promo_codes").select(COLUMNS).order("created_at", { ascending: false });
@@ -86,14 +101,14 @@ export async function listPromoCodes(): Promise<PromoCode[]> {
 export async function createPromoCode(input: PromoCodeInput): Promise<PromoWriteResult> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("landing_promo_codes").insert(toRow(input) as Insert).select("id").single();
-  if (error) return { ok: false, reason: error.code === UNIQUE_VIOLATION ? "duplicate" : "db-error" };
+  if (error) return failure(error.code);
   return { ok: true, id: data.id };
 }
 
 export async function updatePromoCode(id: string, patch: Partial<PromoCodeInput>): Promise<PromoWriteResult> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("landing_promo_codes").update(toRow(patch)).eq("id", id).select("id").maybeSingle();
-  if (error) return { ok: false, reason: error.code === UNIQUE_VIOLATION ? "duplicate" : "db-error" };
+  if (error) return failure(error.code);
   if (!data) return { ok: false, reason: "not-found" };
   return { ok: true, id: data.id };
 }

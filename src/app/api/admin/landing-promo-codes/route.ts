@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
     if (result.reason === "duplicate") {
       return NextResponse.json({ error: "That code already exists. Choose a different code.", field: "code" }, { status: 409 });
     }
+    if (result.reason === "invalid") {
+      return NextResponse.json({ error: "Those values are not allowed together. Check the dates and amounts." }, { status: 400 });
+    }
     return NextResponse.json({ error: "Could not save the promo code" }, { status: 500 });
   }
   return NextResponse.json({ id: result.id }, { status: 201 });
