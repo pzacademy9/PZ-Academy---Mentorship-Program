@@ -32,7 +32,14 @@ function builder(table: string) {
   };
   return b;
 }
-vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from: builder }) }));
+let rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
+let rpcHandler: (fn: string, args: Record<string, unknown>) => Res = () => ({ data: null, error: null });
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminSupabase: () => ({
+    from: builder,
+    rpc: (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return Promise.resolve(rpcHandler(fn, args)); },
+  }),
+}));
 
 import {
   rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage, getLandingPage, renameLandingPage,
@@ -49,50 +56,33 @@ const find = (table: string, op: Op["op"]) => ops.filter((o) => o.table === tabl
 
 beforeEach(() => {
   ops = []; forceReady = false; revalidatePath.mockReset();
+  rpcCalls = []; rpcHandler = () => ({ data: null, error: null });
 });
 
-describe("rollbackLandingPage", () => {
-  const script = (pageUpdate: Res) => (o: Op): Res => {
-    if (o.table === "landing_pages" && o.op === "select") return { data: pageRow(), error: null };
-    if (o.table === "landing_page_versions" && o.op === "select" && o.filters.some(([k]) => k === "version") ) return { data: { content }, error: null };
-    if (o.table === "landing_page_versions" && o.op === "select") return { data: { version: 3 }, error: null };
-    if (o.table === "landing_page_versions" && o.op === "insert") return { data: null, error: null };
-    if (o.table === "landing_pages" && o.op === "update") return pageUpdate;
-    return { data: null, error: null };
-  };
-
-  it("reports conflict, removes the version it inserted and does not revalidate when the revision moved", async () => {
-    handler = script({ data: null, error: null });
-    const r = await rollbackLandingPage("u", "p1", 2);
-    expect(r).toEqual({ ok: false, reason: "conflict" });
-    const del = find("landing_page_versions", "delete");
-    expect(del).toHaveLength(1);
-    expect(del[0].filters).toEqual(expect.arrayContaining([["page_id", "p1"], ["version", 4]]));
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it("happy path writes draft + published + revision+1 guarded by the loaded revision", async () => {
-    handler = script({ data: { id: "p1" }, error: null });
-    const r = await rollbackLandingPage("u", "p1", 2);
-    expect(r).toEqual({ ok: true });
-    const upd = find("landing_pages", "update")[0];
-    expect(upd.filters).toEqual(expect.arrayContaining([["id", "p1"], ["revision", 7]]));
-    expect(upd.payload).toMatchObject({ revision: 8 });
-    expect(upd.payload).toHaveProperty("draft");
-    expect(upd.payload).toHaveProperty("published");
-    expect(find("landing_page_versions", "delete")).toHaveLength(0);
+describe("rollbackLandingPage (atomic RPC)", () => {
+  it("restores through landing_rollback_page in one call and returns the new version", async () => {
+    handler = () => ({ data: pageRow(), error: null });
+    rpcHandler = () => ({ data: 5, error: null });
+    expect(await rollbackLandingPage("u", "p1", 2)).toEqual({ ok: true, version: 5 });
+    expect(rpcCalls).toEqual([{ fn: "landing_rollback_page", args: { p_page_id: "p1", p_version: 2, p_user: "u" } }]);
+    // No more client-side insert / update / compensating delete: the function does it all.
+    expect(ops.filter((o) => o.op !== "select")).toHaveLength(0);
     expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
-});
-
-describe("saveDraft", () => {
-  it("stale revision with an existing page is a conflict", async () => {
-    handler = (o) => (o.op === "update" ? { data: null, error: null } : { data: { id: "p1" }, error: null });
-    expect(await saveDraft("p1", content, 1)).toEqual({ ok: false, reason: "conflict" });
+  it("a missing version is not-found and revalidates nothing", async () => {
+    handler = () => ({ data: pageRow(), error: null });
+    rpcHandler = () => ({ data: null, error: { message: "landing_version_not_found" } });
+    expect(await rollbackLandingPage("u", "p1", 99)).toEqual({ ok: false, reason: "not-found" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
-  it("missing page is not-found", async () => {
+  it("a missing page is not-found without calling the function", async () => {
     handler = () => ({ data: null, error: null });
-    expect(await saveDraft("p1", content, 1)).toEqual({ ok: false, reason: "not-found" });
+    expect(await rollbackLandingPage("u", "p1", 2)).toEqual({ ok: false, reason: "not-found" });
+    expect(rpcCalls).toHaveLength(0);
+  });
+  it("a read error is db-error, never not-found", async () => {
+    handler = () => ({ data: null, error: { code: "08006", message: "down" } });
+    expect(await rollbackLandingPage("u", "p1", 2)).toEqual({ ok: false, reason: "db-error" });
   });
 });
 
@@ -104,17 +94,37 @@ describe("publishLandingPage", () => {
     if (!r.ok && r.reason === "not-ready") expect(r.problems.length).toBeGreaterThan(0);
     else throw new Error("expected not-ready");
     expect(ops.filter((o) => o.op === "insert" || o.op === "update")).toHaveLength(0);
+    expect(rpcCalls).toHaveLength(0);
   });
 
-  it("publishing a closed page keeps it closed", async () => {
+  it("publishes through landing_publish_page with the revision the readiness check saw", async () => {
     forceReady = true;
-    handler = (o) => {
-      if (o.table === "landing_pages" && o.op === "select") return { data: pageRow({ status: "closed" }), error: null };
-      if (o.table === "landing_page_versions" && o.op === "select") return { data: { version: 1 }, error: null };
-      return { data: { id: "p1" }, error: null };
-    };
-    expect(await publishLandingPage("u", "p1")).toEqual({ ok: true });
-    expect(find("landing_pages", "update")[0].payload).toMatchObject({ status: "closed" });
+    handler = () => ({ data: pageRow(), error: null });
+    rpcHandler = () => ({ data: 4, error: null });
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: true, version: 4 });
+    expect(rpcCalls).toEqual([{ fn: "landing_publish_page", args: { p_page_id: "p1", p_user: "u", p_revision: 7 } }]);
+    expect(ops.filter((o) => o.op !== "select")).toHaveLength(0);
+    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
+  });
+  it("a draft saved after the readiness check is a conflict (409), not a 500", async () => {
+    forceReady = true;
+    handler = () => ({ data: pageRow(), error: null });
+    rpcHandler = () => ({ data: null, error: { message: "landing_revision_conflict" } });
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: false, reason: "conflict" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+  it("a page deleted mid-publish is not-found; any other function error is db-error", async () => {
+    forceReady = true;
+    handler = () => ({ data: pageRow(), error: null });
+    rpcHandler = () => ({ data: null, error: { message: "landing_page_not_found" } });
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: false, reason: "not-found" });
+    rpcHandler = () => ({ data: null, error: { message: "boom" } });
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: false, reason: "db-error" });
+  });
+  it("a read error while loading the page is db-error and calls nothing", async () => {
+    handler = () => ({ data: null, error: { code: "08006", message: "down" } });
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: false, reason: "db-error" });
+    expect(rpcCalls).toHaveLength(0);
   });
 });
 

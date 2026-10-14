@@ -14,7 +14,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "The page is not ready to publish yet.", problems: result.problems }, { status: 422 });
     }
     if (result.reason === "not-found") return NextResponse.json({ error: "Page not found" }, { status: 404 });
+    if (result.reason === "conflict") {
+      return NextResponse.json(
+        { error: "This page changed while it was being published. Check your latest edits and publish again.", code: "conflict" },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: "Could not publish" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, version: result.version });
 }

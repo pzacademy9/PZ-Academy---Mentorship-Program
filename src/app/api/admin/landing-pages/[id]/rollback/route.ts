@@ -20,5 +20,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ error: "Could not restore that version" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, version: result.version });
 }

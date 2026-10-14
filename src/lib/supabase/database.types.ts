@@ -2983,6 +2983,14 @@ export type Database = {
           question_id: string
         }[]
       }
+      landing_publish_page: {
+        Args: { p_page_id: string; p_revision?: number; p_user: string }
+        Returns: number
+      }
+      landing_rollback_page: {
+        Args: { p_page_id: string; p_user: string; p_version: number }
+        Returns: number
+      }
       mentor_review_stats: {
         Args: { p_mentor_ids: string[] }
         Returns: {

@@ -135,6 +135,18 @@ describe("publish", () => {
     publishLandingPage.mockResolvedValue({ ok: false, reason: "not-found" });
     expect((await publish(req({}), ctx)).status).toBe(404);
   });
+  it("maps a publish conflict to 409 with a plain message, never 500", async () => {
+    publishLandingPage.mockResolvedValue({ ok: false, reason: "conflict" });
+    const res = await publish(req({}), ctx);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("conflict");
+    expect(body.error).toMatch(/changed while it was being published/i);
+  });
+  it("returns the new version number on success", async () => {
+    publishLandingPage.mockResolvedValue({ ok: true, version: 6 });
+    expect(await (await publish(req({}), ctx)).json()).toEqual({ ok: true, version: 6 });
+  });
 });
 
 describe("rollback / duplicate / status", () => {
