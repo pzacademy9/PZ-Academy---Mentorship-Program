@@ -18,6 +18,7 @@ import { SECTION_DEFS } from "@/lib/landing/sections";
 import { SectionList } from "./SectionList";
 import { SectionForm } from "./SectionForm";
 import { PageSettingsPanel } from "./PageSettingsPanel";
+import { RegistrationOpsCard } from "./registration/RegistrationOpsCard";
 import type { PaymentAccountSummary } from "./registration/RegistrationSetup";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { PreviewFrame } from "./PreviewFrame";
@@ -51,7 +52,9 @@ const SAVE_DOT: Record<SaveState, string> = {
  * false conflict. Someone else's change surfaces as a save conflict, and its Reload button does a
  * full browser reload.
  */
-export function LandingEditor({ page, versions, accounts = [] }: { page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[] }) {
+export function LandingEditor({
+  page, versions, accounts = [], sheetId = null,
+}: { page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[]; sheetId?: string | null }) {
   const known = useRef(page.revision);
   const remountAbove = useRef<number | null>(null);
   const [epoch, setEpoch] = useState(0);
@@ -71,7 +74,7 @@ export function LandingEditor({ page, versions, accounts = [] }: { page: Landing
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -99,8 +102,8 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, accounts, onRevision, onRestored,
-}: { page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; onRevision: (rev: number) => void; onRestored: () => void }) {
+  page, versions, accounts, sheetId, onRevision, onRestored,
+}: { page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; sheetId: string | null; onRevision: (rev: number) => void; onRestored: () => void }) {
   const router = useRouter();
   const confirm = useConfirm();
   const { state, schedule, saveNow } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
@@ -440,7 +443,11 @@ function EditorShell({
               registrationStep={regStep}
               onRegistrationStep={setRegStep}
               onRegistration={(next) => apply(updateRegistration(contentRef.current, next))}
-            />
+            >
+              {content.registration.enabled ? (
+                <RegistrationOpsCard pageId={page.id} slug={page.slug} status={page.status} initialSheetId={sheetId} />
+              ) : null}
+            </PageSettingsPanel>
           ) : current ? (
             <div className="space-y-5">
               <div className="space-y-1">

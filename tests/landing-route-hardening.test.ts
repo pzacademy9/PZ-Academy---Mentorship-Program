@@ -23,11 +23,13 @@ const extra = vi.hoisted(() => ({
   getPageSheetInfo: vi.fn(), saveEventSheet: vi.fn(), createEventSheet: vi.fn(),
   retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), runInBackground: vi.fn(),
   listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), getOrCreateAgentLink: vi.fn(),
+  getPageJobSummary: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
 vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
 vi.mock("@/lib/data/landing-jobs", () => ({ retryFailedJobs: extra.retryFailedJobs, drainDueJobs: extra.drainDueJobs }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: extra.runInBackground }));
+vi.mock("@/lib/data/landing-ops", () => ({ getPageJobSummary: extra.getPageJobSummary }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({
   listPromoCodes: extra.listPromoCodes, createPromoCode: extra.createPromoCode, updatePromoCode: extra.updatePromoCode, getPromoById: extra.getPromoById,
 }));
@@ -47,6 +49,7 @@ import EditorPage from "@/app/dashboard/admin/landing-pages/[id]/page";
 import PreviewPage from "@/app/dashboard/admin/landing-pages/[id]/preview/page";
 import { POST as createSheet } from "@/app/api/admin/landing-pages/[id]/sheet/route";
 import { POST as retryJobs } from "@/app/api/admin/landing-pages/[id]/jobs/retry/route";
+import { GET as listJobs } from "@/app/api/admin/landing-pages/[id]/jobs/route";
 import { GET as listPromos, POST as createPromo } from "@/app/api/admin/landing-promo-codes/route";
 import { PATCH as patchPromo } from "@/app/api/admin/landing-promo-codes/[id]/route";
 import { POST as agentLink } from "@/app/api/admin/landing-agent-links/route";
@@ -68,6 +71,7 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-pages/[id]/rename/route.ts": () => rename(req({ title: "New name" }), ctx),
   "landing-pages/[id]/sheet/route.ts": () => createSheet(req({}), ctx),
   "landing-pages/[id]/jobs/retry/route.ts": () => retryJobs(req({}), ctx),
+  "landing-pages/[id]/jobs/route.ts": () => listJobs(new Request("http://x") as never, ctx),
   "landing-promo-codes/route.ts": () => createPromo(req({ code: "PZ10" })),
   "landing-promo-codes/[id]/route.ts": () => patchPromo(req({ active: false }, "PATCH"), ctx),
   "landing-agent-links/route.ts": () => agentLink(req({ agentId: ID })),
@@ -123,5 +127,21 @@ describe("admin pages for a malformed id", () => {
   it("the preview page 404s without querying the database", async () => {
     await expect(PreviewPage({ params: Promise.resolve({ id: "not-a-uuid" }) })).rejects.toThrow("NEXT_NOT_FOUND");
     expect(data.getLandingPage).not.toHaveBeenCalled();
+  });
+});
+
+describe("registration admin routes and malformed ids", () => {
+  it("answer 404 after the gate and never reach the data layer", async () => {
+    gate.result = { ok: true, user: { id: "admin-user" } };
+    const bad = { params: Promise.resolve({ id: "not-a-uuid" }) };
+    for (const [name, call] of [
+      ["sheet", () => createSheet(req({}), bad)],
+      ["retry", () => retryJobs(req({}), bad)],
+      ["jobs", () => listJobs(new Request("http://x") as never, bad)],
+    ] as const) {
+      const res = await call();
+      expect(res.status, name).toBe(404);
+    }
+    for (const [name, fn] of Object.entries(extra)) expect(fn, name).not.toHaveBeenCalled();
   });
 });

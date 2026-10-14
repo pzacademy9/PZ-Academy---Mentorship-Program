@@ -517,6 +517,17 @@ describe("LandingEditor", () => {
     fireEvent.click(within(item).getByRole("button", { name: /fix/i }));
     expect(screen.getByRole("heading", { name: "Payment accounts" })).toBeTruthy();
   });
+  it("shows the Registrations card above the setup when the built-in form is on", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const reg = updateRegistration(page.draft, ppcConfig);
+    const live = { ...page, status: "published" as const, draft: reg, published: reg };
+    render(<LandingEditor page={live} versions={[]} accounts={[]} sheetId="sheet-1" />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    const card = screen.getByRole("region", { name: "Registrations" });
+    expect(within(card).getByRole("link", { name: /open sheet/i }).getAttribute("href")).toBe("https://docs.google.com/spreadsheets/d/sheet-1/edit");
+    expect((within(card).getByRole("button", { name: /register as a customer/i }) as HTMLButtonElement).disabled).toBe(false);
+  });
   it("adds a section and selects it", () => {
     render(<LandingEditor page={page} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /add section/i }));
