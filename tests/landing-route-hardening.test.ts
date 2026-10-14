@@ -18,6 +18,12 @@ vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_
 vi.mock("next/font/google", () => ({ Inter: () => ({ variable: "font-inter" }) }));
 vi.mock("@/components/admin/landing/LandingEditor", () => ({ LandingEditor: () => null }));
 vi.mock("@/components/admin/landing/PreviewTarget", () => ({ PreviewTarget: () => null }));
+// Phase 2 admin routes: a refused gate must leave every one of these untouched.
+const extra = vi.hoisted(() => ({
+  getPageSheetInfo: vi.fn(), saveEventSheet: vi.fn(), createEventSheet: vi.fn(),
+}));
+vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
+vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
 
 import { POST as create } from "@/app/api/admin/landing-pages/route";
 import { PATCH as patchDraft } from "@/app/api/admin/landing-pages/[id]/route";
@@ -28,6 +34,7 @@ import { POST as status } from "@/app/api/admin/landing-pages/[id]/status/route"
 import { POST as rename } from "@/app/api/admin/landing-pages/[id]/rename/route";
 import EditorPage from "@/app/dashboard/admin/landing-pages/[id]/page";
 import PreviewPage from "@/app/dashboard/admin/landing-pages/[id]/preview/page";
+import { POST as createSheet } from "@/app/api/admin/landing-pages/[id]/sheet/route";
 import { emptyContent } from "@/lib/landing/content";
 
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -44,6 +51,7 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-pages/[id]/duplicate/route.ts": () => duplicate(req({ title: "Copy" }), ctx),
   "landing-pages/[id]/status/route.ts": () => status(req({ status: "closed" }), ctx),
   "landing-pages/[id]/rename/route.ts": () => rename(req({ title: "New name" }), ctx),
+  "landing-pages/[id]/sheet/route.ts": () => createSheet(req({}), ctx),
 };
 
 function routeFiles(dir: string): string[] {
@@ -58,6 +66,7 @@ function routeFiles(dir: string): string[] {
 
 beforeEach(() => {
   for (const fn of Object.values(data)) fn.mockReset();
+  for (const fn of Object.values(extra)) fn.mockReset();
 });
 
 describe("landing admin routes refuse anyone who is not an admin", () => {
@@ -78,6 +87,7 @@ describe("landing admin routes refuse anyone who is not an admin", () => {
       expect((await res.json()).error, name).toBe(message);
     }
     for (const [name, fn] of Object.entries(data)) expect(fn, name).not.toHaveBeenCalled();
+    for (const [name, fn] of Object.entries(extra)) expect(fn, name).not.toHaveBeenCalled();
   });
 });
 

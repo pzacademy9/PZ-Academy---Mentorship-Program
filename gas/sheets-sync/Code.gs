@@ -163,6 +163,10 @@ function doPost(e) {
     return handleTrashFile_(body);
   }
 
+  if (body.action === "uploadLandingVoucher") {
+    return handleUploadLandingVoucher_(body);
+  }
+
   const props = PropertiesService.getScriptProperties();
   if (!body || body.token !== props.getProperty("SYNC_SECRET")) {
     return jsonResponse_({ status: "error", message: "Wrong password." });
@@ -190,6 +194,14 @@ function doPost(e) {
 
   if (body.action === "applyLeadSync") {
     return handleApplyLeadSync_(body);
+  }
+
+  if (body.action === "createEventSheet") {
+    return handleCreateEventSheet_(body);
+  }
+
+  if (body.action === "appendRegistrationRows") {
+    return handleAppendRegistrationRows_(body);
   }
 
   return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
@@ -572,4 +584,195 @@ function onEditLeads(e) {
   } catch (err) {
     console.error(String(err));
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Landing-page registrations (Phase 2): one spreadsheet per event, created by
+ * the app. LANDING_HEADERS must stay identical to SHEET_HEADERS in
+ * src/lib/landing/registration/sheet-row.ts (tests/landing-event-sheet.test.ts
+ * pins it). ROOT_FOLDER_NAME, getOrCreateFolder_ and sanitizeFolderName_ come
+ * from gas/payment-screenshots/Code.gs, which shares this Apps Script project.
+ * ------------------------------------------------------------------------- */
+const LANDING_TAB_NAME = "Form Responses 1";
+const LANDING_HEADERS = ["Name", "Email", "WhatsApp", "Profession", "Discovery", "Registration Option", "Consent", "Row Type", "Promo Code", "Voucher URL", "Submitted At", "Expected Amount", "Group Lead Email", "Payment Method", "Amount", "Payment Confirmation", "Email Confirmation", "Source", "Ref ID", "Region", "Agent", "Promo Code Used", "UTM Campaign"];
+const LANDING_STATUS_VALUES = ["Paid", "Pending", "Underpaid", "Reserved", "Free"];
+const LANDING_SHEETS_FOLDER_NAME = "Landing Sheets";
+const LANDING_VOUCHERS_FOLDER_NAME = "Landing Vouchers";
+const LANDING_HEADER_BG = "#023122";
+const LANDING_LEAD_BG = "#E8F5E0";
+const LANDING_MEMBER_BG = "#F4FBF0";
+const LANDING_COL = { NAME: 1, EMAIL: 2, ROW_TYPE: 8, VOUCHER: 10, STATUS: 16, REF: 19 };
+// WhatsApp (C), Promo Code (I), Ref ID (S), Promo Code Used (V): kept as plain text so Sheets never
+// coerces 03001234567, 1E5 or numeric-looking ids.
+const LANDING_TEXT_COLS = [3, 9, 19, 22];
+const LANDING_VOUCHER_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const LANDING_HEADER_NOTE =
+  "Only P (Payment Confirmation) and O (Amount) are for the team to edit. Every other column is written by the PZ Academy app and will be overwritten.";
+
+function handleCreateEventSheet_(body) {
+  const title = String(body.title || "").trim();
+  if (!title) return jsonResponse_({ status: "error", message: "Missing title" });
+  try {
+    const ss = SpreadsheetApp.create(title.slice(0, 90) + " - Registrations");
+    const sheet = ss.getSheets()[0];
+    sheet.setName(LANDING_TAB_NAME);
+    sheet
+      .getRange(1, 1, 1, LANDING_HEADERS.length)
+      .setValues([LANDING_HEADERS])
+      .setBackground(LANDING_HEADER_BG)
+      .setFontColor("#FFFFFF")
+      .setFontWeight("bold")
+      .setFontSize(10)
+      .setVerticalAlignment("middle");
+    sheet.getRange(1, 1).setNote(LANDING_HEADER_NOTE);
+    sheet.setFrozenRows(1);
+    sheet.setRowHeight(1, 32);
+    applyLandingStatusValidation_(sheet, 2, sheet.getMaxRows() - 1);
+
+    const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+    DriveApp.getFileById(ss.getId()).moveTo(getOrCreateFolder_(root, LANDING_SHEETS_FOLDER_NAME));
+    const vouchersRoot = getOrCreateFolder_(root, LANDING_VOUCHERS_FOLDER_NAME);
+    const eventFolder = getOrCreateFolder_(vouchersRoot, landingFolderName_(body.folderName || title));
+
+    return jsonResponse_({ status: "success", sheetId: ss.getId(), driveFolderId: eventFolder.getId() });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+function handleAppendRegistrationRows_(body) {
+  if (!body.sheetId || !Array.isArray(body.rows)) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId or rows" });
+  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: "Sheet is busy, try again" });
+  }
+  try {
+    const ss = SpreadsheetApp.openById(body.sheetId);
+    const sheet = ss.getSheetByName(LANDING_TAB_NAME) || ss.getSheets()[0];
+    const lastRow = sheet.getLastRow();
+
+    // Idempotent: a retried job must not duplicate rows. Ref ID + Email is the row key
+    // (members carry their lead's Ref ID and their own email).
+    const seen = {};
+    if (lastRow >= 2) {
+      const emails = sheet.getRange(2, LANDING_COL.EMAIL, lastRow - 1, 1).getDisplayValues();
+      const refs = sheet.getRange(2, LANDING_COL.REF, lastRow - 1, 1).getDisplayValues();
+      for (let i = 0; i < emails.length; i++) seen[landingRowKey_(refs[i][0], emails[i][0])] = true;
+    }
+
+    const fresh = [];
+    for (const row of body.rows) {
+      if (!Array.isArray(row) || row.length !== LANDING_HEADERS.length) {
+        return jsonResponse_({ status: "error", message: "Each row must have " + LANDING_HEADERS.length + " cells" });
+      }
+      const key = landingRowKey_(row[LANDING_COL.REF - 1], row[LANDING_COL.EMAIL - 1]);
+      if (seen[key]) continue;
+      seen[key] = true;
+      fresh.push(row);
+    }
+    if (fresh.length === 0) return jsonResponse_({ status: "success", appended: 0 });
+
+    const start = lastRow + 1;
+    const values = fresh.map((r) => r.map((c, i) => (i === LANDING_COL.VOUCHER - 1 ? "" : landingCell_(c, i + 1))));
+    // Plain-text format BEFORE the write, so Sheets does not coerce the values as it stores them.
+    LANDING_TEXT_COLS.forEach((col) => {
+      sheet.getRange(start, col, fresh.length, 1).setNumberFormat("@");
+    });
+    sheet.getRange(start, 1, fresh.length, LANDING_HEADERS.length).setValues(values);
+
+    for (let i = 0; i < fresh.length; i++) {
+      const r = start + i;
+      const type = String(fresh[i][LANDING_COL.ROW_TYPE - 1]);
+      const bg = type === "Group Lead" ? LANDING_LEAD_BG : type === "Group Member" ? LANDING_MEMBER_BG : "#FFFFFF";
+      sheet.getRange(r, 1, 1, LANDING_HEADERS.length).setBackground(bg);
+      if (type === "Group Lead") sheet.getRange(r, LANDING_COL.NAME).setFontWeight("bold");
+      sheet.setRowHeight(r, 28);
+      const url = String(fresh[i][LANDING_COL.VOUCHER - 1] || "");
+      if (/^https:\/\/[^\s"]+$/.test(url)) {
+        sheet
+          .getRange(r, LANDING_COL.VOUCHER)
+          .setFormula('=HYPERLINK("' + url + '","View Receipt")')
+          .setFontWeight("bold")
+          .setFontColor("#0F3D22");
+      }
+    }
+    applyLandingStatusValidation_(sheet, start, fresh.length);
+    return jsonResponse_({ status: "success", appended: fresh.length });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Public, unauthenticated registrants' payment screenshots. SHARED_SECRET gate like the other Drive actions. */
+function handleUploadLandingVoucher_(body) {
+  const expectedSecret = PropertiesService.getScriptProperties().getProperty("SHARED_SECRET");
+  if (!expectedSecret || body.secret !== expectedSecret) {
+    return jsonResponse_({ status: "error", message: "Unauthorized" });
+  }
+  const { pageSlug, mimeType, base64, filename, folderId } = body;
+  if (!pageSlug || !mimeType || !base64 || !filename) {
+    return jsonResponse_({ status: "error", message: "Missing required fields" });
+  }
+  if (LANDING_VOUCHER_MIME.indexOf(mimeType) === -1) {
+    return jsonResponse_({ status: "error", message: "Unsupported file type" });
+  }
+  try {
+    const safeName = String(filename).replace(/[^\w.-]/g, "_").slice(0, 100);
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, safeName);
+    const file = landingVoucherFolder_(pageSlug, folderId).createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return jsonResponse_({ status: "success", url: file.getUrl(), fileId: file.getId() });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/** The event's folder when folderId is a direct child of "PZ Academy/Landing Vouchers"; else a folder named after the slug. */
+function landingVoucherFolder_(pageSlug, folderId) {
+  const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+  const vouchersRoot = getOrCreateFolder_(root, LANDING_VOUCHERS_FOLDER_NAME);
+  if (folderId) {
+    try {
+      const folder = DriveApp.getFolderById(String(folderId));
+      const parents = folder.getParents();
+      while (parents.hasNext()) {
+        if (parents.next().getId() === vouchersRoot.getId()) return folder;
+      }
+    } catch (err) {
+      // Unknown or inaccessible id: fall back to the slug folder below.
+    }
+  }
+  return getOrCreateFolder_(vouchersRoot, sanitizeFolderName_(pageSlug));
+}
+
+function applyLandingStatusValidation_(sheet, startRow, numRows) {
+  if (numRows < 1) return;
+  const rule = SpreadsheetApp.newDataValidation().requireValueInList(LANDING_STATUS_VALUES, true).setAllowInvalid(false).build();
+  sheet.getRange(startRow, LANDING_COL.STATUS, numRows, 1).setDataValidation(rule);
+}
+
+function landingFolderName_(name) {
+  const cleaned = String(name || "").replace(/[^\w\s-]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+  return cleaned || "event";
+}
+
+/**
+ * Text written by the public must never run as a formula (=, +, -, @ start a formula in Sheets).
+ * Columns in LANDING_TEXT_COLS are formatted as plain text before the write, so Sheets never
+ * evaluates them and they get no apostrophe prefix (it would show up literally in a text cell).
+ */
+function landingCell_(value, col) {
+  const s = value === null || value === undefined ? "" : String(value);
+  if (LANDING_TEXT_COLS.indexOf(col) !== -1) return s;
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+function landingRowKey_(ref, email) {
+  return String(ref || "").trim().toUpperCase() + "|" + String(email || "").trim().toLowerCase();
 }
