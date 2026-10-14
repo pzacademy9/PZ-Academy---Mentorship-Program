@@ -36,11 +36,11 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function Harness({ initial }: { initial: FormState }) {
+function Harness({ initial, professions }: { initial: FormState; professions?: string[] }) {
   const [form, setForm] = useState(initial);
   const [result, setResult] = useState<RegisterSuccess | null>(null);
   return (
-    <RegistrationFlow slug="ppc" config={publicConfig(ppcConfig)} me={null} testMode={false} tracking={false}
+    <RegistrationFlow slug="ppc" config={publicConfig(professions ? { ...ppcConfig, professions } : ppcConfig)} me={null} testMode={false} tracking={false}
       form={form} setForm={setForm} result={result} setResult={setResult} onClose={() => {}} />
   );
 }
@@ -179,9 +179,10 @@ describe("review follow-ups", () => {
     expect(new Set(names).size).toBe(names.length);
   });
   it("free-text profession is capped at the schema length", () => {
-    render(<Harness initial={start({ step: "details" })} />);
-    const input = screen.queryByLabelText("Profession") as HTMLInputElement | null;
-    if (input && input.tagName === "INPUT") expect(input.maxLength).toBe(120);
+    render(<Harness initial={start({ step: "details" })} professions={[]} />);
+    const input = screen.getByLabelText("Profession");
+    expect(input.tagName).toBe("INPUT");
+    expect((input as HTMLInputElement).maxLength).toBe(120);
   });
   it("status result resets when the reference changes and is not a live region", async () => {
     render(<StatusLookup slug="ppc" whatsappNumber="923700199429" />);
