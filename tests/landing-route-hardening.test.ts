@@ -21,9 +21,12 @@ vi.mock("@/components/admin/landing/PreviewTarget", () => ({ PreviewTarget: () =
 // Phase 2 admin routes: a refused gate must leave every one of these untouched.
 const extra = vi.hoisted(() => ({
   getPageSheetInfo: vi.fn(), saveEventSheet: vi.fn(), createEventSheet: vi.fn(),
+  retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), runInBackground: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
 vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
+vi.mock("@/lib/data/landing-jobs", () => ({ retryFailedJobs: extra.retryFailedJobs, drainDueJobs: extra.drainDueJobs }));
+vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: extra.runInBackground }));
 
 import { POST as create } from "@/app/api/admin/landing-pages/route";
 import { PATCH as patchDraft } from "@/app/api/admin/landing-pages/[id]/route";
@@ -35,6 +38,7 @@ import { POST as rename } from "@/app/api/admin/landing-pages/[id]/rename/route"
 import EditorPage from "@/app/dashboard/admin/landing-pages/[id]/page";
 import PreviewPage from "@/app/dashboard/admin/landing-pages/[id]/preview/page";
 import { POST as createSheet } from "@/app/api/admin/landing-pages/[id]/sheet/route";
+import { POST as retryJobs } from "@/app/api/admin/landing-pages/[id]/jobs/retry/route";
 import { emptyContent } from "@/lib/landing/content";
 
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -52,6 +56,7 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-pages/[id]/status/route.ts": () => status(req({ status: "closed" }), ctx),
   "landing-pages/[id]/rename/route.ts": () => rename(req({ title: "New name" }), ctx),
   "landing-pages/[id]/sheet/route.ts": () => createSheet(req({}), ctx),
+  "landing-pages/[id]/jobs/retry/route.ts": () => retryJobs(req({}), ctx),
 };
 
 function routeFiles(dir: string): string[] {
