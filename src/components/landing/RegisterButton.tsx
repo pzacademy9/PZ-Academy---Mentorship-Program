@@ -29,11 +29,13 @@ export function ctaLabel(label: unknown, fallback = "Register now"): string {
  * unsafe or missing URL gets a disabled-looking span (never an anchor).
  */
 export function RegisterButton({
-  register, label, variant = "primary", size = "md", arrow = false, className = "",
-}: { register: Register; label?: string; variant?: Variant; size?: Size; arrow?: boolean; className?: string }) {
+  register, label, variant = "primary", size = "md", arrow = false, className = "", announce = false,
+}: { register: Register; label?: string; variant?: Variant; size?: Size; arrow?: boolean; className?: string; announce?: boolean }) {
   if (register.closed) {
+    // Every Register slot shows the notice, but only one (announce: the header's) is a live region,
+    // so a screen reader says "Registration is closed" once, not once per button.
     return (
-      <span role="status" className={`inline-flex items-center justify-center rounded-landing border border-landing-outline-variant bg-landing-surface-container-low px-4 py-2 text-center text-xs font-semibold text-landing-on-surface-variant md:text-sm ${className}`}>
+      <span {...(announce ? { role: "status" } : {})} className={`inline-flex items-center justify-center rounded-landing border border-landing-outline-variant bg-landing-surface-container-low px-4 py-2 text-center text-xs font-semibold text-landing-on-surface-variant md:text-sm ${className}`}>
         Registration is closed
       </span>
     );

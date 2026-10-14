@@ -75,7 +75,7 @@ export function LandingRenderer({
               </ul>
             ) : null}
             <div className="flex shrink-0 items-center gap-1">
-              <RegisterButton register={register} size="sm" />
+              <RegisterButton register={register} size="sm" announce />
               <MobileMenu items={navItems} register={register} />
             </div>
           </nav>

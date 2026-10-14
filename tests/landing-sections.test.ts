@@ -18,8 +18,8 @@ describe("section registry", () => {
       expect(r.success, t).toBe(true);
     }
   });
-  it("hero defaults the primary button label", () => {
-    expect(defaultSectionData("hero").primaryCtaLabel).toBe("Register now");
+  it("hero's primary button label starts empty so it follows Page settings", () => {
+    expect(defaultSectionData("hero").primaryCtaLabel).toBe("");
   });
 });
 
@@ -27,7 +27,7 @@ describe("normalizeSectionData (never throws)", () => {
   it("fills missing fields with defaults", () => {
     const d = normalizeSectionData("hero", { headline: "Hi" });
     expect(d.headline).toBe("Hi");
-    expect(d.primaryCtaLabel).toBe("Register now");
+    expect(d.primaryCtaLabel).toBe("");
   });
   it("drops unknown keys", () => {
     expect(normalizeSectionData("faq", { heading: "Q", evil: "x" })).not.toHaveProperty("evil");

@@ -43,7 +43,7 @@ export function Hero({ data, register }: SectionProps) {
               </div>
             ) : null}
             <div className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
-              <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), "Register now")} size="lg" arrow className="w-full sm:w-auto" />
+              <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
               {showSecondary ? (
                 <a
                   href={secondaryUrl}
@@ -66,14 +66,16 @@ export function Hero({ data, register }: SectionProps) {
             ) : null}
           </div>
           {image ? (
-            <div className="aspect-[3/2] overflow-hidden rounded-landing lg:col-span-5">
+            // The frame carries the border and shadow: overflow-hidden clips anything the img itself draws.
+            // object-contain keeps square posters and wide banners whole inside the fixed 3:2 box (no crop, no CLS).
+            <div className="aspect-[3/2] overflow-hidden rounded-landing border border-landing-border bg-landing-surface-container-lowest shadow-landing-soft-lg lg:col-span-5 lg:border-4 lg:border-landing-surface-container-lowest">
               <LandingImage
                 src={image}
                 alt={headline}
                 width={1200}
                 height={800}
                 priority
-                className="h-full w-full rounded-landing border border-landing-border object-cover shadow-landing-soft-lg lg:border-4 lg:border-landing-surface-container-lowest"
+                className="h-full w-full object-contain"
               />
             </div>
           ) : null}
