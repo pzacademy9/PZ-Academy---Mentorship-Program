@@ -156,6 +156,31 @@ describe("PromoCodesManager form", () => {
     expect(await within(dialog).findByText("Use 3-letter currency codes such as PKR.")).toBeTruthy();
     expect(toast.error).not.toHaveBeenCalled();
   });
+  it("ties error and help text to their fields with aria-describedby", () => {
+    const refs = (el: HTMLElement) => (el.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean).map((id) => document.getElementById(id));
+    render(<PromoCodesManager codes={[]} pages={PAGES} />);
+    fireEvent.click(screen.getByRole("button", { name: /create your first code/i }));
+    const dialog = screen.getByRole("dialog", { name: "New promo code" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Fixed amount off" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create code" }));
+    const code = within(dialog).getByLabelText("Code");
+    const codeErr = refs(code).find((e) => e?.getAttribute("role") === "alert");
+    expect(codeErr?.textContent).toMatch(/use 2 to 40 capital letters/i);
+    expect(refs(code)).toHaveLength(2);
+    const pkr = within(dialog).getByLabelText("Amount off in PKR");
+    const usd = within(dialog).getByLabelText("Amount off in USD");
+    const shared = refs(pkr).find((e) => e?.getAttribute("role") === "alert");
+    expect(shared?.textContent).toMatch(/at least one currency/i);
+    expect(refs(usd).map((e) => e?.id)).toEqual(refs(pkr).map((e) => e?.id));
+    expect(refs(within(dialog).getByLabelText("Total uses"))[0]?.textContent).toMatch(/counts once/i);
+  });
+  it("points the read-only Code field at its help text", () => {
+    render(<PromoCodesManager codes={[promo()]} pages={PAGES} />);
+    fireEvent.click(within(screen.getByRole("table", { name: "Promo codes" })).getByRole("button", { name: "Edit PZ10" }));
+    const code = within(screen.getByRole("dialog", { name: "Edit PZ10" })).getByLabelText("Code");
+    const help = document.getElementById(code.getAttribute("aria-describedby") ?? "");
+    expect(help?.textContent).toMatch(/can't be renamed/i);
+  });
   it("reports a server error and keeps the form open", async () => {
     fetchMock().mockResolvedValue(reply(500, { error: "Could not save the promo code." }));
     render(<PromoCodesManager codes={[]} pages={PAGES} />);

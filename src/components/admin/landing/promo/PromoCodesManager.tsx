@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pause, Pencil, Play, Plus, TicketPercent } from "lucide-react";
@@ -217,19 +217,27 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
   });
 
   const invalid = (k: keyof PromoErrors) => (errors[k] ? true : undefined);
+  // Error and help text are tied to their field by id, so a screen reader reads them when the field is focused.
+  const uid = useId();
+  const errId = (k: keyof PromoErrors) => `${uid}-${k}-error`;
+  const helpId = (k: keyof PromoErrors) => `${uid}-${k}-help`;
+  const describedBy = (k: keyof PromoErrors, hasHelp: boolean) => {
+    const ids = [errors[k] ? errId(k) : null, hasHelp ? helpId(k) : null].filter(Boolean).join(" ");
+    return ids || undefined;
+  };
 
   return (
     <form ref={formRef} noValidate onSubmit={(e) => { e.preventDefault(); void save(); }} className="space-y-5">
       <label className="block space-y-1">
         <span className={LABEL}>Code</span>
-        <span className={`block ${HELP}`}>
+        <span id={helpId("code")} className={`block ${HELP}`}>
           {existing ? "Codes can't be renamed, because links people already have would stop working. Make a new code instead." : "What people type, for example PZ10. Capital letters, numbers, - and _ only."}
         </span>
         <input
-          aria-label="Code" aria-invalid={invalid("code")} readOnly={!!existing} maxLength={40} autoComplete="off"
+          aria-label="Code" aria-invalid={invalid("code")} aria-describedby={describedBy("code", true)} readOnly={!!existing} maxLength={40} autoComplete="off"
           className={cn(CONTROL, "font-mono uppercase")} value={d.code} onChange={(e) => set({ code: normalizeCodeInput(e.target.value) })}
         />
-        {errors.code && <span role="alert" className={ERROR}>{errors.code}</span>}
+        {errors.code && <span id={errId("code")} role="alert" className={ERROR}>{errors.code}</span>}
       </label>
 
       <fieldset className="space-y-2">
@@ -242,31 +250,31 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1">
               <span className={LABEL}>Percent off</span>
-              <input aria-label="Percent off" aria-invalid={invalid("value")} type="number" inputMode="numeric" min={1} max={100} className={CONTROL} value={d.value} onChange={(e) => set({ value: e.target.value })} />
-              {errors.value && <span role="alert" className={ERROR}>{errors.value}</span>}
+              <input aria-label="Percent off" aria-invalid={invalid("value")} aria-describedby={describedBy("value", false)} type="number" inputMode="numeric" min={1} max={100} className={CONTROL} value={d.value} onChange={(e) => set({ value: e.target.value })} />
+              {errors.value && <span id={errId("value")} role="alert" className={ERROR}>{errors.value}</span>}
             </label>
             <label className="block space-y-1">
               <span className={LABEL}>Never more than (%)</span>
-              <span className={`block ${HELP}`}>Optional. Leave empty for no limit.</span>
-              <input aria-label="Never more than (%)" aria-invalid={invalid("maxDiscountPercent")} type="number" inputMode="numeric" min={0} max={100} className={CONTROL} value={d.maxDiscountPercent} onChange={(e) => set({ maxDiscountPercent: e.target.value })} />
-              {errors.maxDiscountPercent && <span role="alert" className={ERROR}>{errors.maxDiscountPercent}</span>}
+              <span id={helpId("maxDiscountPercent")} className={`block ${HELP}`}>Optional. Leave empty for no limit.</span>
+              <input aria-label="Never more than (%)" aria-invalid={invalid("maxDiscountPercent")} aria-describedby={describedBy("maxDiscountPercent", true)} type="number" inputMode="numeric" min={0} max={100} className={CONTROL} value={d.maxDiscountPercent} onChange={(e) => set({ maxDiscountPercent: e.target.value })} />
+              {errors.maxDiscountPercent && <span id={errId("maxDiscountPercent")} role="alert" className={ERROR}>{errors.maxDiscountPercent}</span>}
             </label>
           </div>
         ) : (
           <div className="space-y-1">
-            <span className={`block ${HELP}`}>Discount on the whole registration, in each currency. Leave a currency empty if the code should not work there.</span>
+            <span id={helpId("fixedAmounts")} className={`block ${HELP}`}>Discount on the whole registration, in each currency. Leave a currency empty if the code should not work there.</span>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {PROMO_CURRENCIES.map((c) => (
                 <label key={c} className="block space-y-1">
                   <span className={LABEL}>{c}</span>
                   <input
-                    aria-label={`Amount off in ${c}`} aria-invalid={invalid("fixedAmounts")} type="number" inputMode="numeric" min={0} className={CONTROL}
+                    aria-label={`Amount off in ${c}`} aria-invalid={invalid("fixedAmounts")} aria-describedby={describedBy("fixedAmounts", true)} type="number" inputMode="numeric" min={0} className={CONTROL}
                     value={d.fixedAmounts[c] ?? ""} onChange={(e) => set({ fixedAmounts: { ...d.fixedAmounts, [c]: e.target.value } })}
                   />
                 </label>
               ))}
             </div>
-            {errors.fixedAmounts && <span role="alert" className={ERROR}>{errors.fixedAmounts}</span>}
+            {errors.fixedAmounts && <span id={errId("fixedAmounts")} role="alert" className={ERROR}>{errors.fixedAmounts}</span>}
           </div>
         )}
       </fieldset>
@@ -278,7 +286,7 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
           <label className={CHECK_ROW}><input type="radio" name="promo-scope" checked={d.scope === "pages"} onChange={() => set({ scope: "pages" })} />Only these pages</label>
         </div>
         {d.scope === "pages" && (
-          <ul aria-label="Pages" className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-pz-outline-variant p-2">
+          <ul aria-label="Pages" aria-describedby={describedBy("pageIds", false)} className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-pz-outline-variant p-2">
             {pages.map((p) => (
               <li key={p.id}>
                 <label className={CHECK_ROW}><input type="checkbox" checked={d.pageIds.includes(p.id)} onChange={() => set({ pageIds: toggleIn(d.pageIds, p.id) })} />{p.title}</label>
@@ -286,7 +294,7 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
             ))}
           </ul>
         )}
-        {errors.pageIds && <span role="alert" className={ERROR}>{errors.pageIds}</span>}
+        {errors.pageIds && <span id={errId("pageIds")} role="alert" className={ERROR}>{errors.pageIds}</span>}
         {choices.length > 0 && (
           <div className="space-y-1">
             <span className={`block ${HELP}`}>Only for these options (optional). Leave all unticked for every option.</span>
@@ -305,9 +313,9 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
         <legend className={LABEL}>Limits</legend>
         <label className="block space-y-1 sm:max-w-xs">
           <span className={LABEL}>Total uses (optional)</span>
-          <span className={`block ${HELP}`}>Each registration counts once, whatever the group size. Test registrations never count.</span>
-          <input aria-label="Total uses" aria-invalid={invalid("maxUses")} type="number" inputMode="numeric" min={1} className={CONTROL} value={d.maxUses} onChange={(e) => set({ maxUses: e.target.value })} />
-          {errors.maxUses && <span role="alert" className={ERROR}>{errors.maxUses}</span>}
+          <span id={helpId("maxUses")} className={`block ${HELP}`}>Each registration counts once, whatever the group size. Test registrations never count.</span>
+          <input aria-label="Total uses" aria-invalid={invalid("maxUses")} aria-describedby={describedBy("maxUses", true)} type="number" inputMode="numeric" min={1} className={CONTROL} value={d.maxUses} onChange={(e) => set({ maxUses: e.target.value })} />
+          {errors.maxUses && <span id={errId("maxUses")} role="alert" className={ERROR}>{errors.maxUses}</span>}
         </label>
         <label className={CHECK_ROW}><input type="checkbox" checked={d.oneperEmail} onChange={(e) => set({ oneperEmail: e.target.checked })} />One use per email address</label>
       </fieldset>
@@ -317,13 +325,13 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1">
             <span className={LABEL}>Starts</span>
-            <input aria-label="Starts" aria-invalid={invalid("startsAt")} type="datetime-local" className={CONTROL} value={d.startsAt} onChange={(e) => set({ startsAt: e.target.value })} />
-            {errors.startsAt && <span role="alert" className={ERROR}>{errors.startsAt}</span>}
+            <input aria-label="Starts" aria-invalid={invalid("startsAt")} aria-describedby={describedBy("startsAt", false)} type="datetime-local" className={CONTROL} value={d.startsAt} onChange={(e) => set({ startsAt: e.target.value })} />
+            {errors.startsAt && <span id={errId("startsAt")} role="alert" className={ERROR}>{errors.startsAt}</span>}
           </label>
           <label className="block space-y-1">
             <span className={LABEL}>Ends</span>
-            <input aria-label="Ends" aria-invalid={invalid("endsAt")} type="datetime-local" className={CONTROL} value={d.endsAt} onChange={(e) => set({ endsAt: e.target.value })} />
-            {errors.endsAt && <span role="alert" className={ERROR}>{errors.endsAt}</span>}
+            <input aria-label="Ends" aria-invalid={invalid("endsAt")} aria-describedby={describedBy("endsAt", false)} type="datetime-local" className={CONTROL} value={d.endsAt} onChange={(e) => set({ endsAt: e.target.value })} />
+            {errors.endsAt && <span id={errId("endsAt")} role="alert" className={ERROR}>{errors.endsAt}</span>}
           </label>
         </div>
         <p className={HELP}>Leave both empty for a code that works until you pause it.</p>
