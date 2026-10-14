@@ -117,7 +117,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     expect((lastRegisterForm!.get("voucher") as File).name).toBe("receipt.pdf");
     expect(pixel.track).toHaveBeenCalledWith("CompleteRegistration", expect.objectContaining({ value: 4800, currency: "PKR" }), p.attribution.eventId);
     // The Join buttons come from the reply only.
-    expect(screen.getByRole("link", { name: /join full course/i }).getAttribute("href")).toBe("https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle");
+    expect(screen.getByRole("link", { name: /join the full course whatsapp group/i }).getAttribute("href")).toBe("https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle");
 }, 20000);
 
   it("choosing every module switches to the package and says so", () => {
@@ -304,7 +304,7 @@ describe("RegistrationFlow (logged in, free, test mode)", () => {
     await waitFor(() => expect(screen.getByTestId("registration-done")).toBeTruthy());
     expect(payload().testMode).toBe(true);
     expect(screen.getByText("TEST-12345")).toBeTruthy();
-    expect(screen.getByTestId("test-mode-banner").textContent).toMatch(/nothing was saved to the sheet/i);
+    expect(screen.getByTestId("success-test-banner").textContent).toMatch(/nothing was saved to the sheet/i);
     expect(pixel.track).not.toHaveBeenCalled();
     expect(funnel.send).not.toHaveBeenCalled();
   });

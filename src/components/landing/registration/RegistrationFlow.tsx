@@ -19,6 +19,7 @@ import { StepChoose } from "./StepChoose";
 import { StepDetails } from "./StepDetails";
 import { StepPay, type PromoStatus } from "./StepPay";
 import { StepUpload } from "./StepUpload";
+import { SuccessScreen } from "./SuccessScreen";
 import { OrderSummary, dueTotal } from "./OrderSummary";
 import type { MeProfile, PublicConfig, RegisterSuccess } from "./types";
 import { R_BTN_PRIMARY, R_BTN_SECONDARY } from "./ui";
@@ -56,7 +57,7 @@ export interface FlowProps {
   renderTopBar?: (ctx: { canGoBack: boolean; goBack: () => void; stepIndex: number; stepCount: number }) => React.ReactNode;
 }
 
-export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, setForm, result, setResult, onClose, renderTopBar }: FlowProps) {
+export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, form, setForm, result, setResult, onClose, renderTopBar }: FlowProps) {
   const config = pc.registration;
   // Test mode (admin only) sends no Meta events and no funnel events: nothing real happens.
   const live = tracking && !testMode;
@@ -194,25 +195,17 @@ export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, s
 
   if (result) {
     return (
-      <div data-testid="registration-done" className="flex-1 overflow-y-auto p-6">
-        {testMode && (
-          <p data-testid="test-mode-banner" role="note" className="mb-4 rounded-landing bg-landing-test-banner px-4 py-2 font-landing-body text-sm font-semibold text-landing-on-test-banner">
-            Test registration: nothing was saved to the sheet.
-          </p>
-        )}
-        <h2 ref={headingRef} tabIndex={-1} className="font-headline text-2xl font-black text-landing-deep focus:outline-none">{config.successTitle || "You're registered!"}</h2>
-        <p className="mt-2 font-landing-body text-base text-landing-on-surface">Your reference: <strong>{result.refId}</strong></p>
-        {result.waGroups.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-2">
-            {result.waGroups.map((g) => (
-              <li key={g.url}>
-                <a href={g.url} target="_blank" rel="noopener noreferrer" className={R_BTN_SECONDARY}>{`Join ${g.label} WhatsApp group`}</a>
-              </li>
-            ))}
-          </ul>
-        )}
-        <button type="button" className={R_BTN_PRIMARY + " mt-4"} onClick={onClose}>Done</button>
-      </div>
+      <SuccessScreen
+        slug={slug}
+        config={config}
+        result={result}
+        lead={{ name: form.lead.name.trim(), email: form.lead.email.trim().toLowerCase() }}
+        mode={form.mode}
+        isFree={isFree}
+        testMode={testMode}
+        isGuest={me === null}
+        onClose={onClose}
+      />
     );
   }
 
