@@ -224,3 +224,42 @@ describe("needsReview (template flags)", () => {
     expect(computeReadiness(gone, page).problems.some((p) => p.review)).toBe(false);
   });
 });
+
+describe("needsReview survives list edits (L5 fix)", () => {
+  const mk = () => {
+    let c = emptyContent("course");
+    const sec = c.sections.find((s) => s.type === "schedule")!;
+    const items = [0, 1, 2, 3].map((n) => ({ when: `Day ${n}`, title: `T${n}`, detail: `D${n}` }));
+    c = updateSectionData(c, sec.id, { heading: "Schedule", items });
+    c = { ...c, needsReview: items.map((_, n) => `${sec.id}:items.${n}.when`) };
+    return { c, id: sec.id, items };
+  };
+  it("deleting item 0 moves the other flags down and drops only item 0's", () => {
+    const { c, id, items } = mk();
+    const next = updateSectionData(c, id, { heading: "Schedule", items: items.slice(1) });
+    expect(next.needsReview).toEqual([`${id}:items.0.when`, `${id}:items.1.when`, `${id}:items.2.when`]);
+  });
+  it("reordering keeps each flag on its moved item", () => {
+    const { c, id, items } = mk();
+    const next = updateSectionData(c, id, { heading: "Schedule", items: [items[1], items[0], items[2], items[3]] });
+    expect([...next.needsReview].sort()).toEqual([0, 1, 2, 3].map((n) => `${id}:items.${n}.when`));
+    const next2 = updateSectionData(c, id, { heading: "Schedule", items: [items[3], items[0], items[1], items[2]] });
+    expect(next2.needsReview).toEqual([`${id}:items.1.when`, `${id}:items.2.when`, `${id}:items.3.when`, `${id}:items.0.when`]);
+  });
+  it("editing one flagged value in place clears only that flag", () => {
+    const { c, id, items } = mk();
+    const edited = items.map((it, n) => (n === 2 ? { ...it, when: "New day" } : it));
+    const next = updateSectionData(c, id, { heading: "Schedule", items: edited });
+    expect(next.needsReview).toEqual([`${id}:items.0.when`, `${id}:items.1.when`, `${id}:items.3.when`]);
+  });
+  it("PPC: deleting the first schedule item still blocks publishing", async () => {
+    const { buildTemplate } = await import("@/lib/landing/templates");
+    const c = buildTemplate("ppc-batch-3", "course")!;
+    const sec = c.sections.find((s) => s.type === "schedule")!;
+    const items = sec.data.items as Record<string, unknown>[];
+    const next = updateSectionData(c, sec.id, { ...sec.data, items: items.slice(1) });
+    expect(next.needsReview.filter((p) => p.startsWith(`${sec.id}:`))).toHaveLength(3);
+    const r = computeReadiness(next, { title: "PPC", slug: "ppc-b4" });
+    expect(r.problems.some((p) => p.review && p.sectionId === sec.id)).toBe(true);
+  });
+});

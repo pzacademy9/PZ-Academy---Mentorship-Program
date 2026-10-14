@@ -163,15 +163,54 @@ function valueAt(data: unknown, path: string): unknown {
   return cur;
 }
 
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** For each old list item, the index of the first unmatched JSON-equal new item, or -1 if it was removed. */
+function matchItems(oldList: unknown[], newList: unknown[]): number[] {
+  const used = new Set<number>();
+  return oldList.map((o) => {
+    const j = newList.findIndex((n, k) => !used.has(k) && same(o, n));
+    if (j >= 0) used.add(j);
+    return j;
+  });
+}
+
+/**
+ * Where a flagged path lives after an edit: the same path (untouched), a remapped path (a list item
+ * moved: delete/insert/reorder, matched by the item's old content), or null (value edited in place, or
+ * its item removed). Remaps by the outermost list whose structure changed.
+ */
+function trackFlag(oldV: unknown, newV: unknown, parts: string[]): string[] | null {
+  if (parts.length === 0) return same(oldV, newV) ? [] : null;
+  const [head, ...rest] = parts;
+  if (Array.isArray(oldV)) {
+    if (!Array.isArray(newV)) return null;
+    const i = Number(head);
+    const match = matchItems(oldV, newV);
+    const structural = oldV.length !== newV.length || match.some((j, k) => j !== -1 && j !== k);
+    if (structural) {
+      const j = match[i];
+      return j === undefined || j < 0 ? null : [String(j), ...rest];
+    }
+    const r = trackFlag(oldV[i], newV[i], rest);
+    return r ? [head, ...r] : null;
+  }
+  if (isRecord(oldV)) {
+    const r = trackFlag(oldV[head], isRecord(newV) ? newV[head] : undefined, rest);
+    return r ? [head, ...r] : null;
+  }
+  return null;
+}
+
 export function updateSectionData(c: LandingContent, id: string, data: Record<string, unknown>): LandingContent {
   const target = c.sections.find((s) => s.id === id);
   const nextData = target ? normalizeSectionData(target.type, data) : null;
   // Editing a flagged field counts as reviewing it: drop the flag of every path whose value changed.
   const prefix = `${id}:`;
-  const needsReview = (c.needsReview ?? []).filter((p) => {
-    if (!target || !p.startsWith(prefix)) return true;
-    const path = p.slice(prefix.length);
-    return JSON.stringify(valueAt(target.data, path)) === JSON.stringify(valueAt(nextData, path));
+  const needsReview = (c.needsReview ?? []).flatMap((p) => {
+    if (!target || !p.startsWith(prefix)) return [p];
+    const moved = trackFlag(target.data, nextData, p.slice(prefix.length).split("."));
+    return moved ? [prefix + moved.join(".")] : [];
   });
   return {
     ...c,
@@ -257,7 +296,8 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const enabled = c.sections.filter((s) => s.enabled);
   if (enabled.length === 0) problems.push({ message: "Turn on at least one section." });
   for (const s of enabled) fieldProblems(s, SECTION_DEFS[s.type].fields, s.data, problems);
-  reviewProblems(c, problems);  return { ready: problems.length === 0, problems };
+  reviewProblems(c, problems);
+  return { ready: problems.length === 0, problems };
 }
 
 export function hasUnpublishedChanges(draft: LandingContent, published: LandingContent | null): boolean {
