@@ -32,7 +32,7 @@ export async function listPaymentAccounts(keys?: string[]): Promise<PaymentAccou
   const wanted = keys ? Array.from(new Set(keys)) : undefined;
   if (wanted && wanted.length === 0) return [];
   const admin = createAdminSupabase();
-  let query = admin.from("payment_accounts").select("key, label, kind, rows, display_text").order("key");
+  let query = admin.from("payment_accounts").select("key, label, kind, rows, display_text").eq("active", true).order("sort").order("key");
   if (wanted) query = query.in("key", wanted);
   const { data, error } = await query;
   if (error) throw error;

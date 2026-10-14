@@ -20,7 +20,7 @@ import { emptyContent } from "@/lib/landing/content";
 beforeEach(() => db.reset());
 
 const account = (key: string, over: Record<string, unknown> = {}) => ({
-  key, label: key.toUpperCase(), kind: "bank", rows: [{ label: "Account No.", value: "123" }], display_text: `${key} text`, ...over,
+  key, label: key.toUpperCase(), kind: "bank", rows: [{ label: "Account No.", value: "123" }], display_text: `${key} text`, active: true, sort: 0, ...over,
 });
 
 describe("listPaymentAccounts", () => {
@@ -33,6 +33,17 @@ describe("listPaymentAccounts", () => {
       rows: [{ label: "Account No.", value: "123" }], displayText: "easypaisa text",
     });
     expect(filterValue(db.find("payment_accounts", "select")[0], "in", "key")).toEqual(["faysal", "missing", "easypaisa"]);
+  });
+  it("drops deactivated accounts", async () => {
+    db.state.handler = memoryHandler({ payment_accounts: [account("faysal"), account("old", { active: false })] });
+    expect((await listPaymentAccounts(["faysal", "old"])).map((a) => a.key)).toEqual(["faysal"]);
+    expect((await listPaymentAccounts()).map((a) => a.key)).toEqual(["faysal"]);
+    expect(filterValue(db.find("payment_accounts", "select")[0], "eq", "active")).toBe(true);
+  });
+  it("without keys, orders by sort then key", async () => {
+    db.state.handler = memoryHandler({ payment_accounts: [account("b", { sort: 2 }), account("a", { sort: 2 }), account("z", { sort: 1 })] });
+    expect((await listPaymentAccounts()).map((a) => a.key)).toEqual(["z", "a", "b"]);
+    expect(db.find("payment_accounts", "select")[0].orders).toEqual([["sort", true], ["key", true]]);
   });
   it("an empty key list makes no query", async () => {
     expect(await listPaymentAccounts([])).toEqual([]);
