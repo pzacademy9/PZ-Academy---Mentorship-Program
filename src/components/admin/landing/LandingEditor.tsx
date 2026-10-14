@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useAutosaveDraft, type SaveState } from "@/hooks/useAutosaveDraft";
 import type { LandingPage, LandingVersion } from "@/lib/data/landing-pages";
 import {
-  addSection, moveSection, removeSection, toggleSection, updateSectionData, updateSeo, updateSettings,
+  addSection, clearReview, moveSection, removeSection, toggleSection, updateSectionData, updateSeo, updateSettings,
   type LandingContent, type PageKind, type Problem,
 } from "@/lib/landing/content";
 import { SECTION_DEFS } from "@/lib/landing/sections";
@@ -267,6 +267,7 @@ function EditorShell({
   const slotProps = {
     page, title, versions, content, saveState: state, saveNow,
     onSelectSection: gotoProblem, serverProblems, onServerProblems: setServerProblems, onRestored,
+    onKeepReview: (paths: string[]) => apply(clearReview(contentRef.current, paths)),
   };
 
   return (

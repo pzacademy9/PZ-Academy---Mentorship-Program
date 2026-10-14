@@ -1079,3 +1079,43 @@ describe("Editor polish (L3)", () => {
     expect((screen.getByLabelText("Register button text") as HTMLInputElement).value).toBe("Typed during publish");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 1 leftovers (Task L5): template review flags
+// ---------------------------------------------------------------------------
+describe("Template review flags (L5)", () => {
+  let base = emptyContent("webinar");
+  for (const s of base.sections) if (s.type !== "hero") base = removeSectionT11(base, s.id);
+  base = updateSectionData(base, base.sections[0].id, { headline: "Diabetes webinar", dateLine: "16th September 2026" });
+  base = updateSettingsT11(base, { registerUrl: "https://pharmacozyme.com/register" });
+  base = updateSeoT11(base, { description: "A one hour webinar." });
+  const flagged = { ...base, needsReview: [`${base.sections[0].id}:dateLine`] };
+  const mk = () => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft: flagged, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+  }) as Parameters<typeof LandingEditor>[0]["page"];
+  beforeEach(() => { autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); });
+
+  it("ReadinessPanel offers Keep for flagged problems and reports their paths", () => {
+    const onKeep = vi.fn();
+    render(<ReadinessPanel problems={[{ message: "Update the event dates and prices in \"Hero\".", sectionId: "s1", field: "dateLine", review: ["s1:dateLine"] }]} onGoto={() => {}} onKeep={onKeep} />);
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    expect(onKeep).toHaveBeenCalledWith(["s1:dateLine"]);
+  });
+  it("lists the template's old date in the checklist and keeps Publish locked", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    expect(screen.getByText(/^Update the event dates and prices in "Hero \(top of page\)"/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /^(publish|published)$/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("Keep clears the flag and autosaves it", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    expect(autosave.schedule.mock.calls.at(-1)![0].needsReview).toEqual([]);
+    expect(screen.queryByText(/^Update the event dates/)).toBeNull();
+  });
+  it("editing the flagged field clears its flag", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.change(screen.getByLabelText("Date and time line"), { target: { value: "20th October 2026" } });
+    expect(autosave.schedule.mock.calls.at(-1)![0].needsReview).toEqual([]);
+  });
+});

@@ -19,7 +19,17 @@ export interface LandingSettings {
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
-export interface LandingContent { settings: LandingSettings; seo: LandingSeo; sections: LandingSection[] }
+export interface LandingContent {
+  settings: LandingSettings;
+  seo: LandingSeo;
+  sections: LandingSection[];
+  /**
+   * Fields a template seeded with details that go stale (dates, Early Bird prices), as
+   * "<sectionId>:<fieldPath>" (fieldPath like "dateLine" or "items.0.when"). Each blocks publishing
+   * until the admin edits that field or chooses Keep. Never rendered on the public page.
+   */
+  needsReview: string[];
+}
 
 export const MAX_CONTENT_BYTES = 200_000;
 
@@ -58,6 +68,7 @@ export const contentSchema = z
         data: z.record(z.string(), z.unknown()),
       }))
       .max(40),
+    needsReview: z.array(z.string().max(200)).max(200).optional(),
   })
   .superRefine((c, ctx) => {
     const seen = new Set<string>();
@@ -103,7 +114,10 @@ export function normalizeContent(raw: unknown): LandingContent {
     used.add(id);
     sections.push({ id, type, enabled: item.enabled !== false, data: normalizeSectionData(type, item.data) });
   }
-  return { settings, seo: seoOut, sections };
+  const needsReview = Array.isArray(r.needsReview)
+    ? r.needsReview.filter((p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200).slice(0, 200)
+    : [];
+  return { settings, seo: seoOut, sections, needsReview };
 }
 
 export function newSection(type: SectionType, id: string = newId()): LandingSection {
@@ -115,6 +129,7 @@ export function emptyContent(kind: PageKind): LandingContent {
     settings: { ...DEFAULT_SETTINGS },
     seo: { ...DEFAULT_SEO },
     sections: KIND_SECTIONS[kind].map((t) => newSection(t)),
+    needsReview: [],
   };
 }
 
@@ -137,11 +152,37 @@ export function moveSection(c: LandingContent, id: string, dir: -1 | 1): Landing
 export function toggleSection(c: LandingContent, id: string): LandingContent {
   return { ...c, sections: c.sections.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)) };
 }
+/** Reads a "dateLine" / "items.0.when" style path inside section data; undefined once the path is gone. */
+function valueAt(data: unknown, path: string): unknown {
+  let cur: unknown = data;
+  for (const part of path.split(".")) {
+    if (Array.isArray(cur)) cur = cur[Number(part)];
+    else if (isRecord(cur)) cur = cur[part];
+    else return undefined;
+  }
+  return cur;
+}
+
 export function updateSectionData(c: LandingContent, id: string, data: Record<string, unknown>): LandingContent {
+  const target = c.sections.find((s) => s.id === id);
+  const nextData = target ? normalizeSectionData(target.type, data) : null;
+  // Editing a flagged field counts as reviewing it: drop the flag of every path whose value changed.
+  const prefix = `${id}:`;
+  const needsReview = (c.needsReview ?? []).filter((p) => {
+    if (!target || !p.startsWith(prefix)) return true;
+    const path = p.slice(prefix.length);
+    return JSON.stringify(valueAt(target.data, path)) === JSON.stringify(valueAt(nextData, path));
+  });
   return {
     ...c,
-    sections: c.sections.map((s) => (s.id === id ? { ...s, data: normalizeSectionData(s.type, data) } : s)),
+    needsReview,
+    sections: c.sections.map((s) => (s.id === id && nextData ? { ...s, data: nextData } : s)),
   };
+}
+
+/** "Keep": the admin checked these flagged fields and the template's values are right. */
+export function clearReview(c: LandingContent, paths: string[]): LandingContent {
+  return { ...c, needsReview: (c.needsReview ?? []).filter((p) => !paths.includes(p)) };
 }
 export function updateSettings(c: LandingContent, patch: Partial<LandingSettings>): LandingContent {
   return { ...c, settings: { ...c.settings, ...patch } };
@@ -153,7 +194,7 @@ export function updateSeo(c: LandingContent, patch: Partial<LandingSeo>): Landin
 // ------------------------------------------------------------- readiness
 
 /** field: where Fix puts the cursor, as a FieldInput path ("headline", a list key "items", or "items.0.q"). */
-export interface Problem { message: string; sectionId?: string; field?: string }
+export interface Problem { message: string; sectionId?: string; field?: string; review?: string[] }
 
 function isBlank(v: unknown): boolean {
   return typeof v !== "string" || v.trim() === "";
@@ -182,6 +223,23 @@ function fieldProblems(section: LandingSection, fields: FieldDef[], data: Record
   }
 }
 
+function reviewProblems(c: LandingContent, out: Problem[]) {
+  for (const s of c.sections) {
+    if (!s.enabled) continue;
+    const prefix = `${s.id}:`;
+    const paths = (c.needsReview ?? []).filter((p) => p.startsWith(prefix) && valueAt(s.data, p.slice(prefix.length)) !== undefined);
+    if (paths.length === 0) continue;
+    const label = SECTION_DEFS[s.type].label;
+    const count = paths.length === 1 ? "1 field still shows" : `${paths.length} fields still show`;
+    out.push({
+      message: `Update the event dates and prices in "${label}": ${count} the template's old details. Edit them, or choose Keep if they are right.`,
+      sectionId: s.id,
+      field: paths[0].slice(prefix.length),
+      review: paths,
+    });
+  }
+}
+
 export function computeReadiness(c: LandingContent, page: { title: string; slug: string }): { ready: boolean; problems: Problem[] } {
   const problems: Problem[] = [];
   if (page.title.trim() === "") problems.push({ message: "Give the page a name." });
@@ -199,7 +257,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const enabled = c.sections.filter((s) => s.enabled);
   if (enabled.length === 0) problems.push({ message: "Turn on at least one section." });
   for (const s of enabled) fieldProblems(s, SECTION_DEFS[s.type].fields, s.data, problems);
-  return { ready: problems.length === 0, problems };
+  reviewProblems(c, problems);  return { ready: problems.length === 0, problems };
 }
 
 export function hasUnpublishedChanges(draft: LandingContent, published: LandingContent | null): boolean {

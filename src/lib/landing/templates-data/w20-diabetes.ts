@@ -17,6 +17,8 @@ export const W20_DIABETES: LandingContent = {
     description: "PZ Academy webinar: Diabetes Pharmacotherapy – Choosing the Right Drug for the Right Patient, with Dr. Christine Agnes Bianca.",
     ogImage: "",
   },
+  // The webinar date goes stale: readiness asks the admin to update or keep it.
+  needsReview: ["hero:dateLine"],
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

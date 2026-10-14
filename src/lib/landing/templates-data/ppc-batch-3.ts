@@ -15,6 +15,12 @@ export const PPC_BATCH_3: LandingContent = {
     description: "Join Dr. Mehwish Kanwal for an intensive 4-week live clinical pharmacology course. Live sessions, recordings, notes, quizzes & certification.",
     ogImage: "",
   },
+  // Dates and Early Bird prices go stale between batches: readiness asks the admin to update or keep each.
+  needsReview: [
+    "curriculum:items.0.subtitle", "curriculum:items.1.subtitle", "curriculum:items.2.subtitle", "curriculum:items.3.subtitle",
+    "pricing:note", "pricing:items.0.price", "pricing:items.1.price", "pricing:items.2.price",
+    "schedule:items.0.when", "schedule:items.1.when", "schedule:items.2.when", "schedule:items.3.when",
+  ],
   sections: [
     {
       id: "hero", type: "hero", enabled: true,
@@ -102,14 +108,11 @@ export const PPC_BATCH_3: LandingContent = {
       id: "pricing", type: "pricing_cards", enabled: true,
       data: {
         heading: "Choose Your Plan",
-        note: "Early Bird pricing ends 15th October",
+        note: "Early Bird prices until 15th October. After that: Single Module PKR 2,000 · Full Bundle PKR 6,000 · Group of 3 PKR 4,800 /person.",
         items: [
-          { name: "Single Module — Early Bird", price: "PKR 1,600", oldPrice: "PKR 2,000", badge: "", features: "- 3 Live Sessions (1 Week)\n- Module Recordings\n- PDF Module Notes" },
-          { name: "Single Module — After Early Bird", price: "PKR 2,000", oldPrice: "", badge: "", features: "- 3 Live Sessions (1 Week)\n- Module Recordings\n- PDF Module Notes" },
-          { name: "Full Professional Bundle — Early Bird", price: "PKR 4,800", oldPrice: "PKR 6,000", badge: "BEST VALUE", features: "- All 4 Modules (12 Sessions)\n- Lifetime Recording Access\n- Official Professional Certificate\n- Private WhatsApp Group" },
-          { name: "Full Professional Bundle — After Early Bird", price: "PKR 6,000", oldPrice: "", badge: "BEST VALUE", features: "- All 4 Modules (12 Sessions)\n- Lifetime Recording Access\n- Official Professional Certificate\n- Private WhatsApp Group" },
-          { name: "Group Registration (Group of 3) — Early Bird", price: "PKR 3,833 /person", oldPrice: "PKR 4,800", badge: "Best for Teams", features: "- All 4 Modules (12 Sessions) — Full Course\n- One Payment Covers the Whole Group\n- Group of 5 available for even bigger savings" },
-          { name: "Group Registration (Group of 3) — After Early Bird", price: "PKR 4,800 /person", oldPrice: "PKR 6,000", badge: "Best for Teams", features: "- All 4 Modules (12 Sessions) — Full Course\n- One Payment Covers the Whole Group\n- Group of 5 available for even bigger savings" },
+          { name: "Single Module", price: "PKR 1,600", oldPrice: "PKR 2,000", badge: "", features: "- 3 Live Sessions (1 Week)\n- Module Recordings\n- PDF Module Notes" },
+          { name: "Full Professional Bundle", price: "PKR 4,800", oldPrice: "PKR 6,000", badge: "BEST VALUE", features: "- All 4 Modules (12 Sessions)\n- Lifetime Recording Access\n- Official Professional Certificate\n- Private WhatsApp Group" },
+          { name: "Group of 3 (Full Course)", price: "PKR 3,833 /person", oldPrice: "PKR 4,800", badge: "Best for Teams", features: "- All 4 Modules (12 Sessions) — Full Course\n- One Payment Covers the Whole Group\n- Group of 5 available for even bigger savings" },
         ],
       },
     },

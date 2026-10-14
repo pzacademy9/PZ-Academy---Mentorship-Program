@@ -17,6 +17,13 @@ export const MDC_BATCH_3: LandingContent = {
     description: "4-day live Zoom workshop. Master dose calculations, build clinical confidence. Taught by Dr. Mehwish Kanwal, PharmD.",
     ogImage: "",
   },
+  // Dates and prices go stale between batches: readiness asks the admin to update or keep each.
+  needsReview: [
+    "hero:eyebrow", "hero:dateLine", "hero:badges.1.text",
+    "workbook:items.9.title",
+    "pricing:items.0.price", "pricing:items.1.price",
+    "faq:items.5.a",
+  ],
   sections: [
     {
       id: "hero", type: "hero", enabled: true,
@@ -107,12 +114,10 @@ export const MDC_BATCH_3: LandingContent = {
       id: "pricing", type: "pricing_cards", enabled: true,
       data: {
         heading: "Choose How You Learn",
-        note: "Early bird pricing ends 29 Aug 2026",
+        note: "The group price applies when 3 or more people register together.",
         items: [
-          { name: "Individual — Early Bird", price: "PKR 2,700 /person", oldPrice: "PKR 3,500", badge: "Early Bird", features: "- 4 live Zoom sessions + recordings\n- Step-by-step worked examples daily\n- Daily Kahoot quiz access\n- Certificate of Participation\n- WhatsApp support group" },
           { name: "Individual", price: "PKR 3,500 /person", oldPrice: "", badge: "", features: "- 4 live Zoom sessions + recordings\n- Step-by-step worked examples daily\n- Daily Kahoot quiz access\n- Certificate of Participation\n- WhatsApp support group" },
-          { name: "Group of 3+ — Early Bird", price: "PKR 2,160 /person", oldPrice: "PKR 2,800", badge: "Best Value", features: "- 4 live Zoom sessions + recordings\n- Step-by-step worked examples daily\n- Daily Kahoot quiz access\n- Certificate of Participation\n- WhatsApp support group\n- Top 10 Kahoot → Certificate of Excellence" },
-          { name: "Group of 3+", price: "PKR 2,800 /person", oldPrice: "", badge: "Best Value", features: "- 4 live Zoom sessions + recordings\n- Step-by-step worked examples daily\n- Daily Kahoot quiz access\n- Certificate of Participation\n- WhatsApp support group\n- Top 10 Kahoot → Certificate of Excellence" },
+          { name: "Group of 3+", price: "PKR 2,800 /person", oldPrice: "PKR 3,500", badge: "Best Value", features: "- 4 live Zoom sessions + recordings\n- Step-by-step worked examples daily\n- Daily Kahoot quiz access\n- Certificate of Participation\n- WhatsApp support group\n- Top 10 Kahoot → Certificate of Excellence" },
         ],
       },
     },

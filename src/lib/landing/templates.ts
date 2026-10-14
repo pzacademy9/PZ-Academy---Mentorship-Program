@@ -12,16 +12,27 @@ const DEFS: TemplateDef[] = [
   { id: "blank-course", kind: "course", label: "Blank course page", description: "Every course section, ready to fill in.", build: () => emptyContent("course") },
   { id: "blank-workshop", kind: "workshop", label: "Blank workshop page", description: "Every workshop section, ready to fill in.", build: () => emptyContent("workshop") },
   { id: "blank-webinar", kind: "webinar", label: "Blank webinar page", description: "Every webinar section, ready to fill in.", build: () => emptyContent("webinar") },
-  { id: "ppc-batch-3", kind: "course", label: "Practical Pharmacology Course (Batch 3)", description: "A copy of the current PPC Batch 3 page, ready to edit.", build: () => PPC_BATCH_3 },
-  { id: "mdc-batch-3", kind: "workshop", label: "Mastering Dose Calculation (Batch 3)", description: "A copy of the current MDC workshop page, ready to edit.", build: () => MDC_BATCH_3 },
-  { id: "w20-diabetes", kind: "webinar", label: "Diabetes Pharmacotherapy (Webinar 20)", description: "A copy of the current Webinar 20 page, ready to edit.", build: () => W20_DIABETES },
+  { id: "ppc-batch-3", kind: "course", label: "Practical Pharmacology Course (Batch 3)", description: "A copy of the PPC Batch 3 page. Update the dates and prices before publishing.", build: () => PPC_BATCH_3 },
+  { id: "mdc-batch-3", kind: "workshop", label: "Mastering Dose Calculation (Batch 3)", description: "A copy of the MDC Batch 3 workshop page. Update the dates and prices before publishing.", build: () => MDC_BATCH_3 },
+  { id: "w20-diabetes", kind: "webinar", label: "Diabetes Pharmacotherapy (Webinar 20)", description: "A copy of the Webinar 20 page. Update the dates and prices before publishing.", build: () => W20_DIABETES },
 ];
 
 export const TEMPLATES: TemplateInfo[] = DEFS.map(({ id, kind, label, description }) => ({ id, kind, label, description }));
 
 function fresh(c: LandingContent): LandingContent {
   const copy = structuredClone(c);
-  copy.sections = copy.sections.map((s) => ({ ...s, id: globalThis.crypto.randomUUID() }));
+  const ids = new Map<string, string>();
+  copy.sections = copy.sections.map((s) => {
+    const id = globalThis.crypto.randomUUID();
+    ids.set(s.id, id);
+    return { ...s, id };
+  });
+  // Flags are written against the template's short section ids; point them at the new ids.
+  copy.needsReview = copy.needsReview.flatMap((p) => {
+    const at = p.indexOf(":");
+    const id = ids.get(p.slice(0, at));
+    return id ? [`${id}${p.slice(at)}`] : [];
+  });
   return copy;
 }
 
