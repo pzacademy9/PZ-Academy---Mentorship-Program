@@ -36,7 +36,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     );
   }
 
-  const created = await createEventSheet(page.title, page.title);
+  // The slug suffix keeps two pages with the same title from sharing one voucher folder.
+  const created = await createEventSheet(page.title, `${page.title} - ${page.slug}`);
   if (!created.ok) {
     return NextResponse.json({ error: `Could not create the sheet: ${created.message}` }, { status: 502 });
   }

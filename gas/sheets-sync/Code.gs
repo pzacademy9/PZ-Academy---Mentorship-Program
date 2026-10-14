@@ -677,7 +677,10 @@ function handleAppendRegistrationRows_(body) {
     if (fresh.length === 0) return jsonResponse_({ status: "success", appended: 0 });
 
     const start = lastRow + 1;
-    const values = fresh.map((r) => r.map((c, i) => (i === LANDING_COL.VOUCHER - 1 ? "" : landingCell_(c, i + 1))));
+    // A new sheet has 1000 rows and getRange never grows it; a range past the end throws.
+    const need = start + fresh.length - 1 - sheet.getMaxRows();
+    if (need > 0) sheet.insertRowsAfter(sheet.getMaxRows(), need);
+    const values =fresh.map((r) => r.map((c, i) => (i === LANDING_COL.VOUCHER - 1 ? "" : landingCell_(c, i + 1))));
     // Plain-text format BEFORE the write, so Sheets does not coerce the values as it stores them.
     LANDING_TEXT_COLS.forEach((col) => {
       sheet.getRange(start, col, fresh.length, 1).setNumberFormat("@");
@@ -763,14 +766,14 @@ function landingFolderName_(name) {
 }
 
 /**
- * Text written by the public must never run as a formula (=, +, -, @ start a formula in Sheets).
+ * Text written by the public must never run as a formula (=, +, -, @, tab and CR start a formula in Sheets).
  * Columns in LANDING_TEXT_COLS are formatted as plain text before the write, so Sheets never
  * evaluates them and they get no apostrophe prefix (it would show up literally in a text cell).
  */
 function landingCell_(value, col) {
   const s = value === null || value === undefined ? "" : String(value);
   if (LANDING_TEXT_COLS.indexOf(col) !== -1) return s;
-  return /^[=+\-@]/.test(s) ? "'" + s : s;
+  return /^[=+\-@\t\r]/.test(s) ?"'" + s : s;
 }
 
 function landingRowKey_(ref, email) {

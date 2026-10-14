@@ -141,7 +141,7 @@ describe("POST /api/admin/landing-pages/[id]/sheet", () => {
     const res = await createSheet(req(), ctx);
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC", sheetUrl: "https://docs.google.com/spreadsheets/d/sheet-1/edit" });
-    expect(createEventSheetSpy).toHaveBeenCalledWith("PPC Batch 4", "PPC Batch 4");
+    expect(createEventSheetSpy).toHaveBeenCalledWith("PPC Batch 4", "PPC Batch 4 - ppc-b4");
     expect(saveEventSheet).toHaveBeenCalledWith(PAGE_ID, { sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC" });
   });
   it("502 when Apps Script fails; 409 when a parallel click won the race", async () => {
@@ -177,7 +177,15 @@ describe("GAS source", () => {
   });
   it("neutralizes formula injection and uses the Free/Paid status list", () => {
     expect(code).toContain('const LANDING_STATUS_VALUES = ["Paid", "Pending", "Underpaid", "Reserved", "Free"];');
-    expect(code).toContain("/^[=+\\-@]/.test(s)");
+    expect(code).toContain("/^[=+\\-@\\t\\r]/.test(s)");
+  });
+  it("grows the sheet before the first range write when appended rows pass the last row", () => {
+    const fn = code.slice(code.indexOf("function handleAppendRegistrationRows_"), code.indexOf("function handleUploadLandingVoucher_"));
+    const grow = fn.indexOf("sheet.insertRowsAfter(sheet.getMaxRows(), need)");
+    expect(fn).toContain("const need = start + fresh.length - 1 - sheet.getMaxRows();");
+    expect(grow).toBeGreaterThan(-1);
+    expect(grow).toBeLessThan(fn.indexOf("setNumberFormat"));
+    expect(grow).toBeLessThan(fn.indexOf(".setValues(values)"));
   });
   it("forces plain-text format on WhatsApp, Promo Code, Ref ID and Promo Code Used before setValues", () => {
     // Columns C, I, S, V (1-based) must be text so 03001234567 / 1E5 / numeric-looking ref ids survive.
