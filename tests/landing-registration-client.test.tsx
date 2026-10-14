@@ -152,19 +152,36 @@ describe("launcher, host and Register button", () => {
   });
   it("RegisterButton: built-in opens the dialog, closed shows the notice, otherwise a safe link", () => {
     const { rerender } = render(<RegisterButton register={{ url: "https://x.com", label: "Join", closed: false, builtIn: true }} />);
-    const b = screen.getByRole("button", { name: "Join" });
+    const b = screen.getByRole("link", { name: "Join" });
     expect(b.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(b.getAttribute("href")).toBe("https://x.com");
     rerender(<RegisterButton register={{ url: "https://x.com", label: "Join", closed: true, builtIn: true }} announce />);
     expect(screen.getByRole("status").textContent).toMatch(/registration is closed/i);
     rerender(<RegisterButton register={{ url: "https://x.com", label: "Join", closed: false }} />);
     expect(screen.getByRole("link", { name: "Join" }).getAttribute("href")).toBe("https://x.com");
   });
+  it("built-in Register with a safe URL is a link that opens the modal (preventDefault), and modifier-clicks pass through", async () => {
+    render(<><RegisterButton register={{ url: "https://x.com", label: "Join", closed: false, builtIn: true }} /><RegistrationHost slug="ppc" tracking={false} /></>);
+    const a = screen.getByRole("link", { name: "Join" });
+    expect(fireEvent.click(a, { ctrlKey: true })).toBe(true); // not prevented: opens in a new tab as usual
+    expect(fireEvent.click(a, { metaKey: true })).toBe(true);
+    expect(fireEvent.click(a, { button: 1 })).toBe(true);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(fireEvent.click(a)).toBe(false); // default prevented
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+  it("built-in Register with no or an unsafe URL is a button", () => {
+    const { rerender } = render(<RegisterButton register={{ url: "", label: "Join", closed: false, builtIn: true }} />);
+    expect(screen.getByRole("button", { name: "Join" }).getAttribute("aria-haspopup")).toBe("dialog");
+    rerender(<RegisterButton register={{ url: "javascript:alert(1)", label: "Join", closed: false, builtIn: true }} />);
+    expect(screen.getByRole("button", { name: "Join" })).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
   it("LandingRenderer uses the built-in form only on the public route (slug given) when registration is on", () => {
     const base = updateSettings(emptyContent("course"), { registerUrl: "https://old.example/register" });
     const on = updateRegistration(base, ppcConfig);
     const { container, unmount } = render(<LandingRenderer content={on} status="published" kind="course" pageTitle="PPC" slug="ppc" />);
-    expect(container.querySelector("a[href='https://old.example/register']")).toBeNull();
-    expect(container.querySelectorAll("button[aria-haspopup='dialog']").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("a[href='https://old.example/register'][aria-haspopup='dialog']").length).toBeGreaterThan(0);
     unmount();
     const preview = render(<LandingRenderer content={on} status="published" kind="course" pageTitle="PPC" />);
     expect(preview.container.querySelector("a[href='https://old.example/register']")).not.toBeNull();

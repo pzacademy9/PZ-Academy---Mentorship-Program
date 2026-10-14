@@ -50,7 +50,7 @@ export function RegisterButton({
   ) : null;
   if (register.builtIn) {
     return (
-      <RegistrationLauncher className={`${classes} ${VARIANT[variant]}`}>
+      <RegistrationLauncher className={`${classes} ${VARIANT[variant]}`} href={isSafeUrl(register.url) ? register.url : undefined}>
         <span>{text}</span>
         {arrowIcon}
       </RegistrationLauncher>
