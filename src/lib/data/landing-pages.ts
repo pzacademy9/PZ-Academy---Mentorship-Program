@@ -8,7 +8,11 @@ import {
   type LandingContent, type PageKind, type PageStatus, type Problem,
 } from "@/lib/landing/content";
 
-type Row = Database["public"]["Tables"]["landing_pages"]["Row"];
+// COLUMNS selects only the page columns; the Phase 2 registration columns (0069) are not read here.
+type Row = Omit<
+  Database["public"]["Tables"]["landing_pages"]["Row"],
+  "course_id" | "sheet_id" | "drive_folder_id" | "ref_prefix"
+>;
 
 export interface LandingPage {
   id: string; slug: string; kind: PageKind; title: string; status: PageStatus;
