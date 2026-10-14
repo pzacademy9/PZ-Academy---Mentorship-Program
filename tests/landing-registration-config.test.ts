@@ -83,6 +83,10 @@ describe("isValidInstant", () => {
     expect(isValidInstant("2026-10-16T00:00:00+05:00")).toBe(true);
     for (const bad of ["2026-10-16T00:00:00", "soon", "", "2026-13-45T00:00:00Z"]) expect(isValidInstant(bad), bad).toBe(false);
   });
+  it("needs a strict ISO shape and rejects rolled-over dates", () => {
+    expect(isValidInstant("2026-10-15T19:00:00+05:00")).toBe(true);
+    for (const bad of ["Oct 15 2026 19:00 +05:00", "2026-02-30T00:00:00Z", "2026-10-15T24:00:00Z"]) expect(isValidInstant(bad), bad).toBe(false);
+  });
 });
 
 describe("registrationProblems", () => {
@@ -150,6 +154,33 @@ describe("registrationProblems", () => {
     expect(m).toMatch(/at least 2 people/);
     expect(m).toMatch(/largest group size/);
     expect(m).toMatch(/replaces every module/);
+  });
+  it("checks that group totals point at an existing fixed-size tier and are sane", () => {
+    const a = ppcConfig(); a.prices.full.INTL.groupTotals = { group3: 131, nope: 5 };
+    expect(msgs(a)).toMatch(/"nope" in "Full Course" for International does not match any group discount/);
+    const b = ppcConfig(); b.tiers[0].maxSize = 10;
+    expect(msgs(b)).toMatch(/"Group of 3" in "Full Course" for International needs a fixed group size/);
+    const c = ppcConfig(); c.prices.full.PK.earlyGroupTotals = { group3: -4 };
+    expect(msgs(c)).toMatch(/Early Bird group total for "group3" in "Full Course" for Pakistan must be a number of 0 or more/);
+    const d = ppcConfig(); d.prices.full.PK.groupTotals = { group3: Number.NaN };
+    expect(msgs(d)).toMatch(/must be a number of 0 or more/);
+  });
+  it("rejects reserved object keys as region, option, tier and account codes", () => {
+    for (const bad of ["constructor", "__proto__", "prototype"]) {
+      const r = ppcConfig(); r.regions[1].key = bad;
+      expect(msgs(r), `region ${bad}`).toContain(`"${bad}" is a reserved word, pick another code.`);
+      const o = ppcConfig(); o.options[1].key = bad;
+      expect(msgs(o), `option ${bad}`).toContain(`"${bad}" is a reserved word, pick another code.`);
+      const t = ppcConfig(); t.tiers[0].key = bad;
+      expect(msgs(t), `tier ${bad}`).toContain(`"${bad}" is a reserved word, pick another code.`);
+      const a = ppcConfig(); a.regions[1].accountKeys = [bad];
+      expect(msgs(a), `account ${bad}`).toContain(`"${bad}" is a reserved word, pick another code.`);
+    }
+  });
+  it("hints when Early Bird prices exist without an end date", () => {
+    const c = ppcConfig(); c.earlyBirdEndsAt = "";
+    expect(msgs(c)).toMatch(/Early Bird prices are set but no Early Bird end date/);
+    expect(msgs(w20Config())).toBe("");
   });
   it("rejects a tier that reuses the reserved word individual", () => {
     const c = ppcConfig();

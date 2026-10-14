@@ -129,6 +129,7 @@ export const registrationConfigSchema: z.ZodType<RegistrationConfig> = z.object(
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
+const SCAN_CAP = 200; // never walk more than this many raw array entries
 const BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const okKey = (k: string, max: number) => k.length >= 1 && k.length <= max && !BAD_KEYS.has(k);
 const str = (v: unknown, max: number, fallback = "") => (typeof v === "string" ? v.slice(0, max) : fallback);
@@ -137,10 +138,10 @@ const num = (v: unknown, min: number, max: number, fallback: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
 const int = (v: unknown, min: number, max: number, fallback: number) => Math.round(num(v, min, max, fallback));
 const strList = (v: unknown, maxItems: number, maxLen: number): string[] =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, maxItems).map((x) => x.slice(0, maxLen)) : [];
+  Array.isArray(v) ? v.slice(0, SCAN_CAP).filter((x): x is string => typeof x === "string").slice(0, maxItems).map((x) => x.slice(0, maxLen)) : [];
 function list<T>(v: unknown, max: number, f: (x: Record<string, unknown>) => T | null): T[] {
   if (!Array.isArray(v)) return [];
-  return v.filter(isRecord).map(f).filter((x): x is T => x !== null).slice(0, max);
+  return v.slice(0, SCAN_CAP).filter(isRecord).map(f).filter((x): x is T => x !== null).slice(0, max);
 }
 
 function amountRecord(v: unknown): Record<string, number> | undefined {
@@ -225,7 +226,12 @@ export function normalizeRegistration(raw: unknown): RegistrationConfig {
 /** ISO-8601 with an explicit Z or +hh:mm offset, so every visitor sees the same cutoff instant. */
 export function isValidInstant(v: string): boolean {
   const s = v.trim();
-  return /(Z|[+-]\d{2}:\d{2})$/.test(s) && Number.isFinite(Date.parse(s));
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.exec(s);
+  if (!m) return false;
+  const [y, mo, d, h, mi, se] = [m[1], m[2], m[3], m[4], m[5], m[6] ?? "0"].map(Number);
+  const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate(); // day 0 of next month
+  if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth || h > 23 || mi > 59 || se > 59) return false;
+  return Number.isFinite(Date.parse(s));
 }
 
 function duplicates(keys: string[]): string[] {
@@ -236,6 +242,7 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
   const out: { message: string }[] = [];
   const add = (message: string) => out.push({ message });
   const name = (label: string, key: string) => (label.trim() === "" ? key : label);
+  const reserved = (code: string) => `"${code}" is a reserved word, pick another code.`;
 
   if (r.modes.length === 0) add("Choose Live, Recorded or both (Registration setup).");
   if (r.regions.length === 0) add("Add at least one country people can register from (Registration setup).");
@@ -243,6 +250,7 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
 
   for (const k of duplicates(r.regions.map((x) => x.key))) add(`Two countries use the same code "${k}". Give each country its own code.`);
   for (const g of r.regions) {
+    if (BAD_KEYS.has(g.key)) add(reserved(g.key));
     if (!REGION_KEY_RE.test(g.key)) add(`The country code "${g.key}" must be 2 to 6 capital letters, for example PK.`);
     if (g.label.trim() === "") add(`Give the country "${g.key}" a name.`);
     if (!CURRENCY_RE.test(g.currency)) add(`Set the currency for ${name(g.label, g.key)} as a 3-letter code, for example PKR.`);
@@ -253,6 +261,7 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
 
   for (const k of duplicates(r.options.map((o) => o.key))) add(`Two options use the same code "${k}". Give each option its own code.`);
   for (const o of r.options) {
+    if (BAD_KEYS.has(o.key)) add(reserved(o.key));
     if (!ITEM_KEY_RE.test(o.key)) add(`The option code "${o.key}" must use small letters, digits or _ only.`);
     if (o.label.trim() === "") add(`Give the option "${o.key}" a name.`);
     if (o.waGroupUrl.trim() !== "" && !WA_GROUP_URL_RE.test(o.waGroupUrl.trim())) {
@@ -262,6 +271,7 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
 
   for (const k of duplicates(r.tiers.map((t) => t.key))) add(`Two group discounts use the same code "${k}".`);
   for (const t of r.tiers) {
+    if (BAD_KEYS.has(t.key)) add(reserved(t.key));
     if (!ITEM_KEY_RE.test(t.key) || t.key === INDIVIDUAL) add(`"${name(t.label, t.key)}" needs a different code (small letters, digits or _, not "individual").`);
     if (t.minSize < 2) add(`"${name(t.label, t.key)}" must be for at least 2 people.`);
     if (t.maxSize < t.minSize) add(`"${name(t.label, t.key)}": the largest group size cannot be smaller than the smallest.`);
@@ -285,6 +295,17 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
       else if (cell.earlyAmount !== undefined && cell.earlyAmount > cell.amount) {
         add(`The Early Bird price of "${name(o.label, o.key)}" for ${name(g.label, g.key)} is higher than the regular price.`);
       }
+      if (cell) {
+        const where = `"${name(o.label, o.key)}" for ${name(g.label, g.key)}`;
+        for (const [field, map] of [["group total", cell.groupTotals], ["Early Bird group total", cell.earlyGroupTotals]] as const) {
+          for (const [tk, total] of Object.entries(map ?? {})) {
+            const tier = r.tiers.find((t) => t.key === tk);
+            if (!tier) add(`The ${field} for "${tk}" in ${where} does not match any group discount. Remove it or add that group discount.`);
+            else if (tier.minSize !== tier.maxSize) add(`The ${field} for "${name(tier.label, tier.key)}" in ${where} needs a fixed group size (smallest and largest size equal).`);
+            if (typeof total !== "number" || !Number.isFinite(total) || total < 0) add(`The ${field} for "${tk}" in ${where} must be a number of 0 or more.`);
+          }
+        }
+      }
     }
   }
 
@@ -292,12 +313,19 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
   if (!allFree) {
     for (const g of r.regions) {
       if (g.accountKeys.length === 0) add(`Choose at least one payment account for ${name(g.label, g.key)}.`);
+      for (const k of g.accountKeys) if (BAD_KEYS.has(k)) add(reserved(k));
       for (const k of g.accountKeys) if (!ACCOUNT_KEY_RE.test(k)) add(`The payment account "${k}" for ${name(g.label, g.key)} is not a known account code.`);
     }
   }
 
   if (r.earlyBirdEndsAt.trim() !== "" && !isValidInstant(r.earlyBirdEndsAt)) {
     add("The Early Bird end date is not a valid date and time.");
+  }
+  if (
+    r.earlyBirdEndsAt.trim() === "" &&
+    Object.values(r.prices).some((row) => Object.values(row).some((c) => c.earlyAmount !== undefined || c.earlyGroupTotals !== undefined))
+  ) {
+    add("Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.");
   }
   if (!REF_PREFIX_RE.test(r.refPrefix)) {
     add("Set a short code for reference numbers: 2 to 6 capital letters or digits, for example PPC (Registration setup).");
