@@ -152,6 +152,10 @@ function EditorShell({
       setTitle(next);
       setServerProblems(null);
       setNameDraft(next);
+      // revalidatePath in the route handler does not clear the browser's router cache, so Back to
+      // Landing Pages (or reopening this page) could show the old name for a while. router.refresh()
+      // drops that cache. It does not remount the editor: the revision did not change.
+      router.refresh();
       toast.success("Page renamed.");
     } catch {
       toast.error("Couldn't rename the page.");

@@ -1119,3 +1119,94 @@ describe("Template review flags (L5)", () => {
     expect(autosave.schedule.mock.calls.at(-1)![0].needsReview).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 1 leftovers (Task L6): single-actor repro of "restore shows stale content" and
+// "rename flips back". If every test here passes, the findings were two-tab artefacts.
+// ---------------------------------------------------------------------------
+describe("Single-actor repro (L6)", () => {
+  let complete = emptyContent("webinar");
+  for (const s of complete.sections) if (s.type !== "hero") complete = removeSectionT11(complete, s.id);
+  complete = updateSectionData(complete, complete.sections[0].id, { headline: "Diabetes webinar" });
+  complete = updateSettingsT11(complete, { registerUrl: "https://pharmacozyme.com/register" });
+  complete = updateSeoT11(complete, { description: "A one hour webinar." });
+  const restored = updateSectionData(complete, complete.sections[0].id, { headline: "Restored headline" });
+  const mk = (over: Record<string, unknown> = {}) => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "published" as const,
+    draft: complete, published: complete, revision: 4, publishedAt: "2026-10-01T00:00:00Z", createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+  }) as Parameters<typeof LandingEditor>[0]["page"];
+  const versions = [{ version: 1, createdAt: "2026-10-01T10:00:00Z" }];
+  const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  const toastSuccess = toast.success as unknown as ReturnType<typeof vi.fn>;
+  const headline = () => (screen.getByLabelText("Headline") as HTMLInputElement).value;
+  const nameInput = () => screen.getByLabelText("Page name") as HTMLInputElement;
+  async function restoreFirstVersion() {
+    fireEvent.click(screen.getByRole("button", { name: /versions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /restore this version/i }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  }
+  beforeEach(() => {
+    autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); autosave.saveNow.mockResolvedValue(true);
+    refresh.mockReset(); toastError.mockReset(); toastSuccess.mockReset(); confirmFn.mockReset(); confirmFn.mockResolvedValue(true);
+  });
+
+  it("(a) restore after this editor already autosaved and published shows the restored content", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, version: 3 }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "My edit" } });
+    act(() => autosave.onRevision?.(5)); // this editor's own autosave reached revision 5
+    rerender(<LandingEditor page={mk({ revision: 5 })} versions={versions} />); // e.g. a publish refresh
+    expect(headline()).toBe("My edit");
+    await restoreFirstVersion();
+    rerender(<LandingEditor page={mk({ revision: 6, draft: restored, published: restored })} versions={versions} />);
+    expect(headline()).toBe("Restored headline");
+    expect(screen.queryByDisplayValue("My edit")).toBeNull();
+  });
+
+  it("(a) restore with an unsaved edit pending shows the restored content and a fresh preview frame", async () => {
+    autosave.state = "dirty";
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, version: 3 }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    const frameBefore = screen.getByTitle("Page preview");
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Pending edit" } });
+    await restoreFirstVersion();
+    autosave.state = "saved";
+    rerender(<LandingEditor page={mk({ revision: 5, draft: restored, published: restored })} versions={versions} />);
+    expect(headline()).toBe("Restored headline");
+    // The editor remounted, so the preview iframe reloaded the restored draft from the server.
+    expect(screen.getByTitle("Page preview")).not.toBe(frameBefore);
+  });
+
+  it("(b) a rename survives a later refresh whose server data still has the old name", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, title: "New name" }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(nameInput(), { target: { value: "New name" } });
+    fireEvent.blur(nameInput());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Page renamed."));
+    rerender(<LandingEditor page={mk({ title: "Webinar 21" })} versions={versions} />);
+    expect(nameInput().value).toBe("New name");
+  });
+
+  it("(b) a rename refreshes the router cache, so going back to Landing Pages or reopening shows the new name", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, title: "New name" }));
+    render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(nameInput(), { target: { value: "New name" } });
+    fireEvent.blur(nameInput());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Page renamed."));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("(b) a rename followed by a restore keeps the new name", async () => {
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(jsonRes(200, { ok: true, title: "New name" }))
+      .mockResolvedValueOnce(jsonRes(200, { ok: true, version: 3 }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(nameInput(), { target: { value: "New name" } });
+    fireEvent.blur(nameInput());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Page renamed."));
+    refresh.mockReset();
+    await restoreFirstVersion();
+    rerender(<LandingEditor page={mk({ revision: 5, title: "New name", draft: restored, published: restored })} versions={versions} />);
+    expect(nameInput().value).toBe("New name");
+  });
+});
