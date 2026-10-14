@@ -3191,7 +3191,7 @@ git commit -m "fix(landing): rename refreshes the router cache so the old name n
 **Interfaces:**
 - Consumes: `public.landing_pages` (0067), `public.profiles`, `public.courses`. Part 0's `0068_landing_publish_rpc.sql` is independent of this file (either order works).
 - Produces (exact names; Part B's data layer depends on them):
-  - Tables (RLS on, zero policies, service-role only): `payment_accounts(key pk, label, kind, rows jsonb, display_text, sort, active, created_at, updated_at)`; `landing_promo_codes(id, code, type, value, fixed_amounts jsonb, max_discount_percent, page_ids uuid[], option_keys text[], max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, created_by, created_at, updated_at)`; `landing_registrations(id, page_id, row_type, lead_registration_id, name, email, whatsapp, profession, city, region, discovery, consent, option_label, option_keys text[], mode, tier_key, group_size, promo_code_id, promo_code_text, expected_amount numeric, currency, payment_method, voucher_url, status, amount_received, email_status, status_changed_at, status_source, student_id, ref_id, agent_id, referral_code, utm jsonb, fbp, fbc, event_id, session_id, is_test, created_at, updated_at)`; `landing_status_events(id, registration_id, from_status, to_status, source, at)`; `landing_funnel_events(id bigint, page_id, session_id, type, utm, agent_id, at)`; `landing_agent_links(id, agent_id unique, code unique, created_at)`; `landing_ref_counters(page_id pk, last_number, updated_at)`; `landing_jobs(id, registration_id, type, status, attempts, next_run_at, last_error, created_at, updated_at, unique(registration_id, type))`.
+  - Tables (RLS on, zero policies, service-role only): `payment_accounts(key pk, label, kind, rows jsonb, display_text, sort, active, created_at, updated_at)`; `landing_promo_codes(id, code, type, value, fixed_amounts jsonb, max_discount_percent, page_ids uuid[], option_keys text[], max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, created_by, created_at, updated_at)`; `landing_registrations(id, page_id, row_type, lead_registration_id, name, email, whatsapp, profession, city, region, discovery, consent, option_label, option_keys text[], mode, tier_key, group_size, promo_code_id, promo_code_text, expected_amount numeric, currency, payment_method, voucher_url, status, amount_received, email_status, status_changed_at, status_source, student_id, ref_id, agent_id, referral_code, utm jsonb, fbp, fbc, event_id, session_id, is_test, created_at, updated_at)`; `landing_status_events(id, registration_id, from_status, to_status, source, at)`; `landing_funnel_events(id bigint, page_id, session_id, type, utm, agent_id, at)`; `landing_agent_links(id, agent_id unique, code unique, created_at)`; `landing_ref_counters(prefix text pk, last_number, updated_at)` (keyed by prefix: ref_id is unique table-wide and pages share prefixes); `landing_jobs(id, registration_id, type, status, attempts, next_run_at, last_error, created_at, updated_at, unique(registration_id, type))`.
   - `landing_pages` gains `course_id uuid` (FK courses, on delete set null), `sheet_id text`, `drive_folder_id text`, `ref_prefix text` (2-6 upper-case letters/digits or null).
   - RPC `public.landing_create_registration(p_page_id uuid, p_rows jsonb, p_promo_id uuid default null, p_is_test boolean default false, p_capacity integer default 0) returns jsonb` = `{"ref_id": text, "registration_ids": uuid[]}` in `p_rows` order. `p_rows` is a JSON array; element 0 is the `individual` or `lead` row, the rest are `member` rows. Keys read from each element (all optional except `row_type`, `name`, `email`, `region`, `currency`): `row_type, name, email, whatsapp, profession, city, region, discovery, consent (bool), option_label, option_keys (string[]), mode, tier_key, group_size (int), promo_code_text, expected_amount (number; whole-registration total on element 0, 0 on members), currency, payment_method, voucher_url, status, student_id (uuid string or ""), agent_id (uuid string or ""), referral_code, utm (object), fbp, fbc, event_id, session_id`. Raises (Postgres error message text, matched by Part B): `invalid_rows`, `page_not_found`, `capacity_full`, `promo_exhausted`. Ref prefix = `landing_pages.ref_prefix`, else `published.registration.refPrefix`, else `REG`. Ref format `PZA-<prefix>-001` (3-digit pad, grows to 4+ digits past 999); test rows get `TEST-<5 digits>` and use no counter, no capacity and no promo use. Members get `ref_id = null` and `lead_registration_id` = the lead's id; `promo_code_id` is stored on element 0 only (and never on test rows).
   - TypeScript: `Database["public"]["Tables"][<each table above>]` with Row/Insert/Update/Relationships, and `Database["public"]["Functions"]["landing_create_registration"]` with `Args: { p_capacity?: number; p_is_test?: boolean; p_page_id: string; p_promo_id?: string | null; p_rows: Json }`, `Returns: Json`.
@@ -3468,9 +3468,10 @@ create table if not exists public.landing_agent_links (
   created_at timestamptz not null default now()
 );
 
--- ------------------------------------------------------------ per-page ref counters
+-- ------------------------------------------------------------ per-prefix ref counters
+-- Keyed by prefix, not page: ref_id is unique table-wide and pages share prefixes.
 create table if not exists public.landing_ref_counters (
-  page_id     uuid primary key references public.landing_pages(id) on delete cascade,
+  prefix      text primary key,
   last_number integer not null default 0 check (last_number >= 0),
   updated_at  timestamptz not null default now()
 );
@@ -3570,9 +3571,9 @@ begin
       exit when not exists (select 1 from public.landing_registrations r where r.ref_id = v_ref);
     end loop;
   else
-    insert into public.landing_ref_counters as c (page_id, last_number, updated_at)
-    values (p_page_id, 1, now())
-    on conflict (page_id) do update set last_number = c.last_number + 1, updated_at = now()
+    insert into public.landing_ref_counters as c (prefix, last_number, updated_at)
+    values (v_prefix, 1, now())
+    on conflict (prefix) do update set last_number = c.last_number + 1, updated_at = now()
     returning last_number into v_n;
     v_ref := 'PZA-' || v_prefix || '-' || case when v_n < 1000 then lpad(v_n::text, 3, '0') else v_n::text end;
   end if;
@@ -3926,28 +3927,20 @@ grant execute on function public.landing_create_registration(uuid, jsonb, uuid, 
       landing_ref_counters: {
         Row: {
           last_number: number
-          page_id: string
+          prefix: string
           updated_at: string
         }
         Insert: {
           last_number?: number
-          page_id: string
+          prefix: string
           updated_at?: string
         }
         Update: {
           last_number?: number
-          page_id?: string
+          prefix?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "landing_ref_counters_page_id_fkey"
-            columns: ["page_id"]
-            isOneToOne: true
-            referencedRelation: "landing_pages"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       landing_registrations: {
         Row: {

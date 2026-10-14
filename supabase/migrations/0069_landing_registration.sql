@@ -138,6 +138,10 @@ create index if not exists landing_registrations_student_idx
   on public.landing_registrations (student_id);
 create index if not exists landing_registrations_lead_idx
   on public.landing_registrations (lead_registration_id);
+create index if not exists landing_registrations_promo_idx
+  on public.landing_registrations (promo_code_id) where promo_code_id is not null;
+create index if not exists landing_registrations_agent_idx
+  on public.landing_registrations (agent_id) where agent_id is not null;
 
 -- ------------------------------------------------------------ status history (idempotency + tracing)
 create table if not exists public.landing_status_events (
@@ -174,9 +178,10 @@ create table if not exists public.landing_agent_links (
   created_at timestamptz not null default now()
 );
 
--- ------------------------------------------------------------ per-page ref counters
+-- ------------------------------------------------------------ per-prefix ref counters
+-- Keyed by prefix, not page: ref_id is unique table-wide and pages share prefixes.
 create table if not exists public.landing_ref_counters (
-  page_id     uuid primary key references public.landing_pages(id) on delete cascade,
+  prefix      text primary key,
   last_number integer not null default 0 check (last_number >= 0),
   updated_at  timestamptz not null default now()
 );
@@ -230,6 +235,7 @@ declare
   v_ids     uuid[] := '{}';
   v_row     jsonb;
   v_idx     integer := 0;
+  v_ord     bigint;
   v_type    text;
   v_test    boolean := coalesce(p_is_test, false);
 begin
@@ -238,7 +244,11 @@ begin
   end if;
   v_people := jsonb_array_length(p_rows);
 
-  select coalesce(nullif(lp.ref_prefix, ''), nullif(lp.published #>> '{registration,refPrefix}', ''), 'REG')
+  select coalesce(
+           nullif(lp.ref_prefix, ''),
+           case when lp.published #>> '{registration,refPrefix}' ~ '^[A-Z0-9]{2,6}$'
+                then lp.published #>> '{registration,refPrefix}' end,
+           'REG')
     into v_prefix
     from public.landing_pages lp
    where lp.id = p_page_id;
@@ -264,7 +274,10 @@ begin
        set used_count = pc.used_count + 1,
            updated_at = now()
      where pc.id = p_promo_id
-       and (pc.max_uses is null or pc.used_count < pc.max_uses);
+       and (pc.max_uses is null or pc.used_count < pc.max_uses)
+       and pc.active
+       and (pc.starts_at is null or pc.starts_at <= now())
+       and (pc.ends_at is null or pc.ends_at > now());
     if not found then
       raise exception 'promo_exhausted';
     end if;
@@ -276,14 +289,16 @@ begin
       exit when not exists (select 1 from public.landing_registrations r where r.ref_id = v_ref);
     end loop;
   else
-    insert into public.landing_ref_counters as c (page_id, last_number, updated_at)
-    values (p_page_id, 1, now())
-    on conflict (page_id) do update set last_number = c.last_number + 1, updated_at = now()
+    insert into public.landing_ref_counters as c (prefix, last_number, updated_at)
+    values (v_prefix, 1, now())
+    on conflict (prefix) do update set last_number = c.last_number + 1, updated_at = now()
     returning last_number into v_n;
     v_ref := 'PZA-' || v_prefix || '-' || case when v_n < 1000 then lpad(v_n::text, 3, '0') else v_n::text end;
   end if;
 
-  for v_row in select value from jsonb_array_elements(p_rows) loop
+  for v_row, v_ord in
+    select e.value, e.ord from jsonb_array_elements(p_rows) with ordinality as e(value, ord) order by e.ord
+  loop
     v_type := coalesce(v_row->>'row_type', '');
     if v_idx = 0 and v_type not in ('individual', 'lead') then
       raise exception 'invalid_rows';
@@ -314,7 +329,7 @@ begin
       coalesce(v_row->>'discovery', ''),
       coalesce((v_row->>'consent')::boolean, false),
       coalesce(v_row->>'option_label', ''),
-      array(select jsonb_array_elements_text(coalesce(v_row->'option_keys', '[]'::jsonb))),
+      array(select jsonb_array_elements_text(coalesce(nullif(v_row->'option_keys', 'null'::jsonb), '[]'::jsonb))),
       coalesce(v_row->>'mode', 'live'),
       coalesce(v_row->>'tier_key', 'individual'),
       coalesce((v_row->>'group_size')::integer, 1),
@@ -331,7 +346,7 @@ begin
       case when v_idx = 0 then v_ref else null end,
       nullif(v_row->>'agent_id', '')::uuid,
       coalesce(v_row->>'referral_code', ''),
-      coalesce(v_row->'utm', '{}'::jsonb),
+      coalesce(nullif(v_row->'utm', 'null'::jsonb), '{}'::jsonb),
       coalesce(v_row->>'fbp', ''),
       coalesce(v_row->>'fbc', ''),
       coalesce(v_row->>'event_id', ''),

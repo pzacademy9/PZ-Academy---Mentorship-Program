@@ -1414,7 +1414,7 @@ export type Database = {
         Insert: {
           agent_id?: string | null
           at?: string
-          id?: number
+          id?: never
           page_id: string
           session_id: string
           type: string
@@ -1423,7 +1423,7 @@ export type Database = {
         Update: {
           agent_id?: string | null
           at?: string
-          id?: number
+          id?: never
           page_id?: string
           session_id?: string
           type?: string
@@ -1671,28 +1671,20 @@ export type Database = {
       landing_ref_counters: {
         Row: {
           last_number: number
-          page_id: string
+          prefix: string
           updated_at: string
         }
         Insert: {
           last_number?: number
-          page_id: string
+          prefix: string
           updated_at?: string
         }
         Update: {
           last_number?: number
-          page_id?: string
+          prefix?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "landing_ref_counters_page_id_fkey"
-            columns: ["page_id"]
-            isOneToOne: true
-            referencedRelation: "landing_pages"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       landing_registrations: {
         Row: {

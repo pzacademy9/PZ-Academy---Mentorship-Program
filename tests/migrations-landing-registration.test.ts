@@ -59,7 +59,7 @@ it("defines the create-registration RPC as service-role only", () => {
 
 it("allocates refs race-free, never truncates past 999, and keeps test rows out of counts", () => {
   expect(sql).toMatch(/pg_advisory_xact_lock\(hashtextextended\(p_page_id::text, 0\)\)/i);
-  expect(sql).toMatch(/on conflict \(page_id\) do update set last_number = c\.last_number \+ 1/i);
+  expect(sql).toMatch(/on conflict \(prefix\) do update set last_number = c\.last_number \+ 1/i);
   expect(sql).toMatch(/case when v_n < 1000 then lpad\(v_n::text, 3, '0'\) else v_n::text end/i);
   expect(sql).toContain("'TEST-'");
   expect(sql).toMatch(/raise exception 'capacity_full'/);
@@ -67,6 +67,22 @@ it("allocates refs race-free, never truncates past 999, and keeps test rows out 
   expect(sql).toMatch(/raise exception 'invalid_rows'/);
   expect(sql).toMatch(/and not r\.is_test/i);
   expect(sql).toMatch(/pc\.max_uses is null or pc\.used_count < pc\.max_uses/i);
+  expect(sql).toMatch(/and pc\.active\s+and \(pc\.starts_at is null or pc\.starts_at <= now\(\)\)\s+and \(pc\.ends_at is null or pc\.ends_at > now\(\)\)/i);
+});
+
+it("keys the ref counter by prefix and hardens the RPC inputs", () => {
+  expect(sql).toMatch(/landing_ref_counters \(\s+prefix\s+text primary key,/i);
+  expect(sql).toMatch(/values \(v_prefix, 1, now\(\)\)/i);
+  expect(sql).toMatch(/refPrefix\}' ~ '\^\[A-Z0-9\]\{2,6\}\$'\s+then/);
+  expect(sql).toContain("nullif(v_row->'option_keys', 'null'::jsonb)");
+  expect(sql).toContain("nullif(v_row->'utm', 'null'::jsonb)");
+  expect(sql).toMatch(/with ordinality as e\(value, ord\) order by e\.ord/i);
+  expect(sql).toContain("create index if not exists landing_registrations_promo_idx");
+  expect(sql).toContain("create index if not exists landing_registrations_agent_idx");
+  const counters = block("landing_ref_counters", "landing_registrations");
+  expect(counters).toContain("prefix: string");
+  expect(counters).not.toContain("page_id");
+  expect(block("landing_funnel_events", "landing_jobs")).not.toMatch(/id\?: number/);
 });
 
 it("database.types.ts knows every new table, column and the RPC", () => {
