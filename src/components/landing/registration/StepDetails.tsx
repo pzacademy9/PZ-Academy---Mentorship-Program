@@ -29,8 +29,10 @@ export function StepDetails({
           <TextField label="Full name" autoComplete="name" value={lead.name} onChange={(v) => onLead({ name: v })} error={errors["lead.name"]} />
           <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={lead.email} readOnly={state.emailLocked} hint={state.emailLocked ? "This is your account email." : undefined} onChange={(v) => onLead({ email: v })} error={errors["lead.email"]} />
           <TextField label="WhatsApp number" type="tel" inputMode="tel" autoComplete="tel" placeholder="923001234567" hint="With country code" value={lead.whatsapp} onChange={(v) => onLead({ whatsapp: v })} error={errors["lead.whatsapp"]} />
-          {config.professions.length > 0 && (
+          {config.professions.length > 0 ? (
             <SelectField label="Profession" value={lead.profession} options={config.professions} onChange={(v) => onLead({ profession: v })} error={errors["lead.profession"]} />
+          ) : (
+            <TextField label="Profession" autoComplete="organization-title" value={lead.profession} onChange={(v) => onLead({ profession: v })} error={errors["lead.profession"]} />
           )}
         </div>
       )}
@@ -55,8 +57,10 @@ export function StepDetails({
                 <TextField label={`Member ${n} full name`} value={m.name} onChange={(v) => onMember(i, { name: v })} error={errors[`members.${i}.name`]} />
                 <TextField label={`Member ${n} email`} type="email" inputMode="email" value={m.email} onChange={(v) => onMember(i, { email: v })} error={errors[`members.${i}.email`]} />
                 <TextField label={`Member ${n} WhatsApp number`} type="tel" inputMode="tel" hint="With country code" value={m.whatsapp} onChange={(v) => onMember(i, { whatsapp: v })} error={errors[`members.${i}.whatsapp`]} />
-                {config.professions.length > 0 && (
+                {config.professions.length > 0 ? (
                   <SelectField label={`Member ${n} profession`} value={m.profession} options={config.professions} onChange={(v) => onMember(i, { profession: v })} error={errors[`members.${i}.profession`]} />
+                ) : (
+                  <TextField label={`Member ${n} profession`} value={m.profession} onChange={(v) => onMember(i, { profession: v })} error={errors[`members.${i}.profession`]} />
                 )}
               </fieldset>
             );

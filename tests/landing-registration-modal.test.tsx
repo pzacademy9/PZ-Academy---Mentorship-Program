@@ -11,6 +11,7 @@ vi.mock("@/components/landing/registration/funnel", async (orig) => ({ ...(await
 
 import { RegistrationFlow } from "@/components/landing/registration/RegistrationFlow";
 import { RegistrationModal } from "@/components/landing/registration/RegistrationModal";
+import { CopyButton } from "@/components/landing/registration/CopyButton";
 import { initialState, MAX_VOUCHER_BYTES, type FormState } from "@/lib/landing/registration/form-state";
 import { computeQuote } from "@/lib/landing/registration/pricing";
 import type { RegisterSuccess, MeProfile } from "@/components/landing/registration/types";
@@ -328,5 +329,112 @@ describe("RegistrationModal", () => {
     fetchMock().mockImplementation(async (url: string) => (url.endsWith("/config") ? { ok: true, status: 200, json: async () => publicConfig(ppcConfig, { status: "closed" }) } : { ok: true, json: async () => null }));
     render(<RegistrationModal slug="ppc" open onClose={() => {}} tracking={false} />);
     expect(await screen.findByText(/registration is closed/i)).toBeTruthy();
+  });
+});
+
+describe("fix round 1", () => {
+  const freeText = { ...ppcConfig, professions: [] as string[] };
+
+  it("a page with no profession list asks for a typed profession (lead and members) and completes", async () => {
+    installFetch(freeText);
+    render(<Harness cfg={freeText} />);
+    fireEvent.click(screen.getByRole("radio", { name: /full course/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /group of 3/i }));
+    cont();
+    expect(screen.getByLabelText("Profession").tagName).toBe("INPUT");
+    cont();
+    expect(screen.getByText("Enter your profession.")).toBeTruthy();
+    expect(screen.getByText("Enter member 2's profession.")).toBeTruthy();
+    fillLead();
+    for (const [n, email] of [[2, "m2@mail.com"], [3, "m3@mail.com"]] as const) {
+      fireEvent.change(screen.getByLabelText(`Member ${n} full name`), { target: { value: `Member ${n}` } });
+      fireEvent.change(screen.getByLabelText(`Member ${n} email`), { target: { value: email } });
+      fireEvent.change(screen.getByLabelText(`Member ${n} WhatsApp number`), { target: { value: "923001112222" } });
+      fireEvent.change(screen.getByLabelText(`Member ${n} profession`), { target: { value: `Dentist ${n}` } });
+    }
+    fireEvent.change(screen.getByLabelText("Profession"), { target: { value: "Pharmacy owner" } });
+    cont();
+    fireEvent.click(screen.getByRole("radio", { name: /faysal bank/i }));
+    cont();
+    fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
+    await waitFor(() => expect(screen.getByTestId("registration-done")).toBeTruthy());
+    expect(payload().lead.profession).toBe("Pharmacy owner");
+    expect(payload().members.map((m: { profession: string }) => m.profession)).toEqual(["Dentist 2", "Dentist 3"]);
+  }, 20000);
+
+  async function freeSubmit(resp: { status: number; body: unknown }) {
+    installFetch(webinarConfig);
+    registerResponse = resp;
+    render(<Harness cfg={webinarConfig} />);
+    fireEvent.click(screen.getByRole("radio", { name: /free access/i }));
+    cont(); fillLead();
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
+  }
+
+  for (const field of ["regionKey", "mode", "tierKey", "groupSize", "members", "members.4.name"]) {
+    it(`a server error on "${field}" with no place on screen shows in the form-level message`, async () => {
+      await freeSubmit({ status: 422, body: { error: `Problem with ${field}.`, field } });
+      await waitFor(() => expect(screen.getByTestId("registration-form-error").textContent).toMatch(new RegExp(`Problem with ${field.replace(".", "\.")}`)));
+    });
+  }
+
+  it("a server error on lead.profession shows on the profession field and moves focus to it", async () => {
+    installFetch(freeText);
+    registerResponse = { status: 400, body: { error: "Choose a profession.", field: "lead.profession" } };
+    render(<Harness cfg={freeText} />);
+    fireEvent.click(screen.getByRole("radio", { name: /full course/i }));
+    cont(); fillLead(); cont();
+    fireEvent.click(screen.getByRole("radio", { name: /faysal bank/i }));
+    cont();
+    fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
+    await waitFor(() => expect(screen.getByText("Choose a profession.")).toBeTruthy());
+    const input = screen.getByLabelText("Profession");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  }, 20000);
+
+  it("moves focus to the first invalid field after a failed Continue", async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("radio", { name: /full course/i }));
+    cont();
+    cont();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Full name")));
+  });
+
+  it("moves focus to the message when a choice step has an error but no invalid input", async () => {
+    render(<Harness />);
+    cont();
+    await waitFor(() => expect((document.activeElement as HTMLElement).textContent).toBe("Choose what you want to join."));
+  });
+
+  describe("CopyButton fallback", () => {
+    afterEach(() => { delete (document as { execCommand?: unknown }).execCommand; });
+    const noClipboard = () => vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) } });
+
+    it("does not say Copied when execCommand returns false, and offers a hint", async () => {
+      noClipboard();
+      (document as { execCommand: unknown }).execCommand = vi.fn(() => false);
+      render(<CopyButton value="123" label="Account No." />);
+      fireEvent.click(screen.getByRole("button", { name: "Copy Account No." }));
+      expect(await screen.findByText(/couldn't copy, press and hold to copy/i)).toBeTruthy();
+      expect(screen.queryByText(/copied/i)).toBeNull();
+      expect(document.body.querySelector("textarea")).toBeNull();
+    });
+    it("says Copied when the fallback works, using a textarea inside the button's parent", async () => {
+      noClipboard();
+      let parent: Element | null = null;
+      (document as { execCommand: unknown }).execCommand = vi.fn(() => { parent = document.querySelector("textarea")?.parentElement ?? null; return true; });
+      render(<div data-testid="dlg"><CopyButton value="123" label="Account No." /></div>);
+      fireEvent.click(screen.getByRole("button", { name: "Copy Account No." }));
+      expect(await screen.findByText(/✓ copied/i)).toBeTruthy();
+      expect(screen.getByTestId("dlg").contains(parent)).toBe(true);
+    });
   });
 });

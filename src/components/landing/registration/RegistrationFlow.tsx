@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { RegistrationConfig } from "@/lib/landing/registration/config";
 import { compressImage } from "@/lib/landing/compress-image";
 import { promoMessage } from "@/lib/landing/registration/promo";
 import { formatMoney } from "@/lib/landing/registration/format";
@@ -24,8 +25,21 @@ import { R_BTN_PRIMARY, R_BTN_SECONDARY } from "./ui";
 
 const STEP_LABEL: Record<StepKey, string> = { choose: "Choose", details: "Details", pay: "Pay", upload: "Upload" };
 const STEP_TITLE: Record<StepKey, string> = { choose: "Choose your option", details: "Your details", pay: "Pay", upload: "Upload your receipt" };
-// Server field names that have a place on screen. Anything else is shown in the form-level message instead.
-const SHOWN_FIELD = /^(regionKey|mode|optionKeys|tierKey|groupSize|paymentMethod|promoCode|voucher|consent|lead\.(name|email|whatsapp|profession|city)|members\.\d+\.(name|email|whatsapp|profession))$/;
+/** Whether a server-reported field has a visible place on screen for this form. Otherwise its message goes in the form-level error. */
+function fieldHasPlace(field: string, config: RegistrationConfig, isFree: boolean, groupSize: number): boolean {
+  switch (field) {
+    case "regionKey": return config.regions.length > 1;
+    case "mode": return config.modes.length > 1;
+    case "tierKey":
+    case "groupSize": return !isFree && config.tiers.length > 0;
+    case "optionKeys": case "paymentMethod": case "promoCode": case "voucher": case "consent": return true;
+    case "lead.name": case "lead.email": case "lead.whatsapp": case "lead.profession": case "lead.city": return true;
+    default: {
+      const m = /^members\.(\d+)\.(name|email|whatsapp|profession)$/.exec(field);
+      return !!m && Number(m[1]) < groupSize - 1;
+    }
+  }
+}
 
 export interface FlowProps {
   slug: string;
@@ -52,6 +66,8 @@ export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, s
   const [submitting, setSubmitting] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [focusTick, setFocusTick] = useState(0);
   // One id per form session: a retry after a lost reply is recognised by the server, and Meta de-duplicates on it.
   const eventIdRef = useRef<string | null>(null);
 
@@ -78,6 +94,20 @@ export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, s
       ? { kind: "ok", message: promo.discount > 0 ? `✓ ${formatMoney(promo.discount, currency)} off applied` : "✓ Code accepted. It doesn't change your price." }
     : promo && !promo.ok ? { kind: "error", message: promoMessage(promo.reason) }
     : { kind: "checking" };
+
+  // After a failed Continue or a server error, move focus to the first invalid field (or the message) in DOM order.
+  // Declared after the heading effect so it wins when the step changes in the same render.
+  useEffect(() => {
+    if (focusTick === 0) return;
+    const root = bodyRef.current;
+    if (!root) return;
+    const target = root.querySelector<HTMLElement>('[aria-invalid="true"]')
+      ?? root.querySelector<HTMLElement>('[data-testid="registration-form-error"]')
+      ?? root.querySelector<HTMLElement>('[role="alert"]');
+    if (!target) return;
+    if (!target.matches("input,select,textarea,button,a")) target.tabIndex = -1;
+    target.focus();
+  }, [focusTick]);
 
   const patch = (p: Partial<FormState>) => setForm((s) => ({ ...s, ...p }));
   const goTo = (s: StepKey) => {
@@ -132,11 +162,13 @@ export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, s
       const key = outcome.field === "lead.consent" ? "consent" : outcome.field;
       const s = fieldStep(outcome.field, steps);
       setErrors({ [key]: outcome.error });
-      if (!SHOWN_FIELD.test(key)) setFormError(outcome.error);
+      if (!fieldHasPlace(key, config, isFree, form.groupSize)) setFormError(outcome.error);
       setForm((f) => ({ ...f, step: s, detailsCollapsed: s === "details" ? false : f.detailsCollapsed }));
+      setFocusTick((t) => t + 1);
       return;
     }
     setFormError(outcome.error);
+    setFocusTick((t) => t + 1);
   }
 
   function onContinue() {
@@ -145,6 +177,7 @@ export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, s
     setErrors(found);
     if (Object.keys(found).length > 0) {
       if (step === "details" && Object.keys(found).some((k) => k.startsWith("lead.") && k !== "lead.city")) patch({ detailsCollapsed: false });
+      setFocusTick((t) => t + 1);
       return;
     }
     const next = nextStep(steps, step);
@@ -201,7 +234,7 @@ export function RegistrationFlow({ slug, config: pc, testMode, tracking, form, s
       </ol>
 
       <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-h-0 overflow-y-auto px-4 py-4 md:px-6">
+        <div ref={bodyRef} className="min-h-0 overflow-y-auto px-4 py-4 md:px-6">
           <h2 ref={headingRef} tabIndex={-1} className="mb-4 font-headline text-xl font-black text-landing-deep focus:outline-none">{STEP_TITLE[step]}</h2>
           {formError && (
             <div data-testid="registration-form-error" role="alert" className="mb-4 rounded-landing border-2 border-landing-error bg-landing-surface-container-low p-3 font-landing-body text-base text-landing-near-black">

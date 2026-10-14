@@ -146,13 +146,17 @@ export function voucherProblem(f: { size: number; type: string } | null): string
 }
 
 // The register route requires a profession for the lead and for every member, so the form does too.
-function checkPerson(p: PersonDraft, prefix: string, n: number | null, errors: FieldErrors, needProfession: boolean): void {
+// An empty professions list means a free-text field, which is required just the same.
+function checkPerson(p: PersonDraft, prefix: string, n: number | null, errors: FieldErrors, freeText: boolean): void {
   const who = n === null ? null : `member ${n}`;
   if (p.name.trim().length < 2) errors[`${prefix}.name`] = who ? `Enter ${who}'s full name.` : "Enter your full name.";
   if (!EMAIL_RE.test(p.email.trim())) errors[`${prefix}.email`] = who ? `Enter a valid email for ${who}.` : "Enter a valid email address, like name@example.com.";
   const d = digits(p.whatsapp).length;
   if (d < 10 || d > 15) errors[`${prefix}.whatsapp`] = who ? `Enter ${who}'s WhatsApp number with the country code.` : "Enter your WhatsApp number with the country code, like 923001234567.";
-  if (needProfession && p.profession.trim() === "") errors[`${prefix}.profession`] = who ? `Choose ${who}'s profession.` : "Choose your profession.";
+  if (p.profession.trim() === "") {
+    const verb = freeText ? "Enter" : "Choose";
+    errors[`${prefix}.profession`] = who ? `${verb} ${who}'s profession.` : `${verb} your profession.`;
+  }
 }
 
 const CONSENT_MESSAGE = "Please tick the box to agree to the registration terms.";
@@ -171,12 +175,12 @@ export function validateStep(
     }
   }
   if (step === "details") {
-    const needProfession = config.professions.length > 0;
-    checkPerson(state.lead, "lead", null, errors, needProfession);
+    const freeText = config.professions.length === 0;
+    checkPerson(state.lead, "lead", null, errors, freeText);
     if (state.lead.city.trim() === "") errors["lead.city"] = "Enter your city or country.";
     const seen = new Set([state.lead.email.trim().toLowerCase()]);
     state.members.slice(0, Math.max(0, state.groupSize - 1)).forEach((m, i) => {
-      checkPerson(m, `members.${i}`, i + 2, errors, needProfession);
+      checkPerson(m, `members.${i}`, i + 2, errors, freeText);
       const e = m.email.trim().toLowerCase();
       if (!errors[`members.${i}.email`] && seen.has(e)) errors[`members.${i}.email`] = "Each person needs their own email address.";
       seen.add(e);
