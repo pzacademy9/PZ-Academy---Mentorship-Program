@@ -1,6 +1,7 @@
 // src/lib/landing/templates-data/ppc-batch-3.ts
 // Seed copy extracted verbatim from "Landing pages/Course/PPC-B3-Landing.html".
 import type { LandingContent } from "@/lib/landing/content";
+import { DEFAULT_REGISTRATION } from "@/lib/landing/registration/config";
 
 export const PPC_BATCH_3: LandingContent = {
   settings: {
@@ -21,6 +22,7 @@ export const PPC_BATCH_3: LandingContent = {
     "pricing:note", "pricing:items.0.price", "pricing:items.1.price", "pricing:items.2.price",
     "schedule:items.0.when", "schedule:items.1.when", "schedule:items.2.when", "schedule:items.3.when",
   ],
+  registration: structuredClone(DEFAULT_REGISTRATION),
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

@@ -1,6 +1,7 @@
 // src/lib/landing/templates-data/mdc-batch-3.ts
 // Seed copy extracted verbatim from "Landing pages/Workshop/MDC-B3-Landing.html".
 import type { LandingContent } from "@/lib/landing/content";
+import { DEFAULT_REGISTRATION } from "@/lib/landing/registration/config";
 
 export const MDC_BATCH_3: LandingContent = {
   settings: {
@@ -24,6 +25,7 @@ export const MDC_BATCH_3: LandingContent = {
     "pricing:items.0.price", "pricing:items.1.price",
     "faq:items.5.a",
   ],
+  registration: structuredClone(DEFAULT_REGISTRATION),
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

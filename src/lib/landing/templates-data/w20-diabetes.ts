@@ -1,6 +1,7 @@
 // src/lib/landing/templates-data/w20-diabetes.ts
 // Seed copy extracted verbatim from "Landing pages/Webinar/Webinar20 Landing.html".
 import type { LandingContent } from "@/lib/landing/content";
+import { DEFAULT_REGISTRATION } from "@/lib/landing/registration/config";
 
 export const W20_DIABETES: LandingContent = {
   settings: {
@@ -19,6 +20,7 @@ export const W20_DIABETES: LandingContent = {
   },
   // The webinar date goes stale: readiness asks the admin to update or keep it.
   needsReview: ["hero:dateLine"],
+  registration: structuredClone(DEFAULT_REGISTRATION),
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

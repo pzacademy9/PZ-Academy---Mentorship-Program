@@ -94,7 +94,7 @@ describe("PATCH draft", () => {
     c.sections[0].data.badges = Array.from({ length: 6 }, () => ({ text: "y".repeat(60) }));
     const huge = { ...c, seo: { ...c.seo, description: "z".repeat(300) } };
     // Force the byte cap path with a payload over the limit using many sections' text.
-    const big = JSON.stringify({ content: huge, baseRevision: 1, padding: "p".repeat(210_000) });
+    const big = JSON.stringify({ content: huge, baseRevision: 1, padding: "p".repeat(410_000) });
     const res = await patchDraft(new Request("http://x", { method: "PATCH", body: big }) as never, ctx);
     expect(res.status).toBe(413);
     expect(saveDraft).not.toHaveBeenCalled();

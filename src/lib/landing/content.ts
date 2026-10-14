@@ -3,6 +3,9 @@ import { z } from "zod";
 import { isSafeUrl } from "./simple-text";
 import { validateSlug } from "./slug";
 import {
+  normalizeRegistration, registrationConfigSchema, registrationProblems, type RegistrationConfig,
+} from "./registration/config";
+import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
@@ -29,9 +32,11 @@ export interface LandingContent {
    * until the admin edits that field or chooses Keep. Never rendered on the public page.
    */
   needsReview: string[];
+  /** Built-in registration settings; DEFAULT_REGISTRATION (disabled) when the page has none. */
+  registration: RegistrationConfig;
 }
 
-export const MAX_CONTENT_BYTES = 200_000;
+export const MAX_CONTENT_BYTES = 400_000;
 
 export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
   course: ["hero", "stats", "feature_cards", "curriculum", "instructors", "pricing_cards", "schedule", "video_reviews", "testimonials", "faq", "final_cta"],
@@ -69,6 +74,8 @@ export const contentSchema = z
       }))
       .max(40),
     needsReview: z.array(z.string().max(200)).max(200).optional(),
+    // Optional so a Phase 1 editor payload without it still saves; normalizeContent fills the default.
+    registration: registrationConfigSchema.optional(),
   })
   .superRefine((c, ctx) => {
     const seen = new Set<string>();
@@ -117,7 +124,7 @@ export function normalizeContent(raw: unknown): LandingContent {
   const needsReview = Array.isArray(r.needsReview)
     ? r.needsReview.filter((p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200).slice(0, 200)
     : [];
-  return { settings, seo: seoOut, sections, needsReview };
+  return { settings, seo: seoOut, sections, needsReview, registration: normalizeRegistration(r.registration) };
 }
 
 export function newSection(type: SectionType, id: string = newId()): LandingSection {
@@ -130,6 +137,7 @@ export function emptyContent(kind: PageKind): LandingContent {
     seo: { ...DEFAULT_SEO },
     sections: KIND_SECTIONS[kind].map((t) => newSection(t)),
     needsReview: [],
+    registration: normalizeRegistration(undefined),
   };
 }
 
@@ -230,6 +238,10 @@ export function updateSeo(c: LandingContent, patch: Partial<LandingSeo>): Landin
   return { ...c, seo: { ...c.seo, ...patch } };
 }
 
+export function updateRegistration(c: LandingContent, patch: Partial<RegistrationConfig>): LandingContent {
+  return { ...c, registration: { ...c.registration, ...patch } };
+}
+
 // ------------------------------------------------------------- readiness
 
 /** field: where Fix puts the cursor, as a FieldInput path ("headline", a list key "items", or "items.0.q"). */
@@ -285,7 +297,12 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const slug = validateSlug(page.slug);
   if (!slug.ok) problems.push({ message: slug.message });
   if (c.seo.description.trim() === "") problems.push({ message: "Add a short description for Google and WhatsApp previews (Page settings)." });
-  if (!(/^https?:\/\//i.test(c.settings.registerUrl.trim()) && isSafeUrl(c.settings.registerUrl))) problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
+  if (c.registration.enabled) {
+    // The built-in registration form replaces the external Register link.
+    problems.push(...registrationProblems(c.registration));
+  } else if (!(/^https?:\/\//i.test(c.settings.registerUrl.trim()) && isSafeUrl(c.settings.registerUrl))) {
+    problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
+  }
   if (c.settings.whatsappNumber.trim() !== "") {
     const digits = c.settings.whatsappNumber.replace(/\D/g, "");
     if (digits.length < 8 || digits.length > 15) problems.push({ message: "The WhatsApp number looks wrong. Include the country code, for example 923001234567." });
