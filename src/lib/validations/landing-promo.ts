@@ -9,15 +9,19 @@ const instant = z
   .trim()
   .refine((v) => isValidInstant(v), "Use a full date and time with a time zone, for example 2026-10-31T23:59:00+05:00.");
 
+/** Upper bounds shared by the server schema and the admin form. */
+export const PROMO_MAX_FIXED_AMOUNT = 10_000_000;
+export const PROMO_MAX_USES = 1_000_000;
+
 const promoFields = {
   code: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]{2,40}$/, "Use 2 to 40 letters, numbers, dashes or underscores."),
   type: z.enum(["percent", "fixed"]),
   value: z.number().min(0).max(1_000_000),
-  fixedAmounts: z.record(z.string().regex(/^[A-Z]{3}$/, "Use 3-letter currency codes such as PKR."), z.number().min(0).max(10_000_000)),
+  fixedAmounts: z.record(z.string().regex(/^[A-Z]{3}$/, "Use 3-letter currency codes such as PKR."), z.number().min(0).max(PROMO_MAX_FIXED_AMOUNT)),
   maxDiscountPercent: z.number().min(0).max(100),
   pageIds: z.array(z.string().regex(UUID_RE)).max(100),
   optionKeys: z.array(z.string().trim().min(1).max(32)).max(20),
-  maxUses: z.number().int().min(1).max(1_000_000).nullable(),
+  maxUses: z.number().int().min(1).max(PROMO_MAX_USES).nullable(),
   oneperEmail: z.boolean(),
   startsAt: instant.nullable(),
   endsAt: instant.nullable(),
