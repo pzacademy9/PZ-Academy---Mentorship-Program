@@ -125,7 +125,7 @@ describe("POST /api/landing/[slug]/register: the happy path", () => {
     expect(file.mimeType).toBe("image/png");
     expect(file.filename).toMatch(/^voucher_\d+\.png$/);
     expect(file.base64).toBe(Buffer.from(new Uint8Array(1024)).toString("base64"));
-    expect(m.enqueueJobs).toHaveBeenCalledWith("reg-1", ["sheet_append", "email_received", "email_admin"]);
+    expect(m.enqueueJobs).toHaveBeenCalledWith("reg-1", ["email_received", "sheet_append", "email_admin"]);
     expect(m.runJobsFor).toHaveBeenCalledWith("reg-1");
     expect(m.runInBackground).toHaveBeenCalledTimes(1);
     expect(m.enqueueJobs.mock.invocationCallOrder[0]).toBeLessThan(m.runInBackground.mock.invocationCallOrder[0]);
@@ -147,7 +147,7 @@ describe("POST /api/landing/[slug]/register: the happy path", () => {
     const expected = computeQuote({ config: PPC_CONFIG, regionKey: "PK", mode: "live", optionKeys: ["full"], tierKey: "g3", groupSize: 3, now: PRE_EB });
     expect(expected.ok).toBe(true);
     expect((await res.json()).total).toBe(expected.ok ? expected.total : -1);
-    expect(m.enqueueJobs).toHaveBeenCalledWith("reg-1", ["sheet_append", "email_received", "email_members", "email_admin"]);
+    expect(m.enqueueJobs).toHaveBeenCalledWith("reg-1", ["email_received", "sheet_append", "email_members", "email_admin"]);
   });
   it("a free registration needs no voucher and no payment account", async () => {
     m.getRegistrablePage.mockResolvedValue(page(W20_CONFIG));
@@ -243,6 +243,16 @@ describe("test mode (admin only, ruling 2)", () => {
     expect(m.findRecentRegistration).not.toHaveBeenCalled();
     expect(m.findOpenRegistration).not.toHaveBeenCalled();
     expect(m.countRecentRegistrations).not.toHaveBeenCalled();
+  });
+  it("a test registration never carries agent attribution, from a link or from a promo owner", async () => {
+    m.requireAdmin.mockResolvedValue({ ok: true, user: { id: "admin-1", email: "admin@pz.test" } });
+    m.createRegistration.mockResolvedValue({ ok: true, refId: "TEST-12345", registrationIds: ["reg-9"], total: 4800, currency: "PKR" });
+    m.resolveAgentCode.mockResolvedValue({ agentId: "agent-1" });
+    m.getPromoByCode.mockResolvedValue(promo({ ownerAgentId: "agent-7" }));
+    const res = await submit(ppcPayload({ testMode: true, promoCode: "PZ10", attribution: { ...ppcPayload().attribution, refCode: "ayesha-7k2" } }));
+    expect(res.status).toBe(201);
+    expect(inputOf().isTest).toBe(true);
+    expect(inputOf().agentId).toBeNull();
   });
   it("an admin can test a closed page", async () => {
     m.requireAdmin.mockResolvedValue({ ok: true, user: { id: "admin-1" } });
@@ -357,15 +367,22 @@ describe("hardening carry-overs", () => {
   });
   it("500 when the RPC returns a different number of ids than rows sent", async () => {
     m.createRegistration.mockResolvedValue({ ok: true, refId: "PZA-PPC-001", registrationIds: ["a", "b"], total: 4800, currency: "PKR" });
+    const spyErr = vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await submit(ppcPayload())).status).toBe(500);
     expect(m.enqueueJobs).not.toHaveBeenCalled();
+    // The orphan can be found by its reference and first row id, with no personal data in the log.
+    const logged = spyErr.mock.calls.flat().join(" ");
+    expect(logged).toContain("PZA-PPC-001");
+    expect(spyErr.mock.calls.some((c) => c.includes("PZA-PPC-001") && c.includes("a"))).toBe(true);
+    expect(logged).not.toContain("@");
+    spyErr.mockRestore();
   });
   it("retries a failed enqueue once, then runs the jobs directly instead of losing them", async () => {
     m.enqueueJobs.mockResolvedValue(false);
     const res = await submit(ppcPayload());
     expect(res.status).toBe(201);
     expect(m.enqueueJobs).toHaveBeenCalledTimes(2);
-    expect(m.runJobsDirect).toHaveBeenCalledWith("reg-1", ["sheet_append", "email_received", "email_admin"]);
+    expect(m.runJobsDirect).toHaveBeenCalledWith("reg-1", ["email_received", "sheet_append", "email_admin"]);
     expect(m.runJobsFor).not.toHaveBeenCalled();
   });
   it("a second enqueue that succeeds goes back to the normal path", async () => {

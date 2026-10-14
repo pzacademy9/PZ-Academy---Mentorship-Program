@@ -182,7 +182,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   // 7. Attribution: the agent link wins; otherwise the agent who owns the promo code used.
   const fromLink = payload.attribution.refCode ? await resolveAgentCode(payload.attribution.refCode) : null;
   // A zero discount is not a use of the code, so it does not credit the code's owner either.
-  const agentId = fromLink?.agentId ?? (promo && promo.discount > 0 ? promoCode?.ownerAgentId ?? null : null);
+  const agentId = isTest ? null : fromLink?.agentId ?? (promo && promo.discount > 0 ? promoCode?.ownerAgentId ?? null : null);
 
   // 8. One atomic insert (ref counter, capacity, promo use; members get ref_id = null).
   const created = await createRegistration({
@@ -199,13 +199,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   // 9. Outbox first (durable), then run it now without delaying the reply. The cron drains leftovers.
   if (created.registrationIds.length !== 1 + payload.members.length) {
     // The RPC must return one id per row sent. Anything else means the rows cannot be trusted.
-    console.error("[landing-register] registration id count mismatch:", created.registrationIds.length, "for", 1 + payload.members.length);
+    console.error(
+      "[landing-register] registration id count mismatch:", created.registrationIds.length, "for", 1 + payload.members.length,
+      "ref", created.refId, "first id", created.registrationIds[0],
+    );
     return fail("We could not save your registration. Please try again in a moment.", 500);
   }
   const leadId = created.registrationIds[0];
   const jobs: JobType[] = [
+    "email_received", // before the Sheet row: a slow Apps Script call must not delay the confirmation email
     ...(isTest ? [] : (["sheet_append"] as JobType[])),
-    "email_received",
     ...(payload.members.length > 0 ? (["email_members"] as JobType[]) : []),
     "email_admin",
   ];

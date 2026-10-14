@@ -157,7 +157,7 @@ describe("registration flow", () => {
     });
 
     // 4. The outbox was written before the reply and runs in the background.
-    expect(store.landing_jobs.map((j) => j.type)).toEqual(["sheet_append", "email_received", "email_admin"]);
+    expect(store.landing_jobs.map((j) => j.type)).toEqual(["email_received", "sheet_append", "email_admin"]);
     await settle();
     expect(store.landing_jobs.map((j) => j.status)).toEqual(["done", "done", "done"]);
     expect(m.append).toHaveBeenCalledTimes(1);
