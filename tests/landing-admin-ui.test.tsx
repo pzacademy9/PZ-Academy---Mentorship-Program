@@ -507,6 +507,16 @@ describe("LandingEditor", () => {
     fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
     expect(autosave.schedule.mock.calls.at(-1)![0].settings.registerLabel).toBe("Join");
   });
+  it("a registration problem's Fix button opens Page settings at that registration step", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const reg = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: [] } : g)) };
+    const withReg = { ...page, draft: updateRegistration(page.draft, reg) };
+    render(<LandingEditor page={withReg} versions={[]} accounts={[]} />);
+    const item = screen.getByText(/choose at least one payment account for saudi arabia/i).closest("li") as HTMLElement;
+    fireEvent.click(within(item).getByRole("button", { name: /fix/i }));
+    expect(screen.getByRole("heading", { name: "Payment accounts" })).toBeTruthy();
+  });
   it("adds a section and selects it", () => {
     render(<LandingEditor page={page} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /add section/i }));

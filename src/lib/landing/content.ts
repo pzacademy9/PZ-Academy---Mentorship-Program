@@ -5,6 +5,7 @@ import { validateSlug } from "./slug";
 import {
   normalizeRegistration, registrationConfigSchema, registrationProblems, type RegistrationConfig,
 } from "./registration/config";
+import { registrationTarget } from "./registration/setup-steps";
 import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
@@ -299,7 +300,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   if (c.seo.description.trim() === "") problems.push({ message: "Add a short description for Google and WhatsApp previews (Page settings)." });
   if (c.registration.enabled) {
     // The built-in registration form replaces the external Register link.
-    problems.push(...registrationProblems(c.registration));
+    for (const p of registrationProblems(c.registration)) problems.push({ message: p.message, sectionId: registrationTarget(p.step) });
   } else if (!(/^https?:\/\//i.test(c.settings.registerUrl.trim()) && isSafeUrl(c.settings.registerUrl))) {
     problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
   }

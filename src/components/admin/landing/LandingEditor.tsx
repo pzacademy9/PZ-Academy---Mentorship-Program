@@ -11,13 +11,15 @@ import { cn } from "@/lib/utils";
 import { useAutosaveDraft, type SaveState } from "@/hooks/useAutosaveDraft";
 import type { LandingPage, LandingVersion } from "@/lib/data/landing-pages";
 import {
-  addSection, clearReview, moveSection, removeSection, toggleSection, updateSectionData, updateSeo, updateSettings,
+  addSection, clearReview, moveSection, removeSection, toggleSection, updateRegistration, updateSectionData, updateSeo, updateSettings,
   type LandingContent, type PageKind, type Problem,
 } from "@/lib/landing/content";
 import { SECTION_DEFS } from "@/lib/landing/sections";
 import { SectionList } from "./SectionList";
 import { SectionForm } from "./SectionForm";
 import { PageSettingsPanel } from "./PageSettingsPanel";
+import type { PaymentAccountSummary } from "./registration/RegistrationSetup";
+import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { PreviewFrame } from "./PreviewFrame";
 import { PublishSlot, ReadinessSlot } from "./PublishSlot";
 import { StatusBadge } from "./StatusBadge";
@@ -49,7 +51,7 @@ const SAVE_DOT: Record<SaveState, string> = {
  * false conflict. Someone else's change surfaces as a save conflict, and its Reload button does a
  * full browser reload.
  */
-export function LandingEditor({ page, versions }: { page: LandingPage; versions: LandingVersion[] }) {
+export function LandingEditor({ page, versions, accounts = [] }: { page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[] }) {
   const known = useRef(page.revision);
   const remountAbove = useRef<number | null>(null);
   const [epoch, setEpoch] = useState(0);
@@ -69,7 +71,7 @@ export function LandingEditor({ page, versions }: { page: LandingPage; versions:
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -97,8 +99,8 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, onRevision, onRestored,
-}: { page: LandingPage; versions: LandingVersion[]; onRevision: (rev: number) => void; onRestored: () => void }) {
+  page, versions, accounts, onRevision, onRestored,
+}: { page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; onRevision: (rev: number) => void; onRestored: () => void }) {
   const router = useRouter();
   const confirm = useConfirm();
   const { state, schedule, saveNow } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
@@ -106,6 +108,7 @@ function EditorShell({
   const [selection, setSelection] = useState<string>(page.draft.sections[0]?.id ?? SETTINGS);
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [drawer, setDrawer] = useState(false);
+  const [regStep, setRegStep] = useState<RegistrationStepKey>("buy");
 
   // Always derive edits from the freshest content, never from a render-time capture: an image upload
   // can finish seconds later and must not revert what was typed meanwhile.
@@ -240,7 +243,22 @@ function EditorShell({
   const selected = content.sections.find((s) => s.id === selection) ?? null;
   const showSettings = selection === SETTINGS;
   const current = showSettings ? null : selected ?? content.sections[0] ?? null;
-  const select = (id: string) => { setSelection(id); setPane("edit"); setDrawer(false); };
+  const select = (id: string) => {
+    const step = parseRegistrationTarget(id);
+    if (step) {
+      setRegStep(step);
+      setSelection(SETTINGS);
+      setPane("edit");
+      setDrawer(false);
+      // Bring the stepper into view after React renders the settings pane.
+      requestAnimationFrame(() => {
+        const el = document.getElementById("registration-setup");
+        if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "start" });
+      });
+      return;
+    }
+    setSelection(id); setPane("edit"); setDrawer(false);
+  };
 
   // Fix in the checklist: jump to the section, then put the cursor in the field (after it rendered).
   const mainRef = useRef<HTMLElement>(null);
@@ -392,7 +410,7 @@ function EditorShell({
             <SlidersHorizontal className="h-4 w-4 shrink-0 text-pz-on-surface-variant" aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="block font-body text-sm font-semibold text-pz-on-surface">Page settings</span>
-              <span className="block font-body text-[11px] text-pz-on-surface-variant">Register link, countdown, sharing</span>
+              <span className="block font-body text-[11px] text-pz-on-surface-variant">Registration, countdown, sharing</span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-pz-on-surface-variant" aria-hidden="true" />
           </button>
@@ -417,6 +435,11 @@ function EditorShell({
               pageTitle={title}
               onSettings={(patch) => apply(updateSettings(contentRef.current, patch))}
               onSeo={(patch) => apply(updateSeo(contentRef.current, patch))}
+              registration={content.registration}
+              accounts={accounts}
+              registrationStep={regStep}
+              onRegistrationStep={setRegStep}
+              onRegistration={(next) => apply(updateRegistration(contentRef.current, next))}
             />
           ) : current ? (
             <div className="space-y-5">

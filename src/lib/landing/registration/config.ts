@@ -3,6 +3,7 @@
 // Pure module (no server-only imports): used by the editor, the public widget and the API.
 import { z } from "zod";
 import { isSafeUrl } from "../simple-text";
+import type { RegistrationStepKey } from "./setup-steps";
 
 export type Mode = "live" | "recorded";
 export const MODES = ["live", "recorded"] as const;
@@ -238,71 +239,71 @@ function duplicates(keys: string[]): string[] {
   return Array.from(new Set(keys.filter((k, i) => keys.indexOf(k) !== i)));
 }
 
-export function registrationProblems(r: RegistrationConfig): { message: string }[] {
-  const out: { message: string }[] = [];
-  const add = (message: string) => out.push({ message });
+export function registrationProblems(r: RegistrationConfig): { message: string; step: RegistrationStepKey }[] {
+  const out: { message: string; step: RegistrationStepKey }[] = [];
+  const add = (message: string, step: RegistrationStepKey) => out.push({ message, step });
   const name = (label: string, key: string) => (label.trim() === "" ? key : label);
   const reserved = (code: string) => `"${code}" is a reserved word, pick another code.`;
 
-  if (r.modes.length === 0) add("Choose Live, Recorded or both (Registration setup).");
-  if (r.regions.length === 0) add("Add at least one country people can register from (Registration setup).");
-  if (r.options.length === 0) add('Add at least one thing people can buy, for example "Full Course" (Registration setup).');
+  if (r.modes.length === 0) add("Choose Live, Recorded or both (Registration setup).", "buy");
+  if (r.regions.length === 0) add("Add at least one country people can register from (Registration setup).", "prices");
+  if (r.options.length === 0) add('Add at least one thing people can buy, for example "Full Course" (Registration setup).', "buy");
 
-  for (const k of duplicates(r.regions.map((x) => x.key))) add(`Two countries use the same code "${k}". Give each country its own code.`);
+  for (const k of duplicates(r.regions.map((x) => x.key))) add(`Two countries use the same code "${k}". Give each country its own code.`, "prices");
   for (const g of r.regions) {
-    if (BAD_KEYS.has(g.key)) add(reserved(g.key));
-    if (!REGION_KEY_RE.test(g.key)) add(`The country code "${g.key}" must be 2 to 6 capital letters, for example PK.`);
-    if (g.label.trim() === "") add(`Give the country "${g.key}" a name.`);
-    if (!CURRENCY_RE.test(g.currency)) add(`Set the currency for ${name(g.label, g.key)} as a 3-letter code, for example PKR.`);
+    if (BAD_KEYS.has(g.key)) add(reserved(g.key), "prices");
+    if (!REGION_KEY_RE.test(g.key)) add(`The country code "${g.key}" must be 2 to 6 capital letters, for example PK.`, "prices");
+    if (g.label.trim() === "") add(`Give the country "${g.key}" a name.`, "prices");
+    if (!CURRENCY_RE.test(g.currency)) add(`Set the currency for ${name(g.label, g.key)} as a 3-letter code, for example PKR.`, "prices");
   }
   if (r.regions.length > 0 && !r.regions.some((g) => g.key === r.defaultRegionKey)) {
-    add("Choose which country is selected first (Registration setup).");
+    add("Choose which country is selected first (Registration setup).", "prices");
   }
 
-  for (const k of duplicates(r.options.map((o) => o.key))) add(`Two options use the same code "${k}". Give each option its own code.`);
+  for (const k of duplicates(r.options.map((o) => o.key))) add(`Two options use the same code "${k}". Give each option its own code.`, "buy");
   for (const o of r.options) {
-    if (BAD_KEYS.has(o.key)) add(reserved(o.key));
-    if (!ITEM_KEY_RE.test(o.key)) add(`The option code "${o.key}" must use small letters, digits or _ only.`);
-    if (o.label.trim() === "") add(`Give the option "${o.key}" a name.`);
+    if (BAD_KEYS.has(o.key)) add(reserved(o.key), "buy");
+    if (!ITEM_KEY_RE.test(o.key)) add(`The option code "${o.key}" must use small letters, digits or _ only.`, "buy");
+    if (o.label.trim() === "") add(`Give the option "${o.key}" a name.`, "buy");
     if (o.waGroupUrl.trim() !== "" && !WA_GROUP_URL_RE.test(o.waGroupUrl.trim())) {
-      add(`The WhatsApp group link for "${name(o.label, o.key)}" must look like https://chat.whatsapp.com/...`);
+      add(`The WhatsApp group link for "${name(o.label, o.key)}" must look like https://chat.whatsapp.com/...`, "whatsapp");
     }
   }
 
-  for (const k of duplicates(r.tiers.map((t) => t.key))) add(`Two group discounts use the same code "${k}".`);
+  for (const k of duplicates(r.tiers.map((t) => t.key))) add(`Two group discounts use the same code "${k}".`, "groups");
   for (const t of r.tiers) {
-    if (BAD_KEYS.has(t.key)) add(reserved(t.key));
-    if (!ITEM_KEY_RE.test(t.key) || t.key === INDIVIDUAL) add(`"${name(t.label, t.key)}" needs a different code (small letters, digits or _, not "individual").`);
-    if (t.minSize < 2) add(`"${name(t.label, t.key)}" must be for at least 2 people.`);
-    if (t.maxSize < t.minSize) add(`"${name(t.label, t.key)}": the largest group size cannot be smaller than the smallest.`);
+    if (BAD_KEYS.has(t.key)) add(reserved(t.key), "groups");
+    if (!ITEM_KEY_RE.test(t.key) || t.key === INDIVIDUAL) add(`"${name(t.label, t.key)}" needs a different code (small letters, digits or _, not "individual").`, "groups");
+    if (t.minSize < 2) add(`"${name(t.label, t.key)}" must be for at least 2 people.`, "groups");
+    if (t.maxSize < t.minSize) add(`"${name(t.label, t.key)}": the largest group size cannot be smaller than the smallest.`, "groups");
   }
 
   if (r.moduleMix.enabled && !r.options.some((o) => o.key === r.moduleMix.bundleOptionKey && o.kind === "bundle")) {
-    add("Choose which bundle replaces every module when someone picks them all (Registration setup).");
+    add("Choose which bundle replaces every module when someone picks them all (Registration setup).", "buy");
   }
 
   for (const o of r.options) {
     const row = r.prices[o.key] ?? {};
     if (o.free) {
       if (!r.regions.some((g) => row[g.key] !== undefined)) {
-        add(`"${name(o.label, o.key)}" is free but not offered in any country. Tick at least one country for it.`);
+        add(`"${name(o.label, o.key)}" is free but not offered in any country. Tick at least one country for it.`, "prices");
       }
       continue;
     }
     for (const g of r.regions) {
       const cell = row[g.key];
-      if (!cell) add(`Add the price of "${name(o.label, o.key)}" for ${name(g.label, g.key)}.`);
+      if (!cell) add(`Add the price of "${name(o.label, o.key)}" for ${name(g.label, g.key)}.`, "prices");
       else if (cell.earlyAmount !== undefined && cell.earlyAmount > cell.amount) {
-        add(`The Early Bird price of "${name(o.label, o.key)}" for ${name(g.label, g.key)} is higher than the regular price.`);
+        add(`The Early Bird price of "${name(o.label, o.key)}" for ${name(g.label, g.key)} is higher than the regular price.`, "earlybird");
       }
       if (cell) {
         const where = `"${name(o.label, o.key)}" for ${name(g.label, g.key)}`;
         for (const [field, map] of [["group total", cell.groupTotals], ["Early Bird group total", cell.earlyGroupTotals]] as const) {
           for (const [tk, total] of Object.entries(map ?? {})) {
             const tier = r.tiers.find((t) => t.key === tk);
-            if (!tier) add(`The ${field} for "${tk}" in ${where} does not match any group discount. Remove it or add that group discount.`);
-            else if (tier.minSize !== tier.maxSize) add(`The ${field} for "${name(tier.label, tier.key)}" in ${where} needs a fixed group size (smallest and largest size equal).`);
-            if (typeof total !== "number" || !Number.isFinite(total) || total < 0) add(`The ${field} for "${tk}" in ${where} must be a number of 0 or more.`);
+            if (!tier) add(`The ${field} for "${tk}" in ${where} does not match any group discount. Remove it or add that group discount.`, "prices");
+            else if (tier.minSize !== tier.maxSize) add(`The ${field} for "${name(tier.label, tier.key)}" in ${where} needs a fixed group size (smallest and largest size equal).`, "prices");
+            if (typeof total !== "number" || !Number.isFinite(total) || total < 0) add(`The ${field} for "${tk}" in ${where} must be a number of 0 or more.`, "prices");
           }
         }
       }
@@ -312,30 +313,30 @@ export function registrationProblems(r: RegistrationConfig): { message: string }
   const allFree = r.options.length > 0 && r.options.every((o) => o.free);
   if (!allFree) {
     for (const g of r.regions) {
-      if (g.accountKeys.length === 0) add(`Choose at least one payment account for ${name(g.label, g.key)}.`);
-      for (const k of g.accountKeys) if (BAD_KEYS.has(k)) add(reserved(k));
-      for (const k of g.accountKeys) if (!ACCOUNT_KEY_RE.test(k)) add(`The payment account "${k}" for ${name(g.label, g.key)} is not a known account code.`);
+      if (g.accountKeys.length === 0) add(`Choose at least one payment account for ${name(g.label, g.key)}.`, "accounts");
+      for (const k of g.accountKeys) if (BAD_KEYS.has(k)) add(reserved(k), "accounts");
+      for (const k of g.accountKeys) if (!ACCOUNT_KEY_RE.test(k)) add(`The payment account "${k}" for ${name(g.label, g.key)} is not a known account code.`, "accounts");
     }
   }
 
   if (r.earlyBirdEndsAt.trim() !== "" && !isValidInstant(r.earlyBirdEndsAt)) {
-    add("The Early Bird end date is not a valid date and time.");
+    add("The Early Bird end date is not a valid date and time.", "earlybird");
   }
   if (
     r.earlyBirdEndsAt.trim() === "" &&
     Object.values(r.prices).some((row) => Object.values(row).some((c) => c.earlyAmount !== undefined || c.earlyGroupTotals !== undefined))
   ) {
-    add("Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.");
+    add("Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.", "earlybird");
   }
   if (!REF_PREFIX_RE.test(r.refPrefix)) {
-    add("Set a short code for reference numbers: 2 to 6 capital letters or digits, for example PPC (Registration setup).");
+    add("Set a short code for reference numbers: 2 to 6 capital letters or digits, for example PPC (Registration setup).", "details");
   }
   if (r.eventLabel.trim() === "") {
-    add('Give the registration a short name for messages and the Sheet, for example "PPC Batch 3" (Registration setup).');
+    add('Give the registration a short name for messages and the Sheet, for example "PPC Batch 3" (Registration setup).', "details");
   }
   if (!allFree || r.whatsappVerifyNumber !== "") {
     if (!/^\d{8,15}$/.test(r.whatsappVerifyNumber)) {
-      add("The WhatsApp number for payment checks must be digits only with the country code, for example 923700199429.");
+      add("The WhatsApp number for payment checks must be digits only with the country code, for example 923700199429.", "whatsapp");
     }
   }
   return out;
