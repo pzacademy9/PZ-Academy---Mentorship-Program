@@ -6,8 +6,8 @@ vi.mock("@/lib/auth/require-admin", () => ({
     ? { ok: true, user: { id: "admin-user" } }
     : { ok: false, response: new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 }) }),
 }));
-const m = vi.hoisted(() => ({ drainDueJobs: vi.fn(), retryFailedJobs: vi.fn(), runInBackground: vi.fn() }));
-vi.mock("@/lib/data/landing-jobs", () => ({ drainDueJobs: m.drainDueJobs, retryFailedJobs: m.retryFailedJobs }));
+const m = vi.hoisted(() => ({ drainDueJobs: vi.fn(), retryFailedJobs: vi.fn(), makeWaitingJobsDue: vi.fn(), runInBackground: vi.fn() }));
+vi.mock("@/lib/data/landing-jobs", () => ({ drainDueJobs: m.drainDueJobs, retryFailedJobs: m.retryFailedJobs, makeWaitingJobsDue: m.makeWaitingJobsDue }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: m.runInBackground }));
 
 import { GET as cron } from "@/app/api/cron/landing-jobs/route";
@@ -56,6 +56,13 @@ describe("POST /api/admin/landing-pages/[id]/jobs/retry", () => {
     expect(await res.json()).toEqual({ requeued: 3 });
     expect(m.retryFailedJobs).toHaveBeenCalledWith(PAGE_ID);
     expect(m.runInBackground).toHaveBeenCalledTimes(1);
+  });
+  it("also makes the page's waiting jobs due now before draining", async () => {
+    m.retryFailedJobs.mockResolvedValue(0);
+    m.makeWaitingJobsDue.mockResolvedValue(4);
+    await retry(new Request("http://x", { method: "POST" }) as never, ctx);
+    expect(m.makeWaitingJobsDue).toHaveBeenCalledWith(PAGE_ID);
+    expect(m.makeWaitingJobsDue.mock.invocationCallOrder[0]).toBeLessThan(m.drainDueJobs.mock.invocationCallOrder[0]);
   });
   it("500 when requeueing fails", async () => {
     m.retryFailedJobs.mockRejectedValue(new Error("db"));

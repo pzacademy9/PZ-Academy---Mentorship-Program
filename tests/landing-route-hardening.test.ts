@@ -21,13 +21,16 @@ vi.mock("@/components/admin/landing/PreviewTarget", () => ({ PreviewTarget: () =
 // Phase 2 admin routes: a refused gate must leave every one of these untouched.
 const extra = vi.hoisted(() => ({
   getPageSheetInfo: vi.fn(), saveEventSheet: vi.fn(), createEventSheet: vi.fn(),
-  retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), runInBackground: vi.fn(),
+  retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), makeWaitingJobsDue: vi.fn(), requeueSheetAppendJobs: vi.fn(), runInBackground: vi.fn(),
   listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), getOrCreateAgentLink: vi.fn(),
   getPageJobSummary: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
 vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
-vi.mock("@/lib/data/landing-jobs", () => ({ retryFailedJobs: extra.retryFailedJobs, drainDueJobs: extra.drainDueJobs }));
+vi.mock("@/lib/data/landing-jobs", () => ({
+  retryFailedJobs: extra.retryFailedJobs, drainDueJobs: extra.drainDueJobs,
+  makeWaitingJobsDue: extra.makeWaitingJobsDue, requeueSheetAppendJobs: extra.requeueSheetAppendJobs,
+}));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: extra.runInBackground }));
 vi.mock("@/lib/data/landing-ops", () => ({ getPageJobSummary: extra.getPageJobSummary }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({

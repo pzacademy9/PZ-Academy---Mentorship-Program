@@ -162,6 +162,7 @@ export function RegistrationOpsCard({
 
 function JobsPanel({ data, retrying, onRetry, onRefresh }: { data: PageJobSummary; retrying: boolean; onRetry: () => void; onRefresh: () => void }) {
   const clean = data.waiting === 0 && data.failed === 0;
+  const otherTasks = data.waiting + data.failed - data.sheetWaiting - data.sheetFailed;
   const shown: JobIssue[] = data.issues.slice(0, MAX_SHOWN);
   return (
     <div className="space-y-2">
@@ -171,16 +172,19 @@ function JobsPanel({ data, retrying, onRetry, onRefresh }: { data: PageJobSummar
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />All rows synced
           </span>
         )}
-        {data.waiting > 0 && (
-          <span className={cn(PILL, "border border-pz-warning/50 bg-pz-warning/15 text-pz-on-surface")}>{`Sheet sync: ${data.waiting} waiting`}</span>
+        {data.sheetWaiting > 0 && (
+          <span className={cn(PILL, "border border-pz-warning/50 bg-pz-warning/15 text-pz-on-surface")}>{`Sheet sync: ${data.sheetWaiting} waiting`}</span>
         )}
-        {data.failed > 0 && (
+        {data.sheetFailed > 0 && (
           <span className={cn(PILL, "bg-pz-error-container text-pz-on-error-container")}>
-            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />{`${data.failed} failed`}
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />{`Sheet sync: ${data.sheetFailed} failed`}
           </span>
         )}
+        {otherTasks > 0 && (
+          <span className={cn(PILL, "border border-pz-outline-variant bg-pz-surface-container-high text-pz-on-surface")}>{`Emails and test runs: ${otherTasks} unfinished`}</span>
+        )}
       </div>
-      <p className={HELP}>Rows that fail are retried automatically for about an hour. After that they wait here until you press Retry now.</p>
+      <p className={HELP}>Rows that fail are retried when you press Retry now, and once a day.</p>
       {shown.length > 0 && (
         <ul aria-label="Tasks that need attention" className="divide-y divide-pz-outline-variant rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest">
           {shown.map((j) => (
@@ -201,7 +205,7 @@ function JobsPanel({ data, retrying, onRetry, onRefresh }: { data: PageJobSummar
       )}
       {data.issues.length > MAX_SHOWN && <p className={HELP}>{`And ${data.issues.length - MAX_SHOWN} more.`}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" disabled={data.failed === 0 || retrying} aria-busy={retrying || undefined} onClick={onRetry}>
+        <Button type="button" variant="outline" size="sm" disabled={(data.waiting === 0 && data.failed === 0) || retrying} aria-busy={retrying || undefined} onClick={onRetry}>
           <RotateCw aria-hidden="true" />
           {retrying ? "Retrying…" : "Retry now"}
         </Button>

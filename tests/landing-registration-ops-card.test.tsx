@@ -24,7 +24,9 @@ const answer = (r: Reply) => {
   if (r === "offline") throw new TypeError("Failed to fetch");
   return { ok: r.status < 300, status: r.status, json: async () => r.body };
 };
-const summary = (waiting: number, failed: number, issues: unknown[] = []) => ({ status: 200, body: { waiting, failed, issues } });
+const summary = (waiting: number, failed: number, issues: unknown[] = [], sheet: { waiting?: number; failed?: number } = {}) => ({
+  status: 200, body: { waiting, failed, sheetWaiting: sheet.waiting ?? waiting, sheetFailed: sheet.failed ?? failed, issues },
+});
 const issue = (over: Record<string, unknown> = {}) => ({
   id: "j1", type: "sheet_append", status: "failed", attempts: 5, lastError: "Apps Script timed out.", nextRunAt: "2026-10-13T10:00:00Z",
   refId: "PZA-PPC-001", name: "Sara Ali", email: "sara@mail.com", isTest: false, ...over,
@@ -83,7 +85,7 @@ describe("RegistrationOpsCard: sheet and email tasks", () => {
     jobsReply = summary(3, 1, [issue(), issue({ id: "j2", type: "email_received", status: "pending", attempts: 2, lastError: null, isTest: true })]);
     render(<RegistrationOpsCard pageId={PAGE} slug="ppc" status="published" initialSheetId="s1" />);
     expect(await screen.findByText("Sheet sync: 3 waiting")).toBeTruthy();
-    expect(screen.getByText("1 failed")).toBeTruthy();
+    expect(screen.getByText("Sheet sync: 1 failed")).toBeTruthy();
     const list = screen.getByRole("list", { name: /tasks that need attention/i });
     expect(within(list).getByText("Sheet row")).toBeTruthy();
     expect(within(list).getByText(/stopped after 5 tries: apps script timed out/i)).toBeTruthy();
@@ -93,6 +95,22 @@ describe("RegistrationOpsCard: sheet and email tasks", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("2 tasks sent again. The list updates in a minute."));
     const jobCalls = fetchMock().mock.calls.filter(([u]) => String(u).endsWith("/jobs"));
     expect(jobCalls.length).toBeGreaterThanOrEqual(2);
+  });
+  it("the Sheet sync pill counts only sheet rows; other unfinished tasks get their own pill", async () => {
+    jobsReply = summary(5, 2, [issue()], { waiting: 1, failed: 0 });
+    render(<RegistrationOpsCard pageId={PAGE} slug="ppc" status="published" initialSheetId="s1" />);
+    expect(await screen.findByText("Sheet sync: 1 waiting")).toBeTruthy();
+    expect(screen.queryByText(/Sheet sync: .* failed/)).toBeNull();
+    expect(screen.queryByText("Sheet sync: 5 waiting")).toBeNull();
+    expect(screen.getByText("Emails and test runs: 6 unfinished")).toBeTruthy();
+  });
+  it("enables Retry now when jobs are only waiting, and tells the truth about automatic retries", async () => {
+    jobsReply = summary(2, 0, [issue({ status: "pending" })]);
+    render(<RegistrationOpsCard pageId={PAGE} slug="ppc" status="published" initialSheetId="s1" />);
+    await screen.findByText("Sheet sync: 2 waiting");
+    expect((screen.getByRole("button", { name: /retry now/i }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText("Rows that fail are retried when you press Retry now, and once a day.")).toBeTruthy();
+    expect(screen.queryByText(/about an hour/i)).toBeNull();
   });
   it("says so when the tasks cannot be loaded, and can check again", async () => {
     jobsReply = { status: 500, body: { error: "Could not load the background tasks." } };

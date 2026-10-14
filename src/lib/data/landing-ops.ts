@@ -14,7 +14,14 @@ export interface JobIssue {
   email: string;
   isTest: boolean;
 }
-export interface PageJobSummary { waiting: number; failed: number; issues: JobIssue[] }
+export interface PageJobSummary {
+  waiting: number;
+  failed: number;
+  /** Sheet-row jobs of real (non-test) registrations only: what the "Sheet sync" pill reports. */
+  sheetWaiting: number;
+  sheetFailed: number;
+  issues: JobIssue[];
+}
 
 const MAX_ISSUES = 50;
 
@@ -39,7 +46,8 @@ export async function getPageJobSummary(pageId: string): Promise<PageJobSummary 
 
   const issueSelect = "id, type, status, attempts, last_error, next_run_at, landing_registrations!inner(page_id, ref_id, name, email, is_test)";
   const countSelect = "id, landing_registrations!inner(page_id)";
-  const [failedRes, waitingRes, failedRows, waitingRows] = await Promise.all([
+  const sheetCountSelect = "id, landing_registrations!inner(page_id, is_test)";
+  const [failedRes, waitingRes, failedRows, waitingRows, sheetFailedRes, sheetWaitingRes] = await Promise.all([
     admin.from("landing_jobs").select(countSelect, { count: "exact", head: true })
       .eq("landing_registrations.page_id", pageId).eq("status", "failed"),
     admin.from("landing_jobs").select(countSelect, { count: "exact", head: true })
@@ -51,11 +59,20 @@ export async function getPageJobSummary(pageId: string): Promise<PageJobSummary 
     admin.from("landing_jobs").select(issueSelect)
       .eq("landing_registrations.page_id", pageId).in("status", ["pending", "running"])
       .order("next_run_at", { ascending: true }).limit(MAX_ISSUES),
+    // The Sheet sync pill counts only Sheet rows of real registrations (not emails, not test runs).
+    admin.from("landing_jobs").select(sheetCountSelect, { count: "exact", head: true })
+      .eq("landing_registrations.page_id", pageId).eq("landing_registrations.is_test", false)
+      .eq("type", "sheet_append").eq("status", "failed"),
+    admin.from("landing_jobs").select(sheetCountSelect, { count: "exact", head: true })
+      .eq("landing_registrations.page_id", pageId).eq("landing_registrations.is_test", false)
+      .eq("type", "sheet_append").in("status", ["pending", "running"]),
   ]);
   if (failedRes.error) throw failedRes.error;
   if (waitingRes.error) throw waitingRes.error;
   if (failedRows.error) throw failedRows.error;
   if (waitingRows.error) throw waitingRows.error;
+  if (sheetFailedRes.error) throw sheetFailedRes.error;
+  if (sheetWaitingRes.error) throw sheetWaitingRes.error;
   const rows = [...((failedRows.data ?? []) as unknown as JobRow[]), ...((waitingRows.data ?? []) as unknown as JobRow[])].slice(0, MAX_ISSUES);
 
   const issues: JobIssue[] = rows.map((j) => {
@@ -73,5 +90,11 @@ export async function getPageJobSummary(pageId: string): Promise<PageJobSummary 
       isTest: r?.is_test ?? false,
     };
   });
-  return { waiting: waitingRes.count ?? 0, failed: failedRes.count ?? 0, issues };
+  return {
+    waiting: waitingRes.count ?? 0,
+    failed: failedRes.count ?? 0,
+    sheetWaiting: sheetWaitingRes.count ?? 0,
+    sheetFailed: sheetFailedRes.count ?? 0,
+    issues,
+  };
 }

@@ -11,7 +11,8 @@ import { JOB_HANDLERS } from "@/lib/landing/registration/job-handlers";
  */
 
 export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin";
-export const JOB_TYPES: readonly JobType[] = ["sheet_append", "email_received", "email_members", "email_admin"];
+// Run order: the confirmation email goes first so a slow Apps Script call never delays it.
+export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "email_members", "email_admin"];
 export const MAX_ATTEMPTS = 5;
 export const BACKOFF_MINUTES = [1, 5, 15, 60] as const;
 const LEASE_MINUTES = 10;
@@ -94,7 +95,7 @@ async function runJob(job: JobRow): Promise<Outcome> {
 
 const byTypeOrder = (a: JobRow, b: JobRow) => JOB_TYPES.indexOf(a.type as JobType) - JOB_TYPES.indexOf(b.type as JobType);
 
-/** Runs this registration's due jobs in a fixed order (Sheet first). Never throws. */
+/** Runs this registration's due jobs in a fixed order (confirmation email first). Never throws. */
 export async function runJobsFor(registrationId: string): Promise<void> {
   try {
     const { data } = await createAdminSupabase()
@@ -163,4 +164,62 @@ export async function retryFailedJobs(pageId: string): Promise<number> {
     if (n === 0 || ids.length < BATCH) break;
   }
   return total;
+}
+
+/**
+ * Page-scoped requeue by FK join, in batches. `statuses` limits which jobs are touched; `type`
+ * narrows to one job type; `patch` is what they are set to. Returns how many rows were updated.
+ */
+async function requeueByPage(
+  pageId: string,
+  opts: { statuses: string[]; type?: JobType; patch: { status?: string; attempts?: number; next_run_at?: string; last_error?: string | null } },
+): Promise<number> {
+  const admin = createAdminSupabase();
+  const BATCH = 100;
+  let total = 0;
+  const seen = new Set<string>();
+  for (let round = 0; round < 1000; round++) {
+    let q = admin
+      .from("landing_jobs")
+      .select("id, landing_registrations!inner(page_id)")
+      .in("status", opts.statuses)
+      .eq("landing_registrations.page_id", pageId);
+    if (opts.type) q = q.eq("type", opts.type);
+    const { data, error } = await q.limit(BATCH + seen.size);
+    if (error) throw error;
+    const ids = ((data ?? []) as { id: string }[]).map((j) => j.id).filter((id) => !seen.has(id)).slice(0, BATCH);
+    if (ids.length === 0) break;
+    const { data: updated, error: upErr } = await admin
+      .from("landing_jobs")
+      .update(opts.patch)
+      .in("id", ids)
+      .in("status", opts.statuses)
+      .select("id");
+    if (upErr) throw upErr;
+    ids.forEach((id) => seen.add(id));
+    total += (updated ?? []).length;
+    if (ids.length < BATCH) break;
+  }
+  return total;
+}
+
+/**
+ * Called after the event sheet is created: every sheet_append job of the page goes back to
+ * pending with a fresh budget, including `done` ones that returned early because there was no
+ * sheet. Re-appending is safe: Apps Script dedupes on Ref ID + email.
+ */
+export function requeueSheetAppendJobs(pageId: string): Promise<number> {
+  return requeueByPage(pageId, {
+    statuses: ["pending", "running", "failed", "done"],
+    type: "sheet_append",
+    patch: { status: "pending", attempts: 0, next_run_at: new Date().toISOString(), last_error: null },
+  });
+}
+
+/** Admin Retry: this page's pending/running jobs become due now (the daily cron is the only other trigger). */
+export function makeWaitingJobsDue(pageId: string): Promise<number> {
+  return requeueByPage(pageId, {
+    statuses: ["pending", "running"],
+    patch: { next_run_at: new Date().toISOString() },
+  });
 }

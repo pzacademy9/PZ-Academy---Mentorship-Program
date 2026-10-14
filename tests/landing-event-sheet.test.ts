@@ -16,6 +16,9 @@ vi.mock("@/lib/data/landing-event-sheet", () => ({
   saveEventSheet: (...a: unknown[]) => saveEventSheet(...a),
 }));
 // The client tests call the real createEventSheet; the route tests redirect it to a spy.
+const jobsMock = vi.hoisted(() => ({ requeueSheetAppendJobs: vi.fn(), drainDueJobs: vi.fn(), runInBackground: vi.fn() }));
+vi.mock("@/lib/data/landing-jobs", () => ({ requeueSheetAppendJobs: jobsMock.requeueSheetAppendJobs, drainDueJobs: jobsMock.drainDueJobs }));
+vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobsMock.runInBackground }));
 const createEventSheetSpy = vi.hoisted(() => vi.fn());
 const spy = vi.hoisted(() => ({ on: false }));
 vi.mock("@/lib/gas/event-sheet-client", async (orig) => {
@@ -107,7 +110,11 @@ describe("POST /api/admin/landing-pages/[id]/sheet", () => {
   const info = (over: Record<string, unknown> = {}) => ({
     id: PAGE_ID, slug: "ppc-b4", title: "PPC Batch 4", sheetId: null, driveFolderId: null, refPrefix: null, draftRefPrefix: "ppc", ...over,
   });
-  beforeEach(() => { spy.on = true; createEventSheetSpy.mockReset(); });
+  beforeEach(() => {
+    spy.on = true; createEventSheetSpy.mockReset();
+    for (const f of Object.values(jobsMock)) f.mockReset();
+    jobsMock.requeueSheetAppendJobs.mockResolvedValue(3);
+  });
 
   it("passes the admin gate response through", async () => {
     adminOk = false;
@@ -143,6 +150,30 @@ describe("POST /api/admin/landing-pages/[id]/sheet", () => {
     expect(await res.json()).toEqual({ sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC", sheetUrl: "https://docs.google.com/spreadsheets/d/sheet-1/edit" });
     expect(createEventSheetSpy).toHaveBeenCalledWith("PPC Batch 4", "PPC Batch 4 - ppc-b4");
     expect(saveEventSheet).toHaveBeenCalledWith(PAGE_ID, { sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC" });
+  });
+  it("requeues every sheet row of the page and drains in the background once the sheet is saved", async () => {
+    getPageSheetInfo.mockResolvedValue(info());
+    createEventSheetSpy.mockResolvedValue({ ok: true, sheetId: "sheet-1", driveFolderId: "folder-1" });
+    saveEventSheet.mockResolvedValue({ ok: true });
+    await createSheet(req(), ctx);
+    expect(jobsMock.requeueSheetAppendJobs).toHaveBeenCalledWith(PAGE_ID);
+    expect(jobsMock.runInBackground).toHaveBeenCalledTimes(1);
+  });
+  it("does not requeue anything when the sheet could not be saved", async () => {
+    getPageSheetInfo.mockResolvedValue(info());
+    createEventSheetSpy.mockResolvedValue({ ok: true, sheetId: "sheet-1", driveFolderId: "folder-1" });
+    saveEventSheet.mockResolvedValue({ ok: false, reason: "db" });
+    expect((await createSheet(req(), ctx)).status).toBe(500);
+    expect(jobsMock.requeueSheetAppendJobs).not.toHaveBeenCalled();
+  });
+  it("still returns the new sheet when the requeue throws", async () => {
+    getPageSheetInfo.mockResolvedValue(info());
+    createEventSheetSpy.mockResolvedValue({ ok: true, sheetId: "sheet-1", driveFolderId: "folder-1" });
+    saveEventSheet.mockResolvedValue({ ok: true });
+    jobsMock.requeueSheetAppendJobs.mockRejectedValue(new Error("db down"));
+    const res = await createSheet(req(), ctx);
+    expect(res.status).toBe(201);
+    expect((await res.json()).sheetId).toBe("sheet-1");
   });
   it("502 when Apps Script fails; 409 when a parallel click won the race", async () => {
     getPageSheetInfo.mockResolvedValue(info());

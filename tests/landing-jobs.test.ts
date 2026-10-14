@@ -8,7 +8,7 @@ const handlers = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/landing/registration/job-handlers", () => ({ JOB_HANDLERS: handlers }));
 
-import { enqueueJobs, runJobsFor, drainDueJobs, retryFailedJobs, nextRunAt } from "@/lib/data/landing-jobs";
+import { enqueueJobs, runJobsFor, drainDueJobs, retryFailedJobs, requeueSheetAppendJobs, makeWaitingJobsDue, nextRunAt } from "@/lib/data/landing-jobs";
 
 const NOW = new Date("2026-10-13T10:00:00.000Z");
 const job = (over: Record<string, unknown> = {}) => ({
@@ -52,18 +52,19 @@ describe("enqueueJobs", () => {
 });
 
 describe("runJobsFor", () => {
-  it("runs this registration's due jobs, sheet first, and marks them done", async () => {
+  it("runs this registration's due jobs, confirmation email before the sheet row, and marks them done", async () => {
     const order: string[] = [];
     for (const [type, h] of Object.entries(handlers)) h.mockImplementation(async () => { order.push(type); });
     const store = { landing_jobs: [
       job({ id: "j-admin", type: "email_admin" }),
       job({ id: "j-sheet", type: "sheet_append" }),
+      job({ id: "j-mail", type: "email_received" }),
       job({ id: "j-other", registration_id: "reg-2" }),
       job({ id: "j-later", type: "email_members", next_run_at: "2026-10-13T11:00:00.000Z" }),
     ] };
     db.state.handler = memoryHandler(store);
     await runJobsFor("reg-1");
-    expect(order).toEqual(["sheet_append", "email_admin"]);
+    expect(order).toEqual(["email_received", "sheet_append", "email_admin"]);
     expect(store.landing_jobs.find((j) => j.id === "j-sheet")).toMatchObject({ status: "done", attempts: 1, last_error: null });
     expect(store.landing_jobs.find((j) => j.id === "j-other")).toMatchObject({ status: "pending", attempts: 0 });
     expect(store.landing_jobs.find((j) => j.id === "j-later")).toMatchObject({ status: "pending" });
@@ -126,6 +127,38 @@ describe("drainDueJobs and retryFailedJobs", () => {
     };
     expect(await retryFailedJobs("page-1")).toBe(150);
     expect(updates.map((u) => u.length)).toEqual([100, 50]);
+  });
+  it("requeueSheetAppendJobs resets every sheet_append job of the page, done ones included, in batches", async () => {
+    const rows = Array.from({ length: 230 }, (_, i) => ({ id: `s${i}`, status: ["done", "failed", "pending", "running"][i % 4] }));
+    const updates: string[][] = [];
+    db.state.handler = (op) => {
+      if (op.op === "select") {
+        expect(filterValue(op, "eq", "landing_registrations.page_id")).toBe("page-1");
+        expect(filterValue(op, "eq", "type")).toBe("sheet_append");
+        expect(filterValue(op, "in", "status")).toEqual(["pending", "running", "failed", "done"]);
+        return { data: rows.slice(0, op.limit).map((j) => ({ id: j.id, landing_registrations: { page_id: "page-1" } })), error: null };
+      }
+      const ids = filterValue(op, "in", "id") as string[];
+      updates.push(ids);
+      expect(op.payload).toEqual({ status: "pending", attempts: 0, next_run_at: NOW.toISOString(), last_error: null });
+      return { data: ids.map((id) => ({ id })), error: null };
+    };
+    expect(await requeueSheetAppendJobs("page-1")).toBe(230);
+    expect(updates.map((u) => u.length)).toEqual([100, 100, 30]);
+    expect(new Set(updates.flat()).size).toBe(230);
+  });
+  it("makeWaitingJobsDue only touches pending/running jobs and only moves next_run_at", async () => {
+    db.state.handler = (op) => {
+      if (op.op === "select") {
+        expect(filterValue(op, "in", "status")).toEqual(["pending", "running"]);
+        expect(filterValue(op, "eq", "landing_registrations.page_id")).toBe("page-1");
+        return { data: [{ id: "w1" }, { id: "w2" }], error: null };
+      }
+      expect(op.payload).toEqual({ next_run_at: NOW.toISOString() });
+      expect(filterValue(op, "in", "status")).toEqual(["pending", "running"]);
+      return { data: [{ id: "w1" }, { id: "w2" }], error: null };
+    };
+    expect(await makeWaitingJobsDue("page-1")).toBe(2);
   });
   it("throws when the lookup fails", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });

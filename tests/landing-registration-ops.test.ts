@@ -45,8 +45,11 @@ function seed(jobs: Job[], bonus?: { failed?: number; waiting?: number }) {
     if (op.table === "landing_pages") return { data: { id: PAGE }, error: null };
     const pageEq = op.filters.find(([k, f]) => k === "eq" && f === "landing_registrations.page_id")?.[2];
     const statusEq = op.filters.find(([k, f]) => k === "eq" && f === "status")?.[2];
+    const typeEq = op.filters.find(([k, f]) => k === "eq" && f === "type")?.[2];
+    const testEq = op.filters.find(([k, f]) => k === "eq" && f === "landing_registrations.is_test")?.[2];
     const statusIn = op.filters.find(([k, f]) => k === "in" && f === "status")?.[2] as string[] | undefined;
-    let rows = jobs.filter((j) => j.reg.page_id === pageEq && (statusEq ? j.status === statusEq : statusIn!.includes(j.status)));
+    let rows = jobs.filter((j) => j.reg.page_id === pageEq && (statusEq ? j.status === statusEq : statusIn!.includes(j.status))
+      && (typeEq === undefined || j.type === typeEq) && (testEq === undefined || j.reg.is_test === testEq));
     if (op.head) {
       const extra = statusEq === "failed" ? bonus?.failed ?? 0 : bonus?.waiting ?? 0;
       return { data: null, error: null, count: rows.length + extra };
@@ -74,13 +77,23 @@ describe("getPageJobSummary", () => {
       refId: "TEST-12345", name: "Admin Test", email: "admin@mail.com", isTest: true,
     });
   });
+  it("the sheet counts include only sheet_append jobs of real registrations", async () => {
+    // j1 failed sheet (real), j4 running sheet (real); j3 is an email, j6 a test email, j5 another page
+    const extra = [job("j7", tester, "sheet_append", "failed", "2026-10-13T09:30:00Z", 5, "x"), job("j8", ali, "sheet_append", "pending", "2026-10-13T10:09:00Z")];
+    seed([...JOBS, ...extra]);
+    const s = await getPageJobSummary(PAGE);
+    expect(s).toMatchObject({ waiting: 3, failed: 3, sheetWaiting: 2, sheetFailed: 1 });
+    const sheetReads = db.find("landing_jobs", "select").filter((r) => r.head && r.filters.some(([k, f, v]) => k === "eq" && f === "type" && v === "sheet_append"));
+    expect(sheetReads).toHaveLength(2);
+    for (const r of sheetReads) expect(r.filters).toContainEqual(["eq", "landing_registrations.is_test", false]);
+  });
   it("never counts or lists another page's jobs", async () => {
     seed(JOBS);
     const s = await getPageJobSummary(PAGE);
     expect(s!.issues.map((i) => i.id)).not.toContain("j5");
     expect(s!.failed).toBe(2);
     const reads = db.find("landing_jobs", "select");
-    expect(reads).toHaveLength(4);
+    expect(reads).toHaveLength(6);
     for (const r of reads) expect(r.filters).toContainEqual(["eq", "landing_registrations.page_id", PAGE]);
   });
   it("uses exact head counts, so a big page is not truncated by max_rows or long id lists", async () => {
@@ -90,7 +103,7 @@ describe("getPageJobSummary", () => {
     expect(s!.waiting).toBe(2402);
     expect(s!.issues).toHaveLength(4);
     const reads = db.find("landing_jobs", "select");
-    expect(reads.filter((r) => r.head && r.count)).toHaveLength(2);
+    expect(reads.filter((r) => r.head && r.count)).toHaveLength(4);
     expect(reads.some((r) => r.filters.some(([k, f]) => k === "in" && f === "registration_id"))).toBe(false);
     expect(db.find("landing_registrations", "select")).toHaveLength(0);
   });
@@ -107,20 +120,21 @@ describe("getPageJobSummary", () => {
     db.state.handler = memoryHandler({ landing_pages: [] });
     expect(await getPageJobSummary(PAGE)).toBeNull();
     seed([]);
-    expect(await getPageJobSummary(PAGE)).toEqual({ waiting: 0, failed: 0, issues: [] });
+    expect(await getPageJobSummary(PAGE)).toEqual({ waiting: 0, failed: 0, sheetWaiting: 0, sheetFailed: 0, issues: [] });
   });
   it("throws on a read error instead of reporting all clear", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006", message: "down" } });
     await expect(getPageJobSummary(PAGE)).rejects.toBeTruthy();
   });
-  it.each(["failed", "waiting", "issues"])("throws when only the %s read fails", async (which) => {
+  it.each(["failed", "waiting", "issues", "sheet"])("throws when only the %s read fails", async (which) => {
     seed(JOBS);
     const ok = db.state.handler;
     db.state.handler = (op) => {
       if (op.table === "landing_jobs") {
-        const isFailedCount = op.head && op.filters.some(([k, f, v]) => k === "eq" && f === "status" && v === "failed");
-        const isWaitingCount = op.head && !isFailedCount;
-        if ((which === "failed" && isFailedCount) || (which === "waiting" && isWaitingCount) || (which === "issues" && !op.head)) {
+        const isSheet = op.filters.some(([k, f]) => k === "eq" && f === "type");
+        const isFailedCount = op.head && !isSheet && op.filters.some(([k, f, v]) => k === "eq" && f === "status" && v === "failed");
+        const isWaitingCount = op.head && !isSheet && !isFailedCount;
+        if ((which === "failed" && isFailedCount) || (which === "waiting" && isWaitingCount) || (which === "issues" && !op.head) || (which === "sheet" && isSheet)) {
           return { data: null, error: { code: "57014", message: "timeout" } };
         }
       }
@@ -150,7 +164,7 @@ describe("GET /api/admin/landing-pages/[id]/jobs", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     const body = await res.json();
-    expect(body).toMatchObject({ waiting: 2, failed: 2 });
+    expect(body).toMatchObject({ waiting: 2, failed: 2, sheetWaiting: 1, sheetFailed: 1 });
     expect(body.issues).toHaveLength(4);
   });
   it("500 on a read error", async () => {

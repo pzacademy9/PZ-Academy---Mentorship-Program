@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { isPageId } from "@/lib/validations/landing";
-import { drainDueJobs, retryFailedJobs } from "@/lib/data/landing-jobs";
+import { drainDueJobs, makeWaitingJobsDue, retryFailedJobs } from "@/lib/data/landing-jobs";
 import { runInBackground } from "@/lib/landing/registration/background";
 
 export const maxDuration = 60;
@@ -14,6 +14,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });
   try {
     const requeued = await retryFailedJobs(id);
+    // Waiting jobs sit on a backoff timer and only the daily cron would pick them up, so make them due now too.
+    await makeWaitingJobsDue(id);
     runInBackground(drainDueJobs(25));
     return NextResponse.json({ requeued });
   } catch {

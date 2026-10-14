@@ -4,6 +4,8 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { isPageId } from "@/lib/validations/landing";
 import { getPageSheetInfo, saveEventSheet } from "@/lib/data/landing-event-sheet";
 import { createEventSheet } from "@/lib/gas/event-sheet-client";
+import { drainDueJobs, requeueSheetAppendJobs } from "@/lib/data/landing-jobs";
+import { runInBackground } from "@/lib/landing/registration/background";
 
 export const maxDuration = 60;
 
@@ -51,6 +53,16 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       );
     }
     return NextResponse.json({ error: "The sheet was created but could not be saved. Try again." }, { status: 500 });
+  }
+
+  // Registrations made before the sheet existed had their sheet_append job marked done without
+  // writing anything. Send them all now (Apps Script dedupes on Ref ID + email, so repeats are safe).
+  // A failure here must never hide the sheet that was just created.
+  try {
+    await requeueSheetAppendJobs(id);
+    runInBackground(drainDueJobs(25));
+  } catch {
+    console.error("[landing-sheet] could not requeue sheet rows for page", id);
   }
 
   return NextResponse.json(
