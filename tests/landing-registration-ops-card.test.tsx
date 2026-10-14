@@ -109,7 +109,7 @@ describe("RegistrationOpsCard: sheet and email tasks", () => {
     render(<RegistrationOpsCard pageId={PAGE} slug="ppc" status="published" initialSheetId="s1" />);
     await screen.findByText("Sheet sync: 2 waiting");
     expect((screen.getByRole("button", { name: /retry now/i }) as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.getByText("Rows that fail are retried when you press Retry now, and once a day.")).toBeTruthy();
+    expect(screen.getByText("Waiting rows are retried once a day. Rows that stopped after 5 tries are only retried when you press Retry now.")).toBeTruthy();
     expect(screen.queryByText(/about an hour/i)).toBeNull();
   });
   it("says so when the tasks cannot be loaded, and can check again", async () => {

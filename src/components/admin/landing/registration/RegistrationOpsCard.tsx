@@ -184,7 +184,7 @@ function JobsPanel({ data, retrying, onRetry, onRefresh }: { data: PageJobSummar
           <span className={cn(PILL, "border border-pz-outline-variant bg-pz-surface-container-high text-pz-on-surface")}>{`Emails and test runs: ${otherTasks} unfinished`}</span>
         )}
       </div>
-      <p className={HELP}>Rows that fail are retried when you press Retry now, and once a day.</p>
+      <p className={HELP}>Waiting rows are retried once a day. Rows that stopped after 5 tries are only retried when you press Retry now.</p>
       {shown.length > 0 && (
         <ul aria-label="Tasks that need attention" className="divide-y divide-pz-outline-variant rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest">
           {shown.map((j) => (

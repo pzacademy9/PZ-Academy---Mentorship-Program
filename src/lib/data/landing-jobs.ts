@@ -216,10 +216,13 @@ export function requeueSheetAppendJobs(pageId: string): Promise<number> {
   });
 }
 
-/** Admin Retry: this page's pending/running jobs become due now (the daily cron is the only other trigger). */
+/**
+ * Admin Retry: this page's pending jobs become due now. Running jobs are left alone: their
+ * 10-minute lease is the lock, and clearing it would let a drain run a live job twice.
+ */
 export function makeWaitingJobsDue(pageId: string): Promise<number> {
   return requeueByPage(pageId, {
-    statuses: ["pending", "running"],
+    statuses: ["pending"],
     patch: { next_run_at: new Date().toISOString() },
   });
 }

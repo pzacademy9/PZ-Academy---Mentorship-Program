@@ -147,18 +147,26 @@ describe("drainDueJobs and retryFailedJobs", () => {
     expect(updates.map((u) => u.length)).toEqual([100, 100, 30]);
     expect(new Set(updates.flat()).size).toBe(230);
   });
-  it("makeWaitingJobsDue only touches pending/running jobs and only moves next_run_at", async () => {
+  it("makeWaitingJobsDue only touches pending jobs: a running job keeps its lease", async () => {
+    const rows = [
+      { id: "w1", status: "pending", next_run_at: "2026-10-13T10:30:00.000Z" },
+      { id: "r1", status: "running", next_run_at: "2026-10-13T10:09:00.000Z" },
+    ];
     db.state.handler = (op) => {
+      const allowed = filterValue(op, "in", "status") as string[];
+      expect(allowed).toEqual(["pending"]);
       if (op.op === "select") {
-        expect(filterValue(op, "in", "status")).toEqual(["pending", "running"]);
         expect(filterValue(op, "eq", "landing_registrations.page_id")).toBe("page-1");
-        return { data: [{ id: "w1" }, { id: "w2" }], error: null };
+        return { data: rows.filter((r) => allowed.includes(r.status)).map((r) => ({ id: r.id })), error: null };
       }
       expect(op.payload).toEqual({ next_run_at: NOW.toISOString() });
-      expect(filterValue(op, "in", "status")).toEqual(["pending", "running"]);
-      return { data: [{ id: "w1" }, { id: "w2" }], error: null };
+      const hit = rows.filter((r) => allowed.includes(r.status) && (filterValue(op, "in", "id") as string[]).includes(r.id));
+      for (const r of hit) r.next_run_at = NOW.toISOString();
+      return { data: hit.map((r) => ({ id: r.id })), error: null };
     };
-    expect(await makeWaitingJobsDue("page-1")).toBe(2);
+    expect(await makeWaitingJobsDue("page-1")).toBe(1);
+    expect(rows.find((r) => r.id === "r1")!.next_run_at).toBe("2026-10-13T10:09:00.000Z");
+    expect(rows.find((r) => r.id === "w1")!.next_run_at).toBe(NOW.toISOString());
   });
   it("throws when the lookup fails", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });
