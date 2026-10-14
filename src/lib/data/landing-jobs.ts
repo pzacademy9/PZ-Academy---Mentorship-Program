@@ -27,16 +27,37 @@ export function nextRunAt(failedAttempts: number, now: Date): string {
   return plusMinutes(now, BACKOFF_MINUTES[i]);
 }
 
-export async function enqueueJobs(registrationId: string, types: JobType[]): Promise<void> {
-  if (types.length === 0) return;
+/**
+ * Inserts one pending job per type. Returns true when the jobs exist afterwards: a duplicate
+ * (23505, unique registration_id + type) means an earlier attempt already queued them, so a retry is idempotent.
+ */
+export async function enqueueJobs(registrationId: string, types: JobType[]): Promise<boolean> {
+  if (types.length === 0) return true;
   try {
     const now = new Date().toISOString();
     const { error } = await createAdminSupabase()
       .from("landing_jobs")
       .insert(types.map((type) => ({ registration_id: registrationId, type, status: "pending", attempts: 0, next_run_at: now })));
-    if (error) console.error("[landing-jobs] enqueue failed:", error.code);
+    if (error) {
+      if (error.code === "23505") return true;
+      console.error("[landing-jobs] enqueue failed:", error.code);
+      return false;
+    }
+    return true;
   } catch {
     console.error("[landing-jobs] enqueue crashed");
+    return false;
+  }
+}
+
+/** Last resort when the outbox cannot be written: run the handlers once, in order, without a job row. Never throws. */
+export async function runJobsDirect(registrationId: string, types: JobType[]): Promise<void> {
+  for (const type of [...types].sort((a, b) => JOB_TYPES.indexOf(a) - JOB_TYPES.indexOf(b))) {
+    try {
+      await JOB_HANDLERS[type](registrationId);
+    } catch {
+      console.error(`[landing-jobs] direct ${type} failed`);
+    }
   }
 }
 

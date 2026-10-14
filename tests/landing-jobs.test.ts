@@ -43,7 +43,11 @@ describe("enqueueJobs", () => {
   });
   it("logs instead of throwing on a write error", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });
-    await expect(enqueueJobs("reg-1", ["email_admin"])).resolves.toBeUndefined();
+    await expect(enqueueJobs("reg-1", ["email_admin"])).resolves.toBe(false);
+  });
+  it("treats a duplicate (already queued) as success, so a retry is idempotent", async () => {
+    db.state.handler = () => ({ data: null, error: { code: "23505" } });
+    await expect(enqueueJobs("reg-1", ["email_admin"])).resolves.toBe(true);
   });
 });
 

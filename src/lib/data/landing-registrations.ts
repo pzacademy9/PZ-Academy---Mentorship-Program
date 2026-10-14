@@ -360,3 +360,56 @@ export async function markEmailStatus(registrationId: string, value: string): Pr
   const { error } = await admin.from("landing_registrations").update({ email_status: value }).eq("id", registrationId);
   if (error) throw error;
 }
+
+export interface RecentRegistration {
+  refId: string;
+  status: RegistrationStatus;
+  optionKeys: string[];
+  mode: Mode;
+  tierKey: string;
+  groupSize: number;
+  optionLabel: string;
+  expectedAmount: number;
+  currency: string;
+  eventId: string;
+}
+
+/**
+ * Newest real lead/individual registration for this page and email since `sinceIso`. The register
+ * route uses it to answer a double submit (or a retry after a timeout) with the first registration
+ * instead of creating a second one. Fails open (null) so a DB blip never blocks a sign-up.
+ */
+export async function findRecentRegistration(pageId: string, email: string, sinceIso: string): Promise<RecentRegistration | null> {
+  try {
+    const admin = createAdminSupabase();
+    const { data, error } = await admin
+      .from("landing_registrations")
+      .select("ref_id, status, option_keys, mode, tier_key, group_size, option_label, expected_amount, currency, event_id")
+      .eq("page_id", pageId)
+      .eq("email", lower(email))
+      .in("row_type", HEAD_ROW_TYPES)
+      .eq("is_test", false)
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as unknown as Record<string, unknown>;
+    const refId = str(row.ref_id);
+    if (!refId) return null;
+    return {
+      refId,
+      status: str(row.status) as RegistrationStatus,
+      optionKeys: strArray(row.option_keys),
+      mode: row.mode === "recorded" ? "recorded" : "live",
+      tierKey: str(row.tier_key) || "individual",
+      groupSize: Number(row.group_size ?? 1),
+      optionLabel: str(row.option_label),
+      expectedAmount: Number(row.expected_amount ?? 0),
+      currency: str(row.currency),
+      eventId: str(row.event_id),
+    };
+  } catch {
+    return null;
+  }
+}
