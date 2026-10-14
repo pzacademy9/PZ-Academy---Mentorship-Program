@@ -204,7 +204,14 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
       if (res.status === 409) { setErrors({ code: body?.error ?? `${code} already exists. Choose another code.` }); return; }
       const field = body?.field?.split(".")[0];
       if (res.status === 400 && body?.error && field && (FORM_FIELDS as readonly string[]).includes(field)) {
-        setErrors({ [field]: body.error } as PromoErrors);
+        // A field the form is not showing right now (value while "fixed", fixedAmounts while "percent",
+        // pageIds while "All pages") cannot carry an inline message, so say it in a toast instead.
+        const shown = field === "value" || field === "maxDiscountPercent" ? d.type === "percent"
+          : field === "fixedAmounts" ? d.type === "fixed"
+          : field === "pageIds" ? d.scope === "pages"
+          : true;
+        if (shown) setErrors({ [field]: body.error } as PromoErrors);
+        else toast.error(body.error);
         return;
       }
       if (!res.ok) { toast.error(body?.error ?? "Could not save the promo code."); return; }

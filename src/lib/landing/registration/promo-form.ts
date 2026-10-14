@@ -106,11 +106,15 @@ export function draftToInput(d: PromoDraft, ownerAgentId: string | null = null):
         if (!errors.fixedAmounts) errors.fixedAmounts = `Enter an amount above 0 for ${cur}, or leave it empty.`;
         continue;
       }
-      if (Math.round(a) > PROMO_MAX_FIXED_AMOUNT) {
+      if (!Number.isInteger(a)) {
+        if (!errors.fixedAmounts) errors.fixedAmounts = `Enter a whole amount for ${cur}, with no decimals.`;
+        continue;
+      }
+      if (a > PROMO_MAX_FIXED_AMOUNT) {
         if (!errors.fixedAmounts) errors.fixedAmounts = `The most you can take off in ${cur} is ${PROMO_MAX_FIXED_AMOUNT.toLocaleString("en-US")}.`;
         continue;
       }
-      fixedAmounts[cur] = Math.round(a);
+      fixedAmounts[cur] = a;
     }
     if (!errors.fixedAmounts && Object.keys(fixedAmounts).length === 0) {
       errors.fixedAmounts = "Enter the discount for at least one currency, for example PKR 500.";

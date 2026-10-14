@@ -72,6 +72,15 @@ describe("draftToInput", () => {
     const bad = draftToInput(draft({ type: "fixed", fixedAmounts: { PKR: "-5" } }));
     expect(!bad.ok && bad.errors.fixedAmounts).toBe("Enter an amount above 0 for PKR, or leave it empty.");
   });
+  it("rejects a fractional fixed amount instead of rounding it", () => {
+    for (const bad of ["0.4", "500.6", "500.5"]) {
+      const r = draftToInput(draft({ type: "fixed", fixedAmounts: { PKR: bad } }));
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.errors.fixedAmounts).toBe("Enter a whole amount for PKR, with no decimals.");
+    }
+    const ok = draftToInput(draft({ type: "fixed", fixedAmounts: { PKR: "500" } }));
+    expect(ok.ok && ok.input.fixedAmounts).toEqual({ PKR: 500 });
+  });
   it("honours the schema's upper bounds", () => {
     const big = draftToInput(draft({ type: "fixed", fixedAmounts: { PKR: "10000001" } }));
     expect(!big.ok && big.errors.fixedAmounts).toMatch(/most you can take off in PKR is 10,000,000/);

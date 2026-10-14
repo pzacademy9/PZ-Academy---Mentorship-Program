@@ -156,6 +156,17 @@ describe("PromoCodesManager form", () => {
     expect(await within(dialog).findByText("Use 3-letter currency codes such as PKR.")).toBeTruthy();
     expect(toast.error).not.toHaveBeenCalled();
   });
+  it("a server complaint about a field the form is not showing is a toast, not silence", async () => {
+    fetchMock().mockResolvedValue(reply(400, { error: "Percent codes cannot have a value above 100.", field: "value" }));
+    render(<PromoCodesManager codes={[]} pages={PAGES} />);
+    fireEvent.click(screen.getByRole("button", { name: /create your first code/i }));
+    const dialog = screen.getByRole("dialog", { name: "New promo code" });
+    fireEvent.change(within(dialog).getByLabelText("Code"), { target: { value: "ZZFIX" } });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Fixed amount off" }));
+    fireEvent.change(within(dialog).getByLabelText("Amount off in PKR"), { target: { value: "500" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create code" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Percent codes cannot have a value above 100."));
+  });
   it("ties error and help text to their fields with aria-describedby", () => {
     const refs = (el: HTMLElement) => (el.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean).map((id) => document.getElementById(id));
     render(<PromoCodesManager codes={[]} pages={PAGES} />);
