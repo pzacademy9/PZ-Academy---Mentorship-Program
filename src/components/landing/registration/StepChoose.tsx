@@ -42,7 +42,7 @@ export function StepChoose({
       )}
 
       {config.modes.length > 1 && (
-        <fieldset>
+        <fieldset aria-describedby={errors.mode ? "err-mode" : undefined}>
           <legend className={LEGEND}>How do you want to learn?</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {config.modes.map((m) => (
@@ -55,11 +55,11 @@ export function StepChoose({
               </label>
             ))}
           </div>
-          {errors.mode && <span role="alert" className={R_ERROR}>{errors.mode}</span>}
+          {errors.mode && <span id="err-mode" role="alert" className={R_ERROR}>{errors.mode}</span>}
         </fieldset>
       )}
 
-      <fieldset>
+      <fieldset aria-describedby={errors.optionKeys ? "err-options" : undefined}>
         <legend className={LEGEND}>What do you want to join?</legend>
         <div className="mt-2 grid gap-2">
           {config.options.map((o) => {
@@ -90,11 +90,11 @@ export function StepChoose({
           })}
         </div>
         {notice && <p role="status" className="mt-2 font-landing-body text-sm font-semibold text-landing-primary">✓ {notice}</p>}
-        {errors.optionKeys && <span role="alert" className={R_ERROR}>{errors.optionKeys}</span>}
+        {errors.optionKeys && <span id="err-options" role="alert" className={R_ERROR}>{errors.optionKeys}</span>}
       </fieldset>
 
       {!isFree && config.tiers.length > 0 && (
-        <fieldset>
+        <fieldset aria-describedby={errors.tierKey || errors.groupSize ? "err-tier" : undefined}>
           <legend className={LEGEND}>Who is registering?</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             <label className={R_CHOICE}>
@@ -114,10 +114,10 @@ export function StepChoose({
           {tier && tier.minSize < tier.maxSize && (
             <label className="mt-3 block max-w-[12rem]">
               <span className={R_LABEL}>Group size (including you)</span>
-              <input type="number" inputMode="numeric" min={tier.minSize} max={tier.maxSize} value={state.groupSize} onChange={(e) => onGroupSize(Number(e.target.value))} aria-invalid={errors.groupSize ? true : undefined} className={R_INPUT} />
+              <input type="number" inputMode="numeric" min={tier.minSize} max={tier.maxSize} value={state.groupSize} onChange={(e) => onGroupSize(Number(e.target.value))} aria-invalid={errors.groupSize ? true : undefined} aria-describedby={errors.groupSize ? "err-tier" : undefined} className={R_INPUT} />
             </label>
           )}
-          {(errors.tierKey || errors.groupSize) && <span role="alert" className={R_ERROR}>{errors.tierKey ?? errors.groupSize}</span>}
+          {(errors.tierKey || errors.groupSize) && <span id="err-tier" role="alert" className={R_ERROR}>{errors.tierKey ?? errors.groupSize}</span>}
         </fieldset>
       )}
 

@@ -6,10 +6,10 @@ import { R_ERROR, R_HINT, R_INPUT, R_LABEL } from "./ui";
 type Common = { label: string; error?: string; hint?: string; ariaLabel?: string; name?: string };
 
 export function TextField({
-  label, error, hint, ariaLabel, value, onChange, type = "text", inputMode, autoComplete, readOnly, placeholder, name,
+  label, error, hint, ariaLabel, value, onChange, type = "text", inputMode, autoComplete, readOnly, placeholder, name, maxLength,
 }: Common & {
   value: string; onChange: (v: string) => void; type?: "text" | "email" | "tel";
-  inputMode?: "text" | "email" | "tel" | "numeric"; autoComplete?: string; readOnly?: boolean; placeholder?: string;
+  inputMode?: "text" | "email" | "tel" | "numeric"; autoComplete?: string; readOnly?: boolean; placeholder?: string; maxLength?: number;
 }) {
   const id = useId();
   const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-err` : null].filter(Boolean).join(" ") || undefined;
@@ -19,7 +19,7 @@ export function TextField({
       {hint && <span id={`${id}-hint`} className={R_HINT}>{hint}</span>}
       <input
         id={id} name={name} type={type} inputMode={inputMode} autoComplete={autoComplete} readOnly={readOnly}
-        placeholder={placeholder} value={value} aria-label={ariaLabel} aria-invalid={error ? true : undefined}
+        placeholder={placeholder} maxLength={maxLength} value={value} aria-label={ariaLabel} aria-invalid={error ? true : undefined}
         aria-describedby={describedBy} onChange={(e) => onChange(e.target.value)} className={R_INPUT}
       />
       {error && <span id={`${id}-err`} role="alert" className={R_ERROR}>{error}</span>}

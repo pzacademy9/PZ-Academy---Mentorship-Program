@@ -80,6 +80,7 @@ export function RegistrationSetup({
               <li key={s.key}>
                 <button
                   type="button"
+                  aria-label={count > 0 ? `${i + 1} ${s.label} ${count} ${count === 1 ? "problem" : "problems"}` : undefined}
                   aria-current={active ? "step" : undefined}
                   onClick={() => onStep(s.key)}
                   className={cn(
@@ -88,7 +89,7 @@ export function RegistrationSetup({
                   )}
                 >
                   <span>{i + 1} {s.label}</span>
-                  {count > 0 && <span className="rounded-full bg-pz-warning px-1.5 text-[10px] font-bold text-pz-on-surface">{count}</span>}
+                  {count > 0 && <span aria-hidden="true" className="rounded-full bg-pz-warning px-1.5 text-[10px] font-bold text-pz-on-surface">{count}</span>}
                 </button>
               </li>
             );
@@ -169,7 +170,7 @@ function BuyStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Registr
                 <option value="module">Single module</option>
               </select>
               <label className="flex items-center gap-2 font-body text-sm text-pz-on-surface">
-                <input type="checkbox" checked={o.free} onChange={(e) => onChange(updateOption(r, o.key, { free: e.target.checked }))} /> Free (no payment)
+                <input type="checkbox" aria-label={`${o.label || `Option ${i + 1}`}: free (no payment)`} checked={o.free} onChange={(e) => onChange(updateOption(r, o.key, { free: e.target.checked }))} /> Free (no payment)
               </label>
               <button type="button" aria-label={`Remove option ${i + 1}`} className={ICON_BTN} onClick={() => onChange(removeOption(r, o.key))}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />

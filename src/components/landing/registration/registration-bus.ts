@@ -2,10 +2,20 @@
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let pendingOpen = false;
+let opener: HTMLElement | null = null;
 
-export function openRegistration(): void {
+/** `from` is the Register button that was pressed; focus goes back to it when the form closes. */
+export function openRegistration(from?: HTMLElement | null): void {
+  opener = from ?? null;
   if (listeners.size === 0) { pendingOpen = true; return; }
   for (const l of Array.from(listeners)) l();
+}
+
+/** The element that last opened the form, handed out once. */
+export function takeOpener(): HTMLElement | null {
+  const el = opener;
+  opener = null;
+  return el;
 }
 
 export function onOpenRegistration(listener: Listener): () => void {

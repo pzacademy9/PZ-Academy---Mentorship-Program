@@ -17,7 +17,7 @@ export function RegistrationLauncher({ className, children, href }: { className:
           // Let new-tab / new-window gestures behave like a normal link.
           if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
           e.preventDefault();
-          openRegistration();
+          openRegistration(e.currentTarget);
         }}
         onPointerEnter={prefetchRegistration}
         onFocus={prefetchRegistration}
@@ -31,7 +31,7 @@ export function RegistrationLauncher({ className, children, href }: { className:
       type="button"
       aria-haspopup="dialog"
       className={className}
-      onClick={() => openRegistration()}
+      onClick={(e) => openRegistration(e.currentTarget)}
       onPointerEnter={prefetchRegistration}
       onFocus={prefetchRegistration}
     >

@@ -43,7 +43,8 @@ export function StatusLookup({ slug, whatsappNumber = "" }: { slug: string; what
     formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
   }, [errors]);
   useEffect(() => {
-    if (state.kind === "found" || state.kind === "error") resultRef.current?.focus();
+    // Errors are announced by their own role="alert"; a found result has no live role, so focus takes the reader to it.
+    if (state.kind === "found") resultRef.current?.focus();
   }, [state]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -77,18 +78,18 @@ export function StatusLookup({ slug, whatsappNumber = "" }: { slug: string; what
       <form ref={formRef} noValidate onSubmit={(e) => void onSubmit(e)} className={`${R_CARD} space-y-4`}>
         <TextField
           label="Reference number" placeholder="PZA-PPC-042" autoComplete="off" value={ref}
-          onChange={(v) => setRef(v.toUpperCase())} error={errors.ref}
+          onChange={(v) => { setRef(v.toUpperCase()); setState((s) => (s.kind === "loading" ? s : { kind: "idle" })); }} error={errors.ref}
         />
         <TextField
           label="Email you registered with" type="email" inputMode="email" autoComplete="email" value={email}
-          onChange={setEmail} error={errors.email}
+          onChange={(v) => { setEmail(v); setState((s) => (s.kind === "loading" ? s : { kind: "idle" })); }} error={errors.email}
         />
         <button type="submit" disabled={state.kind === "loading"} aria-busy={state.kind === "loading" || undefined} className={`${R_BTN_PRIMARY} w-full`}>
           {state.kind === "loading" ? "Checking…" : "Check status"}
         </button>
       </form>
 
-      <div ref={resultRef} tabIndex={-1} aria-live="polite" className="focus:outline-none">
+      <div ref={resultRef} tabIndex={-1} className="focus:outline-none">
         {state.kind === "error" && <p role="alert" className={R_ERROR}>{state.message}</p>}
         {state.kind === "found" && view && (
           <section aria-labelledby="status-result-h" className={`${R_CARD} space-y-2`}>

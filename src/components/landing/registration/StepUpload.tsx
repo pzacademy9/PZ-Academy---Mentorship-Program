@@ -34,7 +34,7 @@ export function StepUpload({
           <p className="mt-3 flex items-center justify-center gap-2 font-landing-body text-base text-landing-on-surface">
             <span aria-hidden="true" className="text-landing-primary">✓</span>
             <span className="break-all font-semibold">{f.name}</span>
-            <button type="button" onClick={() => onFile(null)} className="inline-flex min-h-11 items-center text-sm underline underline-offset-2">Remove</button>
+            <button type="button" onClick={() => onFile(null)} aria-label="Remove receipt" className="inline-flex min-h-11 items-center px-2 text-sm underline underline-offset-2">Remove</button>
           </p>
         )}
         {errors.voucher && <span role="alert" className={R_ERROR}>{errors.voucher}</span>}

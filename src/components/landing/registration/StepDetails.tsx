@@ -32,7 +32,7 @@ export function StepDetails({
           {config.professions.length > 0 ? (
             <SelectField label="Profession" value={lead.profession} options={config.professions} onChange={(v) => onLead({ profession: v })} error={errors["lead.profession"]} />
           ) : (
-            <TextField label="Profession" autoComplete="organization-title" value={lead.profession} onChange={(v) => onLead({ profession: v })} error={errors["lead.profession"]} />
+            <TextField label="Profession" maxLength={120} autoComplete="organization-title" value={lead.profession} onChange={(v) => onLead({ profession: v })} error={errors["lead.profession"]} />
           )}
         </div>
       )}
@@ -60,7 +60,7 @@ export function StepDetails({
                 {config.professions.length > 0 ? (
                   <SelectField label={`Member ${n} profession`} value={m.profession} options={config.professions} onChange={(v) => onMember(i, { profession: v })} error={errors[`members.${i}.profession`]} />
                 ) : (
-                  <TextField label={`Member ${n} profession`} value={m.profession} onChange={(v) => onMember(i, { profession: v })} error={errors[`members.${i}.profession`]} />
+                  <TextField label={`Member ${n} profession`} maxLength={120} value={m.profession} onChange={(v) => onMember(i, { profession: v })} error={errors[`members.${i}.profession`]} />
                 )}
               </fieldset>
             );

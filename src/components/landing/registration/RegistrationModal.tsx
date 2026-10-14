@@ -9,6 +9,7 @@ import { sendFunnelEvent } from "./funnel";
 import { track } from "./pixel";
 import type { RegisterSuccess } from "./types";
 import { R_BTN_PRIMARY } from "./ui";
+import { takeOpener } from "./registration-bus";
 
 export interface RegistrationModalProps {
   slug: string;
@@ -51,6 +52,14 @@ export function RegistrationModal({ slug, open, onClose, testMode = false, track
         <Dialog.Overlay className="fixed inset-0 z-50 bg-landing-near-black/60 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0" />
         <Dialog.Content
           aria-describedby={undefined}
+          onCloseAutoFocus={(e) => {
+            // Radix only restores focus to a Dialog.Trigger; our Register buttons open the form through the bus.
+            const el = takeOpener();
+            if (el && el.isConnected) {
+              e.preventDefault();
+              el.focus();
+            }
+          }}
           className="fixed inset-0 z-50 flex flex-col bg-landing-surface font-landing-body text-landing-on-surface motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:slide-in-from-bottom md:inset-auto md:left-1/2 md:top-1/2 md:h-[min(46rem,92dvh)] md:w-[min(60rem,calc(100vw-2rem))] md:-translate-x-1/2 md:-translate-y-1/2 md:overflow-hidden md:rounded-landing md:shadow-landing-soft-lg md:motion-safe:data-[state=open]:fade-in-0 md:motion-safe:data-[state=open]:slide-in-from-bottom-0"
           style={{ colorScheme: "light" }}
         >

@@ -54,7 +54,7 @@ export function StepPay({
                           </div>
                           <div className="flex gap-2">
                             {link && <a href={link} target="_blank" rel="noopener noreferrer" className={R_BTN_SECONDARY + " !min-h-11 !px-3 !text-sm"}>Pay via PayPal</a>}
-                            <CopyButton value={row.value} label={row.label} />
+                            <CopyButton value={row.value} label={`${a.label} ${row.label}`} />
                           </div>
                         </div>
                       );
@@ -73,6 +73,7 @@ export function StepPay({
           <input
             id="promo-code" value={state.promoInput} autoCapitalize="characters" autoComplete="off"
             aria-invalid={errors.promoCode || promoStatus.kind === "error" ? true : undefined}
+            aria-describedby={promoStatus.kind === "error" || errors.promoCode ? "promo-err" : undefined}
             onChange={(e) => onPromoInput(e.target.value.toUpperCase())}
             className={R_INPUT + " !mt-0"}
           />
@@ -82,11 +83,11 @@ export function StepPay({
         {promoStatus.kind === "ok" && (
           <p role="status" className="mt-1 font-landing-body text-sm font-semibold text-landing-primary">
             {promoStatus.message}{" "}
-            <button type="button" onClick={onRemovePromo} className="inline-flex min-h-11 items-center underline underline-offset-2">Remove</button>
+            <button type="button" onClick={onRemovePromo} aria-label="Remove promo code" className="inline-flex min-h-11 items-center px-2 underline underline-offset-2">Remove</button>
           </p>
         )}
-        {promoStatus.kind === "error" && <p role="alert" className={R_ERROR}>{promoStatus.message}</p>}
-        {errors.promoCode && promoStatus.kind !== "error" && <p role="alert" className={R_ERROR}>{errors.promoCode}</p>}
+        {promoStatus.kind === "error" && <p id="promo-err" role="alert" className={R_ERROR}>{promoStatus.message}</p>}
+        {errors.promoCode && promoStatus.kind !== "error" && <p id="promo-err" role="alert" className={R_ERROR}>{errors.promoCode}</p>}
       </div>
     </div>
   );

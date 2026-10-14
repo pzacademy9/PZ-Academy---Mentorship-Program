@@ -157,7 +157,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     expect(screen.getByRole("radio", { name: /mashreq bank/i })).toBeTruthy();
     expect(screen.getByRole("radio", { name: /paypal/i })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: /faysal bank/i })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Copy IBAN" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy Mashreq Bank IBAN" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("AE800330000019101064212"));
     expect(await screen.findByText(/copied/i)).toBeTruthy();
   });

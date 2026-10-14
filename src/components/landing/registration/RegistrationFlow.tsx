@@ -222,6 +222,7 @@ export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, for
         {steps.map((s, i) => (
           <li key={s} aria-current={s === step ? "step" : undefined} className={`flex-1 border-t-4 pt-1.5 font-headline text-xs font-bold ${steps.indexOf(step) >= i ? "border-landing-primary text-landing-deep" : "border-landing-border text-landing-muted"}`}>
             {`${i + 1} ${STEP_LABEL[s]}`}
+            {steps.indexOf(step) > i && <span className="sr-only"> (done)</span>}
           </li>
         ))}
       </ol>
