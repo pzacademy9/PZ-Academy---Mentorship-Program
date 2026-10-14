@@ -148,8 +148,9 @@ describe("launcher, host and Register button", () => {
     render(<><RegistrationLauncher className="x"><span>Register now</span></RegistrationLauncher><RegistrationHost slug="ppc" tracking={false} /></>);
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Register now" }));
-    expect(await screen.findByRole("dialog")).toBeTruthy();
-  });
+    // The real modal pulls in the whole flow; a cold module transform can be slow when the suite runs in parallel.
+    expect(await screen.findByRole("dialog", {}, { timeout: 15000 })).toBeTruthy();
+  }, 20000);
   it("RegisterButton: built-in opens the dialog, closed shows the notice, otherwise a safe link", () => {
     const { rerender } = render(<RegisterButton register={{ url: "https://x.com", label: "Join", closed: false, builtIn: true }} />);
     const b = screen.getByRole("link", { name: "Join" });

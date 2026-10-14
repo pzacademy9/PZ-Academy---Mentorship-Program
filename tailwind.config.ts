@@ -91,6 +91,10 @@ const config: Config = {
   				border:                      '#E2E6E4',
   				whatsapp:                    '#25D366',
   				'whatsapp-hover':            '#20BD5A',
+  				// Registration modal: validation text (rose-700 on the Stitch screen) and the admin test-mode banner (amber)
+  				error:                       '#BE123C',
+  				'test-banner':               '#FEF3C7',
+  				'on-test-banner':            '#715300',
   			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
