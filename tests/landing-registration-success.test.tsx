@@ -87,6 +87,8 @@ describe("SuccessScreen", () => {
     expect(decodeURIComponent(verify.split("text=")[1])).toContain("PZA-PPC-042");
     expect(screen.getByRole("link", { name: "Create account" }).getAttribute("href")).toBe("/register");
     expect(screen.getByText(/create a free pz academy account with sara@mail.com/i)).toBeTruthy();
+    expect(screen.queryByText(/dashboard/i)).toBeNull();
+    expect(screen.getByText(/we link this registration to your account/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /check your registration status/i }).getAttribute("href")).toBe("/e/ppc/status?ref=PZA-PPC-042");
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).toHaveBeenCalledTimes(1);

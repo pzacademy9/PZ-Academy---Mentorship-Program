@@ -36,8 +36,11 @@ export async function submitRegistration(
     if (res.ok && body && typeof body.refId === "string") return { ok: true, data: body as RegisterSuccess };
     if (res.ok) return { ok: false, status: 500, error: messageForStatus(500) };
     // 429 always gets our wording; otherwise the server's own message (it is written for people) wins.
-    const error = res.status !== 429 && typeof body?.error === "string" && body.error.trim() ? body.error : messageForStatus(res.status);
-    return { ok: false, status: res.status, error, field: typeof body?.field === "string" ? body.field : undefined };
+    const field = typeof body?.field === "string" ? body.field : undefined;
+    // A 400 with no field is a raw validation/honeypot message ("Invalid input"), not written for people.
+    const usable = res.status !== 429 && !(res.status === 400 && !field);
+    const error = usable && typeof body?.error === "string" && body.error.trim() ? body.error : messageForStatus(res.status);
+    return { ok: false, status: res.status, error, field };
   } catch {
     return { ok: false, status: 0, error: NETWORK_MESSAGE };
   } finally {

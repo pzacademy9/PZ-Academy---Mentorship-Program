@@ -111,9 +111,10 @@ export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, for
   }, [focusTick]);
 
   const patch = (p: Partial<FormState>) => setForm((s) => ({ ...s, ...p }));
-  const goTo = (s: StepKey) => {
+  const goTo = (s: StepKey, forward = false) => {
     setForm((f) => ({ ...f, step: s }));
-    if (live) {
+    // Tracking fires on forward moves only; going back is not a funnel step or a checkout.
+    if (live && forward) {
       sendFunnelEvent(slug, "step");
       if (s === "pay") track("InitiateCheckout", { content_name: config.eventLabel, value: total ?? 0, currency }, newEventId());
     }
@@ -163,6 +164,8 @@ export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, for
       const key = outcome.field === "lead.consent" ? "consent" : outcome.field;
       const s = fieldStep(outcome.field, steps);
       setErrors({ [key]: outcome.error });
+      // The server refused the code, so the "applied" confirmation must not keep showing.
+      if (key === "promoCode") setForm((f) => ({ ...f, promoApplied: "" }));
       if (!fieldHasPlace(key, config, isFree, form.groupSize)) setFormError(outcome.error);
       setForm((f) => ({ ...f, step: s, detailsCollapsed: s === "details" ? false : f.detailsCollapsed }));
       setFocusTick((t) => t + 1);
@@ -183,7 +186,7 @@ export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, for
     }
     const next = nextStep(steps, step);
     if (next === "submit") void submit();
-    else goTo(next);
+    else goTo(next, true);
   }
 
   function onBack() {

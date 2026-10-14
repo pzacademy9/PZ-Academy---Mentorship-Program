@@ -107,7 +107,7 @@ export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMo
           <section aria-labelledby="success-acct-h" className={R_CARD}>
             <h3 id="success-acct-h" className={H3}>See this registration in your account</h3>
             <p className="mt-1 font-landing-body text-base text-landing-on-surface">
-              {`Create a free PZ Academy account with ${lead.email}. Your registration shows up in your dashboard automatically.`}
+              {`Create a free PZ Academy account with ${lead.email}. We link this registration to your account.`}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <a href="/register" className={R_BTN_SECONDARY}>Create account</a>

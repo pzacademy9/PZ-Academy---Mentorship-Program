@@ -212,6 +212,52 @@ describe("RegistrationFlow (paid, guest)", () => {
     expect(screen.getByText("This promo code has been fully used.")).toBeTruthy();
   });
 
+  it("a promo refused at submit (422 promoCode) clears the applied confirmation", async () => {
+    registerResponse = { status: 422, body: { error: "This promo code is not valid for this event.", field: "promoCode" } };
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("radio", { name: /full course/i }));
+    cont(); fillLead(); cont();
+    fireEvent.change(screen.getByLabelText("Promo code"), { target: { value: "PZ10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(screen.getByText(/off applied/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("radio", { name: /faysal bank/i }));
+    cont();
+    fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
+    expect(await screen.findByText("This promo code is not valid for this event.")).toBeTruthy();
+    expect(screen.queryByText(/off applied/)).toBeNull();
+  }, 20000);
+
+  it("going Back is not a funnel step and does not fire InitiateCheckout; going forward does", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("radio", { name: /full course/i }));
+    cont(); fillLead(); cont();
+    expect(screen.getByRole("heading", { name: /pay/i })).toBeTruthy();
+    expect(pixel.track.mock.calls.filter((c) => c[0] === "InitiateCheckout")).toHaveLength(1);
+    const steps = funnel.send.mock.calls.filter((c) => c[1] === "step").length;
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(funnel.send.mock.calls.filter((c) => c[1] === "step")).toHaveLength(steps);
+    cont();
+    expect(pixel.track.mock.calls.filter((c) => c[0] === "InitiateCheckout")).toHaveLength(2);
+    // Back from pay to details, then forward: no extra InitiateCheckout until pay is reached again.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(pixel.track.mock.calls.filter((c) => c[0] === "InitiateCheckout")).toHaveLength(2);
+  });
+
+  it("a field-less 400 shows our wording, never the raw server text", async () => {
+    registerResponse = { status: 400, body: { error: "Invalid input" } };
+    render(<Harness />);
+    toUploadStep();
+    fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
+    await waitFor(() => expect(screen.getByTestId("registration-form-error").textContent).toMatch(/some details need fixing/i));
+    expect(screen.queryByText("Invalid input")).toBeNull();
+  }, 20000);
+
   for (const [name, resp, text] of [
     ["rate limited", { status: 429, body: {} }, /too many attempts/i],
     ["full", { status: 409, body: { error: "Sorry, all seats are taken." } }, /all seats are taken/i],
