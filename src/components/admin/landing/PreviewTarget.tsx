@@ -13,17 +13,19 @@ export function PreviewTarget({
   initialContent, status, kind, title,
 }: { initialContent: LandingContent; status: PageStatus; kind: PageKind; title: string }) {
   const [content, setContent] = useState(initialContent);
+  const [shownTitle, setShownTitle] = useState(title);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return;
-      const data = event.data as { type?: unknown; content?: unknown } | null;
+      const data = event.data as { type?: unknown; content?: unknown; title?: unknown } | null;
       if (!data || typeof data !== "object" || data.type !== "landing-preview") return;
       setContent(normalizeContent(data.content));
+      if (typeof data.title === "string") setShownTitle(data.title.slice(0, 120));
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  return <LandingRenderer content={content} status={status} kind={kind} pageTitle={title} />;
+  return <LandingRenderer content={content} status={status} kind={kind} pageTitle={shownTitle} />;
 }

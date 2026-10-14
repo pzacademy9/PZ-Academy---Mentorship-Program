@@ -47,7 +47,7 @@ export function VersionsPanel({
             Version {v.version} · {formatWhen(v.createdAt)}
           </p>
           <div className="flex items-center justify-between gap-2">
-            <span className="font-body text-[10px] text-pz-on-surface-variant">Restoring overwrites the active draft</span>
+            <span className="font-body text-[10px] text-pz-on-surface-variant">Restoring replaces your draft and the live page</span>
             <button
               type="button"
               disabled={busy}

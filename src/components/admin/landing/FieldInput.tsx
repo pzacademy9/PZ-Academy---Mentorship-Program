@@ -41,12 +41,13 @@ function problemFor(field: FieldDef, value: string): string | null {
   return null;
 }
 
-export function FieldInput({ field, value, onChange }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void }) {
+/** `path` locates the control for the checklist's Fix button: "headline", or "items.0.q" inside a list. */
+export function FieldInput({ field, value, onChange, path }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string }) {
   const id = useId();
   const helpId = `${id}-help`;
   const errId = `${id}-err`;
 
-  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} />;
+  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} />;
 
   const str = typeof value === "string" ? value : "";
   const problem = field.kind === "image" ? null : problemFor(field, str);
@@ -60,11 +61,17 @@ export function FieldInput({ field, value, onChange }: { field: FieldDef; value:
         ) : (
           <label htmlFor={id} className={LABEL}>{field.label}</label>
         )}
-        {field.required && <RequiredMarker />}
+        {field.required && str.trim() === "" && <RequiredMarker />}
       </div>
       {field.help && <p id={helpId} className={HELP}>{field.help}</p>}
       {field.kind === "image" ? (
-        <LandingImageField value={str} onChange={(v) => onChange(v)} />
+        <LandingImageField
+          value={str}
+          onChange={(v) => onChange(v)}
+          labelledBy={`${id}-label`}
+          describedBy={field.help ? helpId : undefined}
+          path={path}
+        />
       ) : field.kind === "textarea" ? (
         <textarea
           id={id}
@@ -73,6 +80,7 @@ export function FieldInput({ field, value, onChange }: { field: FieldDef; value:
           placeholder={field.example}
           aria-describedby={describedBy}
           aria-invalid={problem ? true : undefined}
+          data-field-path={path}
           onChange={(e) => onChange(e.target.value)}
           className={cn(CONTROL, "min-h-[6rem] resize-y")}
         />
@@ -84,6 +92,7 @@ export function FieldInput({ field, value, onChange }: { field: FieldDef; value:
           placeholder={field.example}
           aria-describedby={describedBy}
           aria-invalid={problem ? true : undefined}
+          data-field-path={path}
           onChange={(e) => onChange(e.target.value)}
           className={cn(CONTROL, "h-auto")}
         />
@@ -93,7 +102,7 @@ export function FieldInput({ field, value, onChange }: { field: FieldDef; value:
   );
 }
 
-function ListField({ field, value, onChange }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void }) {
+function ListField({ field, value, onChange, path }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string }) {
   const items: Item[] = Array.isArray(value) ? (value as Item[]) : [];
   const itemLabel = field.itemLabel ?? "Item";
   const max = field.maxItems ?? 40;
@@ -116,7 +125,7 @@ function ListField({ field, value, onChange }: { field: FieldDef; value: unknown
         <h3 className={LABEL} aria-hidden="true">
           {field.label} <span className="font-normal text-pz-on-surface-variant">({items.length} total)</span>
         </h3>
-        {field.required && <RequiredMarker />}
+        {field.required && items.length === 0 && <RequiredMarker />}
       </div>
       {field.help && <p className={HELP}>{field.help}</p>}
       <ul className="space-y-3">
@@ -141,7 +150,7 @@ function ListField({ field, value, onChange }: { field: FieldDef; value: unknown
             </div>
             <div className="space-y-3">
               {(field.itemFields ?? []).map((f) => (
-                <FieldInput key={f.key} field={f} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} />
+                <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} />
               ))}
             </div>
           </li>
@@ -149,6 +158,7 @@ function ListField({ field, value, onChange }: { field: FieldDef; value: unknown
       </ul>
       <button
         type="button"
+        data-field-path={path}
         onClick={add}
         disabled={items.length >= max}
         className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-pz-outline-variant px-3 py-2.5 font-body text-sm font-semibold text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-100 disabled:text-pz-on-surface-variant/60 max-md:min-h-11"

@@ -3,7 +3,7 @@ import type { Problem } from "@/lib/landing/content";
 import { cn } from "@/lib/utils";
 
 /** The "Ready to publish?" checklist: plain-language problems, each with a Fix button when it points at a section. */
-export function ReadinessPanel({ problems, onGoto }: { problems: Problem[]; onGoto: (sectionId: string) => void }) {
+export function ReadinessPanel({ problems, onGoto }: { problems: Problem[]; onGoto: (sectionId: string, field?: string) => void }) {
   const ready = problems.length === 0;
   return (
     <section
@@ -44,7 +44,7 @@ export function ReadinessPanel({ problems, onGoto }: { problems: Problem[]; onGo
               {p.sectionId && (
                 <button
                   type="button"
-                  onClick={() => onGoto(p.sectionId as string)}
+                  onClick={() => (p.field ? onGoto(p.sectionId as string, p.field) : onGoto(p.sectionId as string))}
                   className="shrink-0 rounded border border-pz-outline-variant bg-pz-surface-container-lowest px-2 py-0.5 text-[10px] font-bold text-pz-primary hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11"
                 >
                   Fix

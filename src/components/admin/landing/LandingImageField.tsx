@@ -14,7 +14,9 @@ const INPUT =
  * change event carry on to the shared field. If anything about that is unsupported the original
  * file simply goes through untouched.
  */
-export function LandingImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+export function LandingImageField({
+  value, onChange, labelledBy, describedBy, path,
+}: { value: string; onChange: (url: string) => void; labelledBy?: string; describedBy?: string; path?: string }) {
   const passThrough = useRef(false);
   // An upload finishes seconds after it started and calls onChange from the render it began in; always
   // go through the latest handler so edits made meanwhile are not reverted.
@@ -48,7 +50,8 @@ export function LandingImageField({ value, onChange }: { value: string; onChange
   }
 
   return (
-    <div onChangeCapture={onChangeCapture}>
+    // role="group" + aria-labelledby gives the upload controls the field's visible name ("Picture").
+    <div role="group" aria-labelledby={labelledBy} aria-describedby={describedBy} data-field-path={path} onChangeCapture={onChangeCapture}>
       <ImageUploadField
         value={value}
         onChange={(url) => latest.current(url)}

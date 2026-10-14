@@ -152,7 +152,8 @@ export function updateSeo(c: LandingContent, patch: Partial<LandingSeo>): Landin
 
 // ------------------------------------------------------------- readiness
 
-export interface Problem { message: string; sectionId?: string }
+/** field: where Fix puts the cursor, as a FieldInput path ("headline", a list key "items", or "items.0.q"). */
+export interface Problem { message: string; sectionId?: string; field?: string }
 
 function isBlank(v: unknown): boolean {
   return typeof v !== "string" || v.trim() === "";
@@ -165,18 +166,18 @@ function fieldProblems(section: LandingSection, fields: FieldDef[], data: Record
     if (f.kind === "list") {
       const items = Array.isArray(data[f.key]) ? (data[f.key] as Record<string, unknown>[]) : [];
       if (items.length === 0) {
-        out.push({ message: `Add at least one ${(f.itemLabel ?? "item").toLowerCase()} in "${label}".`, sectionId: section.id });
+        out.push({ message: `Add at least one ${(f.itemLabel ?? "item").toLowerCase()} in "${label}".`, sectionId: section.id, field: f.key });
         continue;
       }
       items.forEach((item, n) => {
         for (const sub of f.itemFields ?? []) {
           if (sub.required && isBlank(item[sub.key])) {
-            out.push({ message: `${f.itemLabel ?? "Item"} ${n + 1} in "${label}" needs "${sub.label}".`, sectionId: section.id });
+            out.push({ message: `${f.itemLabel ?? "Item"} ${n + 1} in "${label}" needs "${sub.label}".`, sectionId: section.id, field: `${f.key}.${n}.${sub.key}` });
           }
         }
       });
     } else if (isBlank(data[f.key])) {
-      out.push({ message: `Fill in "${f.label}" in "${label}".`, sectionId: section.id });
+      out.push({ message: `Fill in "${f.label}" in "${label}".`, sectionId: section.id, field: f.key });
     }
   }
 }

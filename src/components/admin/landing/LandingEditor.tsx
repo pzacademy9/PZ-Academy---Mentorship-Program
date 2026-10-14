@@ -42,25 +42,34 @@ const SAVE_DOT: Record<SaveState, string> = {
 };
 
 /**
- * The editor remounts when the server hands it a revision newer than this editor last saved (a rollback),
- * and Reload from the conflict banner does a full browser reload (a router refresh cannot always signal
- * a remount, since the revision may not exceed what this editor already saw). Local edits are dropped.
+ * The editor remounts onto the server's draft only after this editor's own restore succeeded (the
+ * refreshed page then carries a newer revision). Any other refresh keeps the editor as it is,
+ * including one that lands while an autosave is still in flight. Remounting there dropped the typing,
+ * and the old autosave kept writing a revision the new editor did not know, so its next save hit a
+ * false conflict. Someone else's change surfaces as a save conflict, and its Reload button does a
+ * full browser reload.
  */
 export function LandingEditor({ page, versions }: { page: LandingPage; versions: LandingVersion[] }) {
-  // Remount only when the revision moved past what this editor itself last saved (a rollback or a
-  // confirmed Reload). A refresh that merely echoes our own autosaves must not reset the editor.
   const known = useRef(page.revision);
+  const remountAbove = useRef<number | null>(null);
   const [epoch, setEpoch] = useState(0);
   const lastId = useRef(page.id);
   useEffect(() => {
-    if (lastId.current !== page.id) { lastId.current = page.id; known.current = page.revision; setEpoch((e) => e + 1); return; }
-    if (page.revision > known.current) { known.current = page.revision; setEpoch((e) => e + 1); }
+    if (lastId.current !== page.id) {
+      lastId.current = page.id; known.current = page.revision; remountAbove.current = null; setEpoch((e) => e + 1);
+      return;
+    }
+    if (remountAbove.current !== null && page.revision > remountAbove.current) {
+      remountAbove.current = null; known.current = page.revision; setEpoch((e) => e + 1);
+    }
   }, [page.id, page.revision]);
   const onRevision = useCallback((rev: number) => { if (rev > known.current) known.current = rev; }, []);
+  // A restore bumps the revision past everything this editor saved; remount once that refresh arrives.
+  const onRestored = useCallback(() => { remountAbove.current = known.current; }, []);
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} onRevision={onRevision} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -85,7 +94,11 @@ function PhoneNotice() {
   );
 }
 
-function EditorShell({ page, versions, onRevision }: { page: LandingPage; versions: LandingVersion[]; onRevision: (rev: number) => void }) {
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function EditorShell({
+  page, versions, onRevision, onRestored,
+}: { page: LandingPage; versions: LandingVersion[]; onRevision: (rev: number) => void; onRestored: () => void }) {
   const router = useRouter();
   const confirm = useConfirm();
   const { state, schedule, saveNow } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
@@ -167,11 +180,17 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
   }
 
   // Warn before leaving while anything could be lost: unsaved, in flight, failed, or conflicted
-  // (after a conflict, further edits are not saved at all).
+  // (after a conflict, further edits are not saved at all). `leaving` turns the guard off for an exit
+  // the admin already confirmed in our own dialog, so the browser does not ask a second time.
   const unsafeToLeave = state === "dirty" || state === "saving" || state === "error" || state === "conflict";
+  const leaving = useRef(false);
   useEffect(() => {
     if (!unsafeToLeave) return;
-    const guard = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const guard = (e: BeforeUnloadEvent) => {
+      if (leaving.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
   }, [unsafeToLeave]);
@@ -183,13 +202,53 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
       confirmLabel: "Reload",
       destructive: true,
     });
-    if (ok) window.location.reload();
+    if (!ok) return;
+    leaving.current = true;
+    window.location.reload();
   }
+
+  // Tablet (below lg): the Sections drawer is a modal. Focus moves into it, Tab stays inside, and
+  // Escape (or a tap on the scrim) closes it and returns focus to its toggle.
+  const drawerRef = useRef<HTMLElement>(null);
+  const drawerToggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!drawer) return;
+    const items = () => Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+    items()[0]?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDrawer(false);
+        drawerToggleRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const list = items();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawer]);
 
   const selected = content.sections.find((s) => s.id === selection) ?? null;
   const showSettings = selection === SETTINGS;
   const current = showSettings ? null : selected ?? content.sections[0] ?? null;
   const select = (id: string) => { setSelection(id); setPane("edit"); setDrawer(false); };
+
+  // Fix in the checklist: jump to the section, then put the cursor in the field (after it rendered).
+  const mainRef = useRef<HTMLElement>(null);
+  const [focusPath, setFocusPath] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusPath) return;
+    const el = Array.from(mainRef.current?.querySelectorAll<HTMLElement>("[data-field-path]") ?? []).find((n) => n.dataset.fieldPath === focusPath);
+    const target = el && (el.matches("input, textarea, button, select") ? el : el.querySelector<HTMLElement>("input, textarea, button, select"));
+    target?.focus();
+    setFocusPath(null);
+  }, [focusPath, selection]);
+  const gotoProblem = (id: string, field?: string) => { select(id); if (field) setFocusPath(field); };
 
   function onAdd(type: Parameters<typeof addSection>[1]) {
     const before = contentRef.current;
@@ -207,7 +266,7 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
 
   const slotProps = {
     page, title, versions, content, saveState: state, saveNow,
-    onSelectSection: select, serverProblems, onServerProblems: setServerProblems,
+    onSelectSection: gotoProblem, serverProblems, onServerProblems: setServerProblems, onRestored,
   };
 
   return (
@@ -289,6 +348,7 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
 
       <div className="flex items-center gap-2 border-b border-pz-outline-variant bg-pz-surface-container-low px-4 py-1.5 lg:hidden">
         <button
+          ref={drawerToggleRef}
           type="button"
           aria-expanded={drawer}
           onClick={() => setDrawer((d) => !d)}
@@ -303,7 +363,13 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
       </div>
 
       <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_minmax(0,1.1fr)]">
+        {drawer && (
+          // Tablet only: dims the form behind the open Sections drawer; a tap closes it.
+          <div aria-hidden="true" data-sections-scrim="" onClick={() => setDrawer(false)} className="absolute inset-0 z-[5] bg-black/40 lg:hidden" />
+        )}
         <aside
+          ref={drawerRef}
+          {...(drawer ? { role: "dialog", "aria-modal": true, "aria-label": "Page sections" } : {})}
           className={cn(
             "min-h-0 space-y-3 overflow-y-auto border-pz-outline-variant bg-pz-surface-container-lowest p-3 lg:block lg:border-r",
             drawer ? "absolute inset-y-0 left-0 z-10 block w-72 border-r shadow-lg" : "hidden",
@@ -337,7 +403,7 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
           <ReadinessSlot {...slotProps} />
         </aside>
 
-        <main className={cn("min-h-0 overflow-y-auto bg-pz-surface p-4 lg:block lg:p-5", pane === "edit" ? "block" : "hidden")}>
+        <main ref={mainRef} className={cn("min-h-0 overflow-y-auto bg-pz-surface p-4 lg:block lg:p-5", pane === "edit" ? "block" : "hidden")}>
           {showSettings ? (
             <PageSettingsPanel
               settings={content.settings}
@@ -377,7 +443,7 @@ function EditorShell({ page, versions, onRevision }: { page: LandingPage; versio
         </main>
 
         <section aria-label="Live preview" className={cn("min-h-0 border-pz-outline-variant bg-pz-surface-container-low p-3 lg:block lg:border-l", pane === "preview" ? "block" : "hidden")}>
-          <PreviewFrame content={content} pageId={page.id} />
+          <PreviewFrame content={content} pageId={page.id} title={title} />
         </section>
       </div>
     </div>

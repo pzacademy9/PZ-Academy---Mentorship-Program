@@ -11,7 +11,7 @@ export function SectionForm({
   return (
     <div className="space-y-5">
       {def.fields.map((f) => (
-        <FieldInput key={f.key} field={f} value={data[f.key]} onChange={(v) => onChange({ ...data, [f.key]: v })} />
+        <FieldInput key={f.key} field={f} path={f.key} value={data[f.key]} onChange={(v) => onChange({ ...data, [f.key]: v })} />
       ))}
     </div>
   );
