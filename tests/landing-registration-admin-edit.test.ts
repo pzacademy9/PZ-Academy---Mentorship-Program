@@ -43,8 +43,8 @@ describe("admin-edit operations", () => {
     const b = addOption(a, "module", "Module 1");
     const keys = b.options.map((o) => o.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys).toContain("module-1");
-    expect(keys).toContain("module-1-2");
+    expect(keys).toContain("module_1");
+    expect(keys).toContain("module_1_2");
   });
   it("removeOption drops its prices and resets the module-mix package when it was the package", () => {
     const next = removeOption(ppcConfig, "full");
@@ -106,6 +106,7 @@ describe("readiness targets", () => {
     ["a tier with min above max", (r) => { r.tiers[0] = { ...r.tiers[0], minSize: 6, maxSize: 3 }; }, "groups"],
     ["a missing price", (r) => { delete r.prices.full.KSA; }, "prices"],
     ["no countries", (r) => { r.regions = []; r.defaultRegionKey = ""; }, "prices"],
+    ["an Early Bird price above the regular price", (r) => { r.prices.full.PK.earlyAmount = 9000; }, "prices"],
     ["an unparseable Early Bird end", (r) => { r.earlyBirdEndsAt = "soon"; }, "earlybird"],
     ["a country with no payment account", (r) => { r.regions[2] = { ...r.regions[2], accountKeys: [] }; }, "accounts"],
     ["a bad WhatsApp group link", (r) => { r.options[1] = { ...r.options[1], waGroupUrl: "https://example.com/x" }; }, "whatsapp"],
@@ -130,5 +131,20 @@ describe("readiness targets", () => {
   it("a disabled registration adds no registration problems", () => {
     const c = updateRegistration(emptyContent("course"), { ...clone(ppcConfig), enabled: false, regions: [] });
     expect(computeReadiness(c, { title: "PPC", slug: "ppc-b3" }).problems.some((p) => p.sectionId?.startsWith("registration:"))).toBe(false);
+  });
+});
+
+describe("added option codes are valid (fix round 1)", () => {
+  it("a package, a module and a second module added in the stepper raise no option-code problem", () => {
+    let r = addOption(ppcConfig, "bundle", "New package");
+    r = addOption(r, "module", "New module");
+    r = addOption(r, "module", "New module");
+    expect(r.options.slice(3).map((o) => o.key)).toEqual(["new_package", "new_module", "new_module_2"]);
+    expect(registrationProblems(r).filter((p) => /option code/i.test(p.message))).toEqual([]);
+  });
+  it("an all-symbol label and a reserved word still give a valid code", () => {
+    const r = addOption(addOption(ppcConfig, "module", "!!!"), "module", "constructor");
+    expect(r.options.slice(3).map((o) => o.key)).toEqual(["option", "constructor_option"]);
+    expect(registrationProblems(r).filter((p) => /option code|reserved/i.test(p.message))).toEqual([]);
   });
 });

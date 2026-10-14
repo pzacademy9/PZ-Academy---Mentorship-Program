@@ -51,7 +51,10 @@ export const ACCOUNT_KEY_RE = /^[a-z0-9_]{2,40}$/;
 export const CURRENCY_RE = /^[A-Z]{3}$/;
 export const REF_PREFIX_RE = /^[A-Z0-9]{2,6}$/;
 const PIXEL_RE = /^\d{0,20}$/;
-const MAX_MONEY = 10_000_000;
+export const MAX_MONEY = 10_000_000;
+export const MAX_CAPACITY = 100_000;
+/** Text limits enforced by the schema below; the admin inputs read the same numbers. */
+export const FIELD_MAX = { regionKey: 6, name: 80, optionLabel: 120, optionKey: 32, waUrl: 200, waNumber: 20, pixel: 20, listItem: 80, listCount: 30 } as const;
 
 export const DEFAULT_REGISTRATION: RegistrationConfig = {
   enabled: false,
@@ -86,24 +89,24 @@ export const registrationConfigSchema: z.ZodType<RegistrationConfig> = z.object(
   recordedPercentOfRegular: z.number().int().min(1).max(100),
   regions: z.array(z.object({
     key: text(6),
-    label: text(80),
+    label: text(FIELD_MAX.name),
     currency: text(3),
-    classTime: text(80),
-    timezoneLabel: text(80),
+    classTime: text(FIELD_MAX.name),
+    timezoneLabel: text(FIELD_MAX.name),
     accountKeys: z.array(text(40)).max(8),
   })).max(12),
   defaultRegionKey: text(6),
   options: z.array(z.object({
     key: text(32),
-    label: text(120),
+    label: text(FIELD_MAX.optionLabel),
     kind: z.enum(["bundle", "module"]),
     free: z.boolean(),
-    waGroupUrl: text(200).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://"),
+    waGroupUrl: text(FIELD_MAX.waUrl).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://"),
   })).max(12),
   moduleMix: z.object({ enabled: z.boolean(), bundleOptionKey: text(32) }),
   tiers: z.array(z.object({
     key: text(32),
-    label: text(80),
+    label: text(FIELD_MAX.name),
     minSize: z.number().int().min(1).max(MAX_GROUP_SIZE),
     maxSize: z.number().int().min(1).max(MAX_GROUP_SIZE),
     percentOff: z.number().min(0).max(90),
@@ -115,13 +118,13 @@ export const registrationConfigSchema: z.ZodType<RegistrationConfig> = z.object(
     earlyGroupTotals: amountMap.optional(),
   }))),
   earlyBirdEndsAt: text(40),
-  capacity: z.number().int().min(0).max(100_000),
-  whatsappVerifyNumber: text(20),
-  successTitle: text(80),
-  eventLabel: text(80),
+  capacity: z.number().int().min(0).max(MAX_CAPACITY),
+  whatsappVerifyNumber: text(FIELD_MAX.waNumber),
+  successTitle: text(FIELD_MAX.name),
+  eventLabel: text(FIELD_MAX.name),
   refPrefix: text(6),
-  professions: z.array(text(80)).max(30),
-  discoveryOptions: z.array(text(80)).max(30),
+  professions: z.array(text(FIELD_MAX.listItem)).max(FIELD_MAX.listCount),
+  discoveryOptions: z.array(text(FIELD_MAX.listItem)).max(FIELD_MAX.listCount),
   pixelId: z.string().regex(PIXEL_RE, "The Pixel ID is digits only."),
 });
 
@@ -294,7 +297,7 @@ export function registrationProblems(r: RegistrationConfig): { message: string; 
       const cell = row[g.key];
       if (!cell) add(`Add the price of "${name(o.label, o.key)}" for ${name(g.label, g.key)}.`, "prices");
       else if (cell.earlyAmount !== undefined && cell.earlyAmount > cell.amount) {
-        add(`The Early Bird price of "${name(o.label, o.key)}" for ${name(g.label, g.key)} is higher than the regular price.`, "earlybird");
+        add(`The Early Bird price of "${name(o.label, o.key)}" for ${name(g.label, g.key)} is higher than the regular price.`, "prices");
       }
       if (cell) {
         const where = `"${name(o.label, o.key)}" for ${name(g.label, g.key)}`;

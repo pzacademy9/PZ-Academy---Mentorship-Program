@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import type { PriceCell, RegistrationConfig } from "@/lib/landing/registration/config";
+import { FIELD_MAX, MAX_MONEY, type PriceCell, type RegistrationConfig } from "@/lib/landing/registration/config";
 import { REGION_PRESETS, addRegion, copyPriceRow, removeRegion, setGroupTotal, setPriceCell, updateRegion } from "@/lib/landing/registration/admin-edit";
 import { CONTROL, HELP, LABEL, ICON_BTN } from "./styles";
 
@@ -11,19 +11,30 @@ import { CONTROL, HELP, LABEL, ICON_BTN } from "./styles";
 function toAmount(v: string): number | null {
   if (v.trim() === "") return null;
   const n = Number(v);
-  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : null;
+  return Number.isFinite(n) ? Math.min(MAX_MONEY, Math.max(0, Math.round(n))) : null;
 }
 
 export function PricesStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void }) {
   const unused = REGION_PRESETS.filter((p) => !r.regions.some((g) => g.key === p.key));
   const [toAdd, setToAdd] = useState(unused[0]?.key ?? "");
   const fixedTiers = r.tiers.filter((t) => t.minSize === t.maxSize);
+  // Raw text of a Regular price while it is empty: the cell (and its Early Bird / group totals) is only
+  // removed when the field loses focus empty, so backspacing to retype never destroys other data.
+  const [emptied, setEmptied] = useState<Record<string, boolean>>({});
 
   function setRegular(o: string, g: string, v: string) {
     const amount = toAmount(v);
     const cell = r.prices[o]?.[g];
-    if (amount === null) return onChange(setPriceCell(r, o, g, null));
+    const id = `${o}|${g}`;
+    if (amount === null) { setEmptied((m) => ({ ...m, [id]: true })); return; }
+    setEmptied((m) => ({ ...m, [id]: false }));
     onChange(setPriceCell(r, o, g, { ...(cell ?? {}), amount } as PriceCell));
+  }
+  function commitRegular(o: string, g: string) {
+    const id = `${o}|${g}`;
+    if (!emptied[id]) return;
+    setEmptied((m) => ({ ...m, [id]: false }));
+    onChange(setPriceCell(r, o, g, null));
   }
   function setEarly(o: string, g: string, v: string) {
     const cell = r.prices[o]?.[g];
@@ -43,10 +54,10 @@ export function PricesStep({ r, onChange }: { r: RegistrationConfig; onChange: (
         <ul className="space-y-2">
           {r.regions.map((g) => (
             <li key={g.key} className="grid grid-cols-2 gap-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-2 lg:grid-cols-[1.4fr_0.6fr_1fr_1fr_auto]">
-              <input aria-label={`Country name for ${g.key}`} className={CONTROL} value={g.label} onChange={(e) => onChange(updateRegion(r, g.key, { label: e.target.value }))} />
+              <input aria-label={`Country name for ${g.key}`} maxLength={FIELD_MAX.name} className={CONTROL} value={g.label} onChange={(e) => onChange(updateRegion(r, g.key, { label: e.target.value }))} />
               <input aria-label={`Currency for ${g.label}`} className={CONTROL} value={g.currency} maxLength={3} onChange={(e) => onChange(updateRegion(r, g.key, { currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, "") }))} />
-              <input aria-label={`Class time for ${g.label}`} placeholder="7:30 – 8:30 PM" className={CONTROL} value={g.classTime} onChange={(e) => onChange(updateRegion(r, g.key, { classTime: e.target.value }))} />
-              <input aria-label={`Time zone label for ${g.label}`} placeholder="Pakistan Standard Time" className={CONTROL} value={g.timezoneLabel} onChange={(e) => onChange(updateRegion(r, g.key, { timezoneLabel: e.target.value }))} />
+              <input aria-label={`Class time for ${g.label}`} maxLength={FIELD_MAX.name} placeholder="7:30 – 8:30 PM" className={CONTROL} value={g.classTime} onChange={(e) => onChange(updateRegion(r, g.key, { classTime: e.target.value }))} />
+              <input aria-label={`Time zone label for ${g.label}`} maxLength={FIELD_MAX.name} placeholder="Pakistan Standard Time" className={CONTROL} value={g.timezoneLabel} onChange={(e) => onChange(updateRegion(r, g.key, { timezoneLabel: e.target.value }))} />
               <button type="button" aria-label={`Remove ${g.label}`} className={ICON_BTN} onClick={() => onChange(removeRegion(r, g.key))}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -107,7 +118,7 @@ export function PricesStep({ r, onChange }: { r: RegistrationConfig; onChange: (
                     const cell = r.prices[o.key]?.[g.key];
                     return [
                       <td key={`${o.key}-r`} className="border-l border-pz-outline-variant px-2 py-1.5">
-                        <input type="number" inputMode="numeric" min={0} step={1} aria-label={`${o.label} regular price in ${g.label}`} className={`${CONTROL} w-24`} value={cell ? String(cell.amount) : ""} onChange={(e) => setRegular(o.key, g.key, e.target.value)} />
+                        <input type="number" inputMode="numeric" min={0} step={1} aria-label={`${o.label} regular price in ${g.label}`} className={`${CONTROL} w-24`} value={emptied[`${o.key}|${g.key}`] ? "" : cell ? String(cell.amount) : ""} onChange={(e) => setRegular(o.key, g.key, e.target.value)} onBlur={() => commitRegular(o.key, g.key)} />
                       </td>,
                       <td key={`${o.key}-e`} className="px-2 py-1.5">
                         <input type="number" inputMode="numeric" min={0} step={1} disabled={!cell} aria-label={`${o.label} Early Bird price in ${g.label}`} className={`${CONTROL} w-24 disabled:opacity-50`} value={cell?.earlyAmount !== undefined ? String(cell.earlyAmount) : ""} onChange={(e) => setEarly(o.key, g.key, e.target.value)} />

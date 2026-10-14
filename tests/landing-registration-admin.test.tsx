@@ -60,7 +60,9 @@ describe("RegistrationSetup", () => {
     expect(last(spy).prices.full.PK).toEqual({ amount: 6500, earlyAmount: 4800 });
     fireEvent.change(screen.getByLabelText("Full Course Early Bird price in Pakistan"), { target: { value: "" } });
     expect(last(spy).prices.full.PK).toEqual({ amount: 6500 });
-    fireEvent.change(screen.getByLabelText("Full Course regular price in Pakistan"), { target: { value: "" } });
+    const regular = screen.getByLabelText("Full Course regular price in Pakistan");
+    fireEvent.change(regular, { target: { value: "" } });
+    fireEvent.blur(regular);
     expect(last(spy).prices.full.PK).toBeUndefined();
   });
   it("copies a whole row of prices from another country", () => {
@@ -139,5 +141,47 @@ describe("RegistrationSetup carry-overs", () => {
     render(<Harness step="prices" spy={spy} />);
     fireEvent.change(screen.getByLabelText("Full Course regular price in Pakistan"), { target: { value: "6500.6" } });
     expect(last(spy).prices.full.PK.amount).toBe(6501);
+  });
+});
+
+describe("RegistrationSetup fix round 1", () => {
+  it("keeps the instant when the Early Bird time zone changes", () => {
+    for (const offset of ["+05:30", "+05:00", "+00:00"]) {
+      const spy = vi.fn();
+      const { unmount } = render(<Harness step="earlybird" spy={spy} />);
+      fireEvent.change(screen.getByLabelText("Time zone"), { target: { value: offset } });
+      expect(Date.parse(last(spy).earlyBirdEndsAt)).toBe(Date.parse(ppcConfig.earlyBirdEndsAt));
+      expect(last(spy).earlyBirdEndsAt.endsWith(offset)).toBe(true);
+      unmount();
+    }
+  });
+  it("clearing and retyping a Regular price keeps its Early Bird price and exact group totals", () => {
+    const spy = vi.fn();
+    const withTotals = { ...ppcConfig, prices: { ...ppcConfig.prices, full: { ...ppcConfig.prices.full, PK: { amount: 6000, earlyAmount: 4800, groupTotals: { group3: 15000 }, earlyGroupTotals: { group3: 11500 } } } } };
+    render(<Harness initial={withTotals} step="prices" spy={spy} />);
+    const regular = screen.getByLabelText("Full Course regular price in Pakistan") as HTMLInputElement;
+    fireEvent.change(regular, { target: { value: "" } });
+    expect(regular.value).toBe("");
+    fireEvent.change(regular, { target: { value: "7000" } });
+    fireEvent.blur(regular);
+    expect(last(spy).prices.full.PK).toEqual({ amount: 7000, earlyAmount: 4800, groupTotals: { group3: 15000 }, earlyGroupTotals: { group3: 11500 } });
+  });
+  it("clamps money to the schema maximum and caps text length", () => {
+    const spy = vi.fn();
+    render(<Harness step="prices" spy={spy} />);
+    fireEvent.change(screen.getByLabelText("Full Course regular price in Pakistan"), { target: { value: "99999999999" } });
+    expect(last(spy).prices.full.PK.amount).toBe(10_000_000);
+    expect((screen.getByLabelText("Country name for PK") as HTMLInputElement).maxLength).toBe(80);
+  });
+  it("links the WhatsApp link field to its error or warning with aria-describedby", () => {
+    const noLink = { ...ppcConfig, options: ppcConfig.options.map((o) => (o.key === "m2" ? { ...o, waGroupUrl: "" } : o)) };
+    const { unmount } = render(<Harness initial={noLink} step="whatsapp" spy={vi.fn()} />);
+    const field = screen.getByLabelText("WhatsApp group link for Module 2");
+    expect(document.getElementById(field.getAttribute("aria-describedby")!)!.textContent).toMatch(/won't see a join button/i);
+    unmount();
+    render(<Harness step="whatsapp" spy={vi.fn()} />);
+    const f2 = screen.getByLabelText("WhatsApp group link for Module 2");
+    fireEvent.change(f2, { target: { value: "https://example.com/x" } });
+    expect(document.getElementById(f2.getAttribute("aria-describedby")!)!.textContent).toMatch(/paste a whatsapp group invite link/i);
   });
 });

@@ -28,10 +28,14 @@ export const TZ_CHOICES: { label: string; offset: string }[] = [
 
 const deep = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype", "individual"]);
+
+/** Option codes must match ITEM_KEY_RE (/^[a-z0-9_]{1,32}$/): underscores, never hyphens. */
 function uniqueKey(label: string, taken: string[]): string {
-  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "option";
+  let base = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 24) || "option";
+  if (RESERVED_KEYS.has(base)) base = `${base}_option`;
   if (!taken.includes(base)) return base;
-  for (let n = 2; ; n++) if (!taken.includes(`${base}-${n}`)) return `${base}-${n}`;
+  for (let n = 2; ; n++) if (!taken.includes(`${base}_${n}`)) return `${base}_${n}`;
 }
 
 export function addRegion(r: RegistrationConfig, preset: RegionDef): RegistrationConfig {

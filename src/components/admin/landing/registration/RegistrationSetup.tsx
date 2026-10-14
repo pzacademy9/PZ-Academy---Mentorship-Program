@@ -1,12 +1,12 @@
 // src/components/admin/landing/registration/RegistrationSetup.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PaymentAccount } from "@/lib/data/landing-payment-accounts";
-import { registrationProblems, type Mode, type RegistrationConfig } from "@/lib/landing/registration/config";
+import { FIELD_MAX, MAX_CAPACITY, MAX_GROUP_SIZE, registrationProblems, type Mode, type RegistrationConfig } from "@/lib/landing/registration/config";
 import { isValidWaGroupUrl } from "@/lib/landing/registration/wa-groups";
 import { REG_STEPS, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import {
@@ -35,7 +35,7 @@ export function earlyBirdUrgency(iso: string, now: number): "past" | "soon" | nu
 }
 
 const lines = (v: string) => v.split("\n").map((s) => s.trim()).filter(Boolean);
-const whole = (v: string, min = 0) => { const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.round(n)) : min; };
+const whole = (v: string, min = 0, max = Number.MAX_SAFE_INTEGER) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : min; };
 
 export function RegistrationSetup({
   registration: r, accounts, step, onStep, onChange,
@@ -163,7 +163,7 @@ function BuyStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Registr
         <ul className="space-y-2">
           {r.options.map((o, i) => (
             <li key={o.key} className="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-3 lg:grid-cols-[1.6fr_1fr_auto_auto]">
-              <input aria-label={`Option ${i + 1} name`} className={CONTROL} value={o.label} onChange={(e) => onChange(updateOption(r, o.key, { label: e.target.value }))} />
+              <input aria-label={`Option ${i + 1} name`} maxLength={FIELD_MAX.optionLabel} className={CONTROL} value={o.label} onChange={(e) => onChange(updateOption(r, o.key, { label: e.target.value }))} />
               <select aria-label={`Option ${i + 1} type`} className={CONTROL} value={o.kind} onChange={(e) => onChange(updateOption(r, o.key, { kind: e.target.value as "bundle" | "module" }))}>
                 <option value="bundle">Whole package</option>
                 <option value="module">Single module</option>
@@ -207,9 +207,9 @@ function GroupsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Regi
       <ul className="space-y-2">
         {r.tiers.map((t) => (
           <li key={t.key} className="grid grid-cols-2 gap-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-3 lg:grid-cols-[1.4fr_0.7fr_0.7fr_0.7fr_auto]">
-            <input aria-label={`Name for ${t.label}`} className={CONTROL} value={t.label} onChange={(e) => onChange(updateTier(r, t.key, { label: e.target.value }))} />
-            <input type="number" inputMode="numeric" aria-label={`Smallest size for ${t.label}`} className={CONTROL} value={String(t.minSize)} onChange={(e) => onChange(updateTier(r, t.key, { minSize: whole(e.target.value, 2) }))} />
-            <input type="number" inputMode="numeric" aria-label={`Largest size for ${t.label}`} className={CONTROL} value={String(t.maxSize)} onChange={(e) => onChange(updateTier(r, t.key, { maxSize: whole(e.target.value, 2) }))} />
+            <input aria-label={`Name for ${t.label}`} maxLength={FIELD_MAX.name} className={CONTROL} value={t.label} onChange={(e) => onChange(updateTier(r, t.key, { label: e.target.value }))} />
+            <input type="number" inputMode="numeric" aria-label={`Smallest size for ${t.label}`} className={CONTROL} value={String(t.minSize)} onChange={(e) => onChange(updateTier(r, t.key, { minSize: whole(e.target.value, 2, MAX_GROUP_SIZE) }))} />
+            <input type="number" inputMode="numeric" aria-label={`Largest size for ${t.label}`} className={CONTROL} value={String(t.maxSize)} onChange={(e) => onChange(updateTier(r, t.key, { maxSize: whole(e.target.value, 2, MAX_GROUP_SIZE) }))} />
             <input type="number" inputMode="numeric" aria-label={`Percent off for ${t.label}`} className={CONTROL} value={String(t.percentOff)} onChange={(e) => onChange(updateTier(r, t.key, { percentOff: Math.min(90, whole(e.target.value)) }))} />
             <button type="button" aria-label={`Remove group ${t.label}`} className={ICON_BTN} onClick={() => onChange(removeTier(r, t.key))}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
           </li>
@@ -226,6 +226,12 @@ function GroupsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Regi
   );
 }
 
+/** "+05:30" -> milliseconds east of UTC. */
+function offsetMs(offset: string): number {
+  const m = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
+  return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) * 60_000 : 0;
+}
+
 function EarlyBirdStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void }) {
   const parsed = offsetIsoToLocal(r.earlyBirdEndsAt);
   // The zone picked before any date is set must survive until the date is typed.
@@ -235,7 +241,7 @@ function EarlyBirdStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: R
   const t = Date.parse(r.earlyBirdEndsAt);
   const preview = Number.isNaN(t)
     ? null
-    : `Ends ${new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Karachi" }).format(t)} Pakistan time (${new Intl.DateTimeFormat("en-GB", { timeStyle: "short", timeZone: "UTC" }).format(t)} UTC)`;
+    : `Ends ${new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "UTC" }).format(t + offsetMs(offset))} (UTC${offset}), which is ${new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Karachi" }).format(t)} Pakistan time`;
   const choices = TZ_CHOICES.some((c) => c.offset === offset) ? TZ_CHOICES : [...TZ_CHOICES, { label: `UTC${offset}`, offset }];
   return (
     <div className={CARD}>
@@ -246,7 +252,13 @@ function EarlyBirdStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: R
         </label>
         <label className="space-y-1">
           <span className={LABEL}>Time zone</span>
-          <select aria-label="Time zone" className={CONTROL} value={offset} onChange={(e) => { setPickedOffset(e.target.value); onChange({ ...r, earlyBirdEndsAt: local ? localToOffsetIso(local, e.target.value) : "" }); }}>
+          <select aria-label="Time zone" className={CONTROL} value={offset} onChange={(e) => {
+            setPickedOffset(e.target.value);
+            // Keep the same instant: only the way it is entered and shown changes.
+            if (Number.isNaN(t)) return;
+            const shifted = new Date(t + offsetMs(e.target.value)).toISOString().slice(0, 16);
+            onChange({ ...r, earlyBirdEndsAt: localToOffsetIso(shifted, e.target.value) });
+          }}>
             {choices.map((c) => <option key={c.offset} value={c.offset}>{c.label}</option>)}
           </select>
         </label>
@@ -300,35 +312,42 @@ function PromoStep() {
   );
 }
 
+function WaRow({ r, o, onChange }: { r: RegistrationConfig; o: RegistrationConfig["options"][number]; onChange: (n: RegistrationConfig) => void }) {
+  const id = useId();
+  const bad = o.waGroupUrl !== "" && !isValidWaGroupUrl(o.waGroupUrl);
+  const missing = o.waGroupUrl === "";
+  const describedBy = bad ? `${id}-bad` : missing ? `${id}-missing` : undefined;
+  return (
+    <li className="space-y-1.5">
+      <label className="block space-y-1">
+        <span className={LABEL}>{`WhatsApp group link for ${o.label}`}</span>
+        <div className="flex gap-2">
+          <input type="url" aria-label={`WhatsApp group link for ${o.label}`} aria-invalid={bad || undefined} aria-describedby={describedBy} maxLength={FIELD_MAX.waUrl} placeholder="https://chat.whatsapp.com/…" className={CONTROL} value={o.waGroupUrl} onChange={(e) => onChange(updateOption(r, o.key, { waGroupUrl: e.target.value.trim() }))} />
+          <WaTestLinkButton url={o.waGroupUrl} />
+        </div>
+      </label>
+      {bad && <p id={`${id}-bad`} role="alert" className={ERROR}>Paste a WhatsApp group invite link, like https://chat.whatsapp.com/AbC123</p>}
+      {missing && (
+        <p id={`${id}-missing`} className={WARN}><AlertTriangle className="h-4 w-4 shrink-0 text-pz-warning" aria-hidden="true" />{`No group link: people who choose ${o.label} won't see a Join button.`}</p>
+      )}
+    </li>
+  );
+}
+
 function WhatsAppStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void }) {
   return (
     <div className="space-y-3">
       <p className={HELP}>People see a Join button for the group of what they chose. Several modules show each module&apos;s group; every module or the package shows only the package&apos;s group. Recorded lectures show no group.</p>
       <ul className="space-y-3">
-        {r.options.map((o) => {
-          const bad = o.waGroupUrl !== "" && !isValidWaGroupUrl(o.waGroupUrl);
-          return (
-            <li key={o.key} className="space-y-1.5">
-              <label className="block space-y-1">
-                <span className={LABEL}>{`WhatsApp group link for ${o.label}`}</span>
-                <div className="flex gap-2">
-                  <input type="url" aria-label={`WhatsApp group link for ${o.label}`} aria-invalid={bad || undefined} placeholder="https://chat.whatsapp.com/…" className={CONTROL} value={o.waGroupUrl} onChange={(e) => onChange(updateOption(r, o.key, { waGroupUrl: e.target.value.trim() }))} />
-                  <WaTestLinkButton url={o.waGroupUrl} />
-                </div>
-              </label>
-              {bad && <p role="alert" className={ERROR}>Paste a WhatsApp group invite link, like https://chat.whatsapp.com/AbC123</p>}
-              {o.waGroupUrl === "" && (
-                <p className={WARN}><AlertTriangle className="h-4 w-4 shrink-0 text-pz-warning" aria-hidden="true" />{`No group link: people who choose ${o.label} won't see a Join button.`}</p>
-              )}
-            </li>
-          );
-        })}
+        {r.options.map((o) => (
+          <WaRow key={o.key} r={r} o={o} onChange={onChange} />
+        ))}
       </ul>
       <p className={WARN}><AlertTriangle className="h-4 w-4 shrink-0 text-pz-warning" aria-hidden="true" />In WhatsApp, open each group&apos;s settings and turn on Approve new members, so only people you have verified can join.</p>
       <label className="block space-y-1">
         <span className={LABEL}>WhatsApp number for payment checks</span>
         <span className={`block ${HELP}`}>Digits only, with country code, for example 923700199429. The success screen&apos;s &quot;Message us on WhatsApp&quot; button opens a chat with this number.</span>
-        <input inputMode="numeric" aria-label="WhatsApp number for payment checks" className={CONTROL} value={r.whatsappVerifyNumber} onChange={(e) => onChange({ ...r, whatsappVerifyNumber: e.target.value.replace(/\D/g, "") })} />
+        <input inputMode="numeric" aria-label="WhatsApp number for payment checks" maxLength={FIELD_MAX.waNumber} className={CONTROL} value={r.whatsappVerifyNumber} onChange={(e) => onChange({ ...r, whatsappVerifyNumber: e.target.value.replace(/\D/g, "") })} />
       </label>
     </div>
   );
@@ -339,7 +358,7 @@ function DetailsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Reg
     <div className={cn(CARD, "space-y-4")}>
       <label className="block space-y-1">
         <span className={LABEL}>Event name in messages</span>
-        <input aria-label="Event name in messages" placeholder="PPC Batch 3" className={CONTROL} value={r.eventLabel} onChange={(e) => onChange({ ...r, eventLabel: e.target.value })} />
+        <input aria-label="Event name in messages" maxLength={FIELD_MAX.name} placeholder="PPC Batch 3" className={CONTROL} value={r.eventLabel} onChange={(e) => onChange({ ...r, eventLabel: e.target.value })} />
       </label>
       <label className="block space-y-1">
         <span className={LABEL}>Reference prefix</span>
@@ -351,19 +370,19 @@ function DetailsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Reg
       </label>
       <label className="block space-y-1">
         <span className={LABEL}>Success screen title</span>
-        <input aria-label="Success screen title" placeholder="You're registered!" className={CONTROL} value={r.successTitle} onChange={(e) => onChange({ ...r, successTitle: e.target.value })} />
+        <input aria-label="Success screen title" maxLength={FIELD_MAX.name} placeholder="You're registered!" className={CONTROL} value={r.successTitle} onChange={(e) => onChange({ ...r, successTitle: e.target.value })} />
       </label>
       <label className="block space-y-1">
         <span className={LABEL}>Seat limit</span>
         <span className={`block ${HELP}`}>Counts every person, group members included. 0 means no limit.</span>
-        <input type="number" inputMode="numeric" min={0} aria-label="Seat limit" className={`${CONTROL} w-28`} value={String(r.capacity)} onChange={(e) => onChange({ ...r, capacity: whole(e.target.value) })} />
+        <input type="number" inputMode="numeric" min={0} aria-label="Seat limit" className={`${CONTROL} w-28`} value={String(r.capacity)} onChange={(e) => onChange({ ...r, capacity: whole(e.target.value, 0, MAX_CAPACITY) })} />
       </label>
       <LinesField label="Professions" help="One per line." value={r.professions} onChange={(v) => onChange({ ...r, professions: v })} />
       <LinesField label="How did you hear about us? choices" help="One per line. Leave empty to hide the question." value={r.discoveryOptions} onChange={(v) => onChange({ ...r, discoveryOptions: v })} />
       <label className="block space-y-1">
         <span className={LABEL}>Meta Pixel ID (optional)</span>
         <span className={`block ${HELP}`}>Leave empty to use the academy&apos;s main Pixel.</span>
-        <input inputMode="numeric" aria-label="Meta Pixel ID (optional)" className={CONTROL} value={r.pixelId} onChange={(e) => onChange({ ...r, pixelId: e.target.value.replace(/\D/g, "") })} />
+        <input inputMode="numeric" aria-label="Meta Pixel ID (optional)" maxLength={FIELD_MAX.pixel} className={CONTROL} value={r.pixelId} onChange={(e) => onChange({ ...r, pixelId: e.target.value.replace(/\D/g, "") })} />
       </label>
     </div>
   );
@@ -379,7 +398,7 @@ function LinesField({ label, help, value, onChange }: { label: string; help: str
     <label className="block space-y-1">
       <span className={LABEL}>{label}</span>
       <span className={`block ${HELP}`}>{help}</span>
-      <textarea aria-label={label} rows={4} className={CONTROL} value={text} onChange={(e) => { setText(e.target.value); onChange(lines(e.target.value)); }} />
+      <textarea aria-label={label} rows={4} className={CONTROL} value={text} onChange={(e) => { setText(e.target.value); onChange(lines(e.target.value).slice(0, FIELD_MAX.listCount).map((l) => l.slice(0, FIELD_MAX.listItem))); }} />
     </label>
   );
 }
