@@ -1,7 +1,45 @@
 // src/lib/landing/templates-data/mdc-batch-3.ts
 // Seed copy extracted verbatim from "Landing pages/Workshop/MDC-B3-Landing.html".
 import type { LandingContent } from "@/lib/landing/content";
-import { DEFAULT_REGISTRATION } from "@/lib/landing/registration/config";
+import type { RegistrationConfig } from "@/lib/landing/registration/config";
+
+// Registration settings copied from the legacy MDC page. Group = 3 to 50 people at 20% off;
+// recorded = 85% of the regular price. "Other" country becomes International (USD, PayPal).
+const MDC_REGISTRATION: RegistrationConfig = {
+  enabled: true,
+  modes: ["live", "recorded"],
+  recordedPercentOfRegular: 85,
+  regions: [
+    { key: "PK", label: "Pakistan", currency: "PKR", classTime: "7:30 PM", timezoneLabel: "PKT", accountKeys: ["easypaisa", "faysal"] },
+    { key: "UAE", label: "United Arab Emirates", currency: "AED", classTime: "6:30 PM", timezoneLabel: "UAE Time", accountKeys: ["paypal", "mashreq"] },
+    { key: "KSA", label: "Saudi Arabia", currency: "SAR", classTime: "5:30 PM", timezoneLabel: "KSA Time", accountKeys: ["paypal", "anb"] },
+    { key: "INTL", label: "International", currency: "USD", classTime: "7:30 PM PKT", timezoneLabel: "Your Local Time", accountKeys: ["paypal"] },
+  ],
+  defaultRegionKey: "PK",
+  options: [
+    { key: "workshop", label: "Mastering Dose Calculation Workshop", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/JcC6Hmmek4W42vUur36K4w" },
+  ],
+  moduleMix: { enabled: false, bundleOptionKey: "" },
+  tiers: [{ key: "group", label: "Group (3+)", minSize: 3, maxSize: 50, percentOff: 20 }],
+  prices: {
+    workshop: {
+      PK: { amount: 3500, earlyAmount: 2700 },
+      UAE: { amount: 100, earlyAmount: 80 },
+      KSA: { amount: 100, earlyAmount: 80 },
+      INTL: { amount: 27, earlyAmount: 22 },
+    },
+  },
+  // REVIEW for a new batch: Batch 3's Early Bird ended 29 Aug 2026, 23:59:59 PKT.
+  earlyBirdEndsAt: "2026-08-29T18:59:59Z",
+  capacity: 100,
+  whatsappVerifyNumber: "923700199429",
+  successTitle: "Registration Submitted!",
+  eventLabel: "MDC Workshop",
+  refPrefix: "MDC",
+  professions: ["PharmD Student", "Fresh Graduate", "Hospital Pharmacist", "Clinical Pharmacist", "Pharmacy Technician", "Nurse", "Medical Student", "Junior Doctor", "Allied Health Professional", "Other"],
+  discoveryOptions: ["WhatsApp", "Instagram", "Facebook", "LinkedIn", "Friend / Colleague", "Email", "Search Engine (Google etc.)", "Other"],
+  pixelId: "",
+};
 
 export const MDC_BATCH_3: LandingContent = {
   settings: {
@@ -25,7 +63,7 @@ export const MDC_BATCH_3: LandingContent = {
     "pricing:items.0.price", "pricing:items.1.price",
     "faq:items.5.a",
   ],
-  registration: structuredClone(DEFAULT_REGISTRATION),
+  registration: MDC_REGISTRATION,
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

@@ -1,7 +1,40 @@
 // src/lib/landing/templates-data/w20-diabetes.ts
 // Seed copy extracted verbatim from "Landing pages/Webinar/Webinar20 Landing.html".
 import type { LandingContent } from "@/lib/landing/content";
-import { DEFAULT_REGISTRATION } from "@/lib/landing/registration/config";
+import type { RegistrationConfig } from "@/lib/landing/registration/config";
+
+// Registration settings copied from the legacy Webinar 20 page. Free has no Philippines price
+// because the Philippines page was Pro only. Groups of 3+ get 20% off Pro (Free cannot be a group).
+// The legacy page had no verify message; the verify number is its WhatsApp support number.
+const W20_REGISTRATION: RegistrationConfig = {
+  enabled: true,
+  modes: ["live"],
+  recordedPercentOfRegular: 100,
+  regions: [
+    { key: "PK", label: "Pakistan", currency: "PKR", classTime: "7:30 PM", timezoneLabel: "PKT", accountKeys: ["paypal", "easypaisa", "faysal"] },
+    { key: "PH", label: "Philippines", currency: "PHP", classTime: "10:30 PM", timezoneLabel: "Philippine Time", accountKeys: ["paypal", "pnb_ph"] },
+  ],
+  defaultRegionKey: "PK",
+  options: [
+    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: "https://chat.whatsapp.com/HKo9nNrUCsB84AXPD3QPmH" },
+    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/Bf6XZabVsORFh237IRN7Az" },
+  ],
+  moduleMix: { enabled: false, bundleOptionKey: "" },
+  tiers: [{ key: "group", label: "Group (3+)", minSize: 3, maxSize: 50, percentOff: 20 }],
+  prices: {
+    free: { PK: { amount: 0 } },
+    pro: { PK: { amount: 399 }, PH: { amount: 150 } },
+  },
+  earlyBirdEndsAt: "",
+  capacity: 0,
+  whatsappVerifyNumber: "923155614490",
+  successTitle: "You're Registered!",
+  eventLabel: "Webinar 20: Diabetes Pharmacotherapy",
+  refPrefix: "DPT",
+  professions: [], // the legacy page used a free-text "Profession / Affiliation" field
+  discoveryOptions: ["Instagram", "Facebook", "WhatsApp", "LinkedIn", "PZ Academy Email", "Past PZ Academy Webinar", "Friend / Colleague", "Google / Search", "Other"],
+  pixelId: "",
+};
 
 export const W20_DIABETES: LandingContent = {
   settings: {
@@ -20,7 +53,7 @@ export const W20_DIABETES: LandingContent = {
   },
   // The webinar date goes stale: readiness asks the admin to update or keep it.
   needsReview: ["hero:dateLine"],
-  registration: structuredClone(DEFAULT_REGISTRATION),
+  registration: W20_REGISTRATION,
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

@@ -1,7 +1,7 @@
 // tests/landing-templates.test.ts
 import { describe, it, expect } from "vitest";
 import { TEMPLATES, buildTemplate } from "@/lib/landing/templates";
-import { clearReview, computeReadiness, contentSchema } from "@/lib/landing/content";
+import { clearReview, computeReadiness, contentSchema, updateRegistration } from "@/lib/landing/content";
 
 describe("templates", () => {
   it("lists blank templates for every kind plus the three seeded pages", () => {
@@ -25,8 +25,8 @@ describe("templates", () => {
       for (const p of review) expect(p.message, id).toMatch(/^Update the event dates and prices in /);
     }
   });
-  it("PPC and MDC are publishable once their flagged fields are kept", () => {
-    for (const id of ["ppc-batch-3", "mdc-batch-3"]) {
+  it("seeded templates are publishable once their flagged fields are kept", () => {
+    for (const id of ["ppc-batch-3", "mdc-batch-3", "w20-diabetes"]) {
       const t = TEMPLATES.find((x) => x.id === id)!;
       const c = buildTemplate(id, t.kind)!;
       expect(computeReadiness(clearReview(c, c.needsReview), { title: t.label, slug: id }).problems, id).toEqual([]);
@@ -57,11 +57,12 @@ describe("templates", () => {
       expect(TEMPLATES.find((x) => x.id === id)!.description, id).toMatch(/Update the dates and prices before publishing\./);
     }
   });
-  it("W20 ships with a blank Register link so readiness blocks publish until the admin sets one", () => {
+  it("W20 has no Register link of its own, so it relies on the built-in registration", () => {
     const t = TEMPLATES.find((x) => x.id === "w20-diabetes")!;
     const c = buildTemplate(t.id, t.kind)!;
     expect(c.settings.registerUrl).toBe("");
-    const r = computeReadiness(c, { title: t.label, slug: t.id });
+    expect(c.registration.enabled).toBe(true);
+    const r = computeReadiness(updateRegistration(clearReview(c, c.needsReview), { enabled: false }), { title: t.label, slug: t.id });
     expect(r.ready).toBe(false);
     expect(r.problems.some((p) => /Register button/i.test(p.message))).toBe(true);
   });
