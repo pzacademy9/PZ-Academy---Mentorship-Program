@@ -127,7 +127,7 @@ describe("publish", () => {
     expect((await res.json()).problems).toEqual([{ message: "Fill in \"Headline\"" }]);
   });
   it("returns ok when published", async () => {
-    publishLandingPage.mockResolvedValue({ ok: true });
+    publishLandingPage.mockResolvedValue({ ok: true, version: 1 });
     expect((await publish(req({}), ctx)).status).toBe(200);
     expect(publishLandingPage).toHaveBeenCalledWith("admin-user", "p1");
   });
@@ -152,7 +152,7 @@ describe("publish", () => {
 describe("rollback / duplicate / status", () => {
   it("rollback needs a positive integer version", async () => {
     expect((await rollback(req({ version: 0 }), ctx)).status).toBe(400);
-    rollbackLandingPage.mockResolvedValue({ ok: true });
+    rollbackLandingPage.mockResolvedValue({ ok: true, version: 1 });
     expect((await rollback(req({ version: 2 }), ctx)).status).toBe(200);
     expect(rollbackLandingPage).toHaveBeenCalledWith("admin-user", "p1", 2);
   });

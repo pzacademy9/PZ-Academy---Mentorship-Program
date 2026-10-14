@@ -86,6 +86,17 @@ describe("rollbackLandingPage (atomic RPC)", () => {
   });
 });
 
+describe("saveDraft", () => {
+  it("stale revision with an existing page is a conflict", async () => {
+    handler = (o) => (o.op === "update" ? { data: null, error: null } : { data: { id: "p1" }, error: null });
+    expect(await saveDraft("p1", content, 1)).toEqual({ ok: false, reason: "conflict" });
+  });
+  it("missing page is not-found", async () => {
+    handler = () => ({ data: null, error: null });
+    expect(await saveDraft("p1", content, 1)).toEqual({ ok: false, reason: "not-found" });
+  });
+});
+
 describe("publishLandingPage", () => {
   it("incomplete draft returns not-ready with problems and writes nothing", async () => {
     handler = (o) => (o.table === "landing_pages" && o.op === "select" ? { data: pageRow({ status: "draft", published: null }), error: null } : { data: null, error: null });
