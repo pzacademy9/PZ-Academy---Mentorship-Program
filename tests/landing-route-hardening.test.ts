@@ -22,11 +22,19 @@ vi.mock("@/components/admin/landing/PreviewTarget", () => ({ PreviewTarget: () =
 const extra = vi.hoisted(() => ({
   getPageSheetInfo: vi.fn(), saveEventSheet: vi.fn(), createEventSheet: vi.fn(),
   retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), runInBackground: vi.fn(),
+  listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getOrCreateAgentLink: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
 vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
 vi.mock("@/lib/data/landing-jobs", () => ({ retryFailedJobs: extra.retryFailedJobs, drainDueJobs: extra.drainDueJobs }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: extra.runInBackground }));
+vi.mock("@/lib/data/landing-promo-codes", () => ({
+  listPromoCodes: extra.listPromoCodes, createPromoCode: extra.createPromoCode, updatePromoCode: extra.updatePromoCode,
+}));
+vi.mock("@/lib/data/landing-agent-links", () => ({
+  getOrCreateAgentLink: extra.getOrCreateAgentLink,
+  AgentLinkError: class AgentLinkError extends Error {},
+}));
 
 import { POST as create } from "@/app/api/admin/landing-pages/route";
 import { PATCH as patchDraft } from "@/app/api/admin/landing-pages/[id]/route";
@@ -39,6 +47,9 @@ import EditorPage from "@/app/dashboard/admin/landing-pages/[id]/page";
 import PreviewPage from "@/app/dashboard/admin/landing-pages/[id]/preview/page";
 import { POST as createSheet } from "@/app/api/admin/landing-pages/[id]/sheet/route";
 import { POST as retryJobs } from "@/app/api/admin/landing-pages/[id]/jobs/retry/route";
+import { GET as listPromos, POST as createPromo } from "@/app/api/admin/landing-promo-codes/route";
+import { PATCH as patchPromo } from "@/app/api/admin/landing-promo-codes/[id]/route";
+import { POST as agentLink } from "@/app/api/admin/landing-agent-links/route";
 import { emptyContent } from "@/lib/landing/content";
 
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -57,7 +68,13 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-pages/[id]/rename/route.ts": () => rename(req({ title: "New name" }), ctx),
   "landing-pages/[id]/sheet/route.ts": () => createSheet(req({}), ctx),
   "landing-pages/[id]/jobs/retry/route.ts": () => retryJobs(req({}), ctx),
+  "landing-promo-codes/route.ts": () => createPromo(req({ code: "PZ10" })),
+  "landing-promo-codes/[id]/route.ts": () => patchPromo(req({ active: false }, "PATCH"), ctx),
+  "landing-agent-links/route.ts": () => agentLink(req({ agentId: ID })),
 };
+// A second handler in an already-listed route file (the coverage scan counts files, not handlers).
+const EXTRA_HANDLERS: [string, () => Promise<Response>][] = [["landing-promo-codes/route.ts GET", () => listPromos()]];
+const ADMIN_LANDING_DIRS = ["landing-pages", "landing-promo-codes", "landing-agent-links"];
 
 function routeFiles(dir: string): string[] {
   const out: string[] = [];
@@ -75,9 +92,11 @@ beforeEach(() => {
 });
 
 describe("landing admin routes refuse anyone who is not an admin", () => {
-  it("covers every route file under /api/admin/landing-pages", () => {
+  it("covers every landing route file under /api/admin", () => {
     const base = join(process.cwd(), "src", "app", "api", "admin");
-    const found = routeFiles(join(base, "landing-pages")).map((f) => relative(base, f).replace(/[\\]/g, "/")).sort();
+    const found = ADMIN_LANDING_DIRS.flatMap((d) => routeFiles(join(base, d)))
+      .map((f) => relative(base, f).replace(/[\\]/g, "/"))
+      .sort();
     expect(found).toEqual(Object.keys(ROUTES).sort());
   });
   it.each([
@@ -85,7 +104,7 @@ describe("landing admin routes refuse anyone who is not an admin", () => {
     [403, "Forbidden"],
   ])("answers %s and touches no data", async (code, message) => {
     gate.result = { ok: false, response: NextResponse.json({ error: message }, { status: code }) };
-    for (const [name, call] of Object.entries(ROUTES)) {
+    for (const [name, call] of [...Object.entries(ROUTES), ...EXTRA_HANDLERS]) {
       gate.result = { ok: false, response: NextResponse.json({ error: message }, { status: code }) };
       const res = await call();
       expect(res.status, name).toBe(code);
