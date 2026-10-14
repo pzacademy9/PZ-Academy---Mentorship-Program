@@ -12,7 +12,8 @@ export const maxDuration = 60;
  */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+  // Fail closed: with no CRON_SECRET configured the route is not callable at all.
+  if (!cronSecret || req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const result = await drainDueJobs(25);

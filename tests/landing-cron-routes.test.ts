@@ -23,12 +23,22 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("GET /api/cron/landing-jobs", () => {
-  it("requires the bearer secret when CRON_SECRET is set", async () => {
-    vi.stubEnv("CRON_SECRET", "s3cret");
-    const bad = await cron(new Request("http://x", { headers: { authorization: "Bearer nope" } }) as never);
-    expect(bad.status).toBe(401);
+  const call = (headers: Record<string, string> = {}) => cron(new Request("http://x", { headers }) as never);
+  it("401s when CRON_SECRET is unset, even with a header", async () => {
+    vi.stubEnv("CRON_SECRET", "");
+    expect((await call()).status).toBe(401);
+    expect((await call({ authorization: "Bearer " })).status).toBe(401);
     expect(m.drainDueJobs).not.toHaveBeenCalled();
-    const ok = await cron(new Request("http://x", { headers: { authorization: "Bearer s3cret" } }) as never);
+  });
+  it("401s a missing or wrong header", async () => {
+    vi.stubEnv("CRON_SECRET", "s3cret");
+    expect((await call()).status).toBe(401);
+    expect((await call({ authorization: "Bearer nope" })).status).toBe(401);
+    expect(m.drainDueJobs).not.toHaveBeenCalled();
+  });
+  it("runs with the correct bearer secret", async () => {
+    vi.stubEnv("CRON_SECRET", "s3cret");
+    const ok = await call({ authorization: "Bearer s3cret" });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({ ok: true, ran: 2, failed: 0 });
   });

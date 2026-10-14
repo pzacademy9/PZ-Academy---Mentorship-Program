@@ -111,22 +111,35 @@ export async function drainDueJobs(limit = 25): Promise<{ ran: number; failed: n
   return { ran, failed };
 }
 
-/** Admin Retry: failed jobs of one page go back to pending with a fresh attempt budget. */
+/**
+ * Admin Retry: failed jobs of one page go back to pending with a fresh attempt budget.
+ * Failed jobs are found through the FK (no registration-id list, so no max_rows truncation
+ * or long URLs) and requeued in small batches until none are left.
+ */
 export async function retryFailedJobs(pageId: string): Promise<number> {
   const admin = createAdminSupabase();
-  const { data: regs, error } = await admin.from("landing_registrations").select("id").eq("page_id", pageId).in("row_type", ["individual", "lead"]);
-  if (error) throw error;
-  const ids = (regs ?? []).map((r) => r.id);
+  const BATCH = 100;
   let total = 0;
-  for (let i = 0; i < ids.length; i += 200) {
-    const { data, error: upErr } = await admin
+  for (let round = 0; round < 1000; round++) {
+    const { data, error } = await admin
+      .from("landing_jobs")
+      .select("id, landing_registrations!inner(page_id)")
+      .eq("status", "failed")
+      .eq("landing_registrations.page_id", pageId)
+      .limit(BATCH);
+    if (error) throw error;
+    const ids = ((data ?? []) as { id: string }[]).map((j) => j.id);
+    if (ids.length === 0) break;
+    const { data: updated, error: upErr } = await admin
       .from("landing_jobs")
       .update({ status: "pending", attempts: 0, next_run_at: new Date().toISOString() })
-      .in("registration_id", ids.slice(i, i + 200))
+      .in("id", ids)
       .eq("status", "failed")
       .select("id");
     if (upErr) throw upErr;
-    total += (data ?? []).length;
+    const n = (updated ?? []).length;
+    total += n;
+    if (n === 0 || ids.length < BATCH) break;
   }
   return total;
 }

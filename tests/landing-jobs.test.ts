@@ -104,14 +104,27 @@ describe("drainDueJobs and retryFailedJobs", () => {
     ] });
     expect(await drainDueJobs(10)).toEqual({ ran: 3, failed: 1 });
   });
-  it("requeues failed jobs of one page", async () => {
-    const store = {
-      landing_registrations: [{ id: "reg-1", page_id: "page-1", row_type: "lead" }, { id: "reg-9", page_id: "page-2", row_type: "individual" }],
-      landing_jobs: [job({ status: "failed", attempts: 5 }), job({ id: "j2", registration_id: "reg-9", status: "failed", attempts: 5 }), job({ id: "j3", status: "done" })],
+  it("requeues failed jobs of one page through the FK join, in batches, counting updates", async () => {
+    const failed = Array.from({ length: 150 }, (_, i) => ({ id: `f${i}`, status: "failed" }));
+    const updates: string[][] = [];
+    db.state.handler = (op) => {
+      if (op.op === "select") {
+        expect(filterValue(op, "eq", "landing_registrations.page_id")).toBe("page-1");
+        expect(filterValue(op, "eq", "status")).toBe("failed");
+        const rows = failed.filter((j) => j.status === "failed").slice(0, op.limit);
+        return { data: rows.map((j) => ({ id: j.id, landing_registrations: { page_id: "page-1" } })), error: null };
+      }
+      const ids = filterValue(op, "in", "id") as string[];
+      updates.push(ids);
+      expect(op.payload).toMatchObject({ status: "pending", attempts: 0, next_run_at: NOW.toISOString() });
+      for (const j of failed) if (ids.includes(j.id)) j.status = "pending";
+      return { data: ids.map((id) => ({ id })), error: null };
     };
-    db.state.handler = memoryHandler(store);
-    expect(await retryFailedJobs("page-1")).toBe(1);
-    expect(store.landing_jobs[0]).toMatchObject({ status: "pending", attempts: 0, next_run_at: NOW.toISOString() });
-    expect(store.landing_jobs[1]).toMatchObject({ status: "failed" });
+    expect(await retryFailedJobs("page-1")).toBe(150);
+    expect(updates.map((u) => u.length)).toEqual([100, 50]);
+  });
+  it("throws when the lookup fails", async () => {
+    db.state.handler = () => ({ data: null, error: { code: "08006" } });
+    await expect(retryFailedJobs("page-1")).rejects.toBeTruthy();
   });
 });
