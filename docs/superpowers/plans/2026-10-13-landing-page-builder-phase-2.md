@@ -20129,3 +20129,15 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 Report: the Status section's content, the branch and last commit, that nothing was pushed, and the push/PR decision that is now theirs. Update the controller's memory note for the landing page builder (`pz-academy-landing-page-builder-status.md`) with: Phase 2 built and verified on `<date>`, branch `landing-page-builder` at `<sha>`, local only, awaiting the push/PR decision; Phase 3 scope as listed above.
 
 
+
+## Status (2026-10-15)
+
+- Built and live-verified on branch `landing-page-builder` (local, not pushed). Last code commit: `0085eb9`.
+- Automated: tsc 0 errors; vitest 2241/2242, only the known `tests/pz-tokens.test.ts` (SalesTeamPanel) fails.
+- Bundle: `/e/[slug]` first-load JS 130.4 KB gzipped (429.7 KB raw); the registration modal is a lazy chunk (`scripts/check-landing-bundle.mjs` PASS). Live check found `/e/[slug]` and `/e/[slug]/status` were served `no-store` (Next 14.2.5 treats a `[slug]` route without `generateStaticParams` as dynamic); fixed in `0085eb9`, now `s-maxage=3600` with `x-nextjs-cache: HIT`.
+- Performance (Chrome trace, production build, mobile 390x844, Fast 4G, 4x CPU, 3 runs): LCP 1196 / 959 / 1195 ms, CLS 0.00 / 0.03 / 0.03. Not a Lighthouse score; the audit tool available excludes performance.
+- Meta Pixel: with `fbevents.js` stubbed so nothing reached Meta, the queue shows init, PageView, ViewContent, Lead (modal open), InitiateCheckout, CompleteRegistration, each with its own eventID. NOT done: real Pixel Helper and Events Manager Test Events, and the check that CompleteRegistration eventID matches `landing_registrations.event_id` in Meta.
+- End-to-end (Task 23 Step 6): items 1-16 pass (see the live test log). One minor finding: in test mode the Pay step applies a promo and shows PKR 4,320, but the test registration is priced without the promo (4,800).
+- ZZ data removed 2026-10-15 (SQL pasted by the user, read-only recount all zero). The ZZ PPC test Drive sheet, its voucher folder and one orphan Drive file are still to be deleted by hand.
+- Deferred to Phase 3 (unchanged): status emails (Paid/Pending/Underpaid/Reserved), editable Emails tab, two-way Sheet sync, Meta CAPI Purchase, Registrations screen, payment-accounts management, agent "My links" panel and leaderboard. Also deferred: voucher resubmission (a corrected receipt inside the 15-minute replay window is silently dropped).
+- Open items found during verification: test-mode price preview disagrees with the quote; sheet column Q shows raw `received_sent`; sheet money shows `PKR 4800` without a thousands separator; Individual rows have Group Lead Email filled; no Vercel WAF rate limits on `/api/landing/*`; Supabase "Confirm email" setting unverified (guest linking trusts `email_confirmed_at`); Vercel Hobby cron is daily only.
