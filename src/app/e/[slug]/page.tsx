@@ -7,6 +7,11 @@ import { LandingRenderer } from "@/components/landing/LandingRenderer";
 // Static + cached: this route must NOT read the cookie or header APIs, or it becomes dynamic. The
 // registration modal fetches the visitor's profile, country and prices client-side after it opens.
 export const revalidate = 3600;
+// On-demand ISR: no slugs are known at build time, each is rendered on first hit and then cached.
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

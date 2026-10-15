@@ -7,6 +7,11 @@ import { StatusLookup } from "@/components/landing/registration/StatusLookup";
 // Static + cached like /e/[slug]: this route must not read request cookies or headers. The lookup itself
 // runs in the browser against GET /api/landing/[slug]/status, so nothing personal is ever cached.
 export const revalidate = 3600;
+// On-demand ISR: no slugs are known at build time, each is rendered on first hit and then cached.
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  return [];
+}
 
 export const metadata: Metadata = {
   title: "Check your registration",
