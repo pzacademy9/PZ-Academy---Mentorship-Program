@@ -4,9 +4,14 @@ import type { Metadata } from "next";
 import { getPublishedLandingPage } from "@/lib/data/landing-pages";
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
 
-// Static + cached: this route must NOT read cookies() or headers(), or it becomes
-// dynamic. Phase 2's registration widget detects the logged-in user client-side.
+// Static + cached: this route must NOT read the cookie or header APIs, or it becomes dynamic. The
+// registration modal fetches the visitor's profile, country and prices client-side after it opens.
 export const revalidate = 3600;
+// On-demand ISR: no slugs are known at build time, each is rendered on first hit and then cached.
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -25,5 +30,5 @@ export default async function LandingPublicPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const found = await getPublishedLandingPage(slug);
   if (!found) notFound();
-  return <LandingRenderer content={found.content} status={found.page.status} kind={found.page.kind} pageTitle={found.page.title} />;
+  return <LandingRenderer content={found.content} status={found.page.status} kind={found.page.kind} pageTitle={found.page.title} slug={found.page.slug} />;
 }

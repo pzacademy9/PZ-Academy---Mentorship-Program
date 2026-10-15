@@ -1372,6 +1372,124 @@ export type Database = {
           },
         ]
       }
+      landing_agent_links: {
+        Row: {
+          agent_id: string
+          code: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          agent_id: string
+          code: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          agent_id?: string
+          code?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_agent_links_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_funnel_events: {
+        Row: {
+          agent_id: string | null
+          at: string
+          id: number
+          page_id: string
+          session_id: string
+          type: string
+          utm: Json
+        }
+        Insert: {
+          agent_id?: string | null
+          at?: string
+          id?: never
+          page_id: string
+          session_id: string
+          type: string
+          utm?: Json
+        }
+        Update: {
+          agent_id?: string | null
+          at?: string
+          id?: never
+          page_id?: string
+          session_id?: string
+          type?: string
+          utm?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_funnel_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_funnel_events_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          next_run_at: string
+          registration_id: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_run_at?: string
+          registration_id: string
+          status?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_run_at?: string
+          registration_id?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_jobs_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_page_versions: {
         Row: {
           content: Json
@@ -1409,48 +1527,364 @@ export type Database = {
       }
       landing_pages: {
         Row: {
+          course_id: string | null
           created_at: string
           created_by: string | null
           draft: Json
+          drive_folder_id: string | null
           id: string
           kind: string
           published: Json | null
           published_at: string | null
+          ref_prefix: string | null
           revision: number
+          sheet_id: string | null
           slug: string
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          course_id?: string | null
           created_at?: string
           created_by?: string | null
           draft: Json
+          drive_folder_id?: string | null
           id?: string
           kind: string
           published?: Json | null
           published_at?: string | null
+          ref_prefix?: string | null
           revision?: number
+          sheet_id?: string | null
           slug: string
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          course_id?: string | null
           created_at?: string
           created_by?: string | null
           draft?: Json
+          drive_folder_id?: string | null
           id?: string
           kind?: string
           published?: Json | null
           published_at?: string | null
+          ref_prefix?: string | null
           revision?: number
+          sheet_id?: string | null
           slug?: string
           status?: string
           title?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "landing_pages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_promo_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          fixed_amounts: Json
+          id: string
+          max_discount_percent: number
+          max_uses: number | null
+          one_per_email: boolean
+          option_keys: string[]
+          owner_agent_id: string | null
+          page_ids: string[]
+          starts_at: string | null
+          type: string
+          updated_at: string
+          used_count: number
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          fixed_amounts?: Json
+          id?: string
+          max_discount_percent?: number
+          max_uses?: number | null
+          one_per_email?: boolean
+          option_keys?: string[]
+          owner_agent_id?: string | null
+          page_ids?: string[]
+          starts_at?: string | null
+          type: string
+          updated_at?: string
+          used_count?: number
+          value?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          fixed_amounts?: Json
+          id?: string
+          max_discount_percent?: number
+          max_uses?: number | null
+          one_per_email?: boolean
+          option_keys?: string[]
+          owner_agent_id?: string | null
+          page_ids?: string[]
+          starts_at?: string | null
+          type?: string
+          updated_at?: string
+          used_count?: number
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_promo_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_promo_codes_owner_agent_id_fkey"
+            columns: ["owner_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_ref_counters: {
+        Row: {
+          last_number: number
+          prefix: string
+          updated_at: string
+        }
+        Insert: {
+          last_number?: number
+          prefix: string
+          updated_at?: string
+        }
+        Update: {
+          last_number?: number
+          prefix?: string
+          updated_at?: string
+        }
         Relationships: []
+      }
+      landing_registrations: {
+        Row: {
+          agent_id: string | null
+          amount_received: number | null
+          city: string
+          consent: boolean
+          created_at: string
+          currency: string
+          discovery: string
+          email: string
+          email_status: string
+          event_id: string
+          expected_amount: number
+          fbc: string
+          fbp: string
+          group_size: number
+          id: string
+          is_test: boolean
+          lead_registration_id: string | null
+          mode: string
+          name: string
+          option_keys: string[]
+          option_label: string
+          page_id: string
+          payment_method: string
+          profession: string
+          promo_code_id: string | null
+          promo_code_text: string
+          ref_id: string | null
+          referral_code: string
+          region: string
+          row_type: string
+          session_id: string
+          status: string
+          status_changed_at: string | null
+          status_source: string
+          student_id: string | null
+          tier_key: string
+          updated_at: string
+          utm: Json
+          voucher_url: string
+          whatsapp: string
+        }
+        Insert: {
+          agent_id?: string | null
+          amount_received?: number | null
+          city?: string
+          consent?: boolean
+          created_at?: string
+          currency: string
+          discovery?: string
+          email: string
+          email_status?: string
+          event_id?: string
+          expected_amount?: number
+          fbc?: string
+          fbp?: string
+          group_size?: number
+          id?: string
+          is_test?: boolean
+          lead_registration_id?: string | null
+          mode?: string
+          name: string
+          option_keys?: string[]
+          option_label?: string
+          page_id: string
+          payment_method?: string
+          profession?: string
+          promo_code_id?: string | null
+          promo_code_text?: string
+          ref_id?: string | null
+          referral_code?: string
+          region: string
+          row_type: string
+          session_id?: string
+          status?: string
+          status_changed_at?: string | null
+          status_source?: string
+          student_id?: string | null
+          tier_key?: string
+          updated_at?: string
+          utm?: Json
+          voucher_url?: string
+          whatsapp?: string
+        }
+        Update: {
+          agent_id?: string | null
+          amount_received?: number | null
+          city?: string
+          consent?: boolean
+          created_at?: string
+          currency?: string
+          discovery?: string
+          email?: string
+          email_status?: string
+          event_id?: string
+          expected_amount?: number
+          fbc?: string
+          fbp?: string
+          group_size?: number
+          id?: string
+          is_test?: boolean
+          lead_registration_id?: string | null
+          mode?: string
+          name?: string
+          option_keys?: string[]
+          option_label?: string
+          page_id?: string
+          payment_method?: string
+          profession?: string
+          promo_code_id?: string | null
+          promo_code_text?: string
+          ref_id?: string | null
+          referral_code?: string
+          region?: string
+          row_type?: string
+          session_id?: string
+          status?: string
+          status_changed_at?: string | null
+          status_source?: string
+          student_id?: string | null
+          tier_key?: string
+          updated_at?: string
+          utm?: Json
+          voucher_url?: string
+          whatsapp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_registrations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_registrations_lead_registration_id_fkey"
+            columns: ["lead_registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_registrations_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_registrations_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "landing_promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_registrations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_status_events: {
+        Row: {
+          at: string
+          from_status: string | null
+          id: string
+          registration_id: string
+          source: string
+          to_status: string
+        }
+        Insert: {
+          at?: string
+          from_status?: string | null
+          id?: string
+          registration_id: string
+          source: string
+          to_status: string
+        }
+        Update: {
+          at?: string
+          from_status?: string | null
+          id?: string
+          registration_id?: string
+          source?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_status_events_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lead_campaigns: {
         Row: {
@@ -2177,6 +2611,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_accounts: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_text: string
+          key: string
+          kind: string
+          label: string
+          rows: Json
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_text?: string
+          key: string
+          kind: string
+          label: string
+          rows?: Json
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_text?: string
+          key?: string
+          kind?: string
+          label?: string
+          rows?: Json
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -2982,6 +3452,24 @@ export type Database = {
           question: string
           question_id: string
         }[]
+      }
+      landing_create_registration: {
+        Args: {
+          p_capacity?: number
+          p_is_test?: boolean
+          p_page_id: string
+          p_promo_id?: string | null
+          p_rows: Json
+        }
+        Returns: Json
+      }
+      landing_publish_page: {
+        Args: { p_page_id: string; p_revision?: number; p_user: string }
+        Returns: number
+      }
+      landing_rollback_page: {
+        Args: { p_page_id: string; p_user: string; p_version: number }
+        Returns: number
       }
       mentor_review_stats: {
         Args: { p_mentor_ids: string[] }

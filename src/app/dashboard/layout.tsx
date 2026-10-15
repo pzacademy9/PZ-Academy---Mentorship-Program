@@ -4,12 +4,18 @@ import { type Role } from "@/lib/roles";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { getNotificationSummary } from "@/lib/data/notifications";
+import { runInBackground } from "@/lib/landing/registration/background";
+import { linkGuestRegistrations } from "@/lib/landing/registration/link-student";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  // Password sign-ins never pass through /auth/callback, so guest landing registrations are linked
+  // here too. In the background and idempotent: it never delays or breaks the dashboard.
+  runInBackground(linkGuestRegistrations(user));
 
   const { data: profile } = await supabase
     .from("profiles")

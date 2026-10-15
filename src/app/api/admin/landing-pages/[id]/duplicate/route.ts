@@ -2,12 +2,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { duplicateLandingPage } from "@/lib/data/landing-pages";
-import { duplicateSchema } from "@/lib/validations/landing";
+import { duplicateSchema, isPageId } from "@/lib/validations/landing";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
+  if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
   const parsed = duplicateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

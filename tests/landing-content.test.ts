@@ -167,3 +167,99 @@ describe("contentSchema rejects bad input", () => {
     expect(contentSchema.safeParse(updateSettings(ok(), { registerUrl: "javascript:x" })).success).toBe(false);
   });
 });
+
+import { clearReview } from "@/lib/landing/content";
+
+describe("needsReview (template flags)", () => {
+  const page = { title: "PPC Batch 4", slug: "ppc-b4" };
+  const flaggedHero = () => {
+    let c = emptyContent("webinar");
+    for (const s of c.sections) if (s.type !== "hero") c = removeSection(c, s.id);
+    const hero = c.sections[0];
+    c = updateSectionData(c, hero.id, { headline: "Diabetes webinar", dateLine: "16th September 2026", eyebrow: "LIVE" });
+    c = updateSettings(c, { registerUrl: "https://pharmacozyme.com/register" });
+    c = { ...c, seo: { ...c.seo, description: "A one hour webinar." }, needsReview: [`${hero.id}:dateLine`, `${hero.id}:eyebrow`] };
+    return { c, hero };
+  };
+
+  it("defaults to an empty list and keeps only string paths when loading", () => {
+    expect(emptyContent("course").needsReview).toEqual([]);
+    expect(normalizeContent({ sections: [] }).needsReview).toEqual([]);
+    expect(normalizeContent({ sections: [], needsReview: ["a:headline", 42, null] }).needsReview).toEqual(["a:headline"]);
+  });
+  it("survives the save schema (not stripped by the PATCH parse)", () => {
+    const { c } = flaggedHero();
+    expect(normalizeContent(contentSchema.parse(c)).needsReview).toEqual(c.needsReview);
+  });
+  it("blocks publishing with one plain problem per section that jumps to the first flagged field", () => {
+    const { c, hero } = flaggedHero();
+    const r = computeReadiness(c, page);
+    expect(r.ready).toBe(false);
+    const p = r.problems.find((x) => x.review)!;
+    expect(p.message).toMatch(/^Update the event dates and prices in "Hero \(top of page\)": 2 fields still show/);
+    expect(p.sectionId).toBe(hero.id);
+    expect(p.field).toBe("dateLine");
+    expect(p.review).toEqual([`${hero.id}:dateLine`, `${hero.id}:eyebrow`]);
+  });
+  it("editing a flagged field clears only that flag", () => {
+    const { c, hero } = flaggedHero();
+    const next = updateSectionData(c, hero.id, { ...hero.data, headline: "Diabetes webinar", dateLine: "20th October 2026", eyebrow: "LIVE" });
+    expect(next.needsReview).toEqual([`${hero.id}:eyebrow`]);
+  });
+  it("editing another field keeps the flags", () => {
+    const { c, hero } = flaggedHero();
+    const next = updateSectionData(c, hero.id, { headline: "New headline", dateLine: "16th September 2026", eyebrow: "LIVE" });
+    expect(next.needsReview).toEqual(c.needsReview);
+  });
+  it("clearReview removes the given paths, and then the page is ready", () => {
+    const { c } = flaggedHero();
+    const kept = clearReview(c, c.needsReview);
+    expect(kept.needsReview).toEqual([]);
+    expect(computeReadiness(kept, page)).toEqual({ ready: true, problems: [] });
+  });
+  it("ignores flags of hidden or deleted sections and of list items that no longer exist", () => {
+    const { c, hero } = flaggedHero();
+    expect(computeReadiness(toggleSection(c, hero.id), page).problems.some((p) => p.review)).toBe(false);
+    const gone = { ...c, needsReview: ["no-such-section:headline", `${hero.id}:badges.5.text`] };
+    expect(computeReadiness(gone, page).problems.some((p) => p.review)).toBe(false);
+  });
+});
+
+describe("needsReview survives list edits (L5 fix)", () => {
+  const mk = () => {
+    let c = emptyContent("course");
+    const sec = c.sections.find((s) => s.type === "schedule")!;
+    const items = [0, 1, 2, 3].map((n) => ({ when: `Day ${n}`, title: `T${n}`, detail: `D${n}` }));
+    c = updateSectionData(c, sec.id, { heading: "Schedule", items });
+    c = { ...c, needsReview: items.map((_, n) => `${sec.id}:items.${n}.when`) };
+    return { c, id: sec.id, items };
+  };
+  it("deleting item 0 moves the other flags down and drops only item 0's", () => {
+    const { c, id, items } = mk();
+    const next = updateSectionData(c, id, { heading: "Schedule", items: items.slice(1) });
+    expect(next.needsReview).toEqual([`${id}:items.0.when`, `${id}:items.1.when`, `${id}:items.2.when`]);
+  });
+  it("reordering keeps each flag on its moved item", () => {
+    const { c, id, items } = mk();
+    const next = updateSectionData(c, id, { heading: "Schedule", items: [items[1], items[0], items[2], items[3]] });
+    expect([...next.needsReview].sort()).toEqual([0, 1, 2, 3].map((n) => `${id}:items.${n}.when`));
+    const next2 = updateSectionData(c, id, { heading: "Schedule", items: [items[3], items[0], items[1], items[2]] });
+    expect(next2.needsReview).toEqual([`${id}:items.1.when`, `${id}:items.2.when`, `${id}:items.3.when`, `${id}:items.0.when`]);
+  });
+  it("editing one flagged value in place clears only that flag", () => {
+    const { c, id, items } = mk();
+    const edited = items.map((it, n) => (n === 2 ? { ...it, when: "New day" } : it));
+    const next = updateSectionData(c, id, { heading: "Schedule", items: edited });
+    expect(next.needsReview).toEqual([`${id}:items.0.when`, `${id}:items.1.when`, `${id}:items.3.when`]);
+  });
+  it("PPC: deleting the first schedule item still blocks publishing", async () => {
+    const { buildTemplate } = await import("@/lib/landing/templates");
+    const c = buildTemplate("ppc-batch-3", "course")!;
+    const sec = c.sections.find((s) => s.type === "schedule")!;
+    const items = sec.data.items as Record<string, unknown>[];
+    const next = updateSectionData(c, sec.id, { ...sec.data, items: items.slice(1) });
+    expect(next.needsReview.filter((p) => p.startsWith(`${sec.id}:`))).toHaveLength(3);
+    const r = computeReadiness(next, { title: "PPC", slug: "ppc-b4" });
+    expect(r.problems.some((p) => p.review && p.sectionId === sec.id)).toBe(true);
+  });
+});

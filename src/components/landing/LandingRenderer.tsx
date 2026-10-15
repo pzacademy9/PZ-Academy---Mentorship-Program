@@ -18,6 +18,9 @@ import { Testimonials } from "./sections/Testimonials";
 import { Faq } from "./sections/Faq";
 import { FinalCta } from "./sections/FinalCta";
 import type { SectionProps } from "./sections/types";
+import { AttributionCapture } from "./registration/AttributionCapture";
+import { PixelLoader } from "./registration/PixelLoader";
+import { RegistrationHost } from "./registration/RegistrationHost";
 
 export type { SectionProps };
 
@@ -28,12 +31,15 @@ const SECTION_COMPONENTS: Record<SectionType, (p: SectionProps) => React.ReactNo
 };
 
 export function LandingRenderer({
-  content, status, kind: _kind, pageTitle,
-}: { content: LandingContent; status: PageStatus; kind: PageKind; pageTitle?: string }) {
+  content, status, kind: _kind, pageTitle, slug,
+}: { content: LandingContent; status: PageStatus; kind: PageKind; pageTitle?: string; /** Only the public /e/[slug] route passes this. */ slug?: string }) {
   // Re-normalize so a damaged snapshot can never crash the page (Review Focus 1).
   const c = normalizeContent(content);
   const closed = status === "closed";
-  const register = { url: c.settings.registerUrl, label: ctaLabel(c.settings.registerLabel), closed };
+  const builtIn = c.registration.enabled && !!slug && !closed;
+  const register = { url: c.settings.registerUrl, label: ctaLabel(c.settings.registerLabel), closed, builtIn };
+  // NEXT_PUBLIC_* is inlined at build time, so this stays a static page.
+  const pixelId = c.registration.pixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
   const wa = c.settings.whatsappNumber.replace(/\D/g, "");
 
   // Render each enabled section once; a section with nothing to show returns null and is dropped
@@ -75,7 +81,7 @@ export function LandingRenderer({
               </ul>
             ) : null}
             <div className="flex shrink-0 items-center gap-1">
-              <RegisterButton register={register} size="sm" />
+              <RegisterButton register={register} size="sm" announce />
               <MobileMenu items={navItems} register={register} />
             </div>
           </nav>
@@ -110,6 +116,10 @@ export function LandingRenderer({
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-landing-border bg-landing-surface-container-lowest/95 px-4 pt-3 shadow-landing-bar backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
         <RegisterButton register={register} size="lg" arrow className="h-12 w-full rounded-landing !py-0" />
       </div>
+
+      {slug ? <AttributionCapture slug={slug} /> : null}
+      {slug ? <PixelLoader pixelId={pixelId} contentName={c.registration.eventLabel || title || slug} /> : null}
+      {builtIn && slug ? <RegistrationHost slug={slug} /> : null}
     </div>
   );
 }

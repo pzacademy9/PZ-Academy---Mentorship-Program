@@ -1,7 +1,7 @@
 // tests/landing-templates.test.ts
 import { describe, it, expect } from "vitest";
 import { TEMPLATES, buildTemplate } from "@/lib/landing/templates";
-import { computeReadiness, contentSchema } from "@/lib/landing/content";
+import { clearReview, computeReadiness, contentSchema, updateRegistration } from "@/lib/landing/content";
 
 describe("templates", () => {
   it("lists blank templates for every kind plus the three seeded pages", () => {
@@ -15,18 +15,54 @@ describe("templates", () => {
       expect(contentSchema.safeParse(c).success, t.id).toBe(true);
     }
   });
-  it("seeded templates are publishable once they have a slug and title", () => {
-    for (const id of ["ppc-batch-3", "mdc-batch-3"]) {
+  it("seeded templates flag their old dates and prices until the admin edits or keeps them", () => {
+    for (const id of ["ppc-batch-3", "mdc-batch-3", "w20-diabetes"]) {
       const t = TEMPLATES.find((x) => x.id === id)!;
-      const r = computeReadiness(buildTemplate(id, t.kind)!, { title: t.label, slug: id });
-      expect(r.problems, id).toEqual([]);
+      const c = buildTemplate(id, t.kind)!;
+      expect(c.needsReview.length, id).toBeGreaterThan(0);
+      const review = computeReadiness(c, { title: t.label, slug: id }).problems.filter((p) => p.review);
+      expect(review.length, id).toBeGreaterThan(0);
+      for (const p of review) expect(p.message, id).toMatch(/^Update the event dates and prices in /);
     }
   });
-  it("W20 ships with a blank Register link so readiness blocks publish until the admin sets one", () => {
+  it("seeded templates are publishable once their flagged fields are kept", () => {
+    for (const id of ["ppc-batch-3", "mdc-batch-3", "w20-diabetes"]) {
+      const t = TEMPLATES.find((x) => x.id === id)!;
+      const c = buildTemplate(id, t.kind)!;
+      expect(computeReadiness(clearReview(c, c.needsReview), { title: t.label, slug: id }).problems, id).toEqual([]);
+    }
+  });
+  it("every flag points at a real text field of a section in the built page (ids remapped)", () => {
+    for (const t of TEMPLATES) {
+      const c = buildTemplate(t.id, t.kind)!;
+      for (const p of c.needsReview) {
+        const at = p.indexOf(":");
+        const s = c.sections.find((x) => x.id === p.slice(0, at));
+        expect(s, p).toBeTruthy();
+        const v = p.slice(at + 1).split(".").reduce<unknown>((acc, k) => (acc as Record<string, unknown> | undefined)?.[k], s!.data);
+        expect(typeof v, p).toBe("string");
+      }
+    }
+  });
+  it("PPC and MDC show one set of price cards, never Early Bird and regular side by side", () => {
+    for (const id of ["ppc-batch-3", "mdc-batch-3"]) {
+      const t = TEMPLATES.find((x) => x.id === id)!;
+      const pricing = buildTemplate(id, t.kind)!.sections.find((s) => s.type === "pricing_cards")!;
+      const names = (pricing.data.items as { name: string }[]).map((i) => i.name);
+      expect(names.filter((n) => /early bird/i.test(n)), id).toEqual([]);
+    }
+  });
+  it("seeded template descriptions say to update the dates before publishing", () => {
+    for (const id of ["ppc-batch-3", "mdc-batch-3", "w20-diabetes"]) {
+      expect(TEMPLATES.find((x) => x.id === id)!.description, id).toMatch(/Update the dates and prices before publishing\./);
+    }
+  });
+  it("W20 has no Register link of its own, so it relies on the built-in registration", () => {
     const t = TEMPLATES.find((x) => x.id === "w20-diabetes")!;
     const c = buildTemplate(t.id, t.kind)!;
     expect(c.settings.registerUrl).toBe("");
-    const r = computeReadiness(c, { title: t.label, slug: t.id });
+    expect(c.registration.enabled).toBe(true);
+    const r = computeReadiness(updateRegistration(clearReview(c, c.needsReview), { enabled: false }), { title: t.label, slug: t.id });
     expect(r.ready).toBe(false);
     expect(r.problems.some((p) => /Register button/i.test(p.message))).toBe(true);
   });

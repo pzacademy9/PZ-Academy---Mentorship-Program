@@ -36,4 +36,14 @@ export const renameSchema = z.object({ title: z.string().trim().min(1, "Give the
 
 export const statusSchema = z.object({ status: z.enum(["closed", "published"]) });
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Page ids are uuids. Anything else can never match a page, and Postgres rejects it with an
+ * error (22P02) rather than "no row", so it must be answered as "not found" before any query.
+ */
+export function isPageId(id: string): boolean {
+  return UUID.test(id);
+}
+
 export { MAX_CONTENT_BYTES };

@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { LandingSeo, LandingSettings } from "@/lib/landing/content";
 import type { FieldDef } from "@/lib/landing/sections";
+import type { RegistrationConfig } from "@/lib/landing/registration/config";
+import type { RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { FieldInput } from "./FieldInput";
+import { RegistrationSetup, type PaymentAccountSummary } from "./registration/RegistrationSetup";
 
 const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
 
@@ -49,6 +52,7 @@ function Card({ icon: Icon, title, children }: { icon: typeof Timer; title: stri
 
 export function PageSettingsPanel({
   settings, seo, slug, pageTitle, onSettings, onSeo,
+  registration, accounts, registrationStep, onRegistrationStep, onRegistration, children,
 }: {
   settings: LandingSettings;
   seo: LandingSeo;
@@ -57,6 +61,13 @@ export function PageSettingsPanel({
   pageTitle?: string;
   onSettings: (patch: Partial<LandingSettings>) => void;
   onSeo: (patch: Partial<LandingSeo>) => void;
+  registration?: RegistrationConfig;
+  accounts?: PaymentAccountSummary[];
+  registrationStep?: RegistrationStepKey;
+  onRegistrationStep?: (s: RegistrationStepKey) => void;
+  onRegistration?: (next: RegistrationConfig) => void;
+  /** Task 20's operations card. */
+  children?: React.ReactNode;
 }) {
   const countdownId = useId();
   const cardTitle = seo.title || pageTitle || "";
@@ -68,9 +79,22 @@ export function PageSettingsPanel({
       </div>
 
       <Card icon={MousePointerClick} title="Register button">
-        <FieldInput field={REGISTER_URL} value={settings.registerUrl} onChange={(v) => onSettings({ registerUrl: String(v) })} />
+        <FieldInput field={registration?.enabled ? { ...REGISTER_URL, help: "Only used when the built-in registration form is off." } : REGISTER_URL} value={settings.registerUrl} onChange={(v) => onSettings({ registerUrl: String(v) })} />
         <FieldInput field={REGISTER_LABEL} value={settings.registerLabel} onChange={(v) => onSettings({ registerLabel: String(v) })} />
       </Card>
+
+      {registration && onRegistration && onRegistrationStep && (
+        <div id="registration-setup" className="space-y-4">
+          {children}
+          <RegistrationSetup
+            registration={registration}
+            accounts={accounts ?? []}
+            step={registrationStep ?? "buy"}
+            onStep={onRegistrationStep}
+            onChange={onRegistration}
+          />
+        </div>
+      )}
 
       <Card icon={MessageCircle} title="WhatsApp chat button">
         <FieldInput field={WHATSAPP} value={settings.whatsappNumber} onChange={(v) => onSettings({ whatsappNumber: String(v) })} />

@@ -61,7 +61,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
       text("headline", "Headline", { required: true, max: 120, example: "Master Diabetes Pharmacotherapy" }),
       area("subheadline", "Short description", { max: 400, help: "One or two sentences under the headline." }),
       image("image", "Picture", { help: "Best at least 1200 px wide. It is resized for phones automatically." }),
-      text("primaryCtaLabel", "Main button text", { defaultValue: "Register now", max: 40 }),
+      text("primaryCtaLabel", "Main button text", { max: 40, example: "Register now", help: "Leave empty to use the Register button text from Page settings." }),
       text("secondaryCtaLabel", "Second button text (optional)", { max: 40, example: "Watch preview" }),
       link("secondaryCtaUrl", "Second button link (optional)", { help: "Starts with https://" }),
       text("dateLine", "Date and time line", { example: "Wednesday, 16 September · 7:30 PM PKT" }),
@@ -175,7 +175,7 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [
       text("headline", "Headline", { required: true, max: 120, example: "Ready to join?" }),
       area("text", "Text", { max: 400 }),
-      text("buttonLabel", "Button text", { defaultValue: "Register now", max: 40 }),
+      text("buttonLabel", "Button text", { max: 40, example: "Register now", help: "Leave empty to use the Register button text from Page settings." }),
     ],
   },
 };

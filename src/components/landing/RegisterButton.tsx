@@ -1,7 +1,8 @@
 // src/components/landing/RegisterButton.tsx
 import { isSafeUrl } from "@/lib/landing/simple-text";
+import { RegistrationLauncher } from "./registration/RegistrationLauncher";
 
-export interface Register { url: string; label: string; closed: boolean }
+export interface Register { url: string; label: string; closed: boolean; /** true on the public page when the built-in form is on */ builtIn?: boolean }
 
 type Variant = "primary" | "mint" | "outline";
 type Size = "sm" | "md" | "lg";
@@ -29,28 +30,39 @@ export function ctaLabel(label: unknown, fallback = "Register now"): string {
  * unsafe or missing URL gets a disabled-looking span (never an anchor).
  */
 export function RegisterButton({
-  register, label, variant = "primary", size = "md", arrow = false, className = "",
-}: { register: Register; label?: string; variant?: Variant; size?: Size; arrow?: boolean; className?: string }) {
+  register, label, variant = "primary", size = "md", arrow = false, className = "", announce = false,
+}: { register: Register; label?: string; variant?: Variant; size?: Size; arrow?: boolean; className?: string; announce?: boolean }) {
   if (register.closed) {
+    // Every Register slot shows the notice, but only one (announce: the header's) is a live region,
+    // so a screen reader says "Registration is closed" once, not once per button.
     return (
-      <span role="status" className={`inline-flex items-center justify-center rounded-landing border border-landing-outline-variant bg-landing-surface-container-low px-4 py-2 text-center text-xs font-semibold text-landing-on-surface-variant md:text-sm ${className}`}>
+      <span {...(announce ? { role: "status" } : {})} className={`inline-flex items-center justify-center rounded-landing border border-landing-outline-variant bg-landing-surface-container-low px-4 py-2 text-center text-xs font-semibold text-landing-on-surface-variant md:text-sm ${className}`}>
         Registration is closed
       </span>
     );
   }
   const text = ctaLabel(label, register.label);
   const classes = `${BASE} ${SIZE[size]} ${className}`;
+  const arrowIcon = arrow ? (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  ) : null;
+  if (register.builtIn) {
+    return (
+      <RegistrationLauncher className={`${classes} ${VARIANT[variant]}`} href={isSafeUrl(register.url) ? register.url : undefined}>
+        <span>{text}</span>
+        {arrowIcon}
+      </RegistrationLauncher>
+    );
+  }
   if (!isSafeUrl(register.url)) {
     return <span aria-disabled="true" className={`${classes} cursor-not-allowed bg-landing-surface-container-low text-landing-on-surface-variant opacity-70`}>{text}</span>;
   }
   return (
     <a href={register.url} className={`${classes} ${VARIANT[variant]}`}>
       <span>{text}</span>
-      {arrow ? (
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14M13 6l6 6-6 6" />
-        </svg>
-      ) : null}
+      {arrowIcon}
     </a>
   );
 }

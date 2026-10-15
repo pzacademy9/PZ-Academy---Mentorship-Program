@@ -17,23 +17,29 @@ type Device = keyof typeof DEVICES;
  * the iframe, same-origin only; it is also re-posted when the frame (re)loads, because the frame loads
  * the last SAVED draft and the editor may hold newer unsaved edits.
  */
-export function PreviewFrame({ content, pageId }: { content: LandingContent; pageId: string }) {
+export function PreviewFrame({ content, pageId, title }: { content: LandingContent; pageId: string; title?: string }) {
   const [device, setDevice] = useState<Device>("laptop");
   const frameRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
+  // The page name lives outside the content; send it too, so a rename shows in the preview nav at once.
+  const titleRef = useRef(title);
+  titleRef.current = title;
   const [box, setBox] = useState({ w: 0, h: 0 });
 
   const post = useCallback(() => {
     try {
-      frameRef.current?.contentWindow?.postMessage({ type: "landing-preview", content: contentRef.current }, window.location.origin);
+      const message = titleRef.current === undefined
+        ? { type: "landing-preview", content: contentRef.current }
+        : { type: "landing-preview", content: contentRef.current, title: titleRef.current };
+      frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
     } catch {
       /* the frame is not ready yet; its load event posts again */
     }
   }, []);
 
-  useEffect(() => { post(); }, [content, post]);
+  useEffect(() => { post(); }, [content, title, post]);
 
   useEffect(() => {
     const el = wrapRef.current;

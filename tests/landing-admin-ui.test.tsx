@@ -507,6 +507,27 @@ describe("LandingEditor", () => {
     fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
     expect(autosave.schedule.mock.calls.at(-1)![0].settings.registerLabel).toBe("Join");
   });
+  it("a registration problem's Fix button opens Page settings at that registration step", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const reg = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: [] } : g)) };
+    const withReg = { ...page, draft: updateRegistration(page.draft, reg) };
+    render(<LandingEditor page={withReg} versions={[]} accounts={[]} />);
+    const item = screen.getByText(/choose at least one payment account for saudi arabia/i).closest("li") as HTMLElement;
+    fireEvent.click(within(item).getByRole("button", { name: /fix/i }));
+    expect(screen.getByRole("heading", { name: "Payment accounts" })).toBeTruthy();
+  });
+  it("shows the Registrations card above the setup when the built-in form is on", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const reg = updateRegistration(page.draft, ppcConfig);
+    const live = { ...page, status: "published" as const, draft: reg, published: reg };
+    render(<LandingEditor page={live} versions={[]} accounts={[]} sheetId="sheet-1" />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    const card = screen.getByRole("region", { name: "Registrations" });
+    expect(within(card).getByRole("link", { name: /open sheet/i }).getAttribute("href")).toBe("https://docs.google.com/spreadsheets/d/sheet-1/edit");
+    expect((within(card).getByRole("button", { name: /register as a customer/i }) as HTMLButtonElement).disabled).toBe(false);
+  });
   it("adds a section and selects it", () => {
     render(<LandingEditor page={page} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /add section/i }));
@@ -909,14 +930,16 @@ describe("LandingEditor fix round (closed, remount, conflict)", () => {
     rerender(<LandingEditor page={mk({ revision: 5 })} versions={[]} />);
     expect((screen.getByLabelText("Register button text") as HTMLInputElement).value).toBe("Typed");
   });
-  it("remounts to the new draft when the revision changed from outside (rollback or Reload)", () => {
-    const { rerender } = render(<LandingEditor page={mk()} versions={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
-    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Typed" } });
-    act(() => autosave.onRevision?.(5));
+  it("remounts onto the restored draft once this editor's restore succeeded and the refresh arrives", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, version: 3 }));
+    const versions = [{ version: 1, createdAt: "2026-10-01T10:00:00Z" }];
+    const { rerender } = render(<LandingEditor page={mk({ status: "published", published: complete })} versions={versions} />);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Typed" } });
+    fireEvent.click(screen.getByRole("button", { name: /versions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /restore this version/i }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
     const restored = updateSectionData(complete, complete.sections[0].id, { headline: "Restored headline" });
-    rerender(<LandingEditor page={mk({ revision: 9, draft: restored })} versions={[]} />);
-    expect(screen.getByLabelText("Headline")).toBeTruthy();
+    rerender(<LandingEditor page={mk({ status: "published", published: restored, draft: restored, revision: 5 })} versions={versions} />);
     expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Restored headline");
   });
   it("conflict state disables Publish, shows why, and never calls the publish route", () => {
@@ -947,5 +970,264 @@ describe("LandingEditor fix round (closed, remount, conflict)", () => {
     fireEvent.change(name, { target: { value: "Renamed" } });
     fireEvent.blur(name);
     await waitFor(() => expect(screen.queryByText("Server says no.")).toBeNull());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1 leftovers (Task L3): editor polish
+// ---------------------------------------------------------------------------
+import { addSection as addSectionL3 } from "@/lib/landing/content";
+import { defaultSectionData as defaultSectionDataL3 } from "@/lib/landing/sections";
+
+describe("Editor polish (L3)", () => {
+  let complete = emptyContent("webinar");
+  for (const s of complete.sections) if (s.type !== "hero") complete = removeSectionT11(complete, s.id);
+  complete = updateSectionData(complete, complete.sections[0].id, { headline: "Diabetes webinar" });
+  complete = updateSettingsT11(complete, { registerUrl: "https://pharmacozyme.com/register" });
+  complete = updateSeoT11(complete, { description: "A one hour webinar." });
+  const mk = (over: Record<string, unknown> = {}) => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+  }) as Parameters<typeof LandingEditor>[0]["page"];
+  const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+  beforeEach(() => {
+    autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); autosave.saveNow.mockResolvedValue(true);
+    refresh.mockReset(); toastError.mockReset(); confirmFn.mockReset(); confirmFn.mockResolvedValue(true);
+  });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("drops the leave-page guard before the conflict Reload, so the browser does not ask a second time", async () => {
+    autosave.state = "conflict";
+    let prevented: boolean | null = null;
+    const reload = vi.fn(() => {
+      const ev = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(ev);
+      prevented = ev.defaultPrevented;
+    });
+    vi.stubGlobal("location", { ...window.location, reload });
+    render(<LandingEditor page={mk()} versions={[]} />);
+    const before = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(before);
+    expect(before.defaultPrevented).toBe(true); // the guard is there while conflicted
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(reload).toHaveBeenCalled());
+    expect(prevented).toBe(false);
+  });
+
+  it("Fix jumps to the section and puts the cursor in the field that needs filling", async () => {
+    render(<LandingEditor page={mk({ draft: emptyContent("webinar") })} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /^fix/i })[0]);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Headline")));
+  });
+
+  it("Fix on a list item focuses that item's field", async () => {
+    let c = addSectionL3(complete, "faq");
+    const faq = c.sections[c.sections.length - 1];
+    c = updateSectionData(c, faq.id, { heading: "FAQ", items: [{ q: "", a: "Because." }] });
+    render(<LandingEditor page={mk({ draft: c })} versions={[]} />);
+    fireEvent.click(screen.getAllByRole("button", { name: /^fix/i })[0]);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Question")));
+  });
+
+  it("shows 'Required to publish' only while a required field is empty", () => {
+    const { rerender } = render(<SectionForm type="hero" data={defaultSectionDataL3("hero")} onChange={() => {}} />);
+    expect(screen.getAllByText(/required to publish/i)).toHaveLength(1);
+    rerender(<SectionForm type="hero" data={{ ...defaultSectionDataL3("hero"), headline: "Filled" }} onChange={() => {}} />);
+    expect(screen.queryByText(/required to publish/i)).toBeNull();
+  });
+
+  it("names each picture field for screen readers", () => {
+    render(<SectionForm type="hero" data={defaultSectionDataL3("hero")} onChange={() => {}} />);
+    expect(screen.getByRole("group", { name: "Picture" })).toBeTruthy();
+  });
+
+  it("sends the current page name to the preview, so a rename shows there at once", () => {
+    const c1 = emptyContent("webinar");
+    const { rerender } = render(<PreviewFrame content={c1} pageId="p1" title="Old name" />);
+    const frame = screen.getByTitle("Page preview") as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    Object.defineProperty(frame, "contentWindow", { value: { postMessage }, configurable: true });
+    rerender(<PreviewFrame content={c1} pageId="p1" title="New name" />);
+    expect(postMessage).toHaveBeenLastCalledWith({ type: "landing-preview", content: c1, title: "New name" }, window.location.origin);
+  });
+
+  it("the preview page swaps in a posted page name", async () => {
+    render(<PreviewTarget initialContent={complete} status="draft" kind="webinar" title="Old name" />);
+    expect(screen.getAllByText("Old name").length).toBeGreaterThan(0);
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "landing-preview", content: complete, title: "New name" }, origin: window.location.origin }));
+    await waitFor(() => expect(screen.getAllByText("New name").length).toBeGreaterThan(0));
+    expect(screen.queryByText("Old name")).toBeNull();
+  });
+
+  it("each version row says a restore replaces the draft and the live page, like the confirm", () => {
+    render(<VersionsPanel versions={[{ version: 1, createdAt: "2026-10-01T10:00:00Z" }]} onRestore={() => {}} />);
+    expect(screen.getByText("Restoring replaces your draft and the live page")).toBeTruthy();
+    expect(screen.queryByText(/overwrites the active draft/i)).toBeNull();
+  });
+
+  it("the Sections drawer is a modal on tablets: scrim, Escape, and focus kept inside", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    const toggle = screen.getByRole("button", { name: /^sections \(/i });
+    expect(screen.queryByRole("dialog", { name: "Page sections" })).toBeNull();
+    fireEvent.click(toggle);
+    const dialog = screen.getByRole("dialog", { name: "Page sections" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    const first = within(dialog).getByRole("button", { name: /page settings/i });
+    expect(document.activeElement).toBe(first);
+    const all = dialog.querySelectorAll<HTMLElement>(FOCUSABLE);
+    const last = all[all.length - 1];
+    last.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Page sections" })).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+    fireEvent.click(toggle);
+    fireEvent.click(document.querySelector("[data-sections-scrim]") as HTMLElement);
+    expect(screen.queryByRole("dialog", { name: "Page sections" })).toBeNull();
+  });
+
+  it("a refresh carrying a revision from this editor's own in-flight save keeps the editor (no remount, no lost typing)", () => {
+    const { rerender } = render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Typed during publish" } });
+    // Publish's router.refresh() rendered the page after the autosave committed revision 5 on the server,
+    // but before that save's response reached this editor (onRevision has not been called yet).
+    rerender(<LandingEditor page={mk({ revision: 5 })} versions={[]} />);
+    expect((screen.getByLabelText("Register button text") as HTMLInputElement).value).toBe("Typed during publish");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1 leftovers (Task L5): template review flags
+// ---------------------------------------------------------------------------
+describe("Template review flags (L5)", () => {
+  let base = emptyContent("webinar");
+  for (const s of base.sections) if (s.type !== "hero") base = removeSectionT11(base, s.id);
+  base = updateSectionData(base, base.sections[0].id, { headline: "Diabetes webinar", dateLine: "16th September 2026" });
+  base = updateSettingsT11(base, { registerUrl: "https://pharmacozyme.com/register" });
+  base = updateSeoT11(base, { description: "A one hour webinar." });
+  const flagged = { ...base, needsReview: [`${base.sections[0].id}:dateLine`] };
+  const mk = () => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
+    draft: flagged, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+  }) as Parameters<typeof LandingEditor>[0]["page"];
+  beforeEach(() => { autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); });
+
+  it("ReadinessPanel offers Keep for flagged problems and reports their paths", () => {
+    const onKeep = vi.fn();
+    render(<ReadinessPanel problems={[{ message: "Update the event dates and prices in \"Hero\".", sectionId: "s1", field: "dateLine", review: ["s1:dateLine"] }]} onGoto={() => {}} onKeep={onKeep} />);
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    expect(onKeep).toHaveBeenCalledWith(["s1:dateLine"]);
+  });
+  it("lists the template's old date in the checklist and keeps Publish locked", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    expect(screen.getByText(/^Update the event dates and prices in "Hero \(top of page\)"/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /^(publish|published)$/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("Keep clears the flag and autosaves it", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    expect(autosave.schedule.mock.calls.at(-1)![0].needsReview).toEqual([]);
+    expect(screen.queryByText(/^Update the event dates/)).toBeNull();
+  });
+  it("editing the flagged field clears its flag", () => {
+    render(<LandingEditor page={mk()} versions={[]} />);
+    fireEvent.change(screen.getByLabelText("Date and time line"), { target: { value: "20th October 2026" } });
+    expect(autosave.schedule.mock.calls.at(-1)![0].needsReview).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1 leftovers (Task L6): single-actor repro of "restore shows stale content" and
+// "rename flips back". If every test here passes, the findings were two-tab artefacts.
+// ---------------------------------------------------------------------------
+describe("Single-actor repro (L6)", () => {
+  let complete = emptyContent("webinar");
+  for (const s of complete.sections) if (s.type !== "hero") complete = removeSectionT11(complete, s.id);
+  complete = updateSectionData(complete, complete.sections[0].id, { headline: "Diabetes webinar" });
+  complete = updateSettingsT11(complete, { registerUrl: "https://pharmacozyme.com/register" });
+  complete = updateSeoT11(complete, { description: "A one hour webinar." });
+  const restored = updateSectionData(complete, complete.sections[0].id, { headline: "Restored headline" });
+  const mk = (over: Record<string, unknown> = {}) => ({
+    id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "published" as const,
+    draft: complete, published: complete, revision: 4, publishedAt: "2026-10-01T00:00:00Z", createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+  }) as Parameters<typeof LandingEditor>[0]["page"];
+  const versions = [{ version: 1, createdAt: "2026-10-01T10:00:00Z" }];
+  const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  const toastSuccess = toast.success as unknown as ReturnType<typeof vi.fn>;
+  const headline = () => (screen.getByLabelText("Headline") as HTMLInputElement).value;
+  const nameInput = () => screen.getByLabelText("Page name") as HTMLInputElement;
+  async function restoreFirstVersion() {
+    fireEvent.click(screen.getByRole("button", { name: /versions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /restore this version/i }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  }
+  beforeEach(() => {
+    autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); autosave.saveNow.mockResolvedValue(true);
+    refresh.mockReset(); toastError.mockReset(); toastSuccess.mockReset(); confirmFn.mockReset(); confirmFn.mockResolvedValue(true);
+  });
+
+  it("(a) restore after this editor already autosaved and published shows the restored content", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, version: 3 }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "My edit" } });
+    act(() => autosave.onRevision?.(5)); // this editor's own autosave reached revision 5
+    rerender(<LandingEditor page={mk({ revision: 5 })} versions={versions} />); // e.g. a publish refresh
+    expect(headline()).toBe("My edit");
+    await restoreFirstVersion();
+    rerender(<LandingEditor page={mk({ revision: 6, draft: restored, published: restored })} versions={versions} />);
+    expect(headline()).toBe("Restored headline");
+    expect(screen.queryByDisplayValue("My edit")).toBeNull();
+  });
+
+  it("(a) restore with an unsaved edit pending shows the restored content and a fresh preview frame", async () => {
+    autosave.state = "dirty";
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, version: 3 }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    const frameBefore = screen.getByTitle("Page preview");
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Pending edit" } });
+    await restoreFirstVersion();
+    autosave.state = "saved";
+    rerender(<LandingEditor page={mk({ revision: 5, draft: restored, published: restored })} versions={versions} />);
+    expect(headline()).toBe("Restored headline");
+    // The editor remounted, so the preview iframe reloaded the restored draft from the server.
+    expect(screen.getByTitle("Page preview")).not.toBe(frameBefore);
+  });
+
+  it("(b) a rename survives a later refresh whose server data still has the old name", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, title: "New name" }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(nameInput(), { target: { value: "New name" } });
+    fireEvent.blur(nameInput());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Page renamed."));
+    rerender(<LandingEditor page={mk({ title: "Webinar 21" })} versions={versions} />);
+    expect(nameInput().value).toBe("New name");
+  });
+
+  it("(b) a rename refreshes the router cache, so going back to Landing Pages or reopening shows the new name", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, title: "New name" }));
+    render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(nameInput(), { target: { value: "New name" } });
+    fireEvent.blur(nameInput());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Page renamed."));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("(b) a rename followed by a restore keeps the new name", async () => {
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(jsonRes(200, { ok: true, title: "New name" }))
+      .mockResolvedValueOnce(jsonRes(200, { ok: true, version: 3 }));
+    const { rerender } = render(<LandingEditor page={mk()} versions={versions} />);
+    fireEvent.change(nameInput(), { target: { value: "New name" } });
+    fireEvent.blur(nameInput());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Page renamed."));
+    refresh.mockReset();
+    await restoreFirstVersion();
+    rerender(<LandingEditor page={mk({ revision: 5, title: "New name", draft: restored, published: restored })} versions={versions} />);
+    expect(nameInput().value).toBe("New name");
   });
 });

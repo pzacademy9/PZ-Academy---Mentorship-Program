@@ -20,8 +20,12 @@ export interface EditorSlotProps {
   content: LandingContent;
   saveState: SaveState;
   saveNow: () => Promise<boolean>;
-  /** Selects a section in the editor (the checklist's Fix buttons). */
-  onSelectSection?: (id: string) => void;
+  /** Selects a section in the editor and focuses `field` in it (the checklist's Fix buttons). */
+  onSelectSection?: (id: string, field?: string) => void;
+  /** Called after a restore succeeded: the editor remounts onto the restored draft when the refresh arrives. */
+  onRestored?: () => void;
+  /** "Keep" on a template review problem: clears those flagged paths. */
+  onKeepReview?: (paths: string[]) => void;
   /** The server's readiness list after a refused publish. It wins over the local check until the next edit. */
   serverProblems?: Problem[] | null;
   onServerProblems?: (problems: Problem[] | null) => void;
@@ -31,7 +35,7 @@ const STATUS_TEXT = { draft: "Not published yet", published: "Live", closed: "Cl
 
 /** The top bar's Versions and Publish controls, plus the live status next to them. */
 export function PublishSlot(props: EditorSlotProps): React.ReactNode {
-  const { page, title, versions, content, saveState, saveNow, onServerProblems } = props;
+  const { page, title, versions, content, saveState, saveNow, onServerProblems, onRestored } = props;
   const router = useRouter();
   const [sheet, setSheet] = useState(false);
 
@@ -80,6 +84,7 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
       if (res.ok) {
         toast.success(`Restored version ${version}`);
         setSheet(false);
+        onRestored?.();
         router.refresh();
         return;
       }
@@ -171,7 +176,7 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
 }
 
 /** The "Ready to publish?" checklist under the section list. */
-export function ReadinessSlot({ page, title, content, serverProblems, onSelectSection }: EditorSlotProps): React.ReactNode {
+export function ReadinessSlot({ page, title, content, serverProblems, onSelectSection, onKeepReview }: EditorSlotProps): React.ReactNode {
   const problems = serverProblems ?? computeReadiness(content, { title, slug: page.slug }).problems;
-  return <ReadinessPanel problems={problems} onGoto={(id) => onSelectSection?.(id)} />;
+  return <ReadinessPanel problems={problems} onGoto={(id, field) => onSelectSection?.(id, field)} onKeep={onKeepReview} />;
 }

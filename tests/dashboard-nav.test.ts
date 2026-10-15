@@ -73,3 +73,12 @@ it("admins get the Sales Hub entry, others do not", () => {
     expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
   }
 });
+
+it("admins get the Promo Codes entry right after Landing Pages, others do not", () => {
+  const hrefs = navForRole("admin").map((i) => i.href);
+  expect(hrefs.indexOf("/dashboard/admin/landing-promo-codes")).toBe(hrefs.indexOf("/dashboard/admin/landing-pages") + 1);
+  expect(activeHrefFor(navForRole("admin"), "/dashboard/admin/landing-promo-codes")).toBe("/dashboard/admin/landing-promo-codes");
+  for (const r of ["sales_agent", "mentor", "student"] as const) {
+    expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/admin/landing-promo-codes");
+  }
+});

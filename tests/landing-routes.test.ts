@@ -31,7 +31,9 @@ import { POST as rename } from "@/app/api/admin/landing-pages/[id]/rename/route"
 import { emptyContent, MAX_CONTENT_BYTES } from "@/lib/landing/content";
 
 const req = (body: unknown, method = "POST") => new Request("http://x", { method, body: JSON.stringify(body) }) as never;
-const ctx = { params: Promise.resolve({ id: "p1" }) };
+const ID = "00000000-0000-4000-8000-000000000001";
+const ctx = { params: Promise.resolve({ id: ID }) };
+const badCtx = { params: Promise.resolve({ id: "not-a-uuid" }) };
 
 beforeEach(() => {
   for (const m of [createLandingPage, saveDraft, publishLandingPage, rollbackLandingPage, duplicateLandingPage, setPageStatus, renameLandingPage]) m.mockReset();
@@ -92,7 +94,7 @@ describe("PATCH draft", () => {
     c.sections[0].data.badges = Array.from({ length: 6 }, () => ({ text: "y".repeat(60) }));
     const huge = { ...c, seo: { ...c.seo, description: "z".repeat(300) } };
     // Force the byte cap path with a payload over the limit using many sections' text.
-    const big = JSON.stringify({ content: huge, baseRevision: 1, padding: "p".repeat(210_000) });
+    const big = JSON.stringify({ content: huge, baseRevision: 1, padding: "p".repeat(410_000) });
     const res = await patchDraft(new Request("http://x", { method: "PATCH", body: big }) as never, ctx);
     expect(res.status).toBe(413);
     expect(saveDraft).not.toHaveBeenCalled();
@@ -103,6 +105,14 @@ describe("PATCH draft", () => {
     expect(body.length).toBeLessThan(MAX_CONTENT_BYTES);
     const res = await patchDraft(new Request("http://x", { method: "PATCH", body }) as never, ctx);
     expect(res.status).toBe(200);
+  });
+  it("measures the size cap in bytes, not characters (Urdu / emoji text is 2-4 bytes each)", async () => {
+    const pad = "€".repeat(Math.floor(MAX_CONTENT_BYTES / 3) + 10); // "€" is 3 bytes in UTF-8
+    const big = JSON.stringify({ content: emptyContent("course"), baseRevision: 1, padding: pad });
+    expect(big.length).toBeLessThan(MAX_CONTENT_BYTES);
+    const res = await patchDraft(new Request("http://x", { method: "PATCH", body: big }) as never, ctx);
+    expect(res.status).toBe(413);
+    expect(saveDraft).not.toHaveBeenCalled();
   });
   it("stores normalized content: unknown keys inside section data are stripped", async () => {
     saveDraft.mockResolvedValue({ ok: true, revision: 2 });
@@ -127,22 +137,34 @@ describe("publish", () => {
     expect((await res.json()).problems).toEqual([{ message: "Fill in \"Headline\"" }]);
   });
   it("returns ok when published", async () => {
-    publishLandingPage.mockResolvedValue({ ok: true });
+    publishLandingPage.mockResolvedValue({ ok: true, version: 1 });
     expect((await publish(req({}), ctx)).status).toBe(200);
-    expect(publishLandingPage).toHaveBeenCalledWith("admin-user", "p1");
+    expect(publishLandingPage).toHaveBeenCalledWith("admin-user", ID);
   });
   it("404s a missing page", async () => {
     publishLandingPage.mockResolvedValue({ ok: false, reason: "not-found" });
     expect((await publish(req({}), ctx)).status).toBe(404);
+  });
+  it("maps a publish conflict to 409 with a plain message, never 500", async () => {
+    publishLandingPage.mockResolvedValue({ ok: false, reason: "conflict" });
+    const res = await publish(req({}), ctx);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("conflict");
+    expect(body.error).toMatch(/changed while it was being published/i);
+  });
+  it("returns the new version number on success", async () => {
+    publishLandingPage.mockResolvedValue({ ok: true, version: 6 });
+    expect(await (await publish(req({}), ctx)).json()).toEqual({ ok: true, version: 6 });
   });
 });
 
 describe("rollback / duplicate / status", () => {
   it("rollback needs a positive integer version", async () => {
     expect((await rollback(req({ version: 0 }), ctx)).status).toBe(400);
-    rollbackLandingPage.mockResolvedValue({ ok: true });
+    rollbackLandingPage.mockResolvedValue({ ok: true, version: 1 });
     expect((await rollback(req({ version: 2 }), ctx)).status).toBe(200);
-    expect(rollbackLandingPage).toHaveBeenCalledWith("admin-user", "p1", 2);
+    expect(rollbackLandingPage).toHaveBeenCalledWith("admin-user", ID, 2);
   });
   it("rollback maps a concurrent-save conflict to 409", async () => {
     rollbackLandingPage.mockResolvedValue({ ok: false, reason: "conflict" });
@@ -172,7 +194,7 @@ describe("POST /api/admin/landing-pages/[id]/rename", () => {
     renameLandingPage.mockResolvedValue({ ok: true });
     const res = await rename(req({ title: "  New name  " }), ctx);
     expect(res.status).toBe(200);
-    expect(renameLandingPage).toHaveBeenCalledWith("p1", "New name");
+    expect(renameLandingPage).toHaveBeenCalledWith(ID, "New name");
   });
   it("rejects an empty, blank or over-long name with a plain message", async () => {
     for (const title of ["", "   ", "x".repeat(121)]) {
@@ -187,5 +209,26 @@ describe("POST /api/admin/landing-pages/[id]/rename", () => {
     expect((await rename(req({ title: "A" }), ctx)).status).toBe(404);
     renameLandingPage.mockResolvedValue({ ok: false, reason: "db-error" });
     expect((await rename(req({ title: "A" }), ctx)).status).toBe(500);
+  });
+});
+
+describe("malformed page ids", () => {
+  it("every [id] route answers 404 for a non-uuid id and never reaches the data layer", async () => {
+    const calls: [string, () => Promise<Response>][] = [
+      ["PATCH", () => patchDraft(req({ content: emptyContent("course"), baseRevision: 1 }, "PATCH"), badCtx)],
+      ["publish", () => publish(req({}), badCtx)],
+      ["rollback", () => rollback(req({ version: 1 }), badCtx)],
+      ["duplicate", () => duplicate(req({ title: "Copy" }), badCtx)],
+      ["status", () => status(req({ status: "closed" }), badCtx)],
+      ["rename", () => rename(req({ title: "New" }), badCtx)],
+    ];
+    for (const [name, call] of calls) {
+      const res = await call();
+      expect(res.status, name).toBe(404);
+      expect((await res.json()).error, name).toBe("Page not found");
+    }
+    for (const m of [saveDraft, publishLandingPage, rollbackLandingPage, duplicateLandingPage, setPageStatus, renameLandingPage]) {
+      expect(m).not.toHaveBeenCalled();
+    }
   });
 });

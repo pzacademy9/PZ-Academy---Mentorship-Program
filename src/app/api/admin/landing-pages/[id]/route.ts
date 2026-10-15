@@ -3,15 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { saveDraft } from "@/lib/data/landing-pages";
 import { normalizeContent } from "@/lib/landing/content";
-import { saveDraftSchema, MAX_CONTENT_BYTES } from "@/lib/validations/landing";
+import { saveDraftSchema, MAX_CONTENT_BYTES, isPageId } from "@/lib/validations/landing";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
+  if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
   const text = await req.text().catch(() => "");
-  if (text.length > MAX_CONTENT_BYTES) {
+  // The cap is in bytes (what the network and the database carry), not UTF-16 characters:
+  // Urdu, Arabic or emoji text is 2-4 bytes per character.
+  if (new TextEncoder().encode(text).length > MAX_CONTENT_BYTES) {
     return NextResponse.json({ error: "This page has too much content to save." }, { status: 413 });
   }
   let body: unknown = null;

@@ -8,7 +8,11 @@ import {
   type LandingContent, type PageKind, type PageStatus, type Problem,
 } from "@/lib/landing/content";
 
-type Row = Database["public"]["Tables"]["landing_pages"]["Row"];
+// COLUMNS selects only the page columns; the Phase 2 registration columns (0069) are not read here.
+type Row = Omit<
+  Database["public"]["Tables"]["landing_pages"]["Row"],
+  "course_id" | "sheet_id" | "drive_folder_id" | "ref_prefix"
+>;
 
 export interface LandingPage {
   id: string; slug: string; kind: PageKind; title: string; status: PageStatus;
@@ -24,7 +28,7 @@ export interface LandingVersion { version: number; createdAt: string }
 export type CreateResult = { ok: true; id: string } | { ok: false; reason: "slug-taken" | "db-error" };
 export type SaveResult = { ok: true; revision: number } | { ok: false; reason: "conflict" | "not-found" | "db-error" };
 export type PublishResult =
-  | { ok: true }
+  | { ok: true; version: number }
   | { ok: false; reason: "not-found" | "db-error" | "conflict" }
   | { ok: false; reason: "not-ready"; problems: Problem[] };
 export type SimpleResult = { ok: true } | { ok: false; reason: "not-found" | "not-published" | "db-error" };
@@ -79,12 +83,14 @@ export async function getPublishedLandingPage(slug: string) {
 
 export async function listVersions(id: string): Promise<LandingVersion[]> {
   const admin = createAdminSupabase();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("landing_page_versions")
     .select("version, created_at")
     .eq("page_id", id)
     .order("version", { ascending: false })
     .limit(50);
+  // Throw rather than tell the admin "no published versions yet" for a page that has some.
+  if (error) throw error;
   return (data ?? []).map((v) => ({ version: v.version, createdAt: v.created_at }));
 }
 
@@ -108,7 +114,12 @@ export async function duplicateLandingPage(
   id: string,
   input: { title: string; slug: string },
 ): Promise<CreateResult | { ok: false; reason: "not-found" }> {
-  const source = await getLandingPage(id);
+  let source: LandingPage | null;
+  try {
+    source = await getLandingPage(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
   if (!source) return { ok: false, reason: "not-found" };
   return createLandingPage(userId, { title: input.title, slug: input.slug, kind: source.kind, content: source.draft });
 }
@@ -129,79 +140,67 @@ export async function saveDraft(id: string, content: LandingContent, baseRevisio
     .maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (data) return { ok: true, revision: data.revision };
-  const { data: exists } = await admin.from("landing_pages").select("id").eq("id", id).maybeSingle();
+  const { data: exists, error: readError } = await admin.from("landing_pages").select("id").eq("id", id).maybeSingle();
+  // A failed read says nothing about whether the page exists: never report it as missing.
+  if (readError) return { ok: false, reason: "db-error" };
   return { ok: false, reason: exists ? "conflict" : "not-found" };
 }
 
-async function applyPublish(
-  userId: string,
-  page: LandingPage,
-  content: LandingContent,
-  resetDraft: boolean,
-): Promise<PublishResult> {
-  const admin = createAdminSupabase();
-  const { data: last } = await admin
-    .from("landing_page_versions")
-    .select("version")
-    .eq("page_id", page.id)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const version = (last?.version ?? 0) + 1;
-  const { error: vErr } = await admin
-    .from("landing_page_versions")
-    .insert({ page_id: page.id, version, content: asJson(content), created_by: userId });
-  if (vErr) return { ok: false, reason: "db-error" };
-
-  const now = new Date().toISOString();
-  let q = admin
-    .from("landing_pages")
-    .update({
-      published: asJson(content),
-      ...(resetDraft ? { draft: asJson(content), revision: page.revision + 1 } : {}),
-      // Publishing edits to a closed page must not silently reopen registration.
-      status: page.status === "closed" ? "closed" : "published",
-      published_at: now,
-      updated_at: now,
-    })
-    .eq("id", page.id);
-  // A rollback also rewrites the draft, so it must only land if no draft save happened since we read the page.
-  if (resetDraft) q = q.eq("revision", page.revision);
-  const { data: updated, error } = await q.select("id").maybeSingle();
-  if (error) return { ok: false, reason: "db-error" };
-  if (!updated) {
-    await admin.from("landing_page_versions").delete().eq("page_id", page.id).eq("version", version);
-    return { ok: false, reason: "conflict" };
-  }
-  revalidatePath(`/e/${page.slug}`);
-  return { ok: true };
+/** Maps the fixed messages raised by the 0068 functions to results; anything else is a database error. */
+function rpcFailure(error: { message?: string } | null): "not-found" | "conflict" | "db-error" {
+  const m = error?.message ?? "";
+  if (m.includes("landing_page_not_found") || m.includes("landing_version_not_found")) return "not-found";
+  if (m.includes("landing_revision_conflict")) return "conflict";
+  return "db-error";
 }
 
+/**
+ * Publish runs as one database transaction (landing_publish_page, migration 0068). It locks the page
+ * row, snapshots the draft as the next version and copies it to published. Two publishes at once queue
+ * on the lock instead of colliding on the version number. Readiness is checked here first, and its
+ * revision is passed down, so the function refuses to publish a draft that changed after the check.
+ */
 export async function publishLandingPage(userId: string, id: string): Promise<PublishResult> {
-  const page = await getLandingPage(id);
+  let page: LandingPage | null;
+  try {
+    page = await getLandingPage(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
   if (!page) return { ok: false, reason: "not-found" };
   // The server re-checks readiness: the disabled Publish button is not a security boundary.
   const readiness = computeReadiness(page.draft, { title: page.title, slug: page.slug });
   if (!readiness.ready) return { ok: false, reason: "not-ready", problems: readiness.problems };
-  return applyPublish(userId, page, page.draft, false);
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.rpc("landing_publish_page", { p_page_id: id, p_user: userId, p_revision: page.revision });
+  if (error) return { ok: false, reason: rpcFailure(error) };
+  revalidatePath(`/e/${page.slug}`);
+  return { ok: true, version: Number(data) };
 }
 
+/** A restore runs as one transaction (landing_rollback_page): the chosen version becomes the draft AND the live page. */
 export async function rollbackLandingPage(userId: string, id: string, version: number): Promise<PublishResult> {
-  const page = await getLandingPage(id);
+  let page: LandingPage | null;
+  try {
+    page = await getLandingPage(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
   if (!page) return { ok: false, reason: "not-found" };
   const admin = createAdminSupabase();
-  const { data } = await admin
-    .from("landing_page_versions")
-    .select("content")
-    .eq("page_id", id)
-    .eq("version", version)
-    .maybeSingle();
-  if (!data) return { ok: false, reason: "not-found" };
-  return applyPublish(userId, page, normalizeContent(data.content), true);
+  const { data, error } = await admin.rpc("landing_rollback_page", { p_page_id: id, p_version: version, p_user: userId });
+  if (error) return { ok: false, reason: rpcFailure(error) };
+  revalidatePath(`/e/${page.slug}`);
+  return { ok: true, version: Number(data) };
 }
 
 export async function setPageStatus(id: string, status: "closed" | "published"): Promise<SimpleResult> {
-  const page = await getLandingPage(id);
+  let page: LandingPage | null;
+  try {
+    page = await getLandingPage(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
   if (!page) return { ok: false, reason: "not-found" };
   if (!page.published) return { ok: false, reason: "not-published" };
   const admin = createAdminSupabase();

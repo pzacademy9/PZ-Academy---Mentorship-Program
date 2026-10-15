@@ -3,6 +3,10 @@ import { z } from "zod";
 import { isSafeUrl } from "./simple-text";
 import { validateSlug } from "./slug";
 import {
+  normalizeRegistration, registrationConfigSchema, registrationProblems, type RegistrationConfig,
+} from "./registration/config";
+import { registrationTarget } from "./registration/setup-steps";
+import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
@@ -19,9 +23,21 @@ export interface LandingSettings {
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
-export interface LandingContent { settings: LandingSettings; seo: LandingSeo; sections: LandingSection[] }
+export interface LandingContent {
+  settings: LandingSettings;
+  seo: LandingSeo;
+  sections: LandingSection[];
+  /**
+   * Fields a template seeded with details that go stale (dates, Early Bird prices), as
+   * "<sectionId>:<fieldPath>" (fieldPath like "dateLine" or "items.0.when"). Each blocks publishing
+   * until the admin edits that field or chooses Keep. Never rendered on the public page.
+   */
+  needsReview: string[];
+  /** Built-in registration settings; DEFAULT_REGISTRATION (disabled) when the page has none. */
+  registration: RegistrationConfig;
+}
 
-export const MAX_CONTENT_BYTES = 200_000;
+export const MAX_CONTENT_BYTES = 400_000;
 
 export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
   course: ["hero", "stats", "feature_cards", "curriculum", "instructors", "pricing_cards", "schedule", "video_reviews", "testimonials", "faq", "final_cta"],
@@ -58,6 +74,9 @@ export const contentSchema = z
         data: z.record(z.string(), z.unknown()),
       }))
       .max(40),
+    needsReview: z.array(z.string().max(200)).max(200).optional(),
+    // Optional so a Phase 1 editor payload without it still saves; normalizeContent fills the default.
+    registration: registrationConfigSchema.optional(),
   })
   .superRefine((c, ctx) => {
     const seen = new Set<string>();
@@ -103,7 +122,10 @@ export function normalizeContent(raw: unknown): LandingContent {
     used.add(id);
     sections.push({ id, type, enabled: item.enabled !== false, data: normalizeSectionData(type, item.data) });
   }
-  return { settings, seo: seoOut, sections };
+  const needsReview = Array.isArray(r.needsReview)
+    ? r.needsReview.filter((p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200).slice(0, 200)
+    : [];
+  return { settings, seo: seoOut, sections, needsReview, registration: normalizeRegistration(r.registration) };
 }
 
 export function newSection(type: SectionType, id: string = newId()): LandingSection {
@@ -115,6 +137,8 @@ export function emptyContent(kind: PageKind): LandingContent {
     settings: { ...DEFAULT_SETTINGS },
     seo: { ...DEFAULT_SEO },
     sections: KIND_SECTIONS[kind].map((t) => newSection(t)),
+    needsReview: [],
+    registration: normalizeRegistration(undefined),
   };
 }
 
@@ -137,11 +161,76 @@ export function moveSection(c: LandingContent, id: string, dir: -1 | 1): Landing
 export function toggleSection(c: LandingContent, id: string): LandingContent {
   return { ...c, sections: c.sections.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)) };
 }
+/** Reads a "dateLine" / "items.0.when" style path inside section data; undefined once the path is gone. */
+function valueAt(data: unknown, path: string): unknown {
+  let cur: unknown = data;
+  for (const part of path.split(".")) {
+    if (Array.isArray(cur)) cur = cur[Number(part)];
+    else if (isRecord(cur)) cur = cur[part];
+    else return undefined;
+  }
+  return cur;
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** For each old list item, the index of the first unmatched JSON-equal new item, or -1 if it was removed. */
+function matchItems(oldList: unknown[], newList: unknown[]): number[] {
+  const used = new Set<number>();
+  return oldList.map((o) => {
+    const j = newList.findIndex((n, k) => !used.has(k) && same(o, n));
+    if (j >= 0) used.add(j);
+    return j;
+  });
+}
+
+/**
+ * Where a flagged path lives after an edit: the same path (untouched), a remapped path (a list item
+ * moved: delete/insert/reorder, matched by the item's old content), or null (value edited in place, or
+ * its item removed). Remaps by the outermost list whose structure changed.
+ */
+function trackFlag(oldV: unknown, newV: unknown, parts: string[]): string[] | null {
+  if (parts.length === 0) return same(oldV, newV) ? [] : null;
+  const [head, ...rest] = parts;
+  if (Array.isArray(oldV)) {
+    if (!Array.isArray(newV)) return null;
+    const i = Number(head);
+    const match = matchItems(oldV, newV);
+    const structural = oldV.length !== newV.length || match.some((j, k) => j !== -1 && j !== k);
+    if (structural) {
+      const j = match[i];
+      return j === undefined || j < 0 ? null : [String(j), ...rest];
+    }
+    const r = trackFlag(oldV[i], newV[i], rest);
+    return r ? [head, ...r] : null;
+  }
+  if (isRecord(oldV)) {
+    const r = trackFlag(oldV[head], isRecord(newV) ? newV[head] : undefined, rest);
+    return r ? [head, ...r] : null;
+  }
+  return null;
+}
+
 export function updateSectionData(c: LandingContent, id: string, data: Record<string, unknown>): LandingContent {
+  const target = c.sections.find((s) => s.id === id);
+  const nextData = target ? normalizeSectionData(target.type, data) : null;
+  // Editing a flagged field counts as reviewing it: drop the flag of every path whose value changed.
+  const prefix = `${id}:`;
+  const needsReview = (c.needsReview ?? []).flatMap((p) => {
+    if (!target || !p.startsWith(prefix)) return [p];
+    const moved = trackFlag(target.data, nextData, p.slice(prefix.length).split("."));
+    return moved ? [prefix + moved.join(".")] : [];
+  });
   return {
     ...c,
-    sections: c.sections.map((s) => (s.id === id ? { ...s, data: normalizeSectionData(s.type, data) } : s)),
+    needsReview,
+    sections: c.sections.map((s) => (s.id === id && nextData ? { ...s, data: nextData } : s)),
   };
+}
+
+/** "Keep": the admin checked these flagged fields and the template's values are right. */
+export function clearReview(c: LandingContent, paths: string[]): LandingContent {
+  return { ...c, needsReview: (c.needsReview ?? []).filter((p) => !paths.includes(p)) };
 }
 export function updateSettings(c: LandingContent, patch: Partial<LandingSettings>): LandingContent {
   return { ...c, settings: { ...c.settings, ...patch } };
@@ -150,9 +239,14 @@ export function updateSeo(c: LandingContent, patch: Partial<LandingSeo>): Landin
   return { ...c, seo: { ...c.seo, ...patch } };
 }
 
+export function updateRegistration(c: LandingContent, patch: Partial<RegistrationConfig>): LandingContent {
+  return { ...c, registration: { ...c.registration, ...patch } };
+}
+
 // ------------------------------------------------------------- readiness
 
-export interface Problem { message: string; sectionId?: string }
+/** field: where Fix puts the cursor, as a FieldInput path ("headline", a list key "items", or "items.0.q"). */
+export interface Problem { message: string; sectionId?: string; field?: string; review?: string[] }
 
 function isBlank(v: unknown): boolean {
   return typeof v !== "string" || v.trim() === "";
@@ -165,19 +259,36 @@ function fieldProblems(section: LandingSection, fields: FieldDef[], data: Record
     if (f.kind === "list") {
       const items = Array.isArray(data[f.key]) ? (data[f.key] as Record<string, unknown>[]) : [];
       if (items.length === 0) {
-        out.push({ message: `Add at least one ${(f.itemLabel ?? "item").toLowerCase()} in "${label}".`, sectionId: section.id });
+        out.push({ message: `Add at least one ${(f.itemLabel ?? "item").toLowerCase()} in "${label}".`, sectionId: section.id, field: f.key });
         continue;
       }
       items.forEach((item, n) => {
         for (const sub of f.itemFields ?? []) {
           if (sub.required && isBlank(item[sub.key])) {
-            out.push({ message: `${f.itemLabel ?? "Item"} ${n + 1} in "${label}" needs "${sub.label}".`, sectionId: section.id });
+            out.push({ message: `${f.itemLabel ?? "Item"} ${n + 1} in "${label}" needs "${sub.label}".`, sectionId: section.id, field: `${f.key}.${n}.${sub.key}` });
           }
         }
       });
     } else if (isBlank(data[f.key])) {
-      out.push({ message: `Fill in "${f.label}" in "${label}".`, sectionId: section.id });
+      out.push({ message: `Fill in "${f.label}" in "${label}".`, sectionId: section.id, field: f.key });
     }
+  }
+}
+
+function reviewProblems(c: LandingContent, out: Problem[]) {
+  for (const s of c.sections) {
+    if (!s.enabled) continue;
+    const prefix = `${s.id}:`;
+    const paths = (c.needsReview ?? []).filter((p) => p.startsWith(prefix) && valueAt(s.data, p.slice(prefix.length)) !== undefined);
+    if (paths.length === 0) continue;
+    const label = SECTION_DEFS[s.type].label;
+    const count = paths.length === 1 ? "1 field still shows" : `${paths.length} fields still show`;
+    out.push({
+      message: `Update the event dates and prices in "${label}": ${count} the template's old details. Edit them, or choose Keep if they are right.`,
+      sectionId: s.id,
+      field: paths[0].slice(prefix.length),
+      review: paths,
+    });
   }
 }
 
@@ -187,7 +298,12 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const slug = validateSlug(page.slug);
   if (!slug.ok) problems.push({ message: slug.message });
   if (c.seo.description.trim() === "") problems.push({ message: "Add a short description for Google and WhatsApp previews (Page settings)." });
-  if (!(/^https?:\/\//i.test(c.settings.registerUrl.trim()) && isSafeUrl(c.settings.registerUrl))) problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
+  if (c.registration.enabled) {
+    // The built-in registration form replaces the external Register link.
+    for (const p of registrationProblems(c.registration)) problems.push({ message: p.message, sectionId: registrationTarget(p.step) });
+  } else if (!(/^https?:\/\//i.test(c.settings.registerUrl.trim()) && isSafeUrl(c.settings.registerUrl))) {
+    problems.push({ message: "Add the link the Register button should open (Page settings). It must start with https://." });
+  }
   if (c.settings.whatsappNumber.trim() !== "") {
     const digits = c.settings.whatsappNumber.replace(/\D/g, "");
     if (digits.length < 8 || digits.length > 15) problems.push({ message: "The WhatsApp number looks wrong. Include the country code, for example 923001234567." });
@@ -198,6 +314,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const enabled = c.sections.filter((s) => s.enabled);
   if (enabled.length === 0) problems.push({ message: "Turn on at least one section." });
   for (const s of enabled) fieldProblems(s, SECTION_DEFS[s.type].fields, s.data, problems);
+  reviewProblems(c, problems);
   return { ready: problems.length === 0, problems };
 }
 

@@ -2,12 +2,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { rollbackLandingPage } from "@/lib/data/landing-pages";
-import { rollbackSchema } from "@/lib/validations/landing";
+import { rollbackSchema, isPageId } from "@/lib/validations/landing";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
+  if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
   const parsed = rollbackSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
@@ -20,5 +21,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ error: "Could not restore that version" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, version: result.version });
 }
