@@ -10,7 +10,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
-import { MAX_MODULES, MODULE_KEY_RE, type ModuleDef } from "./variants";
+import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
 export type PageStatus = "draft" | "published" | "closed";
@@ -267,6 +267,28 @@ export function updateSeo(c: LandingContent, patch: Partial<LandingSeo>): Landin
 
 export function updateRegistration(c: LandingContent, patch: Partial<RegistrationConfig>): LandingContent {
   return { ...c, registration: { ...c.registration, ...patch } };
+}
+
+export function updateModules(c: LandingContent, modules: ModuleDef[]): LandingContent {
+  return { ...c, modules };
+}
+
+/**
+ * Gives a module a new link name, and moves every list item tagged with the old name ("Applies to")
+ * over to the new one, so renaming never silently untags the module's curriculum or schedule.
+ */
+export function renameModule(c: LandingContent, from: string, to: string): LandingContent {
+  if (from === to) return c;
+  const retag = (v: unknown): unknown => (Array.isArray(v)
+    ? v.map((item) => (isRecord(item) && item.module === from ? { ...item, module: to } : item))
+    : v);
+  return {
+    ...c,
+    modules: c.modules.map((m) => (m.key === from ? { ...m, key: to } : m)),
+    sections: c.sections.map((s) => (MODULE_ITEM_SECTIONS.includes(s.type)
+      ? { ...s, data: Object.fromEntries(Object.entries(s.data).map(([k, v]) => [k, retag(v)])) }
+      : s)),
+  };
 }
 
 // ------------------------------------------------------------- readiness
