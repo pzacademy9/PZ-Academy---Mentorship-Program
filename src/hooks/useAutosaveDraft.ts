@@ -116,7 +116,19 @@ export function useAutosaveDraft<T = LandingContent>({
     return run();
   }, [run]);
 
+  /**
+   * Starts over on the same target from `rev`, dropping anything pending: the server's copy was
+   * replaced (a restored version), so pending edits describe content that no longer exists.
+   */
+  const restart = useCallback((rev: number) => {
+    if (timer.current) clearTimeout(timer.current);
+    revision.current = rev;
+    conflicted.current = false;
+    pending.current = null;
+    setState("saved");
+  }, []);
+
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  return { state, schedule, saveNow };
+  return { state, schedule, saveNow, restart };
 }

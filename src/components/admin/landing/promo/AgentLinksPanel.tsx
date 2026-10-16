@@ -7,25 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { agentLinkUrl, type AgentChoice, type LinkPage } from "@/lib/landing/registration/promo-form";
 import { CONTROL, HELP, LABEL } from "../registration/styles";
-
-/** Clipboard API first; old browsers fall back to execCommand, whose boolean result is the truth. */
-async function copyText(text: string, host: HTMLElement | null): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const el = document.createElement("textarea");
-    el.value = text;
-    el.setAttribute("aria-hidden", "true");
-    el.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
-    (host ?? document.body).appendChild(el);
-    el.select();
-    let ok = false;
-    try { ok = document.execCommand("copy") === true; } catch { ok = false; }
-    el.remove();
-    return ok;
-  }
-}
+import { copyText } from "../copy-text";
 
 /**
  * Ruling 8: an admin makes a sales agent's share link. The code belongs to the agent (one per

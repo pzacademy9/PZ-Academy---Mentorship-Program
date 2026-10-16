@@ -9,6 +9,7 @@ import type { FieldDef } from "@/lib/landing/sections";
 import type { RegistrationConfig } from "@/lib/landing/registration/config";
 import type { RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { FieldInput } from "./FieldInput";
+import { ModulesEditor, type ModulesEditorProps } from "./ModulesEditor";
 import { RegistrationSetup, type PaymentAccountSummary } from "./registration/RegistrationSetup";
 
 const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -52,8 +53,10 @@ function Card({ icon: Icon, title, children }: { icon: typeof Timer; title: stri
 
 export function PageSettingsPanel({
   settings, seo, slug, pageTitle, onSettings, onSeo,
-  registration, accounts, registrationStep, onRegistrationStep, onRegistration, children,
+  registration, accounts, registrationStep, onRegistrationStep, onRegistration, modules, children,
 }: {
+  /** The Modules card (course and workshop pages only; omit it elsewhere). */
+  modules?: ModulesEditorProps;
   settings: LandingSettings;
   seo: LandingSeo;
   /** Used only for the share-card preview line. */
@@ -82,6 +85,8 @@ export function PageSettingsPanel({
         <FieldInput field={registration?.enabled ? { ...REGISTER_URL, help: "Only used when the built-in registration form is off." } : REGISTER_URL} value={settings.registerUrl} onChange={(v) => onSettings({ registerUrl: String(v) })} />
         <FieldInput field={REGISTER_LABEL} value={settings.registerLabel} onChange={(v) => onSettings({ registerLabel: String(v) })} />
       </Card>
+
+      {modules && <ModulesEditor {...modules} />}
 
       {registration && onRegistration && onRegistrationStep && (
         <div id="registration-setup" className="space-y-4">

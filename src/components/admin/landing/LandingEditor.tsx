@@ -4,16 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Monitor, PanelLeft, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Link2, Monitor, PanelLeft, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { useAutosaveDraft, type SaveState } from "@/hooks/useAutosaveDraft";
 import type { LandingPage, LandingVersion } from "@/lib/data/landing-pages";
 import {
-  addSection, clearReview, moveSection, removeSection, toggleSection, updateRegistration, updateSectionData, updateSeo, updateSettings,
+  addSection, clearReview, computeReadiness, moveSection, removeSection, renameModule, toggleSection, updateModules, updateRegistration,
+  updateSectionData, updateSeo, updateSettings,
   type LandingContent, type PageKind, type Problem,
 } from "@/lib/landing/content";
+import type { PriceCell, RegionDef } from "@/lib/landing/registration/config";
 import { SECTION_DEFS } from "@/lib/landing/sections";
 import { SectionList } from "./SectionList";
 import { SectionForm } from "./SectionForm";
@@ -23,17 +25,22 @@ import type { PaymentAccountSummary } from "./registration/RegistrationSetup";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { PreviewFrame } from "./PreviewFrame";
 import { PublishSlot, ReadinessSlot } from "./PublishSlot";
+import { ReadinessPanel } from "./ReadinessPanel";
 import { StatusBadge } from "./StatusBadge";
 import type { LandingVariant } from "@/lib/data/landing-variants";
-import type { VariantGridRow } from "@/lib/landing/variant-grid";
+import { buildVariantGrid, type VariantGridRow } from "@/lib/landing/variant-grid";
 import { findOrphans, resolveVariant } from "@/lib/landing/resolve-variant";
 import { VariantSwitcher } from "./variants/VariantSwitcher";
+import { LinksPanel } from "./variants/LinksPanel";
+import { LinkPublishSlot, MAIN_FIRST } from "./variants/LinkPublishSlot";
 import {
-  linkSections, moveOnLink, removeOrphans, resetOverrideField, setOverrideField, setOverrideHidden, useLinkEditing,
+  linkSections, moveOnLink, removeOrphans, resetOverrideField, sameOverrides, setOverrideField, setOverrideHidden, switcherOptions,
+  useLinkEditing,
 } from "./variants/useLinkEditing";
 
 const LIST_HREF = "/dashboard/admin/landing-pages";
 const SETTINGS = "__settings__";
+const LINKS = "__links__";
 const KIND_LABEL: Record<PageKind, string> = { course: "Course", workshop: "Workshop", webinar: "Webinar" };
 
 const SAVE_TEXT: Record<SaveState, string> = {
@@ -63,11 +70,11 @@ const SAVE_DOT: Record<SaveState, string> = {
  * full browser reload.
  */
 export function LandingEditor({
-  page, versions, accounts = [], sheetId = null, variants = [], grid = [],
+  page, versions, accounts = [], sheetId = null, variants = [],
 }: {
   page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[]; sheetId?: string | null;
-  /** The page's country / module links, and every link it could have (labels). */
-  variants?: LandingVariant[]; grid?: VariantGridRow[];
+  /** The page's country / module links. */
+  variants?: LandingVariant[];
 }) {
   const known = useRef(page.revision);
   const remountAbove = useRef<number | null>(null);
@@ -88,7 +95,7 @@ export function LandingEditor({
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} variants={variants} grid={grid} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} variants={variants} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -116,10 +123,10 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, accounts, sheetId, variants, grid, onRevision, onRestored,
+  page, versions, accounts, sheetId, variants, onRevision, onRestored,
 }: {
   page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; sheetId: string | null;
-  variants: LandingVariant[]; grid: VariantGridRow[]; onRevision: (rev: number) => void; onRestored: () => void;
+  variants: LandingVariant[]; onRevision: (rev: number) => void; onRestored: () => void;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -130,7 +137,7 @@ function EditorShell({
     destructive: true,
   }), [confirm]);
   // Called before the main page's autosave so both hooks keep a fixed call order.
-  const link = useLinkEditing({ pageId: page.id, variants, grid, confirmDiscard });
+  const link = useLinkEditing({ pageId: page.id, variants, confirmDiscard });
   const { state: mainState, schedule, saveNow: saveMain } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
   const state = worse(mainState, link.saveState);
   const saveLink = link.saveNow;
@@ -293,9 +300,28 @@ function EditorShell({
   const orphanCount = orphans ? orphans.sectionIds.length + orphans.fields.length : 0;
   const mainHidden = useMemo(() => new Set(content.sections.filter((s) => !s.enabled).map((s) => s.id)), [content]);
 
+  // Every link the page could have, from the main page as it is being edited, joined with the links
+  // that exist. A country or module added here shows up at once.
+  const grid = useMemo(() => buildVariantGrid(content, link.variants), [content, link.variants]);
+  const options = useMemo(() => switcherOptions(grid), [grid]);
+  const linkLabel = options.find((o) => o.id === link.activeId)?.label ?? "";
+  const mainLive = !!page.published && page.status !== "draft";
+  const linkLive = !!link.active?.published;
+  const linkChanged = !!link.active && !sameOverrides(overrides, link.active.published);
+  // The open link's checklist: the server's list after a refused publish, else the same check the
+  // server runs on main's live content with this link's edits applied.
+  const linkProblems = useMemo<Problem[] | null>(() => {
+    if (!link.active || !overrides) return null;
+    const server = link.problems[link.active.id];
+    if (server) return server;
+    if (!page.published || !mainLive) return [{ message: `${MAIN_FIRST}. This link can go live after that.` }];
+    return computeReadiness(resolveVariant(page.published, link.active.ref, overrides), { title, slug: page.slug }).problems;
+  }, [link.active, link.problems, overrides, page.published, page.slug, mainLive, title]);
+
   const selected = shownSections.find((s) => s.id === selection) ?? null;
   const showSettings = selection === SETTINGS;
-  const current = showSettings ? null : selected ?? shownSections[0] ?? null;
+  const showLinks = selection === LINKS;
+  const current = showSettings || showLinks ? null : selected ?? shownSections[0] ?? null;
   const ownFields = useMemo(() => {
     const ov = current && overrides ? overrides.sections[current.id] : undefined;
     return new Set(Object.keys(ov?.fields ?? {}));
@@ -344,6 +370,27 @@ function EditorShell({
     if (selection === id) setSelection(next.sections[0]?.id ?? SETTINGS);
   }
 
+  /** Add a country: a main-page edit (regions + prices), saved by the main page's autosave. */
+  function onAddCountry(region: RegionDef, cells: Record<string, PriceCell>) {
+    const r = contentRef.current.registration;
+    const prices = { ...r.prices };
+    for (const [option, cell] of Object.entries(cells)) prices[option] = { ...(prices[option] ?? {}), [region.key]: cell };
+    apply(updateRegistration(contentRef.current, {
+      regions: [...r.regions, region], defaultRegionKey: r.defaultRegionKey || region.key, prices,
+    }));
+    toast.success(`${region.label} added`);
+  }
+  const switchLink = (row: VariantGridRow, on: boolean) => link.setLinkOn(row.ref, row.variantId, on, saveMain);
+  // Modules are only for courses and workshops; a module that already has a link keeps its link name.
+  const modulesProps = page.kind === "webinar" ? undefined : {
+    modules: content.modules,
+    registration: content.registration,
+    slug: page.slug,
+    lockedKeys: link.variants.map((v) => v.ref.moduleKey).filter((k): k is string => !!k),
+    onModules: (modules: LandingContent["modules"]) => apply(updateModules(contentRef.current, modules)),
+    onRename: (from: string, to: string) => apply(renameModule(contentRef.current, from, to)),
+  };
+
   const slotProps = {
     page, title, versions, content, saveState: state, saveNow,
     onSelectSection: gotoProblem, serverProblems, onServerProblems: setServerProblems, onRestored,
@@ -377,8 +424,8 @@ function EditorShell({
           <span className="shrink-0 rounded-full bg-pz-surface-container-high px-2 py-0.5 font-body text-[11px] font-medium text-pz-on-surface-variant">{KIND_LABEL[page.kind]}</span>
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
-        {link.options.length > 0 && (
-          <VariantSwitcher options={link.options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
+        {options.length > 0 && (
+          <VariantSwitcher options={options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
         )}
         <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 font-body text-xs text-pz-on-surface-variant">
           <span className={cn("h-2 w-2 rounded-full", SAVE_DOT[state])} aria-hidden="true" />
@@ -417,7 +464,22 @@ function EditorShell({
             Preview
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
-          <PublishSlot {...slotProps} />
+          {link.active && linkProblems ? (
+            <LinkPublishSlot
+              key={link.active.id}
+              label={linkLabel}
+              mainLive={mainLive}
+              live={linkLive}
+              changed={linkChanged}
+              problems={linkProblems}
+              saveState={link.saveState}
+              onPublish={() => link.publish(link.active!.id)}
+              loadVersions={() => link.loadVersions(link.active!.id)}
+              onRestore={(v) => link.restore(link.active!.id, v)}
+            />
+          ) : (
+            <PublishSlot {...slotProps} />
+          )}
         </div>
       </header>
 
@@ -444,7 +506,7 @@ function EditorShell({
           Sections ({shownSections.length})
         </button>
         <span className="truncate font-body text-xs text-pz-on-surface-variant">
-          Section: {showSettings ? "Page settings" : current ? SECTION_DEFS[current.type].label : "nothing yet"}
+          Section: {showSettings ? "Page settings" : showLinks ? "Links" : current ? SECTION_DEFS[current.type].label : "nothing yet"}
         </span>
       </div>
 
@@ -477,9 +539,25 @@ function EditorShell({
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-pz-on-surface-variant" aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            onClick={() => select(LINKS)}
+            aria-current={showLinks ? "true" : undefined}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11",
+              showLinks ? "border-pz-solid-forest bg-pz-primary-container/40" : "border-pz-outline-variant hover:bg-pz-surface-container-high",
+            )}
+          >
+            <Link2 className="h-4 w-4 shrink-0 text-pz-on-surface-variant" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-body text-sm font-semibold text-pz-on-surface">Links</span>
+              <span className="block font-body text-[11px] text-pz-on-surface-variant">A web address for each country or module</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-pz-on-surface-variant" aria-hidden="true" />
+          </button>
           <SectionList
             sections={shownSections}
-            selectedId={showSettings ? null : current?.id ?? null}
+            selectedId={current?.id ?? null}
             onSelect={select}
             onToggle={(id) => (onLink
               ? link.update((ov) => setOverrideHidden(ov, id, !ov.sections[id]?.hidden), linkId)
@@ -491,7 +569,11 @@ function EditorShell({
             onAdd={onAdd}
             link={onLink ? { mainHidden } : undefined}
           />
-          <ReadinessSlot {...slotProps} />
+          {linkProblems ? (
+            <ReadinessPanel problems={linkProblems} onGoto={(id, field) => gotoProblem(id, field)} />
+          ) : (
+            <ReadinessSlot {...slotProps} />
+          )}
         </aside>
 
         <main ref={mainRef} className={cn("min-h-0 overflow-y-auto bg-pz-surface p-4 lg:block lg:p-5", pane === "edit" ? "block" : "hidden")}>
@@ -510,7 +592,19 @@ function EditorShell({
               </div>
             </details>
           )}
-          {showSettings && onLink ? (
+          {showLinks ? (
+            <LinksPanel
+              slug={page.slug}
+              grid={grid}
+              content={content}
+              accounts={accounts}
+              mainLive={mainLive}
+              problems={link.problems}
+              onSwitch={switchLink}
+              onPublish={link.publish}
+              onAddCountry={onAddCountry}
+            />
+          ) : showSettings && onLink ? (
             <div className="space-y-4">
               <p role="note" className="rounded-lg border border-pz-outline-variant bg-pz-surface-container-low px-3 py-2 font-body text-sm text-pz-on-surface">
                 These apply to all links. Edit them on the main page.
@@ -528,6 +622,7 @@ function EditorShell({
                   registrationStep={regStep}
                   onRegistrationStep={setRegStep}
                   onRegistration={() => {}}
+                  modules={modulesProps && { ...modulesProps, onModules: () => {}, onRename: () => {} }}
                 />
               </fieldset>
             </div>
@@ -544,6 +639,7 @@ function EditorShell({
               registrationStep={regStep}
               onRegistrationStep={setRegStep}
               onRegistration={(next) => apply(updateRegistration(contentRef.current, next))}
+              modules={modulesProps}
             >
               {content.registration.enabled ? (
                 <RegistrationOpsCard pageId={page.id} slug={page.slug} status={page.status} initialSheetId={sheetId} />
