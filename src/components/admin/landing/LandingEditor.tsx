@@ -135,6 +135,8 @@ function EditorShell({
   const state = worse(mainState, link.saveState);
   const saveLink = link.saveNow;
   const onLink = link.activeId !== null;
+  // Captured into every link edit handler below; see useLinkEditing's update.
+  const linkId = link.activeId;
   // Switching links flushes the link being left, so only the open link can have pending edits.
   const saveNow = useCallback(async () => {
     if (!onLink) return saveMain();
@@ -442,7 +444,7 @@ function EditorShell({
           Sections ({shownSections.length})
         </button>
         <span className="truncate font-body text-xs text-pz-on-surface-variant">
-          Editing: {showSettings ? "Page settings" : current ? SECTION_DEFS[current.type].label : "nothing yet"}
+          Section: {showSettings ? "Page settings" : current ? SECTION_DEFS[current.type].label : "nothing yet"}
         </span>
       </div>
 
@@ -480,10 +482,10 @@ function EditorShell({
             selectedId={showSettings ? null : current?.id ?? null}
             onSelect={select}
             onToggle={(id) => (onLink
-              ? link.update((ov) => setOverrideHidden(ov, id, !ov.sections[id]?.hidden))
+              ? link.update((ov) => setOverrideHidden(ov, id, !ov.sections[id]?.hidden), linkId)
               : apply(toggleSection(contentRef.current, id)))}
             onMove={(id, dir) => (onLink
-              ? link.update((ov) => moveOnLink(contentRef.current, ov, id, dir))
+              ? link.update((ov) => moveOnLink(contentRef.current, ov, id, dir), linkId)
               : apply(moveSection(contentRef.current, id, dir)))}
             onRemove={onRemove}
             onAdd={onAdd}
@@ -502,7 +504,7 @@ function EditorShell({
                 <p className="flex-1 font-body text-xs text-pz-on-surface-variant">
                   These edits were made for parts of the main page that have since been removed, so this link no longer shows them.
                 </p>
-                <Button type="button" size="sm" variant="outline" onClick={() => link.update((ov) => removeOrphans(contentRef.current, ov))}>
+                <Button type="button" size="sm" variant="outline" onClick={() => link.update((ov) => removeOrphans(contentRef.current, ov), linkId)}>
                   Remove
                 </Button>
               </div>
@@ -567,7 +569,7 @@ function EditorShell({
                         checked={hiddenOnLink}
                         onChange={(e) => {
                           const hide = e.target.checked;
-                          link.update((ov) => setOverrideHidden(ov, current.id, hide));
+                          link.update((ov) => setOverrideHidden(ov, current.id, hide), linkId);
                         }}
                         className="h-4 w-4 accent-pz-solid-forest"
                       />
@@ -586,8 +588,8 @@ function EditorShell({
                 onChange={(data) => apply(updateSectionData(contentRef.current, current.id, data))}
                 link={onLink ? {
                   overridden: ownFields,
-                  onFieldChange: (key, value) => link.update((ov) => setOverrideField(ov, current.id, key, value)),
-                  onReset: (key) => link.update((ov) => resetOverrideField(ov, current.id, key)),
+                  onFieldChange: (key, value) => link.update((ov) => setOverrideField(ov, current.id, key, value), linkId),
+                  onReset: (key) => link.update((ov) => resetOverrideField(ov, current.id, key), linkId),
                 } : undefined}
               />
             </div>

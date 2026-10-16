@@ -8,7 +8,13 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 const confirmFn = vi.fn(async () => true);
 vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => confirmFn }));
-vi.mock("@/components/admin/program/ImageUploadField", () => ({ ImageUploadField: () => null }));
+const uploads = vi.hoisted(() => ({ pending: [] as ((url: string) => void)[] }));
+vi.mock("@/components/admin/program/ImageUploadField", () => ({
+  // Models the real field: the upload captures onChange when the file is picked and calls it later.
+  ImageUploadField: ({ onChange }: { onChange: (u: string) => void }) => (
+    <button type="button" onClick={() => { const captured = onChange; uploads.pending.push((u) => captured(u)); }}>Fake pick file</button>
+  ),
+}));
 
 import { LandingEditor } from "@/components/admin/landing/LandingEditor";
 import { useAutosaveDraft } from "@/hooks/useAutosaveDraft";
@@ -23,7 +29,10 @@ const base = emptyContent("webinar");
 const heroId = base.sections[0].id;
 const draft = {
   ...updateSectionData(base, heroId, { ...base.sections[0].data, headline: "Main headline" }),
-  modules: [{ key: "module-2", title: "Module 2", format: "3-Day Workshop", days: 3, optionKey: "" }],
+  modules: [
+    { key: "module-2", title: "Module 2", format: "3-Day Workshop", days: 3, optionKey: "" },
+    { key: "module-3", title: "Module 3", format: "3-Day Workshop", days: 3, optionKey: "" },
+  ],
 };
 const page = {
   id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
@@ -44,11 +53,12 @@ beforeEach(() => {
   fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ revision: 4 }) }));
   vi.stubGlobal("fetch", fetchMock);
   confirmFn.mockClear();
+  uploads.pending = [];
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-function renderWith(variant: LandingVariant) {
-  const variants = [variant];
+function renderWith(variant: LandingVariant, ...more: LandingVariant[]) {
+  const variants = [variant, ...more];
   return render(<LandingEditor page={page} versions={[]} variants={variants} grid={buildVariantGrid(draft, variants)} />);
 }
 async function choose(label: string) {
@@ -93,6 +103,7 @@ describe("LandingEditor with links", () => {
     renderWith(mkVariant({ sections: { [heroId]: { fields: { headline: "M2" } } } }));
     const select = screen.getByLabelText("Editing:") as HTMLSelectElement;
     expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["Main page", "Module 2"]);
+    expect(within(select).queryByRole("option", { name: "Module 3" })).toBeNull();
     expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Main headline");
     expect(screen.queryByText("Edited for this link")).toBeNull();
   });
@@ -171,6 +182,30 @@ describe("LandingEditor with links", () => {
     expect(body.overrides.sections).toEqual({ [heroId]: { fields: { headline: "M2" } } });
   });
 
+  it("an upload that finishes after switching links is not written to the newly open link or saved anywhere", async () => {
+    const other: LandingVariant = { ...mkVariant(), id: "v2", ref: { regionKey: null, moduleKey: "module-3" }, revision: 3 };
+    renderWith(mkVariant(), other);
+    await choose("Module 2");
+    fireEvent.click(screen.getByRole("button", { name: "Fake pick file" }));
+    await choose("Module 3");
+    act(() => uploads.pending[0]("https://example.com/late.jpg"));
+    expect(screen.queryByText("Edited for this link")).toBeNull();
+    await flush();
+    expect(calls(VARIANT_URL)).toHaveLength(0);
+    expect(calls("/api/admin/landing-pages/p1/variants/v2")).toHaveLength(0);
+    expect(calls(PAGE_URL)).toHaveLength(0);
+  });
+
+  it("an upload that finishes after switching back to the main page is dropped", async () => {
+    renderWith(mkVariant());
+    await choose("Module 2");
+    fireEvent.click(screen.getByRole("button", { name: "Fake pick file" }));
+    await choose("Main page");
+    act(() => uploads.pending[0]("https://example.com/late.jpg"));
+    await flush();
+    expect(calls(VARIANT_URL)).toHaveLength(0);
+  });
+
   it("the preview loads the link's draft", async () => {
     renderWith(mkVariant());
     await choose("Module 2");
@@ -194,5 +229,17 @@ describe("useAutosaveDraft on a link", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(100); });
     expect(fetchMock.mock.calls[1][0]).toBe("/b");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).baseRevision).toBe(2);
+  });
+  it("a schedule captured before a target change sends to the current target only", async () => {
+    const { result, rerender } = renderHook(
+      ({ endpoint, rev }) => useAutosaveDraft<VariantOverrides>({ endpoint, bodyKey: "overrides", initialRevision: rev, delayMs: 100 }),
+      { initialProps: { endpoint: "/a", rev: 7 } },
+    );
+    const stale = result.current.schedule;
+    rerender({ endpoint: "/b", rev: 2 });
+    act(() => stale({ sections: {} }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(["/b"]);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).baseRevision).toBe(2);
   });
 });

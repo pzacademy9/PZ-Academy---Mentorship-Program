@@ -133,10 +133,14 @@ export function useLinkEditing({
   const active = activeId ? variants.find((v) => v.id === activeId) ?? null : null;
   const overrides = activeId ? overridesById[activeId] ?? { sections: {} } : null;
 
-  /** Applies an edit to the current link's overrides and autosaves it. */
-  const update = useCallback((fn: (ov: VariantOverrides) => VariantOverrides) => {
+  /**
+   * Applies an edit to link `linkId`'s overrides and autosaves it. `linkId` is the link that was open
+   * when the edit's handler was created: an edit that lands after the admin switched links (a slow
+   * image upload) is dropped rather than written into, or saved over, another link.
+   */
+  const update = useCallback((fn: (ov: VariantOverrides) => VariantOverrides, linkId: string | null) => {
     const id = activeRef.current;
-    if (!id) return;
+    if (!id || id !== linkId) return;
     const next = fn(overridesRef.current[id] ?? { sections: {} });
     overridesRef.current = { ...overridesRef.current, [id]: next };
     setOverridesById(overridesRef.current);

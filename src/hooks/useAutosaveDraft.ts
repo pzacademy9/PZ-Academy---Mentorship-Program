@@ -30,6 +30,9 @@ export function useAutosaveDraft<T = LandingContent>({
   onRevision?: (revision: number) => void;
 }) {
   const target = endpoint ?? `/api/admin/landing-pages/${pageId}`;
+  // Read at send time, so a stale schedule/saveNow captured before a target change never sends to the old URL.
+  const targetRef = useRef(target);
+  targetRef.current = target;
   const onRevisionRef = useRef(onRevision);
   onRevisionRef.current = onRevision;
   const initialRevisionRef = useRef(initialRevision);
@@ -53,7 +56,7 @@ export function useAutosaveDraft<T = LandingContent>({
         pending.current = null;
         setState("saving");
         try {
-          const res = await fetch(target, {
+          const res = await fetch(targetRef.current, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ [bodyKey]: content, baseRevision: revision.current }),
@@ -82,7 +85,7 @@ export function useAutosaveDraft<T = LandingContent>({
     });
     inFlight.current = p;
     return p;
-  }, [target, bodyKey]);
+  }, [bodyKey]);
 
   // A new target starts clean: its own revision, no conflict, nothing pending.
   const lastTarget = useRef(target);
