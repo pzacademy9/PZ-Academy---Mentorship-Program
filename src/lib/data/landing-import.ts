@@ -41,10 +41,6 @@ async function createLink(pageId: string, link: ImportLink, heroId: string | und
   const ensured = await ensureVariant(pageId, ref, false);
   if (!ensured.ok) return false;
   let variant: LandingVariant = ensured.variant;
-  if (link.on) {
-    const r = await setVariantEnabled(variant.id, true);
-    if (!r.ok) return false;
-  }
   if (heroId && (link.heroTitle || link.heroSubtitle)) {
     let saved = await saveVariantDraft(variant.id, withHero(variant.draft, heroId, link), variant.revision);
     if (!saved.ok && saved.reason === "conflict") {
@@ -55,6 +51,10 @@ async function createLink(pageId: string, link: ImportLink, heroId: string | und
       saved = await saveVariantDraft(variant.id, withHero(variant.draft, heroId, link), variant.revision);
     }
     if (!saved.ok) return false;
+  }
+  if (link.on) {
+    const r = await setVariantEnabled(variant.id, true);
+    if (!r.ok) return false;
   }
   return true;
 }
@@ -80,9 +80,14 @@ export async function importLandingPage(userId: string, raw: string): Promise<Im
   if (!pageId) return { ok: false, errors: [SLUG_TAKEN] };
 
   const heroId = built.content.sections.find((s) => s.type === "hero")?.id;
+  const warnings = built.warnings.map((w) => w.message);
   let linksCreated = 0;
   const linksFailed: string[] = [];
+  // Sequential on purpose (keeps order, avoids races); costs O(links) queries.
   for (const link of built.links) {
+    if (!heroId && (link.heroTitle || link.heroSubtitle)) {
+      warnings.push(`${linkLabel(link, built.content)}: the hero text was not saved because the page has no hero section.`);
+    }
     let ok = false;
     try {
       ok = await createLink(pageId, link, heroId);
@@ -92,5 +97,5 @@ export async function importLandingPage(userId: string, raw: string): Promise<Im
     if (ok) linksCreated++;
     else linksFailed.push(linkLabel(link, built.content));
   }
-  return { ok: true, pageId, slug, slugChanged, warnings: built.warnings.map((w) => w.message), linksCreated, linksFailed };
+  return { ok: true, pageId, slug, slugChanged, warnings, linksCreated, linksFailed };
 }

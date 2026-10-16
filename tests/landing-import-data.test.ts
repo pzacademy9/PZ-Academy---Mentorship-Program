@@ -85,6 +85,7 @@ describe("importLandingPage", () => {
     createLandingPage.mockResolvedValue({ ok: false, reason: "db-error" });
     const r = await importLandingPage("u1", "raw");
     expect(r.ok).toBe(false);
+    expect(createLandingPage).toHaveBeenCalledTimes(1);
     expect(ensureVariant).not.toHaveBeenCalled();
   });
 
@@ -102,12 +103,43 @@ describe("importLandingPage", () => {
     expect(r).toMatchObject({ ok: true, linksFailed: ["UAE, Module 2"] });
   });
 
-  it("counts a link failed when switching on fails, and retries a draft conflict once", async () => {
+  it("counts a link failed when switching on fails", async () => {
     setVariantEnabled.mockResolvedValue({ ok: false, reason: "db-error" });
-    saveVariantDraft.mockResolvedValue({ ok: false, reason: "conflict" });
     const r = await importLandingPage("u1", "raw");
     expect(r).toMatchObject({ ok: true, linksFailed: ["Module 2"], linksCreated: 2 });
-    expect(saveVariantDraft.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("retries a draft conflict once on a fresh copy", async () => {
+    buildImport.mockReturnValue(built({ links: [{ regionKey: null, moduleKey: "m2", on: true, heroTitle: "Hello" }] }));
+    saveVariantDraft.mockResolvedValueOnce({ ok: false, reason: "conflict" }).mockResolvedValueOnce({ ok: true, revision: 6 });
+    const r = await importLandingPage("u1", "raw");
+    expect(r).toMatchObject({ ok: true, linksCreated: 1, linksFailed: [] });
+    expect(saveVariantDraft).toHaveBeenCalledTimes(2);
+    expect(ensureVariant).toHaveBeenCalledTimes(2);
+    expect(setVariantEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  it("a second conflict fails the link but not the import", async () => {
+    buildImport.mockReturnValue(built({ links: [{ regionKey: null, moduleKey: "m2", on: true, heroTitle: "Hello" }] }));
+    saveVariantDraft.mockResolvedValue({ ok: false, reason: "conflict" });
+    const r = await importLandingPage("u1", "raw");
+    expect(r).toMatchObject({ ok: true, linksCreated: 0, linksFailed: ["Module 2"] });
+    expect(saveVariantDraft).toHaveBeenCalledTimes(2);
+    expect(setVariantEnabled).not.toHaveBeenCalled();
+  });
+
+  it("creates the page before any link, and saves the hero before switching on", async () => {
+    await importLandingPage("u1", "raw");
+    expect(createLandingPage.mock.invocationCallOrder[0]).toBeLessThan(ensureVariant.mock.invocationCallOrder[0]);
+    expect(saveVariantDraft.mock.invocationCallOrder[0]).toBeLessThan(setVariantEnabled.mock.invocationCallOrder[0]);
+  });
+
+  it("warns when hero text has no hero section to go in", async () => {
+    buildImport.mockReturnValue(built({ content: { ...content, sections: [{ id: "s1", type: "faq" }] } }));
+    const r = await importLandingPage("u1", "raw");
+    expect(r).toMatchObject({ ok: true });
+    if (r.ok) expect(r.warnings).toContain("Module 2: the hero text was not saved because the page has no hero section.");
+    expect(saveVariantDraft).not.toHaveBeenCalled();
   });
 
   it("build errors stop before creating anything", async () => {
