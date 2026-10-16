@@ -114,6 +114,11 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
           continue;
         }
         const where = `${optionName(optKey)} for ${regionName(code)}`;
+        if (cellRaw.amount === undefined || cellRaw.amount === null || cellRaw.amount === "") {
+          covered.add(`${optKey}|${code}`);
+          warn(`The price of ${where} is missing the amount.`);
+          continue;
+        }
         const amount = readMoney(cellRaw.amount, `The price of ${where}`);
         if (amount === undefined) { covered.add(`${optKey}|${code}`); continue; }
         const cell: PriceCell = { amount };

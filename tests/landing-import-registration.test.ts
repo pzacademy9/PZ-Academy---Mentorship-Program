@@ -144,6 +144,30 @@ describe("buildRegistration", () => {
     expect(lines).toEqual(["The price of Module 1 for UAE is not a number."]);
   });
 
+  it("gives one line for a missing or blank amount", () => {
+    for (const opt of ["full", "m1"] as const) {
+      for (const cell of [{ early: 150 }, { amount: "" }, { amount: null }]) {
+        const f = base();
+        (f.registration.prices as Record<string, unknown>)[opt] = { UAE: cell };
+        const name = opt === "full" ? "Full Course" : "Module 1";
+        const lines = buildRegistration(f).problems.map((p) => p.message).filter((m) => m.includes(name) && m.includes("UAE"));
+        expect(lines).toEqual([`The price of ${name} for UAE is missing the amount.`]);
+      }
+    }
+  });
+
+  it("rejects reserved account and group codes", () => {
+    const f = base();
+    f.registration.regions[0].accounts = ["uae_bank", "__proto__"];
+    f.registration.tiers.push({ key: "constructor", label: "X", size: 4, percent_off: 5 } as never);
+    const r = buildRegistration(f);
+    const errs = r.problems.filter((p) => p.level === "error").map((p) => p.message);
+    expect(errs.filter((m) => m === '"__proto__" is a reserved word, pick another code.')).toHaveLength(1);
+    expect(errs).toContain('"constructor" is a reserved word, pick another code.');
+    expect(r.registration.regions[0].accountKeys).toEqual(["uae_bank"]);
+    expect(r.registration.tiers.map((t) => t.key)).toEqual(["g3", "g5"]);
+  });
+
   it("warns about Early Bird prices without an end date", () => {
     const f = base();
     delete (f.registration as Record<string, unknown>).early_bird_ends;
