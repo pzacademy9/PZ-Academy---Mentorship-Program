@@ -1,4 +1,5 @@
 import type { RegisterPayload } from "@/lib/landing/registration/submit-schema";
+import { variantQuery } from "./variant";
 import type { RegisterErrorBody, RegisterSuccess } from "./types";
 
 export type SubmitOutcome = { ok: true; data: RegisterSuccess } | { ok: false; status: number; error: string; field?: string };
@@ -23,7 +24,7 @@ export async function submitRegistration(
   slug: string,
   payload: RegisterPayload,
   voucher: File | null,
-  { timeoutMs = 60_000 }: { timeoutMs?: number } = {},
+  { timeoutMs = 60_000, variant }: { timeoutMs?: number; variant?: string } = {},
 ): Promise<SubmitOutcome> {
   const fd = new FormData();
   fd.append("payload", JSON.stringify(payload));
@@ -31,7 +32,7 @@ export async function submitRegistration(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`/api/landing/${encodeURIComponent(slug)}/register`, { method: "POST", body: fd, signal: ctrl.signal });
+    const res = await fetch(`/api/landing/${encodeURIComponent(slug)}/register${variantQuery(variant)}`, { method: "POST", body: fd, signal: ctrl.signal });
     const body = (await res.json().catch(() => null)) as (Partial<RegisterSuccess> & Partial<RegisterErrorBody>) | null;
     if (res.ok && body && typeof body.refId === "string") return { ok: true, data: body as RegisterSuccess };
     if (res.ok) return { ok: false, status: 500, error: messageForStatus(500) };

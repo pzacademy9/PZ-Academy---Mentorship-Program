@@ -65,6 +65,7 @@ export function StepChoose({
           {config.options.map((o) => {
             const q = priceOf(o.key);
             const checked = state.optionKeys.includes(o.key);
+            const locked = config.options.length === 1; // a module link: the one option is the choice, not a toggle
             return (
               <label key={o.key} className={R_CHOICE}>
                 <input
@@ -72,6 +73,7 @@ export function StepChoose({
                   name={o.kind === "bundle" ? "bundle" : undefined}
                   className="mt-1 h-5 w-5 accent-landing-primary"
                   checked={checked}
+                  disabled={locked}
                   onChange={() => onToggleOption(o.key)}
                 />
                 <span className="flex flex-1 flex-wrap items-baseline justify-between gap-x-3">

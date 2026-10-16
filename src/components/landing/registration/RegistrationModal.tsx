@@ -13,6 +13,8 @@ import { takeOpener } from "./registration-bus";
 
 export interface RegistrationModalProps {
   slug: string;
+  /** Variant path of a country / module link; scopes config, quote and register. */
+  variant?: string;
   open: boolean;
   onClose: () => void;
   testMode?: boolean;
@@ -22,8 +24,8 @@ export interface RegistrationModalProps {
 
 let leadSent = false; // Lead / start fire once per page load, not on every reopen
 
-export function RegistrationModal({ slug, open, onClose, testMode = false, tracking = true, portalContainer }: RegistrationModalProps) {
-  const cfg = useRegistrationConfig(slug, open);
+export function RegistrationModal({ slug, variant, open, onClose, testMode = false, tracking = true, portalContainer }: RegistrationModalProps) {
+  const cfg = useRegistrationConfig(slug, open, variant);
   // The answers live here, outside Dialog.Content (which unmounts when closed), so closing and reopening keeps them.
   const [form, setForm] = useState<FormState | null>(null);
   const [result, setResult] = useState<RegisterSuccess | null>(null);
@@ -84,7 +86,7 @@ export function RegistrationModal({ slug, open, onClose, testMode = false, track
           )}
           {cfg.status === "ready" && (cfg.config.status !== "closed" || testMode) && form && (
             <RegistrationFlow
-              slug={slug} config={cfg.config} me={cfg.me} testMode={testMode} tracking={tracking}
+              slug={slug} variant={variant} config={cfg.config} me={cfg.me} testMode={testMode} tracking={tracking}
               form={form} setForm={setFormSafe}
               result={result} setResult={setResult} onClose={onClose}
               renderTopBar={({ canGoBack, goBack }) => canGoBack ? (

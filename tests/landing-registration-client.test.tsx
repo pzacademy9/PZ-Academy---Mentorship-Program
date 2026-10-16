@@ -290,3 +290,42 @@ describe("usePricingQuote", () => {
     expect(fetchMock()).not.toHaveBeenCalled();
   });
 });
+
+describe("variant scope in the widget fetch layer", () => {
+  const urls = () => fetchMock().mock.calls.map((c) => String(c[0]));
+  it("pickRegion: exactly one region always wins over the visitor's country and ?region=", () => {
+    const uae = [{ key: "UAE" }] as never;
+    expect(pickRegion(uae, "PK", "PK")).toBe("UAE");
+    expect(pickRegion(uae, "PK", "PK", "PK")).toBe("UAE");
+    expect(pickRegion(uae, null, "")).toBe("UAE");
+  });
+  it("useRegistrationConfig sends ?v= only when a variant is given", async () => {
+    fetchMock().mockImplementation(async (url: string) => url === "/api/landing/me"
+      ? { ok: true, json: async () => null }
+      : { ok: true, status: 200, json: async () => publicConfig(ppcConfig) });
+    const a = renderHook(() => useRegistrationConfig("ppc", true, "uae/module-2"));
+    await waitFor(() => expect(a.result.current.status).toBe("ready"));
+    expect(urls()).toContain("/api/landing/ppc/config?v=uae%2Fmodule-2");
+    fetchMock().mockClear();
+    const b = renderHook(() => useRegistrationConfig("ppc", true, ""));
+    await waitFor(() => expect(b.result.current.status).toBe("ready"));
+    expect(urls()).toContain("/api/landing/ppc/config");
+    expect(urls().some((u) => u.includes("v="))).toBe(false);
+  });
+  it("usePricingQuote and submitRegistration append ?v= only with a variant", async () => {
+    fetchMock().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    const sel: Selection = { regionKey: "PK", mode: "live", optionKeys: ["full"], tierKey: "individual", groupSize: 1 };
+    renderHook(() => usePricingQuote({ slug: "ppc", config: ppcConfig, selection: sel, promoCode: "", email: "", debounceMs: 1, variant: "uae/module-2" }));
+    await waitFor(() => expect(urls()).toContain("/api/landing/ppc/quote?v=uae%2Fmodule-2"));
+    fetchMock().mockClear();
+    renderHook(() => usePricingQuote({ slug: "ppc", config: ppcConfig, selection: sel, promoCode: "", email: "", debounceMs: 1 }));
+    await waitFor(() => expect(urls()).toContain("/api/landing/ppc/quote"));
+    const { submitRegistration } = await import("@/components/landing/registration/submit");
+    fetchMock().mockClear();
+    await submitRegistration("ppc", {} as never, null, { variant: "uae/module-2" });
+    expect(urls()).toEqual(["/api/landing/ppc/register?v=uae%2Fmodule-2"]);
+    fetchMock().mockClear();
+    await submitRegistration("ppc", {} as never, null);
+    expect(urls()).toEqual(["/api/landing/ppc/register"]);
+  });
+});

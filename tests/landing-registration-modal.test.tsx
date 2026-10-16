@@ -24,7 +24,8 @@ let lastRegisterForm: FormData | null;
 let registerCalls = 0;
 
 function installFetch(cfg: RegistrationConfig) {
-  fetchMock().mockImplementation(async (url: string, init?: RequestInit) => {
+  fetchMock().mockImplementation(async (rawUrl: string, init?: RequestInit) => {
+    const url = rawUrl.split("?")[0]; // a variant link adds ?v=
     if (url.endsWith("/quote")) {
       const b = JSON.parse(String(init!.body));
       const quote = computeQuote({ config: cfg, ...b, now: new Date() });
@@ -482,5 +483,33 @@ describe("fix round 1", () => {
       expect(await screen.findByText(/✓ copied/i)).toBeTruthy();
       expect(screen.getByTestId("dlg").contains(parent)).toBe(true);
     });
+  });
+});
+
+describe("variant-locked choices", () => {
+  const uaeModule2: RegistrationConfig = {
+    ...ppcConfig,
+    regions: ppcConfig.regions.filter((r) => r.key === "UAE"),
+    defaultRegionKey: "UAE",
+    options: ppcConfig.options.filter((o) => o.key === "m2"),
+    moduleMix: { enabled: false, bundleOptionKey: "" },
+  };
+  it("a UAE-only config selects UAE for a Pakistani visitor and ignores ?region=", async () => {
+    installFetch(uaeModule2);
+    window.history.replaceState({}, "", "/?region=PK");
+    try {
+      render(<RegistrationModal slug="ppc" variant="uae/module-2" open onClose={() => {}} tracking={false} />);
+      await screen.findByRole("checkbox", { name: /module 2/i });
+      expect(screen.queryByText(/registering from/i)).toBeNull();
+      expect(screen.getAllByText(/class time/i).some((e) => /6:30/.test(e.textContent ?? ""))).toBe(true);
+    } finally { window.history.replaceState({}, "", "/"); }
+  });
+  it("a single-option config shows the option pre-selected and not toggleable", async () => {
+    installFetch(uaeModule2);
+    render(<Harness cfg={uaeModule2} country="PK" />);
+    const box = screen.getByRole("checkbox", { name: /module 2/i }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.disabled).toBe(true);
+    expect(screen.queryByText(/mix modules/i)).toBeNull();
   });
 });
