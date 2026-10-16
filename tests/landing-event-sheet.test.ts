@@ -197,7 +197,16 @@ describe("GAS source", () => {
     const m = code.match(/const LANDING_HEADERS = (\[[^\]]*\]);/);
     expect(m).not.toBeNull();
     expect(JSON.parse(m![1])).toEqual(SHEET_HEADERS);
-    expect(SHEET_HEADERS).toHaveLength(23);
+    expect(SHEET_HEADERS).toHaveLength(24);
+  });
+  it("adds the Link header to an existing sheet that lacks it, without touching data", () => {
+    const fn = code.slice(code.indexOf("function handleAppendRegistrationRows_"), code.indexOf("function handleUploadLandingVoucher_"));
+    expect(code).toContain("function ensureLandingLinkHeader_");
+    expect(fn).toContain("ensureLandingLinkHeader_(sheet)");
+    const helper = code.slice(code.indexOf("function ensureLandingLinkHeader_"), code.indexOf("function handleAppendRegistrationRows_"));
+    expect(helper).toContain("getRange(1, LANDING_HEADERS.length)");
+    expect(helper).toContain("LANDING_HEADERS[LANDING_HEADERS.length - 1]");
+    expect(helper).toMatch(/if \(.*getValue\(\)/);
   });
   it("voucher upload is dispatched before the SYNC_SECRET gate; sheet actions after it", () => {
     const gate = code.indexOf('body.token !== props.getProperty("SYNC_SECRET")');

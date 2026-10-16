@@ -24,7 +24,7 @@ const rec = (over: Partial<RegistrationRecord> = {}): RegistrationRecord => ({
   consent: true, optionLabel: "Live - Full Course - Individual", optionKeys: ["full"], mode: "live", tierKey: "individual", groupSize: 1,
   promoCodeText: null, expectedAmount: 4800, amountReceived: null, currency: "PKR", paymentMethod: "faysal",
   voucherUrl: "https://drive.google.com/file/d/v1/view", status: "pending", emailStatus: null, agentId: null, studentId: null,
-  utm: { utm_campaign: "b3" }, isTest: false, createdAt: "2026-10-13T10:00:00.000Z", ...over,
+  utm: { utm_campaign: "b3" }, variantKey: "", isTest: false, createdAt: "2026-10-13T10:00:00.000Z", ...over,
 });
 const page = (over: Partial<RegistrablePage> = {}): RegistrablePage => ({
   id: "page-1", slug: "ppc-b3", title: "PPC Batch 3", status: "published", content: contentWith(PPC_CONFIG), registration: PPC_CONFIG,
@@ -61,14 +61,23 @@ describe("toSheetRegistration", () => {
   });
 });
 
+describe("toSheetRegistration variantKey", () => {
+  it("takes the lead's variant key, blank for the main page", () => {
+    const b = groupBundle();
+    expect(toSheetRegistration(b.lead, b.lead, page(), "Sara", "Faysal Bank").variantKey).toBe("");
+    const v = bundle(rec({ rowType: "lead", variantKey: "uae/module-2" }), [rec({ id: "reg-2", rowType: "member", variantKey: "" })]);
+    expect(toSheetRegistration(v.members[0], v.lead, page(), "Sara", "Faysal Bank").variantKey).toBe("uae/module-2");
+  });
+});
+
 describe("sheet_append", () => {
-  it("appends lead and member rows of 23 cells", async () => {
+  it("appends lead and member rows of 24 cells", async () => {
     m.getRegistrationBundle.mockResolvedValue(groupBundle());
     await JOB_HANDLERS.sheet_append("reg-1");
     const [sheetId, rows] = m.appendRegistrationRows.mock.calls[0];
     expect(sheetId).toBe("sheet-1");
     expect(rows).toHaveLength(3);
-    for (const r of rows as string[][]) expect(r).toHaveLength(23);
+    for (const r of rows as string[][]) expect(r).toHaveLength(24);
   });
   it("skips pages without a sheet and test registrations", async () => {
     m.getRegistrationBundle.mockResolvedValue(bundle(rec()));

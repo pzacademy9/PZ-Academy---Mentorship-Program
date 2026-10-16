@@ -79,6 +79,7 @@ export interface RegistrationRecord {
   agentId: string | null;
   studentId: string | null;
   utm: Record<string, string>;
+  variantKey: string;
   isTest: boolean;
   createdAt: string;
 }
@@ -126,6 +127,7 @@ function mapRecord(r: RegRow): RegistrationRecord {
     agentId: strOrNull(row.agent_id),
     studentId: strOrNull(row.student_id),
     utm: cleanUtm(row.utm),
+    variantKey: str(row.variant_key),
     isTest: row.is_test === true,
     createdAt: str(row.created_at),
   };

@@ -1,11 +1,11 @@
 // src/lib/landing/registration/sheet-row.ts
-// One registration row -> one Sheet row, in the legacy column order (A-T) plus U-W.
+// One registration row -> one Sheet row, in the legacy column order (A-T) plus U-W and X (Link: the variant path, "" for the main page).
 import type { RegistrationStatus } from "./config";
 
 export const SHEET_HEADERS: string[] = [
   "Name", "Email", "WhatsApp", "Profession", "Discovery", "Registration Option", "Consent", "Row Type", "Promo Code",
   "Voucher URL", "Submitted At", "Expected Amount", "Group Lead Email", "Payment Method", "Amount", "Payment Confirmation",
-  "Email Confirmation", "Source", "Ref ID", "Region", "Agent", "Promo Code Used", "UTM Campaign",
+  "Email Confirmation", "Source", "Ref ID", "Region", "Agent", "Promo Code Used", "UTM Campaign", "Link",
 ];
 
 export type SheetRowType = "individual" | "lead" | "member";
@@ -34,6 +34,7 @@ export interface SheetRegistration {
   regionKey: string;
   agentName: string;
   utmCampaign: string;
+  variantKey: string;          // "" for the main page, e.g. "uae/module-2" for a variant
 }
 
 export const ROW_TYPE_LABELS: Record<SheetRowType, string> = { individual: "Individual", lead: "Group Lead", member: "Group Member" };
@@ -81,6 +82,7 @@ export function toSheetRow(r: SheetRegistration): string[] {
     r.agentName,                                                     // U Agent
     r.promoCodeUsed,                                                 // V Promo Code Used
     r.utmCampaign,                                                   // W UTM Campaign
+    r.variantKey,                                                    // X Link
   ];
   return cells.map((c) => sheetSafe(c));
 }

@@ -108,6 +108,7 @@ export function toSheetRegistration(
     regionKey: lead.region,
     agentName,
     utmCampaign: lead.utm.utm_campaign ?? "",
+    variantKey: lead.variantKey,
   };
 }
 
