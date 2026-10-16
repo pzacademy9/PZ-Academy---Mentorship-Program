@@ -60,7 +60,7 @@ describe("dry-run fixtures: ppc-batch-3 (course)", () => {
       "Choose at least one payment account for Saudi Arabia.",
       "Choose at least one payment account for Philippines.",
       "Choose at least one payment account for India.",
-      "The WhatsApp number for payment checks must be digits only with the country code, for example 923700199429.",
+      "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
       "Check the countdown date before publishing.",
     ]);
   });
@@ -112,7 +112,7 @@ describe("dry-run fixtures: w20-diabetes (webinar)", () => {
     expect(msgs(b)).toEqual([
       "Choose at least one payment account for Pakistan.",
       "Choose at least one payment account for Philippines.",
-      "The WhatsApp number for payment checks must be digits only with the country code, for example 923700199429.",
+      "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
       "The page has no questions and answers (FAQ).",
     ]);
   });

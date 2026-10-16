@@ -64,8 +64,8 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     ],
     notes: [
       "A course has modules. List every module in modules, with one option per module (kind: module) and one for the full course (kind: bundle), each module pointing to its option. If students may mix modules, enable module_mix with the full-course option as bundle.",
-      "In the outline show one entry per module. In the schedule, give entries that belong to one module that module's code.",
-      "Give each module link its own hero_title (for example \"Module 2: Therapeutics\") when the teammate wants one. Ask for it.",
+      "In the outline show one entry per module (title \"Day N: name\"; topics as \"- \" lines, never day titles and topics in one flat list). In the schedule, give entries that belong to one module that module's code.",
+      "Give each module link its own hero_title (for example \"Module 2: Therapeutics\") when the teammate wants one. Ask for it. If the document is silent on mixing modules or on which links to switch on, leave module_mix and links out and list them under \"Please check\".",
       "Only add the video reviews or written testimonials sections if the teammate gives you real YouTube links or real quotes. Otherwise leave those sections out and say so.",
     ],
     frontExtra: `modules:
@@ -108,7 +108,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     ],
     notes: [
       "A webinar is a single event: one date, one speaker group, no modules and no course outline. Do not add a modules list and do not ask about modules.",
-      "Use one option of kind bundle named after the webinar. For a free webinar write the option with free: true AND a price of amount: 0 for every country that can register, for example prices: { seat: { UAE: { amount: 0 }, PK: { amount: 0 } } }.",
+      "A single plan: write one option of kind bundle. A free webinar: free: true on the option AND a price of amount: 0 for every country that can register. A Free plan plus a paid (for example Pro) plan: write TWO options, one with free: true and amount: 0 in every country, and one paid option with its price per country. Do not put Free and Pro in one option.",
       "In the schedule, list the date and time and any short agenda lines. Use the text block for what attendees will explore.",
     ],
     frontExtra: "",
@@ -176,14 +176,27 @@ items:
   instructors: (kind) => `heading: ${kind === "webinar" ? "Meet your speaker" : "Meet your instructor"}
 items:
   - { name: Dr. Sample Name, role: Clinical Pharmacist, bio: "Teaches pharmacology to pharmacists." }`,
-  pricing_cards: (kind) => `heading: Choose your plan
+  pricing_cards: (kind) => kind === "webinar"
+    ? `heading: Choose your plan
+items:
+  - name: Free Plan
+    price: Free
+    features: |
+      - Live webinar
+  - name: Pro Plan
+    price: See price for your country
+
+    features: |
+      - Live webinar
+      - Recording for registered people`
+    : `heading: Choose your plan
 note: Early Bird ends 25 October 2026
 items:
-  - name: ${kind === "course" ? "Full course" : kind === "workshop" ? "Workshop seat" : "Webinar seat"}
-    price: ${kind === "webinar" ? "Free" : "AED 200"}${kind === "webinar" ? "" : "\n    oldPrice: AED 250"}
+  - name: ${kind === "course" ? "Full course" : "Workshop seat"}
+    price: See price for your country
     features: |
       - Live classes
-      - ${kind === "webinar" ? "Recording for registered people" : "Certificate"}`,
+      - Certificate`,
   schedule: (kind) => `heading: Schedule
 items:
   - { when: "${kind === "course" ? "15 Nov · 7:30 PM" : "Fri 6 Nov · 7:30 PM"}", title: ${kind === "course" ? "Module 1 begins" : "Session starts"}${kind === "course" ? ", module: module-1" : ""} }
@@ -213,14 +226,21 @@ function exampleFront(kind: PageKind): string {
     ? `    - { key: full, name: ${label}, kind: bundle }
     - { key: m1, name: Module 1, kind: module }
     - { key: m2, name: Module 2, kind: module }`
-    : `    - { key: seat, name: ${label}, kind: bundle${free ? ", free: true" : ""} }`;
+    : free
+      ? `    - { key: free, name: Free Plan, kind: bundle, free: true }
+    - { key: pro, name: Pro Plan, kind: bundle }`
+      : `    - { key: seat, name: ${label}, kind: bundle }`;
   const prices = free ? `  prices:
-    seat:
+    free:
       UAE: { amount: 0 }
       PK: { amount: 0 }
+    pro:
+      UAE: { amount: 80, early: 60 }
+      PK: { amount: 3500, early: 2700 }
 ` : kind === "course"
     ? `  tiers:
     - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
+    - { key: g5, label: Group of 5 or more, min: 5, max: 10, percent_off: 25 }
   prices:
     full:
       UAE: { amount: 200, early: 160, group_totals: { g3: 480 }, early_group_totals: { g3: 384 } }
@@ -252,7 +272,7 @@ function exampleFront(kind: PageKind): string {
     : `links:
   - { country: UAE, on: true }
 `;
-  const early = free ? "" : "  early_bird_ends: 2026-10-25T23:59:00+04:00\n";
+  const early = "  early_bird_ends: 2026-10-25T23:59:00+04:00\n";
   const mix = kind === "course" ? "  module_mix: { enabled: true, bundle: full }\n" : "";
   return `format: ${IMPORT_FORMAT_ID}
 kind: ${kind}
@@ -325,8 +345,9 @@ registration:
     - { code: UAE, name: UAE, currency: AED, class_time: "6:30 PM – 7:30 PM", timezone: UAE time }
   options:                      # what people can buy
 ${options}${mix}
-  tiers:                        # group discounts, only if given
+  tiers:                        # group discounts, only if given (min/max instead of size for "N or more")
     - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
+    - { key: g5, label: Group of 5 or more, min: 5, max: 10, percent_off: 25 }
   prices:
     full:
       UAE: { amount: 200, early: 160, group_totals: { g3: 480 }, early_group_totals: { g3: 384 } }${modulesLine}
@@ -335,11 +356,14 @@ ${linkLines}
 ${FENCE}
 
 Rules for that top part:
-- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. group_totals is the total for the whole group, not per person (early_group_totals is the same for the Early Bird price). If only a per-person group price is given, multiply by group size and say so in your closing summary.
+- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals; the page calculates the price. Write group_totals (the total for the whole group, not per person; early_group_totals for the Early Bird price) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" use min: N and a top size as max. Use whole numbers only.
 - Country codes are 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
 - Every country used in prices or links must be in regions; every option in prices must be in options.${hasModules ? " Every module's option must be in options." : ""}
-- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone (for example UAE +04:00, Pakistan +05:00) and say so in your closing summary.
+- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone (the country in default_region) (for example UAE +04:00, Pakistan +05:00) and say so in your closing summary.
 - Quoting: put any text in double quotes if it has a comma, a colon, a # or starts with a symbol such as * @ & ! - ; when unsure, quote it.
+- default_region is the main country: the first or largest audience in the document. If a date has no year, use the year of the event dates and say so.
+- Several countries: pricing_cards price must NOT show one country's currency as if it applied to all. Write price: See price for your country (a Free plan may say Free); the real prices go in registration prices. One country only: the card may show the amount.
+- settings.whatsapp (chat button): only a number the document labels for chat or WhatsApp. verify_whatsapp (payment screenshots): ask; if not given, leave it out and list it under "Please check".
 - Leave out anything you do not know. Do not write payment accounts; the team picks them in the editor.
 - on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.${kind === "webinar" ? "" : " A line with both a country and a module gives that pair its own link."}
 
@@ -362,10 +386,10 @@ export function masterPrompt(kind: PageKind): string {
 2. Read the document. Ask only about what is missing or unclear. Ask ONE question at a time, in plain friendly language, and wait for the answer before the next question. Never send a list of questions.
 3. Cover these, in this order, skipping what the document already answers clearly (confirm anything you are unsure of):
 ${topics}
-4. EVERY time, before you write marketing text for a part of the page (the headline, the intro, bios, FAQ answers and so on), ask: "For this part, should I write persuasive marketing copy, or keep your exact wording?" Ask again for each part, even if they answered for another part. Never decide silently. Exact wording means you copy their text and only fix the layout.
-5. Never invent prices, dates, times, names, numbers, results, or student quotes. If something is not in the document or the answers, leave it out and tell the teammate it is missing. Do not fill gaps with guesses.
-6. Documents are often messy: the same text repeated once per country, ad copy and social posts, old AI prompts, brand notes. Use only what describes the ${info.noun} itself. For repeated country blocks, take the shared text once and the country differences (prices, dates, times) per country. If two blocks disagree, ask the teammate which is right.
-7. Internal sales rules are for staff, not for the public page: promo-code allowances, "the sales team must push...", staff-only refund rules, commission or discount limits. Leave them out unless the teammate tells you to include them.
+4. EVERY time, before you write marketing text for a part of the page (the headline, the intro, bios, FAQ answers and so on), ask: "For this part, should I write persuasive marketing copy, or keep your exact wording?" Ask again for each part, even if they answered for another part. Never decide silently. Exact wording means you copy their text and only fix the layout. Short labels (eyebrow, badges, headings, FAQ questions) are not marketing text: use the document's words or leave them out.
+5. Never invent prices, dates, times, names, numbers, results, or student quotes. If something is not in the document or the answers, leave it out and tell the teammate it is missing. Do not fill gaps with guesses. You may derive the link name (slug) and the reference code (ref_prefix) from the page name.
+6. Documents are often messy (text repeated per country, ad copy, old AI prompts, brand notes). Use only what describes the ${info.noun} itself. For repeated country blocks, take the shared text once and the country differences (prices, dates, times) per country. When two parts disagree (dates, times, prices, durations), ask the teammate which is right. If unanswered, never pick silently: use the event details table or the most recent figure only if the teammate confirms it; otherwise leave the field out and list the conflict under "Please check" in the closing message.
+7. Internal sales rules are for staff, not for the public page: promo-code allowances, "the sales team must push...", staff-only refund rules, commission or discount limits. Leave them out unless the teammate tells you to include them. A condition told to customers ("Payment is non-refundable") is public; a line telling staff what to do is never copied.
 8. Any list of points, in any style (•, ●, ▪, –, 1. 2. 3.), must be written as lines that start with "- ".
 9. Pictures are never included. Tell the teammate once, early: pictures are added later in the editor.
 
@@ -384,7 +408,7 @@ ${EXAMPLE_FILE_BY_KIND[kind]}${OUTER}
 
 # When the interview is finished
 
-Before writing the file, say you have everything, then write a plain summary of up to 5 short lines. It must always say that payment accounts and pictures are chosen in the editor, and name anything you assumed, left out or worked out yourself (for example per-person prices multiplied into group totals, or an Early Bird end time you set). After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it: no notes, no questions, no sign-off. Nothing is written after the closing ${OUTER}.
+Before writing the file, start with "I have everything I need.", then write a short "Done for you" part (at most 3 lines), then a "Please check before publishing" list with no line limit, one short line per item. The list must always include that payment accounts and pictures are chosen in the editor, and every assumption, number you worked out, conflict left open, field left out, and value you made up (link name, reference code, Early Bird end time). After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it: no notes, no questions, no sign-off. Nothing is written after the closing ${OUTER}.
 
 Begin now with your first message.`;
 }

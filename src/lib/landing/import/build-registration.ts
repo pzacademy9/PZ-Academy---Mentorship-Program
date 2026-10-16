@@ -23,6 +23,9 @@ const finite = (v: unknown): number | undefined => (typeof v === "number" && Num
 const BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const count = (v: unknown, fallback: number): number => Math.max(0, Math.round(finite(v) ?? fallback));
 
+const PAYMENT_WA_MESSAGE = "The WhatsApp number for payment checks must be digits only";
+const PAYMENT_WA_MISSING = "The WhatsApp number for payment screenshots was not given. Add it in the editor.";
+
 export function buildRegistration(front: Record<string, unknown>): BuiltRegistration {
   const problems: ImportProblem[] = [];
   const error = (message: string) => problems.push({ level: "error", message });
@@ -186,7 +189,8 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     seen.add(`Add the price of "${optionName(ok)}" for ${regionName(rk)}.`);
   });
   for (const p of registrationProblems(registration)) {
-    if (!seen.has(p.message)) { seen.add(p.message); warn(p.message); }
+    const message = p.message.startsWith(PAYMENT_WA_MESSAGE) && registration.whatsappVerifyNumber === "" ? PAYMENT_WA_MISSING : p.message;
+    if (!seen.has(message)) { seen.add(message); warn(message); }
   }
 
   return { registration, modules, problems };

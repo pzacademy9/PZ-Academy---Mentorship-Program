@@ -210,3 +210,19 @@ describe("buildRegistration", () => {
     expect(r.problems.filter((p) => p.level === "error")).toEqual([]);
   });
 });
+
+describe("payment WhatsApp message", () => {
+  const msgs = (v: unknown) => {
+    const b = base();
+    (b.registration as Record<string, unknown>).verify_whatsapp = v;
+    return buildRegistration(b).problems.map((p) => p.message);
+  };
+  it("says the number was not given when it is empty", () => {
+    const m = msgs(undefined);
+    expect(m).toContain("The WhatsApp number for payment screenshots was not given. Add it in the editor.");
+    expect(m.join(" ")).not.toMatch(/digits only/);
+  });
+  it("keeps the format message for a malformed number", () => {
+    expect(msgs("abc").join(" ")).toMatch(/digits only/);
+  });
+});

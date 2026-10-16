@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { IMPORT_FORMAT_ID, masterPrompt, EXAMPLE_FILE_BY_KIND } from "@/lib/landing/import/prompts";
 import { buildImport } from "@/lib/landing/import/build-content";
+import { computeQuote } from "@/lib/landing/registration/pricing";
 import { registrationProblems } from "@/lib/landing/registration/config";
 import { KIND_SECTIONS, type PageKind } from "@/lib/landing/content";
 import { SECTION_DEFS, SECTION_TYPES } from "@/lib/landing/sections";
@@ -56,7 +57,7 @@ describe("masterPrompt", () => {
       });
 
       it("stays a sane length", () => {
-        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(11000);
+        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(12500);
       });
 
       it("embeds its worked example", () => {
@@ -83,12 +84,38 @@ describe("worked examples", () => {
     });
   }
 
-  it("free webinar example is free in every country", () => {
+  it("webinar example offers a Free and a Pro plan", () => {
     const r = buildImport(EXAMPLE_FILE_BY_KIND.webinar);
     if (!r.ok) throw new Error(r.errors.join(" | "));
     const reg = r.built.content.registration;
-    expect(reg.options.every((o) => o.free)).toBe(true);
-    expect(reg.prices.seat.UAE.amount).toBe(0);
+    expect(reg.options.map((o) => [o.key, !!o.free])).toEqual([["free", true], ["pro", false]]);
+    expect(reg.prices.free.UAE.amount).toBe(0);
+    expect(reg.prices.free.PK.amount).toBe(0);
+    expect(reg.prices.pro.PK.amount).toBeGreaterThan(0);
+  });
+
+  it("multi-country examples do not put one currency in the pricing cards", () => {
+    for (const kind of KINDS) {
+      const r = buildImport(EXAMPLE_FILE_BY_KIND[kind]);
+      if (!r.ok) throw new Error(r.errors.join(" | "));
+      expect(r.built.content.registration.regions.length).toBeGreaterThan(1);
+      const cards = r.built.content.sections.find((s) => s.type === "pricing_cards")!.data.items as { price: string }[];
+      for (const c of cards) expect(c.price).toMatch(/^(See price for your country|Free)$/);
+    }
+  });
+
+  it("course example group prices come out as intended", () => {
+    const r = buildImport(EXAMPLE_FILE_BY_KIND.course);
+    if (!r.ok) throw new Error(r.errors.join(" | "));
+    const config = r.built.content.registration;
+    const q = (regionKey: string, tierKey: string, groupSize: number) => {
+      const res = computeQuote({ config, regionKey, mode: "live", optionKeys: ["full"], tierKey, groupSize, now: new Date("2026-10-01T00:00:00Z") });
+      if (!res.ok) throw new Error(res.reason);
+      return res.total;
+    };
+    expect(q("UAE", "g3", 3)).toBe(384); // stated Early Bird total wins
+    expect(q("PK", "g3", 3)).toBe(28800); // percent only: 12000 less 20% = 9600 each
+    expect(q("UAE", "g5", 6)).toBe(720); // 160 less 25% = 120 each
   });
 
   it("course example has prices, modules, recorded mode and links", () => {
@@ -114,6 +141,18 @@ describe("prompt guards", () => {
   it("webinar prompt never mentions module tags", () => {
     expect(masterPrompt("webinar")).not.toMatch(/module:/);
   });
+  it("teaches the new rules", () => {
+    for (const k of KINDS) {
+      const p = masterPrompt(k);
+      expect(p).toContain("See price for your country");
+      expect(p).toContain("Please check");
+      expect(p).toContain("Done for you");
+      expect(p).toMatch(/default_region is the main country/);
+      expect(p).toMatch(/percent_off and NO group_totals/);
+      expect(p).not.toMatch(/up to 5 short lines/);
+    }
+    expect(masterPrompt("webinar")).toMatch(/TWO options/);
+  });
   it("covers payment screenshot number, quoting, early bird time and short summary", () => {
     for (const k of KINDS) {
       const p = masterPrompt(k);
@@ -121,7 +160,7 @@ describe("prompt guards", () => {
       expect(p).toContain("early_group_totals".slice(0, 5) === "early" ? "early_group_totals" : "");
       expect(p).toMatch(/double quotes/);
       expect(p).toMatch(/23:59/);
-      expect(p).toMatch(/up to 5 short lines/);
+      expect(p).toMatch(/at most 3 lines/);
       expect(p).toMatch(/just interview them/);
     }
   });
