@@ -3,7 +3,7 @@
 // Use `import type` from sections.ts / content.ts: sections.ts imports MODULE_ITEM_SECTIONS from this
 // file at runtime, so a runtime import back would create a cycle.
 import type { SectionType } from "./sections";
-import type { LandingContent } from "./content";
+import type { LandingContent, LandingSettings, LandingSeo } from "./content";
 
 export interface ModuleDef {
   key: string;
@@ -59,6 +59,23 @@ export function parseVariantPath(
 
 export function variantPath(ref: VariantRef): string {
   return [ref.regionKey?.toLowerCase(), ref.moduleKey].filter(Boolean).join("/");
+}
+
+/** Per-variant edits stored against a main page; see resolve-variant.ts for how they are applied. */
+export interface VariantOverrides {
+  sections: Record<string, { hidden?: boolean; fields?: Record<string, unknown> }>;
+  order?: string[];
+  settings?: Partial<LandingSettings>;
+  seo?: Partial<LandingSeo>;
+}
+
+export function emptyOverrides(): VariantOverrides {
+  return { sections: {} };
+}
+
+/** Default hero headline for a module link, for example "3-Day Workshop: Diabetes". */
+export function defaultModuleHeadline(m: ModuleDef): string {
+  return `${m.format}: ${m.title}`;
 }
 
 /** Same value as the `v` API param. */
