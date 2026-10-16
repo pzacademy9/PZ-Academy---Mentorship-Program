@@ -17,7 +17,13 @@ type Device = keyof typeof DEVICES;
  * the iframe, same-origin only; it is also re-posted when the frame (re)loads, because the frame loads
  * the last SAVED draft and the editor may hold newer unsaved edits.
  */
-export function PreviewFrame({ content, pageId, title }: { content: LandingContent; pageId: string; title?: string }) {
+export function PreviewFrame({
+  content, pageId, title, variant,
+}: {
+  content: LandingContent; pageId: string; title?: string;
+  /** A country / module link path ("uae/module-2"): the frame first loads that link's saved draft. */
+  variant?: string;
+}) {
   const [device, setDevice] = useState<Device>("laptop");
   const frameRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -92,7 +98,7 @@ export function PreviewFrame({ content, pageId, title }: { content: LandingConte
           <iframe
             ref={frameRef}
             title="Page preview"
-            src={`/dashboard/admin/landing-pages/${pageId}/preview`}
+            src={`/dashboard/admin/landing-pages/${pageId}/preview${variant ? `?v=${encodeURIComponent(variant)}` : ""}`}
             onLoad={post}
             className="block border-0 bg-white"
             style={{ width: `${width}px`, height: `${height}px`, transform: `scale(${scale})`, transformOrigin: "top left" }}

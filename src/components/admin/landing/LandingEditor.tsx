@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -24,6 +24,13 @@ import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing
 import { PreviewFrame } from "./PreviewFrame";
 import { PublishSlot, ReadinessSlot } from "./PublishSlot";
 import { StatusBadge } from "./StatusBadge";
+import type { LandingVariant } from "@/lib/data/landing-variants";
+import type { VariantGridRow } from "@/lib/landing/variant-grid";
+import { findOrphans, resolveVariant } from "@/lib/landing/resolve-variant";
+import { VariantSwitcher } from "./variants/VariantSwitcher";
+import {
+  linkSections, moveOnLink, removeOrphans, resetOverrideField, setOverrideField, setOverrideHidden, useLinkEditing,
+} from "./variants/useLinkEditing";
 
 const LIST_HREF = "/dashboard/admin/landing-pages";
 const SETTINGS = "__settings__";
@@ -36,6 +43,9 @@ const SAVE_TEXT: Record<SaveState, string> = {
   error: "Couldn't save, retrying when you keep typing",
   conflict: "Changes not saved",
 };
+// The header shows the worse of the main page's and the open link's save state.
+const SAVE_RANK: Record<SaveState, number> = { saved: 0, dirty: 1, saving: 2, error: 3, conflict: 4 };
+const worse = (a: SaveState, b: SaveState) => (SAVE_RANK[b] > SAVE_RANK[a] ? b : a);
 const SAVE_DOT: Record<SaveState, string> = {
   saved: "bg-pz-success",
   saving: "bg-pz-warning animate-pulse",
@@ -53,8 +63,12 @@ const SAVE_DOT: Record<SaveState, string> = {
  * full browser reload.
  */
 export function LandingEditor({
-  page, versions, accounts = [], sheetId = null,
-}: { page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[]; sheetId?: string | null }) {
+  page, versions, accounts = [], sheetId = null, variants = [], grid = [],
+}: {
+  page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[]; sheetId?: string | null;
+  /** The page's country / module links, and every link it could have (labels). */
+  variants?: LandingVariant[]; grid?: VariantGridRow[];
+}) {
   const known = useRef(page.revision);
   const remountAbove = useRef<number | null>(null);
   const [epoch, setEpoch] = useState(0);
@@ -74,7 +88,7 @@ export function LandingEditor({
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} variants={variants} grid={grid} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -102,11 +116,31 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, accounts, sheetId, onRevision, onRestored,
-}: { page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; sheetId: string | null; onRevision: (rev: number) => void; onRestored: () => void }) {
+  page, versions, accounts, sheetId, variants, grid, onRevision, onRestored,
+}: {
+  page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; sheetId: string | null;
+  variants: LandingVariant[]; grid: VariantGridRow[]; onRevision: (rev: number) => void; onRestored: () => void;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
-  const { state, schedule, saveNow } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
+  const confirmDiscard = useCallback(() => confirm({
+    title: "Switch without saving?",
+    description: "Your latest changes to this link were not saved. Switch anyway?",
+    confirmLabel: "Switch anyway",
+    destructive: true,
+  }), [confirm]);
+  // Called before the main page's autosave so both hooks keep a fixed call order.
+  const link = useLinkEditing({ pageId: page.id, variants, grid, confirmDiscard });
+  const { state: mainState, schedule, saveNow: saveMain } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
+  const state = worse(mainState, link.saveState);
+  const saveLink = link.saveNow;
+  const onLink = link.activeId !== null;
+  // Switching links flushes the link being left, so only the open link can have pending edits.
+  const saveNow = useCallback(async () => {
+    if (!onLink) return saveMain();
+    const [a, b] = await Promise.all([saveMain(), saveLink()]);
+    return a && b;
+  }, [onLink, saveMain, saveLink]);
   const [content, setContent] = useState<LandingContent>(page.draft);
   const [selection, setSelection] = useState<string>(page.draft.sections[0]?.id ?? SETTINGS);
   const [pane, setPane] = useState<"edit" | "preview">("edit");
@@ -243,9 +277,28 @@ function EditorShell({
     return () => document.removeEventListener("keydown", onKey);
   }, [drawer]);
 
-  const selected = content.sections.find((s) => s.id === selection) ?? null;
+  // On a country / module link the form shows main's values with that link's own edits on top.
+  const overrides = link.overrides;
+  const shownSections = useMemo(
+    () => (overrides ? linkSections(content, overrides) : content.sections),
+    [content, overrides],
+  );
+  const previewContent = useMemo(
+    () => (link.active && overrides ? resolveVariant(content, link.active.ref, overrides) : content),
+    [content, link.active, overrides],
+  );
+  const orphans = useMemo(() => (overrides ? findOrphans(content, overrides) : null), [content, overrides]);
+  const orphanCount = orphans ? orphans.sectionIds.length + orphans.fields.length : 0;
+  const mainHidden = useMemo(() => new Set(content.sections.filter((s) => !s.enabled).map((s) => s.id)), [content]);
+
+  const selected = shownSections.find((s) => s.id === selection) ?? null;
   const showSettings = selection === SETTINGS;
-  const current = showSettings ? null : selected ?? content.sections[0] ?? null;
+  const current = showSettings ? null : selected ?? shownSections[0] ?? null;
+  const ownFields = useMemo(() => {
+    const ov = current && overrides ? overrides.sections[current.id] : undefined;
+    return new Set(Object.keys(ov?.fields ?? {}));
+  }, [current, overrides]);
+  const hiddenOnLink = !!(current && overrides?.sections[current.id]?.hidden);
   const select = (id: string) => {
     const step = parseRegistrationTarget(id);
     if (step) {
@@ -322,6 +375,9 @@ function EditorShell({
           <span className="shrink-0 rounded-full bg-pz-surface-container-high px-2 py-0.5 font-body text-[11px] font-medium text-pz-on-surface-variant">{KIND_LABEL[page.kind]}</span>
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
+        {link.options.length > 0 && (
+          <VariantSwitcher options={link.options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
+        )}
         <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 font-body text-xs text-pz-on-surface-variant">
           <span className={cn("h-2 w-2 rounded-full", SAVE_DOT[state])} aria-hidden="true" />
           {SAVE_TEXT[state]}
@@ -350,7 +406,7 @@ function EditorShell({
             ))}
           </div>
           <a
-            href={`${LIST_HREF}/${page.id}/preview`}
+            href={`${LIST_HREF}/${page.id}/preview${link.path ? `?v=${encodeURIComponent(link.path)}` : ""}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Preview in new tab"
@@ -365,7 +421,9 @@ function EditorShell({
 
       {state === "conflict" && (
         <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-pz-solid-danger/30 bg-pz-error-container px-4 py-2 text-pz-on-error-container">
-          <p className="font-body text-sm font-semibold">Someone else changed this page. Reload to see their changes.</p>
+          <p className="font-body text-sm font-semibold">
+            {mainState === "conflict" ? "Someone else changed this page. Reload to see their changes." : "Someone else changed this link. Reload to see their changes."}
+          </p>
           <Button type="button" size="sm" variant="outline" onClick={() => void reload()} className="bg-pz-surface-container-lowest text-pz-on-surface">
             Reload
           </Button>
@@ -381,7 +439,7 @@ function EditorShell({
           className="inline-flex items-center gap-1.5 rounded-lg border border-pz-outline-variant px-2.5 py-1 font-body text-xs font-semibold text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <PanelLeft className="h-4 w-4" aria-hidden="true" />
-          Sections ({content.sections.length})
+          Sections ({shownSections.length})
         </button>
         <span className="truncate font-body text-xs text-pz-on-surface-variant">
           Editing: {showSettings ? "Page settings" : current ? SECTION_DEFS[current.type].label : "nothing yet"}
@@ -418,19 +476,60 @@ function EditorShell({
             <ChevronRight className="h-4 w-4 shrink-0 text-pz-on-surface-variant" aria-hidden="true" />
           </button>
           <SectionList
-            sections={content.sections}
+            sections={shownSections}
             selectedId={showSettings ? null : current?.id ?? null}
             onSelect={select}
-            onToggle={(id) => apply(toggleSection(contentRef.current, id))}
-            onMove={(id, dir) => apply(moveSection(contentRef.current, id, dir))}
+            onToggle={(id) => (onLink
+              ? link.update((ov) => setOverrideHidden(ov, id, !ov.sections[id]?.hidden))
+              : apply(toggleSection(contentRef.current, id)))}
+            onMove={(id, dir) => (onLink
+              ? link.update((ov) => moveOnLink(contentRef.current, ov, id, dir))
+              : apply(moveSection(contentRef.current, id, dir)))}
             onRemove={onRemove}
             onAdd={onAdd}
+            link={onLink ? { mainHidden } : undefined}
           />
           <ReadinessSlot {...slotProps} />
         </aside>
 
         <main ref={mainRef} className={cn("min-h-0 overflow-y-auto bg-pz-surface p-4 lg:block lg:p-5", pane === "edit" ? "block" : "hidden")}>
-          {showSettings ? (
+          {onLink && orphanCount > 0 && (
+            <details className="mb-4 rounded-lg border border-pz-outline-variant bg-pz-surface-container-low px-3 py-2">
+              <summary className="cursor-pointer font-body text-sm font-semibold text-pz-on-surface">
+                {orphanCount === 1 ? "1 edit no longer applies" : `${orphanCount} edits no longer apply`}
+              </summary>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <p className="flex-1 font-body text-xs text-pz-on-surface-variant">
+                  These edits were made for parts of the main page that have since been removed, so this link no longer shows them.
+                </p>
+                <Button type="button" size="sm" variant="outline" onClick={() => link.update((ov) => removeOrphans(contentRef.current, ov))}>
+                  Remove
+                </Button>
+              </div>
+            </details>
+          )}
+          {showSettings && onLink ? (
+            <div className="space-y-4">
+              <p role="note" className="rounded-lg border border-pz-outline-variant bg-pz-surface-container-low px-3 py-2 font-body text-sm text-pz-on-surface">
+                These apply to all links. Edit them on the main page.
+              </p>
+              <fieldset disabled className="min-w-0 space-y-5 opacity-80">
+                <PageSettingsPanel
+                  settings={content.settings}
+                  seo={content.seo}
+                  slug={page.slug}
+                  pageTitle={title}
+                  onSettings={() => {}}
+                  onSeo={() => {}}
+                  registration={content.registration}
+                  accounts={accounts}
+                  registrationStep={regStep}
+                  onRegistrationStep={setRegStep}
+                  onRegistration={() => {}}
+                />
+              </fieldset>
+            </div>
+          ) : showSettings ? (
             <PageSettingsPanel
               settings={content.settings}
               seo={content.seo}
@@ -454,20 +553,42 @@ function EditorShell({
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="font-headline text-lg font-bold text-pz-on-surface">{SECTION_DEFS[current.type].label}</h2>
                   <span className="rounded-full bg-pz-surface-container-high px-2 py-0.5 font-body text-[11px] font-semibold text-pz-on-surface-variant">
-                    {current.enabled ? "Shown on the page" : "Hidden"}
+                    {current.enabled ? (onLink ? "Shown on this link" : "Shown on the page") : "Hidden"}
                   </span>
                 </div>
                 <p className="font-body text-sm text-pz-on-surface-variant">{SECTION_DEFS[current.type].description}</p>
-                {!current.enabled && (
+                {onLink ? (
+                  mainHidden.has(current.id) ? (
+                    <p className="font-body text-xs text-pz-on-surface-variant">This section is hidden on the main page, so it is hidden on every link.</p>
+                  ) : (
+                    <label className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface">
+                      <input
+                        type="checkbox"
+                        checked={hiddenOnLink}
+                        onChange={(e) => {
+                          const hide = e.target.checked;
+                          link.update((ov) => setOverrideHidden(ov, current.id, hide));
+                        }}
+                        className="h-4 w-4 accent-pz-solid-forest"
+                      />
+                      Hide on this link
+                    </label>
+                  )
+                ) : !current.enabled && (
                   <p className="font-body text-xs text-pz-on-surface-variant">This section is hidden. Turn on its switch in the list to show it on the page.</p>
                 )}
               </div>
               <SectionForm
-                key={current.id}
+                key={`${link.activeId ?? "main"}:${current.id}`}
                 type={current.type}
                 data={current.data}
                 modules={content.modules}
                 onChange={(data) => apply(updateSectionData(contentRef.current, current.id, data))}
+                link={onLink ? {
+                  overridden: ownFields,
+                  onFieldChange: (key, value) => link.update((ov) => setOverrideField(ov, current.id, key, value)),
+                  onReset: (key) => link.update((ov) => resetOverrideField(ov, current.id, key)),
+                } : undefined}
               />
             </div>
           ) : (
@@ -479,7 +600,7 @@ function EditorShell({
         </main>
 
         <section aria-label="Live preview" className={cn("min-h-0 border-pz-outline-variant bg-pz-surface-container-low p-3 lg:block lg:border-l", pane === "preview" ? "block" : "hidden")}>
-          <PreviewFrame content={content} pageId={page.id} title={title} />
+          <PreviewFrame content={previewContent} pageId={page.id} title={title} variant={link.path} />
         </section>
       </div>
     </div>
