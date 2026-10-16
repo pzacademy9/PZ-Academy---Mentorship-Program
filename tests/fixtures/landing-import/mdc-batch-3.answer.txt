@@ -1,0 +1,208 @@
+I have everything I need.
+
+- Payment accounts and pictures are chosen later in the editor; I wrote neither.
+- Your document had two different dates for Pakistan (28-31 Aug and 4-7 Sept) and two Early Bird end days for UAE (25 and 29 Aug). I used 4-7 September and 29 August everywhere, which matches the rest of your document.
+- I set the Early Bird end to 23:59 on 29 August 2026 in Pakistan time, and made the link name "mdc-3" from the page name.
+- Group prices are worked out as 3 people times the per-person price: Pakistan 6,480 Early Bird / 8,400 regular; UAE 192 Early Bird / 240 regular.
+- Left out because your document does not have them: FAQ, student quotes, country links, class end times, and the USD prices (they disagreed).
+
+````markdown
+---
+format: pz-landing/1
+kind: workshop
+title: "Mastering Dose Calculation – MDC 3"
+slug: mdc-3
+seo: { title: "Mastering Dose Calculation – MDC 3", description: "A 4-Day Intensive Hands-On Workshop: accurate, confident dose calculation through guided practice and real-world scenarios." }
+settings:
+  register_label: Register now
+  whatsapp: "923700199429"
+registration:
+  default_region: PK
+  early_bird_ends: 2026-08-29T23:59:00+05:00
+  verify_whatsapp: "923700199429"
+  event_label: Mastering Dose Calculation – MDC 3
+  ref_prefix: MDC
+  regions:
+    - { code: PK, name: Pakistan, currency: PKR, class_time: "7:30 PM", timezone: Pakistan time }
+    - { code: UAE, name: UAE, currency: AED, class_time: "6:30 PM", timezone: UAE time }
+  options:
+    - { key: seat, name: Workshop Registration, kind: bundle }
+  tiers:
+    - { key: g3, label: Group of 3 or more, size: 3, percent_off: 20 }
+  prices:
+    seat:
+      PK: { amount: 3500, early: 2700, group_totals: { g3: 8400 }, early_group_totals: { g3: 6480 } }
+      UAE: { amount: 100, early: 80, group_totals: { g3: 240 }, early_group_totals: { g3: 192 } }
+---
+
+## Section: hero
+```yml
+eyebrow: 4-Day Intensive Hands-On Workshop
+headline: Mastering Dose Calculation
+subheadline: "Most pharmacists learn dose calculations from formulas… but real patients don’t come with answer keys. Master the art of accurate, confident dose calculation through guided practice & real-world scenarios."
+primaryCtaLabel: Register now
+dateLine: "04–07 September 2026 · 7:30 PM PKT"
+badges:
+  - { text: "Zoom (Live)" }
+  - { text: "Daily Kahoot Quiz" }
+  - { text: "Live Q&A at end of each session (15 minutes)" }
+  - { text: "Certificate of Participation" }
+```
+
+## Section: stats
+```yml
+items:
+  - { value: "4", label: "Days of hands-on training" }
+  - { value: "15 min", label: "Live Q&A at end of each session" }
+  - { value: "Top 10", label: "Earn a Certificate of Excellence" }
+```
+
+## Section: rich_text
+```yml
+heading: Target Audience
+body: |
+  - PharmD Students & Fresh Graduates
+  - Hospital & Clinical Pharmacists
+  - Pharmacy Technicians & Pharmacy Staff
+  - Medical Students & Junior Doctors
+  - Nurses & Allied Health Professionals involved in medication administration
+
+  Why You Should Join
+  - Build unshakeable confidence in dose calculations for any clinical setting
+  - Learn practical calculation methods used in real hospital environments
+  - Eliminate calculation errors that can cost patient safety
+  - Compete in daily Kahoot quizzes & earn recognition
+  - Add a certified dose calculation workshop to your professional profile
+```
+
+## Section: feature_cards
+```yml
+heading: What You Will Learn (Hands-On Focus)
+items:
+  - { title: "Fundamental dose calculation formulas & methods" }
+  - { title: "Weight-based & age-based dosing" }
+  - { title: "IV infusion rate calculations & drip rates" }
+  - { title: "OTC dose calculations (paracetamol, ibuprofen, antihistamines & vitamins)" }
+  - { title: "Paediatric dose calculations & safe dose limits" }
+  - { title: "Dilutions, concentrations & percentage solutions" }
+  - { title: "Medication error prevention & patient safety" }
+  - { title: "Worked examples + daily Kahoot Quiz practice" }
+```
+
+## Section: instructors
+```yml
+items:
+  - name: Dr. Mehwish Kanwal
+    role: "Senior Pharmacist | King’s College Hospital London – UAE"
+    bio: |
+      - Clinical expertise in hospital & dispensing pharmacy practice
+      - Extensive experience in pharmaceutical calculations, IV dosing & renal adjustments
+      - Experienced educator in clinical pharmacy training programmes in the UK & UAE
+```
+
+## Section: curriculum
+```yml
+heading: Workshop Agenda
+items:
+  - title: "DAY 1: Foundations of Dose Calculations"
+    subtitle: "Focus: Understanding the Basics with Confidence"
+    points: |
+      - Units & conversions (mg, g, mcg, mL, IU)
+      - Common formulas explained simply
+      - Ratio & proportion made easy
+      - Rounding rules & medication safety
+      - Common calculation errors in practice
+      Interactive Elements
+      - Live quizzes on Kahoot
+      - “Spot the mistake” activities
+      - Case studies
+      Outcome: Participants confidently perform basic dose calculations
+  - title: "DAY 2: Weight-Based, Age-Based & OTC Dosing"
+    subtitle: "Focus: Real-World Dosing for Adults & Children"
+    points: |
+      - mg/kg dosing step by step
+      - Pediatric dosing & safe dose limits
+      - Syrups, suspensions & drops
+      - Maximum dose vs calculated dose
+      OTC Dose Calculations
+      - Paracetamol & ibuprofen
+      - Antihistamines
+      - Vitamins & supplements
+      - Counseling on OTC dose safety
+      Interactive Elements
+      - Case scenarios (adult & pediatric)
+      - Parent-counseling role play
+      - Group decision-making: safe vs unsafe doses
+      Outcome: Participants calculate, evaluate, and counsel safely
+  - title: "DAY 3: Clinical & Hospital-Based Calculations"
+    subtitle: "Focus: Applying Calculations in Practice"
+    points: |
+      - IV dose calculations
+      - Infusion rates (mL/hr, mg/hr)
+      - Dilutions & concentrations
+      - Percentage solutions
+      - Emergency & crash cart calculations (intro level)
+      OTC–Clinical Safety Bridge
+      - OTC overdose risks
+      - Polypharmacy considerations
+      - Documentation & double-check practices
+      Interactive Elements
+      - Simulated medication charts
+      - Time-pressured clinical scenarios
+      - Group discussion on real errors & prevention
+      Outcome: Participants apply calculations safely in clinical settings
+  - title: "DAY 4: Case-Based Mastery & Patient Safety"
+    subtitle: "Focus: Confidence, Safety & Real-Life Judgment"
+    points: |
+      - Dose adjustment scenarios
+      - Special populations (elderly, renal, pediatrics)
+      - Medication error prevention strategies
+      - Safe documentation & communication
+      Final Activities
+      - Mini OSCE-style stations
+      - Team challenge: “Calculate & Defend Your Dose”
+      - Pre- vs post-assessment comparison
+      - Reflection & key takeaways
+      Outcome: Participants leave confident, competent, and safety-focused
+```
+
+## Section: pricing_cards
+```yml
+heading: Pricing Plan
+note: "Early Bird ends 29 August 2026. Registration will only be confirmed after voucher verification."
+items:
+  - name: Workshop Registration
+    price: "PKR 2,700 · AED 80"
+    oldPrice: "PKR 3,500 · AED 100"
+    badge: Early Bird
+    features: |
+      - Access to all 4 live workshop sessions (04–07 September)
+      - Certificate of Participation (issued after Day 4)
+  - name: Group Discount
+    price: "PKR 2,160 · AED 64 per person"
+    oldPrice: "PKR 2,800 · AED 80 per person"
+    badge: 20% OFF
+    features: |
+      - Group of 3 or more → 20% OFF per person
+      - Certificate of Participation for each group member
+      - Daily Kahoot Quiz Access included
+      - Certificate of Excellence – Top 10 Performers Across the 4 Days
+```
+
+## Section: schedule
+```yml
+heading: Event Details
+items:
+  - { when: "4 Sept 2026 · 7:30 PM PKT", title: "Day 1: Foundations of Dose Calculations", detail: "6:30 PM UAE time. Zoom (Live). Live Q&A (15 minutes) at the end of the session, then the daily Kahoot Quiz." }
+  - { when: "5 Sept 2026 · 7:30 PM PKT", title: "Day 2: Weight-Based, Age-Based & OTC Dosing", detail: "6:30 PM UAE time. Zoom (Live). Live Q&A (15 minutes) at the end of the session, then the daily Kahoot Quiz." }
+  - { when: "6 Sept 2026 · 7:30 PM PKT", title: "Day 3: Clinical & Hospital-Based Calculations", detail: "6:30 PM UAE time. Zoom (Live). Live Q&A (15 minutes) at the end of the session, then the daily Kahoot Quiz." }
+  - { when: "7 Sept 2026 · 7:30 PM PKT", title: "Day 4: Case-Based Mastery & Patient Safety", detail: "6:30 PM UAE time. Zoom (Live). Live Q&A (15 minutes) at the end of the session, then the daily Kahoot Quiz." }
+```
+
+## Section: final_cta
+```yml
+headline: Register now and secure your seat.
+text: "Limited seats available – paid registrations only."
+buttonLabel: Register now
+```
+````

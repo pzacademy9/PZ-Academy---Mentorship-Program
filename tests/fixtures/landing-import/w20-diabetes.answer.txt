@@ -1,0 +1,133 @@
+I have everything I need. Payment accounts and pictures are chosen later in the editor, and I left out the payment details, an FAQ and a closing push because your document has no real content for them.
+I used 03155614490 (listed as Phone / WhatsApp) for the chat button, written as 923155614490; your document gives no number for payment screenshots, so that is left out. The short code W20 is mine, and both Pakistan and Philippines links are switched on.
+The Free plan appears as an information card only; the registration option carries the Pro price (PKR 399, PHP 150). The 20% group offer is entered as a percent, and I did not work out group totals.
+Your document says both "1 Hour" and "50-60 Minutes"; I used 50-60 Minutes, so please check. There is no Early Bird, and I left out ad copy, message templates and brand notes.
+"Philippines students" was added to the audience from the Philippines block of your document.
+
+````markdown
+---
+format: pz-landing/1
+kind: webinar
+title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
+slug: diabetes-pharmacotherapy-webinar
+seo: { title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient", description: "Diabetes management is not a one-size-fits-all approach." }
+settings:
+  register_label: Register now
+  whatsapp: "923155614490"
+registration:
+  default_region: PK
+  event_label: Diabetes Pharmacotherapy Webinar
+  ref_prefix: W20
+  regions:
+    - { code: PK, name: Pakistan, currency: PKR, class_time: "7:30 PM", timezone: Pakistan time }
+    - { code: PH, name: Philippines, currency: PHP, class_time: "10:30 PM", timezone: Philippine time }
+  options:
+    - { key: seat, name: Diabetes Pharmacotherapy Webinar, kind: bundle }
+  tiers:
+    - { key: g3, label: "Group of 3 or more", size: 3, percent_off: 20 }
+  prices:
+    seat:
+      PK: { amount: 399 }
+      PH: { amount: 150 }
+links:
+  - { country: PK, on: true }
+  - { country: PH, on: true }
+---
+
+## Section: hero
+```yml
+headline: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
+subheadline: Diabetes management is not a one-size-fits-all approach.
+dateLine: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time"
+badges:
+  - { text: "Zoom (Live) + YouTube (Free)" }
+  - { text: English }
+  - { text: "50–60 Minutes" }
+```
+
+## Section: rich_text
+```yml
+heading: What you will learn
+body: |
+  - Overview of diabetes pharmacotherapy
+  - Comparison of major antidiabetic drug classes
+  - Understanding efficacy versus safety when selecting therapy
+  - Hypoglycemia risk associated with different drug classes
+  - Weight effects of antidiabetic medications
+  - Renal considerations in diabetes pharmacotherapy
+  - Cardiovascular benefits of selected antidiabetic therapies
+  - Drug selection according to individual patient profile
+  - Principles of combination therapy
+  - Application of pharmacotherapy concepts through interactive clinical cases
+
+  Session Highlights
+  - Comprehensive overview of diabetes pharmacotherapy
+  - Comparison of major drug classes
+  - Efficacy versus safety considerations
+  - Hypoglycemia risk assessment
+  - Weight-related considerations in drug selection
+  - Renal considerations in diabetes management
+  - Cardiovascular benefits of selected therapies
+  - Patient-profile based drug selection
+  - Combination therapy
+  - Interactive clinical case discussions
+  - Interactive Live Q&A
+
+  Why You Should Join
+  Diabetes management is not a one-size-fits-all approach. Choosing the right medication requires consideration of the patient's individual profile, treatment goals, safety concerns, hypoglycemia risk, weight, renal function, and cardiovascular considerations.
+
+  This webinar is designed to help students and healthcare learners understand how different antidiabetic drug classes compare and how treatment choices can be tailored according to the needs of individual patients.
+
+  Through interactive clinical cases, participants will have the opportunity to apply pharmacotherapy concepts to practical patient scenarios and understand the clinical reasoning behind drug selection.
+
+  Target Audience
+  - Pharmacy Students
+  - Medical Students
+  - Healthcare Professionals
+  - Residents and Trainees
+  - Students interested in Clinical Pharmacotherapy
+  - Learners interested in Diabetes Management
+  - Philippines students
+```
+
+## Section: schedule
+```yml
+heading: Event details
+items:
+  - when: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time"
+    title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
+    detail: "Duration: 50–60 Minutes. Platform: Zoom (Live) + YouTube (Free). Session Language: English"
+```
+
+## Section: instructors
+```yml
+heading: Speaker Introduction
+items:
+  - name: Dr. Christine Agnes Bianca
+    bio: |
+      - Licensed Physician, Philippine Medical Association
+      - Associate Member, Philippine Academy of Family Physicians
+      - Certified Family Physician, PAFP
+      - Certified Trained Healthcare Professional in the Workshop on Refining and Enhancing Fundamentals in Diabetes and its Management by the Institute for Studies on Diabetes Foundation
+```
+
+## Section: pricing_cards
+```yml
+heading: Pricing Plans
+note: "Group of 3 or more → 20% OFF. One payment for the whole group. Shared registration confirmation."
+items:
+  - name: Free Plan
+    price: Free
+    features: |
+      - Access to full webinar
+      - Certificate of Participation
+  - name: Pro Plan
+    price: "PKR 399 / PHP 150"
+    features: |
+      - Full webinar access + Recording
+      - Certificate of Participation
+      - Live Kahoot Quiz Access
+      - Excellence Certificate Opportunity
+      - Priority Q&A Access
+```
+````

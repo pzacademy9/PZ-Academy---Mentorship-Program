@@ -1,0 +1,303 @@
+I have everything I need.
+Payment accounts and pictures are chosen in the editor. Your document had no instructor, testimonials or video reviews, so those parts are left out.
+I worked out group totals as per-person price times group size (UAE, Saudi, Philippines, India). Pakistan totals are as you wrote them (full course Early Bird group of 3 is 11500; 20% off would be 11520).
+I set the Early Bird end to 23:59 on 25 October 2026 UAE time (+04:00), and used the same time for the countdown. I used 6:30 PM for the UAE (the 7:00 PM in one ad was ignored).
+Not included: sales rules, promo discount, payment details, module mixing (not stated), a payment-screenshot WhatsApp number (not given), the Instagram link, and the "15-Day Detailed Course Outline" words on Day 12. The chat number 923155614490 comes from the Pakistan ad, and the price cards show UAE prices in AED.
+
+````markdown
+---
+format: pz-landing/1
+kind: course
+title: "Practical Pharmacology – Batch 3"
+slug: ppc-batch-3
+seo: { title: "Practical Pharmacology – Batch 3", description: "12-Day practical pharmacology course for doctors, pharmacists & nurses. Learn antimicrobials, ICU drugs, IV calculations, crash cart meds & medication safety." }
+settings:
+  register_label: Register Now
+  whatsapp: "923155614490"
+  countdown_to: 2026-10-25T23:59:00+04:00
+  countdown_label: Early Bird ends in
+registration:
+  default_region: UAE
+  early_bird_ends: 2026-10-25T23:59:00+04:00
+  event_label: "Practical Pharmacology – Batch 3"
+  ref_prefix: PPC
+  regions:
+    - { code: UAE, name: UAE, currency: AED, class_time: "6:30 PM – 7:30 PM", timezone: UAE time }
+    - { code: PK, name: Pakistan, currency: PKR, class_time: "7:30 PM – 8:30 PM", timezone: Pakistan time }
+    - { code: KSA, name: Saudi Arabia, currency: SAR, class_time: "5:30 PM – 6:30 PM", timezone: KSA time }
+    - { code: PH, name: Philippines, currency: PHP, class_time: "10:30 PM – 11:30 PM", timezone: Philippine time }
+    - { code: IN, name: India, currency: INR, class_time: "8:00 PM – 9:00 PM", timezone: "India time (IST)" }
+  options:
+    - { key: full, name: "Full Course (4 Modules)", kind: bundle }
+    - { key: m1, name: "Module 1", kind: module }
+    - { key: m2, name: "Module 2", kind: module }
+    - { key: m3, name: "Module 3", kind: module }
+    - { key: m4, name: "Module 4", kind: module }
+  tiers:
+    - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
+    - { key: g5, label: Group of 5, size: 5, percent_off: 25 }
+  prices:
+    full:
+      UAE: { amount: 200, early: 160, group_totals: { g3: 480, g5: 750 }, early_group_totals: { g3: 384, g5: 600 } }
+      PK: { amount: 6000, early: 4800, group_totals: { g3: 14400, g5: 22500 }, early_group_totals: { g3: 11500, g5: 18000 } }
+      KSA: { amount: 200, early: 160, group_totals: { g3: 480, g5: 750 }, early_group_totals: { g3: 384, g5: 600 } }
+      PH: { amount: 3000, early: 2400, group_totals: { g3: 7200, g5: 11250 }, early_group_totals: { g3: 5760, g5: 9000 } }
+      IN: { amount: 4000, early: 3200, group_totals: { g3: 9600, g5: 15000 }, early_group_totals: { g3: 7680, g5: 12000 } }
+    m1:
+      UAE: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PK: { amount: 2000, early: 1600, group_totals: { g3: 4800, g5: 7500 }, early_group_totals: { g3: 3840, g5: 6000 } }
+      KSA: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PH: { amount: 900, early: 720, group_totals: { g3: 2160, g5: 3375 }, early_group_totals: { g3: 1728, g5: 2700 } }
+      IN: { amount: 1200, early: 960, group_totals: { g3: 2880, g5: 4500 }, early_group_totals: { g3: 2304, g5: 3600 } }
+    m2:
+      UAE: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PK: { amount: 2000, early: 1600, group_totals: { g3: 4800, g5: 7500 }, early_group_totals: { g3: 3840, g5: 6000 } }
+      KSA: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PH: { amount: 900, early: 720, group_totals: { g3: 2160, g5: 3375 }, early_group_totals: { g3: 1728, g5: 2700 } }
+      IN: { amount: 1200, early: 960, group_totals: { g3: 2880, g5: 4500 }, early_group_totals: { g3: 2304, g5: 3600 } }
+    m3:
+      UAE: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PK: { amount: 2000, early: 1600, group_totals: { g3: 4800, g5: 7500 }, early_group_totals: { g3: 3840, g5: 6000 } }
+      KSA: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PH: { amount: 900, early: 720, group_totals: { g3: 2160, g5: 3375 }, early_group_totals: { g3: 1728, g5: 2700 } }
+      IN: { amount: 1200, early: 960, group_totals: { g3: 2880, g5: 4500 }, early_group_totals: { g3: 2304, g5: 3600 } }
+    m4:
+      UAE: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PK: { amount: 2000, early: 1600, group_totals: { g3: 4800, g5: 7500 }, early_group_totals: { g3: 3840, g5: 6000 } }
+      KSA: { amount: 50, early: 40, group_totals: { g3: 120, g5: 187.5 }, early_group_totals: { g3: 96, g5: 150 } }
+      PH: { amount: 900, early: 720, group_totals: { g3: 2160, g5: 3375 }, early_group_totals: { g3: 1728, g5: 2700 } }
+      IN: { amount: 1200, early: 960, group_totals: { g3: 2880, g5: 4500 }, early_group_totals: { g3: 2304, g5: 3600 } }
+modules:
+  - { key: module-1, title: "Foundations of Clinical Pharmacology & Safe Prescribing", format: "3 Days", days: 3, option: m1 }
+  - { key: module-2, title: "Therapeutics in Acute & Chronic Care", format: "3 Days", days: 3, option: m2 }
+  - { key: module-3, title: "Special Populations, Critical Care & Emergency Pharmacology", format: "3 Days", days: 3, option: m3 }
+  - { key: module-4, title: "IV Therapy, Medication Safety & Clinical Integration", format: "3 Days", days: 3, option: m4 }
+links:
+  - { country: UAE, on: true }
+  - { country: PK, on: true }
+  - { country: KSA, on: true }
+  - { country: PH, on: true }
+  - { country: IN, on: true }
+  - { module: module-1, on: true, hero_title: "Module 1: Foundations of Clinical Pharmacology & Safe Prescribing" }
+  - { module: module-2, on: true, hero_title: "Module 2: Therapeutics in Acute & Chronic Care" }
+  - { module: module-3, on: true, hero_title: "Module 3: Special Populations, Critical Care & Emergency Pharmacology" }
+  - { module: module-4, on: true, hero_title: "Module 4: IV Therapy, Medication Safety & Clinical Integration" }
+  - { country: PK, module: module-1, on: true }
+  - { country: PK, module: module-2, on: true }
+  - { country: PK, module: module-3, on: true }
+  - { country: PK, module: module-4, on: true }
+  - { country: UAE, module: module-2, on: true }
+---
+
+## Section: hero
+```yml
+eyebrow: Live Online Sessions
+headline: "Practical Pharmacology – Batch 3"
+subheadline: "This 12-day hospital-oriented course is designed for working healthcare professionals, including physicians, pharmacists, nurses, and allied health staff. It delivers practical, case-based pharmacology knowledge that can be directly applied in hospital and clinical practice."
+primaryCtaLabel: Register Now
+dateLine: "30 October 2026 – 22 November 2026"
+badges:
+  - { text: Live Online Sessions }
+  - { text: 12 Days }
+  - { text: 4 Modules }
+```
+
+## Section: stats
+```yml
+items:
+  - { value: "12", label: Days }
+  - { value: "4", label: Modules }
+```
+
+## Section: feature_cards
+```yml
+heading: What students will get
+subheading: This price includes
+items:
+  - { title: 1 Month Live Sessions }
+  - { title: Lifetime Recordings Access }
+  - { title: Notes }
+  - { title: Lecture PPTs }
+  - { title: Certificate of Completion }
+  - { title: Certificate of Excellence, text: "Top 10 in Kahoot quizzes" }
+  - { title: Cash Prizes, text: "Top 3 positions" }
+  - { title: "Master of Pharmacology – Batch 3 Title", text: "Top overall position in Kahoot quizzes conducted after each live session" }
+```
+
+## Section: curriculum
+```yml
+heading: Course outline
+items:
+  - title: "Module 1 – Foundations of Clinical Pharmacology & Safe Prescribing"
+    subtitle: "3 Days"
+    module: module-1
+    points: |
+      - Day 1: Introduction to Clinical Pharmacology in Hospital Settings
+      - Definition and scope of pharmacology
+      - Drug classifications: OTC, prescription-only, controlled substances
+      - Generic vs. brand names
+      - Routes of administration (oral, IV, IM, subcutaneous, topical, etc.)
+      - Overview of dosage forms and their implications in clinical settings
+      - Day 2: Pharmacokinetics (ADME in the Hospital Setting) / Pharmacodynamics
+      - Absorption: factors influencing oral drug absorption
+      - Distribution: plasma protein binding, volume of distribution
+      - Metabolism: hepatic pathways (CYP450), first-pass effect
+      - Excretion: renal clearance, half-life, creatinine clearance
+      - Mechanisms of action: receptor agonists/antagonists, enzyme inhibitors
+      - Dose-response relationship
+      - Therapeutic index and drug safety
+      - Day 3: Prescription Writing and Interpretation
+      - Components of a valid prescription
+      - Standard abbreviations and those to avoid
+      - Legal and regulatory considerations
+      - Time-critical medications
+  - title: "Module 2 – Therapeutics in Acute & Chronic Care"
+    subtitle: "3 Days"
+    module: module-2
+    points: |
+      - Day 4: Practical Use of Antimicrobials in Hospitals
+      - Classification and mechanisms of common antibiotics
+      - Empirical vs. targeted therapy
+      - Duration of treatment and de-escalation
+      - Antibiotic resistance mechanisms
+      - Local antibiogram use
+      - Day 5: Cardiovascular Drugs in Acute and Chronic Care
+      - Antihypertensives: ACE inhibitors, beta-blockers, calcium channel blockers
+      - Diuretics: loop, thiazide, potassium-sparing
+      - Emergency drugs: nitrates, atropine, adenosine
+      - Monitoring: BP, electrolytes, ECG
+      - Day 6: Pain Management and Analgesic Use
+      - WHO analgesic ladder
+      - Non-opioids: paracetamol, NSAIDs
+      - Opioids: morphine, fentanyl, tramadol
+      - Patient-controlled analgesia (PCA)
+      - Opioid-induced respiratory depression
+  - title: "Module 3 – Special Populations, Critical Care & Emergency Pharmacology"
+    subtitle: "3 Days"
+    module: module-3
+    points: |
+      - Day 7: Drug Dosing in Renal and Hepatic Impairment / Pharmacology in Special Populations
+      - Creatinine clearance estimation (Cockcroft-Gault)
+      - Hepatic function indicators (AST, ALT, INR)
+      - Dose adjustment examples: aminoglycosides, metformin
+      - Hepatotoxic and nephrotoxic drugs
+      - Geriatric considerations: polypharmacy, altered metabolism
+      - Pregnancy categories and breastfeeding safety
+      - Day 8: Emergency Medications and Crash Carts
+      - ACLS drugs: adrenaline, amiodarone, atropine, naloxone
+      - Dosing and routes (IV push, IM, intraosseous)
+      - Crash cart organization and access
+      - Drug stability and reconstitution
+      - Day 9: Pharmacology in ICU and Critical Care
+      - Sedatives: midazolam, propofol
+      - Vasopressors: norepinephrine, dopamine
+      - Neuromuscular blockers
+      - Therapeutic Drug Monitoring (TDM)
+  - title: "Module 4 – IV Therapy, Medication Safety & Clinical Integration"
+    subtitle: "3 Days"
+    module: module-4
+    points: |
+      - Day 10: IV Fluids, Drips, and Infusion Calculations
+      - Types of IV fluids: isotonic, hypertonic, hypotonic
+      - Compatibility and stability of IV meds
+      - Calculating drip rates and flow rates
+      - Common IV meds: insulin, heparin, dopamine
+      - Day 11: Medication Safety and Error Prevention / Interprofessional Roles in Medication Safety
+      - Types of errors: prescribing, transcribing, dispensing, administration
+      - High-risk medications (LASA drugs)
+      - Safety practices: tall man lettering, double-checks
+      - Reporting systems and culture of safety
+      - Medication reconciliation
+      - Drug rounds and interdisciplinary huddles
+      - ADR, Med Error reporting and near-miss documentation
+      - Day 12: Assessment, Integration & Multidisciplinary Review
+      - Quiz (MCQs, Case Studies, calculations, drug matching)
+      - OSCE-style practical stations (e.g., interpreting a drug chart, calculating infusion, identifying errors)
+      - Group presentations of case studies
+      - Feedback collection
+```
+
+## Section: pricing_cards
+```yml
+heading: Pricing
+note: "Early Bird ends 25 October 2026. Registration closes 28 October 2026."
+items:
+  - name: Full Course (4 Modules)
+    price: AED 160
+    oldPrice: AED 200
+    badge: Early Bird - 20% OFF
+    features: |
+      - 1 Month Live Sessions
+      - Lifetime Recordings Access
+      - Notes
+      - Lecture PPTs
+      - Certificate of Completion
+      - Certificate of Excellence (Top 10 in Kahoot quizzes)
+      - Cash Prizes (Top 3 positions)
+      - Master of Pharmacology – Batch 3 Title (Top overall position in Kahoot quizzes conducted after each live session)
+  - name: Single Module (any one module)
+    price: AED 40
+    oldPrice: AED 50
+    badge: Early Bird - 20% OFF
+    features: |
+      - 3 Live Interactive Sessions
+      - Lifetime Recordings Access
+      - Lecture Notes
+      - Lecture PPTs
+      - Kahoot Fun Quizzes after sessions
+      - Certificate of Completion (Module Certificate)
+      - Certificate of Excellence (Top 10 in Kahoot quizzes)
+```
+
+## Section: schedule
+```yml
+heading: Schedule
+items:
+  - { when: "30, 31 October, 1 November 2026", title: "Module 1 – Foundations of Clinical Pharmacology & Safe Prescribing", detail: "3 Days · Live Online Sessions", module: module-1 }
+  - { when: "6, 7, 8 November 2026", title: "Module 2 – Therapeutics in Acute & Chronic Care", detail: "3 Days · Live Online Sessions", module: module-2 }
+  - { when: "13, 14, 15 November 2026", title: "Module 3 – Special Populations, Critical Care & Emergency Pharmacology", detail: "3 Days · Live Online Sessions", module: module-3 }
+  - { when: "20, 21, 22 November 2026", title: "Module 4 – IV Therapy, Medication Safety & Clinical Integration", detail: "3 Days · Live Online Sessions", module: module-4 }
+```
+
+## Section: faq
+```yml
+heading: Frequently asked questions
+items:
+  - q: Is this certified?
+    a: |
+      Yes, A verified Certificate of completion will be provided containing QR code which show your data from our website making the certificate unique and authentic. Additionally, certificates of excellence will also be awarded to top 10 candidates in kahoot fun quizzes. The Top 1 will receive the “Master of Pharmacology – Batch 3” title, and Cash Prizes will be awarded to the Top 3 positions.
+  - q: Is this affiliated with any institute/university?
+    a: "Pharmacozyme is an independent body registered with SECP Govt of Pakistan and UK accredited with CPD Groups."
+  - q: Do you have CME/CPD credit hours or points?
+    a: "We are offering a verified E-Certificate as Pharmacozyme is UK accredited with CPD Group and registered with SECP. The current program does not carry CME/CPD units."
+  - q: Who can join? Am I eligible?
+    a: "The program is designed for Doctors, Pharmacists, Nurses, Students, Healthcare Professionals and relevant health sciences learners. Students and professionals from relevant healthcare backgrounds can participate."
+  - q: What if I am not available on those dates/times?
+    a: "Don’t worry. We will provide lifetime access to recordings along with notes and lecture PPTs, through which you can complete the course at your convenience. You will also be added to a WhatsApp group community where you can receive course updates and ask/discuss your queries freely."
+  - q: Is this authentic?
+    a: "Pharmacozyme is registered with SECP Govt of Pakistan. You can check our registration on the following Govt Website link: https://eservices.secp.gov.pk/eServices/NameSearch.jsp We also have a strong social media presence with almost 140k+ followership across all social media platforms."
+  - q: How does group registration work?
+    a: |
+      - One group member will pay the FULL group amount in advance.
+      - The SAME payment screenshot/voucher will be uploaded by all group members during registration.
+      - Our team will manually verify and confirm 3 or 5 students accordingly.
+      Without same voucher screenshot, group discount will not be confirmed.
+  - q: What if I miss a class?
+    a: |
+      - Student must watch the recorded lecture.
+      - Must answer Kahoot questions posted in the recorded YouTube comment section.
+  - q: How will I get class details and updates?
+    a: "All details will be shared via WhatsApp group and email. Students must check regularly. If they miss class details or updates, administration will not be responsible."
+  - q: Do I need a stable internet connection?
+    a: "Stable internet connection is required for Kahoot quizzes. If connectivity issues affect quiz performance, administration will not be responsible."
+  - q: Is payment refundable?
+    a: "Payment is non-refundable after the course ends."
+```
+
+## Section: final_cta
+```yml
+headline: Secure Your Seat
+text: "Seats are limited. Early bird closes 25 Oct."
+buttonLabel: Register Now
+```
+````
