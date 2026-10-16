@@ -37,13 +37,13 @@ function clean(raw: string): Cleaned {
   // Outer fence (AI wrapper) before the front matter: drop it and anything before it.
   const fmt = lines.findIndex((l) => FORMAT_LINE.test(l));
   const limit = fmt >= 0 ? fmt : lines.length;
-  const open = lines.findIndex((l, i) => i < limit && /^\s*```\s*(markdown|md)?\s*$/i.test(l));
+  const open = lines.findIndex((l, i) => i < limit && /^\s*`{3,}\s*(markdown|md)?\s*$/i.test(l));
   if (open >= 0) {
     lines = lines.slice(open + 1);
     orig = orig.slice(open + 1);
     let end = lines.length - 1;
     while (end >= 0 && lines[end].trim() === "") end--;
-    if (end >= 0 && /^\s*```\s*$/.test(lines[end])) {
+    if (end >= 0 && /^\s*`{3,}\s*$/.test(lines[end])) {
       lines = lines.slice(0, end);
       orig = orig.slice(0, end);
     }
@@ -128,7 +128,7 @@ export function parseImportFile(raw: string): Result {
       let fenceEnd = -1;
       for (let i = h.index + 1; i < end; i++) {
         if (fenceStart < 0 && /^\s*```\s*ya?ml\s*$/i.test(lines[i])) fenceStart = i;
-        else if (fenceStart >= 0 && /^\s*```\s*$/.test(lines[i])) { fenceEnd = i; break; }
+        else if (fenceStart >= 0 && /^\s*`{3,}\s*$/.test(lines[i])) { fenceEnd = i; break; }
       }
       if (fenceStart < 0) {
         problems.push(err(`The '${h.name}' section has no content block under it.`));

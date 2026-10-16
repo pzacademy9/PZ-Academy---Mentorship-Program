@@ -164,6 +164,20 @@ describe("parseImportFile", () => {
   });
 });
 
+describe("parseImportFile outer fences", () => {
+  const F4 = "````";
+  it("accepts a four-backtick markdown wrapper with chatter before it", () => {
+    const r = parseImportFile(`Here is your file:\n\n${F4}markdown\n${FRONT}${HERO}${F4}\n`);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.file.sections[0].data.headline).toBe("Hi");
+  });
+  it("still parses when the last block is unclosed and a trailing fence follows", () => {
+    const r = parseImportFile(`${F4}markdown\n${FRONT}\n## Section: hero\n\`\`\`yaml\nheadline: Hi\n${F4}\n`);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.file.sections[0].data.headline).toBe("Hi");
+  });
+});
+
 describe("normalizeBullets", () => {
   it("converts bullet and numbered lines", () => {
     expect(normalizeBullets("• a\n● b\n– c\n1. d\n2) e\nplain")).toBe("- a\n- b\n- c\n- d\n- e\nplain");
