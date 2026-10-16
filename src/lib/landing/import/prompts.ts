@@ -12,30 +12,30 @@ const OUTER = "````";
 
 // ---------------------------------------------------------------- sections (derived)
 
-function fieldLine(f: FieldDef): string {
+function fieldLine(f: FieldDef, kind: PageKind): string {
   if (f.kind === "image") return ""; // pictures are never in the file
   const req = f.required ? "*" : "";
   const defaultMax = f.kind === "textarea" ? 2000 : 200;
   const lim = f.max && f.max !== defaultMax && f.kind !== "module" ? ` (max ${f.max})` : "";
   if (f.kind === "list") {
-    const subs = (f.itemFields ?? []).map(fieldLine).filter((s) => s !== "").join(", ");
+    const subs = (f.itemFields ?? []).map((x) => fieldLine(x, kind)).filter((s) => s !== "").join(", ");
     return `${f.key}${req}: list (up to ${f.maxItems ?? 40}) of {${subs}}`;
   }
-  if (f.kind === "module") return `${f.key}: optional module code`;
+  if (f.kind === "module") return kind === "webinar" ? "" : `${f.key}: optional module code`;
   if (f.kind === "youtube") return `${f.key}${req}: full YouTube link`;
   if (f.kind === "url") return `${f.key}${req}: https:// link`;
   if (f.kind === "textarea") return `${f.key}${req}${lim}: text`;
   return `${f.key}${req}${lim}`;
 }
 
-function sectionBlock(type: SectionType): string {
+function sectionBlock(type: SectionType, kind: PageKind): string {
   const def = SECTION_DEFS[type];
-  const fields = def.fields.map(fieldLine).filter((s) => s !== "");
+  const fields = def.fields.map((f) => fieldLine(f, kind)).filter((s) => s !== "");
   return [`## Section: ${type}`, `${def.description}`, ...fields.map((f) => `- ${f}`)].join("\n");
 }
 
 function sectionsText(kind: PageKind): string {
-  return KIND_SECTIONS[kind].map(sectionBlock).join("\n\n");
+  return KIND_SECTIONS[kind].map((t) => sectionBlock(t, kind)).join("\n\n");
 }
 
 // ---------------------------------------------------------------- per-kind wording
@@ -59,7 +59,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "what is included, and what students learn in each module (benefit cards and course outline)",
       "real numbers for the numbers bar (for example students trained); skip if none",
       "frequently asked questions and their answers",
-      "the WhatsApp number for the chat button",
+      "the WhatsApp number for the chat button, and the WhatsApp number where students send their payment screenshot (often the same)",
       "which countries should get their own link, and which modules should get their own link with its own top title",
     ],
     notes: [
@@ -82,7 +82,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "the workshop outline (topics for each day)",
       "numbers that are really true for the numbers bar; skip it if there are none",
       "frequently asked questions and their answers",
-      "the WhatsApp number for the chat button",
+      "the WhatsApp number for the chat button, and the WhatsApp number where students send their payment screenshot (often the same)",
       "which countries should get their own link",
       "only if the workshop is split into several parts students can buy separately: the modules, and which get their own link and top title",
     ],
@@ -103,12 +103,12 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "the speaker or speakers (name, title, short bio)",
       "what attendees will explore or learn, and who it is for",
       "frequently asked questions and their answers (for example how to join, whether there is a recording)",
-      "the WhatsApp number for the chat button",
+      "the WhatsApp number for the chat button, and (if paid) the WhatsApp number where students send their payment screenshot",
       "which countries should get their own link",
     ],
     notes: [
       "A webinar is a single event: one date, one speaker group, no modules and no course outline. Do not add a modules list and do not ask about modules.",
-      "Use one option of kind bundle named after the webinar. For a free webinar set free: true on that option and give no prices.",
+      "Use one option of kind bundle named after the webinar. For a free webinar write the option with free: true AND a price of amount: 0 for every country that can register, for example prices: { seat: { UAE: { amount: 0 }, PK: { amount: 0 } } }.",
       "In the schedule, list the date and time and any short agenda lines. Use the text block for what attendees will explore.",
     ],
     frontExtra: "",
@@ -119,9 +119,9 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
 
 const heroBlock = (kind: PageKind): string => {
   if (kind === "course") {
-    return `eyebrow: LIVE COURSE · 4 MODULES
+    return `eyebrow: LIVE COURSE · 2 MODULES
 headline: Practical Pharmacology Course
-subheadline: A hands-on course for pharmacists who want to use drugs with confidence.
+subheadline: "A hands-on course, built for pharmacists who want to use drugs with confidence."
 primaryCtaLabel: Register now
 dateLine: Starts 15 November 2026
 badges:
@@ -146,9 +146,9 @@ dateLine: Friday, 6 November 2026 · 7:30 PM`;
 
 const SAMPLE_BLOCKS: Record<SectionType, (kind: PageKind) => string> = {
   hero: heroBlock,
-  stats: () => `items:
+  stats: (kind) => `items:
   - { value: "500+", label: Pharmacists trained }
-  - { value: "4", label: Modules }`,
+  - { value: "${kind === "course" ? "2" : "3"}", label: ${kind === "course" ? "Modules" : "Days of practice"} }`,
   rich_text: (kind) => `heading: ${kind === "webinar" ? "What you will explore" : "Who is this for?"}
 body: |
   ${kind === "webinar" ? "In one evening you will see how to match the drug to the patient." : "This is for pharmacists who want practical skills."}
@@ -156,8 +156,8 @@ body: |
   - Community pharmacists`,
   feature_cards: () => `heading: What you will get
 items:
-  - { title: Live classes, text: Learn with an expert and ask questions. }
-  - { title: Practice cases, text: Work through real patient cases. }`,
+  - { title: Live classes, text: "Learn with an expert, and ask questions." }
+  - { title: Practice cases, text: "Work through real patient cases, step by step." }`,
   curriculum: (kind) => {
     const tag = (m: string) => (kind === "course" ? `
     module: ${m}` : "");
@@ -190,10 +190,10 @@ items:
   - { when: "${kind === "course" ? "22 Nov · 7:30 PM" : "Fri 6 Nov · 9:00 PM"}", title: ${kind === "course" ? "Module 2 begins" : "Questions and answers"}${kind === "course" ? ", module: module-2" : ""} }`,
   video_reviews: () => `heading: What students say
 items:
-  - { url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", caption: A student shares their result }`,
+  - { url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", caption: "A student shares their result" }`,
   testimonials: () => `heading: Loved by pharmacists
 items:
-  - { quote: A very clear and practical course., name: Sample Student, role: Pharmacist }`,
+  - { quote: "A very clear, practical course.", name: Sample Student, role: Pharmacist }`,
   faq: () => `items:
   - { q: Will I get a recording?, a: "Yes. Registered students get the recording." }
   - { q: Can I pay in my own currency?, a: "Yes. Pick your country when you register." }`,
@@ -214,7 +214,11 @@ function exampleFront(kind: PageKind): string {
     - { key: m1, name: Module 1, kind: module }
     - { key: m2, name: Module 2, kind: module }`
     : `    - { key: seat, name: ${label}, kind: bundle${free ? ", free: true" : ""} }`;
-  const prices = free ? "" : kind === "course"
+  const prices = free ? `  prices:
+    seat:
+      UAE: { amount: 0 }
+      PK: { amount: 0 }
+` : kind === "course"
     ? `  tiers:
     - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
   prices:
@@ -243,6 +247,7 @@ function exampleFront(kind: PageKind): string {
     ? `links:
   - { country: UAE, on: true }
   - { module: module-2, on: true, hero_title: "Module 2: Therapeutics", hero_subtitle: "Choose the right drug for the patient" }
+  - { country: UAE, module: module-2, on: true }
 `
     : `links:
   - { country: UAE, on: true }
@@ -258,10 +263,11 @@ settings:
   register_label: Register now
   whatsapp: "923001234567"
 registration:
-  modes: [live]
-  default_region: UAE
+  modes: ${kind === "course" ? "[live, recorded]" : "[live]"}
+${kind === "course" ? "  recorded_percent: 60\n" : ""}  default_region: UAE
 ${early}  event_label: ${title}
   ref_prefix: ${kind === "course" ? "PPC" : kind === "workshop" ? "MDC" : "WEB"}
+  verify_whatsapp: "923001234567"
   regions:
 ${regions}
   options:
@@ -285,7 +291,13 @@ export const EXAMPLE_FILE_BY_KIND: Record<PageKind, string> = {
 // ---------------------------------------------------------------- the prompt
 
 function formatGuide(kind: PageKind, info: KindInfo): string {
-  const modulesLine = info.frontExtra !== "" ? `\n${info.frontExtra}\n(days is a plain number, not in quotes. key uses small letters, digits and single dashes.)` : "";
+  const hasModules = info.frontExtra !== "";
+  const modulesLine = hasModules ? `\n${info.frontExtra}          # days is a plain number, not in quotes; key: small letters, digits, single dashes` : "";
+  const options = hasModules
+    ? "    - { key: full, name: Full Course, kind: bundle }\n    - { key: m1, name: Module 1, kind: module }"
+    : `    - { key: full, name: ${kind === "webinar" ? "Webinar Seat" : "Workshop Seat"}, kind: bundle }`;
+  const mix = hasModules ? "\n  module_mix: { enabled: true, bundle: full }   # only if students can mix modules" : "";
+  const linkLines = "  - { country: UAE, on: true }" + (hasModules ? '\n  - { module: module-1, on: true, hero_title: "Module 1: Foundations", hero_subtitle: "..." }\n  - { country: UAE, module: module-1, on: true }' : "");
   return `# The file you must write
 
 The file opens with a top part between two lines of three dashes (--- ... ---), written as key: value lines (indent with spaces, never tabs). The page sections follow.
@@ -298,35 +310,38 @@ slug: link-name-in-small-letters-and-dashes
 seo: { title: "...", description: "..." }
 settings:
   register_label: Register now
-  whatsapp: "923001234567"      # digits only, in quotes, with country code
+  whatsapp: "923001234567"      # chat button; digits only, in quotes, with country code
   countdown_to: 2026-10-25T23:59:00+04:00   # optional, with time zone
   countdown_label: Early Bird ends in
 registration:
   modes: [live, recorded]       # leave out if only Live
-  recorded_percent: 60          # only if the teammate says so
+  recorded_percent: 60          # Recorded price as a percent of Live; only if the teammate says so
   default_region: UAE
   early_bird_ends: 2026-10-25T23:59:00+04:00
+  verify_whatsapp: "923001234567"   # where students send their payment screenshot
   event_label: Short event name
-  ref_prefix: ABC               # 2 to 4 capital letters
+  ref_prefix: ABC               # 2 to 6 capital letters or digits
   regions:                      # one line per country
     - { code: UAE, name: UAE, currency: AED, class_time: "6:30 PM – 7:30 PM", timezone: UAE time }
   options:                      # what people can buy
-    - { key: full, name: Full Course, kind: bundle }
+${options}${mix}
   tiers:                        # group discounts, only if given
     - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
   prices:
     full:
-      UAE: { amount: 200, early: 160, group_totals: { g3: 480 } }${modulesLine}
+      UAE: { amount: 200, early: 160, group_totals: { g3: 480 }, early_group_totals: { g3: 384 } }${modulesLine}
 links:                          # which links to switch on
-  - { country: UAE, on: true }${kind === "webinar" ? "" : "\n  - { module: module-2, on: true, hero_title: \"Module 2: Therapeutics\", hero_subtitle: \"...\" }"}
+${linkLines}
 ${FENCE}
 
 Rules for that top part:
-- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. group_totals is the total for the whole group, not per person. If only a per-person group price is given, multiply by group size and say so.
+- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. group_totals is the total for the whole group, not per person (early_group_totals is the same for the Early Bird price). If only a per-person group price is given, multiply by group size and say so in your closing summary.
 - Country codes are 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
-- Every country used in prices or links must be in regions; every option in prices must be in options.
-- Leave out anything you do not know. Do not write payment accounts; the team adds them in the editor.
-- on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.
+- Every country used in prices or links must be in regions; every option in prices must be in options.${hasModules ? " Every module's option must be in options." : ""}
+- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone (for example UAE +04:00, Pakistan +05:00) and say so in your closing summary.
+- Quoting: put any text in double quotes if it has a comma, a colon, a # or starts with a symbol such as * @ & ! - ; when unsure, quote it.
+- Leave out anything you do not know. Do not write payment accounts; the team picks them in the editor.
+- on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.${kind === "webinar" ? "" : " A line with both a country and a module gives that pair its own link."}
 
 # The page sections
 
@@ -343,7 +358,7 @@ export function masterPrompt(kind: PageKind): string {
 
 # How to run the interview
 
-1. Your first message is only a short hello and a request: "Please attach your ${info.noun} document (or paste its text)." Then wait.
+1. Your first message is only a short hello and a request: "Please attach your ${info.noun} document (or paste its text)." Then wait. If they have no document, just interview them.
 2. Read the document. Ask only about what is missing or unclear. Ask ONE question at a time, in plain friendly language, and wait for the answer before the next question. Never send a list of questions.
 3. Cover these, in this order, skipping what the document already answers clearly (confirm anything you are unsure of):
 ${topics}
@@ -369,7 +384,7 @@ ${EXAMPLE_FILE_BY_KIND[kind]}${OUTER}
 
 # When the interview is finished
 
-Before writing the file, say you have everything, then write a plain summary of exactly 3 short lines telling the teammate what you assumed or left out. After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it: no notes, no questions, no sign-off. Nothing is written after the closing ${OUTER}.
+Before writing the file, say you have everything, then write a plain summary of up to 5 short lines. It must always say that payment accounts and pictures are chosen in the editor, and name anything you assumed, left out or worked out yourself (for example per-person prices multiplied into group totals, or an Early Bird end time you set). After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it: no notes, no questions, no sign-off. Nothing is written after the closing ${OUTER}.
 
 Begin now with your first message.`;
 }

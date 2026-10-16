@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { IMPORT_FORMAT_ID, masterPrompt, EXAMPLE_FILE_BY_KIND } from "@/lib/landing/import/prompts";
 import { buildImport } from "@/lib/landing/import/build-content";
+import { registrationProblems } from "@/lib/landing/registration/config";
 import { KIND_SECTIONS, type PageKind } from "@/lib/landing/content";
 import { SECTION_DEFS, SECTION_TYPES } from "@/lib/landing/sections";
 
@@ -21,7 +22,7 @@ describe("masterPrompt", () => {
         for (const t of KIND_SECTIONS[kind]) expect(prompt).toContain(`## Section: ${t}`);
         for (const t of SECTION_TYPES) {
           if (KIND_SECTIONS[kind].includes(t)) continue;
-          expect(prompt, `mentions ${t}`).not.toMatch(new RegExp(`\b${t}\b`, "i"));
+          expect(prompt, `mentions ${t}`).not.toMatch(new RegExp(String.raw`\b${t}\b`, "i"));
         }
       });
 
@@ -30,7 +31,7 @@ describe("masterPrompt", () => {
           for (const f of SECTION_DEFS[t].fields) {
             if (f.kind === "image") continue;
             expect(prompt, `${t}.${f.key}`).toContain(f.key);
-            for (const sub of f.itemFields ?? []) if (sub.kind !== "image") expect(prompt, `${t}.${f.key}.${sub.key}`).toContain(sub.key);
+            for (const sub of f.itemFields ?? []) if (sub.kind !== "image" && !(kind === "webinar" && sub.kind === "module")) expect(prompt, `${t}.${f.key}.${sub.key}`).toContain(sub.key);
           }
         }
       });
@@ -55,7 +56,7 @@ describe("masterPrompt", () => {
       });
 
       it("stays a sane length", () => {
-        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(9500);
+        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(11000);
       });
 
       it("embeds its worked example", () => {
@@ -65,24 +66,63 @@ describe("masterPrompt", () => {
   }
 });
 
+// Registration messages we knowingly allow in the examples: payment accounts are picked in the editor.
+const ALLOWED = [/payment account/i, /account/i, /verif/i];
+
 describe("worked examples", () => {
   for (const kind of KINDS) {
     it(`${kind} example imports cleanly`, () => {
       const r = buildImport(EXAMPLE_FILE_BY_KIND[kind]);
       if (!r.ok) throw new Error(r.errors.join(" | "));
       expect(r.built.kind).toBe(kind);
-      expect(r.built.warnings.filter((w) => w.level === "error")).toEqual([]);
       expect(r.built.content.sections.map((s) => s.type)).toEqual(KIND_SECTIONS[kind]);
+      const unexpected = r.built.warnings.map((w) => w.message).filter((m) => !ALLOWED.some((a) => a.test(m)));
+      expect(unexpected).toEqual([]);
+      const blocking = registrationProblems(r.built.content.registration).map((p) => p.message).filter((m) => !ALLOWED.some((a) => a.test(m)));
+      expect(blocking).toEqual([]);
     });
   }
 
-  it("course example has prices, modules and links", () => {
+  it("free webinar example is free in every country", () => {
+    const r = buildImport(EXAMPLE_FILE_BY_KIND.webinar);
+    if (!r.ok) throw new Error(r.errors.join(" | "));
+    const reg = r.built.content.registration;
+    expect(reg.options.every((o) => o.free)).toBe(true);
+    expect(reg.prices.seat.UAE.amount).toBe(0);
+  });
+
+  it("course example has prices, modules, recorded mode and links", () => {
     const r = buildImport(EXAMPLE_FILE_BY_KIND.course);
     if (!r.ok) throw new Error(r.errors.join(" | "));
+    const reg = r.built.content.registration;
     expect(r.built.content.modules.length).toBeGreaterThan(1);
-    expect(r.built.content.registration.regions.length).toBeGreaterThan(1);
-    expect(r.built.content.registration.tiers.length).toBeGreaterThan(0);
-    expect(r.built.links.some((l) => l.on)).toBe(true);
-    expect(r.built.links.some((l) => l.heroTitle)).toBe(true);
+    expect(reg.regions.length).toBeGreaterThan(1);
+    expect(reg.tiers.length).toBeGreaterThan(0);
+    expect(reg.modes).toEqual(["live", "recorded"]);
+    expect(reg.recordedPercentOfRegular).toBe(60);
+    expect(r.built.links.some((l) => l.on && l.heroTitle)).toBe(true);
+    expect(r.built.links.some((l) => l.on && l.regionKey && l.moduleKey)).toBe(true);
+  });
+});
+
+describe("prompt guards", () => {
+  it("the section-name check can fail", () => {
+    const foreign = SECTION_TYPES.find((t) => !KIND_SECTIONS.webinar.includes(t))!;
+    const bad = masterPrompt("webinar") + ` ${foreign}`;
+    expect(bad).toMatch(new RegExp(String.raw`\b${foreign}\b`, "i"));
+  });
+  it("webinar prompt never mentions module tags", () => {
+    expect(masterPrompt("webinar")).not.toMatch(/module:/);
+  });
+  it("covers payment screenshot number, quoting, early bird time and short summary", () => {
+    for (const k of KINDS) {
+      const p = masterPrompt(k);
+      expect(p).toContain("verify_whatsapp");
+      expect(p).toContain("early_group_totals".slice(0, 5) === "early" ? "early_group_totals" : "");
+      expect(p).toMatch(/double quotes/);
+      expect(p).toMatch(/23:59/);
+      expect(p).toMatch(/up to 5 short lines/);
+      expect(p).toMatch(/just interview them/);
+    }
   });
 });
