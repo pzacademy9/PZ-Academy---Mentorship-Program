@@ -106,14 +106,76 @@ describe("buildRegistration", () => {
     expect(r.problems).toContainEqual({ level: "warning", message: "UAE has no price for Module 1." });
   });
 
-  it("errors on bad codes", () => {
+  it("errors on bad codes with exact messages", () => {
     const f = base();
     f.registration.regions[0].code = "uae";
     f.registration.options[0].key = "Full!";
     f.modules[0].key = "Module 1";
     const errs = buildRegistration(f).problems.filter((p) => p.level === "error").map((p) => p.message);
-    expect(errs.length).toBeGreaterThanOrEqual(3);
+    expect(errs).toContain('The country code "uae" must be 2 to 6 capital letters, for example PK.');
+    expect(errs).toContain('The option code "Full!" must use small letters, digits or _ only.');
+    expect(errs).toContain('The module code "Module 1" must use small letters, digits and single dashes, for example module-1.');
     expect(errs.join(" ")).not.toMatch(/region|variant|schema/i);
+  });
+
+  it("rejects reserved codes and never pollutes Object.prototype", () => {
+    const f = base();
+    const opts = f.registration.options as Record<string, unknown>[];
+    opts.push(JSON.parse('{"key":"__proto__","name":"Bad"}'));
+    (f.registration.prices as Record<string, unknown>) = JSON.parse(
+      '{"__proto__":{"UAE":{"amount":5}},"full":{"__proto__":{"amount":5},"constructor":{"amount":1},"UAE":{"amount":200,"group_totals":{"__proto__":3}}}}',
+    );
+    f.registration.regions.push(JSON.parse('{"code":"constructor"}'));
+    f.modules.push(JSON.parse('{"key":"prototype","title":"x","format":"y","days":1}'));
+    const r = buildRegistration(f);
+    const errs = r.problems.filter((p) => p.level === "error").map((p) => p.message);
+    expect(errs).toContain('"__proto__" is a reserved word, pick another code.');
+    expect(errs).toContain('"constructor" is a reserved word, pick another code.');
+    expect(errs).toContain('"prototype" is a reserved word, pick another code.');
+    expect(({} as Record<string, unknown>).amount).toBeUndefined();
+    expect(Object.keys(Object.prototype)).toEqual([]);
+    expect(Object.keys(Object.getPrototypeOf(r.registration.prices) ?? {})).toEqual([]);
+  });
+
+  it("gives one line for an unreadable price on a module option", () => {
+    const f = base();
+    (f.registration.prices.m1.UAE as Record<string, unknown>).amount = "call us";
+    const lines = buildRegistration(f).problems.map((p) => p.message).filter((m) => m.includes("Module 1") && m.includes("UAE"));
+    expect(lines).toEqual(["The price of Module 1 for UAE is not a number."]);
+  });
+
+  it("warns about Early Bird prices without an end date", () => {
+    const f = base();
+    delete (f.registration as Record<string, unknown>).early_bird_ends;
+    expect(buildRegistration(f).problems).toContainEqual({
+      level: "warning",
+      message: "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
+    });
+  });
+
+  it("does not throw on odd input and explains a non-object price", () => {
+    expect(() => buildRegistration({ modules: { a: 1 } })).not.toThrow();
+    const f = base();
+    (f.registration.prices.full as Record<string, unknown>).UAE = 200;
+    const r = buildRegistration(f);
+    expect(r.problems).toContainEqual({ level: "warning", message: "The price of Full Course for UAE is not written correctly. Write it as amount: 200." });
+    expect(r.problems.filter((p) => p.message.startsWith('Add the price of "Full Course" for UAE'))).toEqual([]);
+  });
+
+  it("maps tier size and min/max exactly", () => {
+    const t = buildRegistration(base()).registration.tiers;
+    expect(t[0]).toEqual({ key: "g3", label: "Group of 3", minSize: 3, maxSize: 3, percentOff: 20 });
+    expect(t[1]).toEqual({ key: "g5", label: "Group 2-5", minSize: 2, maxSize: 5, percentOff: 10 });
+  });
+
+  it("rejects negatives and strings holding several numbers", () => {
+    for (const bad of ["200 AED or 300", "-50", -5]) {
+      const f = base();
+      (f.registration.prices.full.UAE as Record<string, unknown>).amount = bad;
+      const r = buildRegistration(f);
+      expect(r.registration.prices.full).toBeUndefined();
+      expect(r.problems.map((p) => p.message)).toContain("The price of Full Course for UAE is not a number.");
+    }
   });
 
   it("surfaces readiness problems as warnings only", () => {
