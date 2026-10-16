@@ -26,20 +26,42 @@ function deepBullets(v: unknown): unknown {
   return v;
 }
 
-function clean(raw: string): string[] {
-  let lines = raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
-  // Outer markdown fence (AI wrapper): drop it and anything before it.
-  const open = lines.findIndex((l) => /^\s*```\s*(markdown|md)\s*$/i.test(l));
+interface Cleaned { lines: string[]; orig: number[] }
+
+const FORMAT_LINE = /^format\s*:/;
+
+/** Strips BOM, CRLF, an outer code fence and chatter. `orig[i]` is the 1-based line in the user's file. */
+function clean(raw: string): Cleaned {
+  let lines = raw.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
+  let orig = lines.map((_, i) => i + 1);
+  // Outer fence (AI wrapper) before the front matter: drop it and anything before it.
+  const fmt = lines.findIndex((l) => FORMAT_LINE.test(l));
+  const limit = fmt >= 0 ? fmt : lines.length;
+  const open = lines.findIndex((l, i) => i < limit && /^\s*```\s*(markdown|md)?\s*$/i.test(l));
   if (open >= 0) {
     lines = lines.slice(open + 1);
+    orig = orig.slice(open + 1);
     let end = lines.length - 1;
     while (end >= 0 && lines[end].trim() === "") end--;
-    if (end >= 0 && /^\s*```\s*$/.test(lines[end])) lines = lines.slice(0, end);
+    if (end >= 0 && /^\s*```\s*$/.test(lines[end])) {
+      lines = lines.slice(0, end);
+      orig = orig.slice(0, end);
+    }
   }
-  // Leading chatter before the first --- line.
-  const first = lines.findIndex((l) => l.trim() === "---");
-  return first >= 0 ? lines.slice(first) : lines;
+  // Front matter: the --- line just above "format:", else the first --- line.
+  const fmt2 = lines.findIndex((l) => FORMAT_LINE.test(l));
+  let start = -1;
+  if (fmt2 >= 0) {
+    for (let i = fmt2 - 1; i >= 0; i--) {
+      if (lines[i].trim() === "---") { start = i; break; }
+    }
+  }
+  if (start < 0) start = lines.findIndex((l) => l.trim() === "---");
+  if (start < 0) start = 0;
+  return { lines: lines.slice(start), orig: orig.slice(start) };
 }
+
+const straighten = (t: string) => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
 
 function failure(text: string, e: unknown): { hasTabs: boolean; line: number } {
   const hasTabs = /^\t/m.test(text) || (e instanceof YAMLParseError && e.code === "TAB_AS_INDENT");
@@ -49,7 +71,9 @@ function failure(text: string, e: unknown): { hasTabs: boolean; line: number } {
 
 export function parseImportFile(raw: string): Result {
   try {
-    const lines = clean(typeof raw === "string" ? raw : "");
+    const cl = clean(typeof raw === "string" ? raw : "");
+    const lines = cl.lines;
+    const at = (i: number) => cl.orig[Math.min(Math.max(i, 0), cl.orig.length - 1)] ?? 1;
     if (lines.length === 0 || lines[0].trim() !== "---") return { ok: false, problems: [err(FORMAT_MSG)] };
     const close = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
     if (close < 0) return { ok: false, problems: [err("The top of the file (between the two --- lines) is missing or not closed.")] };
@@ -57,21 +81,21 @@ export function parseImportFile(raw: string): Result {
     const frontText = lines.slice(1, close).join("\n");
     let front: unknown;
     try {
-      front = parseYaml(frontText);
+      front = parseYaml(straighten(frontText));
     } catch (e) {
       const f = failure(frontText, e);
       return {
         ok: false,
         problems: [err(f.hasTabs
           ? "The top of the file uses tab characters for indentation. Use spaces instead."
-          : `The top of the file could not be read near line ${f.line + 1}.`)],
+          : `The top of the file could not be read near line ${at(f.line)}.`)],
       };
     }
     if (!isRecord(front) || front.format !== "pz-landing/1") return { ok: false, problems: [err(FORMAT_MSG)] };
 
     const problems: ImportProblem[] = [];
     const sections: ParsedFile["sections"] = [];
-    const headingRe = /^##\s*Section:\s*(\w+)/i;
+    const headingRe = /^##\s*Section:\s*(.*?)\s*$/i;
     const heads: { index: number; name: string }[] = [];
     for (let i = close + 1; i < lines.length; i++) {
       const m = headingRe.exec(lines[i]);
@@ -81,7 +105,7 @@ export function parseImportFile(raw: string): Result {
     heads.forEach((h, n) => {
       const end = n + 1 < heads.length ? heads[n + 1].index : lines.length;
       const type = h.name.toLowerCase();
-      if (!(SECTION_TYPES as readonly string[]).includes(type)) {
+      if (!/^\w+$/.test(h.name) || !(SECTION_TYPES as readonly string[]).includes(type)) {
         problems.push(err(`The section '${h.name}' is not a section this page format knows.`));
         return;
       }
@@ -98,18 +122,18 @@ export function parseImportFile(raw: string): Result {
       if (fenceEnd < 0) fenceEnd = end;
       const body = lines.slice(fenceStart + 1, fenceEnd).join("\n");
       try {
-        const data = body.trim() === "" ? {} : parseYaml(body);
+        const data = body.trim() === "" ? {} : parseYaml(straighten(body));
         if (!isRecord(data)) {
-          problems.push(err(`The '${h.name}' section could not be read near line ${fenceStart + 2}.`));
+          problems.push(err(`The '${h.name}' section could not be read near line ${at(fenceStart + 1)}.`));
           return;
         }
-        sections.push({ type, heading: h.name, data: deepBullets(data) as Record<string, unknown>, line: h.index + 1 });
+        sections.push({ type, heading: h.name, data: deepBullets(data) as Record<string, unknown>, line: at(h.index) });
       } catch (e) {
         const f = failure(body, e);
-        const at = fenceStart + 1 + f.line;
+        const near = at(fenceStart + f.line);
         problems.push(err(f.hasTabs
-          ? `The '${h.name}' section uses tab characters for indentation (near line ${at}). Use spaces instead.`
-          : `The '${h.name}' section could not be read near line ${at}.`));
+          ? `The '${h.name}' section uses tab characters for indentation (near line ${near}). Use spaces instead.`
+          : `The '${h.name}' section could not be read near line ${near}.`));
       }
     });
 
