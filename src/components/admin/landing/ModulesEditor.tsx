@@ -12,7 +12,10 @@ export interface ModulesEditorProps {
   modules: ModuleDef[];
   registration: RegistrationConfig;
   slug?: string;
-  /** Modules that already have a link: their link name can't change (the link's web address would break). */
+  /**
+   * Module link names of every link the page has, including links of modules since removed. A module
+   * with a link keeps its name (its web address would break), and no new module may take one of these.
+   */
   lockedKeys: string[];
   onModules: (modules: ModuleDef[]) => void;
   onRename: (from: string, to: string) => void;
@@ -31,7 +34,7 @@ export function ModulesEditor({ modules, registration, slug, lockedKeys, onModul
 
   function add() {
     if (modules.length >= MAX_MODULES) return;
-    onModules([...modules, { key: nextModuleKey(names), title: "", format: "", days: 0, optionKey: "" }]);
+    onModules([...modules, { key: nextModuleKey(names, lockedKeys), title: "", format: "", days: 0, optionKey: "" }]);
   }
 
   async function remove(i: number) {
@@ -50,7 +53,7 @@ export function ModulesEditor({ modules, registration, slug, lockedKeys, onModul
   }
 
   function rename(i: number, value: string) {
-    const problem = moduleKeyProblem(value, names, i);
+    const problem = moduleKeyProblem(value, names, i, lockedKeys);
     if (problem) { setTyped((t) => ({ ...t, [i]: value })); return; }
     setTyped((t) => { const n = { ...t }; delete n[i]; return n; });
     onRename(modules[i].key, value);
@@ -70,7 +73,7 @@ export function ModulesEditor({ modules, registration, slug, lockedKeys, onModul
 
       {modules.map((m, i) => {
         const shown = typed[i] ?? m.key;
-        const problem = typed[i] !== undefined ? moduleKeyProblem(typed[i], names, i) : null;
+        const problem = typed[i] !== undefined ? moduleKeyProblem(typed[i], names, i, lockedKeys) : null;
         const locked = lockedKeys.includes(m.key);
         return (
           <fieldset key={i} className="relative space-y-3 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-3">

@@ -6,7 +6,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { computeReadiness, normalizeContent, type LandingContent, type PageStatus, type Problem } from "@/lib/landing/content";
 import {
-  defaultModuleHeadline, emptyOverrides, parseVariantPath,
+  defaultModuleHeadline, emptyOverrides, parseVariantPath, variantPath,
   type VariantOverrides, type VariantRef,
 } from "@/lib/landing/variants";
 import { resolveVariant } from "@/lib/landing/resolve-variant";
@@ -28,7 +28,7 @@ export type VariantSaveResult = { ok: true; revision: number } | { ok: false; re
 export type VariantSimpleResult = { ok: true } | { ok: false; reason: "not-found" | "db-error" };
 export type VariantPublishResult =
   | { ok: true; version: number }
-  | { ok: false; reason: "not-found" | "db-error" | "conflict" | "main-not-published" }
+  | { ok: false; reason: "not-found" | "db-error" | "conflict" | "main-not-published" | "main-out-of-date" }
   | { ok: false; reason: "not-ready"; problems: Problem[] };
 
 const UNIQUE_VIOLATION = "23505";
@@ -207,11 +207,12 @@ function foreignCurrencyIn(text: string, own: string, content: LandingContent): 
 }
 
 /** Variant-specific problems, in plain language, over the resolved draft. */
-function variantProblems(main: LandingContent, ref: VariantRef, resolved: LandingContent): Problem[] {
+function variantProblems(main: LandingContent, ref: VariantRef, resolved: LandingContent, draft: LandingContent): Problem[] {
   const out: Problem[] = [];
   if (main.registration.enabled) {
     if (ref.regionKey) {
-      const label = main.registration.regions.find((g) => g.key === ref.regionKey)?.label || ref.regionKey;
+      const named = (c: LandingContent) => c.registration.regions.find((g) => g.key === ref.regionKey)?.label.trim();
+      const label = named(main) || named(draft) || ref.regionKey;
       if (resolved.registration.options.length === 0) {
         out.push({ message: `Nothing is priced for ${label} yet. Add a price for ${label} (Registration setup) before publishing this link.` });
       }
@@ -246,9 +247,12 @@ export async function publishVariant(userId: string, variantId: string): Promise
   if (!l) return { ok: false, reason: "not-found" };
   const { variant, page } = l;
   if (!page.published) return { ok: false, reason: "main-not-published" };
+  // Served on top of main's LIVE content: a country / module added to main since it went live would
+  // 404 (and its prices look missing), so ask for main to be published again before anything else.
+  if (!parseVariantPath(variantPath(variant.ref).split("/"), page.published)) return { ok: false, reason: "main-out-of-date" };
   const resolved = resolveVariant(page.published, variant.ref, variant.draft);
   const readiness = computeReadiness(resolved, { title: page.title, slug: page.slug });
-  const problems = [...readiness.problems, ...variantProblems(page.published, variant.ref, resolved)];
+  const problems = [...readiness.problems, ...variantProblems(page.published, variant.ref, resolved, page.draft)];
   if (problems.length > 0) return { ok: false, reason: "not-ready", problems };
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("landing_publish_variant", {

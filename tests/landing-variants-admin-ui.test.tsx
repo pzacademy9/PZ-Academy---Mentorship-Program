@@ -281,11 +281,11 @@ const linkVariant = (over: Partial<LandingVariant> = {}): LandingVariant => ({
 });
 
 type Reply = { status?: number; body?: unknown };
-let routes: Record<string, (init?: RequestInit) => Reply>;
+let routes: Record<string, (init?: RequestInit) => Reply | Promise<Reply>>;
 function useRoutes() {
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     const h = routes[`${init?.method ?? "GET"} ${url}`];
-    const r = h ? h(init) : { body: { revision: 5 } };
+    const r = h ? await h(init) : { body: { revision: 5 } };
     const status = r.status ?? 200;
     return { ok: status < 400, status, json: async () => r.body };
   });
@@ -402,12 +402,49 @@ describe("Add a country", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
-  it("adds the country with its prices to the main page, and its links appear", async () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
-    const { panel, dialog } = await pickSaudi();
+  const earlyPage = { ...draftPage, draft: { ...big, registration: { ...big.registration, earlyBirdEndsAt: "2026-12-01T00:00:00+05:00" } } };
+  function fillSaudi(dialog: HTMLElement) {
     fireEvent.change(within(dialog).getByLabelText("Class time"), { target: { value: "7 – 8 PM" } });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: /meezan bank/i }));
     fireEvent.change(within(dialog).getByLabelText("Full course price"), { target: { value: "300" } });
+    fireEvent.change(within(dialog).getByLabelText("Module 2 only price"), { target: { value: "120" } });
+  }
+
+  it("asks a price for every paid option, and Early Bird only when the page has an Early Bird end date", async () => {
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    const { dialog } = await pickSaudi();
+    expect(within(dialog).queryByLabelText("Full course Early Bird price")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /meezan bank/i }));
+    fireEvent.change(within(dialog).getByLabelText("Full course price"), { target: { value: "300" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add country" }));
+    expect(within(dialog).getByRole("alert").textContent).toMatch(/Module 2 only/);
+    expect(within(dialog).queryByText(/not sold in this country/i)).toBeNull();
+  });
+
+  it("refuses an Early Bird price above the regular price", async () => {
+    render(<LandingEditor page={earlyPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    const { dialog } = await pickSaudi();
+    fillSaudi(dialog);
+    fireEvent.change(within(dialog).getByLabelText("Full course Early Bird price"), { target: { value: "400" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add country" }));
+    expect(within(dialog).getByRole("alert").textContent).toMatch(/Early Bird price of "Full course" is higher/);
+  });
+
+  it("does not ask a price for a free option, and offers it in the new country", async () => {
+    const withFree = { ...draftPage, draft: { ...big, registration: { ...big.registration, options: [...big.registration.options, { key: "taster", label: "Free taster", kind: "bundle" as const, free: true, waGroupUrl: "" }] } } };
+    render(<LandingEditor page={withFree} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    const { dialog } = await pickSaudi();
+    expect(within(dialog).queryByLabelText("Free taster price")).toBeNull();
+    fillSaudi(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add country" }));
+    await flush();
+    expect(bodyOf(calls(PAGE_URL)[0]).content.registration.prices.taster.KSA).toEqual({ amount: 0 });
+  });
+
+  it("adds the country with its prices to the main page, and its links appear", async () => {
+    render(<LandingEditor page={earlyPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    const { panel, dialog } = await pickSaudi();
+    fillSaudi(dialog);
     fireEvent.change(within(dialog).getByLabelText("Full course Early Bird price"), { target: { value: "250" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Add country" }));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -419,7 +456,7 @@ describe("Add a country", () => {
       key: "KSA", label: "Saudi Arabia", currency: "SAR", classTime: "7 – 8 PM", timezoneLabel: "Saudi Arabia Time", accountKeys: ["meezan"],
     });
     expect(saved.prices.full.KSA).toEqual({ amount: 300, earlyAmount: 250 });
-    expect(saved.prices.m2?.KSA).toBeUndefined();
+    expect(saved.prices.m2.KSA).toEqual({ amount: 120 });
   });
 
   it("does not offer a country that is already on the page", async () => {
@@ -545,5 +582,68 @@ describe("Version history of the open link", () => {
     fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "After restore" } });
     await flush();
     expect(bodyOf(calls(VARIANT_URL).at(-1)!).baseRevision).toBe(9);
+  });
+
+  it("restoring waits for a link save that is still on its way", async () => {
+    let finishSave: (r: Reply) => void = () => {};
+    routes[`PATCH ${VARIANT_URL}`] = () => new Promise<Reply>((resolve) => { finishSave = resolve; });
+    routes[`GET ${LINKS_URL}/v1/versions`] = () => ({ body: { versions: [{ version: 2, createdAt: "2026-10-05T10:00:00Z" }] } });
+    routes[`POST ${LINKS_URL}/v1/rollback`] = () => ({ body: { ok: true, version: 3 } });
+    routes[`GET ${LINKS_URL}`] = () => ({ body: { variants: [linkVariant({ revision: 9 })] } });
+    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    await choose("UAE · Module 2");
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Typed" } });
+    await flush(); // the save is now in flight
+    expect(calls(VARIANT_URL)).toHaveLength(1);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Versions" })); await vi.advanceTimersByTimeAsync(0); });
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("dialog", { name: "Version history" })).getByRole("button", { name: "Restore this version" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(sent("POST", `${LINKS_URL}/v1/rollback`)).toHaveLength(0);
+    await act(async () => { finishSave({ body: { revision: 4 } }); await vi.advanceTimersByTimeAsync(0); });
+    expect(sent("POST", `${LINKS_URL}/v1/rollback`)).toHaveLength(1);
+  });
+});
+
+describe("Task 11 fixes", () => {
+  beforeEach(() => { routes = {}; useRoutes(); });
+
+  it("a new module never takes the link name of a removed module whose link still exists", () => {
+    const old = linkVariant({ ref: { regionKey: null, moduleKey: "module-1" } });
+    render(<LandingEditor page={{ ...page, kind: "course" as const, draft: { ...big, modules: [] } }} versions={[]} variants={[old]} accounts={ACCOUNTS} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    const card = screen.getByRole("region", { name: "Modules" });
+    fireEvent.click(within(card).getByRole("button", { name: /add module/i }));
+    const input = within(card).getByLabelText("Link name") as HTMLInputElement;
+    expect(input.value).toBe("module-2");
+    expect(input.readOnly).toBe(false);
+    fireEvent.change(input, { target: { value: "module-1" } });
+    expect(within(card).getByRole("alert").textContent).toMatch(/earlier module/);
+  });
+
+  it("a link whose module is not on the live main page yet can't be published until main is published again", async () => {
+    const stale = { ...livePage, published: { ...big, modules: big.modules.filter((m) => m.key !== "module-2") } };
+    render(<LandingEditor page={stale} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    const btn = within(row(openLinks(), "UAE · Module 2")).getByRole("button", { name: "Publish" }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute("title")).toBe("Publish the main page again so it includes Module 2");
+    await choose("UAE · Module 2");
+    const links = screen.getByRole("region", { name: "Links" });
+    const top = screen.getAllByRole("button", { name: "Publish" }).find((b) => !links.contains(b)) as HTMLButtonElement;
+    expect(top.disabled).toBe(true);
+    expect(top.getAttribute("title")).toBe("Publish the main page again so it includes Module 2");
+  });
+
+  it("edits typed while a publish is on its way stay unpublished", async () => {
+    let finish: (r: Reply) => void = () => {};
+    routes[`POST ${LINKS_URL}/v1/publish`] = () => new Promise<Reply>((resolve) => { finish = resolve; });
+    render(<LandingEditor page={readyPage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    await choose("UAE · Module 2");
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Publish" })); await vi.advanceTimersByTimeAsync(0); });
+    expect(sent("POST", `${LINKS_URL}/v1/publish`)).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Typed during publish" } });
+    await act(async () => { finish({ body: { ok: true, version: 1 } }); await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Unpublished changes")).toBeTruthy();
   });
 });

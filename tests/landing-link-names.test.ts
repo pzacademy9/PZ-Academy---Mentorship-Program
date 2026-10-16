@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { COUNTRIES, findCountry } from "@/lib/landing/countries";
-import { moduleKeyProblem, nextModuleKey, regionKeyProblem } from "@/lib/landing/link-names";
+import { linkMissingFromLive, moduleKeyProblem, nextModuleKey, regionKeyProblem } from "@/lib/landing/link-names";
 import { pickRegion } from "@/lib/landing/registration/region-pick";
 import { REGION_KEY_RE, CURRENCY_RE, type RegionDef } from "@/lib/landing/registration/config";
 import { emptyContent, renameModule, type LandingContent } from "@/lib/landing/content";
@@ -69,6 +69,32 @@ describe("moduleKeyProblem", () => {
   it("refuses status and another module's name", () => {
     expect(moduleKeyProblem("status", c, 0)).not.toBeNull();
     expect(moduleKeyProblem("module-2", c, 0)).toMatch(/Another module/);
+  });
+});
+
+describe("link names an existing link still uses", () => {
+  const c = content([], ["module-2"]);
+  it("a removed module's link name can't be given to a new module", () => {
+    expect(moduleKeyProblem("module-1", c, 1, ["module-1"])).toMatch(/earlier module/);
+    expect(nextModuleKey(c, ["module-1"])).toBe("module-3");
+  });
+  it("a module keeps its own link name even though its link exists", () => {
+    expect(moduleKeyProblem("module-2", c, 0, ["module-2"])).toBeNull();
+  });
+});
+
+describe("linkMissingFromLive", () => {
+  const live = content([region("UAE", "United Arab Emirates")], ["module-1"]);
+  const draft = content([region("UAE", "United Arab Emirates"), region("QA", "Qatar")], ["module-1", "module-2"]);
+  it("null when the live main page has the link's country and module", () => {
+    expect(linkMissingFromLive({ regionKey: "UAE", moduleKey: "module-1" }, draft, live)).toBeNull();
+  });
+  it("names what the live main page is missing", () => {
+    expect(linkMissingFromLive({ regionKey: "QA", moduleKey: "module-2" }, draft, live)).toBe("Publish the main page again so it includes Qatar and module-2");
+    expect(linkMissingFromLive({ regionKey: null, moduleKey: "module-2" }, draft, live)).toBe("Publish the main page again so it includes module-2");
+  });
+  it("asks for the main page first when it is not live at all", () => {
+    expect(linkMissingFromLive({ regionKey: "UAE", moduleKey: null }, draft, null)).toBe("Publish the main page first");
   });
 });
 

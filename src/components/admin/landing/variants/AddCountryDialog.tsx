@@ -41,6 +41,9 @@ function CountryForm({
   const [early, setEarly] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
+  const paid = content.registration.options.filter((o) => !o.free);
+  const hasEarlyBird = content.registration.earlyBirdEndsAt !== "";
+
   const choices = useMemo(() => {
     const q = query.trim().toLowerCase();
     return COUNTRIES
@@ -74,13 +77,19 @@ function CountryForm({
       setError(`Pick at least one payment account for ${label}, so people there know where to pay.`);
       return;
     }
+    // Same rules as the publish checklist: every paid option needs a price in every country, and an
+    // Early Bird price can't be above the regular one. Free options are offered here too (price 0).
     const prices: Record<string, PriceCell> = {};
     for (const o of content.registration.options) {
+      if (o.free) { prices[o.key] = { amount: 0 }; continue; }
       const amount = toAmount(regular[o.key] ?? "");
-      if (amount === null) continue;
+      if (amount === null) { setError(`Enter the price of "${o.label}" for ${label}.`); return; }
       const cell: PriceCell = { amount };
-      const e = toAmount(early[o.key] ?? "");
-      if (e !== null) cell.earlyAmount = e;
+      const e = hasEarlyBird ? toAmount(early[o.key] ?? "") : null;
+      if (e !== null) {
+        if (e > amount) { setError(`The Early Bird price of "${o.label}" is higher than the regular price.`); return; }
+        cell.earlyAmount = e;
+      }
       prices[o.key] = cell;
     }
     onAdd({
@@ -160,16 +169,22 @@ function CountryForm({
             ))}
           </fieldset>
 
-          {content.registration.options.length > 0 && (
+          {paid.length > 0 && (
             <fieldset className="space-y-2">
               <legend className={LABEL}>Price per person in {currency || "this currency"}</legend>
-              <p className={HELP}>Whole numbers. Leave a price empty if that option is not sold in this country. Early Bird is optional.</p>
+              <p className={HELP}>
+                Every paid option needs a price in this country, in whole numbers.
+                {hasEarlyBird && " Early Bird is optional and can't be more than the regular price."}
+                {paid.length < content.registration.options.length && " Free options are offered here too."}
+              </p>
               <div className="space-y-2">
-                {content.registration.options.map((o) => (
-                  <div key={o.key} className="grid grid-cols-[1fr_6.5rem_6.5rem] items-center gap-2">
+                {paid.map((o) => (
+                  <div key={o.key} className={cn("grid items-center gap-2", hasEarlyBird ? "grid-cols-[1fr_6.5rem_6.5rem]" : "grid-cols-[1fr_6.5rem]")}>
                     <span className="font-body text-sm text-pz-on-surface">{o.label}</span>
                     <input type="number" inputMode="numeric" min={0} step={1} aria-label={`${o.label} price`} placeholder="Regular" value={regular[o.key] ?? ""} onChange={(e) => setRegular((m) => ({ ...m, [o.key]: e.target.value }))} className={CONTROL} />
-                    <input type="number" inputMode="numeric" min={0} step={1} aria-label={`${o.label} Early Bird price`} placeholder="Early Bird" value={early[o.key] ?? ""} onChange={(e) => setEarly((m) => ({ ...m, [o.key]: e.target.value }))} className={CONTROL} />
+                    {hasEarlyBird && (
+                      <input type="number" inputMode="numeric" min={0} step={1} aria-label={`${o.label} Early Bird price`} placeholder="Early Bird" value={early[o.key] ?? ""} onChange={(e) => setEarly((m) => ({ ...m, [o.key]: e.target.value }))} className={CONTROL} />
+                    )}
                   </div>
                 ))}
               </div>

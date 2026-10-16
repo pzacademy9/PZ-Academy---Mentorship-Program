@@ -177,6 +177,22 @@ describe("publishVariant", () => {
     rpcHandler = () => ({ data: 1, error: null });
     expect((await publishVariant("u", "v1")).ok).toBe(true);
   });
+  it("a module not on the live main page yet is main-out-of-date, before any price problem", async () => {
+    const reg = { ...mainContent().registration, enabled: true };
+    const draft = mainContent({ registration: reg });
+    const live = mainContent({ registration: reg, modules: [] });
+    db({ page: pRow({ published: live, draft }), variants: [vRow()] });
+    expect(await publishVariant("u", "v1")).toEqual({ ok: false, reason: "main-out-of-date" });
+    expect(rpcCalls).toHaveLength(0);
+  });
+  it("a country added after the main page went live is main-out-of-date (registration off too)", async () => {
+    const qa = { key: "QA", label: "Qatar", currency: "QAR", classTime: "", timezoneLabel: "", accountKeys: [] };
+    const draft = mainContent({ registration: { ...mainContent().registration, regions: [...mainContent().registration.regions, qa] } });
+    db({ page: pRow({ published: mainContent(), draft }), variants: [vRow({ region_key: "QA", module_key: null })] });
+    rpcHandler = () => ({ data: 1, error: null });
+    expect(await publishVariant("u", "v1")).toEqual({ ok: false, reason: "main-out-of-date" });
+    expect(rpcCalls).toHaveLength(0);
+  });
   it("maps RPC errors", async () => {
     db({ page: pRow(), variants: [vRow()] });
     const cases: [string, string][] = [

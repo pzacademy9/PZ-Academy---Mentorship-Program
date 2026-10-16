@@ -208,6 +208,14 @@ describe("DELETE / publish / rollback", () => {
     m.publishVariant.mockResolvedValueOnce({ ok: false, reason: "main-not-published" });
     expect((await publish(req(null), vctx())).status).toBe(409);
   });
+  it("publish main-out-of-date is a 409 asking to publish the main page again", async () => {
+    m.publishVariant.mockResolvedValueOnce({ ok: false, reason: "main-out-of-date" });
+    const res = await publish(req(null), vctx());
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("main-out-of-date");
+    expect(body.error).toMatch(/publish the main page again/i);
+  });
   it("rollback validates and maps results", async () => {
     expect((await rollback(req({ version: 0 }), vctx())).status).toBe(400);
     m.rollbackVariant.mockResolvedValueOnce({ ok: true, version: 5 });

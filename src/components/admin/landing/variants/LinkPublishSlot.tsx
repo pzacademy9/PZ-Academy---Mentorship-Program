@@ -19,11 +19,11 @@ export const MAIN_FIRST = "Publish the main page first";
  * link, never on the main page.
  */
 export function LinkPublishSlot({
-  label, mainLive, live, changed, problems, saveState, onPublish, loadVersions, onRestore,
+  label, blockedBy, live, changed, problems, saveState, onPublish, loadVersions, onRestore,
 }: {
   label: string;
-  /** The main page is live; a link can only go live after it. */
-  mainLive: boolean;
+  /** Why the live main page can't carry this link yet ("Publish the main page first", …), or null. */
+  blockedBy: string | null;
   /** This link has been published at least once. */
   live: boolean;
   /** Its draft differs from what is live. */
@@ -62,9 +62,9 @@ export function LinkPublishSlot({
     setSheet(false);
   });
 
-  const blocked = !mainLive || problems.length > 0 || saveState === "saving" || conflict || upToDate;
-  const title = !mainLive
-    ? MAIN_FIRST
+  const blocked = !!blockedBy || problems.length > 0 || saveState === "saving" || conflict || upToDate;
+  const title = blockedBy
+    ? blockedBy
     : problems.length > 0
       ? `${problems.length} checklist item${problems.length === 1 ? "" : "s"} to fix before publishing`
       : undefined;

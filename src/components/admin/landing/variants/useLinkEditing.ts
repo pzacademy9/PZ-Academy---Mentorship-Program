@@ -258,11 +258,13 @@ export function useLinkEditing({
     if (activeRef.current === id && !(await saveNow())) {
       return { ok: false, error: "Your latest changes could not be saved. Try again." };
     }
+    // What the server is about to publish: edits typed while the request is on its way are not in it.
+    const snapshot = overridesRef.current[id] ?? { sections: {} };
     try {
       const res = await fetch(`${base}/${id}/publish`, { method: "POST" });
       if (res.ok) {
         setProblemsFor(id, null);
-        change(id, { published: overridesRef.current[id] ?? { sections: {} }, publishedAt: new Date().toISOString() });
+        change(id, { published: snapshot, publishedAt: new Date().toISOString() });
         return { ok: true };
       }
       const payload = await readJson<{ error?: string; problems?: Problem[] }>(res);
@@ -293,6 +295,9 @@ export function useLinkEditing({
    * link are dropped on purpose, as on the main page. Returns an error message or null.
    */
   const restore = useCallback(async (id: string, version: number): Promise<string | null> => {
+    // Never race a save of this link: a PATCH landing after the rollback would overwrite the restored
+    // draft. Its result does not matter, the restore replaces the draft either way.
+    if (activeRef.current === id) await saveNow();
     try {
       const res = await fetch(`${base}/${id}/rollback`, {
         method: "POST",
@@ -314,7 +319,7 @@ export function useLinkEditing({
     } catch {
       return NETWORK;
     }
-  }, [base, sync, setProblemsFor]);
+  }, [base, sync, setProblemsFor, saveNow]);
 
   return {
     variants, activeId, active, overrides, problems,

@@ -24,6 +24,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (result.reason === "main-not-published") {
       return NextResponse.json({ error: "Publish the main page first.", code: "main-not-published" }, { status: 409 });
     }
+    if (result.reason === "main-out-of-date") {
+      return NextResponse.json(
+        { error: "Publish the main page again so it includes this link's country or module, then publish this link.", code: "main-out-of-date" },
+        { status: 409 },
+      );
+    }
     if (result.reason === "conflict") {
       return NextResponse.json(
         { error: "This link changed while it was being published. Check your latest edits and publish again.", code: "conflict" },

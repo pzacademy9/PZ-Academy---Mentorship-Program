@@ -33,6 +33,8 @@ import { findOrphans, resolveVariant } from "@/lib/landing/resolve-variant";
 import { VariantSwitcher } from "./variants/VariantSwitcher";
 import { LinksPanel } from "./variants/LinksPanel";
 import { LinkPublishSlot, MAIN_FIRST } from "./variants/LinkPublishSlot";
+import { linkMissingFromLive } from "@/lib/landing/link-names";
+import type { VariantRef } from "@/lib/landing/variants";
 import {
   linkSections, moveOnLink, removeOrphans, resetOverrideField, sameOverrides, setOverrideField, setOverrideHidden, switcherOptions,
   useLinkEditing,
@@ -308,15 +310,20 @@ function EditorShell({
   const mainLive = !!page.published && page.status !== "draft";
   const linkLive = !!link.active?.published;
   const linkChanged = !!link.active && !sameOverrides(overrides, link.active.published);
+  const blockedBy = useCallback(
+    (ref: VariantRef) => linkMissingFromLive(ref, content, mainLive ? page.published : null),
+    [content, mainLive, page.published],
+  );
+  const linkBlockedBy = link.active ? blockedBy(link.active.ref) : null;
   // The open link's checklist: the server's list after a refused publish, else the same check the
   // server runs on main's live content with this link's edits applied.
   const linkProblems = useMemo<Problem[] | null>(() => {
     if (!link.active || !overrides) return null;
     const server = link.problems[link.active.id];
     if (server) return server;
-    if (!page.published || !mainLive) return [{ message: `${MAIN_FIRST}. This link can go live after that.` }];
+    if (!page.published || linkBlockedBy) return [{ message: `${linkBlockedBy ?? MAIN_FIRST}. This link can go live after that.` }];
     return computeReadiness(resolveVariant(page.published, link.active.ref, overrides), { title, slug: page.slug }).problems;
-  }, [link.active, link.problems, overrides, page.published, page.slug, mainLive, title]);
+  }, [link.active, link.problems, overrides, page.published, page.slug, linkBlockedBy, title]);
 
   const selected = shownSections.find((s) => s.id === selection) ?? null;
   const showSettings = selection === SETTINGS;
@@ -468,7 +475,7 @@ function EditorShell({
             <LinkPublishSlot
               key={link.active.id}
               label={linkLabel}
-              mainLive={mainLive}
+              blockedBy={linkBlockedBy}
               live={linkLive}
               changed={linkChanged}
               problems={linkProblems}
@@ -599,6 +606,7 @@ function EditorShell({
               content={content}
               accounts={accounts}
               mainLive={mainLive}
+              blockedBy={(row) => blockedBy(row.ref)}
               problems={link.problems}
               onSwitch={switchLink}
               onPublish={link.publish}

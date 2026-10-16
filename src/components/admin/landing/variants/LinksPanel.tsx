@@ -20,10 +20,12 @@ export function publicLinkUrl(origin: string, slug: string, path: string): strin
   return `${origin}/e/${slug}${path ? `/${path}` : ""}`;
 }
 
-function Status({ row }: { row: VariantGridRow }) {
+function Status({ row, waiting }: { row: VariantGridRow; waiting: boolean }) {
   const [text, tone] = !row.enabled
     ? ["Off", "bg-pz-surface-container-high text-pz-on-surface-variant"]
-    : row.published
+    : waiting
+      ? ["Waiting for the main page", "bg-pz-secondary-container text-pz-on-secondary-container"]
+      : row.published
       ? ["Live", "bg-pz-primary-container text-pz-on-primary-container"]
       : ["Not published yet", "bg-pz-secondary-container text-pz-on-secondary-container"];
   return <span className={cn("shrink-0 rounded-full px-2 py-0.5 font-body text-[11px] font-semibold", tone)}>{text}</span>;
@@ -34,8 +36,10 @@ function Status({ row }: { row: VariantGridRow }) {
  * off until switched on, with its web address, Publish button and whether it is live.
  */
 export function LinksPanel({
-  slug, grid, content, accounts, mainLive, problems, onSwitch, onPublish, onAddCountry,
+  slug, grid, content, accounts, mainLive, blockedBy, problems, onSwitch, onPublish, onAddCountry,
 }: {
+  /** Why the live main page can't carry this link yet, or null (see linkMissingFromLive). */
+  blockedBy: (row: VariantGridRow) => string | null;
   slug: string;
   grid: VariantGridRow[];
   content: Pick<LandingContent, "registration" | "modules">;
@@ -102,7 +106,8 @@ export function LinksPanel({
           {grid.map((row) => {
             const url = publicLinkUrl(origin, slug, row.path);
             const rowProblems = row.variantId ? problems[row.variantId] ?? [] : [];
-            const publishTitle = !mainLive ? MAIN_FIRST : !row.enabled ? "Turn this link on first" : undefined;
+            const blocked = blockedBy(row);
+            const publishTitle = blocked ?? (!row.enabled ? "Turn this link on first" : undefined);
             return (
               <li key={row.path} aria-label={row.label} className="space-y-2 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-3">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -127,11 +132,11 @@ export function LinksPanel({
                     />
                   </button>
                   <span className="min-w-0 flex-1 font-body text-sm font-semibold text-pz-on-surface">{row.label}</span>
-                  <Status row={row} />
+                  <Status row={row} waiting={!!blocked && row.published} />
                   <Button
                     type="button"
                     size="sm"
-                    disabled={!mainLive || !row.enabled || !row.variantId}
+                    disabled={!!blocked || !row.enabled || !row.variantId}
                     loading={publish.pendingKey === row.path}
                     title={publishTitle}
                     onClick={() => void publish.run(row)}
