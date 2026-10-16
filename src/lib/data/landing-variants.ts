@@ -1,7 +1,7 @@
 // src/lib/data/landing-variants.ts
 // Data layer for landing variants (country / module links). Mirrors landing-pages.ts.
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidateLandingSlug } from "./landing-revalidate";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { computeReadiness, normalizeContent, type LandingContent, type PageStatus, type Problem } from "@/lib/landing/content";
@@ -158,10 +158,6 @@ async function load(variantId: string): Promise<Loaded | null | "db-error"> {
   }
 }
 
-function revalidate(slug: string) {
-  revalidatePath(`/e/${slug}`, "layout");
-}
-
 export async function setVariantEnabled(variantId: string, enabled: boolean): Promise<VariantSimpleResult> {
   const l = await load(variantId);
   if (l === "db-error") return { ok: false, reason: "db-error" };
@@ -172,7 +168,7 @@ export async function setVariantEnabled(variantId: string, enabled: boolean): Pr
     .update({ enabled, updated_at: new Date().toISOString() })
     .eq("id", variantId);
   if (error) return { ok: false, reason: "db-error" };
-  revalidate(l.page.slug);
+  revalidateLandingSlug(l.page.slug);
   return { ok: true };
 }
 
@@ -183,7 +179,7 @@ export async function deleteVariant(variantId: string): Promise<VariantSimpleRes
   const admin = createAdminSupabase();
   const { error } = await admin.from("landing_page_variants").delete().eq("id", variantId);
   if (error) return { ok: false, reason: "db-error" };
-  revalidate(l.page.slug);
+  revalidateLandingSlug(l.page.slug);
   return { ok: true };
 }
 
@@ -259,7 +255,7 @@ export async function publishVariant(userId: string, variantId: string): Promise
     p_variant_id: variantId, p_user: userId, p_revision: variant.revision,
   });
   if (error) return { ok: false, reason: rpcFailure(error) };
-  revalidate(page.slug);
+  revalidateLandingSlug(page.slug);
   return { ok: true, version: Number(data) };
 }
 
@@ -272,7 +268,7 @@ export async function rollbackVariant(userId: string, variantId: string, version
     p_variant_id: variantId, p_version: version, p_user: userId,
   });
   if (error) return { ok: false, reason: rpcFailure(error) };
-  revalidate(l.page.slug);
+  revalidateLandingSlug(l.page.slug);
   return { ok: true, version: Number(data) };
 }
 

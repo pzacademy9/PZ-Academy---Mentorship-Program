@@ -170,7 +170,8 @@ describe("publishVariant", () => {
     rpcHandler = () => ({ data: 2, error: null });
     expect(await publishVariant("u", "v1")).toEqual({ ok: true, version: 2 });
     expect(rpcCalls).toEqual([{ fn: "landing_publish_variant", args: { p_variant_id: "v1", p_user: "u", p_revision: 3 } }]);
-    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/[slug]", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
   it("skips the currency check when the variant has no region", async () => {
     db({ page: pRow(), variants: [vRow()] });
@@ -213,7 +214,8 @@ describe("rollback, enable, delete", () => {
     rpcHandler = () => ({ data: 5, error: null });
     expect(await rollbackVariant("u", "v1", 2)).toEqual({ ok: true, version: 5 });
     expect(rpcCalls).toEqual([{ fn: "landing_rollback_variant", args: { p_variant_id: "v1", p_version: 2, p_user: "u" } }]);
-    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/[slug]", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
   it("setVariantEnabled sets updated_at and revalidates the layout", async () => {
     db({ page: pRow(), variants: [vRow()], onWrite: () => ({ data: null, error: null }) });
@@ -221,13 +223,15 @@ describe("rollback, enable, delete", () => {
     const upd = ops.find((o) => o.op === "update")!;
     expect(upd.payload).toMatchObject({ enabled: false });
     expect(upd.payload).toHaveProperty("updated_at");
-    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/[slug]", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
   it("deleteVariant deletes and revalidates the layout", async () => {
     db({ page: pRow(), variants: [vRow()], onWrite: () => ({ data: null, error: null }) });
     expect(await deleteVariant("v1")).toEqual({ ok: true });
     expect(ops.some((o) => o.op === "delete")).toBe(true);
-    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/[slug]", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
   it("a missing variant is not-found", async () => {
     db({ page: pRow(), variants: [] });

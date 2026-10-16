@@ -1,6 +1,7 @@
 // src/lib/data/landing-pages.ts
 import "server-only";
 import { revalidatePath } from "next/cache";
+import { revalidateLandingSlug } from "./landing-revalidate";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
@@ -174,7 +175,7 @@ export async function publishLandingPage(userId: string, id: string): Promise<Pu
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("landing_publish_page", { p_page_id: id, p_user: userId, p_revision: page.revision });
   if (error) return { ok: false, reason: rpcFailure(error) };
-  revalidatePath(`/e/${page.slug}`, "layout");
+  revalidateLandingSlug(page.slug);
   return { ok: true, version: Number(data) };
 }
 
@@ -190,7 +191,7 @@ export async function rollbackLandingPage(userId: string, id: string, version: n
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("landing_rollback_page", { p_page_id: id, p_version: version, p_user: userId });
   if (error) return { ok: false, reason: rpcFailure(error) };
-  revalidatePath(`/e/${page.slug}`, "layout");
+  revalidateLandingSlug(page.slug);
   return { ok: true, version: Number(data) };
 }
 
@@ -209,7 +210,7 @@ export async function setPageStatus(id: string, status: "closed" | "published"):
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { ok: false, reason: "db-error" };
-  revalidatePath(`/e/${page.slug}`);
+  revalidateLandingSlug(page.slug);
   return { ok: true };
 }
 
@@ -224,7 +225,7 @@ export async function renameLandingPage(id: string, title: string): Promise<Simp
     .maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
-  revalidatePath(`/e/${data.slug}`);
+  revalidateLandingSlug(data.slug);
   revalidatePath("/dashboard/admin/landing-pages");
   return { ok: true };
 }
