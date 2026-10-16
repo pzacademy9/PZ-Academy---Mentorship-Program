@@ -15,19 +15,20 @@ vi.mock("@/lib/auth/require-admin", () => ({
 }));
 const m = vi.hoisted(() => ({
   getLandingPage: vi.fn(), listVariants: vi.fn(), ensureVariant: vi.fn(), getVariant: vi.fn(),
-  saveVariantDraft: vi.fn(), setVariantEnabled: vi.fn(), deleteVariant: vi.fn(), publishVariant: vi.fn(), rollbackVariant: vi.fn(),
+  saveVariantDraft: vi.fn(), setVariantEnabled: vi.fn(), deleteVariant: vi.fn(), publishVariant: vi.fn(), rollbackVariant: vi.fn(), listVariantVersions: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-pages", () => ({ getLandingPage: m.getLandingPage }));
 vi.mock("@/lib/data/landing-variants", () => ({
   listVariants: m.listVariants, ensureVariant: m.ensureVariant, getVariant: m.getVariant,
   saveVariantDraft: m.saveVariantDraft, setVariantEnabled: m.setVariantEnabled, deleteVariant: m.deleteVariant,
-  publishVariant: m.publishVariant, rollbackVariant: m.rollbackVariant,
+  publishVariant: m.publishVariant, rollbackVariant: m.rollbackVariant, listVariantVersions: m.listVariantVersions,
 }));
 
 import { GET as list, POST as create } from "@/app/api/admin/landing-pages/[id]/variants/route";
 import { PATCH as patch, DELETE as del } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/route";
 import { POST as publish } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/publish/route";
 import { POST as rollback } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/rollback/route";
+import { GET as versions } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/versions/route";
 
 const PID = "00000000-0000-4000-8000-000000000001";
 const VID = "00000000-0000-4000-8000-0000000000aa";
@@ -89,6 +90,7 @@ describe("admin gate", () => {
         () => del(req(null, "DELETE"), vctx()),
         () => publish(req(null), vctx()),
         () => rollback(req({ version: 1 }), vctx()),
+        () => versions(req(null, "GET"), vctx()),
       ];
       for (const call of calls) expect((await call()).status).toBe(status);
     }
@@ -216,6 +218,20 @@ describe("DELETE / publish / rollback", () => {
   });
 });
 
+describe("GET /variants/[variantId]/versions", () => {
+  it("lists the link's published versions", async () => {
+    m.listVariantVersions.mockResolvedValue([{ version: 2, createdAt: "2026-10-05T10:00:00Z" }]);
+    const res = await versions(req(null, "GET"), vctx());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ versions: [{ version: 2, createdAt: "2026-10-05T10:00:00Z" }] });
+    expect(m.listVariantVersions).toHaveBeenCalledWith(VID);
+  });
+  it("500 when the versions cannot be read", async () => {
+    m.listVariantVersions.mockRejectedValue(new Error("db"));
+    expect((await versions(req(null, "GET"), vctx())).status).toBe(500);
+  });
+});
+
 describe("IDOR guard: variant must belong to the page in the URL", () => {
   it("404 and no mutation when the variant belongs to another page", async () => {
     m.getVariant.mockResolvedValue(variant({ pageId: OTHER }));
@@ -225,13 +241,14 @@ describe("IDOR guard: variant must belong to the page in the URL", () => {
       () => del(req(null, "DELETE"), vctx()),
       () => publish(req(null), vctx()),
       () => rollback(req({ version: 1 }), vctx()),
+      () => versions(req(null, "GET"), vctx()),
     ];
     for (const call of calls) {
       const res = await call();
       expect(res.status).toBe(404);
       expect(JSON.stringify(await res.json())).not.toContain(OTHER);
     }
-    for (const k of ["saveVariantDraft", "setVariantEnabled", "deleteVariant", "publishVariant", "rollbackVariant"] as const) {
+    for (const k of ["saveVariantDraft", "setVariantEnabled", "deleteVariant", "publishVariant", "rollbackVariant", "listVariantVersions"] as const) {
       expect(m[k]).not.toHaveBeenCalled();
     }
   });

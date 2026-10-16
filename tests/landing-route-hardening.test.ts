@@ -60,6 +60,7 @@ import { GET as listVariantsRoute, POST as createVariantRoute } from "@/app/api/
 import { PATCH as patchVariant, DELETE as deleteVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/route";
 import { POST as publishVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/publish/route";
 import { POST as rollbackVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/rollback/route";
+import { GET as variantVersionsRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/versions/route";
 import { emptyContent } from "@/lib/landing/content";
 
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -84,6 +85,7 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-pages/[id]/variants/[variantId]/route.ts": () => patchVariant(req({ enabled: true }, "PATCH"), vctx),
   "landing-pages/[id]/variants/[variantId]/publish/route.ts": () => publishVariantRoute(req({}), vctx),
   "landing-pages/[id]/variants/[variantId]/rollback/route.ts": () => rollbackVariantRoute(req({ version: 1 }), vctx),
+  "landing-pages/[id]/variants/[variantId]/versions/route.ts": () => variantVersionsRoute(new Request("http://x") as never, vctx),
   "landing-promo-codes/route.ts": () => createPromo(req({ code: "PZ10" })),
   "landing-promo-codes/[id]/route.ts": () => patchPromo(req({ active: false }, "PATCH"), ctx),
   "landing-agent-links/route.ts": () => agentLink(req({ agentId: ID })),
