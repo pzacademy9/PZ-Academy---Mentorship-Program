@@ -174,7 +174,7 @@ export async function publishLandingPage(userId: string, id: string): Promise<Pu
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("landing_publish_page", { p_page_id: id, p_user: userId, p_revision: page.revision });
   if (error) return { ok: false, reason: rpcFailure(error) };
-  revalidatePath(`/e/${page.slug}`);
+  revalidatePath(`/e/${page.slug}`, "layout");
   return { ok: true, version: Number(data) };
 }
 
@@ -190,7 +190,7 @@ export async function rollbackLandingPage(userId: string, id: string, version: n
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("landing_rollback_page", { p_page_id: id, p_version: version, p_user: userId });
   if (error) return { ok: false, reason: rpcFailure(error) };
-  revalidatePath(`/e/${page.slug}`);
+  revalidatePath(`/e/${page.slug}`, "layout");
   return { ok: true, version: Number(data) };
 }
 
