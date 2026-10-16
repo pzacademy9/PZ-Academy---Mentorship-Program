@@ -325,4 +325,13 @@ describe("module readiness", () => {
     expect(msgs(c)).toContain("Module Two has no price for UAE.");
     expect(msgs(c).some((m) => m.includes("for Pakistan"))).toBe(false);
   });
+  it("reports a region code that collides with a module code or STATUS", () => {
+    const c = ready();
+    c.registration.regions.push({ key: "MODULE-2", label: "Odd", currency: "AED", classTime: "", timezoneLabel: "", accountKeys: [] });
+    c.modules = [mod("module-2", { title: "Module Two", optionKey: "mod-2" })];
+    expect(msgs(c).some((m) => m.includes("MODULE-2") && m.includes("module"))).toBe(true);
+    const d = ready();
+    d.registration.regions.push({ key: "STATUS", label: "Odd", currency: "AED", classTime: "", timezoneLabel: "", accountKeys: [] });
+    expect(msgs(d).some((m) => m.includes("STATUS"))).toBe(true);
+  });
 });

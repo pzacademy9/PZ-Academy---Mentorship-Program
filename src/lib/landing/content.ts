@@ -342,6 +342,12 @@ function reviewProblems(c: LandingContent, out: Problem[]) {
 
 function moduleProblems(c: LandingContent, out: Problem[]) {
   const name = (m: ModuleDef) => (m.title.trim() === "" ? m.key : m.title);
+  const moduleKeys = new Set((c.modules ?? []).map((m) => m.key.toLowerCase()));
+  for (const g of c.registration.regions) {
+    const k = g.key.toLowerCase();
+    if (k === "status") out.push({ message: `The country code "${g.key}" cannot be used because it is reserved for the registration status page. Rename it.` });
+    else if (moduleKeys.has(k)) out.push({ message: `The country code "${g.key}" is the same as a module code, so their links would clash. Rename the country code.` });
+  }
   const seen = new Set<string>();
   for (const m of c.modules ?? []) {
     if (seen.has(m.key)) out.push({ message: `Two modules use the same code "${m.key}". Give each module its own code.` });
