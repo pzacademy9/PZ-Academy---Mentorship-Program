@@ -63,6 +63,20 @@ describe("parseImportFile", () => {
     if (r.ok) expect(r.file.sections[0].data).toEqual({ headline: "Hello: world", sub: "x", note: "Don't" });
   });
 
+  it("keeps valid curly quotes as written and only rescues on failure", () => {
+    const r = parseImportFile(
+      FRONT + "\n## Section: hero\n```yaml\nheadline: 'Don’t'\nsub: “Hello” world\nnote: ‘90s\n```\n",
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.file.sections[0].data).toEqual({
+        headline: "Don’t",
+        sub: "“Hello” world",
+        note: "‘90s",
+      });
+    }
+  });
+
   it("reports line numbers of the original file", () => {
     const chatter = "Hello\nthere\n```markdown\n";
     const bad = FRONT + "\n## Section: hero\n```yaml\nheadline: Hi\n```\n\n## Section: faq\n```yaml\nitems: [a, b\nq: : :\n```\n```\n";

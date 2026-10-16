@@ -63,6 +63,21 @@ function clean(raw: string): Cleaned {
 
 const straighten = (t: string) => t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
 
+/** Parse as written; only if that fails, retry with curly quotes straightened. Reports the original error. */
+function parseTolerant(text: string): unknown {
+  try {
+    return parseYaml(text);
+  } catch (first) {
+    const fixed = straighten(text);
+    if (fixed === text) throw first;
+    try {
+      return parseYaml(fixed);
+    } catch {
+      throw first;
+    }
+  }
+}
+
 function failure(text: string, e: unknown): { hasTabs: boolean; line: number } {
   const hasTabs = /^\t/m.test(text) || (e instanceof YAMLParseError && e.code === "TAB_AS_INDENT");
   const line = e instanceof YAMLParseError && e.linePos ? e.linePos[0].line : 1;
@@ -81,7 +96,7 @@ export function parseImportFile(raw: string): Result {
     const frontText = lines.slice(1, close).join("\n");
     let front: unknown;
     try {
-      front = parseYaml(straighten(frontText));
+      front = parseTolerant(frontText);
     } catch (e) {
       const f = failure(frontText, e);
       return {
@@ -122,7 +137,7 @@ export function parseImportFile(raw: string): Result {
       if (fenceEnd < 0) fenceEnd = end;
       const body = lines.slice(fenceStart + 1, fenceEnd).join("\n");
       try {
-        const data = body.trim() === "" ? {} : parseYaml(straighten(body));
+        const data = body.trim() === "" ? {} : parseTolerant(body);
         if (!isRecord(data)) {
           problems.push(err(`The '${h.name}' section could not be read near line ${at(fenceStart + 1)}.`));
           return;
