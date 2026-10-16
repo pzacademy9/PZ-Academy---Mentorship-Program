@@ -157,6 +157,28 @@ describe("resolveVariant", () => {
     expect(r.options.map((o) => o.key)).toEqual(["m2"]);
     expect(r.prices).toEqual({ m2: { UAE: { amount: 50 } } });
   });
+  it("region link with no priced option disables registration", () => {
+    const main = build();
+    main.registration.regions.push({ key: "QA", label: "Qatar", currency: "QAR", classTime: "", timezoneLabel: "", accountKeys: [] });
+    const r = resolveVariant(main, { regionKey: "QA", moduleKey: null }, emptyOverrides()).registration;
+    expect(r.options).toEqual([]);
+    expect(r.enabled).toBe(false);
+  });
+  it("module-only link drops regions without a price for its option and fixes the default", () => {
+    const main = build();
+    delete main.registration.prices.m2.PK;
+    const r = resolveVariant(main, M2, emptyOverrides()).registration;
+    expect(r.regions.map((g) => g.key)).toEqual(["UAE"]);
+    expect(r.defaultRegionKey).toBe("UAE");
+    expect(r.enabled).toBe(true);
+  });
+  it("module-only link with no priced region disables registration", () => {
+    const main = build();
+    main.registration.prices.m2 = {};
+    const r = resolveVariant(main, M2, emptyOverrides()).registration;
+    expect(r.regions).toEqual([]);
+    expect(r.enabled).toBe(false);
+  });
   it("main with empty overrides deep-equals input", () => {
     expect(resolveVariant(build(), MAIN, emptyOverrides())).toEqual(build());
   });

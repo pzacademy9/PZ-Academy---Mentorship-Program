@@ -15,7 +15,7 @@
 //     - ref.moduleKey: keep only the module's option (kind "module"), turn moduleMix off, drop
 //       modules[] entries other than this one. If the module has no (found) option, registration is
 //       disabled. Tiers that have explicit group totals somewhere in the main page but none on the kept
-//       option are removed (percent-only tiers, which no option prices explicitly, stay).
+//       option are removed. Regions with no price for the kept option are dropped (none left: disabled) (percent-only tiers, which no option prices explicitly, stay).
 import { SECTION_DEFS } from "./sections";
 import { MODULE_ITEM_SECTIONS, type VariantOverrides, type VariantRef } from "./variants";
 import type { LandingContent, LandingSection } from "./content";
@@ -68,12 +68,14 @@ function narrowRegion(r: RegistrationConfig, regionKey: string): RegistrationCon
   for (const [opt, row] of Object.entries(r.prices)) {
     if (own(row, regionKey)) prices[opt] = { [regionKey]: row[regionKey] };
   }
+  const options = r.options.filter((o) => own(prices, o.key));
   return {
     ...r,
+    enabled: options.length > 0 ? r.enabled : false,
     regions: [region],
     defaultRegionKey: regionKey,
     prices,
-    options: r.options.filter((o) => own(prices, o.key)),
+    options,
   };
 }
 
@@ -91,8 +93,14 @@ function narrowModule(r: RegistrationConfig, optionKey: string, original: Regist
   for (const cell of Object.values(prices[option.key] ?? {})) {
     for (const k of [...Object.keys(cell.groupTotals ?? {}), ...Object.keys(cell.earlyGroupTotals ?? {})]) usedHere.add(k);
   }
+  // Keep only regions where this option can actually be bought.
+  const regions = r.regions.filter((g) => option.free || (own(prices, option.key) && own(prices[option.key], g.key)));
+  const defaultRegionKey = regions.some((g) => g.key === r.defaultRegionKey) ? r.defaultRegionKey : (regions[0]?.key ?? "");
   return {
     ...r,
+    enabled: regions.length > 0 ? r.enabled : false,
+    regions,
+    defaultRegionKey,
     options: [option],
     prices,
     moduleMix: { enabled: false, bundleOptionKey: "" },
