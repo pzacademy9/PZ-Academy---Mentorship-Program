@@ -167,4 +167,62 @@ describe("buildImport", () => {
   it("passes parse errors through", () => {
     expect(errs("hello").length).toBeGreaterThan(0);
   });
+
+  it("flags only non-empty stale fields", () => {
+    const b = ok(file(FRONT, sec("hero", "headline: Hi") + sec("pricing_cards", "items:\n  - { name: Full, price: AED 200 }") + sec("schedule", "items:\n  - { when: '', title: A }")));
+    const id = (t: string) => b.content.sections.find((s) => s.type === t)!.id;
+    expect(b.content.needsReview).not.toContain(`${id("hero")}:dateLine`);
+    expect(b.content.needsReview).not.toContain(`${id("pricing_cards")}:note`);
+    expect(b.content.needsReview).not.toContain(`${id("schedule")}:items.0.when`);
+  });
+
+  it("warns to check the countdown date", () => {
+    expect(ok(file()).warnings.map((w) => w.message)).toContain("Check the countdown date before publishing.");
+  });
+
+  it("puts extra sections before the closing call to action", () => {
+    const b = ok(file(FRONT, sec("final_cta", "headline: Go") + sec("rich_text", "heading: H\nbody: B") + sec("hero", "headline: Hi")));
+    expect(b.content.sections.map((s) => s.type)).toEqual(["hero", "rich_text", "final_cta"]);
+  });
+
+  it("gives plain messages for long values, never raw validator text", () => {
+    const e1 = errs(file(FRONT.replace('description: "Learn pharmacology."', `description: "${"x".repeat(301)}"`)));
+    expect(e1.join(" ")).toBe("The search preview description is too long (max 300 letters).");
+    const faq = Array.from({ length: 41 }, () => "  - { q: Q, a: A }").join("\n");
+    const e2 = errs(file(FRONT, sec("faq", `items:\n${faq}`)));
+    expect(e2.join(" ")).toContain("Questions and answers: too many items (max 40).");
+    const e3 = errs(file(FRONT.replace("title: Module 2,", `title: ${"y".repeat(130)},`)));
+    expect(e3.join(" ")).toContain("module-2: the title is too long (max 120 letters).");
+    const e4 = errs(file(FRONT.replace("days: 3, option: m2", "days: 99, option: m2")));
+    expect(e4.join(" ")).toContain("module-2: the number of days must be a whole number from 0 to 60.");
+    for (const m of [...e1, ...e2, ...e3, ...e4]) expect(m).not.toMatch(/Too big|expected|Invalid/);
+  });
+
+  it("warns once when a field cannot be read", () => {
+    const b = ok(file(FRONT, sec("faq", "items: nope") + sec("hero", "headline: [a, b]")));
+    const msgs = b.warnings.map((w) => w.message);
+    expect(msgs.filter((m) => m.includes("'Questions' could not be read and was left empty"))).toHaveLength(1);
+    expect(msgs.some((m) => m.includes("'Headline' could not be read"))).toBe(true);
+  });
+
+  it("warns about an unused item field once per section", () => {
+    const b = ok(file(FRONT, sec("faq", "items:\n  - { q: A, a: B, zzz: 1 }\n  - { q: C, a: D, zzz: 2 }")));
+    const hits = b.warnings.filter((w) => w.message.includes("zzz"));
+    expect(hits).toHaveLength(1);
+    expect(hits[0].message).not.toContain("items.");
+  });
+
+  it("matches link modules case-insensitively, warns on duplicates and bad lists", () => {
+    const b = ok(file(FRONT.replace("module: module-2, on: true", "module: MODULE-2, on: true")));
+    expect(b.links.find((l) => l.moduleKey === "module-2" && !l.regionKey)!.on).toBe(true);
+    const dup = ok(file(FRONT.replace("links:\n", "links:\n  - { country: UAE, on: false }\n")));
+    expect(dup.warnings.map((w) => w.message)).toContain("UAE is listed twice; the last entry is used.");
+    const bad = ok(file(FRONT.replace(/links:[\s\S]*$/, "links: nope\n")));
+    expect(bad.warnings.some((w) => /links list/.test(w.message))).toBe(true);
+  });
+
+  it("only says a module has no dates when no untagged rows exist", () => {
+    const b = ok(file(FRONT, sec("schedule", "items:\n  - { when: Fri, title: A }")));
+    expect(b.warnings.some((w) => /has no dates/.test(w.message))).toBe(false);
+  });
 });
