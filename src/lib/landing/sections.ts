@@ -1,6 +1,7 @@
 // src/lib/landing/sections.ts
 import { z } from "zod";
 import { isSafeUrl, youtubeId } from "./simple-text";
+import { MODULE_ITEM_SECTIONS } from "./variants";
 
 /**
  * The single source of truth for landing-page sections. The editor form, the
@@ -18,7 +19,7 @@ export const SECTION_TYPES = [
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
-export type FieldKind = "text" | "textarea" | "image" | "youtube" | "url" | "list";
+export type FieldKind = "text" | "textarea" | "image" | "youtube" | "url" | "list" | "module";
 
 export interface FieldDef {
   key: string;
@@ -53,7 +54,7 @@ const list = (key: string, label: string, itemFields: FieldDef[], o: Partial<Fie
   key, label, kind: "list", itemFields, maxItems: 40, ...o,
 });
 
-export const SECTION_DEFS: Record<SectionType, SectionDef> = {
+const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
   hero: {
     type: "hero", label: "Hero (top of page)", description: "The big opening: headline, short text, picture and the Register button.",
     fields: [
@@ -180,6 +181,22 @@ export const SECTION_DEFS: Record<SectionType, SectionDef> = {
   },
 };
 
+/** Adds the "Applies to" module tag to every list item of the module-taggable sections. */
+function withModuleTags(defs: Record<SectionType, SectionDef>): Record<SectionType, SectionDef> {
+  const out = { ...defs };
+  for (const t of MODULE_ITEM_SECTIONS) {
+    out[t] = {
+      ...defs[t],
+      fields: defs[t].fields.map((f) => (f.kind === "list"
+        ? { ...f, itemFields: [...(f.itemFields ?? []), { key: "module", label: "Applies to", kind: "module" as const, max: 40 }] }
+        : f)),
+    };
+  }
+  return out;
+}
+
+export const SECTION_DEFS: Record<SectionType, SectionDef> = withModuleTags(BASE_SECTION_DEFS);
+
 // ---------------------------------------------------------------- derived
 
 function defaultForField(f: FieldDef): unknown {
@@ -196,6 +213,9 @@ export function fieldSchema(f: FieldDef): z.ZodTypeAny {
     case "text":
     case "textarea":
       return z.string().max(f.max ?? 500);
+    case "module":
+      // Optional on input so content saved before module tags existed still validates.
+      return z.string().max(f.max ?? 40).default("");
     case "image":
       return z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://");
     case "url":

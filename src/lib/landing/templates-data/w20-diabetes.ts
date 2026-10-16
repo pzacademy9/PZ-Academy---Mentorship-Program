@@ -54,6 +54,7 @@ export const W20_DIABETES: LandingContent = {
   // The webinar date goes stale: readiness asks the admin to update or keep it.
   needsReview: ["hero:dateLine"],
   registration: W20_REGISTRATION,
+  modules: [],
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

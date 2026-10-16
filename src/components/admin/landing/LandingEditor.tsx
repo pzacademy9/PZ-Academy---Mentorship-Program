@@ -466,6 +466,7 @@ function EditorShell({
                 key={current.id}
                 type={current.type}
                 data={current.data}
+                modules={content.modules}
                 onChange={(data) => apply(updateSectionData(contentRef.current, current.id, data))}
               />
             </div>

@@ -10,6 +10,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
+import { MAX_MODULES, MODULE_KEY_RE, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
 export type PageStatus = "draft" | "published" | "closed";
@@ -35,6 +36,8 @@ export interface LandingContent {
   needsReview: string[];
   /** Built-in registration settings; DEFAULT_REGISTRATION (disabled) when the page has none. */
   registration: RegistrationConfig;
+  /** Courses sold as separate modules (landing variants); [] for a normal page. Max 12. */
+  modules: ModuleDef[];
 }
 
 export const MAX_CONTENT_BYTES = 400_000;
@@ -51,6 +54,14 @@ const DEFAULT_SETTINGS: LandingSettings = {
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
 const safeUrlOrEmpty = z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://");
+
+const moduleSchema = z.object({
+  key: z.string().max(40).regex(MODULE_KEY_RE, "Module code must be lowercase letters, numbers and dashes"),
+  title: z.string().max(120),
+  format: z.string().max(60),
+  days: z.number().int().min(0).max(60),
+  optionKey: z.string().max(32),
+});
 
 export const contentSchema = z
   .object({
@@ -77,6 +88,7 @@ export const contentSchema = z
     needsReview: z.array(z.string().max(200)).max(200).optional(),
     // Optional so a Phase 1 editor payload without it still saves; normalizeContent fills the default.
     registration: registrationConfigSchema.optional(),
+    modules: z.array(moduleSchema).max(MAX_MODULES).optional(),
   })
   .superRefine((c, ctx) => {
     const seen = new Set<string>();
@@ -87,6 +99,18 @@ export const contentSchema = z
       if (!r.success) ctx.addIssue({ code: "custom", path: ["sections", i, "data"], message: r.error.issues[0]?.message ?? "Invalid section" });
     });
   });
+
+function normalizeModules(raw: unknown): ModuleDef[] {
+  const out: ModuleDef[] = [];
+  for (const m of Array.isArray(raw) ? raw : []) {
+    if (!isRecord(m) || typeof m.key !== "string" || !MODULE_KEY_RE.test(m.key) || m.key.length > 40) continue;
+    if (out.some((x) => x.key === m.key)) continue;
+    const days = typeof m.days === "number" && Number.isFinite(m.days) ? Math.min(60, Math.max(0, Math.round(m.days))) : 0;
+    out.push({ key: m.key, title: str(m.title, "", 120), format: str(m.format, "", 60), days, optionKey: str(m.optionKey, "", 32) });
+    if (out.length >= MAX_MODULES) break;
+  }
+  return out;
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -125,7 +149,7 @@ export function normalizeContent(raw: unknown): LandingContent {
   const needsReview = Array.isArray(r.needsReview)
     ? r.needsReview.filter((p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200).slice(0, 200)
     : [];
-  return { settings, seo: seoOut, sections, needsReview, registration: normalizeRegistration(r.registration) };
+  return { settings, seo: seoOut, sections, needsReview, registration: normalizeRegistration(r.registration), modules: normalizeModules(r.modules) };
 }
 
 export function newSection(type: SectionType, id: string = newId()): LandingSection {
@@ -139,6 +163,7 @@ export function emptyContent(kind: PageKind): LandingContent {
     sections: KIND_SECTIONS[kind].map((t) => newSection(t)),
     needsReview: [],
     registration: normalizeRegistration(undefined),
+    modules: [],
   };
 }
 
@@ -218,7 +243,8 @@ export function updateSectionData(c: LandingContent, id: string, data: Record<st
   const prefix = `${id}:`;
   const needsReview = (c.needsReview ?? []).flatMap((p) => {
     if (!target || !p.startsWith(prefix)) return [p];
-    const moved = trackFlag(target.data, nextData, p.slice(prefix.length).split("."));
+    // Compare against the normalized old data so items saved before the module tag existed match.
+    const moved = trackFlag(normalizeSectionData(target.type, target.data), nextData, p.slice(prefix.length).split("."));
     return moved ? [prefix + moved.join(".")] : [];
   });
   return {
@@ -292,6 +318,25 @@ function reviewProblems(c: LandingContent, out: Problem[]) {
   }
 }
 
+function moduleProblems(c: LandingContent, out: Problem[]) {
+  const name = (m: ModuleDef) => (m.title.trim() === "" ? m.key : m.title);
+  const seen = new Set<string>();
+  for (const m of c.modules ?? []) {
+    if (seen.has(m.key)) out.push({ message: `Two modules use the same code "${m.key}". Give each module its own code.` });
+    seen.add(m.key);
+    if (m.optionKey === "") continue;
+    const opt = c.registration.options.find((o) => o.key === m.optionKey);
+    if (!opt) {
+      out.push({ message: `${name(m)} is linked to a registration option that no longer exists. Choose its option again (Registration setup).` });
+      continue;
+    }
+    const row = c.registration.prices[opt.key] ?? {};
+    for (const g of c.registration.regions) {
+      if (!opt.free && row[g.key] === undefined) out.push({ message: `${name(m)} has no price for ${g.label.trim() === "" ? g.key : g.label}.` });
+    }
+  }
+}
+
 export function computeReadiness(c: LandingContent, page: { title: string; slug: string }): { ready: boolean; problems: Problem[] } {
   const problems: Problem[] = [];
   if (page.title.trim() === "") problems.push({ message: "Give the page a name." });
@@ -315,6 +360,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   if (enabled.length === 0) problems.push({ message: "Turn on at least one section." });
   for (const s of enabled) fieldProblems(s, SECTION_DEFS[s.type].fields, s.data, problems);
   reviewProblems(c, problems);
+  moduleProblems(c, problems);
   return { ready: problems.length === 0, problems };
 }
 

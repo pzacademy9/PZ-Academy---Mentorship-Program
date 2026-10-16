@@ -87,6 +87,7 @@ export const PPC_BATCH_3: LandingContent = {
     "schedule:items.0.when", "schedule:items.1.when", "schedule:items.2.when", "schedule:items.3.when",
   ],
   registration: PPC_REGISTRATION,
+  modules: [],
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

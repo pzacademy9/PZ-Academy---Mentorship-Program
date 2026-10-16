@@ -43,9 +43,9 @@ describe("normalizeSectionData (never throws)", () => {
   it("normalizes list items individually", () => {
     const d = normalizeSectionData("faq", { items: [{ q: "A?", a: "B" }, { q: 5, a: null }, "junk"] });
     expect(d.items).toEqual([
-      { q: "A?", a: "B" },
-      { q: "", a: "" },
-      { q: "", a: "" },
+      { q: "A?", a: "B", module: "" },
+      { q: "", a: "", module: "" },
+      { q: "", a: "", module: "" },
     ]);
   });
   it("survives null and non-object input", () => {
