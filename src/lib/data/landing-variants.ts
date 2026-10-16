@@ -66,6 +66,14 @@ export async function listVariants(pageId: string): Promise<LandingVariant[]> {
 
 const sameRef = (a: VariantRef, b: VariantRef) => a.regionKey === b.regionKey && a.moduleKey === b.moduleKey;
 
+/** One variant by id, or null. Throws on a DB error. */
+export async function getVariant(variantId: string): Promise<LandingVariant | null> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("landing_page_variants").select(COLUMNS).eq("id", variantId).maybeSingle();
+  if (error) throw error;
+  return data ? mapRow(data) : null;
+}
+
 export async function ensureVariant(pageId: string, ref: VariantRef, enabled: boolean): Promise<EnsureResult> {
   let page: LandingPage | null;
   try {

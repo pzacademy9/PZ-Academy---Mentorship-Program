@@ -56,10 +56,15 @@ import { GET as listJobs } from "@/app/api/admin/landing-pages/[id]/jobs/route";
 import { GET as listPromos, POST as createPromo } from "@/app/api/admin/landing-promo-codes/route";
 import { PATCH as patchPromo } from "@/app/api/admin/landing-promo-codes/[id]/route";
 import { POST as agentLink } from "@/app/api/admin/landing-agent-links/route";
+import { GET as listVariantsRoute, POST as createVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/route";
+import { PATCH as patchVariant, DELETE as deleteVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/route";
+import { POST as publishVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/publish/route";
+import { POST as rollbackVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/rollback/route";
 import { emptyContent } from "@/lib/landing/content";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const ctx = { params: Promise.resolve({ id: ID }) };
+const vctx = { params: Promise.resolve({ id: ID, variantId: ID }) };
 const req = (body: unknown, method = "POST") => new Request("http://x", { method, body: JSON.stringify(body) }) as never;
 
 // One entry per landing admin route file. A new route under landing-pages must be added here (the
@@ -75,12 +80,20 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-pages/[id]/sheet/route.ts": () => createSheet(req({}), ctx),
   "landing-pages/[id]/jobs/retry/route.ts": () => retryJobs(req({}), ctx),
   "landing-pages/[id]/jobs/route.ts": () => listJobs(new Request("http://x") as never, ctx),
+  "landing-pages/[id]/variants/route.ts": () => createVariantRoute(req({ regionKey: "UAE", moduleKey: null, enabled: true }), ctx),
+  "landing-pages/[id]/variants/[variantId]/route.ts": () => patchVariant(req({ enabled: true }, "PATCH"), vctx),
+  "landing-pages/[id]/variants/[variantId]/publish/route.ts": () => publishVariantRoute(req({}), vctx),
+  "landing-pages/[id]/variants/[variantId]/rollback/route.ts": () => rollbackVariantRoute(req({ version: 1 }), vctx),
   "landing-promo-codes/route.ts": () => createPromo(req({ code: "PZ10" })),
   "landing-promo-codes/[id]/route.ts": () => patchPromo(req({ active: false }, "PATCH"), ctx),
   "landing-agent-links/route.ts": () => agentLink(req({ agentId: ID })),
 };
 // A second handler in an already-listed route file (the coverage scan counts files, not handlers).
-const EXTRA_HANDLERS: [string, () => Promise<Response>][] = [["landing-promo-codes/route.ts GET", () => listPromos()]];
+const EXTRA_HANDLERS: [string, () => Promise<Response>][] = [
+  ["landing-promo-codes/route.ts GET", () => listPromos()],
+  ["landing-pages/[id]/variants/route.ts GET", () => listVariantsRoute(new Request("http://x") as never, ctx)],
+  ["landing-pages/[id]/variants/[variantId]/route.ts DELETE", () => deleteVariantRoute(new Request("http://x", { method: "DELETE" }) as never, vctx)],
+];
 const ADMIN_LANDING_DIRS = ["landing-pages", "landing-promo-codes", "landing-agent-links"];
 
 function routeFiles(dir: string): string[] {
