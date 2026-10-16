@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { listPaymentAccounts, type PaymentAccount } from "@/lib/data/landing-payment-accounts";
-import { loadPublicPage, publicJson } from "@/lib/api/landing-public-http";
+import { loadPublicPage, publicJson, variantParam } from "@/lib/api/landing-public-http";
 import { regionAccountKeys, toPublicRegistration } from "@/lib/landing/registration/public-config";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ const COUNTRY_RE = /^[A-Z]{2}$/;
 /** Everything the registration widget needs, read once when the modal opens. */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const gate = await loadPublicPage(slug);
+  const gate = await loadPublicPage(slug, { registration: true, variant: variantParam(req) });
   if (!gate.ok) return gate.response;
   const { page } = gate;
 

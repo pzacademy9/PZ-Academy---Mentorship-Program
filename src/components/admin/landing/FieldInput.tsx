@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { isSafeUrl, youtubeId } from "@/lib/landing/simple-text";
 import type { FieldDef } from "@/lib/landing/sections";
+import type { ModuleDef } from "@/lib/landing/variants";
 import { LandingImageField } from "./LandingImageField";
 
 type Item = Record<string, unknown>;
@@ -42,12 +43,29 @@ function problemFor(field: FieldDef, value: string): string | null {
 }
 
 /** `path` locates the control for the checklist's Fix button: "headline", or "items.0.q" inside a list. */
-export function FieldInput({ field, value, onChange, path }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string }) {
+export function FieldInput({ field, value, onChange, path, modules }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string; modules?: ModuleDef[] }) {
   const id = useId();
   const helpId = `${id}-help`;
   const errId = `${id}-err`;
 
-  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} />;
+  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} modules={modules} />;
+
+  if (field.kind === "module") {
+    // Pages without modules edit exactly as before: no select at all.
+    if (!modules || modules.length === 0) return null;
+    const current = typeof value === "string" ? value : "";
+    const known = modules.some((m) => m.key === current);
+    return (
+      <div className="space-y-1.5">
+        <label htmlFor={id} className={LABEL}>{field.label}</label>
+        <select id={id} value={current} data-field-path={path} onChange={(e) => onChange(e.target.value)} className={cn(CONTROL, "h-auto")}>
+          <option value="">All modules</option>
+          {!known && current !== "" && <option value={current}>{current} (removed module)</option>}
+          {modules.map((m) => <option key={m.key} value={m.key}>{m.title.trim() === "" ? m.key : m.title}</option>)}
+        </select>
+      </div>
+    );
+  }
 
   const str = typeof value === "string" ? value : "";
   const problem = field.kind === "image" ? null : problemFor(field, str);
@@ -102,7 +120,7 @@ export function FieldInput({ field, value, onChange, path }: { field: FieldDef; 
   );
 }
 
-function ListField({ field, value, onChange, path }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string }) {
+function ListField({ field, value, onChange, path, modules }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string; modules?: ModuleDef[] }) {
   const items: Item[] = Array.isArray(value) ? (value as Item[]) : [];
   const itemLabel = field.itemLabel ?? "Item";
   const max = field.maxItems ?? 40;
@@ -150,7 +168,7 @@ function ListField({ field, value, onChange, path }: { field: FieldDef; value: u
             </div>
             <div className="space-y-3">
               {(field.itemFields ?? []).map((f) => (
-                <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} />
+                <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} modules={modules} />
               ))}
             </div>
           </li>

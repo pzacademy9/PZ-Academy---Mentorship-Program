@@ -68,6 +68,7 @@ describe("rollbackLandingPage (atomic RPC)", () => {
     expect(rpcCalls).toEqual([{ fn: "landing_rollback_page", args: { p_page_id: "p1", p_version: 2, p_user: "u" } }]);
     // No more client-side insert / update / compensating delete: the function does it all.
     expect(ops.filter((o) => o.op !== "select")).toHaveLength(0);
+    expect(revalidatePath).toHaveBeenCalledWith("/e/[slug]", "layout");
     expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
   it("a missing version is not-found and revalidates nothing", async () => {
@@ -120,6 +121,7 @@ describe("publishLandingPage", () => {
     expect(await publishLandingPage("u", "p1")).toEqual({ ok: true, version: 4 });
     expect(rpcCalls).toEqual([{ fn: "landing_publish_page", args: { p_page_id: "p1", p_user: "u", p_revision: 7 } }]);
     expect(ops.filter((o) => o.op !== "select")).toHaveLength(0);
+    expect(revalidatePath).toHaveBeenCalledWith("/e/[slug]", "layout");
     expect(revalidatePath).toHaveBeenCalledWith("/e/ppc-b4");
   });
   it("a draft saved after the readiness check is a conflict (409), not a 500", async () => {

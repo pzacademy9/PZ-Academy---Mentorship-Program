@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { emailUsedPromo, getPromoByCode } from "@/lib/data/landing-promo-codes";
-import { loadPublicPage, publicJson } from "@/lib/api/landing-public-http";
+import { loadPublicPage, publicJson, variantParam } from "@/lib/api/landing-public-http";
 import { computeQuote } from "@/lib/landing/registration/pricing";
 import { applyPromo } from "@/lib/landing/registration/promo";
 import { isEmail, quoteRequestSchema } from "@/lib/validations/landing-public";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const gate = await loadPublicPage(slug);
+  const gate = await loadPublicPage(slug, { registration: true, variant: variantParam(req) });
   if (!gate.ok) return gate.response;
   const { page } = gate;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { variantQuery } from "./variant";
 import type { MeProfile, PublicConfig } from "./types";
 
 export type RegistrationConfigState =
@@ -9,21 +10,21 @@ export type RegistrationConfigState =
   | { status: "ready"; config: PublicConfig; me: MeProfile | null };
 
 /** Fetches the public config and the logged-in profile in parallel, only while `enabled` (the modal is open). */
-export function useRegistrationConfig(slug: string, enabled = true): RegistrationConfigState & { retry: () => void } {
+export function useRegistrationConfig(slug: string, enabled = true, variant?: string): RegistrationConfigState & { retry: () => void } {
   const [state, setState] = useState<RegistrationConfigState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
-    const key = `${slug}#${attempt}`;
+    const key = `${slug}#${variant ?? ""}#${attempt}`;
     if (loadedFor === key) return; // reopening the modal does not refetch
     let cancelled = false;
     setState({ status: "loading" });
     (async () => {
       try {
         const [cfgRes, me] = await Promise.all([
-          fetch(`/api/landing/${encodeURIComponent(slug)}/config`, { cache: "no-store" }),
+          fetch(`/api/landing/${encodeURIComponent(slug)}/config${variantQuery(variant)}`, { cache: "no-store" }),
           fetch("/api/landing/me", { cache: "no-store", credentials: "same-origin" })
             .then(async (r) => (r.ok ? ((await r.json()) as MeProfile | null) : null))
             .catch(() => null),
@@ -43,7 +44,7 @@ export function useRegistrationConfig(slug: string, enabled = true): Registratio
       }
     })();
     return () => { cancelled = true; };
-  }, [slug, enabled, attempt, loadedFor]);
+  }, [slug, variant, enabled, attempt, loadedFor]);
 
   const retry = useCallback(() => setAttempt((a) => a + 1), []);
   return { ...state, retry };

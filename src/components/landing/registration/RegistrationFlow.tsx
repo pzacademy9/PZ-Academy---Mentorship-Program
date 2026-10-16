@@ -44,6 +44,8 @@ function fieldHasPlace(field: string, config: RegistrationConfig, isFree: boolea
 
 export interface FlowProps {
   slug: string;
+  /** Variant path of a country / module link; sent as `?v=` on quote and register. */
+  variant?: string;
   config: PublicConfig;
   me: MeProfile | null;
   testMode: boolean;
@@ -57,7 +59,7 @@ export interface FlowProps {
   renderTopBar?: (ctx: { canGoBack: boolean; goBack: () => void; stepIndex: number; stepCount: number }) => React.ReactNode;
 }
 
-export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, form, setForm, result, setResult, onClose, renderTopBar }: FlowProps) {
+export function RegistrationFlow({ slug, variant, config: pc, me, testMode, tracking, form, setForm, result, setResult, onClose, renderTopBar }: FlowProps) {
   const config = pc.registration;
   // Test mode (admin only) sends no Meta events and no funnel events: nothing real happens.
   const live = tracking && !testMode;
@@ -73,7 +75,7 @@ export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, for
   const eventIdRef = useRef<string | null>(null);
 
   const { quote, promo, pending } = usePricingQuote({
-    slug, config,
+    slug, variant, config,
     selection: { regionKey: form.regionKey, mode: form.mode, optionKeys: form.optionKeys, tierKey: form.tierKey, groupSize: form.groupSize },
     promoCode: form.promoApplied, email: form.lead.email,
   });
@@ -150,7 +152,7 @@ export function RegistrationFlow({ slug, config: pc, me, testMode, tracking, for
     const eventId = (eventIdRef.current ??= newEventId());
     const attribution = { ...readAttribution(Date.now(), safeLocal(), safeSession(), documentCookie()), eventId, sessionId: getSessionId() };
     const effective = promo && promo.ok ? form : { ...form, promoApplied: "" };
-    const outcome = await submitRegistration(slug, buildPayload(effective, attribution, testMode, isFree), isFree ? null : form.voucher);
+    const outcome = await submitRegistration(slug, buildPayload(effective, attribution, testMode, isFree), isFree ? null : form.voucher, { variant });
     setSubmitting(false);
     if (outcome.ok) {
       setResult(outcome.data);

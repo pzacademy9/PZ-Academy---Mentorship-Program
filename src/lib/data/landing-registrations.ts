@@ -22,6 +22,8 @@ export type OkPromo = Extract<PromoResult, { ok: true }>;
 
 export interface CreateRegistrationInput {
   page: { id: string; refPrefix: string | null };
+  /** The variant link the visitor registered through ("uae/module-2"); "" for the main page. */
+  variantKey: string;
   config: RegistrationConfig;
   payload: RegisterPayload;
   quote: OkQuote;
@@ -77,6 +79,7 @@ export interface RegistrationRecord {
   agentId: string | null;
   studentId: string | null;
   utm: Record<string, string>;
+  variantKey: string;
   isTest: boolean;
   createdAt: string;
 }
@@ -124,6 +127,7 @@ function mapRecord(r: RegRow): RegistrationRecord {
     agentId: strOrNull(row.agent_id),
     studentId: strOrNull(row.student_id),
     utm: cleanUtm(row.utm),
+    variantKey: str(row.variant_key),
     isTest: row.is_test === true,
     createdAt: str(row.created_at),
   };
@@ -151,6 +155,7 @@ export function buildRegistrationRows(input: CreateRegistrationInput): RegInsert
     tier_key: q.tierKey,
     group_size: q.groupSize,
     region: q.regionKey,
+    variant_key: input.variantKey,
     currency: q.currency,
     status,
     agent_id: input.agentId,

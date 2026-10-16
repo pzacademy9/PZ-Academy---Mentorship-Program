@@ -6,7 +6,8 @@ import { onOpenRegistration } from "./registration-bus";
 const RegistrationModal = lazy(() => import("./RegistrationModal"));
 
 /** Mounted once per public page. Loads the modal code on the first open and keeps it mounted so a closed-then-reopened form keeps its answers. */
-export function RegistrationHost({ slug, tracking = true }: { slug: string; tracking?: boolean }) {
+// `variant` is the variant path of a country / module link; the modal sends it as `?v=` on config, quote and register.
+export function RegistrationHost({ slug, variant, tracking = true }: { slug: string; tracking?: boolean; variant?: string }) {
   const [everOpened, setEverOpened] = useState(false);
   const [open, setOpen] = useState(false);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -15,7 +16,7 @@ export function RegistrationHost({ slug, tracking = true }: { slug: string; trac
     <div ref={setContainer} className="font-landing-body">
       {everOpened && (
         <Suspense fallback={<OpeningNotice />}>
-          <RegistrationModal slug={slug} open={open} onClose={() => setOpen(false)} tracking={tracking} portalContainer={container} />
+          <RegistrationModal slug={slug} variant={variant} open={open} onClose={() => setOpen(false)} tracking={tracking} portalContainer={container} />
         </Suspense>
       )}
     </div>

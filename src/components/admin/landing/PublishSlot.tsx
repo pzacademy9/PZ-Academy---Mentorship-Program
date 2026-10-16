@@ -99,13 +99,6 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
     }
   });
 
-  useEffect(() => {
-    if (!sheet) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSheet(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sheet]);
-
   const blocked = local.problems.length > 0 || serverBlocked || saveState === "saving" || conflict || upToDate;
 
   return (
@@ -141,37 +134,51 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
       </Button>
 
       {sheet && (
-        <aside
-          role="dialog"
-          aria-label="Version history"
-          className="fixed inset-y-0 right-0 z-[60] flex w-[min(380px,100vw)] flex-col border-l border-pz-outline-variant bg-pz-surface-container-lowest shadow-2xl"
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-pz-outline-variant p-4">
-            <div className="flex items-center gap-2">
-              <History className="h-5 w-5 text-pz-primary" aria-hidden="true" />
-              <div>
-                <h2 className="font-headline text-sm font-bold text-pz-on-surface">Version History</h2>
-                <p className="font-body text-[11px] text-pz-on-surface-variant">A snapshot is saved each time you publish</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              aria-label="Close version history"
-              onClick={() => setSheet(false)}
-              className="rounded-lg p-1 text-pz-on-surface-variant hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <X className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            <VersionsPanel versions={versions} onRestore={(v) => void restore.run(v)} busy={restore.pending} />
-          </div>
-          <div className="border-t border-pz-outline-variant bg-pz-surface-container-low p-3">
-            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setSheet(false)}>Done</Button>
-          </div>
-        </aside>
+        <VersionsSheet onClose={() => setSheet(false)}>
+          <VersionsPanel versions={versions} onRestore={(v) => void restore.run(v)} busy={restore.pending} />
+        </VersionsSheet>
       )}
     </>
+  );
+}
+
+/** The Version History side sheet (Escape or Done closes it). */
+export function VersionsSheet({ onClose, subtitle = "A snapshot is saved each time you publish", children }: {
+  onClose: () => void; subtitle?: string; children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <aside
+      role="dialog"
+      aria-label="Version history"
+      className="fixed inset-y-0 right-0 z-[60] flex w-[min(380px,100vw)] flex-col border-l border-pz-outline-variant bg-pz-surface-container-lowest shadow-2xl"
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-pz-outline-variant p-4">
+        <div className="flex items-center gap-2">
+          <History className="h-5 w-5 text-pz-primary" aria-hidden="true" />
+          <div>
+            <h2 className="font-headline text-sm font-bold text-pz-on-surface">Version History</h2>
+            <p className="font-body text-[11px] text-pz-on-surface-variant">{subtitle}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label="Close version history"
+          onClick={onClose}
+          className="rounded-lg p-1 text-pz-on-surface-variant hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <X className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
+      <div className="border-t border-pz-outline-variant bg-pz-surface-container-low p-3">
+        <Button type="button" variant="outline" size="sm" className="w-full" onClick={onClose}>Done</Button>
+      </div>
+    </aside>
   );
 }
 

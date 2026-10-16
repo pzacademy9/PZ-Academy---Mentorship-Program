@@ -594,7 +594,7 @@ function onEditLeads(e) {
  * from gas/payment-screenshots/Code.gs, which shares this Apps Script project.
  * ------------------------------------------------------------------------- */
 const LANDING_TAB_NAME = "Form Responses 1";
-const LANDING_HEADERS = ["Name", "Email", "WhatsApp", "Profession", "Discovery", "Registration Option", "Consent", "Row Type", "Promo Code", "Voucher URL", "Submitted At", "Expected Amount", "Group Lead Email", "Payment Method", "Amount", "Payment Confirmation", "Email Confirmation", "Source", "Ref ID", "Region", "Agent", "Promo Code Used", "UTM Campaign"];
+const LANDING_HEADERS = ["Name", "Email", "WhatsApp", "Profession", "Discovery", "Registration Option", "Consent", "Row Type", "Promo Code", "Voucher URL", "Submitted At", "Expected Amount", "Group Lead Email", "Payment Method", "Amount", "Payment Confirmation", "Email Confirmation", "Source", "Ref ID", "Region", "Agent", "Promo Code Used", "UTM Campaign", "Link"];
 const LANDING_STATUS_VALUES = ["Paid", "Pending", "Underpaid", "Reserved", "Free"];
 const LANDING_SHEETS_FOLDER_NAME = "Landing Sheets";
 const LANDING_VOUCHERS_FOLDER_NAME = "Landing Vouchers";
@@ -640,6 +640,20 @@ function handleCreateEventSheet_(body) {
   }
 }
 
+// Sheets created before the Link column existed have no X1 header: add it (header cell only,
+// data untouched) so the new trailing cell has a title. Never overwrites an existing value.
+function ensureLandingLinkHeader_(sheet) {
+  const cell = sheet.getRange(1, LANDING_HEADERS.length);
+  if (String(cell.getValue()) === "") {
+    cell.setValue(LANDING_HEADERS[LANDING_HEADERS.length - 1])
+      .setBackground(LANDING_HEADER_BG)
+      .setFontColor("#FFFFFF")
+      .setFontWeight("bold")
+      .setFontSize(10)
+      .setVerticalAlignment("middle");
+  }
+}
+
 function handleAppendRegistrationRows_(body) {
   if (!body.sheetId || !Array.isArray(body.rows)) {
     return jsonResponse_({ status: "error", message: "Missing sheetId or rows" });
@@ -653,6 +667,7 @@ function handleAppendRegistrationRows_(body) {
   try {
     const ss = SpreadsheetApp.openById(body.sheetId);
     const sheet = ss.getSheetByName(LANDING_TAB_NAME) || ss.getSheets()[0];
+    ensureLandingLinkHeader_(sheet);
     const lastRow = sheet.getLastRow();
 
     // Idempotent: a retried job must not duplicate rows. Ref ID + Email is the row key

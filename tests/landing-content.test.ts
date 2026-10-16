@@ -263,3 +263,75 @@ describe("needsReview survives list edits (L5 fix)", () => {
     expect(r.problems.some((p) => p.review && p.sectionId === sec.id)).toBe(true);
   });
 });
+
+// ------------------------------------------------------------- modules
+import { defaultSectionData, sectionDataSchema } from "@/lib/landing/sections";
+import { MODULE_ITEM_SECTIONS, MODULE_KEY_RE, type ModuleDef } from "@/lib/landing/variants";
+
+const mod = (key: string, over: Partial<ModuleDef> = {}): ModuleDef => ({ key, title: `Title ${key}`, format: "3-Day Workshop", days: 3, optionKey: "", ...over });
+
+describe("modules", () => {
+  it("normalizeContent of a document without modules returns []", () => {
+    expect(normalizeContent({ sections: [] }).modules).toEqual([]);
+    expect(emptyContent("course").modules).toEqual([]);
+  });
+  it("normalizeContent drops invalid keys, duplicates and the 13th module", () => {
+    const many = Array.from({ length: 14 }, (_, i) => mod(`module-${i + 1}`));
+    expect(normalizeContent({ modules: many }).modules).toHaveLength(12);
+    const c = normalizeContent({ modules: [mod("Module 2"), mod("module-1"), "junk"] });
+    expect(c.modules.map((m) => m.key)).toEqual(["module-1"]);
+  });
+  it("contentSchema rejects invalid module keys and a 13th module", () => {
+    const base = emptyContent("course");
+    expect(contentSchema.safeParse({ ...base, modules: [mod("module-1")] }).success).toBe(true);
+    expect(contentSchema.safeParse({ ...base, modules: [mod("Module 2")] }).success).toBe(false);
+    expect(contentSchema.safeParse({ ...base, modules: Array.from({ length: 13 }, (_, i) => mod(`m-${i}`)) }).success).toBe(false);
+    expect(MODULE_KEY_RE.test("module-2")).toBe(true);
+  });
+  it("module-tagged sections get an item default of module ''", () => {
+    expect(MODULE_ITEM_SECTIONS).toContain("curriculum");
+    const d = defaultSectionData("curriculum");
+    expect(d.items).toEqual([]);
+    const norm = normalizeContent({ sections: [{ id: "a", type: "curriculum", enabled: true, data: { items: [{ title: "T" }] } }] });
+    expect((norm.sections[0].data.items as { module: string }[])[0].module).toBe("");
+  });
+  it("old items without module still pass sectionDataSchema", () => {
+    expect(sectionDataSchema("curriculum").safeParse({ heading: "H", items: [{ title: "T", subtitle: "", points: "" }] }).success).toBe(true);
+    expect(sectionDataSchema("curriculum").safeParse({ heading: "H", items: [{ title: "T", subtitle: "", points: "", module: "" }] }).success).toBe(true);
+  });
+});
+
+describe("module readiness", () => {
+  const ready = () => {
+    const c = emptyContent("course");
+    c.registration = { ...c.registration, regions: [{ key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] }], options: [{ key: "mod-2", label: "Module 2", kind: "module", free: false, waGroupUrl: "" }], prices: { "mod-2": { PK: { amount: 100 } } } };
+    return c;
+  };
+  const msgs = (c: ReturnType<typeof emptyContent>) => computeReadiness(c, { title: "T", slug: "a-page" }).problems.map((p) => p.message);
+  it("reports duplicate module keys", () => {
+    const c = ready();
+    c.modules = [mod("module-1"), mod("module-1")];
+    expect(msgs(c).some((m) => m.includes("same code") && m.includes("module-1"))).toBe(true);
+  });
+  it("reports an optionKey missing from registration.options", () => {
+    const c = ready();
+    c.modules = [mod("module-1", { title: "Pharmacology", optionKey: "ghost" })];
+    expect(msgs(c).some((m) => m.includes("Pharmacology") && m.includes("no longer exists"))).toBe(true);
+  });
+  it("reports a module option with no price in a region", () => {
+    const c = ready();
+    c.registration.regions.push({ key: "UAE", label: "UAE", currency: "AED", classTime: "", timezoneLabel: "", accountKeys: [] });
+    c.modules = [mod("module-2", { title: "Module Two", optionKey: "mod-2" })];
+    expect(msgs(c)).toContain("Module Two has no price for UAE.");
+    expect(msgs(c).some((m) => m.includes("for Pakistan"))).toBe(false);
+  });
+  it("reports a region code that collides with a module code or STATUS", () => {
+    const c = ready();
+    c.registration.regions.push({ key: "MODULE-2", label: "Odd", currency: "AED", classTime: "", timezoneLabel: "", accountKeys: [] });
+    c.modules = [mod("module-2", { title: "Module Two", optionKey: "mod-2" })];
+    expect(msgs(c).some((m) => m.includes("MODULE-2") && m.includes("module"))).toBe(true);
+    const d = ready();
+    d.registration.regions.push({ key: "STATUS", label: "Odd", currency: "AED", classTime: "", timezoneLabel: "", accountKeys: [] });
+    expect(msgs(d).some((m) => m.includes("STATUS"))).toBe(true);
+  });
+});

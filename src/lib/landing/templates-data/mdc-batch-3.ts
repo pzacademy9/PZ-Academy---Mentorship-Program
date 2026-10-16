@@ -64,6 +64,7 @@ export const MDC_BATCH_3: LandingContent = {
     "faq:items.5.a",
   ],
   registration: MDC_REGISTRATION,
+  modules: [],
   sections: [
     {
       id: "hero", type: "hero", enabled: true,

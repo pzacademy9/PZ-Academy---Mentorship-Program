@@ -13,12 +13,33 @@ export type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
  *  - 409 = someone else saved: stop, surface "conflict", never retry;
  *  - network/5xx = keep the content and surface "error"; saveNow() retries.
  */
-export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800, onRevision }: { pageId: string; initialRevision: number; delayMs?: number; onRevision?: (revision: number) => void }) {
+export function useAutosaveDraft<T = LandingContent>({
+  pageId, endpoint, bodyKey = "content", initialRevision, delayMs = 800, onRevision,
+}: {
+  /** Saves the page draft at /api/admin/landing-pages/<pageId> unless `endpoint` is given. */
+  pageId?: string;
+  /**
+   * Another save target (for example a country / module link). When it changes, the hook starts over
+   * on the new target from `initialRevision`; flush (saveNow) before switching.
+   */
+  endpoint?: string;
+  /** The PATCH body key that carries the saved value. */
+  bodyKey?: "content" | "overrides";
+  initialRevision: number;
+  delayMs?: number;
+  onRevision?: (revision: number) => void;
+}) {
+  const target = endpoint ?? `/api/admin/landing-pages/${pageId}`;
+  // Read at send time, so a stale schedule/saveNow captured before a target change never sends to the old URL.
+  const targetRef = useRef(target);
+  targetRef.current = target;
   const onRevisionRef = useRef(onRevision);
   onRevisionRef.current = onRevision;
+  const initialRevisionRef = useRef(initialRevision);
+  initialRevisionRef.current = initialRevision;
   const [state, setState] = useState<SaveState>("saved");
   const revision = useRef(initialRevision);
-  const pending = useRef<LandingContent | null>(null);
+  const pending = useRef<T | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef<Promise<boolean> | null>(null);
   const conflicted = useRef(false);
@@ -35,10 +56,10 @@ export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800, onRev
         pending.current = null;
         setState("saving");
         try {
-          const res = await fetch(`/api/admin/landing-pages/${pageId}`, {
+          const res = await fetch(targetRef.current, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content, baseRevision: revision.current }),
+            body: JSON.stringify({ [bodyKey]: content, baseRevision: revision.current }),
           });
           if (res.status === 409) {
             conflicted.current = true;
@@ -64,10 +85,22 @@ export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800, onRev
     });
     inFlight.current = p;
     return p;
-  }, [pageId]);
+  }, [bodyKey]);
+
+  // A new target starts clean: its own revision, no conflict, nothing pending.
+  const lastTarget = useRef(target);
+  useEffect(() => {
+    if (lastTarget.current === target) return;
+    lastTarget.current = target;
+    if (timer.current) clearTimeout(timer.current);
+    revision.current = initialRevisionRef.current;
+    conflicted.current = false;
+    pending.current = null;
+    setState("saved");
+  }, [target]);
 
   const schedule = useCallback(
-    (content: LandingContent) => {
+    (content: T) => {
       if (conflicted.current) return;
       pending.current = content;
       setState((s) => (s === "saving" ? s : "dirty"));
@@ -83,7 +116,19 @@ export function useAutosaveDraft({ pageId, initialRevision, delayMs = 800, onRev
     return run();
   }, [run]);
 
+  /**
+   * Starts over on the same target from `rev`, dropping anything pending: the server's copy was
+   * replaced (a restored version), so pending edits describe content that no longer exists.
+   */
+  const restart = useCallback((rev: number) => {
+    if (timer.current) clearTimeout(timer.current);
+    revision.current = rev;
+    conflicted.current = false;
+    pending.current = null;
+    setState("saved");
+  }, []);
+
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  return { state, schedule, saveNow };
+  return { state, schedule, saveNow, restart };
 }

@@ -5,6 +5,7 @@ const COUNTRY_TO_REGION: Record<string, string> = { PK: "PK", AE: "UAE", SA: "KS
 
 /** Which region to preselect: a valid ?region= override, else the visitor's country, else International, else the default. */
 export function pickRegion(regions: RegionDef[], country: string | null, defaultKey: string, override?: string | null): string {
+  if (regions.length === 1) return regions[0].key; // a country / module link: the only region is the choice
   const has = (k: string) => regions.some((r) => r.key === k);
   const o = (override ?? "").trim().toUpperCase();
   if (o && has(o)) return o;

@@ -11,7 +11,7 @@ const ICON_BTN =
   "inline-flex h-7 w-7 items-center justify-center rounded-md text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-30 max-md:h-11 max-md:w-11";
 
 export function SectionList({
-  sections, selectedId, onSelect, onToggle, onMove, onRemove, onAdd,
+  sections, selectedId, onSelect, onToggle, onMove, onRemove, onAdd, link,
 }: {
   sections: LandingSection[];
   selectedId: string | null;
@@ -20,6 +20,12 @@ export function SectionList({
   onMove: (id: string, dir: -1 | 1) => void;
   onRemove: (id: string) => void;
   onAdd: (type: SectionType) => void;
+  /**
+   * Editing a country / module link: the switch shows or hides the section on this link only, and
+   * sections cannot be added or removed (that is done on the main page). `mainHidden` = sections the
+   * main page hides, which stay hidden on every link.
+   */
+  link?: { mainHidden: ReadonlySet<string> };
 }) {
   const confirm = useConfirm();
 
@@ -44,6 +50,7 @@ export function SectionList({
         {sections.map((s, i) => {
           const label = SECTION_DEFS[s.type].label;
           const selected = s.id === selectedId;
+          const lockedOff = !!link && link.mainHidden.has(s.id);
           return (
             <li
               key={s.id}
@@ -57,10 +64,11 @@ export function SectionList({
                 type="button"
                 role="switch"
                 aria-checked={s.enabled}
-                aria-label={`Show ${label}`}
+                aria-label={link ? `Show ${label} on this link` : `Show ${label}`}
+                disabled={lockedOff}
                 onClick={() => onToggle(s.id)}
                 className={cn(
-                  "relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-md:h-7 max-md:w-12",
+                  "relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-md:h-7 max-md:w-12",
                   s.enabled ? "bg-pz-solid-forest" : "bg-pz-outline-variant",
                 )}
               >
@@ -80,7 +88,11 @@ export function SectionList({
                 className="min-w-0 flex-1 rounded-md px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11"
               >
                 <span className={cn("block truncate font-body text-sm font-semibold", s.enabled ? "text-pz-on-surface" : "text-pz-on-surface-variant")}>{label}</span>
-                {!s.enabled && <span className="block font-body text-[11px] text-pz-on-surface-variant">Hidden from the page</span>}
+                {!s.enabled && (
+                  <span className="block font-body text-[11px] text-pz-on-surface-variant">
+                    {lockedOff ? "Hidden on the main page" : link ? "Hidden on this link" : "Hidden from the page"}
+                  </span>
+                )}
               </button>
               <button type="button" className={ICON_BTN} aria-label={`Move ${label} up`} disabled={i === 0} onClick={() => onMove(s.id, -1)}>
                 <ArrowUp className="h-4 w-4" aria-hidden="true" />
@@ -88,14 +100,20 @@ export function SectionList({
               <button type="button" className={ICON_BTN} aria-label={`Move ${label} down`} disabled={i === sections.length - 1} onClick={() => onMove(s.id, 1)}>
                 <ArrowDown className="h-4 w-4" aria-hidden="true" />
               </button>
-              <button type="button" className={cn(ICON_BTN, "hover:text-pz-danger")} aria-label={`Remove ${label}`} onClick={() => void askRemove(s)}>
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </button>
+              {!link && (
+                <button type="button" className={cn(ICON_BTN, "hover:text-pz-danger")} aria-label={`Remove ${label}`} onClick={() => void askRemove(s)}>
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
             </li>
           );
         })}
       </ul>
-      <AddSectionMenu onAdd={onAdd} />
+      {link ? (
+        <p className="px-1 font-body text-[11px] text-pz-on-surface-variant">Add or remove sections on the main page.</p>
+      ) : (
+        <AddSectionMenu onAdd={onAdd} />
+      )}
     </div>
   );
 }

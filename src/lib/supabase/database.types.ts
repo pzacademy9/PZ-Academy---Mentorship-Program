@@ -1525,6 +1525,56 @@ export type Database = {
           },
         ]
       }
+      landing_page_variants: {
+        Row: {
+          created_at: string
+          draft: Json
+          enabled: boolean
+          id: string
+          module_key: string | null
+          page_id: string
+          published: Json | null
+          published_at: string | null
+          region_key: string | null
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          draft?: Json
+          enabled?: boolean
+          id?: string
+          module_key?: string | null
+          page_id: string
+          published?: Json | null
+          published_at?: string | null
+          region_key?: string | null
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          draft?: Json
+          enabled?: boolean
+          id?: string
+          module_key?: string | null
+          page_id?: string
+          published?: Json | null
+          published_at?: string | null
+          region_key?: string | null
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_page_variants_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_pages: {
         Row: {
           course_id: string | null
@@ -1686,6 +1736,41 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_variant_versions: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          variant_id: string
+          version: number
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          variant_id: string
+          version: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          variant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_variant_versions_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "landing_page_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_registrations: {
         Row: {
           agent_id: string | null
@@ -1726,6 +1811,7 @@ export type Database = {
           tier_key: string
           updated_at: string
           utm: Json
+          variant_key: string
           voucher_url: string
           whatsapp: string
         }
@@ -1768,6 +1854,7 @@ export type Database = {
           tier_key?: string
           updated_at?: string
           utm?: Json
+          variant_key?: string
           voucher_url?: string
           whatsapp?: string
         }
@@ -1810,6 +1897,7 @@ export type Database = {
           tier_key?: string
           updated_at?: string
           utm?: Json
+          variant_key?: string
           voucher_url?: string
           whatsapp?: string
         }
@@ -3467,8 +3555,16 @@ export type Database = {
         Args: { p_page_id: string; p_revision?: number; p_user: string }
         Returns: number
       }
+      landing_publish_variant: {
+        Args: { p_revision?: number; p_user: string; p_variant_id: string }
+        Returns: number
+      }
       landing_rollback_page: {
         Args: { p_page_id: string; p_user: string; p_version: number }
+        Returns: number
+      }
+      landing_rollback_variant: {
+        Args: { p_user: string; p_variant_id: string; p_version: number }
         Returns: number
       }
       mentor_review_stats: {
