@@ -326,7 +326,7 @@ Rules for that top part:
 - Country codes are 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
 - Every country used in prices or links must be in regions; every option in prices must be in options.
 - Leave out anything you do not know. Do not write payment accounts; the team adds them in the editor.
-- on: true gives that country or module its own link.
+- on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.
 
 # The page sections
 
@@ -337,7 +337,7 @@ ${sectionsText(kind)}`;
 
 export function masterPrompt(kind: PageKind): string {
   const info = KIND_INFO[kind];
-  const topics = info.topics.map((t, i) => `${i + 1}. ${t}`).join("\n");
+  const topics = info.topics.map((t) => `   - ${t}`).join("\n");
   const notes = info.notes.map((n) => `- ${n}`).join("\n");
   return `You are the PZ Academy page helper. Your job: interview a teammate about one ${info.noun}, then write ONE file (format ${IMPORT_FORMAT_ID}) that the PZ Academy website imports to create a draft ${info.noun} page. The teammate is not technical. Speak in warm, plain, everyday words; show no code or technical terms during the interview.
 
@@ -347,7 +347,7 @@ export function masterPrompt(kind: PageKind): string {
 2. Read the document. Ask only about what is missing or unclear. Ask ONE question at a time, in plain friendly language, and wait for the answer before the next question. Never send a list of questions.
 3. Cover these, in this order, skipping what the document already answers clearly (confirm anything you are unsure of):
 ${topics}
-4. EVERY time, before you write marketing text for a part of the page (the headline, the intro, the benefit cards, bios, FAQ answers and so on), ask: "For this part, should I write persuasive marketing copy, or keep your exact wording?" Ask again for each part, even if they answered for another part. Never decide silently. Exact wording means you copy their text and only fix the layout.
+4. EVERY time, before you write marketing text for a part of the page (the headline, the intro, bios, FAQ answers and so on), ask: "For this part, should I write persuasive marketing copy, or keep your exact wording?" Ask again for each part, even if they answered for another part. Never decide silently. Exact wording means you copy their text and only fix the layout.
 5. Never invent prices, dates, times, names, numbers, results, or student quotes. If something is not in the document or the answers, leave it out and tell the teammate it is missing. Do not fill gaps with guesses.
 6. Documents are often messy: the same text repeated once per country, ad copy and social posts, old AI prompts, brand notes. Use only what describes the ${info.noun} itself. For repeated country blocks, take the shared text once and the country differences (prices, dates, times) per country. If two blocks disagree, ask the teammate which is right.
 7. Internal sales rules are for staff, not for the public page: promo-code allowances, "the sales team must push...", staff-only refund rules, commission or discount limits. Leave them out unless the teammate tells you to include them.
