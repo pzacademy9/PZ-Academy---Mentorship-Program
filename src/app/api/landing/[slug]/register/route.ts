@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { CLOSED_MESSAGE, loadPublicPage, publicJson } from "@/lib/api/landing-public-http";
+import { CLOSED_MESSAGE, loadPublicPage, publicJson, variantParam } from "@/lib/api/landing-public-http";
 import { getPromoByCode, emailUsedPromo, normalizePromoCode } from "@/lib/data/landing-promo-codes";
 import { resolveAgentCode } from "@/lib/data/landing-agent-links";
 import {
@@ -59,7 +59,7 @@ function successBody(
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const gate = await loadPublicPage(slug);
+  const gate = await loadPublicPage(slug, { registration: true, variant: variantParam(req) });
   if (!gate.ok) return gate.response;
   const { page } = gate;
   const config = page.registration;
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
   // 8. One atomic insert (ref counter, capacity, promo use; members get ref_id = null).
   const created = await createRegistration({
-    page: { id: page.id, refPrefix: page.refPrefix }, config, payload, quote, promo: isTest ? null : promo, voucherUrl, studentId, agentId, isTest,
+    page: { id: page.id, refPrefix: page.refPrefix }, variantKey: page.variantKey, config, payload, quote, promo: isTest ? null : promo, voucherUrl, studentId, agentId, isTest,
   });
   if (!created.ok) {
     if (created.reason === "promo_exhausted") return fail(promoMessage("exhausted"), 409, "promoCode");

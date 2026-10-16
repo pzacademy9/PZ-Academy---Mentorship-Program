@@ -31,8 +31,12 @@ const SECTION_COMPONENTS: Record<SectionType, (p: SectionProps) => React.ReactNo
 };
 
 export function LandingRenderer({
-  content, status, kind: _kind, pageTitle, slug,
-}: { content: LandingContent; status: PageStatus; kind: PageKind; pageTitle?: string; /** Only the public /e/[slug] route passes this. */ slug?: string }) {
+  content, status, kind: _kind, pageTitle, slug, variant,
+}: {
+  content: LandingContent; status: PageStatus; kind: PageKind; pageTitle?: string;
+  /** Only the public /e/[slug] routes pass this. */ slug?: string;
+  /** The variant path ("uae/module-2") on a country / module link; omitted on the main page. */ variant?: string;
+}) {
   // Re-normalize so a damaged snapshot can never crash the page (Review Focus 1).
   const c = normalizeContent(content);
   const closed = status === "closed";
@@ -119,7 +123,7 @@ export function LandingRenderer({
 
       {slug ? <AttributionCapture slug={slug} /> : null}
       {slug ? <PixelLoader pixelId={pixelId} contentName={c.registration.eventLabel || title || slug} /> : null}
-      {builtIn && slug ? <RegistrationHost slug={slug} /> : null}
+      {builtIn && slug ? <RegistrationHost slug={slug} variant={variant} /> : null}
     </div>
   );
 }

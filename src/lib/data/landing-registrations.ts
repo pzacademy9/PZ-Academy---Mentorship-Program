@@ -22,6 +22,8 @@ export type OkPromo = Extract<PromoResult, { ok: true }>;
 
 export interface CreateRegistrationInput {
   page: { id: string; refPrefix: string | null };
+  /** The variant link the visitor registered through ("uae/module-2"); "" for the main page. */
+  variantKey: string;
   config: RegistrationConfig;
   payload: RegisterPayload;
   quote: OkQuote;
@@ -151,6 +153,7 @@ export function buildRegistrationRows(input: CreateRegistrationInput): RegInsert
     tier_key: q.tierKey,
     group_size: q.groupSize,
     region: q.regionKey,
+    variant_key: input.variantKey,
     currency: q.currency,
     status,
     agent_id: input.agentId,

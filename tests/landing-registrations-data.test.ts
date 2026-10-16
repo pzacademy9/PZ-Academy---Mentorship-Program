@@ -20,7 +20,7 @@ const quote = (over: Partial<OkQuote> = {}): OkQuote => ({
   earlyBirdApplied: true, isFree: false, listPerPerson: 6000, perPerson: 4800, total: 4800, savings: 1200, ...over,
 });
 const input = (over: Partial<CreateRegistrationInput> = {}): CreateRegistrationInput => ({
-  page: { id: "page-1", refPrefix: "PPC" }, config: PPC_CONFIG, payload: ppcPayload(), quote: quote(), promo: null,
+  page: { id: "page-1", refPrefix: "PPC" }, variantKey: "", config: PPC_CONFIG, payload: ppcPayload(), quote: quote(), promo: null,
   voucherUrl: "https://drive.google.com/file/d/v1/view", studentId: null, agentId: null, isTest: false, ...over,
 });
 
@@ -246,5 +246,16 @@ describe("bundles for background jobs", () => {
     const upd = db.find("landing_registrations", "update")[0];
     expect(upd.payload).toEqual({ email_status: "received_sent" });
     expect(filterValue(upd, "eq", "id")).toBe("r1");
+  });
+});
+
+describe("variant_key on stored rows", () => {
+  it("every row of a registration carries the variant path (lead and members)", () => {
+    const rows = buildRegistrationRows(input({ variantKey: "uae/module-2", payload: ppcPayload({ tierKey: "g3", groupSize: 3, members: groupMembers(2) }) }));
+    expect(rows.length).toBe(3);
+    for (const r of rows) expect(r.variant_key).toBe("uae/module-2");
+  });
+  it("is empty for the main page", () => {
+    expect(buildRegistrationRows(input())[0].variant_key).toBe("");
   });
 });

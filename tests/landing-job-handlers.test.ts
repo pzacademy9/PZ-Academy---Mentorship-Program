@@ -28,7 +28,7 @@ const rec = (over: Partial<RegistrationRecord> = {}): RegistrationRecord => ({
 });
 const page = (over: Partial<RegistrablePage> = {}): RegistrablePage => ({
   id: "page-1", slug: "ppc-b3", title: "PPC Batch 3", status: "published", content: contentWith(PPC_CONFIG), registration: PPC_CONFIG,
-  sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC", courseId: null, ...over,
+  sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC", courseId: null, variantKey: "", ...over,
 });
 const bundle = (lead: RegistrationRecord, members: RegistrationRecord[] = []): RegistrationBundle => ({ lead, members });
 const groupBundle = () => bundle(
