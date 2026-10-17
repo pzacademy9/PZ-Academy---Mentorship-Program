@@ -1974,6 +1974,38 @@ export type Database = {
           },
         ]
       }
+      landing_whatsapp_numbers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          number: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          number: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_whatsapp_numbers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_campaigns: {
         Row: {
           active: boolean
