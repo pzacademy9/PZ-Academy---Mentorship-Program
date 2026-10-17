@@ -93,6 +93,35 @@ describe("RegisterMenu", () => {
   });
 });
 
+describe("RegisterMenu placement and layout", () => {
+  it("menuPlacement up opens above the trigger (sticky bottom bar)", () => {
+    render(<RegisterButton register={two} menuPlacement="up" />);
+    fireEvent.click(screen.getByRole("button", { name: /register now/i }));
+    const cls = screen.getByRole("menu").className;
+    expect(cls).toMatch(/bottom-full/);
+    expect(cls).not.toMatch(/top-full/);
+  });
+  it("menuAlign right anchors to the right edge and never overflows the viewport width", () => {
+    render(<RegisterButton register={two} menuAlign="right" />);
+    fireEvent.click(screen.getByRole("button", { name: /register now/i }));
+    const cls = screen.getByRole("menu").className;
+    expect(cls).toMatch(/right-0/);
+    expect(cls).not.toMatch(/left-0/);
+    expect(cls).toMatch(/max-w-\[calc\(100vw-2rem\)\]/);
+  });
+  it("the wrapper takes the caller's responsive width classes", () => {
+    render(<RegisterButton register={two} className="w-full sm:w-auto" />);
+    const wrapper = screen.getByRole("button", { name: /register now/i }).parentElement!;
+    expect(wrapper.className).toMatch(/(^| )w-full( |$)/);
+    expect(wrapper.className).toMatch(/sm:w-auto/);
+  });
+  it("a modes-less call keeps the default down / left placement", () => {
+    render(<RegisterButton register={two} />);
+    fireEvent.click(screen.getByRole("button", { name: /register now/i }));
+    expect(screen.getByRole("menu").className).toMatch(/top-full/);
+  });
+});
+
 describe("RegistrationModal initialMode", () => {
   it("starts on the given mode and does not render the mode fieldset", async () => {
     render(<RegistrationModal slug="ppc" open onClose={() => {}} tracking={false} initialMode="recorded" />);
@@ -144,5 +173,9 @@ describe("LandingRenderer wiring", () => {
     pub.unmount();
     const preview = render(<LandingRenderer content={on} status="published" kind="course" pageTitle="PPC" />);
     expect(preview.container.querySelector("button[aria-haspopup='menu']")).toBeNull();
+    preview.unmount();
+    const off = render(<LandingRenderer content={updateRegistration(on, { ...ppcConfig, enabled: false })} status="published" kind="course" pageTitle="PPC" slug="ppc" />);
+    expect(off.container.querySelector("a[href='https://old.example/register']")).not.toBeNull();
+    expect(off.container.querySelector("button[aria-haspopup='menu']")).toBeNull();
   });
 });

@@ -97,7 +97,7 @@ export function RegistrationModal({ slug, variant, open, onClose, testMode = fal
           {cfg.status === "ready" && (cfg.config.status !== "closed" || testMode) && form && (
             <RegistrationFlow
               slug={slug} variant={variant} config={cfg.config} me={cfg.me} testMode={testMode} tracking={tracking}
-              form={form} setForm={setFormSafe} modeLocked={!!initialMode}
+              form={form} setForm={setFormSafe} modeLocked={!!initialMode && cfg.config.registration.modes.includes(initialMode)}
               result={result} setResult={setResult} onClose={onClose}
               renderTopBar={({ canGoBack, goBack }) => canGoBack ? (
                 <button type="button" onClick={goBack} aria-label="Back" className="absolute left-3 top-[max(0.5rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full text-landing-near-black hover:bg-landing-surface-container-low md:hidden">

@@ -31,8 +31,8 @@ export function ctaLabel(label: unknown, fallback = "Register now"): string {
  * unsafe or missing URL gets a disabled-looking span (never an anchor).
  */
 export function RegisterButton({
-  register, label, variant = "primary", size = "md", arrow = false, className = "", announce = false,
-}: { register: Register; label?: string; variant?: Variant; size?: Size; arrow?: boolean; className?: string; announce?: boolean }) {
+  register, label, variant = "primary", size = "md", arrow = false, className = "", announce = false, menuPlacement, menuAlign,
+}: { register: Register; label?: string; variant?: Variant; size?: Size; arrow?: boolean; className?: string; announce?: boolean; menuPlacement?: "down" | "up"; menuAlign?: "left" | "right" }) {
   if (register.closed) {
     // Every Register slot shows the notice, but only one (announce: the header's) is a live region,
     // so a screen reader says "Registration is closed" once, not once per button.
@@ -51,7 +51,7 @@ export function RegisterButton({
   ) : null;
   if (register.builtIn && register.modes && register.modes.length > 1) {
     return (
-      <RegisterMenu className={`${classes} ${VARIANT[variant]}`} modes={register.modes}>
+      <RegisterMenu className={`${classes} ${VARIANT[variant]}`} modes={register.modes} placement={menuPlacement} align={menuAlign}>
         <span>{text}</span>
         {arrowIcon}
       </RegisterMenu>

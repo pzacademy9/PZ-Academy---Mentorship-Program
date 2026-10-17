@@ -86,7 +86,7 @@ export function LandingRenderer({
               </ul>
             ) : null}
             <div className="flex shrink-0 items-center gap-1">
-              <RegisterButton register={register} size="sm" announce />
+              <RegisterButton register={register} size="sm" announce menuAlign="right" />
               <MobileMenu items={navItems} register={register} />
             </div>
           </nav>
@@ -119,7 +119,7 @@ export function LandingRenderer({
 
       {/* Phone only: sticky bottom conversion bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-landing-border bg-landing-surface-container-lowest/95 px-4 pt-3 shadow-landing-bar backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
-        <RegisterButton register={register} size="lg" arrow className="h-12 w-full rounded-landing !py-0" />
+        <RegisterButton register={register} size="lg" arrow menuPlacement="up" className="h-12 w-full rounded-landing !py-0" />
       </div>
 
       {slug ? <AttributionCapture slug={slug} /> : null}

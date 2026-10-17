@@ -66,6 +66,9 @@ export function RegistrationFlow({ slug, variant, config: pc, me, testMode, trac
   // Test mode (admin only) sends no Meta events and no funnel events: nothing real happens.
   const live = tracking && !testMode;
   const [errors, setErrors] = useState<FieldErrors>({});
+  // A mode error needs the mode question on screen, so it unlocks (and stays unlocked).
+  const [modeUnlocked, setModeUnlocked] = useState(false);
+  useEffect(() => { if (errors.mode) setModeUnlocked(true); }, [errors.mode]);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -248,7 +251,7 @@ export function RegistrationFlow({ slug, variant, config: pc, me, testMode, trac
           <div className="relative">
             {step === "choose" && (
               <StepChoose
-                config={config} state={form} errors={errors} notice={notice} isFree={isFree} modeLocked={modeLocked}
+                config={config} state={form} errors={errors} notice={notice} isFree={isFree} modeLocked={modeLocked && !modeUnlocked}
                 onRegion={(k) => patch({ regionKey: k, paymentMethod: "" })}
                 onMode={(m) => patch({ mode: m })}
                 onToggleOption={(k) => {
