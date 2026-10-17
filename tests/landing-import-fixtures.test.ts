@@ -6,11 +6,13 @@
 //        WhatsApp-for-payment-checks missing (document gave no number), countdown reminder.
 //   MDC: 2x payment account, no FAQ.
 //   W20: 2x payment account, WhatsApp-for-payment-checks missing, no FAQ.
+// TODO: these fixtures predate the final master prompt; the controller replaces them after re-running blind simulators.
 // See .superpowers/sdd/2026-10-17-landing-import-a/task-10-report.md for the analysis.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildImport, type BuiltImport } from "@/lib/landing/import/build-content";
+import { computeQuote } from "@/lib/landing/registration/pricing";
 
 const load = (name: string): string => readFileSync(join(__dirname, "fixtures", "landing-import", name), "utf8");
 const build = (name: string): BuiltImport => {
@@ -51,10 +53,39 @@ describe("dry-run fixtures: ppc-batch-3 (course)", () => {
     expect(b.links.filter((l) => l.on).length).toBeGreaterThan(0);
   });
   it("flags stale-prone fields for review", () => {
-    expect(b.content.needsReview.length).toBeGreaterThanOrEqual(1);
+    expect(b.content.needsReview).toHaveLength(10);
+  });
+  it("switches the listed links on and keeps the module link titles", () => {
+    const on = b.links.filter((l) => l.on).map((l) => [l.regionKey, l.moduleKey].join("/"));
+    expect(on).toEqual(["UAE/", "PK/", "KSA/", "PH/", "IN/", "/module-1", "/module-2", "/module-3", "/module-4", "UAE/module-2", "PK/module-1", "PK/module-2", "PK/module-3", "PK/module-4"]);
+    expect(b.links.find((l) => l.moduleKey === "module-2" && !l.regionKey)?.heroTitle).toBe("Module 2: Therapeutics in Acute & Chronic Care");
+  });
+  it("quotes: stated total after Early Bird, and percent fallback in Recorded mode", () => {
+    const config = b.content.registration;
+    const quote = (mode: "live" | "recorded", now: string, tierKey = "g3") => {
+      const q = computeQuote({ config, regionKey: "UAE", mode, optionKeys: ["full"], tierKey, groupSize: 3, now: new Date(now) });
+      if (!q.ok) throw new Error(q.reason);
+      return q.total;
+    };
+    expect(quote("live", "2030-01-01T00:00:00Z")).toBe(480);
+    if (config.modes.includes("recorded")) {
+      const amount = config.prices.full.UAE.amount;
+      const rec = Math.round((amount * config.recordedPercentOfRegular) / 100);
+      const pct = config.tiers.find((t) => t.key === "g3")!.percentOff;
+      expect(quote("recorded", "2026-10-01T00:00:00Z")).toBe(Math.round((rec * (100 - pct)) / 100) * 3);
+    }
+  });
+  it("whole-number prices: nothing is left that quotes as no_price", () => {
+    const config = b.content.registration;
+    const q = computeQuote({ config, regionKey: "UAE", mode: "live", optionKeys: ["m1"], tierKey: "g5", groupSize: 5, now: new Date("2026-10-01T00:00:00Z") });
+    expect(q.ok).toBe(true);
   });
   it("remaining warnings snapshot", () => {
+    const rounded = ["Module 1", "Module 2", "Module 3", "Module 4"].flatMap((m) =>
+      ["UAE", "Saudi Arabia"].map((c) => `The group total of ${m} for ${c} for the group "g5": 187.5 was rounded to 188 because prices must be whole numbers.`),
+    );
     expect(msgs(b)).toEqual([
+      ...rounded,
       "Choose at least one payment account for UAE.",
       "Choose at least one payment account for Pakistan.",
       "Choose at least one payment account for Saudi Arabia.",
@@ -82,7 +113,8 @@ describe("dry-run fixtures: mdc-batch-3 (workshop)", () => {
     expect(seat.PK.earlyGroupTotals).toEqual({ g3: 6480 });
     expect(seat.UAE.amount).toBe(100);
     expect(b.content.registration.earlyBirdEndsAt).toContain("2026-08-29");
-    expect(b.content.needsReview.length).toBeGreaterThanOrEqual(1);
+    expect(b.content.needsReview).toHaveLength(10);
+    expect(b.links.filter((l) => l.on)).toHaveLength(0);
   });
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([
@@ -106,7 +138,7 @@ describe("dry-run fixtures: w20-diabetes (webinar)", () => {
     expect(b.content.registration.prices.seat.PH.amount).toBe(150);
     expect(b.content.registration.prices.seat.PK.earlyAmount).toBeUndefined();
     expect(b.links.filter((l) => l.on)).toHaveLength(2);
-    expect(b.content.needsReview.length).toBeGreaterThanOrEqual(1);
+    expect(b.content.needsReview).toHaveLength(5);
   });
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([

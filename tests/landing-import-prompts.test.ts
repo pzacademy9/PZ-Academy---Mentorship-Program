@@ -57,7 +57,21 @@ describe("masterPrompt", () => {
       });
 
       it("stays a sane length", () => {
-        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(12500);
+        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(12000);
+      });
+
+      it("keeps the rules section (before the section list) short", () => {
+        const rules = prompt.split("# The page sections")[0];
+        expect(rules.length).toBeLessThan(9000);
+      });
+
+      it("states the final outline, group and conflict rules", () => {
+        expect(prompt).toContain("write only min: N (no max)");
+        expect(prompt).not.toMatch(/max: 10/);
+        expect(prompt).toMatch(/leave that field out and list it under "Please check before publishing"/);
+        expect(prompt).not.toMatch(/closing summary/);
+        if (kind === "course") expect(prompt).toMatch(/titled "Module N: name"/);
+        if (kind === "workshop") expect(prompt).toMatch(/titled "Day N: name"/);
       });
 
       it("embeds its worked example", () => {

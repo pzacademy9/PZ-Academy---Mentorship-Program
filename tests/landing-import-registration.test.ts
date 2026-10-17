@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildRegistration } from "@/lib/landing/import/build-registration";
+import { computeQuote } from "@/lib/landing/registration/pricing";
+import { MAX_GROUP_SIZE } from "@/lib/landing/registration/config";
 
 const base = () => ({
   registration: {
@@ -224,5 +226,28 @@ describe("payment WhatsApp message", () => {
   });
   it("keeps the format message for a malformed number", () => {
     expect(msgs("abc").join(" ")).toMatch(/digits only/);
+  });
+});
+
+describe("whole-number prices and open-ended groups", () => {
+  it("rounds non-whole prices and says so", () => {
+    const b = base();
+    (b.registration.prices.full.UAE as Record<string, unknown>) = { amount: 200.4, early: 160, group_totals: { g3: 480 }, early_group_totals: { g3: 187.5 } };
+    const r = buildRegistration(b);
+    expect(r.registration.prices.full.UAE.amount).toBe(200);
+    expect(r.registration.prices.full.UAE.earlyGroupTotals).toEqual({ g3: 188 });
+    const m = r.problems.map((p) => p.message);
+    expect(m.some((x) => /200\.4 was rounded to 200 because prices must be whole numbers/.test(x))).toBe(true);
+    expect(m.some((x) => /187\.5 was rounded to 188/.test(x))).toBe(true);
+  });
+
+  it("a tier with only min goes up to the largest group, and a group of 6 prices correctly", () => {
+    const b = base();
+    b.registration.tiers = [{ key: "g5", label: "Group of 5 or more", min: 5, percent_off: 25 }] as never;
+    b.registration.prices.full.UAE = { amount: 200, early: 160 } as never;
+    const r = buildRegistration(b);
+    expect(r.registration.tiers[0]).toMatchObject({ minSize: 5, maxSize: MAX_GROUP_SIZE });
+    const q = computeQuote({ config: r.registration, regionKey: "UAE", mode: "live", optionKeys: ["full"], tierKey: "g5", groupSize: 6, now: new Date("2026-11-01T00:00:00Z") });
+    expect(q.ok && q.total).toBe(900); // 200 less 25% = 150 each
   });
 });

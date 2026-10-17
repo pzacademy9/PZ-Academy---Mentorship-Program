@@ -28,10 +28,12 @@ function fieldLine(f: FieldDef, kind: PageKind): string {
   return `${f.key}${req}${lim}`;
 }
 
+const firstSentence = (d: string): string => `${d.split(/\.\s/)[0].replace(/\.$/, "")}.`;
+
 function sectionBlock(type: SectionType, kind: PageKind): string {
   const def = SECTION_DEFS[type];
   const fields = def.fields.map((f) => fieldLine(f, kind)).filter((s) => s !== "");
-  return [`## Section: ${type}`, `${def.description}`, ...fields.map((f) => `- ${f}`)].join("\n");
+  return [`## Section: ${type}`, firstSentence(def.description), ...fields.map((f) => `- ${f}`)].join("\n");
 }
 
 function sectionsText(kind: PageKind): string {
@@ -55,18 +57,18 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "the modules: name, format (for example 3-Day Workshop) and days of each; and whether students can buy single modules or mix them",
       "event dates for every module, and the class time for each country",
       "prices for each country: the full course and each module, the Early Bird price and the day it ends, group discounts, and Live versus Recorded",
-      "the instructor or instructors (name, title, short bio)",
+      "the instructors (name, title, short bio)",
       "what is included, and what students learn in each module (benefit cards and course outline)",
-      "real numbers for the numbers bar (for example students trained); skip if none",
+      "real numbers for the numbers bar; skip if none",
       "frequently asked questions and their answers",
       "the WhatsApp number for the chat button, and the WhatsApp number where students send their payment screenshot (often the same)",
       "which countries should get their own link, and which modules should get their own link with its own top title",
     ],
     notes: [
       "A course has modules. List every module in modules, with one option per module (kind: module) and one for the full course (kind: bundle), each module pointing to its option. If students may mix modules, enable module_mix with the full-course option as bundle.",
-      "In the outline show one entry per module (title \"Day N: name\"; topics as \"- \" lines, never day titles and topics in one flat list). In the schedule, give entries that belong to one module that module's code.",
+      "In the outline write one entry per module, titled \"Module N: name\", with that module's days as \"- Day N: topic\" lines in its points. In the schedule, give entries that belong to one module that module's code.",
       "Give each module link its own hero_title (for example \"Module 2: Therapeutics\") when the teammate wants one. Ask for it. If the document is silent on mixing modules or on which links to switch on, leave module_mix and links out and list them under \"Please check\".",
-      "Only add the video reviews or written testimonials sections if the teammate gives you real YouTube links or real quotes. Otherwise leave those sections out and say so.",
+      "Add video reviews or testimonials only if the teammate gives real YouTube links or quotes.",
     ],
     frontExtra: `modules:
   - { key: module-1, title: Module name, format: 3-Day Workshop, days: 3, option: m1 }`,
@@ -77,7 +79,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "the page name (for example \"Mastering Dose Calculation – MDC 3\") and the link name (the last part of the web address, small letters and dashes)",
       "the dates: a short day-by-day agenda with date and time; and the class time for each country",
       "prices for each country: the normal price, the Early Bird price and the day it ends, group discounts, and Live versus Recorded if offered",
-      "the instructor or instructors (name, title, short bio)",
+      "the instructors (name, title, short bio)",
       "who the workshop is for, what students will learn, and what is included",
       "the workshop outline (topics for each day)",
       "numbers that are really true for the numbers bar; skip it if there are none",
@@ -88,7 +90,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     ],
     notes: [
       "A workshop is usually one event. Keep dates short, for example \"Fri 30 Oct · 7:30 PM\". Do not add a modules list unless the workshop really has separately sold parts.",
-      "Use one option of kind bundle for the workshop. Add an Early Bird price and end date only when the teammate gives them.",
+      "In the outline write one entry per day, titled \"Day N: name\", with its topics as \"- \" lines. Use one option of kind bundle for the workshop. Add an Early Bird price and end date only when the teammate gives them.",
       "Only add written testimonials if the teammate gives you real quotes. Otherwise leave that section out and say so.",
     ],
     frontExtra: `modules:
@@ -99,7 +101,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     topics: [
       "the page name (for example \"Diabetes Pharmacotherapy Webinar\") and the link name (the last part of the web address, small letters and dashes)",
       "the date, and the start time and time zone for each country",
-      "whether it is free or paid, and the price for each country if paid",
+      "whether it is free, paid, or has a Free plan and a paid plan; the price for each country; an Early Bird price and end date only if the document has them",
       "the speaker or speakers (name, title, short bio)",
       "what attendees will explore or learn, and who it is for",
       "frequently asked questions and their answers (for example how to join, whether there is a recording)",
@@ -137,7 +139,7 @@ dateLine: 4 to 6 November 2026 · 7:30 PM
 badges:
   - { text: Hands-on practice }`;
   }
-  return `eyebrow: FREE LIVE WEBINAR
+  return `eyebrow: LIVE WEBINAR
 headline: Choosing the Right Drug for Diabetes
 subheadline: One evening, one clear way to choose therapy for your patient.
 primaryCtaLabel: Save my seat
@@ -159,6 +161,7 @@ items:
   - { title: Live classes, text: "Learn with an expert, and ask questions." }
   - { title: Practice cases, text: "Work through real patient cases, step by step." }`,
   curriculum: (kind) => {
+    const d = (n: number, t: string) => (kind === "course" ? `Day ${n}: ${t}` : t);
     const tag = (m: string) => (kind === "course" ? `
     module: ${m}` : "");
     return `heading: What you will learn
@@ -166,12 +169,12 @@ items:
   - title: "${kind === "course" ? "Module 1: Foundations" : "Day 1: Basics"}"
     subtitle: ${kind === "course" ? "3 days" : "Morning session"}${tag("module-1")}
     points: |
-      - How drugs work
-      - Reading a prescription
+      - ${d(1, "How drugs work")}
+      - ${d(2, "Reading a prescription")}
   - title: "${kind === "course" ? "Module 2: Therapeutics" : "Day 2: Practice"}"${tag("module-2")}
     points: |
-      - Choosing a drug
-      - Checking doses`;
+      - ${d(3, "Choosing a drug")}
+      - ${d(4, "Checking doses")}`;
   },
   instructors: (kind) => `heading: ${kind === "webinar" ? "Meet your speaker" : "Meet your instructor"}
 items:
@@ -185,7 +188,6 @@ items:
       - Live webinar
   - name: Pro Plan
     price: See price for your country
-
     features: |
       - Live webinar
       - Recording for registered people`
@@ -240,7 +242,7 @@ function exampleFront(kind: PageKind): string {
 ` : kind === "course"
     ? `  tiers:
     - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
-    - { key: g5, label: Group of 5 or more, min: 5, max: 10, percent_off: 25 }
+    - { key: g5, label: Group of 5 or more, min: 5, percent_off: 25 }
   prices:
     full:
       UAE: { amount: 200, early: 160, group_totals: { g3: 480 }, early_group_totals: { g3: 384 } }
@@ -335,41 +337,41 @@ settings:
   countdown_label: Early Bird ends in
 registration:
   modes: [live, recorded]       # leave out if only Live
-  recorded_percent: 60          # Recorded price as a percent of Live; only if the teammate says so
+  recorded_percent: 60          # only if the teammate says so
   default_region: UAE
   early_bird_ends: 2026-10-25T23:59:00+04:00
   verify_whatsapp: "923001234567"   # where students send their payment screenshot
   event_label: Short event name
   ref_prefix: ABC               # 2 to 6 capital letters or digits
-  regions:                      # one line per country
+  regions:                   
     - { code: UAE, name: UAE, currency: AED, class_time: "6:30 PM – 7:30 PM", timezone: UAE time }
-  options:                      # what people can buy
+  options:
 ${options}${mix}
   tiers:                        # group discounts, only if given (min/max instead of size for "N or more")
     - { key: g3, label: Group of 3, size: 3, percent_off: 20 }
-    - { key: g5, label: Group of 5 or more, min: 5, max: 10, percent_off: 25 }
+    - { key: g5, label: Group of 5 or more, min: 5, percent_off: 25 }
   prices:
     full:
       UAE: { amount: 200, early: 160, group_totals: { g3: 480 }, early_group_totals: { g3: 384 } }${modulesLine}
-links:                          # which links to switch on
+links:
 ${linkLines}
 ${FENCE}
 
 Rules for that top part:
-- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals; the page calculates the price. Write group_totals (the total for the whole group, not per person; early_group_totals for the Early Bird price) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" use min: N and a top size as max. Use whole numbers only.
+- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals. Write group_totals (the total for the whole group, not per person; early_group_totals for the Early Bird price) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" write only min: N (no max). Also write percent_off whenever the document states a percentage (totals apply only to Live, single-option purchases). Use whole numbers only.
 - Country codes are 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
 - Every country used in prices or links must be in regions; every option in prices must be in options.${hasModules ? " Every module's option must be in options." : ""}
-- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone (the country in default_region) (for example UAE +04:00, Pakistan +05:00) and say so in your closing summary.
+- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone (the country in default_region) (for example UAE +04:00, Pakistan +05:00) and list it under "Please check before publishing".
 - Quoting: put any text in double quotes if it has a comma, a colon, a # or starts with a symbol such as * @ & ! - ; when unsure, quote it.
-- default_region is the main country: the first or largest audience in the document. If a date has no year, use the year of the event dates and say so.
+- default_region is the main country: the first or largest audience in the document. If a date has no year, use the year of the event dates and list it under "Please check before publishing".
 - Several countries: pricing_cards price must NOT show one country's currency as if it applied to all. Write price: See price for your country (a Free plan may say Free); the real prices go in registration prices. One country only: the card may show the amount.
-- settings.whatsapp (chat button): only a number the document labels for chat or WhatsApp. verify_whatsapp (payment screenshots): ask; if not given, leave it out and list it under "Please check".
-- Leave out anything you do not know. Do not write payment accounts; the team picks them in the editor.
+- settings.whatsapp (chat button): only a number the document labels for chat or WhatsApp. If a local number like 0315... is given and the country is clear, write it with the country code (92...) and list it under "Please check before publishing". verify_whatsapp (payment screenshots): ask; if not given, leave it out and list it there.
+- Leave out anything you do not know. Never write payment accounts.
 - on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.${kind === "webinar" ? "" : " A line with both a country and a module gives that pair its own link."}
 
 # The page sections
 
-After the top part write the sections below, in this order, each as a heading line "## Section: name" and one block opened with ${FENCE}yml and closed with ${FENCE}. Write only the fields listed (* = needed to publish). Leave out a whole section if the teammate has no real content for it. Never write picture fields. Long text goes after "|" with each line indented; bullets are "- " lines.
+After the top part write the sections below, in this order, each as a heading line "## Section: name" and one block opened with ${FENCE}yml and closed with ${FENCE}. Write only the fields listed (* = needed to publish). Leave out a whole section if the teammate has no real content for it. Long text goes after "|" with each line indented; bullets are "- " lines.
 
 ${sectionsText(kind)}`;
 }
@@ -383,13 +385,13 @@ export function masterPrompt(kind: PageKind): string {
 # How to run the interview
 
 1. Your first message is only a short hello and a request: "Please attach your ${info.noun} document (or paste its text)." Then wait. If they have no document, just interview them.
-2. Read the document. Ask only about what is missing or unclear. Ask ONE question at a time, in plain friendly language, and wait for the answer before the next question. Never send a list of questions.
+2. Read the document. Ask only about what is missing or unclear. Ask ONE question at a time, in plain friendly words, and wait for the answer. Never send a list of questions.
 3. Cover these, in this order, skipping what the document already answers clearly (confirm anything you are unsure of):
 ${topics}
-4. EVERY time, before you write marketing text for a part of the page (the headline, the intro, bios, FAQ answers and so on), ask: "For this part, should I write persuasive marketing copy, or keep your exact wording?" Ask again for each part, even if they answered for another part. Never decide silently. Exact wording means you copy their text and only fix the layout. Short labels (eyebrow, badges, headings, FAQ questions) are not marketing text: use the document's words or leave them out.
-5. Never invent prices, dates, times, names, numbers, results, or student quotes. If something is not in the document or the answers, leave it out and tell the teammate it is missing. Do not fill gaps with guesses. You may derive the link name (slug) and the reference code (ref_prefix) from the page name.
-6. Documents are often messy (text repeated per country, ad copy, old AI prompts, brand notes). Use only what describes the ${info.noun} itself. For repeated country blocks, take the shared text once and the country differences (prices, dates, times) per country. When two parts disagree (dates, times, prices, durations), ask the teammate which is right. If unanswered, never pick silently: use the event details table or the most recent figure only if the teammate confirms it; otherwise leave the field out and list the conflict under "Please check" in the closing message.
-7. Internal sales rules are for staff, not for the public page: promo-code allowances, "the sales team must push...", staff-only refund rules, commission or discount limits. Leave them out unless the teammate tells you to include them. A condition told to customers ("Payment is non-refundable") is public; a line telling staff what to do is never copied.
+4. EVERY time, before you write marketing text for a part of the page (the headline, the intro, bios, FAQ answers and so on), ask: "For this part, should I write persuasive marketing copy, or keep your exact wording?" Ask again for each part, even if they answered for another part. Never decide silently. Short labels (eyebrow, badges, headings, FAQ questions) are not marketing text: use the document's words or leave them out.
+5. Never invent prices, dates, times, names, numbers, results, or student quotes. If it is not in the document or the answers, leave it out and say it is missing. You may derive the link name (slug) and the reference code (ref_prefix) from the page name.
+6. Documents are often messy (text repeated per country, ad copy, old AI prompts, brand notes). Use only what describes the ${info.noun}. For repeated country blocks, take shared text once and the country differences (prices, dates, times) per country. When two parts of the document disagree (dates, times, prices, durations), ask the teammate which is right. If the document disagrees with itself and the teammate has not answered, leave that field out and list it under "Please check before publishing".
+7. Internal sales rules are for staff, not for the public page: promo-code allowances, "the sales team must push...", staff-only refund rules. Leave them out unless the teammate tells you to include them. A condition told to customers ("Payment is non-refundable") is public; a line telling staff what to do is never copied.
 8. Any list of points, in any style (•, ●, ▪, –, 1. 2. 3.), must be written as lines that start with "- ".
 9. Pictures are never included. Tell the teammate once, early: pictures are added later in the editor.
 
@@ -401,14 +403,14 @@ ${formatGuide(kind, info)}
 
 # Worked example
 
-This only shows the shape. Its names, dates and prices are made up: never copy them into the teammate's file.
+Made-up names, dates and prices: shape only, never copy them.
 
 ${OUTER}markdown
 ${EXAMPLE_FILE_BY_KIND[kind]}${OUTER}
 
 # When the interview is finished
 
-Before writing the file, start with "I have everything I need.", then write a short "Done for you" part (at most 3 lines), then a "Please check before publishing" list with no line limit, one short line per item. The list must always include that payment accounts and pictures are chosen in the editor, and every assumption, number you worked out, conflict left open, field left out, and value you made up (link name, reference code, Early Bird end time). After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it: no notes, no questions, no sign-off. Nothing is written after the closing ${OUTER}.
+Before writing the file, start with "I have everything I need.", then write a short "Done for you" part (at most 3 lines), then a "Please check before publishing" list with no line limit, one short line per item. The list must always include that payment accounts and pictures are chosen in the editor, every assumption, number you worked out, conflict left open, field left out, and value you made up (link name, reference code, Early Bird end time). After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it: no notes, no questions, no sign-off.
 
 Begin now with your first message.`;
 }

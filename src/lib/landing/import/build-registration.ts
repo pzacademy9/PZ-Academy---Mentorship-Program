@@ -2,7 +2,7 @@
 // Maps the front-matter `registration` and `modules` of a pz-landing/1 file to the stored shapes.
 // Pure module. Messages are plain words (country / module / option), never internal terms.
 import {
-  ITEM_KEY_RE, REGION_KEY_RE, normalizeRegistration, registrationProblems,
+  ITEM_KEY_RE, MAX_GROUP_SIZE, REGION_KEY_RE, normalizeRegistration, registrationProblems,
   type OptionDef, type PriceCell, type RegionDef, type RegistrationConfig, type TierDef,
 } from "../registration/config";
 import { MODULE_KEY_RE, type ModuleDef } from "../variants";
@@ -70,12 +70,19 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
   const tiers: TierDef[] = asList(reg.tiers).filter((t) => { const k = text(t.key); if (BAD_KEYS.has(k)) { reserved(k); return false; } return true; }).map((t) => {
     const size = finite(t.size);
     const min = size ?? finite(t.min) ?? 2;
-    const max = size ?? finite(t.max) ?? min;
+    const max = size ?? finite(t.max) ?? (finite(t.min) !== undefined ? MAX_GROUP_SIZE : min);
     return { key: text(t.key), label: text(t.label), minSize: min, maxSize: max, percentOff: finite(t.percent_off) ?? 0 };
   });
 
   // ---- prices
   const readMoney = (v: unknown, what: string): number | undefined => {
+    const n = readRawMoney(v, what);
+    if (n === undefined || Number.isInteger(n)) return n;
+    const whole = Math.round(n);
+    warn(`${what}: ${n} was rounded to ${whole} because prices must be whole numbers.`);
+    return whole;
+  };
+  const readRawMoney = (v: unknown, what: string): number | undefined => {
     if (v === undefined || v === null || v === "") return undefined;
     const n = finite(v);
     if (n !== undefined && n >= 0) return n;
