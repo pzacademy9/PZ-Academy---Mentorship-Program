@@ -152,8 +152,6 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
   }
   const faq = content.sections.find((s) => s.type === "faq");
   if (!faq || (faq.data.items as unknown[]).length === 0) warn("The page has no questions and answers (FAQ).");
-  const hasEarly = Object.values(content.registration.prices).some((row) => Object.values(row).some((c) => c.earlyAmount !== undefined));
-  if (hasEarly && content.registration.earlyBirdEndsAt.trim() === "") warn("An Early Bird price is given but there is no Early Bird end date.");
 
   // ---- links
   const regions = content.registration.regions;

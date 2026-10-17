@@ -83,7 +83,6 @@ describe("dry-run fixtures (final prompts): ppc-batch-3 (course)", () => {
       "Choose at least one payment account for India.",
       "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
       "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
-      "An Early Bird price is given but there is no Early Bird end date.",
     ]);
   });
 });
@@ -127,7 +126,6 @@ describe("dry-run fixtures (final prompts): mdc-batch-3 (workshop)", () => {
       "Choose at least one payment account for UAE.",
       "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
       "The page has no questions and answers (FAQ).",
-      "An Early Bird price is given but there is no Early Bird end date.",
     ]);
   });
 });

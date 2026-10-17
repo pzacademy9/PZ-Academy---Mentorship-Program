@@ -226,3 +226,18 @@ describe("buildImport", () => {
     expect(b.warnings.some((w) => /has no dates/.test(w.message))).toBe(false);
   });
 });
+
+describe("Early Bird without an end date", () => {
+  it("is reported exactly once", () => {
+    const raw = file(noModules(`registration:
+  regions:
+    - { code: UAE, name: UAE, currency: AED }
+  options:
+    - { key: full, name: Full Course, kind: bundle }
+  prices:
+    full: { UAE: { amount: 200, early: 160 } }
+`));
+    const b = ok(raw);
+    expect(b.warnings.filter((w) => /Early Bird/.test(w.message))).toHaveLength(1);
+  });
+});
