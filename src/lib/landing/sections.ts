@@ -19,7 +19,8 @@ export const SECTION_TYPES = [
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
-export type FieldKind = "text" | "textarea" | "image" | "youtube" | "url" | "list" | "module";
+export type FieldKind = "text" | "textarea" | "image" | "youtube" | "url" | "list" | "module"
+  | "choice" | "sectionRef" | "whatsapp";
 
 export interface FieldDef {
   key: string;
@@ -33,6 +34,12 @@ export interface FieldDef {
   itemFields?: FieldDef[];
   itemLabel?: string;
   maxItems?: number;
+  /** For kind "choice": the allowed values and their plain-word labels. */
+  options?: { value: string; label: string }[];
+  /** Show this field in the editor only while another field of the same section has this value. */
+  showWhen?: { key: string; equals: string };
+  /** Soft recommended maximum length; the editor warns but never blocks. */
+  hintLength?: number;
 }
 
 export interface SectionDef {
@@ -54,18 +61,36 @@ const list = (key: string, label: string, itemFields: FieldDef[], o: Partial<Fie
   key, label, kind: "list", itemFields, maxItems: 40, ...o,
 });
 
+const choice = (key: string, label: string, options: { value: string; label: string }[], defaultValue: string, o: Partial<FieldDef> = {}): FieldDef => ({
+  key, label, kind: "choice", options, defaultValue, ...o,
+});
+
 const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
   hero: {
     type: "hero", label: "Hero (top of page)", description: "The big opening: headline, short text, picture and the Register button.",
     fields: [
-      text("eyebrow", "Small line above the headline", { example: "LIVE WORKSHOP · 4–7 SEPTEMBER" }),
-      text("headline", "Headline", { required: true, max: 120, example: "Master Diabetes Pharmacotherapy" }),
-      area("subheadline", "Short description", { max: 400, help: "One or two sentences under the headline." }),
-      image("image", "Picture", { help: "Best at least 1200 px wide. It is resized for phones automatically." }),
+      text("eyebrow", "Small line above the headline", { example: "LIVE WORKSHOP · 4–7 SEPTEMBER", hintLength: 50 }),
+      text("headline", "Headline", { required: true, max: 120, example: "Master Diabetes Pharmacotherapy", hintLength: 70 }),
+      area("subheadline", "Short description", { max: 400, help: "One or two sentences under the headline.", hintLength: 220 }),
+      choice("heroStyle", "Hero style", [
+        { value: "photo", label: "Photo with text on top" },
+        { value: "poster", label: "Finished poster" },
+        { value: "classic", label: "Picture beside text (old style)" },
+      ], "photo"),
+      image("imagePc", "Picture for computers (wide, 16:9)", { help: "Best at least 1600 px wide." }),
+      image("imagePhone", "Picture for phones (tall, 9:16)", { help: "Best at least 900 px wide." }),
+      image("image", "Picture", { help: "Best at least 1200 px wide. It is resized for phones automatically.", showWhen: { key: "heroStyle", equals: "classic" } }),
       text("primaryCtaLabel", "Main button text", { max: 40, example: "Register now", help: "Leave empty to use the Register button text from Page settings." }),
       text("secondaryCtaLabel", "Second button text (optional)", { max: 40, example: "Watch preview" }),
-      link("secondaryCtaUrl", "Second button link (optional)", { help: "Starts with https://" }),
-      text("dateLine", "Date and time line", { example: "Wednesday, 16 September · 7:30 PM PKT" }),
+      choice("secondaryCtaType", "Second button does", [
+        { value: "section", label: "Go to a section" },
+        { value: "link", label: "Open a link" },
+        { value: "whatsapp", label: "Chat on WhatsApp" },
+      ], "link"),
+      { key: "secondaryCtaSection", label: "Section to go to", kind: "sectionRef", showWhen: { key: "secondaryCtaType", equals: "section" } },
+      link("secondaryCtaUrl", "Second button link (optional)", { help: "Starts with https://", showWhen: { key: "secondaryCtaType", equals: "link" } }),
+      { key: "secondaryCtaWhatsapp", label: "WhatsApp number", kind: "whatsapp", help: "Digits only, with country code, like 923700199429.", example: "923700199429", showWhen: { key: "secondaryCtaType", equals: "whatsapp" } },
+      text("dateLine", "Date and time line", { example: "Wednesday, 16 September · 7:30 PM PKT", hintLength: 60 }),
       list("badges", "Highlights under the buttons", [text("text", "Highlight", { max: 60 })], { itemLabel: "Highlight", maxItems: 6 }),
     ],
   },
@@ -195,7 +220,22 @@ function withModuleTags(defs: Record<SectionType, SectionDef>): Record<SectionTy
   return out;
 }
 
-export const SECTION_DEFS: Record<SectionType, SectionDef> = withModuleTags(BASE_SECTION_DEFS);
+/** Adds the "Text size" choice to the end of every section. */
+function withTextSize(defs: Record<SectionType, SectionDef>): Record<SectionType, SectionDef> {
+  const out = { ...defs };
+  for (const t of SECTION_TYPES) {
+    out[t] = {
+      ...defs[t],
+      fields: [...defs[t].fields, choice("textSize", "Text size", [
+        { value: "normal", label: "Normal" },
+        { value: "small", label: "Smaller" },
+      ], "normal")],
+    };
+  }
+  return out;
+}
+
+export const SECTION_DEFS: Record<SectionType, SectionDef> = withTextSize(withModuleTags(BASE_SECTION_DEFS));
 
 // ---------------------------------------------------------------- derived
 
@@ -216,6 +256,15 @@ export function fieldSchema(f: FieldDef): z.ZodTypeAny {
     case "module":
       // Optional on input so content saved before module tags existed still validates.
       return z.string().max(f.max ?? 40).default("");
+    case "choice": {
+      const values = (f.options ?? []).map((o) => o.value);
+      // Optional on input so content saved before these fields existed still validates.
+      return values.length > 0 ? z.enum(values as [string, ...string[]]).default(f.defaultValue ?? values[0]) : z.string().max(40);
+    }
+    case "sectionRef":
+      return z.string().max(64).default("");
+    case "whatsapp":
+      return z.string().regex(/^(\d{8,15})?$/, "Digits only, with country code, like 923700199429").default("");
     case "image":
       return z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://");
     case "url":
@@ -255,5 +304,12 @@ function normalizeItem(fields: FieldDef[], raw: unknown): Record<string, unknown
 
 /** Tolerant: per-field fallback to defaults, unknown keys dropped, never throws. */
 export function normalizeSectionData(type: SectionType, raw: unknown): Record<string, unknown> {
-  return normalizeItem(SECTION_DEFS[type].fields, raw);
+  const out = normalizeItem(SECTION_DEFS[type].fields, raw);
+  if (type === "hero") {
+    const src = isRecord(raw) ? raw : {};
+    // Pages saved before hero styles existed: keep their picture-beside-text look and link button.
+    if (!("heroStyle" in src) && typeof src.image === "string" && src.image !== "") out.heroStyle = "classic";
+    if (!("secondaryCtaType" in src) && typeof src.secondaryCtaUrl === "string" && src.secondaryCtaUrl !== "") out.secondaryCtaType = "link";
+  }
+  return out;
 }
