@@ -48,9 +48,10 @@ export function LandingRenderer({
 
   // Render each enabled section once; a section with nothing to show returns null and is dropped
   // (so it also gets no wrapper and no nav anchor).
-  const rendered = c.sections
-    .filter((s: LandingSection) => s.enabled)
-    .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register }) }))
+  const enabledSections = c.sections.filter((s: LandingSection) => s.enabled);
+  const sectionIds = enabledSections.map((s) => s.id);
+  const rendered = enabledSections
+    .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register, sectionIds }) }))
     .filter((r) => r.node !== null && r.node !== undefined && r.node !== false);
 
   // Top-nav anchors: one per label (first section wins), so two "About" blocks show once.
