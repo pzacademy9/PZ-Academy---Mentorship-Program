@@ -75,11 +75,14 @@ function PhotoHero({ data, register, sectionIds, pc, phone }: SectionProps & { p
   const ink = hasImage ? "text-white" : "text-landing-deep";
 
   return (
-    <div className={`relative isolate overflow-hidden border-b border-landing-border ${hasImage ? "flex min-h-[34rem] flex-col justify-end bg-landing-deep md:min-h-[32rem]" : "bg-gradient-to-b from-landing-surface-container-lowest to-landing-surface"}`}>
+    <div className={`relative isolate border-b border-landing-border ${hasImage ? "flex min-h-[34rem] flex-col justify-end bg-landing-deep md:min-h-[32rem]" : "bg-gradient-to-b from-landing-surface-container-lowest to-landing-surface"}`}>
       {hasImage ? (
         <>
-          <LandingPicture pc={pc} phone={phone} alt="" fit="cover" priority className="!absolute inset-0 -z-10 !aspect-auto md:!aspect-auto" />
-          <div aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/55 to-black/35" />
+          {/* Only the picture layer is clipped, so the Register menu can open past the hero edge. */}
+          <div aria-hidden="true" className="absolute inset-0 -z-10 overflow-hidden">
+            <LandingPicture pc={pc} phone={phone} alt="" fit="cover" priority className="!absolute inset-0 !aspect-auto md:!aspect-auto" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/35" />
+          </div>
         </>
       ) : null}
       <div className={`mx-auto w-full max-w-7xl px-4 pb-8 pt-16 md:px-6 lg:py-20 ${ink}`}>

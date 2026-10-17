@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
+import { render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string; children: React.ReactNode }) => <a href={href} {...r}>{children}</a> }));
 
+import { LandingRenderer } from "@/components/landing/LandingRenderer";
+import { emptyContent, normalizeContent, type LandingContent } from "@/lib/landing/content";
 import { Hero } from "@/components/landing/sections/Hero";
 import { OLD } from "./fixtures/hero-old-data";
 
@@ -103,4 +107,58 @@ describe("second button", () => {
     expect(html({ ...base, heroStyle: "poster", imagePc: PC, secondaryCtaLabel: "More", secondaryCtaType: "whatsapp", secondaryCtaWhatsapp: "923001112222" })).toContain("wa.me/923001112222");
     expect(html({ ...base, heroStyle: "classic", image: PC, secondaryCtaLabel: "More", secondaryCtaType: "section", secondaryCtaSection: "a" }, ["a"])).toContain('href="#a"');
   });
+});
+
+const page = (sections: { id: string; type: string; enabled: boolean; data: Record<string, unknown> }[]): LandingContent => {
+  const c = emptyContent("course");
+  return normalizeContent({ ...c, sections });
+};
+const renderPage = (c: LandingContent) => renderToStaticMarkup(<LandingRenderer content={c} status="published" kind="course" />);
+
+describe("text size", () => {
+  it("data-text-size=small appears only on sections set to small", () => {
+    const out = renderPage(page([
+      { id: "s-hero", type: "hero", enabled: true, data: { headline: "H", textSize: "small" } },
+      { id: "s-faq", type: "faq", enabled: true, data: { items: [{ q: "q", a: "a" }], textSize: "normal" } },
+    ]));
+    expect(out.match(/data-text-size="small"/g)).toHaveLength(1);
+    expect(out).toMatch(/<section[^>]*id="s-hero"[^>]*data-text-size="small"|<section[^>]*data-text-size="small"[^>]*id="s-hero"/);
+    expect(out).not.toMatch(/<section[^>]*id="s-faq"[^>]*data-text-size/);
+  });
+  it("sections wrap long words", () => {
+    expect(renderPage(page([{ id: "s-hero", type: "hero", enabled: true, data: { headline: "H" } }]))).toMatch(/<section[^>]*id="s-hero"[^>]*class="[^"]*break-words/);
+  });
+});
+
+describe("dead anchors", () => {
+  const hero = { id: "s-hero", type: "hero", enabled: true, data: { headline: "H", secondaryCtaLabel: "Jump", secondaryCtaType: "section", secondaryCtaSection: "s-faq" } };
+  it("a target that renders nothing hides the second button", () => {
+    const out = renderPage(page([hero, { id: "s-faq", type: "faq", enabled: true, data: { items: [] } }]));
+    expect(out).not.toContain(">Jump<");
+    expect(out).not.toContain('href="#s-faq"');
+  });
+  it("a target that renders keeps the button", () => {
+    const out = renderPage(page([hero, { id: "s-faq", type: "faq", enabled: true, data: { items: [{ q: "q", a: "a" }] } }]));
+    expect(out).toContain('href="#s-faq"');
+  });
+});
+
+describe("Register menu is never clipped", () => {
+  const two = { ...register, builtIn: true, modes: ["live", "recorded"] as ("live" | "recorded")[] };
+  const cases: [string, Record<string, unknown>][] = [
+    ["photo with picture", { ...base, heroStyle: "photo", imagePc: PC }],
+    ["photo no picture", { ...base, heroStyle: "photo" }],
+    ["poster", { ...base, heroStyle: "poster", imagePc: PC }],
+    ["classic", { ...OLD }],
+  ];
+  for (const [name, data] of cases) {
+    it(`${name}: no overflow-hidden between the buttons and the hero root`, () => {
+      const { container } = render(<>{Hero({ data, register: two })}</>);
+      const btn = container.querySelector("[aria-haspopup='menu']")!;
+      expect(btn).not.toBeNull();
+      for (let el: Element | null = btn.parentElement; el && el !== container; el = el.parentElement) {
+        expect(el.className).not.toMatch(/overflow-hidden/);
+      }
+    });
+  }
 });

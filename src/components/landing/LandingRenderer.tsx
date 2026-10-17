@@ -49,10 +49,13 @@ export function LandingRenderer({
   // Render each enabled section once; a section with nothing to show returns null and is dropped
   // (so it also gets no wrapper and no nav anchor).
   const enabledSections = c.sections.filter((s: LandingSection) => s.enabled);
-  const sectionIds = enabledSections.map((s) => s.id);
-  const rendered = enabledSections
+  const shown = (node: React.ReactNode) => node !== null && node !== undefined && node !== false;
+  const renderAll = (sectionIds: string[]) => enabledSections
     .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register, sectionIds }) }))
-    .filter((r) => r.node !== null && r.node !== undefined && r.node !== false);
+    .filter((r) => shown(r.node));
+  // Two passes: the hero's "go to a section" button may only point at sections that really appear
+  // (a section with nothing to show is dropped), so the second pass gets the ids that survived the first.
+  const rendered = renderAll(renderAll(enabledSections.map((s) => s.id)).map((r) => r.section.id));
 
   // Top-nav anchors: one per label (first section wins), so two "About" blocks show once.
   const seen = new Set<string>();
@@ -95,7 +98,12 @@ export function LandingRenderer({
 
       <main>
         {rendered.map(({ section, node }) => (
-          <section key={section.id} id={section.id} className="scroll-mt-28">
+          <section
+            key={section.id}
+            id={section.id}
+            className="scroll-mt-28 break-words"
+            {...(section.data.textSize === "small" ? { "data-text-size": "small" } : {})}
+          >
             {node}
           </section>
         ))}
