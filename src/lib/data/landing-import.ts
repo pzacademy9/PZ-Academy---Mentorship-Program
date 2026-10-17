@@ -2,7 +2,7 @@
 // Create-only import: builds a page from a pz-landing/1 file, then every possible link (off by default).
 import "server-only";
 import { buildImport, type ImportLink } from "@/lib/landing/import/build-content";
-import { createLandingPage } from "@/lib/data/landing-pages";
+import { createLandingPage, getLandingPage, type LandingPage } from "@/lib/data/landing-pages";
 import { ensureVariant, saveVariantDraft, setVariantEnabled, type LandingVariant } from "@/lib/data/landing-variants";
 import type { LandingContent } from "@/lib/landing/content";
 import type { VariantOverrides } from "@/lib/landing/variants";
@@ -36,9 +36,10 @@ function linkLabel(link: ImportLink, content: LandingContent): string {
   return parts.join(", ");
 }
 
-async function createLink(pageId: string, link: ImportLink, heroId: string | undefined): Promise<boolean> {
+async function createLink(pageId: string, link: ImportLink, heroId: string | undefined, page?: LandingPage): Promise<boolean> {
   const ref = { regionKey: link.regionKey, moduleKey: link.moduleKey };
-  const ensured = await ensureVariant(pageId, ref, false);
+  // The page draft does not change during an import, so the first read can be reused for every link.
+  const ensured = await ensureVariant(pageId, ref, false, page);
   if (!ensured.ok) return false;
   let variant: LandingVariant = ensured.variant;
   if (heroId && (link.heroTitle || link.heroSubtitle)) {
@@ -83,6 +84,12 @@ export async function importLandingPage(userId: string, raw: string): Promise<Im
   const warnings = built.warnings.map((w) => w.message);
   let linksCreated = 0;
   const linksFailed: string[] = [];
+  let page: LandingPage | undefined;
+  try {
+    page = (await getLandingPage(pageId)) ?? undefined;
+  } catch {
+    page = undefined; // ensureVariant reads it itself
+  }
   // Sequential on purpose (keeps order, avoids races); costs O(links) queries.
   for (const link of built.links) {
     if (!heroId && (link.heroTitle || link.heroSubtitle)) {
@@ -90,7 +97,7 @@ export async function importLandingPage(userId: string, raw: string): Promise<Im
     }
     let ok = false;
     try {
-      ok = await createLink(pageId, link, heroId);
+      ok = await createLink(pageId, link, heroId, page);
     } catch {
       ok = false;
     }

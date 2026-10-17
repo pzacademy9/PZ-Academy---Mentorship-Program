@@ -5,7 +5,11 @@ const createLandingPage = vi.fn();
 const ensureVariant = vi.fn();
 const saveVariantDraft = vi.fn();
 const setVariantEnabled = vi.fn();
-vi.mock("@/lib/data/landing-pages", () => ({ createLandingPage: (...a: unknown[]) => createLandingPage(...a) }));
+const getLandingPage = vi.fn();
+vi.mock("@/lib/data/landing-pages", () => ({
+  createLandingPage: (...a: unknown[]) => createLandingPage(...a),
+  getLandingPage: (...a: unknown[]) => getLandingPage(...a),
+}));
 vi.mock("@/lib/data/landing-variants", () => ({
   ensureVariant: (...a: unknown[]) => ensureVariant(...a),
   saveVariantDraft: (...a: unknown[]) => saveVariantDraft(...a),
@@ -35,6 +39,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   buildImport.mockReturnValue(built());
   createLandingPage.mockResolvedValue({ ok: true, id: "p1" });
+  getLandingPage.mockResolvedValue({ id: "p1", draft: { sections: [] } });
   let n = 0;
   ensureVariant.mockImplementation(async () => variant(`v${++n}`, { sections: { hero1: { fields: { headline: "Seeded" } } } }));
   saveVariantDraft.mockResolvedValue({ ok: true, revision: 5 });
@@ -47,7 +52,8 @@ describe("importLandingPage", () => {
     expect(r).toEqual({ ok: true, pageId: "p1", slug: "my-page", slugChanged: false, warnings: ["W1"], linksCreated: 3, linksFailed: [] });
     expect(createLandingPage).toHaveBeenCalledWith("u1", { title: "T", slug: "my-page", kind: "course", content });
     expect(ensureVariant).toHaveBeenCalledTimes(3);
-    expect(ensureVariant).toHaveBeenNthCalledWith(2, "p1", { regionKey: null, moduleKey: "m2" }, false);
+    expect(getLandingPage).toHaveBeenCalledTimes(1); // read once, reused for every link
+    expect(ensureVariant).toHaveBeenNthCalledWith(2, "p1", { regionKey: null, moduleKey: "m2" }, false, { id: "p1", draft: { sections: [] } });
     expect(setVariantEnabled).toHaveBeenCalledTimes(1);
     expect(setVariantEnabled).toHaveBeenCalledWith("v2", true);
     expect(saveVariantDraft).toHaveBeenCalledWith("v2", { sections: { hero1: { fields: { headline: "Hello", subheadline: "Sub" } } } }, 4);

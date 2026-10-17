@@ -64,10 +64,11 @@ headline: ...
 
 ## Importer result
 
-`{ ok: false, errors[] }` (blocking, nothing created) or `{ ok: true, pageId, slug, slugChanged, warnings[], variantsCreated }`.
+`{ ok: false, errors[] }` (blocking, nothing created) or `{ ok: true, pageId, slug, slugChanged, warnings[] (strings), linksCreated, linksFailed[] (names of links that could not be created) }`.
+A module's `days` may be written as a number or a quoted number ("3"); link `hero_title` / `hero_subtitle` longer than the hero headline (120) / subheadline (400) limits block the import.
 Messages are plain words, naming the heading, module or country. No jargon (link / country / module only).
 
-Blocking: wrong `format`, bad YAML (names the heading), unknown kind or section type, duplicate codes, price for a
+Blocking: wrong `format`, bad YAML (names the heading), unknown kind or section type, duplicate codes (countries, options, modules, group discounts), price for a
 country/option that does not exist, link to a country/module that does not exist, content that fails the page schema.
 Warnings (import still happens; each stale-prone field also added to `needsReview`): module with no dates, missing price,
 no FAQ, Early Bird price with no end date, country with no payment account.

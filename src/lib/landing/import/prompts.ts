@@ -5,9 +5,21 @@
 import { KIND_SECTIONS, type PageKind } from "../content";
 import { SECTION_DEFS, type FieldDef, type SectionType } from "../sections";
 
-export const IMPORT_FORMAT_ID = "pz-landing/1";
+import { IMPORT_FORMAT_ID } from "./format";
+export { IMPORT_FORMAT_ID };
 
 const FENCE = "```";
+
+/** Length limits that matter for text the AI writes, read from the section definitions. */
+function limitsLine(): string {
+  const max = (type: SectionType, key: string, sub?: string): number | undefined => {
+    const f = SECTION_DEFS[type].fields.find((x) => x.key === key);
+    return (sub ? f?.itemFields?.find((x) => x.key === sub) : f)?.max;
+  };
+  const hl = max("hero", "headline") ?? 120;
+  const sl = max("hero", "subheadline") ?? 400;
+  return `- Limits (letters): seo title 120, seo description 300, hero headline and hero_title ${hl}, hero subheadline and hero_subtitle ${sl}, FAQ question ${max("faq", "items", "q") ?? 200}, FAQ answer ${max("faq", "items", "a") ?? 1500}.`;
+}
 const OUTER = "````";
 
 // ---------------------------------------------------------------- sections (derived)
@@ -317,11 +329,11 @@ export const EXAMPLE_FILE_BY_KIND: Record<PageKind, string> = {
 
 function formatGuide(kind: PageKind, info: KindInfo): string {
   const hasModules = info.frontExtra !== "";
-  const modulesLine = hasModules ? `\n${info.frontExtra}          # days is a plain number, not in quotes; key: small letters, digits, single dashes` : "";
+  const modulesLine = hasModules ? `\n${info.frontExtra}          # days: a number; key: small letters, digits, single dashes` : "";
   const options = hasModules
     ? "    - { key: full, name: Full Course, kind: bundle }\n    - { key: m1, name: Module 1, kind: module }"
     : `    - { key: full, name: ${kind === "webinar" ? "Webinar Seat" : "Workshop Seat"}, kind: bundle }`;
-  const mix = hasModules ? "\n  module_mix: { enabled: true, bundle: full }   # only if students can mix modules" : "";
+  const mix = hasModules ? "\n  module_mix: { enabled: true, bundle: full }   # only if modules can be mixed" : "";
   const linkLines = "  - { country: UAE, on: true }" + (hasModules ? '\n  - { module: module-1, on: true, hero_title: "Module 1: Foundations", hero_subtitle: "..." }\n  - { country: UAE, module: module-1, on: true }' : "");
   return `# The file you must write
 
@@ -336,14 +348,14 @@ seo: { title: "...", description: "..." }
 settings:
   register_label: Register now
   whatsapp: "923001234567"      # chat button; digits only, in quotes, with country code
-  countdown_to: 2026-10-25T23:59:00+04:00   # optional, with time zone
+  countdown_to: 2026-10-25T23:59:00+04:00   # optional
   countdown_label: Early Bird ends in
 registration:
   modes: [live, recorded]       # leave out if only Live
-  recorded_percent: 60          # only if the teammate says so
+  recorded_percent: 60          # only if told
   default_region: UAE
   early_bird_ends: 2026-10-25T23:59:00+04:00
-  verify_whatsapp: "923001234567"   # where students send their payment screenshot
+  verify_whatsapp: "923001234567"   # payment screenshots go here
   event_label: Short event name
   ref_prefix: ABC               # 2 to 6 capital letters or digits
   regions:                   
@@ -362,14 +374,15 @@ ${FENCE}
 
 Rules for that top part:
 - Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals. Write group_totals (the total for the whole group, not per person; early_group_totals for the Early Bird price) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" write only min: N (no max). Also write percent_off whenever the document states a percentage (totals apply only to Live, single-option purchases). Use whole numbers only.
-- Country codes are 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
+- Country codes: 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
 - Every country used in prices or links must be in regions; every option in prices must be in options.${hasModules ? " Every module's option must be in options." : ""}
-- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone (the country in default_region) and list it under "Please check before publishing".
+- Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone and list it under "Please check before publishing".
 - Quoting: put any text in double quotes if it has a comma, a colon, a # or starts with a symbol such as * @ & ! - ; when unsure, quote it.
 - default_region is the main country: the first or largest audience in the document. If a date has no year, use the year of the event dates and list it under "Please check before publishing".
 - Several countries: pricing_cards price must NOT show one country's currency as if it applied to all. Write price: See price for your country (a Free plan may say Free); the real prices go in registration prices. One country only: the card may show the amount.
 - settings.whatsapp (chat button): only a number the document labels for chat or WhatsApp. If a local number like 0315... is given and the country is clear, write it with the country code (92...) and list it under "Please check before publishing". verify_whatsapp (payment screenshots): ask; if not given, leave it out and list it there.
-- Leave out anything you do not know. Never write payment accounts.
+- Leave out what you do not know. Never write payment accounts.
+${limitsLine()}
 - on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.${kind === "webinar" ? "" : " A line with both a country and a module gives that pair its own link."}
 
 # The page sections

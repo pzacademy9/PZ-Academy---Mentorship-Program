@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import {
@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 const MAX_CHARS = 400_000;
 const FIELD_LABEL = "font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant";
 const NETWORK_ERROR = "Could not reach the server. Please try again.";
+const MAYBE_DONE = "The import may not have finished. Check the Landing Pages list before trying again.";
+const TOO_BIG_FILE = "That file is too big to import";
 
 type ImportResult = {
   pageId: string;
@@ -29,6 +31,7 @@ export function ImportPageDialog({ onClose }: { onClose: () => void }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const inFlight = useRef(false);
 
   function finish() {
     if (loading) return;
@@ -36,14 +39,21 @@ export function ImportPageDialog({ onClose }: { onClose: () => void }) {
     onClose();
   }
 
-  async function onFile(file: File | undefined) {
+  async function onFile(input: HTMLInputElement) {
+    const file = input.files?.[0];
     if (!file) return;
     setErrors([]);
     setNotice(null);
     try {
-      setText(await file.text());
+      if (file.size > MAX_CHARS) {
+        setNotice(TOO_BIG_FILE);
+      } else {
+        setText(await file.text());
+      }
     } catch {
       setNotice("Could not read that file. Please try another one.");
+    } finally {
+      input.value = ""; // lets the same file be chosen again
     }
   }
 
@@ -54,6 +64,8 @@ export function ImportPageDialog({ onClose }: { onClose: () => void }) {
       setNotice("This text is too long to import (the limit is 400,000 characters). Please shorten it.");
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setLoading(true);
     try {
       const res = await fetch("/api/admin/landing-pages/import", {
@@ -74,11 +86,13 @@ export function ImportPageDialog({ onClose }: { onClose: () => void }) {
       } else if (payload && Array.isArray(payload.errors) && payload.errors.length > 0) {
         setErrors(payload.errors.map(String));
       } else {
-        setNotice(NETWORK_ERROR);
+        // The server answered but not with a readable result (for example a timeout page): the page may exist.
+        setNotice(MAYBE_DONE);
       }
     } catch {
       setNotice(NETWORK_ERROR);
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   }
@@ -140,7 +154,7 @@ export function ImportPageDialog({ onClose }: { onClose: () => void }) {
                 type="file"
                 accept=".md,.txt"
                 disabled={loading}
-                onChange={(e) => void onFile(e.target.files?.[0])}
+                onChange={(e) => void onFile(e.currentTarget)}
                 className="block w-full text-sm text-pz-on-surface file:mr-3 file:rounded-md file:border-0 file:bg-pz-surface-container-high file:px-3 file:py-2 file:text-sm file:font-medium file:text-pz-on-surface max-md:min-h-11"
               />
             </div>

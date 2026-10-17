@@ -241,3 +241,47 @@ describe("Early Bird without an end date", () => {
     expect(b.warnings.filter((w) => /Early Bird/.test(w.message))).toHaveLength(1);
   });
 });
+
+describe("buildImport: final review fixes", () => {
+  it("accepts a quoted numeric module days and stores a number", () => {
+    const b = ok(file(FRONT.replace("days: 3, option: m2", 'days: "4", option: m2')));
+    expect(b.content.modules.find((m) => m.key === "module-2")?.days).toBe(4);
+    const e = errs(file(FRONT.replace("days: 3, option: m2", 'days: "abc", option: m2')));
+    expect(e.join(" ")).toContain("module-2: the number of days must be a whole number from 0 to 60.");
+  });
+
+  it("blocks a link hero title or subtitle that is too long, naming the link", () => {
+    const t = errs(file(FRONT.replace('hero_title: "Module 2: Therapeutics"', `hero_title: "${"t".repeat(121)}"`)));
+    expect(t.join(" ")).toContain("The hero title for module-2 is too long (max 120 letters).");
+    const s = errs(file(FRONT.replace('hero_subtitle: "Deep dive"', `hero_subtitle: "${"s".repeat(401)}"`)));
+    expect(s.join(" ")).toContain("The hero subtitle for module-2 is too long (max 400 letters).");
+  });
+
+  it("blocks two group discounts with the same code", () => {
+    const front = FRONT.replace("  prices:", "  tiers:\n    - { key: g3, label: A, size: 3, percent_off: 10 }\n    - { key: g3, label: B, size: 4, percent_off: 12 }\n  prices:");
+    expect(errs(file(front)).join(" ")).toContain('Two group discounts use the same code "g3"');
+  });
+
+  it("warns plainly when values would be cut or clamped", () => {
+    const front = FRONT
+      .replace("currency: AED", "currency: DIRHAM")
+      .replace("  prices:", `  ref_prefix: ABCDEFGH\n  verify_whatsapp: "${"9".repeat(21)}"\n  tiers:\n    - { key: g3, label: Big, size: 3, percent_off: 95 }\n  prices:`);
+    const msgs = ok(file(front)).warnings.map((w) => w.message).join(" | ");
+    expect(msgs).toContain("is not a 3-letter code");
+    expect(msgs).toContain("longer than 6 characters");
+    expect(msgs).toContain("longer than 20 digits");
+    expect(msgs).toContain("lowered to 90%");
+  });
+
+  it("warns when there are more than 12 countries or options, or 6 group discounts", () => {
+    const regions = Array.from({ length: 13 }, (_, i) => `    - { code: C${String.fromCharCode(65 + i)}, name: N${i}, currency: AED }`).join("\n");
+    const options = Array.from({ length: 13 }, (_, i) => `    - { key: o${i}, name: O${i}, kind: bundle }`).join("\n");
+    const tiers = Array.from({ length: 7 }, (_, i) => `    - { key: t${i}, label: T${i}, size: ${i + 2}, percent_off: 5 }`).join("\n");
+    const front = `format: pz-landing/1\nkind: course\ntitle: Big\nregistration:\n  regions:\n${regions}\n  options:\n${options}\n  tiers:\n${tiers}\n`;
+    const r = buildImport(file(front));
+    const msgs = (r.ok ? r.built.warnings.map((w) => w.message) : r.errors).join(" | ");
+    expect(msgs).toContain("13 countries; only the first 12");
+    expect(msgs).toContain("13 options; only the first 12");
+    expect(msgs).toContain("7 group discounts; only the first 6");
+  });
+});

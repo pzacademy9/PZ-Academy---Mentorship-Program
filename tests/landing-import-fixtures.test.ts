@@ -1,6 +1,5 @@
 // Round-2 blind dry-run: three raw chat answers produced by simulated AI runs of the FINAL master prompts
-// against the teammate's real databases (round-1 answers are kept in
-// .superpowers/sdd/2026-10-17-landing-import-a/dry-run/round1/). Fixtures are read as-is, including the
+// against the teammate's real databases. Fixtures are read as-is, including the
 // chat summary lines before the fenced block. Fields the documents contradict themselves on are left out
 // by the AI and listed under "Please check before publishing"; the warning snapshots below pin what that
 // means for the importer. See task-10-report.md for the analysis.

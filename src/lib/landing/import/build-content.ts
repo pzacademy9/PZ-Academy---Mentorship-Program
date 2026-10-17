@@ -7,7 +7,7 @@ import {
 } from "../content";
 import { SECTION_DEFS, SECTION_TYPES, sectionDataSchema, type FieldDef, type SectionType } from "../sections";
 import { slugify, validateSlug } from "../slug";
-import { buildRegistration } from "./build-registration";
+import { buildRegistration, daysOf } from "./build-registration";
 import { parseImportFile, type ImportProblem } from "./parse";
 
 export interface ImportLink { regionKey: string | null; moduleKey: string | null; on: boolean; heroTitle?: string; heroSubtitle?: string }
@@ -72,7 +72,8 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
     if (text(rm.title).length > 120) error(`${name}: the title is too long (max 120 letters).`);
     if (text(rm.format).length > 60) error(`${name}: the format is too long (max 60 letters).`);
     const d = rm.days;
-    if (d !== undefined && d !== null && d !== "" && !(typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 60)) {
+    const dn = daysOf(d);
+    if (d !== undefined && d !== null && d !== "" && !(dn !== undefined && Number.isInteger(dn) && dn >= 0 && dn <= 60)) {
       error(`${name}: the number of days must be a whole number from 0 to 60.`);
     }
   }
@@ -182,6 +183,12 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
     delete target.heroSubtitle;
     const ht = text(entry.hero_title);
     const hs = text(entry.hero_subtitle);
+    const heroFields = SECTION_DEFS.hero.fields;
+    const htMax = heroFields.find((f) => f.key === "headline")?.max;
+    const hsMax = heroFields.find((f) => f.key === "subheadline")?.max;
+    const who = name || "A link";
+    if (htMax && ht.length > htMax) error(`The hero title for ${who} is too long (max ${htMax} letters).`);
+    if (hsMax && hs.length > hsMax) error(`The hero subtitle for ${who} is too long (max ${hsMax} letters).`);
     if (ht !== "") target.heroTitle = ht;
     if (hs !== "") target.heroSubtitle = hs;
   });

@@ -193,3 +193,23 @@ describe("normalizeBullets", () => {
     expect(normalizeBullets("**bold** text")).toBe("**bold** text");
   });
 });
+
+describe("parseImportFile: long lines do not stall", () => {
+  const timed = (raw: string) => {
+    const t = Date.now();
+    const r = parseImportFile(raw);
+    expect(Date.now() - t).toBeLessThan(1000);
+    return r;
+  };
+  it("handles a 300,000-space line in each place a line is matched", () => {
+    const sp = " ".repeat(300_000);
+    timed("```markdown" + sp + "\n" + FRONT + HERO + "```" + sp);
+    timed(FRONT + "\n## Section: hero" + sp + "\n```yaml" + sp + "\nheadline: Hi\n```" + sp + "\n");
+    timed(FRONT + "\n##" + sp + "x\n" + sp + "\n");
+  });
+  it("handles a 300,000-char junk line without hanging", () => {
+    const r = timed("x".repeat(300_000));
+    expect(r.ok).toBe(false);
+    timed(FRONT + "##" + " x".repeat(150_000) + "\n");
+  });
+});

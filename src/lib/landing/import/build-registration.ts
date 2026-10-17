@@ -22,6 +22,11 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.map(text).filter
 const finite = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 const BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const count = (v: unknown, fallback: number): number => Math.max(0, Math.round(finite(v) ?? fallback));
+/** Whole-number days; a quoted number such as "3" is accepted. */
+export const daysOf = (v: unknown): number | undefined => {
+  if (typeof v === "string" && /^\s*\d{1,3}\s*$/.test(v)) return Number(v);
+  return finite(v);
+};
 
 const PAYMENT_WA_MESSAGE = "The WhatsApp number for payment checks must be digits only";
 const PAYMENT_WA_MISSING = "The WhatsApp number for payment screenshots was not given. Add it in the editor.";
@@ -73,6 +78,27 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     const max = size ?? finite(t.max) ?? (finite(t.min) !== undefined ? MAX_GROUP_SIZE : min);
     return { key: text(t.key), label: text(t.label), minSize: min, maxSize: max, percentOff: finite(t.percent_off) ?? 0 };
   });
+
+  const tierKeys = new Set<string>();
+  for (const t of tiers) {
+    if (tierKeys.has(t.key)) error(`Two group discounts use the same code "${t.key}". Give each group discount its own code.`);
+    tierKeys.add(t.key);
+  }
+
+  // ---- things the app would otherwise silently cut or drop
+  const rawRegions = asList(reg.regions);
+  const rawOptions = asList(reg.options);
+  if (rawRegions.length > 12) warn(`The file lists ${rawRegions.length} countries; only the first 12 are kept.`);
+  if (rawOptions.length > 12) warn(`The file lists ${rawOptions.length} options; only the first 12 are kept.`);
+  if (tiers.length > 6) warn(`The file lists ${tiers.length} group discounts; only the first 6 are kept.`);
+  for (const t of tiers) {
+    if (t.percentOff > 90) warn(`The group discount "${t.label || t.key}" is ${t.percentOff}% off; it was lowered to 90%.`);
+  }
+  for (const g of regions) {
+    if (g.currency !== "" && !/^[A-Za-z]{3}$/.test(g.currency)) warn(`The currency for ${g.label.trim() || g.key} ("${g.currency}") is not a 3-letter code, so it was cut or ignored. Fix it in the editor.`);
+  }
+  if (text(reg.ref_prefix).length > 6) warn(`The reference prefix "${text(reg.ref_prefix)}" is longer than 6 characters, so it was cut short.`);
+  if (text(reg.verify_whatsapp).length > 20) warn("The WhatsApp number for payment screenshots is longer than 20 digits, so it was cut short. Check it.");
 
   // ---- prices
   const readMoney = (v: unknown, what: string): number | undefined => {
@@ -157,7 +183,7 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     }
     if (modules.some((x) => x.key === key)) { error(`Two modules use the code "${key}". Give each module its own code.`); }
     if (modules.some((x) => x.key === key)) continue;
-    modules.push({ key, title, format: text(m.format), days: count(m.days, 0), optionKey });
+    modules.push({ key, title, format: text(m.format), days: Math.max(0, Math.round(daysOf(m.days) ?? 0)), optionKey });
   }
 
   // ---- module options without a price in a country

@@ -1,6 +1,7 @@
 import { parse as parseYaml, YAMLParseError } from "yaml";
 import { SECTION_TYPES } from "@/lib/landing/sections";
 import { normalizeBullets } from "./bullets";
+import { IMPORT_FORMAT_ID } from "./format";
 
 export { normalizeBullets };
 
@@ -12,7 +13,7 @@ export interface ParsedFile {
 
 type Result = { ok: true; file: ParsedFile } | { ok: false; problems: ImportProblem[] };
 
-const FORMAT_MSG = "This file is not in the PZ Academy page format (expected pz-landing/1).";
+const FORMAT_MSG = "This file is not in the PZ Academy page format (expected " + IMPORT_FORMAT_ID + ").";
 const err = (message: string): ImportProblem => ({ level: "error", message });
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -29,6 +30,11 @@ function deepBullets(v: unknown): unknown {
 interface Cleaned { lines: string[]; orig: number[] }
 
 const FORMAT_LINE = /^format\s*:/;
+// Matchers run on trimmed text with no whitespace-run next to another (no backtracking on long space runs).
+const OUTER_OPEN_RE = /^`{3,}\s*(?:markdown|md)?$/i;
+const FENCE_CLOSE_RE = /^`{3,}$/;
+const FENCE_OPEN_RE = /^```\s*ya?ml$/i;
+const HEADING_RE = /^##\s*Section:\s*(.*)$/i;
 
 /** Strips BOM, CRLF, an outer code fence and chatter. `orig[i]` is the 1-based line in the user's file. */
 function clean(raw: string): Cleaned {
@@ -37,13 +43,13 @@ function clean(raw: string): Cleaned {
   // Outer fence (AI wrapper) before the front matter: drop it and anything before it.
   const fmt = lines.findIndex((l) => FORMAT_LINE.test(l));
   const limit = fmt >= 0 ? fmt : lines.length;
-  const open = lines.findIndex((l, i) => i < limit && /^\s*`{3,}\s*(markdown|md)?\s*$/i.test(l));
+  const open = lines.findIndex((l, i) => i < limit && OUTER_OPEN_RE.test(l.trim()));
   if (open >= 0) {
     lines = lines.slice(open + 1);
     orig = orig.slice(open + 1);
     let end = lines.length - 1;
     while (end >= 0 && lines[end].trim() === "") end--;
-    if (end >= 0 && /^\s*`{3,}\s*$/.test(lines[end])) {
+    if (end >= 0 && FENCE_CLOSE_RE.test(lines[end].trim())) {
       lines = lines.slice(0, end);
       orig = orig.slice(0, end);
     }
@@ -106,14 +112,13 @@ export function parseImportFile(raw: string): Result {
           : `The top of the file could not be read near line ${at(f.line)}.`)],
       };
     }
-    if (!isRecord(front) || front.format !== "pz-landing/1") return { ok: false, problems: [err(FORMAT_MSG)] };
+    if (!isRecord(front) || front.format !== IMPORT_FORMAT_ID) return { ok: false, problems: [err(FORMAT_MSG)] };
 
     const problems: ImportProblem[] = [];
     const sections: ParsedFile["sections"] = [];
-    const headingRe = /^##\s*Section:\s*(.*?)\s*$/i;
     const heads: { index: number; name: string }[] = [];
     for (let i = close + 1; i < lines.length; i++) {
-      const m = headingRe.exec(lines[i]);
+      const m = HEADING_RE.exec(lines[i].trimEnd());
       if (m) heads.push({ index: i, name: m[1] });
     }
 
@@ -127,8 +132,8 @@ export function parseImportFile(raw: string): Result {
       let fenceStart = -1;
       let fenceEnd = -1;
       for (let i = h.index + 1; i < end; i++) {
-        if (fenceStart < 0 && /^\s*```\s*ya?ml\s*$/i.test(lines[i])) fenceStart = i;
-        else if (fenceStart >= 0 && /^\s*`{3,}\s*$/.test(lines[i])) { fenceEnd = i; break; }
+        if (fenceStart < 0 && FENCE_OPEN_RE.test(lines[i].trim())) fenceStart = i;
+        else if (fenceStart >= 0 && FENCE_CLOSE_RE.test(lines[i].trim())) { fenceEnd = i; break; }
       }
       if (fenceStart < 0) {
         problems.push(err(`The '${h.name}' section has no content block under it.`));

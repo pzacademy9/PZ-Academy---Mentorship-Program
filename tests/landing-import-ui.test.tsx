@@ -119,6 +119,43 @@ describe("ImportPageDialog", () => {
     expect(screen.queryByText(/xyz/)).toBeNull();
   });
 
+  it("says the import may not have finished when the answer is not JSON (timeout page)", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false, status: 504, json: async () => { throw new SyntaxError("Unexpected token <"); },
+    });
+    render(<ImportPageDialog onClose={vi.fn()} />);
+    setText("x");
+    fireEvent.click(screen.getByRole("button", { name: "Import page" }));
+    await screen.findByText("The import may not have finished. Check the Landing Pages list before trying again.");
+    expect(screen.queryByText(/could not reach the server/i)).toBeNull();
+  });
+
+  it("sends only one request when submitted twice quickly", async () => {
+    let release: (v: unknown) => void = () => {};
+    (fetch as ReturnType<typeof vi.fn>).mockReturnValue(new Promise((res) => { release = res; }));
+    render(<ImportPageDialog onClose={vi.fn()} />);
+    setText("x");
+    const form = screen.getByRole("button", { name: "Import page" }).closest("form") as HTMLFormElement;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    release({ ok: true, status: 201, json: async () => ({ pageId: "p1", slug: "s", slugChanged: false, warnings: [], linksCreated: 0, linksFailed: [] }) });
+    await screen.findByText("Page created as a draft.");
+  });
+
+  it("refuses a file over 400,000 bytes without reading it, and resets the chooser", async () => {
+    render(<ImportPageDialog onClose={vi.fn()} />);
+    const file = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const f = new File(["x"], "big.md");
+    Object.defineProperty(f, "size", { value: 400_001 });
+    const read = vi.fn(async () => "x");
+    Object.defineProperty(f, "text", { value: read });
+    fireEvent.change(file, { target: { files: [f] } });
+    await screen.findByText("That file is too big to import");
+    expect(read).not.toHaveBeenCalled();
+    expect(file.value).toBe("");
+  });
+
   it("blocks text over 400,000 characters before sending", () => {
     render(<ImportPageDialog onClose={vi.fn()} />);
     setText("a".repeat(400_001));

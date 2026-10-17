@@ -179,3 +179,12 @@ describe("prompt guards", () => {
     }
   });
 });
+
+describe("length limits in the format guide", () => {
+  it.each(["course", "workshop", "webinar"] as const)("tells the AI the limits that matter (%s)", (kind) => {
+    const p = masterPrompt(kind);
+    expect(p).toContain("seo title 120, seo description 300");
+    expect(p).toContain("hero headline and hero_title 120, hero subheadline and hero_subtitle 400");
+    expect(p).toContain("FAQ question 200, FAQ answer 1500");
+  });
+});

@@ -36,11 +36,21 @@ describe("POST /api/admin/landing-pages/import", () => {
     ["missing field", {}],
     ["empty string", { markdown: "" }],
     ["wrong type", { markdown: 5 }],
-    ["too long", { markdown: "a".repeat(400_001) }],
   ])("returns 400 for invalid body: %s", async (_n, body) => {
     const res = await POST(req(body));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ errors: ["Choose a file or paste the text first."] });
+    expect(m.importLandingPage).not.toHaveBeenCalled();
+  });
+
+  it("returns a plain too-big 400 for a long text or an oversized body, without importing", async () => {
+    for (const r of [req({ markdown: "a".repeat(400_001) }), req("x".repeat(1_700_000))]) {
+      const res = await POST(r);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ errors: ["That file is too big to import."] });
+    }
+    const huge = new Request("http://x", { method: "POST", body: "{}", headers: { "content-length": "9999999" } });
+    expect((await POST(huge as never)).status).toBe(400);
     expect(m.importLandingPage).not.toHaveBeenCalled();
   });
 
