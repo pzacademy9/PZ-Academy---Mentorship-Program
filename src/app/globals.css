@@ -153,3 +153,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Landing pages: a section set to "Smaller text" scales its text down one step on every screen size. */
+.landing-root [data-text-size="small"] h1 { font-size: clamp(1.375rem, 4.5vw, 2.5rem); }
+.landing-root [data-text-size="small"] h2 { font-size: clamp(1.125rem, 3.5vw, 1.875rem); }
+.landing-root [data-text-size="small"] h3 { font-size: 1rem; }
+/* Big-number paragraphs (stats, prices) use the headline font and keep their own size. Already-small
+   text (text-xs, such as hero highlights) is left alone, so "smaller" can never make anything bigger. */
+.landing-root [data-text-size="small"] p:not([class*="font-headline"]):not([class*="text-xs"]),
+.landing-root [data-text-size="small"] li:not([class*="text-xs"]),
+.landing-root [data-text-size="small"] summary:not([class*="text-xs"]),
+.landing-root [data-text-size="small"] blockquote:not([class*="text-xs"]) { font-size: 0.875rem; }

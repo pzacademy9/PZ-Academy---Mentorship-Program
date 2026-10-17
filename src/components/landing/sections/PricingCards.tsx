@@ -49,7 +49,7 @@ export function PricingCards({ data, register }: SectionProps) {
                   ) : null}
                   <CheckList text={it.features} className="mb-6 text-sm text-landing-on-surface md:mb-8" />
                 </div>
-                <RegisterButton register={register} variant={featured ? "primary" : "outline"} className="w-full" />
+                <RegisterButton register={register} variant={featured ? "primary" : "outline"} className="w-full" menuPlacement="up" />
               </div>
             );
           })}

@@ -323,6 +323,34 @@ function fieldProblems(section: LandingSection, fields: FieldDef[], data: Record
   }
 }
 
+// Hero checks, in plain words. Each one needs a setting an old page cannot have, so old pages gain no new problem.
+function heroProblems(c: LandingContent, s: LandingSection, out: Problem[]) {
+  const d = s.data;
+  const text = (k: string) => (typeof d[k] === "string" ? (d[k] as string).trim() : "");
+  const label = SECTION_DEFS.hero.label;
+  const add = (message: string) => out.push({ message, sectionId: s.id });
+  if (text("heroStyle") === "poster" && text("imagePc") === "" && text("imagePhone") === "") {
+    add(`Add a picture to "${label}", or choose another hero style. The finished poster style shows only the picture.`);
+  }
+  const type = text("secondaryCtaType") || "link";
+  const hasLabel = text("secondaryCtaLabel") !== "";
+  const section = text("secondaryCtaSection");
+  const digits = text("secondaryCtaWhatsapp").replace(/\D/g, "");
+  if (hasLabel) {
+    if (type === "section") {
+      if (!c.sections.some((x) => x.enabled && x.id === section && x.id !== s.id)) {
+        add(`The second button in "${label}" goes to a section that is missing or turned off. Choose another section.`);
+      }
+    } else if (type === "whatsapp") {
+      if (digits === "") add(`The second button in "${label}" opens WhatsApp but has no number. Add the number.`);
+    } else if (text("secondaryCtaUrl") === "" || !isSafeUrl(text("secondaryCtaUrl"))) {
+      add(`The second button in "${label}" has no working link. Add a full link starting with https://.`);
+    }
+  } else if ((type === "section" && section !== "") || (type === "whatsapp" && digits !== "")) {
+    add(`The second button in "${label}" has no text, so it will not show. Add the button text, or clear what it does.`);
+  }
+}
+
 function reviewProblems(c: LandingContent, out: Problem[]) {
   for (const s of c.sections) {
     if (!s.enabled) continue;
@@ -387,6 +415,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const enabled = c.sections.filter((s) => s.enabled);
   if (enabled.length === 0) problems.push({ message: "Turn on at least one section." });
   for (const s of enabled) fieldProblems(s, SECTION_DEFS[s.type].fields, s.data, problems);
+  for (const s of enabled) if (s.type === "hero") heroProblems(c, s, problems);
   reviewProblems(c, problems);
   moduleProblems(c, problems);
   return { ready: problems.length === 0, problems };

@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useEffect, useState } from "react";
+import type { Mode } from "@/lib/landing/registration/config";
 import { onOpenRegistration } from "./registration-bus";
 
 const RegistrationModal = lazy(() => import("./RegistrationModal"));
@@ -10,13 +11,15 @@ const RegistrationModal = lazy(() => import("./RegistrationModal"));
 export function RegistrationHost({ slug, variant, tracking = true }: { slug: string; tracking?: boolean; variant?: string }) {
   const [everOpened, setEverOpened] = useState(false);
   const [open, setOpen] = useState(false);
+  // The last mode a Register menu picked; a plain Register click leaves it alone.
+  const [mode, setMode] = useState<Mode | undefined>(undefined);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  useEffect(() => onOpenRegistration(() => { setEverOpened(true); setOpen(true); }), []);
+  useEffect(() => onOpenRegistration((o) => { if (o.mode) setMode(o.mode); setEverOpened(true); setOpen(true); }), []);
   return (
     <div ref={setContainer} className="font-landing-body">
       {everOpened && (
         <Suspense fallback={<OpeningNotice />}>
-          <RegistrationModal slug={slug} variant={variant} open={open} onClose={() => setOpen(false)} tracking={tracking} portalContainer={container} />
+          <RegistrationModal slug={slug} variant={variant} open={open} initialMode={mode} onClose={() => setOpen(false)} tracking={tracking} portalContainer={container} />
         </Suspense>
       )}
     </div>

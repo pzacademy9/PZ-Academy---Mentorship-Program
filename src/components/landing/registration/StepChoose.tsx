@@ -10,11 +10,11 @@ import { R_CHOICE, R_ERROR, R_HINT, R_INPUT, R_LABEL } from "./ui";
 const LEGEND = "font-headline text-base font-bold text-landing-near-black";
 
 export function StepChoose({
-  config, state, errors, notice, isFree, onRegion, onMode, onToggleOption, onTier, onGroupSize,
+  config, state, errors, notice, isFree, onRegion, onMode, onToggleOption, onTier, onGroupSize, modeLocked = false,
 }: {
   config: RegistrationConfig; state: FormState; errors: FieldErrors; notice: string | null; isFree: boolean;
   onRegion: (k: string) => void; onMode: (m: Mode) => void; onToggleOption: (k: string) => void;
-  onTier: (k: string) => void; onGroupSize: (n: number) => void;
+  onTier: (k: string) => void; onGroupSize: (n: number) => void; modeLocked?: boolean;
 }) {
   const region = config.regions.find((r) => r.key === state.regionKey);
   const now = useMemo(() => new Date(), []);
@@ -41,7 +41,7 @@ export function StepChoose({
         </fieldset>
       )}
 
-      {config.modes.length > 1 && (
+      {config.modes.length > 1 && !modeLocked && (
         <fieldset aria-describedby={errors.mode ? "err-mode" : undefined}>
           <legend className={LEGEND}>How do you want to learn?</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">

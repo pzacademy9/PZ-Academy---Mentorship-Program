@@ -186,7 +186,7 @@ describe("LandingEditor with links", () => {
     const other: LandingVariant = { ...mkVariant(), id: "v2", ref: { regionKey: null, moduleKey: "module-3" }, revision: 3 };
     renderWith(mkVariant(), other);
     await choose("Module 2");
-    fireEvent.click(screen.getByRole("button", { name: "Fake pick file" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Fake pick file" })[0]);
     await choose("Module 3");
     act(() => uploads.pending[0]("https://example.com/late.jpg"));
     expect(screen.queryByText("Edited for this link")).toBeNull();
@@ -199,7 +199,7 @@ describe("LandingEditor with links", () => {
   it("an upload that finishes after switching back to the main page is dropped", async () => {
     renderWith(mkVariant());
     await choose("Module 2");
-    fireEvent.click(screen.getByRole("button", { name: "Fake pick file" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Fake pick file" })[0]);
     await choose("Main page");
     act(() => uploads.pending[0]("https://example.com/late.jpg"));
     await flush();
