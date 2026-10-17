@@ -1039,7 +1039,10 @@ describe("Editor polish (L3)", () => {
 
   it("names each picture field for screen readers", () => {
     render(<SectionForm type="hero" data={defaultSectionDataL3("hero")} onChange={() => {}} />);
-    expect(screen.getByRole("group", { name: "Picture" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /Picture for computers/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /Picture for phones/ })).toBeTruthy();
+    // The old single picture only shows for the old style.
+    expect(screen.queryByRole("group", { name: "Picture" })).toBeNull();
   });
 
   it("sends the current page name to the preview, so a rename shows there at once", () => {
