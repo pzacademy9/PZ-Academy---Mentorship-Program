@@ -74,10 +74,16 @@ export async function getVariant(variantId: string): Promise<LandingVariant | nu
   return data ? mapRow(data) : null;
 }
 
-export async function ensureVariant(pageId: string, ref: VariantRef, enabled: boolean): Promise<EnsureResult> {
+export async function ensureVariant(
+  pageId: string,
+  ref: VariantRef,
+  enabled: boolean,
+  /** Optional: a page the caller just read, to skip re-reading it. Only its draft is used (for key checks and the default headline). */
+  preloadedPage?: LandingPage,
+): Promise<EnsureResult> {
   let page: LandingPage | null;
   try {
-    page = await getLandingPage(pageId);
+    page = preloadedPage ?? (await getLandingPage(pageId));
   } catch {
     return { ok: false, reason: "db-error" };
   }

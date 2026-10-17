@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Copy, ExternalLink, LayoutTemplate, Lock, LockOpen, Pencil, Plus, Search,
-  GraduationCap, FlaskConical, Video,
+  GraduationCap, FlaskConical, Video, Upload, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { LandingPageSummary } from "@/lib/data/landing-pages";
 import type { PageKind, PageStatus } from "@/lib/landing/content";
 import { NewPageDialog } from "./NewPageDialog";
+import { ImportPageDialog } from "./ImportPageDialog";
 import { DuplicatePageDialog } from "./DuplicatePageDialog";
 import { StatusBadge, UnpublishedChip } from "./StatusBadge";
 
@@ -47,6 +48,7 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [newOpen, setNewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [dupPage, setDupPage] = useState<LandingPageSummary | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [kindFilter, setKindFilter] = useState<PageKind | "all">("all");
@@ -99,6 +101,22 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
     { getKey: (page) => page.id },
   );
 
+  const importButtons = (
+    <>
+      <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+        <Upload aria-hidden="true" />
+        Import .md
+      </Button>
+      <Button asChild variant="outline">
+        <Link href="/dashboard/admin/landing-pages/ai">
+          <Sparkles aria-hidden="true" />
+          Make a page with AI
+        </Link>
+      </Button>
+    </>
+  );
+  const importDialog = importOpen ? <ImportPageDialog onClose={() => setImportOpen(false)} /> : null;
+
   if (pages.length === 0) {
     return (
       <>
@@ -109,7 +127,9 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
             description="Start creating high-converting landing pages for your courses, workshops and webinars."
             action={{ label: "Create your first page", onClick: () => setNewOpen(true) }}
           />
+          <div className="flex flex-wrap justify-center gap-2 pb-6">{importButtons}</div>
         </div>
+        {importDialog}
         <NewPageDialog open={newOpen} onOpenChange={setNewOpen} />
       </>
     );
@@ -178,6 +198,7 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
             <option value="workshop">Workshop</option>
             <option value="webinar">Webinar</option>
           </select>
+          {importButtons}
           <Button type="button" onClick={() => setNewOpen(true)}>
             <Plus aria-hidden="true" />
             New page
@@ -330,6 +351,7 @@ export function LandingPagesList({ pages }: { pages: LandingPageSummary[] }) {
         </>
       )}
 
+      {importDialog}
       <NewPageDialog open={newOpen} onOpenChange={setNewOpen} />
       {dupPage && (
         <DuplicatePageDialog page={dupPage} open onOpenChange={(o) => { if (!o) setDupPage(null); }} />

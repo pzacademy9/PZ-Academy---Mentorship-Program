@@ -1,6 +1,7 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
+import { normalizeBullets } from "@/lib/landing/import/bullets";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,38 @@ function problemFor(field: FieldDef, value: string): string | null {
     return `This is ${value.length - field.max} characters too long. Please keep it under ${field.max} characters.`;
   }
   return null;
+}
+
+/** Textarea that turns pasted bullets/numbering into "- " lines. Typing and other pastes are untouched. */
+function BulletTextarea({ value, onValueChange, ...rest }: { value: string; onValueChange: (v: string) => void } & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange">) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const caret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (caret.current !== null && ref.current) {
+      ref.current.setSelectionRange(caret.current, caret.current);
+      caret.current = null;
+    }
+  }, [value]);
+  return (
+    <textarea
+      {...rest}
+      ref={ref}
+      rows={4}
+      value={value}
+      onChange={(e) => onValueChange(e.target.value)}
+      onPaste={(e) => {
+        const text = e.clipboardData.getData("text/plain");
+        const normalized = normalizeBullets(text);
+        if (normalized === text) return;
+        e.preventDefault();
+        const el = e.currentTarget;
+        const start = el.selectionStart;
+        caret.current = start + normalized.length;
+        onValueChange(value.slice(0, start) + normalized + value.slice(el.selectionEnd));
+      }}
+      className={cn(CONTROL, "min-h-[6rem] resize-y")}
+    />
+  );
 }
 
 /** `path` locates the control for the checklist's Fix button: "headline", or "items.0.q" inside a list. */
@@ -91,16 +124,14 @@ export function FieldInput({ field, value, onChange, path, modules }: { field: F
           path={path}
         />
       ) : field.kind === "textarea" ? (
-        <textarea
+        <BulletTextarea
           id={id}
-          rows={4}
           value={str}
           placeholder={field.example}
           aria-describedby={describedBy}
           aria-invalid={problem ? true : undefined}
           data-field-path={path}
-          onChange={(e) => onChange(e.target.value)}
-          className={cn(CONTROL, "min-h-[6rem] resize-y")}
+          onValueChange={onChange}
         />
       ) : (
         <Input
