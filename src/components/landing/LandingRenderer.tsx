@@ -41,7 +41,7 @@ export function LandingRenderer({
   const c = normalizeContent(content);
   const closed = status === "closed";
   const builtIn = c.registration.enabled && !!slug && !closed;
-  const register = { url: c.settings.registerUrl, label: ctaLabel(c.settings.registerLabel), closed, builtIn };
+  const register = { url: c.settings.registerUrl, label: ctaLabel(c.settings.registerLabel), closed, builtIn, ...(builtIn ? { modes: c.registration.modes } : {}) };
   // NEXT_PUBLIC_* is inlined at build time, so this stays a static page.
   const pixelId = c.registration.pixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
   const wa = c.settings.whatsappNumber.replace(/\D/g, "");

@@ -55,11 +55,13 @@ export interface FlowProps {
   result: RegisterSuccess | null;
   setResult: (r: RegisterSuccess) => void;
   onClose: () => void;
+  /** The mode was already chosen (Register menu), so the mode question is skipped. */
+  modeLocked?: boolean;
   /** The phone sheet's back arrow lives in the modal's top bar; the flow tells it whether Back is possible. */
   renderTopBar?: (ctx: { canGoBack: boolean; goBack: () => void; stepIndex: number; stepCount: number }) => React.ReactNode;
 }
 
-export function RegistrationFlow({ slug, variant, config: pc, me, testMode, tracking, form, setForm, result, setResult, onClose, renderTopBar }: FlowProps) {
+export function RegistrationFlow({ slug, variant, config: pc, me, testMode, tracking, form, setForm, result, setResult, onClose, renderTopBar, modeLocked }: FlowProps) {
   const config = pc.registration;
   // Test mode (admin only) sends no Meta events and no funnel events: nothing real happens.
   const live = tracking && !testMode;
@@ -246,7 +248,7 @@ export function RegistrationFlow({ slug, variant, config: pc, me, testMode, trac
           <div className="relative">
             {step === "choose" && (
               <StepChoose
-                config={config} state={form} errors={errors} notice={notice} isFree={isFree}
+                config={config} state={form} errors={errors} notice={notice} isFree={isFree} modeLocked={modeLocked}
                 onRegion={(k) => patch({ regionKey: k, paymentMethod: "" })}
                 onMode={(m) => patch({ mode: m })}
                 onToggleOption={(k) => {

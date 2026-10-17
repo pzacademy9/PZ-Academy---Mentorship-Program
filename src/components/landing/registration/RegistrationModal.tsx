@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import type { Mode } from "@/lib/landing/registration/config";
 import { initialState, type FormState } from "@/lib/landing/registration/form-state";
 import { useRegistrationConfig } from "./useRegistrationConfig";
 import { RegistrationFlow } from "./RegistrationFlow";
@@ -20,11 +21,13 @@ export interface RegistrationModalProps {
   testMode?: boolean;
   tracking?: boolean;
   portalContainer?: HTMLElement | null;
+  /** Pre-selects the learning mode (set by the Register menu) and skips the mode question. */
+  initialMode?: Mode;
 }
 
 let leadSent = false; // Lead / start fire once per page load, not on every reopen
 
-export function RegistrationModal({ slug, variant, open, onClose, testMode = false, tracking = true, portalContainer }: RegistrationModalProps) {
+export function RegistrationModal({ slug, variant, open, onClose, testMode = false, tracking = true, portalContainer, initialMode }: RegistrationModalProps) {
   const cfg = useRegistrationConfig(slug, open, variant);
   // The answers live here, outside Dialog.Content (which unmounts when closed), so closing and reopening keeps them.
   const [form, setForm] = useState<FormState | null>(null);
@@ -37,8 +40,15 @@ export function RegistrationModal({ slug, variant, open, onClose, testMode = fal
   useEffect(() => {
     if (cfg.status !== "ready" || form) return;
     const regionParam = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("region");
-    setForm(initialState(cfg.config.registration, { country: cfg.config.country, me: cfg.me, regionParam }));
-  }, [cfg, form]);
+    const fresh = initialState(cfg.config.registration, { country: cfg.config.country, me: cfg.me, regionParam });
+    setForm(initialMode && cfg.config.registration.modes.includes(initialMode) ? { ...fresh, mode: initialMode } : fresh);
+  }, [cfg, form, initialMode]);
+
+  // A reopened form keeps its answers but takes the mode picked this time.
+  useEffect(() => {
+    if (!open || !initialMode || cfg.status !== "ready" || !cfg.config.registration.modes.includes(initialMode)) return;
+    setForm((f) => (f && f.mode !== initialMode ? { ...f, mode: initialMode } : f));
+  }, [open, initialMode, cfg]);
 
   const leadRef = useRef(false);
   useEffect(() => {
@@ -87,7 +97,7 @@ export function RegistrationModal({ slug, variant, open, onClose, testMode = fal
           {cfg.status === "ready" && (cfg.config.status !== "closed" || testMode) && form && (
             <RegistrationFlow
               slug={slug} variant={variant} config={cfg.config} me={cfg.me} testMode={testMode} tracking={tracking}
-              form={form} setForm={setFormSafe}
+              form={form} setForm={setFormSafe} modeLocked={!!initialMode}
               result={result} setResult={setResult} onClose={onClose}
               renderTopBar={({ canGoBack, goBack }) => canGoBack ? (
                 <button type="button" onClick={goBack} aria-label="Back" className="absolute left-3 top-[max(0.5rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full text-landing-near-black hover:bg-landing-surface-container-low md:hidden">

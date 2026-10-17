@@ -1,8 +1,9 @@
 // src/components/landing/RegisterButton.tsx
 import { isSafeUrl } from "@/lib/landing/simple-text";
+import { RegisterMenu } from "./RegisterMenu";
 import { RegistrationLauncher } from "./registration/RegistrationLauncher";
 
-export interface Register { url: string; label: string; closed: boolean; /** true on the public page when the built-in form is on */ builtIn?: boolean }
+export interface Register { url: string; label: string; closed: boolean; /** true on the public page when the built-in form is on */ builtIn?: boolean; /** Learning modes on offer; two or more turn the built-in button into a Live / Recorded menu */ modes?: ("live" | "recorded")[] }
 
 type Variant = "primary" | "mint" | "outline";
 type Size = "sm" | "md" | "lg";
@@ -48,6 +49,14 @@ export function RegisterButton({
       <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   ) : null;
+  if (register.builtIn && register.modes && register.modes.length > 1) {
+    return (
+      <RegisterMenu className={`${classes} ${VARIANT[variant]}`} modes={register.modes}>
+        <span>{text}</span>
+        {arrowIcon}
+      </RegisterMenu>
+    );
+  }
   if (register.builtIn) {
     return (
       <RegistrationLauncher className={`${classes} ${VARIANT[variant]}`} href={isSafeUrl(register.url) ? register.url : undefined}>
