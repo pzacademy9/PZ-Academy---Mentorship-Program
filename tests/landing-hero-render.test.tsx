@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 
@@ -9,6 +9,8 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
 import { emptyContent, normalizeContent, type LandingContent } from "@/lib/landing/content";
 import { Hero } from "@/components/landing/sections/Hero";
+import { FinalCta } from "@/components/landing/sections/FinalCta";
+import { PricingCards } from "@/components/landing/sections/PricingCards";
 import { OLD } from "./fixtures/hero-old-data";
 
 const register = { url: "https://x.com/r", label: "Join", closed: false };
@@ -67,7 +69,9 @@ describe("poster hero", () => {
   const out = html({ ...base, eyebrow: "EYE", heroStyle: "poster", imagePc: PC, imagePhone: PH, badges: [{ text: "Bdg" }] });
   it("shows the picture whole (contain) with no headline overlay", () => {
     expect(out).toContain("object-contain");
-    expect(out).not.toContain("<h1");
+    // The only h1 is the screen-reader-only one (the poster carries its own visible text).
+    expect(out.match(/<h1[ >]/g)).toHaveLength(1);
+    expect(out).toContain('<h1 class="sr-only">');
     expect(out).not.toContain("EYE");
     expect(out).not.toContain("Bdg");
   });
@@ -172,5 +176,56 @@ describe("small text keeps big numbers big", () => {
   it("stats values and pricing prices carry font-headline", () => {
     expect(readFileSync("src/components/landing/sections/Stats.tsx", "utf8")).toMatch(/<p className="font-headline[^"]*">\{it\.value\}/);
     expect(readFileSync("src/components/landing/sections/PricingCards.tsx", "utf8")).toMatch(/<p className=\{`font-headline[^`]*`\}>\{it\.price\}/);
+  });
+});
+
+describe("every section's Register menu is never clipped", () => {
+  const two = { ...register, builtIn: true, modes: ["live", "recorded"] as ("live" | "recorded")[] };
+  const sections: [string, React.ReactNode][] = [
+    ["final call to action", FinalCta({ data: { headline: "Join", text: "t" }, register: two })],
+    ["pricing cards", PricingCards({ data: { items: [{ name: "A", price: "$1", features: "- x", badge: "" }, { name: "B", price: "$2", features: "- y", badge: "Best" }] }, register: two })],
+  ];
+  for (const [name, node] of sections) {
+    it(`${name}: no overflow clipping around the button, or the menu opens upward inside the card`, () => {
+      const { container } = render(<>{node}</>);
+      const btns = Array.from(container.querySelectorAll("[aria-haspopup='menu']"));
+      expect(btns.length).toBeGreaterThan(0);
+      for (const btn of btns) {
+        for (let el: Element | null = btn.parentElement; el && el !== container; el = el.parentElement) {
+          if (name === "pricing cards" && /overflow-x-auto/.test(el.className)) break; // the swipe row clips sideways; the menu opens up inside the tall card
+          expect(el.className).not.toMatch(/overflow-(hidden|clip|auto|x-auto)/);
+        }
+      }
+    });
+  }
+  it("pricing menus open upward", () => {
+    const { container } = render(<>{sections[1][1]}</>);
+    const btn = container.querySelector("[aria-haspopup='menu']") as HTMLElement;
+    fireEvent.click(btn);
+    expect(container.querySelector("[role='menu']")?.className).toContain("bottom-full");
+  });
+});
+
+describe("smaller text never enlarges", () => {
+  it("the size rules skip text-xs elements", () => {
+    const css = readFileSync("src/app/globals.css", "utf8");
+    for (const tag of ["p", "li", "summary", "blockquote"]) {
+      const skip = tag === "p" ? ':not([class*="font-headline"])' : "";
+      expect(css).toContain(`[data-text-size="small"] ${tag}${skip}:not([class*="text-xs"])`);
+    }
+  });
+});
+
+describe("one h1 per hero style", () => {
+  const count = (d: Record<string, unknown>) => (html(d).match(/<h1[ >]/g) ?? []).length;
+  it("poster has a screen-reader-only h1 with the headline, the image alt unchanged", () => {
+    const o = html({ ...base, heroStyle: "poster", imagePc: PC });
+    expect(count({ ...base, heroStyle: "poster", imagePc: PC })).toBe(1);
+    expect(o).toMatch(/<h1 class="sr-only">A very long headline<\/h1>/);
+    expect(o).toContain('alt="A very long headline"');
+  });
+  it("photo and classic still have exactly one", () => {
+    expect(count({ ...base, heroStyle: "photo", imagePc: PC })).toBe(1);
+    expect(count({ ...OLD })).toBe(1);
   });
 });

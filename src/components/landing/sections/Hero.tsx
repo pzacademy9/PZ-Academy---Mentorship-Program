@@ -126,6 +126,7 @@ function PosterHero({ data, register, sectionIds, pc, phone }: SectionProps & { 
   const target = secondaryTarget(data, sectionIds);
   return (
     <div className="border-b border-landing-border bg-landing-surface">
+      {headline ? <h1 className="sr-only">{headline}</h1> : null}
       <LandingPicture pc={pc} phone={phone} alt={headline} fit="contain" priority className="mx-auto max-w-7xl bg-landing-surface-container-lowest" />
       <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-6 md:px-6 md:py-8">
         {dateLine ? <DateLine text={dateLine} /> : null}
