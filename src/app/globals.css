@@ -158,7 +158,8 @@
 .landing-root [data-text-size="small"] h1 { font-size: clamp(1.375rem, 4.5vw, 2.5rem); }
 .landing-root [data-text-size="small"] h2 { font-size: clamp(1.125rem, 3.5vw, 1.875rem); }
 .landing-root [data-text-size="small"] h3 { font-size: 1rem; }
-.landing-root [data-text-size="small"] p,
+/* Big-number paragraphs (stats, prices) use the headline font and keep their own size. */
+.landing-root [data-text-size="small"] p:not([class*="font-headline"]),
 .landing-root [data-text-size="small"] li,
 .landing-root [data-text-size="small"] summary,
 .landing-root [data-text-size="small"] blockquote { font-size: 0.875rem; }

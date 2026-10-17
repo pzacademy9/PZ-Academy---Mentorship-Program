@@ -162,3 +162,15 @@ describe("Register menu is never clipped", () => {
     });
   }
 });
+
+describe("small text keeps big numbers big", () => {
+  it("the paragraph rule skips headline-font paragraphs", () => {
+    const css = readFileSync("src/app/globals.css", "utf8");
+    expect(css).toMatch(/\[data-text-size="small"\] p:not\(\[class\*="font-headline"\]\)/);
+    expect(css).not.toMatch(/\[data-text-size="small"\] p,/);
+  });
+  it("stats values and pricing prices carry font-headline", () => {
+    expect(readFileSync("src/components/landing/sections/Stats.tsx", "utf8")).toMatch(/<p className="font-headline[^"]*">\{it\.value\}/);
+    expect(readFileSync("src/components/landing/sections/PricingCards.tsx", "utf8")).toMatch(/<p className=\{`font-headline[^`]*`\}>\{it\.price\}/);
+  });
+});
