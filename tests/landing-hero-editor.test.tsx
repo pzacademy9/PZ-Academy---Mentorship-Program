@@ -102,11 +102,29 @@ describe("WhatsappNumberField", () => {
     const sel = (await screen.findByLabelText("WhatsApp number")) as HTMLSelectElement;
     await waitFor(() => expect(sel.options.length).toBeGreaterThanOrEqual(3));
     const texts = Array.from(sel.options).map((o) => o.text);
-    expect(texts[0]).toContain("PZ Academy main");
-    expect(texts[1]).toContain("PZ Academy second");
-    expect(sel.value).toBe("923700199429");
+    expect(texts[1]).toContain("PZ Academy main");
+    expect(texts[2]).toContain("PZ Academy second");
+    expect(sel.value).toBe("");
+    expect(sel.options[0].text).toBe("Choose a number");
+    fireEvent.change(sel, { target: { value: "923700199429" } });
+    expect(onChange).toHaveBeenCalledWith("923700199429");
+  });
+  it("shows a loading state instead of not in list while the list loads", async () => {
+    fetchMock.mockImplementation(() => new Promise(() => {}));
+    render(<Harness initial="923001112222" />);
+    expect(screen.getByText(/loading numbers/i)).toBeTruthy();
+    expect(screen.queryByText(/not in list/i)).toBeNull();
+  });
+  it("falls back to the official numbers when the list cannot load", async () => {
+    fetchMock.mockImplementation(async () => ({ ok: false, json: async () => ({}) }));
+    render(<Harness />);
+    await screen.findByText(/couldn.t load your saved numbers/i);
+    const sel = screen.getByLabelText("WhatsApp number") as HTMLSelectElement;
+    const texts = Array.from(sel.options).map((o) => o.text);
+    expect(texts.some((t) => t.includes("PZ Academy main"))).toBe(true);
+    expect(texts.some((t) => t.includes("PZ Academy second"))).toBe(true);
     fireEvent.change(sel, { target: { value: "923242167718" } });
-    expect(onChange).toHaveBeenCalledWith("923242167718");
+    expect(sel.value).toBe("923242167718");
   });
   it("adds a number and selects it", async () => {
     render(<Harness />);

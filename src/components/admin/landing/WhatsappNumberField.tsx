@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { cleanWhatsappNumber } from "@/lib/landing/whatsapp";
+import { cleanWhatsappNumber, OFFICIAL_WHATSAPP } from "@/lib/landing/whatsapp";
 
 interface WhatsappRow { id?: string; label: string; number: string; official: boolean }
 
@@ -39,15 +39,15 @@ export function WhatsappNumberField({
         const body = (await res.json()) as { numbers?: WhatsappRow[] };
         if (alive) setRows(body.numbers ?? []);
       } catch {
-        if (alive) { setLoadError(true); setRows([]); }
+        if (alive) { setLoadError(true); setRows(OFFICIAL_WHATSAPP.map((o) => ({ ...o, official: true }))); }
       }
     })();
     return () => { alive = false; };
   }, []);
 
-  const list = rows ?? [];
+  const loading = rows === null;
+  const list: WhatsappRow[] = rows ?? [];
   const known = list.some((r) => r.number === value);
-  const shown = value !== "" ? value : list[0]?.number ?? "";
   const selectedRow = list.find((r) => r.number === value);
   const canDelete = !!selectedRow && !selectedRow.official && !!selectedRow.id;
 
@@ -89,10 +89,13 @@ export function WhatsappNumberField({
     <div className="space-y-1.5">
       <label htmlFor={id} className={LABEL}>{label}</label>
       {help && <p className={HELP}>{help}</p>}
-      <select id={id} value={shown} data-field-path={path} onChange={(e) => { setConfirmingDelete(false); onChange(e.target.value); }} className={cn(CONTROL, "h-auto")}>
+      <select id={id} value={value} data-field-path={path} disabled={loading && value !== ""} onChange={(e) => { setConfirmingDelete(false); onChange(e.target.value); }} className={cn(CONTROL, "h-auto")}>
+        {value === "" && <option value="">Choose a number</option>}
+        {loading && value !== "" && <option value={value}>Loading...</option>}
         {list.map((r) => <option key={r.number} value={r.number}>{r.label} ({r.number})</option>)}
-        {!known && value !== "" && <option value={value}>{value} (not in list)</option>}
+        {!loading && !known && value !== "" && <option value={value}>{value} (not in list)</option>}
       </select>
+      {loading && value !== "" && <p className={HELP}>Loading numbers...</p>}
       {loadError && <p className={ERROR}>We couldn&apos;t load your saved numbers. The PZ Academy numbers still work.</p>}
 
       {confirmingDelete && selectedRow && (
