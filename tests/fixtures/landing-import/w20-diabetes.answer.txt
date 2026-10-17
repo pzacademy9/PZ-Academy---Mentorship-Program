@@ -1,8 +1,27 @@
-I have everything I need. Payment accounts and pictures are chosen later in the editor, and I left out the payment details, an FAQ and a closing push because your document has no real content for them.
-I used 03155614490 (listed as Phone / WhatsApp) for the chat button, written as 923155614490; your document gives no number for payment screenshots, so that is left out. The short code W20 is mine, and both Pakistan and Philippines links are switched on.
-The Free plan appears as an information card only; the registration option carries the Pro price (PKR 399, PHP 150). The 20% group offer is entered as a percent, and I did not work out group totals.
-Your document says both "1 Hour" and "50-60 Minutes"; I used 50-60 Minutes, so please check. There is no Early Bird, and I left out ad copy, message templates and brand notes.
-"Philippines students" was added to the audience from the Philippines block of your document.
+I have everything I need.
+
+Done for you
+- A draft webinar page with a Free plan and a Pro plan, for Pakistan and the Philippines, using your exact wording.
+- A 20% group discount for groups of 3 or more, plus the speaker, the date and the times for both countries.
+
+Please check before publishing
+- Payment accounts (PayPal, Easypaisa, bank accounts) are not on the page. They, and all pictures, are chosen in the editor.
+- Pakistan Pro price left out: your Pakistan section says PKR 399, but the master prompt says not to use PKR 399 for this webinar. Please tell me which is right. Until then Pakistan has no Pro price.
+- Duration left out: the document says both "1 Hour" and "50–60 Minutes".
+- Platform left out: the document says "Zoom (Live) + YouTube (Free)" in one place and Zoom only in others.
+- Pro price for the Philippines is 150 (PHP), as stated in the document.
+- Free plan price is 0 in both countries (Pakistan and the Philippines).
+- Group discount is written as a percentage only (20% off for 3 or more). No group totals were given, so none were worked out.
+- Chat button number: 03155614490 is labelled "Phone / WhatsApp" in the document. I wrote it as 923155614490 (Pakistan code added). Please confirm.
+- Payment screenshot WhatsApp number was not given, so it is left out.
+- No Early Bird price or date in the document, so none was added.
+- Recording is listed only as a Pro plan benefit, so I did not add a "recorded" option and no recorded percentage.
+- "Register now" (button label) is the standard label and was not in your document.
+- Link name (slug) "diabetes-pharmacotherapy-webinar", reference code "DIAB" and short event name "Diabetes Pharmacotherapy Webinar" were made up from the page name.
+- Time shown per country is the start time only (7:30 PM Pakistan, 10:30 PM Philippines), because the duration is unclear.
+- Left out: "Instructor Demo" (only in one marketing version, no details), hashtags, email and website contact lines, WhatsApp and email templates, joining instructions, brand and design notes.
+- Left out: FAQ and final call-to-action sections, because the document has no questions and answers or closing text for them.
+- Speaker role left out; her credentials are in the bio exactly as written.
 
 ````markdown
 ---
@@ -17,17 +36,20 @@ settings:
 registration:
   default_region: PK
   event_label: Diabetes Pharmacotherapy Webinar
-  ref_prefix: W20
+  ref_prefix: DIAB
   regions:
     - { code: PK, name: Pakistan, currency: PKR, class_time: "7:30 PM", timezone: Pakistan time }
     - { code: PH, name: Philippines, currency: PHP, class_time: "10:30 PM", timezone: Philippine time }
   options:
-    - { key: seat, name: Diabetes Pharmacotherapy Webinar, kind: bundle }
+    - { key: free, name: Free Plan, kind: bundle, free: true }
+    - { key: pro, name: Pro Plan, kind: bundle }
   tiers:
-    - { key: g3, label: "Group of 3 or more", size: 3, percent_off: 20 }
+    - { key: g3, label: Group of 3 or more, min: 3, percent_off: 20 }
   prices:
-    seat:
-      PK: { amount: 399 }
+    free:
+      PK: { amount: 0 }
+      PH: { amount: 0 }
+    pro:
       PH: { amount: 150 }
 links:
   - { country: PK, on: true }
@@ -36,18 +58,15 @@ links:
 
 ## Section: hero
 ```yml
+eyebrow: LIVE webinar
 headline: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
 subheadline: Diabetes management is not a one-size-fits-all approach.
 dateLine: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time"
-badges:
-  - { text: "Zoom (Live) + YouTube (Free)" }
-  - { text: English }
-  - { text: "50–60 Minutes" }
 ```
 
 ## Section: rich_text
 ```yml
-heading: What you will learn
+heading: What You Will Learn
 body: |
   - Overview of diabetes pharmacotherapy
   - Comparison of major antidiabetic drug classes
@@ -92,11 +111,9 @@ body: |
 
 ## Section: schedule
 ```yml
-heading: Event details
+heading: Event Information
 items:
-  - when: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time"
-    title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
-    detail: "Duration: 50–60 Minutes. Platform: Zoom (Live) + YouTube (Free). Session Language: English"
+  - { when: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time", title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient" }
 ```
 
 ## Section: instructors
@@ -114,7 +131,7 @@ items:
 ## Section: pricing_cards
 ```yml
 heading: Pricing Plans
-note: "Group of 3 or more → 20% OFF. One payment for the whole group. Shared registration confirmation."
+note: "Group of 3 or more: 20% OFF. One payment for the whole group. Shared registration confirmation."
 items:
   - name: Free Plan
     price: Free
@@ -122,7 +139,7 @@ items:
       - Access to full webinar
       - Certificate of Participation
   - name: Pro Plan
-    price: "PKR 399 / PHP 150"
+    price: See price for your country
     features: |
       - Full webinar access + Recording
       - Certificate of Participation

@@ -1,18 +1,13 @@
-// Task 10 dry-run: three raw chat answers produced by blind "simulated AI" runs of the master prompts
-// against the teammate's real databases. Fixtures are read as-is (chat summary lines + fenced block).
-//
-// Remaining warnings at the time of the dry run (kept as explicit snapshots below so changes are visible):
-//   PPC: 5x "Choose at least one payment account" (expected, accounts are chosen in the editor),
-//        WhatsApp-for-payment-checks missing (document gave no number), countdown reminder.
-//   MDC: 2x payment account, no FAQ.
-//   W20: 2x payment account, WhatsApp-for-payment-checks missing, no FAQ.
-// TODO: these fixtures predate the final master prompt; the controller replaces them after re-running blind simulators.
-// See .superpowers/sdd/2026-10-17-landing-import-a/task-10-report.md for the analysis.
+// Round-2 blind dry-run: three raw chat answers produced by simulated AI runs of the FINAL master prompts
+// against the teammate's real databases (round-1 answers are kept in
+// .superpowers/sdd/2026-10-17-landing-import-a/dry-run/round1/). Fixtures are read as-is, including the
+// chat summary lines before the fenced block. Fields the documents contradict themselves on are left out
+// by the AI and listed under "Please check before publishing"; the warning snapshots below pin what that
+// means for the importer. See task-10-report.md for the analysis.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildImport, type BuiltImport } from "@/lib/landing/import/build-content";
-import { computeQuote } from "@/lib/landing/registration/pricing";
 
 const load = (name: string): string => readFileSync(join(__dirname, "fixtures", "landing-import", name), "utf8");
 const build = (name: string): BuiltImport => {
@@ -22,126 +17,155 @@ const build = (name: string): BuiltImport => {
 };
 const types = (b: BuiltImport) => b.content.sections.map((s) => s.type);
 const msgs = (b: BuiltImport) => b.warnings.map((w) => w.message);
+const pricingItems = (b: BuiltImport) =>
+  b.content.sections.find((s) => s.type === "pricing_cards")!.data.items as { name: string; price: string }[];
+const allAmounts = (b: BuiltImport): number[] =>
+  Object.values(b.content.registration.prices).flatMap((row) =>
+    Object.values(row).flatMap((c) =>
+      [c.amount, c.earlyAmount, ...Object.values(c.groupTotals ?? {}), ...Object.values(c.earlyGroupTotals ?? {})].filter(
+        (n): n is number => n !== undefined,
+      ),
+    ),
+  );
 
-describe("dry-run fixtures: ppc-batch-3 (course)", () => {
+describe("dry-run fixtures (final prompts): ppc-batch-3 (course)", () => {
   const raw = load("ppc-batch-3.answer.txt");
-  it("starts with chat summary lines and still imports", () => {
+  it("starts with chat summary lines and still imports with no error-level problems", () => {
     expect(raw.startsWith("I have everything I need.")).toBe(true);
+    expect(raw).toContain("Please check before publishing");
     const r = buildImport(raw);
     expect(r.ok).toBe(true);
+    if (r.ok) expect(r.built.warnings.every((w) => w.level !== "error")).toBe(true);
   });
   const b = build("ppc-batch-3.answer.txt");
-  it("has no error-level problems and the expected sections", () => {
-    expect(b.warnings.every((w) => w.level !== "error")).toBe(true);
+  it("has the expected sections (no instructors: the document has none)", () => {
     expect(b.kind).toBe("course");
     expect(b.slug).toBe("ppc-batch-3");
     expect(types(b)).toEqual(["hero", "stats", "feature_cards", "curriculum", "pricing_cards", "schedule", "faq", "final_cta"]);
   });
-  it("has 4 modules, 5 regions, UAE prices for full + each module, group totals", () => {
+  it("has 4 modules, 5 countries, UAE price for full + each module, whole-number prices", () => {
     expect(b.content.modules.map((m) => m.key)).toEqual(["module-1", "module-2", "module-3", "module-4"]);
     expect(b.content.registration.regions.map((r) => r.key)).toEqual(["UAE", "PK", "KSA", "PH", "IN"]);
     const p = b.content.registration.prices;
     for (const opt of ["full", "m1", "m2", "m3", "m4"]) expect(p[opt].UAE.amount).toBeGreaterThan(0);
-    expect(p.full.UAE.groupTotals).toEqual({ g3: 480, g5: 750 });
+    expect(allAmounts(b).every(Number.isInteger)).toBe(true);
+  });
+  it("saves groups as percentages; only Pakistan has stated totals", () => {
+    expect(b.content.registration.tiers.map((t) => [t.key, t.percentOff])).toEqual([["g3", 20], ["g5", 25]]);
+    const p = b.content.registration.prices;
+    expect(p.full.UAE.groupTotals).toBeUndefined();
+    expect(p.full.PK.groupTotals).toEqual({ g3: 14400, g5: 22500 });
     expect(p.full.PK.earlyGroupTotals).toEqual({ g3: 11500, g5: 18000 });
-    expect(b.content.registration.tiers.map((t) => t.key)).toEqual(["g3", "g5"]);
   });
-  it("lists every possible link: countries + modules + countries x modules", () => {
-    const c = b.content.registration.regions.length;
-    const m = b.content.modules.length;
-    expect(b.links).toHaveLength(c + m + c * m);
-    expect(b.links.filter((l) => l.on).length).toBeGreaterThan(0);
+  it("leaves out the conflicting fields", () => {
+    expect(b.content.registration.earlyBirdEndsAt).toBe("");
+    expect(b.content.settings.countdownTo).toBe("");
+    expect(b.content.registration.regions.find((r) => r.key === "UAE")!.classTime).toBe("");
+    expect(b.content.registration.whatsappVerifyNumber).toBe("");
+    expect(b.content.registration.moduleMix.enabled).toBe(false);
   });
-  it("flags stale-prone fields for review", () => {
-    expect(b.content.needsReview).toHaveLength(10);
+  it("pricing cards say 'See price for your country' on this multi-country page", () => {
+    expect(pricingItems(b).map((i) => i.price)).toEqual(["See price for your country", "See price for your country"]);
   });
-  it("switches the listed links on and keeps the module link titles", () => {
-    const on = b.links.filter((l) => l.on).map((l) => [l.regionKey, l.moduleKey].join("/"));
-    expect(on).toEqual(["UAE/", "PK/", "KSA/", "PH/", "IN/", "/module-1", "/module-2", "/module-3", "/module-4", "UAE/module-2", "PK/module-1", "PK/module-2", "PK/module-3", "PK/module-4"]);
-    expect(b.links.find((l) => l.moduleKey === "module-2" && !l.regionKey)?.heroTitle).toBe("Module 2: Therapeutics in Acute & Chronic Care");
+  it("lists every possible link (countries + modules + countries x modules) with none switched on", () => {
+    expect(b.links).toHaveLength(5 + 4 + 5 * 4);
+    expect(b.links.filter((l) => l.on)).toHaveLength(0);
   });
-  it("quotes: stated total after Early Bird, and percent fallback in Recorded mode", () => {
-    const config = b.content.registration;
-    const quote = (mode: "live" | "recorded", now: string, tierKey = "g3") => {
-      const q = computeQuote({ config, regionKey: "UAE", mode, optionKeys: ["full"], tierKey, groupSize: 3, now: new Date(now) });
-      if (!q.ok) throw new Error(q.reason);
-      return q.total;
-    };
-    expect(quote("live", "2030-01-01T00:00:00Z")).toBe(480);
-    if (config.modes.includes("recorded")) {
-      const amount = config.prices.full.UAE.amount;
-      const rec = Math.round((amount * config.recordedPercentOfRegular) / 100);
-      const pct = config.tiers.find((t) => t.key === "g3")!.percentOff;
-      expect(quote("recorded", "2026-10-01T00:00:00Z")).toBe(Math.round((rec * (100 - pct)) / 100) * 3);
-    }
-  });
-  it("whole-number prices: nothing is left that quotes as no_price", () => {
-    const config = b.content.registration;
-    const q = computeQuote({ config, regionKey: "UAE", mode: "live", optionKeys: ["m1"], tierKey: "g5", groupSize: 5, now: new Date("2026-10-01T00:00:00Z") });
-    expect(q.ok).toBe(true);
+  it("flags stale-prone fields for review (recomputed from output)", () => {
+    expect(b.content.needsReview).toHaveLength(8);
   });
   it("remaining warnings snapshot", () => {
-    const rounded = ["Module 1", "Module 2", "Module 3", "Module 4"].flatMap((m) =>
-      ["UAE", "Saudi Arabia"].map((c) => `The group total of ${m} for ${c} for the group "g5": 187.5 was rounded to 188 because prices must be whole numbers.`),
-    );
     expect(msgs(b)).toEqual([
-      ...rounded,
       "Choose at least one payment account for UAE.",
       "Choose at least one payment account for Pakistan.",
       "Choose at least one payment account for Saudi Arabia.",
       "Choose at least one payment account for Philippines.",
       "Choose at least one payment account for India.",
+      "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
       "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
-      "Check the countdown date before publishing.",
+      "An Early Bird price is given but there is no Early Bird end date.",
     ]);
   });
 });
 
-describe("dry-run fixtures: mdc-batch-3 (workshop)", () => {
+describe("dry-run fixtures (final prompts): mdc-batch-3 (workshop)", () => {
   const b = build("mdc-batch-3.answer.txt");
-  it("imports as a workshop with the expected sections", () => {
+  it("imports as a workshop; dates conflict so there is no schedule section", () => {
     expect(b.kind).toBe("workshop");
     expect(b.slug).toBe("mdc-3");
     expect(b.warnings.every((w) => w.level !== "error")).toBe(true);
-    expect(types(b)).toEqual(["hero", "stats", "rich_text", "feature_cards", "instructors", "curriculum", "pricing_cards", "schedule", "final_cta"]);
+    expect(types(b)).toEqual(["hero", "rich_text", "feature_cards", "instructors", "curriculum", "pricing_cards", "final_cta"]);
   });
-  it("has PK and UAE with seat prices and group totals", () => {
+  it("has PK and UAE, one seat option, percent-only group tier, whole-number prices", () => {
     expect(b.content.registration.regions.map((r) => r.key)).toEqual(["PK", "UAE"]);
     expect(b.content.registration.options.map((o) => o.key)).toEqual(["seat"]);
     const seat = b.content.registration.prices.seat;
-    expect(seat.PK.amount).toBe(3500);
-    expect(seat.PK.earlyGroupTotals).toEqual({ g3: 6480 });
-    expect(seat.UAE.amount).toBe(100);
-    expect(b.content.registration.earlyBirdEndsAt).toContain("2026-08-29");
-    expect(b.content.needsReview).toHaveLength(10);
+    expect(seat.PK).toMatchObject({ amount: 3500, earlyAmount: 2700 });
+    expect(seat.UAE).toMatchObject({ amount: 100, earlyAmount: 80 });
+    expect(seat.PK.groupTotals).toBeUndefined();
+    expect(b.content.registration.tiers.map((t) => [t.key, t.minSize, t.percentOff])).toEqual([["g3", 3, 20]]);
+    expect(allAmounts(b).every(Number.isInteger)).toBe(true);
+  });
+  it("leaves out Early Bird end and UAE class time; payment-check number equals chat number", () => {
+    expect(b.content.registration.earlyBirdEndsAt).toBe("");
+    expect(b.content.registration.regions.find((r) => r.key === "UAE")!.classTime).toBe("");
+    expect(b.content.registration.whatsappVerifyNumber).toBe("923700199429");
+  });
+  it("pricing card says 'See price for your country'", () => {
+    expect(pricingItems(b).map((i) => i.price)).toEqual(["See price for your country"]);
+  });
+  it("has no links part, so no variants are on", () => {
+    expect(b.links).toHaveLength(2);
     expect(b.links.filter((l) => l.on)).toHaveLength(0);
+  });
+  it("flags stale-prone fields for review (recomputed from output)", () => {
+    expect(b.content.needsReview).toHaveLength(2);
   });
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([
       "Choose at least one payment account for Pakistan.",
       "Choose at least one payment account for UAE.",
+      "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
       "The page has no questions and answers (FAQ).",
+      "An Early Bird price is given but there is no Early Bird end date.",
     ]);
   });
 });
 
-describe("dry-run fixtures: w20-diabetes (webinar)", () => {
+describe("dry-run fixtures (final prompts): w20-diabetes (webinar)", () => {
   const b = build("w20-diabetes.answer.txt");
   it("imports as a webinar with the expected sections", () => {
     expect(b.kind).toBe("webinar");
     expect(b.warnings.every((w) => w.level !== "error")).toBe(true);
     expect(types(b)).toEqual(["hero", "rich_text", "schedule", "instructors", "pricing_cards"]);
   });
-  it("has PK and PH with one paid option, no early bird, both links on", () => {
+  it("has a free option and a Pro option; Pakistan Pro price is left out on purpose", () => {
     expect(b.content.registration.regions.map((r) => r.key)).toEqual(["PK", "PH"]);
-    expect(b.content.registration.prices.seat.PK.amount).toBe(399);
-    expect(b.content.registration.prices.seat.PH.amount).toBe(150);
-    expect(b.content.registration.prices.seat.PK.earlyAmount).toBeUndefined();
-    expect(b.links.filter((l) => l.on)).toHaveLength(2);
+    expect(b.content.registration.options.map((o) => [o.key, o.free])).toEqual([["free", true], ["pro", false]]);
+    const p = b.content.registration.prices;
+    expect(p.free.PK.amount).toBe(0);
+    expect(p.free.PH.amount).toBe(0);
+    expect(p.pro.PH.amount).toBe(150);
+    expect(p.pro.PK).toBeUndefined();
+    expect(allAmounts(b).every(Number.isInteger)).toBe(true);
+  });
+  it("saves the 20% group offer as a percentage with no totals and no Early Bird", () => {
+    expect(b.content.registration.tiers.map((t) => [t.key, t.minSize, t.percentOff])).toEqual([["g3", 3, 20]]);
+    expect(b.content.registration.earlyBirdEndsAt).toBe("");
+  });
+  it("Free card says Free; Pro card says 'See price for your country'", () => {
+    expect(pricingItems(b).map((i) => [i.name, i.price])).toEqual([
+      ["Free Plan", "Free"],
+      ["Pro Plan", "See price for your country"],
+    ]);
+  });
+  it("keeps both country links on and flags review fields (recomputed from output)", () => {
+    expect(b.links.filter((l) => l.on).map((l) => l.regionKey)).toEqual(["PK", "PH"]);
     expect(b.content.needsReview).toHaveLength(5);
   });
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([
+      'Add the price of "Pro Plan" for Pakistan.',
       "Choose at least one payment account for Pakistan.",
       "Choose at least one payment account for Philippines.",
       "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
