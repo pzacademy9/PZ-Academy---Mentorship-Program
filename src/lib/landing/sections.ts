@@ -266,7 +266,8 @@ export function fieldSchema(f: FieldDef): z.ZodTypeAny {
     case "whatsapp":
       return z.string().regex(/^(\d{8,15})?$/, "Digits only, with country code, like 923700199429").default("");
     case "image":
-      return z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://");
+      // Optional on input so pages saved before newer picture fields existed still validate.
+      return z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://").default("");
     case "url":
       return z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://");
     case "youtube":

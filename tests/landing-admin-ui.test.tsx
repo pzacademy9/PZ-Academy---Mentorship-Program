@@ -602,7 +602,7 @@ describe("LandingEditor fix round 1", () => {
     const last = autosave.schedule.mock.calls.at(-1)![0];
     expect(last.sections[0].data.headline).toBe("A edit");
     expect(last.sections[0].data.subheadline).toBe("B edit");
-    expect(last.sections[0].data.image).toBe("https://img.example/new.webp");
+    expect(last.sections[0].data.imagePc).toBe("https://img.example/new.webp");
   });
   it("a late share-image upload keeps settings edits made meanwhile", () => {
     render(<LandingEditor page={page} versions={[]} />);
@@ -712,7 +712,7 @@ describe("LandingEditor fix round 1", () => {
     const last = autosave.schedule.mock.calls.at(-1)![0];
     const hero = last.sections.find((x: { type: string }) => x.type === "hero");
     const cta = last.sections.find((x: { type: string }) => x.type === "final_cta");
-    expect(hero.data.image).toBe("https://img.example/a.webp");
+    expect(hero.data.imagePc).toBe("https://img.example/a.webp");
     expect(cta.data.headline).toBe("B edit");
   });
 });
