@@ -48,6 +48,8 @@ export function LandingImageField({
 
   function onChangeCapture(e: React.ChangeEvent<HTMLDivElement>) {
     const input = e.target as unknown as HTMLInputElement;
+    // Events from the picker pop-up bubble through its portal; they are not ours.
+    if (!e.currentTarget.contains(input)) return;
     if (input.type !== "file") { pending.current = null; setNotSaved(false); return; }
     if (passThrough.current) {
       passThrough.current = false;

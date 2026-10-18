@@ -108,8 +108,16 @@ export function MediaLibrary({ initialItems }: { initialItems: Item[] }) {
         url: data.url, name, width: size?.width ?? null, height: size?.height ?? null, sizeBytes: small.size,
       });
       if (!ok) throw new Error("Could not add the picture to the library");
-      const list = await fetch("/api/admin/landing-media");
-      if (list.ok) setItems(((await list.json()) as { items?: Item[] }).items ?? []);
+      try {
+        // The picture is already saved; a failed refresh just leaves the list as it was.
+        const list = await fetch("/api/admin/landing-media");
+        if (list.ok) {
+          const body = (await list.json()) as { items?: Item[] };
+          if (Array.isArray(body.items)) setItems(body.items);
+        }
+      } catch {
+        /* keep the list as it is */
+      }
       toast.success("Picture added");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -147,7 +155,9 @@ export function MediaLibrary({ initialItems }: { initialItems: Item[] }) {
 
       {shown.length === 0 ? (
         <p className="py-10 text-center font-body text-sm text-pz-on-surface-variant">
-          {items.length === 0 ? "No pictures yet. Use Upload new to add one." : "No pictures match that search."}
+          {items.length === 0
+            ? "No pictures yet. Use Upload new to add one."
+            : search.trim() === "" ? "No pictures here yet." : "No pictures match that search."}
         </p>
       ) : (
         <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

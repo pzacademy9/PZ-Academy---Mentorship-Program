@@ -5,8 +5,9 @@ import { useState } from "react";
 import { MediaPicker } from "@/components/admin/landing/MediaPicker";
 import { LandingImageField } from "@/components/admin/landing/LandingImageField";
 
+const gate = vi.hoisted(() => ({ p: Promise.resolve() as Promise<void>, up: Promise.resolve() as Promise<void> }));
 vi.mock("@/lib/landing/compress-image", () => ({ compressImage: async (f: File) => f }));
-vi.mock("@/components/admin/landing/media-client", async (orig) => ({ ...(await orig<typeof import("@/components/admin/landing/media-client")>()), readImageSize: async () => ({ width: 1600, height: 900 }) }));
+vi.mock("@/components/admin/landing/media-client", async (orig) => ({ ...(await orig<typeof import("@/components/admin/landing/media-client")>()), readImageSize: async () => { await gate.p; return { width: 1600, height: 900 }; } }));
 vi.mock("@/components/admin/program/ImageUploadField", () => ({
   ImageUploadField: ({ value, onChange, uploadLabel = "Upload" }: { value: string; onChange: (u: string) => void; uploadLabel?: string }) => (
     <div>
@@ -16,7 +17,7 @@ vi.mock("@/components/admin/program/ImageUploadField", () => ({
         type="file"
         onChange={(e) => {
           if (e.target.files?.[0]?.name === "fail.png") return; // a failed upload never calls onChange
-          onChange("https://drive.google.com/thumbnail?id=ABCDEFGHIJKL&sz=w1600");
+          void gate.up.then(() => onChange("https://drive.google.com/thumbnail?id=ABCDEFGHIJKL&sz=w1600"));
         }}
       />
       <button type="button">{uploadLabel}</button>
@@ -35,7 +36,7 @@ function okFetch(items = ITEMS) {
 }
 
 afterEach(() => cleanup());
-beforeEach(() => vi.unstubAllGlobals());
+beforeEach(() => { vi.unstubAllGlobals(); gate.p = Promise.resolve(); gate.up = Promise.resolve(); });
 
 describe("MediaPicker", () => {
   it("lists pictures and filters by typed search", async () => {
@@ -151,6 +152,20 @@ describe("LandingImageField", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(posts(f)).toHaveLength(0);
     expect((screen.getByLabelText("link") as HTMLInputElement).value).toBe(ITEMS[1].url);
+  });
+  it("typing in the picker search while an upload is in flight still registers it", async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ items: ITEMS }) }));
+    vi.stubGlobal("fetch", f);
+    let release!: () => void;
+    gate.up = new Promise<void>((r) => { release = r; });
+    render(<Host2 />);
+    fireEvent.change(screen.getByLabelText("file"), { target: { files: [new File(["x"], "My Hero.png", { type: "image/png" })] } });
+    await new Promise((r) => setTimeout(r, 20)); // details captured, upload still running
+    fireEvent.click(screen.getByRole("button", { name: "Choose from library" }));
+    await screen.findByText("Wide one");
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: "wide" } });
+    release();
+    await waitFor(() => expect(posts(f)).toHaveLength(1));
   });
   it("the landing upload button reads Upload new", () => {
     vi.stubGlobal("fetch", vi.fn());

@@ -5,6 +5,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }), redirect: vi.fn() }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
+vi.mock("@/lib/landing/compress-image", () => ({ compressImage: async (f: File) => f }));
+vi.mock("@/components/admin/landing/media-client", async (orig) => ({ ...(await orig<typeof import("@/components/admin/landing/media-client")>()), readImageSize: async () => ({ width: 100, height: 100 }) }));
 
 import { MediaLibrary } from "@/components/admin/landing/MediaLibrary";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
@@ -80,6 +82,29 @@ describe("MediaLibrary", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByText("Hero one")).toBeNull());
     expect(fetchMock().mock.calls[0][1].method).toBe("DELETE");
+  });
+});
+
+describe("MediaLibrary extras", () => {
+  it("empty folder says no pictures here yet; a search miss says no match", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Misc" }));
+    expect(screen.getByText("No pictures here yet.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search pictures"), { target: { value: "zzz" } });
+    expect(screen.getByText("No pictures match that search.")).toBeTruthy();
+  });
+
+  it("upload still succeeds when the refresh body is not JSON", async () => {
+    fetchMock()
+      .mockResolvedValueOnce(reply(200, { url: "https://drive.google.com/uc?id=abcdefghijkl" })) // upload
+      .mockResolvedValueOnce(reply(200, { item: item("z", "Fresh", "misc") })) // register
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => { throw new Error("not json"); } }); // refresh
+    const { container } = mount();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "Fresh.png", { type: "image/png" })] } });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Picture added"));
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(screen.getByText("Hero one")).toBeTruthy();
   });
 });
 
