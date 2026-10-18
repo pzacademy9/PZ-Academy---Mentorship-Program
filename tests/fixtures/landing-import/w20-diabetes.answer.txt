@@ -1,0 +1,150 @@
+I have everything I need.
+
+Done for you
+- A draft webinar page with a Free plan and a Pro plan, for Pakistan and the Philippines, using your exact wording.
+- A 20% group discount for groups of 3 or more, plus the speaker, the date and the times for both countries.
+
+Please check before publishing
+- Payment accounts (PayPal, Easypaisa, bank accounts) are not on the page. They, and all pictures, are chosen in the editor.
+- Pakistan Pro price left out: your Pakistan section says PKR 399, but the master prompt says not to use PKR 399 for this webinar. Please tell me which is right. Until then Pakistan has no Pro price.
+- Duration left out: the document says both "1 Hour" and "50–60 Minutes".
+- Platform left out: the document says "Zoom (Live) + YouTube (Free)" in one place and Zoom only in others.
+- Pro price for the Philippines is 150 (PHP), as stated in the document.
+- Free plan price is 0 in both countries (Pakistan and the Philippines).
+- Group discount is written as a percentage only (20% off for 3 or more). No group totals were given, so none were worked out.
+- Chat button number: 03155614490 is labelled "Phone / WhatsApp" in the document. I wrote it as 923155614490 (Pakistan code added). Please confirm.
+- Payment screenshot WhatsApp number was not given, so it is left out.
+- No Early Bird price or date in the document, so none was added.
+- Recording is listed only as a Pro plan benefit, so I did not add a "recorded" option and no recorded percentage.
+- "Register now" (button label) is the standard label and was not in your document.
+- Link name (slug) "diabetes-pharmacotherapy-webinar", reference code "DIAB" and short event name "Diabetes Pharmacotherapy Webinar" were made up from the page name.
+- Time shown per country is the start time only (7:30 PM Pakistan, 10:30 PM Philippines), because the duration is unclear.
+- Left out: "Instructor Demo" (only in one marketing version, no details), hashtags, email and website contact lines, WhatsApp and email templates, joining instructions, brand and design notes.
+- Left out: FAQ and final call-to-action sections, because the document has no questions and answers or closing text for them.
+- Speaker role left out; her credentials are in the bio exactly as written.
+
+````markdown
+---
+format: pz-landing/1
+kind: webinar
+title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
+slug: diabetes-pharmacotherapy-webinar
+seo: { title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient", description: "Diabetes management is not a one-size-fits-all approach." }
+settings:
+  register_label: Register now
+  whatsapp: "923155614490"
+registration:
+  default_region: PK
+  event_label: Diabetes Pharmacotherapy Webinar
+  ref_prefix: DIAB
+  regions:
+    - { code: PK, name: Pakistan, currency: PKR, class_time: "7:30 PM", timezone: Pakistan time }
+    - { code: PH, name: Philippines, currency: PHP, class_time: "10:30 PM", timezone: Philippine time }
+  options:
+    - { key: free, name: Free Plan, kind: bundle, free: true }
+    - { key: pro, name: Pro Plan, kind: bundle }
+  tiers:
+    - { key: g3, label: Group of 3 or more, min: 3, percent_off: 20 }
+  prices:
+    free:
+      PK: { amount: 0 }
+      PH: { amount: 0 }
+    pro:
+      PH: { amount: 150 }
+links:
+  - { country: PK, on: true }
+  - { country: PH, on: true }
+---
+
+## Section: hero
+```yml
+eyebrow: LIVE webinar
+headline: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient"
+subheadline: Diabetes management is not a one-size-fits-all approach.
+dateLine: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time"
+```
+
+## Section: rich_text
+```yml
+heading: What You Will Learn
+body: |
+  - Overview of diabetes pharmacotherapy
+  - Comparison of major antidiabetic drug classes
+  - Understanding efficacy versus safety when selecting therapy
+  - Hypoglycemia risk associated with different drug classes
+  - Weight effects of antidiabetic medications
+  - Renal considerations in diabetes pharmacotherapy
+  - Cardiovascular benefits of selected antidiabetic therapies
+  - Drug selection according to individual patient profile
+  - Principles of combination therapy
+  - Application of pharmacotherapy concepts through interactive clinical cases
+
+  Session Highlights
+  - Comprehensive overview of diabetes pharmacotherapy
+  - Comparison of major drug classes
+  - Efficacy versus safety considerations
+  - Hypoglycemia risk assessment
+  - Weight-related considerations in drug selection
+  - Renal considerations in diabetes management
+  - Cardiovascular benefits of selected therapies
+  - Patient-profile based drug selection
+  - Combination therapy
+  - Interactive clinical case discussions
+  - Interactive Live Q&A
+
+  Why You Should Join
+  Diabetes management is not a one-size-fits-all approach. Choosing the right medication requires consideration of the patient's individual profile, treatment goals, safety concerns, hypoglycemia risk, weight, renal function, and cardiovascular considerations.
+
+  This webinar is designed to help students and healthcare learners understand how different antidiabetic drug classes compare and how treatment choices can be tailored according to the needs of individual patients.
+
+  Through interactive clinical cases, participants will have the opportunity to apply pharmacotherapy concepts to practical patient scenarios and understand the clinical reasoning behind drug selection.
+
+  Target Audience
+  - Pharmacy Students
+  - Medical Students
+  - Healthcare Professionals
+  - Residents and Trainees
+  - Students interested in Clinical Pharmacotherapy
+  - Learners interested in Diabetes Management
+  - Philippines students
+```
+
+## Section: schedule
+```yml
+heading: Event Information
+items:
+  - { when: "14th September 2026 · 7:30 PM PKT / 10:30 PM Philippine Time", title: "Diabetes Pharmacotherapy: Choosing the Right Drug for the Right Patient" }
+```
+
+## Section: instructors
+```yml
+heading: Speaker Introduction
+items:
+  - name: Dr. Christine Agnes Bianca
+    bio: |
+      - Licensed Physician, Philippine Medical Association
+      - Associate Member, Philippine Academy of Family Physicians
+      - Certified Family Physician, PAFP
+      - Certified Trained Healthcare Professional in the Workshop on Refining and Enhancing Fundamentals in Diabetes and its Management by the Institute for Studies on Diabetes Foundation
+```
+
+## Section: pricing_cards
+```yml
+heading: Pricing Plans
+note: "Group of 3 or more: 20% OFF. One payment for the whole group. Shared registration confirmation."
+items:
+  - name: Free Plan
+    price: Free
+    features: |
+      - Access to full webinar
+      - Certificate of Participation
+  - name: Pro Plan
+    price: See price for your country
+    features: |
+      - Full webinar access + Recording
+      - Certificate of Participation
+      - Live Kahoot Quiz Access
+      - Excellence Certificate Opportunity
+      - Priority Q&A Access
+```
+````
