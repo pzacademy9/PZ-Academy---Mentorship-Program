@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let json: { ok: boolean; url?: string; error?: string };
+  let json: { ok: boolean; url?: string; fileId?: string; error?: string };
   try {
     json = await gasRes.json();
   } catch (err) {
@@ -96,5 +96,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: json.error ?? "Upload failed" }, { status: 502 });
   }
 
-  return NextResponse.json({ url: json.url });
+  return NextResponse.json({ url: json.url, fileId: json.fileId });
 }

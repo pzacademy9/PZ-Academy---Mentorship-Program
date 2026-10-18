@@ -29,6 +29,7 @@ export function ImageUploadField({
   shape = "circle",
   icon: Icon = ImagePlus,
   uploadUrl = "/api/admin/uploads/image",
+  uploadLabel = "Upload",
 }: {
   value: string;
   onChange: (url: string) => void;
@@ -39,6 +40,8 @@ export function ImageUploadField({
   icon?: LucideIcon;
   /** Which route the file POSTs to -- defaults to the admin course-image relay; pass a different route for non-admin callers (e.g. /api/uploads/avatar). */
   uploadUrl?: string;
+  /** Text of the upload button (the "Uploading…" state is unchanged). */
+  uploadLabel?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { run: handleFile, pending: uploading } = useAsyncAction(async (file: File) => {
@@ -96,7 +99,7 @@ export function ImageUploadField({
             className="shrink-0 gap-1.5 px-3 py-2.5 max-md:min-h-11 rounded-lg border border-pz-outline-variant text-xs font-bold text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
           >
             <ImagePlus className="w-3.5 h-3.5" />
-            {uploading ? "Uploading…" : "Upload"}
+            {uploading ? "Uploading…" : uploadLabel}
           </Button>
           {value && (
             <button

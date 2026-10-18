@@ -1974,6 +1974,56 @@ export type Database = {
           },
         ]
       }
+      landing_media: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          drive_file_id: string
+          folder: string
+          height: number | null
+          id: string
+          name: string
+          orientation: string | null
+          size_bytes: number | null
+          url: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          drive_file_id: string
+          folder?: string
+          height?: number | null
+          id?: string
+          name: string
+          orientation?: string | null
+          size_bytes?: number | null
+          url: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          drive_file_id?: string
+          folder?: string
+          height?: number | null
+          id?: string
+          name?: string
+          orientation?: string | null
+          size_bytes?: number | null
+          url?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_media_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_whatsapp_numbers: {
         Row: {
           created_at: string
