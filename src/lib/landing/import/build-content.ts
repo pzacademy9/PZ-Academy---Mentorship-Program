@@ -7,6 +7,7 @@ import {
 } from "../content";
 import { SECTION_DEFS, SECTION_TYPES, sectionDataSchema, type FieldDef, type SectionType } from "../sections";
 import { slugify, validateSlug } from "../slug";
+import { LINK_ALL_MODULES, LINK_GROUP } from "../registration/card-price";
 import { buildRegistration, daysOf } from "./build-registration";
 import { parseImportFile, type ImportProblem } from "./parse";
 
@@ -78,6 +79,7 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
     }
   }
   const moduleKeys = new Set(reg.modules.map((m) => m.key));
+  const linkCodes = new Set<string>([...reg.registration.options.map((o) => o.key), LINK_ALL_MODULES, LINK_GROUP]);
 
   // ---- settings and seo
   const settings = isRecord(front.settings) ? front.settings : {};
@@ -120,7 +122,7 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
     const known = new Set([...SECTION_DEFS[type].fields.map((f) => f.key), "enabled"]);
     for (const k of Object.keys(s.data)) if (!known.has(k)) warn(`The "${label}" section has a field "${k}" that is not used. It was left out.`);
     const prepared = prepareItem(SECTION_DEFS[type].fields, s.data, {
-      label, moduleKeys, warn, picture: () => { sawPicture = true; },
+      label, moduleKeys, linkCodes, warn, picture: () => { sawPicture = true; },
     });
     const section: LandingSection = { id: globalThis.crypto.randomUUID(), type, enabled: s.data.enabled !== false, data: prepared };
     const check = sectionDataSchema(type).safeParse(prepared);
@@ -213,6 +215,7 @@ function fail(errs: (string | ImportProblem)[]): { ok: false; errors: string[] }
 interface PrepCtx {
   label: string;
   moduleKeys: Set<string>;
+  linkCodes: Set<string>;
   warn: (m: string) => void;
   picture: () => void;
 }
@@ -247,6 +250,12 @@ function prepareItem(fields: FieldDef[], raw: Rec, ctx: PrepCtx, parent?: FieldD
         ctx.warn(`In "${ctx.label}", an entry is tagged with the module "${tag}", which is not one of the modules. The tag was removed.`);
         out[f.key] = "";
       } else out[f.key] = tag;
+    } else if (f.kind === "priceLink") {
+      const code = text(v);
+      if (code !== "" && !ctx.linkCodes.has(code)) {
+        ctx.warn(`The card "${text(out.name) || "A card"}" is linked to "${code}", which is not one of the things people can buy, so it was left unlinked.`);
+        out[f.key] = "";
+      } else out[f.key] = code;
     } else {
       if (present && typeof v !== "string" && typeof v !== "number") unreadable(f);
       out[f.key] = typeof v === "string" ? v : typeof v === "number" ? String(v) : (f.defaultValue ?? "");

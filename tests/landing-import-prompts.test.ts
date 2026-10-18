@@ -108,13 +108,13 @@ describe("worked examples", () => {
     expect(reg.prices.pro.PK.amount).toBeGreaterThan(0);
   });
 
-  it("multi-country examples do not put one currency in the pricing cards", () => {
+  it("multi-country examples link their pricing cards instead of typing a price", () => {
     for (const kind of KINDS) {
       const r = buildImport(EXAMPLE_FILE_BY_KIND[kind]);
       if (!r.ok) throw new Error(r.errors.join(" | "));
       expect(r.built.content.registration.regions.length).toBeGreaterThan(1);
-      const cards = r.built.content.sections.find((s) => s.type === "pricing_cards")!.data.items as { price: string }[];
-      for (const c of cards) expect(c.price).toMatch(/^(See price for your country|Free)$/);
+      const cards = r.built.content.sections.find((s) => s.type === "pricing_cards")!.data.items as { price: string; option: string }[];
+      for (const c of cards) { expect(c.price).toBe(""); expect(c.option).not.toBe(""); }
     }
   });
 
@@ -158,7 +158,7 @@ describe("prompt guards", () => {
   it("teaches the new rules", () => {
     for (const k of KINDS) {
       const p = masterPrompt(k);
-      expect(p).toContain("See price for your country");
+      expect(p).toContain("write NO price on it");
       expect(p).toContain("Please check");
       expect(p).toContain("Done for you");
       expect(p).toMatch(/default_region is the main country/);
