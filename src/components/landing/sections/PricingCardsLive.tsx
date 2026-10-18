@@ -9,7 +9,10 @@ import { cardPrice, type CardPrice } from "@/lib/landing/registration/card-price
 import { RegisterButton, type Register } from "../RegisterButton";
 import { CheckList } from "./util";
 
-export type LiveRegistration = Pick<RegistrationConfig, "enabled" | "modes" | "recordedPercentOfRegular" | "regions" | "defaultRegionKey" | "options" | "moduleMix" | "tiers" | "prices" | "earlyBirdEndsAt">;
+export type LiveRegistration = Pick<RegistrationConfig, "enabled" | "modes" | "recordedPercentOfRegular" | "defaultRegionKey" | "moduleMix" | "tiers" | "prices" | "earlyBirdEndsAt"> & {
+  regions: { key: string; label: string; currency: string }[];
+  options: { key: string; label: string; kind: "bundle" | "module"; free: boolean }[];
+};
 export interface LiveCard { name: string; price: string; oldPrice: string; badge: string; features: string; option: string }
 
 export function PricingCardsLive({ heading, note, cards, registration, nowIso, register }: {
@@ -17,10 +20,17 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
 }) {
   const selectId = useId();
   const regions = registration.regions;
-  const [region, setRegion] = useState(() => (regions.some((g) => g.key === registration.defaultRegionKey) ? registration.defaultRegionKey : regions[0]?.key ?? ""));
+  const initial = regions.some((g) => g.key === registration.defaultRegionKey) ? registration.defaultRegionKey : regions[0]?.key ?? "";
+  const [region, setRegion] = useState(initial);
   const [now, setNow] = useState(() => new Date(nowIso));
   useEffect(() => { setNow(new Date()); }, []);
-  const config: RegistrationConfig = { ...DEFAULT_REGISTRATION, ...registration };
+  const config: RegistrationConfig = {
+    ...DEFAULT_REGISTRATION, ...registration,
+    regions: regions.map((g) => ({ ...g, classTime: "", timezoneLabel: "", accountKeys: [] })),
+    options: registration.options.map((o) => ({ ...o, waGroupUrl: "" })),
+  };
+  // Stays put when the chosen country prices no card, so the visitor can switch back.
+  const showSwitcher = registration.enabled && regions.length > 1 && cards.some((c) => c.option !== "");
 
   // Per card: the live figures, or null (hidden). A card without a link, or any card while the form is off, shows its typed price.
   const views = cards
@@ -31,8 +41,7 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
       return live ? { card, live, typed: false } : null;
     })
     .filter((v): v is { card: LiveCard; live: CardPrice | null; typed: boolean } => v !== null);
-  if (views.length === 0) return null;
-  const showSwitcher = regions.length > 1 && views.some((v) => v.live !== null);
+  if (views.length === 0 && !(showSwitcher && region !== initial)) return null;
 
   return (
     <div className="border-b border-landing-border bg-landing-surface-container-lowest py-10 md:py-20">
@@ -87,7 +96,7 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
                     ) : null
                   ) : live.kind === "group" ? (
                     <ul className="mb-5 space-y-1 text-sm font-semibold text-landing-deep md:mb-6">
-                      {live.lines.map((l) => <li key={l}>{l}</li>)}
+                      {live.lines.map((l, j) => <li key={j}>{l}</li>)}
                     </ul>
                   ) : (
                     <div className="mb-5 rounded-landing md:mb-6">
@@ -100,7 +109,7 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
                       {live.recorded ? <p className="mt-1 text-xs text-landing-muted">{`Recorded: ${live.recorded}`}</p> : null}
                       {live.groupLines.length > 0 ? (
                         <ul className="mt-2 space-y-0.5 text-xs text-landing-on-surface">
-                          {live.groupLines.map((l) => <li key={l}>{l}</li>)}
+                          {live.groupLines.map((l, j) => <li key={j}>{l}</li>)}
                         </ul>
                       ) : null}
                     </div>

@@ -13,17 +13,21 @@ export function PricingCards({ data, register, registration, nowIso }: SectionPr
   const heading = str(data, "heading");
   const note = str(data, "note");
   if (registration && items.some((i) => i.option !== "")) {
+    // Only what the price maths and the country switcher need: no invite links, account keys or class times reach the page source.
     const live: LiveRegistration = {
       enabled: registration.enabled, modes: registration.modes, recordedPercentOfRegular: registration.recordedPercentOfRegular,
-      regions: registration.regions, defaultRegionKey: registration.defaultRegionKey, options: registration.options,
+      regions: registration.regions.map(({ key, label, currency }) => ({ key, label, currency })),
+      defaultRegionKey: registration.defaultRegionKey,
+      options: registration.options.map(({ key, label, kind, free }) => ({ key, label, kind, free })),
       moduleMix: registration.moduleMix, tiers: registration.tiers, prices: registration.prices, earlyBirdEndsAt: registration.earlyBirdEndsAt,
     };
     const cards: LiveCard[] = items;
-    // A card that can show nothing in any country, at any time, is dropped here so no empty heading is left behind.
+    // Same first-paint region as the island, so both agree on whether anything shows.
+    const first = registration.regions.some((g) => g.key === registration.defaultRegionKey) ? registration.defaultRegionKey : registration.regions[0]?.key ?? "";
     const now = new Date(nowIso ?? Date.now());
     const anything = cards.some((c) => c.option === "" || (!registration.enabled
       ? c.price !== ""
-      : registration.regions.some((g) => cardPrice(registration, c.option, g.key, now) !== null)));
+      : cardPrice(registration, c.option, first, now) !== null));
     if (!anything) return null;
     return <PricingCardsLive heading={heading} note={note} cards={cards} registration={live} nowIso={nowIso ?? now.toISOString()} register={register} />;
   }

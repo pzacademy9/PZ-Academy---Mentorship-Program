@@ -109,4 +109,34 @@ describe("PricingCards linked cards", () => {
     render(page([{ name: "Full", option: "full" }], cfg({ modes: ["live"] })));
     expect(screen.queryByText(/Recorded/)).toBeNull();
   });
+
+  it("does not put invite links or account keys in the page", () => {
+    const c = cfg();
+    c.options[0].waGroupUrl = "https://chat.whatsapp.com/ABCDEFGHIJ1234";
+    c.regions[0].accountKeys = ["secret_acct_key"];
+    c.regions[0].classTime = "9pm secret";
+    const el = PricingCards({ data: { items: [item({ name: "Full", option: "full" })] }, register, registration: c, nowIso: BEFORE }) as { props: unknown };
+    const props = JSON.stringify(el.props);
+    expect(props).not.toContain("chat.whatsapp.com");
+    expect(props).not.toContain("secret_acct_key");
+    expect(props).not.toContain("9pm secret");
+    const { container } = render(page([{ name: "Full", option: "full" }], c));
+    expect(container.innerHTML).not.toContain("chat.whatsapp.com");
+  });
+
+  it("keeps the switcher when the chosen country prices no linked card", () => {
+    const c = cfg();
+    c.prices = { full: { PK: { amount: 4000 } }, m1: c.prices.m1, m2: c.prices.m2 };
+    render(page([{ name: "Full", option: "full" }, { name: "Plain", price: "PKR 1" }], c));
+    fireEvent.change(screen.getByLabelText(/Prices for/), { target: { value: "UAE" } });
+    expect(screen.queryByText("Full")).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Prices for/), { target: { value: "PK" } });
+    expect(screen.getByText("Full")).toBeTruthy();
+  });
+
+  it("renders nothing when the first-paint country prices no card and nothing else shows", () => {
+    const c = cfg();
+    c.prices = { full: { UAE: { amount: 180 } }, m1: c.prices.m1, m2: c.prices.m2 };
+    expect(PricingCards({ data: { heading: "Fees", items: [item({ name: "Full", option: "full" })] }, register, registration: c, nowIso: BEFORE })).toBeNull();
+  });
 });
