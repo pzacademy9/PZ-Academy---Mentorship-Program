@@ -41,17 +41,21 @@ export function LandingRenderer({
   const c = normalizeContent(content);
   const closed = status === "closed";
   const builtIn = c.registration.enabled && !!slug && !closed;
-  const register = { url: c.settings.registerUrl, label: ctaLabel(c.settings.registerLabel), closed, builtIn };
+  const register = { url: c.settings.registerUrl, label: ctaLabel(c.settings.registerLabel), closed, builtIn, ...(builtIn ? { modes: c.registration.modes } : {}) };
   // NEXT_PUBLIC_* is inlined at build time, so this stays a static page.
   const pixelId = c.registration.pixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
   const wa = c.settings.whatsappNumber.replace(/\D/g, "");
 
   // Render each enabled section once; a section with nothing to show returns null and is dropped
   // (so it also gets no wrapper and no nav anchor).
-  const rendered = c.sections
-    .filter((s: LandingSection) => s.enabled)
-    .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register }) }))
-    .filter((r) => r.node !== null && r.node !== undefined && r.node !== false);
+  const enabledSections = c.sections.filter((s: LandingSection) => s.enabled);
+  const shown = (node: React.ReactNode) => node !== null && node !== undefined && node !== false;
+  const renderAll = (sectionIds: string[]) => enabledSections
+    .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register, sectionIds }) }))
+    .filter((r) => shown(r.node));
+  // Two passes: the hero's "go to a section" button may only point at sections that really appear
+  // (a section with nothing to show is dropped), so the second pass gets the ids that survived the first.
+  const rendered = renderAll(renderAll(enabledSections.map((s) => s.id)).map((r) => r.section.id));
 
   // Top-nav anchors: one per label (first section wins), so two "About" blocks show once.
   const seen = new Set<string>();
@@ -85,7 +89,7 @@ export function LandingRenderer({
               </ul>
             ) : null}
             <div className="flex shrink-0 items-center gap-1">
-              <RegisterButton register={register} size="sm" announce />
+              <RegisterButton register={register} size="sm" announce menuAlign="right" />
               <MobileMenu items={navItems} register={register} />
             </div>
           </nav>
@@ -94,7 +98,12 @@ export function LandingRenderer({
 
       <main>
         {rendered.map(({ section, node }) => (
-          <section key={section.id} id={section.id} className="scroll-mt-28">
+          <section
+            key={section.id}
+            id={section.id}
+            className="scroll-mt-28 break-words"
+            {...(section.data.textSize === "small" ? { "data-text-size": "small" } : {})}
+          >
             {node}
           </section>
         ))}
@@ -118,7 +127,7 @@ export function LandingRenderer({
 
       {/* Phone only: sticky bottom conversion bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-landing-border bg-landing-surface-container-lowest/95 px-4 pt-3 shadow-landing-bar backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
-        <RegisterButton register={register} size="lg" arrow className="h-12 w-full rounded-landing !py-0" />
+        <RegisterButton register={register} size="lg" arrow menuPlacement="up" className="h-12 w-full rounded-landing !py-0" />
       </div>
 
       {slug ? <AttributionCapture slug={slug} /> : null}

@@ -180,7 +180,8 @@ describe("launcher, host and Register button", () => {
   });
   it("LandingRenderer uses the built-in form only on the public route (slug given) when registration is on", () => {
     const base = updateSettings(emptyContent("course"), { registerUrl: "https://old.example/register" });
-    const on = updateRegistration(base, ppcConfig);
+    // One mode: the plain link launcher (two modes render the Live / Recorded menu, see landing-register-menu.test.tsx).
+    const on = updateRegistration(base, { ...ppcConfig, modes: ["live"] });
     const { container, unmount } = render(<LandingRenderer content={on} status="published" kind="course" pageTitle="PPC" slug="ppc" />);
     expect(container.querySelectorAll("a[href='https://old.example/register'][aria-haspopup='dialog']").length).toBeGreaterThan(0);
     unmount();

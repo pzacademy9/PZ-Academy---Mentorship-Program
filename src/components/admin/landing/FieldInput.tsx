@@ -1,6 +1,7 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
+import { normalizeBullets } from "@/lib/landing/import/bullets";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,9 @@ import { isSafeUrl, youtubeId } from "@/lib/landing/simple-text";
 import type { FieldDef } from "@/lib/landing/sections";
 import type { ModuleDef } from "@/lib/landing/variants";
 import { LandingImageField } from "./LandingImageField";
+import { WhatsappNumberField } from "./WhatsappNumberField";
+
+export type SectionOption = { id: string; label: string };
 
 type Item = Record<string, unknown>;
 
@@ -42,13 +46,45 @@ function problemFor(field: FieldDef, value: string): string | null {
   return null;
 }
 
+/** Textarea that turns pasted bullets/numbering into "- " lines. Typing and other pastes are untouched. */
+function BulletTextarea({ value, onValueChange, ...rest }: { value: string; onValueChange: (v: string) => void } & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange">) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const caret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (caret.current !== null && ref.current) {
+      ref.current.setSelectionRange(caret.current, caret.current);
+      caret.current = null;
+    }
+  }, [value]);
+  return (
+    <textarea
+      {...rest}
+      ref={ref}
+      rows={4}
+      value={value}
+      onChange={(e) => onValueChange(e.target.value)}
+      onPaste={(e) => {
+        const text = e.clipboardData.getData("text/plain");
+        const normalized = normalizeBullets(text);
+        if (normalized === text) return;
+        e.preventDefault();
+        const el = e.currentTarget;
+        const start = el.selectionStart;
+        caret.current = start + normalized.length;
+        onValueChange(value.slice(0, start) + normalized + value.slice(el.selectionEnd));
+      }}
+      className={cn(CONTROL, "min-h-[6rem] resize-y")}
+    />
+  );
+}
+
 /** `path` locates the control for the checklist's Fix button: "headline", or "items.0.q" inside a list. */
-export function FieldInput({ field, value, onChange, path, modules }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string; modules?: ModuleDef[] }) {
+export function FieldInput({ field, value, onChange, path, modules, sections }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string; modules?: ModuleDef[]; sections?: SectionOption[] }) {
   const id = useId();
   const helpId = `${id}-help`;
   const errId = `${id}-err`;
 
-  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} modules={modules} />;
+  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} modules={modules} sections={sections} />;
 
   if (field.kind === "module") {
     // Pages without modules edit exactly as before: no select at all.
@@ -65,6 +101,28 @@ export function FieldInput({ field, value, onChange, path, modules }: { field: F
         </select>
       </div>
     );
+  }
+
+  if (field.kind === "choice" || field.kind === "sectionRef") {
+    const isSection = field.kind === "sectionRef";
+    const current = typeof value === "string" && value !== "" ? value : (field.defaultValue ?? "");
+    const options = isSection ? (sections ?? []).map((s) => ({ value: s.id, label: s.label })) : (field.options ?? []);
+    const known = options.some((o) => o.value === current);
+    return (
+      <div className="space-y-1.5">
+        <label htmlFor={id} className={LABEL}>{field.label}</label>
+        {field.help && <p id={helpId} className={HELP}>{field.help}</p>}
+        <select id={id} value={current} data-field-path={path} aria-describedby={field.help ? helpId : undefined} onChange={(e) => onChange(e.target.value)} className={cn(CONTROL, "h-auto")}>
+          {isSection && current === "" && <option value="">Choose a section</option>}
+          {isSection && current !== "" && !known && <option value={current}>This section is no longer on the page</option>}
+          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+    );
+  }
+
+  if (field.kind === "whatsapp") {
+    return <WhatsappNumberField label={field.label} help={field.help} path={path} value={typeof value === "string" ? value : ""} onChange={onChange} />;
   }
 
   const str = typeof value === "string" ? value : "";
@@ -91,16 +149,14 @@ export function FieldInput({ field, value, onChange, path, modules }: { field: F
           path={path}
         />
       ) : field.kind === "textarea" ? (
-        <textarea
+        <BulletTextarea
           id={id}
-          rows={4}
           value={str}
           placeholder={field.example}
           aria-describedby={describedBy}
           aria-invalid={problem ? true : undefined}
           data-field-path={path}
-          onChange={(e) => onChange(e.target.value)}
-          className={cn(CONTROL, "min-h-[6rem] resize-y")}
+          onValueChange={onChange}
         />
       ) : (
         <Input
@@ -116,11 +172,18 @@ export function FieldInput({ field, value, onChange, path, modules }: { field: F
         />
       )}
       {problem && <p id={errId} role="alert" className={ERROR}>{problem}</p>}
+      {!problem && field.hintLength && (field.kind === "text" || field.kind === "textarea") && (
+        <p className={HELP}>
+          {str.length > field.hintLength
+            ? `A bit long: it may be shortened on phones. Best under ${field.hintLength} characters.`
+            : `Best under ${field.hintLength} characters`}
+        </p>
+      )}
     </div>
   );
 }
 
-function ListField({ field, value, onChange, path, modules }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string; modules?: ModuleDef[] }) {
+function ListField({ field, value, onChange, path, modules, sections }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string; modules?: ModuleDef[]; sections?: SectionOption[] }) {
   const items: Item[] = Array.isArray(value) ? (value as Item[]) : [];
   const itemLabel = field.itemLabel ?? "Item";
   const max = field.maxItems ?? 40;
@@ -168,7 +231,7 @@ function ListField({ field, value, onChange, path, modules }: { field: FieldDef;
             </div>
             <div className="space-y-3">
               {(field.itemFields ?? []).map((f) => (
-                <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} modules={modules} />
+                <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} modules={modules} sections={sections} />
               ))}
             </div>
           </li>

@@ -689,6 +689,9 @@ function EditorShell({
                 type={current.type}
                 data={current.data}
                 modules={content.modules}
+                sections={content.sections
+                  .filter((x) => x.enabled && x.id !== current.id)
+                  .map((x) => ({ id: x.id, label: SECTION_DEFS[x.type].navLabel ?? SECTION_DEFS[x.type].label }))}
                 onChange={(data) => apply(updateSectionData(contentRef.current, current.id, data))}
                 link={onLink ? {
                   overridden: ownFields,

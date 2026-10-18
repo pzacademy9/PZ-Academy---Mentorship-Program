@@ -189,6 +189,24 @@ describe("RegistrationFlow (paid, guest)", () => {
     expect((screen.getByLabelText("Email") as HTMLInputElement).getAttribute("aria-invalid")).toBe("true");
   });
 
+  it("a locked mode that the server refuses unlocks the mode question and shows the error", async () => {
+    registerResponse = { status: 422, body: { error: "Choose live sessions or recorded lectures.", field: "mode" } };
+    function Locked() {
+      const [form, setForm] = useState<FormState>(() => ({ ...initialState(ppcConfig, { country: "PK", me: null }), mode: "recorded" }));
+      const [result, setResult] = useState<RegisterSuccess | null>(null);
+      return <RegistrationFlow slug="ppc" config={publicConfig(ppcConfig, { country: "PK" })} me={null} testMode={false} tracking form={form} setForm={setForm} result={result} setResult={setResult} onClose={() => {}} modeLocked />;
+    }
+    render(<Locked />);
+    expect(screen.queryByText(/how do you want to learn/i)).toBeNull();
+    toUploadStep();
+    fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
+    await waitFor(() => expect(screen.getByText("Choose live sessions or recorded lectures.")).toBeTruthy());
+    expect(screen.getByText(/how do you want to learn/i)).toBeTruthy();
+  });
+
   it("an open registration (409 on the email) lands on the email field", async () => {
     registerResponse = { status: 409, body: { error: "This email already has a registration for this event that is waiting for payment.", field: "lead.email" } };
     render(<Harness />);
