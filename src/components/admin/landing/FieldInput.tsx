@@ -114,6 +114,7 @@ export function FieldInput({ field, value, onChange, path, modules, sections }: 
           labelledBy={`${id}-label`}
           describedBy={field.help ? helpId : undefined}
           path={path}
+          want={field.key === "imagePc" ? "wide" : field.key === "imagePhone" ? "tall" : undefined}
         />
       ) : field.kind === "textarea" ? (
         <textarea
