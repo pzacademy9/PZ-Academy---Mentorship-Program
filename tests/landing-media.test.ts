@@ -5,6 +5,7 @@ import {
   fileIdFromUrl,
   cleanMediaName,
   canManageMedia,
+  MEDIA_FOLDERS,
 } from "@/lib/landing/media";
 
 describe("orientationOf", () => {
@@ -14,6 +15,10 @@ describe("orientationOf", () => {
     expect(orientationOf(1000, 1000)).toBe("square");
     expect(orientationOf(0, 10)).toBeNull();
     expect(orientationOf(null, 5)).toBeNull();
+  });
+  it("handles exact boundaries", () => {
+    expect(orientationOf(120, 100)).toBe("wide");
+    expect(orientationOf(83, 100)).toBe("tall");
   });
 });
 
@@ -40,6 +45,7 @@ describe("cleanMediaName", () => {
     expect(cleanMediaName("  Dr Sara  ")).toEqual({ ok: true, name: "Dr Sara" });
     expect(cleanMediaName("   ")).toEqual({ ok: false });
     expect(cleanMediaName("a".repeat(81))).toEqual({ ok: false });
+    expect(cleanMediaName("a".repeat(80))).toEqual({ ok: true, name: "a".repeat(80) });
   });
 });
 
@@ -48,5 +54,15 @@ describe("canManageMedia", () => {
     expect(canManageMedia("admin")).toBe(true);
     expect(canManageMedia("student")).toBe(false);
     expect(canManageMedia(null)).toBe(false);
+  });
+});
+
+describe("MEDIA_FOLDERS", () => {
+  it("has the exact labels", () => {
+    expect(MEDIA_FOLDERS).toEqual([
+      { key: "heroes", label: "Heroes" },
+      { key: "instructors", label: "Instructors" },
+      { key: "misc", label: "Misc" },
+    ]);
   });
 });

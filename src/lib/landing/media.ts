@@ -3,9 +3,9 @@ import type { Role } from "@/lib/roles";
 export type MediaFolder = "heroes" | "instructors" | "misc";
 
 export const MEDIA_FOLDERS: readonly { key: MediaFolder; label: string }[] = [
-  { key: "heroes", label: "Hero pictures" },
+  { key: "heroes", label: "Heroes" },
   { key: "instructors", label: "Instructors" },
-  { key: "misc", label: "Other" },
+  { key: "misc", label: "Misc" },
 ];
 
 export type MediaOrientation = "wide" | "tall" | "square";
