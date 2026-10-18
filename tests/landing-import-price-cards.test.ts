@@ -86,7 +86,11 @@ describe("master prompts for linked cards", () => {
       const p = masterPrompt(kind);
       expect(p).not.toContain("See price for your country");
       expect(p).toContain("option:");
-      expect(p).toContain(LINK_ALL_MODULES);
+      if (kind === "webinar") expect(p).not.toContain(LINK_ALL_MODULES);
+      else expect(p).toContain(LINK_ALL_MODULES);
+      const block = p.split("## Section: pricing_cards")[1].split("## Section:")[0];
+      expect(block).not.toContain("price*");
+      expect(block).toContain("price: only on a card without option");
       expect(p).toContain(LINK_GROUP);
       expect(p).toMatch(/one country/i);
       expect(p).toMatch(/group discount card/i);
