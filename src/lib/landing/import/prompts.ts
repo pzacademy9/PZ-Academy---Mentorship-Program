@@ -213,7 +213,6 @@ items:
       - Live webinar
       - Recording for registered people`
     : `heading: Choose your plan
-note: Early Bird ends 25 October 2026
 items:
   - name: ${kind === "course" ? "Full course" : "Workshop seat"}
     option: ${kind === "course" ? "full" : "seat"}

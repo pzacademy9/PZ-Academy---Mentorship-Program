@@ -398,8 +398,6 @@ function moduleProblems(c: LandingContent, out: Problem[]) {
 
 function priceCardProblems(c: LandingContent, out: Problem[]) {
   const reg = c.registration;
-  const regionName = (g: { key: string; label: string }) => (g.label.trim() === "" ? g.key : g.label);
-  const optName = (o: { key: string; label: string }) => (o.label.trim() === "" ? o.key : o.label);
   for (const s of c.sections) {
     if (!s.enabled || s.type !== "pricing_cards") continue;
     const items = Array.isArray(s.data.items) ? (s.data.items as Record<string, unknown>[]) : [];
@@ -421,15 +419,7 @@ function priceCardProblems(c: LandingContent, out: Problem[]) {
         out.push({ message: `The card "${name}" is linked to something that no longer exists.`, sectionId: s.id, field });
         return;
       }
-      if (link === LINK_GROUP) return;
-      const opts = link === LINK_ALL_MODULES ? reg.options.filter((o) => o.kind === "module") : reg.options.filter((o) => o.key === link);
-      for (const o of opts) {
-        if (o.free) continue;
-        const row = reg.prices[o.key] ?? {};
-        for (const g of reg.regions) {
-          if (row[g.key] === undefined) out.push({ message: `${optName(o)} has no price for ${regionName(g)}.`, sectionId: s.id, field });
-        }
-      }
+      // Missing per-country prices are already reported by registrationProblems.
     });
   }
 }

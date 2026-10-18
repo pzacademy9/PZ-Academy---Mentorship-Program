@@ -377,9 +377,9 @@ describe("price card readiness", () => {
     const { c } = withCards([card("X", "ghost")], true);
     expect(probs(c).map((p) => p.message)).toContain('The card "X" is linked to something that no longer exists.');
   });
-  it("(c) registration on, option with no price in a country", () => {
+  it("(c) registration on, option with no price in a country: the card check adds no duplicate line", () => {
     const { c } = withCards([card("Two", "m2")], true);
-    expect(probs(c).map((p) => p.message)).toContain("Module 2 has no price for Philippines.");
+    expect(probs(c).map((p) => p.message)).not.toContain("Module 2 has no price for Philippines.");
   });
   it("(d) fully priced linked card and unlinked cards give no card problem", () => {
     const { c } = withCards([card("Complete Course", "full"), card("Typed", "", "PKR 100")], true);

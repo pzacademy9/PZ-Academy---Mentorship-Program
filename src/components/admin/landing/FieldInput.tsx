@@ -267,6 +267,7 @@ function ListField({ field, value, onChange, path, modules, sections, registrati
             <div className="space-y-3">
               {(field.itemFields ?? []).map((f) => {
                 const link = typeof item.option === "string" ? item.option : "";
+                if (f.key === "oldPrice" && registration?.enabled && link !== "" && (field.itemFields ?? []).some((x) => x.kind === "priceLink")) return null;
                 if (f.key === "price" && registration?.enabled && link !== "" && (field.itemFields ?? []).some((x) => x.kind === "priceLink")) {
                   return <AutomaticPrice key={f.key} label={f.label} link={link} registration={registration} />;
                 }

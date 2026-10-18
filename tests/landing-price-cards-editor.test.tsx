@@ -41,6 +41,13 @@ describe("Linked to field", () => {
     expect(screen.getByText("Automatic, from Prices by country")).toBeTruthy();
     expect(screen.getByText("Today for Pakistan: PKR 3,200")).toBeTruthy();
   });
+  it("linked card hides the crossed-out old price box; unlinked keeps it", () => {
+    const { unmount } = render(<SectionForm type="pricing_cards" data={data([item({ option: "full", price: "" })])} onChange={() => {}} registration={reg} />);
+    expect(screen.queryByLabelText(/Crossed-out old price/)).toBeNull();
+    unmount();
+    render(<SectionForm type="pricing_cards" data={data([item()])} onChange={() => {}} registration={reg} />);
+    expect(screen.getByLabelText(/Crossed-out old price/)).toBeTruthy();
+  });
   it("unlinked card keeps the typed Price box and no automatic text", () => {
     render(<SectionForm type="pricing_cards" data={data([item()])} onChange={() => {}} registration={reg} />);
     expect(screen.getByLabelText("Price")).toBeTruthy();

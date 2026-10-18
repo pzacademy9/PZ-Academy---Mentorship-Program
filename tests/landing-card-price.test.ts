@@ -129,4 +129,27 @@ describe("priceLinkChoices", () => {
     const bare = cfg({ options: [cfg().options[0]], tiers: [] });
     expect(priceLinkChoices(bare).map((x) => x.value)).toEqual(["full"]);
   });
+
+  it("group label wording: bounded range, fixed size, open ended", () => {
+    const bounded = cfg({ tiers: [{ key: "g3", label: "Group", minSize: 3, maxSize: 4, percentOff: 20 }] });
+    expect(cardPrice(bounded, LINK_GROUP, "PK", before)).toMatchObject({ lines: [expect.stringMatching(/^Group of 3 to 4: 20% off/)] });
+    const fixed = cfg({ tiers: [{ key: "g5", label: "Group", minSize: 5, maxSize: 5, percentOff: 10 }] });
+    expect(cardPrice(fixed, LINK_GROUP, "PK", before)).toMatchObject({ lines: [expect.stringMatching(/^Group of 5: 10% off/)] });
+    expect(cardPrice(cfg(), LINK_GROUP, "PK", before)).toMatchObject({ lines: [expect.stringMatching(/^Group of 3 or more: 20% off/)] });
+  });
+
+  it("the public card path imports no zod and no value from config.ts", async () => {
+    const { readFileSync } = await import("node:fs");
+    const files = [
+      "src/lib/landing/registration/card-price.ts", "src/lib/landing/registration/pricing.ts",
+      "src/lib/landing/registration/format.ts", "src/lib/landing/registration/types.ts",
+      "src/components/landing/sections/PricingCardsLive.tsx",
+    ];
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      expect(src, f).not.toMatch(/from\s+["']zod["']/);
+      const valueImports = src.split("\n").filter((l) => /^import\s+(?!type\b)[^;]*["'](\.\/|@\/lib\/landing\/registration\/)config["']/.test(l));
+      expect(valueImports, f).toEqual([]);
+    }
+  });
 });

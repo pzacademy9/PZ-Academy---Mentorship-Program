@@ -1,7 +1,7 @@
 // src/lib/landing/registration/card-price.ts
 // Pure: what a linked pricing card shows. All maths comes from computeQuote / isEarlyBird; nothing is recomputed here.
-// Imported into the public page bundle, so no server-only, React or heavy imports.
-import { INDIVIDUAL, type Mode, type OptionDef, type RegistrationConfig } from "./config";
+// Imported into the public page bundle, so no server-only, React or zod imports (types.ts, not config.ts, which builds the zod schema).
+import { INDIVIDUAL, MAX_GROUP_SIZE, type Mode, type OptionDef, type RegistrationConfig } from "./types";
 import { formatMoney } from "./format";
 import { availableOptions, computeQuote } from "./pricing";
 
@@ -38,7 +38,9 @@ function earlyEndsText(iso: string): string | null {
 }
 
 function groupLabel(minSize: number, maxSize: number, percentOff: number): string {
-  const who = maxSize === minSize ? `Group of ${minSize}` : `Group of ${minSize} or more`;
+  const who = maxSize === minSize ? `Group of ${minSize}`
+    : maxSize >= MAX_GROUP_SIZE ? `Group of ${minSize} or more`
+    : `Group of ${minSize} to ${maxSize}`;
   return `${who}: ${percentOff}% off`;
 }
 

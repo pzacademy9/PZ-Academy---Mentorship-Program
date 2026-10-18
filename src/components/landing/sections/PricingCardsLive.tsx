@@ -4,7 +4,7 @@
 // maths as the registration form (cardPrice); the country switcher and the Early Bird cut-off run in the browser.
 // Imports only pure modules so the registration modal stays out of the page bundle.
 import { useEffect, useId, useState } from "react";
-import { DEFAULT_REGISTRATION, type RegistrationConfig } from "@/lib/landing/registration/config";
+import type { RegistrationConfig } from "@/lib/landing/registration/types";
 import { cardPrice, type CardPrice } from "@/lib/landing/registration/card-price";
 import { RegisterButton, type Register } from "../RegisterButton";
 import { CheckList } from "./util";
@@ -25,7 +25,9 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
   const [now, setNow] = useState(() => new Date(nowIso));
   useEffect(() => { setNow(new Date()); }, []);
   const config: RegistrationConfig = {
-    ...DEFAULT_REGISTRATION, ...registration,
+    ...registration,
+    capacity: 0, whatsappVerifyNumber: "", successTitle: "", eventLabel: "", refPrefix: "",
+    professions: [], discoveryOptions: [], pixelId: "",
     regions: regions.map((g) => ({ ...g, classTime: "", timezoneLabel: "", accountKeys: [] })),
     options: registration.options.map((o) => ({ ...o, waGroupUrl: "" })),
   };
