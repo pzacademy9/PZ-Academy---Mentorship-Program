@@ -81,7 +81,7 @@ export function cardPrice(config: RegistrationConfig, link: string, regionKey: s
     let low = good[0];
     for (const g of good) if (g.q.perPerson < low.q.perPerson) low = g;
     optionKey = low.key;
-    if (good.length > 1) suffix = good.every((g) => g.q.perPerson === low.q.perPerson) ? "per module" : "from";
+    if (good.length > 1 && !low.q.isFree) suffix = good.every((g) => g.q.perPerson === low.q.perPerson) ? "per module" : "from";
   } else {
     const opt = config.options.find((o) => o.key === link);
     if (!opt) return null;
@@ -105,6 +105,6 @@ export function cardPrice(config: RegistrationConfig, link: string, regionKey: s
     earlyEnds: early ? earlyEndsText(config.earlyBirdEndsAt) : null,
     recorded,
     suffix,
-    groupLines: link === LINK_ALL_MODULES ? [] : groupLines(optionKey),
+    groupLines: link !== LINK_ALL_MODULES && config.options.find((o) => o.key === optionKey)?.kind === "bundle" ? groupLines(optionKey) : [],
   };
 }

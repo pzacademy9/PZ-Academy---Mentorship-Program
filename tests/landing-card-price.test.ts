@@ -52,6 +52,8 @@ describe("cardPrice", () => {
 
   it("(c) group lines", () => {
     expect(cardPrice(cfg(), "full", "PK", before)).toMatchObject({ groupLines: ["Group of 3 or more: 20% off · PKR 2,560 each"] });
+    const gq = computeQuote({ config: cfg(), regionKey: "PK", optionKeys: ["full"], mode: "live", tierKey: "g3", groupSize: 3, now: before });
+    expect(gq.ok && gq.perPerson === 2560 && formatMoney(gq.perPerson, "PKR")).toBe("PKR 2,560");
     expect(cardPrice(cfg(), "full", "PK", after)).toMatchObject({ groupLines: ["Group of 3 or more: 20% off · PKR 3,200 each"] });
   });
 
@@ -60,6 +62,24 @@ describe("cardPrice", () => {
     const c = cfg();
     c.prices.m3 = { PK: { amount: 900 }, UAE: { amount: 50 } };
     expect(cardPrice(c, LINK_ALL_MODULES, "PK", before)).toMatchObject({ current: "PKR 900", suffix: "from" });
+  });
+
+  it("module-linked card has no group line; bundle keeps it", () => {
+    expect(cardPrice(cfg(), "m1", "PK", before)).toMatchObject({ groupLines: [] });
+    expect((cardPrice(cfg(), "full", "PK", before) as { groupLines: string[] }).groupLines).toHaveLength(1);
+  });
+
+  it("all modules free has no suffix", () => {
+    const c = cfg();
+    for (const k of ["m1", "m2", "m3", "m4"]) { c.options.find((o) => o.key === k)!.free = true; c.prices[k] = { PK: { amount: 0 } }; }
+    expect(cardPrice(c, LINK_ALL_MODULES, "PK", before)).toMatchObject({ current: "Free", suffix: null });
+  });
+
+  it("fixed-size tier uses explicit group totals", () => {
+    const c = cfg({ tiers: [{ key: "g5", label: "Five", minSize: 5, maxSize: 5, percentOff: 10 }] });
+    c.prices.full.PK = { amount: 4000, earlyAmount: 3200, groupTotals: { g5: 15000 }, earlyGroupTotals: { g5: 12000 } };
+    expect(cardPrice(c, "full", "PK", before)).toMatchObject({ groupLines: ["Group of 5: 10% off · PKR 2,400 each"] });
+    expect(cardPrice(c, "full", "PK", after)).toMatchObject({ groupLines: ["Group of 5: 10% off · PKR 3,000 each"] });
   });
 
   it("(d) all modules on a one-module link shows the plain price", () => {
