@@ -40,6 +40,7 @@ export function LandingImageField({
 
   useEffect(() => {
     const meta = pending.current;
+    if (value === "") { pending.current = null; setNotSaved(false); return; }
     if (!meta || !fileIdFromUrl(value)) return;
     pending.current = null;
     void registerUpload({ url: value, ...meta }).then((ok) => setNotSaved(!ok));
@@ -47,7 +48,7 @@ export function LandingImageField({
 
   function onChangeCapture(e: React.ChangeEvent<HTMLDivElement>) {
     const input = e.target as unknown as HTMLInputElement;
-    if (input.type !== "file") return;
+    if (input.type !== "file") { pending.current = null; setNotSaved(false); return; }
     if (passThrough.current) {
       passThrough.current = false;
       return;
@@ -91,6 +92,7 @@ export function LandingImageField({
         kind="landing"
         inputClassName={INPUT}
         shape="square"
+        uploadLabel="Upload new"
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
@@ -105,7 +107,7 @@ export function LandingImageField({
           <p role="status" className="font-body text-xs text-pz-on-surface-variant">Added to the page, but not saved to the library.</p>
         )}
       </div>
-      <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={(url) => latest.current(url)} want={want} />
+      <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={(url) => { pending.current = null; setNotSaved(false); latest.current(url); }} want={want} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,19 +26,24 @@ export function MediaPicker({
   const [items, setItems] = useState<Item[] | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const seq = useRef(0);
   const load = useCallback(async (f: MediaFolder | "all") => {
+    const mine = ++seq.current; // an older reply must never replace a newer one
     setItems(null); setFailed(false);
     try {
       const res = await fetch(f === "all" ? "/api/admin/landing-media" : `/api/admin/landing-media?folder=${f}`);
       if (!res.ok) throw new Error("load");
       const body = (await res.json()) as { items?: Item[] };
-      setItems(body.items ?? []);
+      if (mine === seq.current) setItems(body.items ?? []);
     } catch {
-      setFailed(true);
+      if (mine === seq.current) setFailed(true);
     }
   }, []);
 
-  useEffect(() => { if (open) void load(folder); }, [open, folder, load]);
+  useEffect(() => {
+    if (open) void load(folder);
+    return () => { seq.current++; };
+  }, [open, folder, load]);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();

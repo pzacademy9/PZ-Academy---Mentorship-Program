@@ -8,15 +8,18 @@ import { LandingImageField } from "@/components/admin/landing/LandingImageField"
 vi.mock("@/lib/landing/compress-image", () => ({ compressImage: async (f: File) => f }));
 vi.mock("@/components/admin/landing/media-client", async (orig) => ({ ...(await orig<typeof import("@/components/admin/landing/media-client")>()), readImageSize: async () => ({ width: 1600, height: 900 }) }));
 vi.mock("@/components/admin/program/ImageUploadField", () => ({
-  ImageUploadField: ({ value, onChange }: { value: string; onChange: (u: string) => void }) => (
+  ImageUploadField: ({ value, onChange, uploadLabel = "Upload" }: { value: string; onChange: (u: string) => void; uploadLabel?: string }) => (
     <div>
       <input aria-label="link" value={value} onChange={(e) => onChange(e.target.value)} />
       <input
         aria-label="file"
         type="file"
-        onChange={() => onChange("https://drive.google.com/thumbnail?id=ABCDEFGHIJKL&sz=w1600")}
+        onChange={(e) => {
+          if (e.target.files?.[0]?.name === "fail.png") return; // a failed upload never calls onChange
+          onChange("https://drive.google.com/thumbnail?id=ABCDEFGHIJKL&sz=w1600");
+        }}
       />
-      <button type="button">Upload</button>
+      <button type="button">{uploadLabel}</button>
     </div>
   ),
 }));
@@ -89,7 +92,7 @@ describe("LandingImageField", () => {
   it("still renders upload and text box when the library fetch rejects", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("down"); }));
     render(<LandingImageField value="" onChange={() => {}} />);
-    expect(screen.getByRole("button", { name: "Upload" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Upload new" })).toBeTruthy();
     expect(screen.getByLabelText("link")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Choose from library" }));
     await screen.findByText("Could not load the pictures");
@@ -118,5 +121,69 @@ describe("LandingImageField", () => {
     const [url, init] = (f.mock.calls as unknown[][])[0] as unknown as [string, { body: string }];
     expect(url).toBe("/api/admin/landing-media");
     expect(JSON.parse(init.body)).toMatchObject({ name: "My Hero", sizeBytes: 1, width: 1600, height: 900 });
+  });
+  function Host2() {
+    const [v, setV] = useState("");
+    return <LandingImageField value={v} onChange={setV} />;
+  }
+  const posts = (f: { mock: { calls: unknown[][] } }) =>
+    f.mock.calls.filter((c) => (c[1] as { method?: string } | undefined)?.method === "POST");
+  async function failedUpload() {
+    fireEvent.change(screen.getByLabelText("file"), { target: { files: [new File(["x"], "fail.png", { type: "image/png" })] } });
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  it("a hand-pasted link after a failed upload does not register", async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ items: [] }) }));
+    vi.stubGlobal("fetch", f);
+    render(<Host2 />);
+    await failedUpload();
+    fireEvent.change(screen.getByLabelText("link"), { target: { value: "https://drive.google.com/thumbnail?id=ZZZZZZZZZZZZ" } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(posts(f)).toHaveLength(0);
+  });
+  it("a library pick after a failed upload does not register", async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ items: ITEMS }) }));
+    vi.stubGlobal("fetch", f);
+    render(<Host2 />);
+    await failedUpload();
+    fireEvent.click(screen.getByRole("button", { name: "Choose from library" }));
+    fireEvent.click(await screen.findByText("Wide one"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(posts(f)).toHaveLength(0);
+    expect((screen.getByLabelText("link") as HTMLInputElement).value).toBe(ITEMS[1].url);
+  });
+  it("the landing upload button reads Upload new", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<LandingImageField value="" onChange={() => {}} />);
+    expect(screen.getByRole("button", { name: "Upload new" })).toBeTruthy();
+  });
+});
+
+describe("MediaPicker races", () => {
+  it("an older reply does not overwrite a newer one", async () => {
+    const resolvers: ((v: unknown) => void)[] = [];
+    vi.stubGlobal("fetch", vi.fn(() => new Promise((r) => resolvers.push(r))));
+    render(<MediaPicker open onClose={() => {}} onPick={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Heroes" }));
+    await waitFor(() => expect(resolvers).toHaveLength(2));
+    const reply = (items: unknown[]) => ({ ok: true, json: async () => ({ items }) });
+    resolvers[1](reply([ITEMS[1]]));
+    await screen.findByText("Wide one");
+    resolvers[0](reply([ITEMS[0]]));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("Tall one")).toBeNull();
+    expect(screen.getByText("Wide one")).toBeTruthy();
+  });
+});
+
+describe("shared ImageUploadField", () => {
+  it("keeps Upload as its default button label", async () => {
+    const real = await vi.importActual<typeof import("@/components/admin/program/ImageUploadField")>("@/components/admin/program/ImageUploadField");
+    const F = real.ImageUploadField;
+    render(<F value="" onChange={() => {}} courseSlug="x" kind="k" inputClassName="" />);
+    expect(screen.getByRole("button", { name: "Upload" })).toBeTruthy();
+    cleanup();
+    render(<F value="" onChange={() => {}} courseSlug="x" kind="k" inputClassName="" uploadLabel="Upload new" />);
+    expect(screen.getByRole("button", { name: "Upload new" })).toBeTruthy();
   });
 });
