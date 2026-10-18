@@ -689,6 +689,7 @@ function EditorShell({
                 type={current.type}
                 data={current.data}
                 modules={content.modules}
+                registration={content.registration}
                 sections={content.sections
                   .filter((x) => x.enabled && x.id !== current.id)
                   .map((x) => ({ id: x.id, label: SECTION_DEFS[x.type].navLabel ?? SECTION_DEFS[x.type].label }))}

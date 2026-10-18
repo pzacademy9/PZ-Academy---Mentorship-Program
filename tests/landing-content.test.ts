@@ -335,3 +335,60 @@ describe("module readiness", () => {
     expect(msgs(d).some((m) => m.includes("STATUS"))).toBe(true);
   });
 });
+
+// ------------------------------------------------------------- linked price cards
+describe("price card readiness", () => {
+  const PK = { key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] };
+  const PH = { key: "PH", label: "Philippines", currency: "PHP", classTime: "", timezoneLabel: "", accountKeys: [] };
+  const withCards = (items: Record<string, unknown>[], enabled: boolean) => {
+    const c = emptyContent("course");
+    c.registration = {
+      ...c.registration, enabled, modes: ["live"], regions: [PK, PH], defaultRegionKey: "PK",
+      options: [
+        { key: "full", label: "Complete Course", kind: "bundle", free: false, waGroupUrl: "" },
+        { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "" },
+      ],
+      prices: { full: { PK: { amount: 4000 }, PH: { amount: 4000 } }, m2: { PK: { amount: 1000 } } },
+    };
+    const sec = c.sections.find((s) => s.type === "pricing_cards")!;
+    sec.data = { ...sec.data, items };
+    return { c, sec };
+  };
+  const card = (name: string, option: string, price = "") => ({ name, option, price, oldPrice: "", badge: "", features: "" });
+  const probs = (c: ReturnType<typeof emptyContent>) => computeReadiness(c, { title: "T", slug: "a-page" }).problems;
+
+  it("normalizeContent keeps the option key", () => {
+    const { c } = withCards([card("A", "full")], true);
+    const n = normalizeContent(JSON.parse(JSON.stringify(c)));
+    const items = n.sections.find((s) => s.type === "pricing_cards")!.data.items as { option: string }[];
+    expect(items[0].option).toBe("full");
+    const old = normalizeContent({ sections: [{ id: "a", type: "pricing_cards", enabled: true, data: { items: [{ name: "A", price: "1" }] } }] });
+    expect((old.sections[0].data.items as { option: string }[])[0].option).toBe("");
+  });
+  it("(a) registration off, linked, no typed price", () => {
+    const { c, sec } = withCards([card("Complete Course", "full")], false);
+    const p = probs(c).filter((x) => x.message.includes("has no price to show"));
+    expect(p).toHaveLength(1);
+    expect(p[0].message).toBe('The card "Complete Course" has no price to show. Switch the registration form on or type a price.');
+    expect(p[0].sectionId).toBe(sec.id);
+    expect(probs(c).some((x) => x.message.includes("needs \"Price\""))).toBe(false);
+  });
+  it("(b) registration on, linked to a deleted option", () => {
+    const { c } = withCards([card("X", "ghost")], true);
+    expect(probs(c).map((p) => p.message)).toContain('The card "X" is linked to something that no longer exists.');
+  });
+  it("(c) registration on, option with no price in a country", () => {
+    const { c } = withCards([card("Two", "m2")], true);
+    expect(probs(c).map((p) => p.message)).toContain("Module 2 has no price for Philippines.");
+  });
+  it("(d) fully priced linked card and unlinked cards give no card problem", () => {
+    const { c } = withCards([card("Complete Course", "full"), card("Typed", "", "PKR 100")], true);
+    const m = probs(c).map((p) => p.message);
+    expect(m.some((x) => x.includes("The card") || x.includes("has no price"))).toBe(false);
+    expect(m.some((x) => x.includes("needs \"Price\""))).toBe(false);
+  });
+  it("unlinked card with no price is still required", () => {
+    const { c } = withCards([card("Typed", "")], true);
+    expect(probs(c).some((x) => x.message.includes('needs "Price"'))).toBe(true);
+  });
+});

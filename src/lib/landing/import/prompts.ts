@@ -25,7 +25,7 @@ const OUTER = "````";
 // ---------------------------------------------------------------- sections (derived)
 
 function fieldLine(f: FieldDef, kind: PageKind): string {
-  if (f.kind === "image") return ""; // pictures are never in the file
+  if (f.kind === "image" || f.kind === "priceLink") return ""; // pictures and price links are never in the file
   const req = f.required ? "*" : "";
   const defaultMax = f.kind === "textarea" ? 2000 : 200;
   const lim = f.max && f.max !== defaultMax && f.kind !== "module" ? ` (max ${f.max})` : "";

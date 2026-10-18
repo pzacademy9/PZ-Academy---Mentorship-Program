@@ -2,6 +2,7 @@
 
 import { SECTION_DEFS, type FieldDef, type SectionType } from "@/lib/landing/sections";
 import type { ModuleDef } from "@/lib/landing/variants";
+import type { RegistrationConfig } from "@/lib/landing/registration/config";
 import { FieldInput, type SectionOption } from "./FieldInput";
 import { OverrideBadge } from "./variants/OverrideBadge";
 
@@ -23,9 +24,9 @@ function shows(f: FieldDef, data: Record<string, unknown>, all: FieldDef[]): boo
 
 /** The guided form for one section. Every edit reports the FULL data object (or one field, on a link). */
 export function SectionForm({
-  type, data, onChange, modules, sections, link,
+  type, data, onChange, modules, sections, registration, link,
 }: {
-  type: SectionType; data: Record<string, unknown>; onChange: (data: Record<string, unknown>) => void; modules?: ModuleDef[]; sections?: SectionOption[];
+  type: SectionType; data: Record<string, unknown>; onChange: (data: Record<string, unknown>) => void; modules?: ModuleDef[]; sections?: SectionOption[]; registration?: RegistrationConfig;
   link?: LinkFieldEditing;
 }) {
   const def = SECTION_DEFS[type];
@@ -39,6 +40,7 @@ export function SectionForm({
             path={f.key}
             modules={modules}
             sections={sections}
+            registration={registration}
             value={data[f.key]}
             onChange={(v) => (link ? link.onFieldChange(f.key, v) : onChange({ ...data, [f.key]: v }))}
           />
