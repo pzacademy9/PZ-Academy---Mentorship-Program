@@ -50,8 +50,9 @@ export function LandingRenderer({
   // (so it also gets no wrapper and no nav anchor).
   const enabledSections = c.sections.filter((s: LandingSection) => s.enabled);
   const shown = (node: React.ReactNode) => node !== null && node !== undefined && node !== false;
+  const nowIso = new Date().toISOString();
   const renderAll = (sectionIds: string[]) => enabledSections
-    .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register, sectionIds }) }))
+    .map((s) => ({ section: s, node: SECTION_COMPONENTS[s.type]({ data: s.data, register, sectionIds, registration: c.registration, nowIso }) }))
     .filter((r) => shown(r.node));
   // Two passes: the hero's "go to a section" button may only point at sections that really appear
   // (a section with nothing to show is dropped), so the second pass gets the ids that survived the first.
