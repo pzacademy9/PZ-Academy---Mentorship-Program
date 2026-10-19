@@ -69,7 +69,9 @@ export async function resolveAccess(registrationId: string): Promise<ResolvedAcc
   }
 
   const keys = new Set(lead.optionKeys);
-  const moduleIds = Array.from(new Set(page.registration.options.filter((o) => keys.has(o.key)).flatMap((o) => o.moduleIds ?? [])));
+  const picked = page.registration.options.filter((o) => keys.has(o.key));
+  // Any picked option without linked modules means the whole course.
+  const moduleIds = picked.some((o) => (o.moduleIds ?? []).length === 0) ? [] : Array.from(new Set(picked.flatMap((o) => o.moduleIds ?? [])));
   const batchFinished = courseId ? await isBatchFinished(page.id, courseId, moduleIds) : false;
   const desired = desiredEnrollment({
     status: registration.status,
@@ -96,7 +98,11 @@ function check(what: string, error: { message: string } | null): void {
   if (error) throw new Error(`${what} failed: ${error.message}`);
 }
 
-/** Unlock the first lesson of each newly added module (no DB trigger fires for added module rows). */
+/**
+ * Idempotently unlock the first lesson (lowest module order, then lesson order) of each given module.
+ * Inserts missing rows (ignoring duplicates) and moves only 'locked' rows to 'unlocked': an
+ * unlocked/completed row is never touched. No DB trigger fires for module rows added later.
+ */
 async function unlockFirstLessons(studentId: string, moduleIds: string[]): Promise<void> {
   if (moduleIds.length === 0) return;
   const admin = createAdminSupabase();
@@ -110,19 +116,31 @@ async function unlockFirstLessons(studentId: string, moduleIds: string[]): Promi
     if (first) firstIds.push(first.id);
   }
   if (firstIds.length === 0) return;
-  const { data: progress, error: progErr } = await admin.from("lesson_progress").select("lesson_id, status").eq("student_id", studentId).in("lesson_id", firstIds);
-  check("lesson_progress read", progErr);
-  const have = new Map((progress ?? []).map((p) => [p.lesson_id, p.status]));
-  const missing = firstIds.filter((id) => !have.has(id));
-  const locked = firstIds.filter((id) => have.get(id) === "locked");
-  if (missing.length > 0) {
-    const { error } = await admin.from("lesson_progress").insert(missing.map((lesson_id) => ({ student_id: studentId, lesson_id, status: "unlocked" as const })));
-    check("lesson_progress insert", error);
-  }
-  if (locked.length > 0) {
-    const { error } = await admin.from("lesson_progress").update({ status: "unlocked" }).eq("student_id", studentId).in("lesson_id", locked).eq("status", "locked");
-    check("lesson_progress unlock", error);
-  }
+  const { error: insErr } = await admin
+    .from("lesson_progress")
+    .upsert(firstIds.map((lesson_id) => ({ student_id: studentId, lesson_id, status: "unlocked" as const })), { onConflict: "student_id,lesson_id", ignoreDuplicates: true });
+  check("lesson_progress insert", insErr);
+  const { error: upErr } = await admin.from("lesson_progress").update({ status: "unlocked" }).eq("student_id", studentId).in("lesson_id", firstIds).eq("status", "locked");
+  check("lesson_progress unlock", upErr);
+}
+
+/** Id of another non-test paid registration by this student on a page of this course, or null. */
+async function findOtherPaidRegistration(studentId: string, courseId: string, exceptId: string): Promise<string | null> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("landing_registrations")
+    .select("id, page_id")
+    .eq("student_id", studentId)
+    .eq("status", "paid")
+    .eq("is_test", false)
+    .neq("id", exceptId);
+  check("landing_registrations read", error);
+  const rows = data ?? [];
+  if (rows.length === 0) return null;
+  const { data: pages, error: pageErr } = await admin.from("landing_pages").select("id").eq("course_id", courseId).in("id", rows.map((r) => r.page_id));
+  check("landing_pages read", pageErr);
+  const ok = new Set((pages ?? []).map((p) => p.id));
+  return rows.find((r) => ok.has(r.page_id))?.id ?? null;
 }
 
 /**
@@ -142,7 +160,15 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
     const { data: owned, error } = await admin.from("enrollments").select(ENROLLMENT_COLS).eq("landing_registration_id", registration.id).maybeSingle();
     check("enrollments read", error);
     const e = owned as EnrollmentRow | null;
-    if (!e || (e.status === d.status && !e.portal_open)) return "no-change";
+    if (!e) return "no-change";
+    // Another paid registration of the same student for this course keeps the access: hand over ownership.
+    const other = await findOtherPaidRegistration(studentId, courseId, registration.id);
+    if (other) {
+      const { error: xferErr } = await admin.from("enrollments").update({ landing_registration_id: other }).eq("id", e.id);
+      check("enrollments transfer", xferErr);
+      return "no-change";
+    }
+    if (e.status === d.status && !e.portal_open) return "no-change";
     const { error: upErr } = await admin.from("enrollments").update({ status: d.status, portal_open: false }).eq("id", e.id);
     check("enrollments update", upErr);
     return "reverted";
@@ -180,22 +206,44 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
     return "granted";
   }
 
-  // Existing enrollment (any origin): widen only. portal_open is meaningful only on an active enrollment.
+  // Existing enrollment (any origin). portal_open is meaningful only on an active enrollment.
   const wasActive = existing.status === "active";
-  const wasOpen = wasActive && existing.portal_open;
   const portalOpen = wasActive ? existing.portal_open || d.portalOpen : d.portalOpen;
 
   const { data: covered, error: covErr } = await admin.from("enrollment_modules").select("module_id").eq("enrollment_id", existing.id);
   check("enrollment_modules read", covErr);
   const have = (covered ?? []).map((r) => r.module_id as string);
+  let toDelete: string[] = [];
   let toAdd: string[] = [];
-  let clearRows = false;
-  if (have.length > 0) {
-    if (d.moduleIds.length === 0) clearRows = true;
+  let widenedToWhole = false;
+  if (!wasActive) {
+    // Not active = grants no access today, so its coverage is REPLACED by what was bought
+    // (no rows would otherwise read as "whole course").
+    toDelete = have.filter((m) => !d.moduleIds.includes(m));
+    toAdd = d.moduleIds.filter((m) => !have.includes(m));
+  } else if (have.length > 0) {
+    // Active: widen only.
+    if (d.moduleIds.length === 0) { toDelete = have; widenedToWhole = true; }
     else toAdd = d.moduleIds.filter((m) => !have.includes(m));
   }
-  if (clearRows) {
-    const { error } = await admin.from("enrollment_modules").delete().eq("enrollment_id", existing.id);
+
+  // Modules whose first lesson must be unlocked by hand (active + open, no DB trigger for module rows).
+  let unlockModules: string[] = [];
+  if (portalOpen) {
+    if (widenedToWhole) {
+      const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
+      check("modules read", error);
+      unlockModules = (all ?? []).map((m) => m.id).filter((m) => !have.includes(m));
+    } else if (d.moduleIds.length > 0 && (!wasActive || have.length > 0)) {
+      unlockModules = Array.from(new Set(wasActive ? [...have, ...toAdd] : d.moduleIds));
+    }
+  }
+  // Widening an open enrollment to the whole course: unlock BEFORE the rows go, so a failure retries cleanly.
+  const unlockFirst = widenedToWhole && wasActive && existing.portal_open;
+  if (unlockFirst) await unlockFirstLessons(studentId, unlockModules);
+
+  if (toDelete.length > 0) {
+    const { error } = await admin.from("enrollment_modules").delete().eq("enrollment_id", existing.id).in("module_id", toDelete);
     check("enrollment_modules delete", error);
   }
   if (toAdd.length > 0) {
@@ -207,13 +255,15 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
   if (!wasActive) patch.status = "active";
   if (portalOpen !== existing.portal_open) patch.portal_open = portalOpen;
   if (d.accessLevel === "live" && existing.access_level === "recorded") patch.access_level = "live";
-  if (existing.landing_registration_id === null) patch.landing_registration_id = registration.id;
+  if (!wasActive && existing.access_level === null) patch.access_level = d.accessLevel;
+  // Adopt the enrollment only when this registration is what activates it, so a later reversal
+  // can never close an enrollment that was already active.
+  if (!wasActive && existing.landing_registration_id === null) patch.landing_registration_id = registration.id;
   if (Object.keys(patch).length > 0) {
     const { error } = await admin.from("enrollments").update(patch).eq("id", existing.id);
     check("enrollments update", error);
   }
-  // Module rows added to an enrollment that was already active+open fire no trigger.
-  if (toAdd.length > 0 && wasOpen) await unlockFirstLessons(studentId, toAdd);
+  if (!unlockFirst) await unlockFirstLessons(studentId, unlockModules);
 
-  return clearRows || toAdd.length > 0 || Object.keys(patch).length > 0 ? "granted" : "no-change";
+  return toDelete.length > 0 || toAdd.length > 0 || Object.keys(patch).length > 0 ? "granted" : "no-change";
 }

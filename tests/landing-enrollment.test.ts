@@ -14,7 +14,17 @@ const store = (state: Record<string, unknown>[], modules: string[] = []): Store 
   landing_batch_state: state,
   modules: modules.map((id) => ({ id, course_id: COURSE })),
 });
-const use = (s: Store) => { db.state.handler = memoryHandler(s); };
+const use = (s: Store) => {
+  const mem = memoryHandler(s);
+  // The memory handler appends on upsert; honour ignoreDuplicates for lesson_progress like Postgres does.
+  db.state.handler = (op) => {
+    if (op.op === "upsert" && op.table === "lesson_progress" && op.upsertOptions?.ignoreDuplicates) {
+      const rows = (op.payload as Record<string, unknown>[]).filter((p) => !s.lesson_progress.some((r) => r.student_id === p.student_id && r.lesson_id === p.lesson_id));
+      return mem({ ...op, payload: rows });
+    }
+    return mem(op);
+  };
+};
 const row = (module_id: string | null, page_id = PAGE) => ({ page_id, module_id, finished_at: "2026-10-19T00:00:00Z", finished_by: null });
 
 beforeEach(() => db.reset());
@@ -77,6 +87,7 @@ const world = (w: World = {}): Store => {
       { id: "l1b", module_id: M1, order_index: 2 }, { id: "l1a", module_id: M1, order_index: 1 },
       { id: "l2a", module_id: M2, order_index: 1 }, { id: "l3a", module_id: M3, order_index: 1 },
     ],
+    landing_pages: [{ id: PAGE, course_id: COURSE }, { id: "page-2", course_id: COURSE }, { id: "page-x", course_id: "other-course" }],
     landing_batch_state: w.batch ?? [],
     enrollments: w.enrollments ?? [],
     enrollment_modules: w.em ?? [],
@@ -171,8 +182,8 @@ describe("syncEnrollmentForRegistration", () => {
   it("existing foreign active enrollment: Paid widens only", async () => {
     setPage();
     const s = world({ regs: [reg({ mode: "live" })], enrollments: [enr({ status: "active", portal_open: true, access_level: "live" })] });
-    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted"); // landing_registration_id filled
-    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true, access_level: "live", landing_registration_id: "reg-1" });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true, access_level: "live", landing_registration_id: null });
     expect(s.enrollments).toHaveLength(1);
   });
   it("(a) existing pending with default open takes d.portalOpen", async () => {
@@ -212,7 +223,7 @@ describe("syncEnrollmentForRegistration", () => {
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
     expect(s.enrollment_modules.map((r) => r.module_id).sort()).toEqual([M1, M2, M3]);
     const byLesson = Object.fromEntries(s.lesson_progress.map((p) => [p.lesson_id, p.status]));
-    expect(byLesson).toEqual({ l2a: "completed", l3a: "unlocked" });
+    expect(byLesson).toEqual({ l1a: "unlocked", l2a: "completed", l3a: "unlocked" });
   });
   it("(b) a locked first lesson is updated to unlocked", async () => {
     setPage([{ key: "opt", moduleIds: [M1, M2] }]);
@@ -224,14 +235,89 @@ describe("syncEnrollmentForRegistration", () => {
     await syncEnrollmentForRegistration("reg-1");
     expect(s.lesson_progress[0].status).toBe("unlocked");
   });
-  it("(b) no manual unlock when the enrollment was not open (trigger handles it)", async () => {
+  it("pending enrollment: coverage is replaced, then activated", async () => {
     setPage([{ key: "opt", moduleIds: [M1, M2] }]);
     const s = world({
       enrollments: [enr({ status: "pending", portal_open: true })],
-      em: [{ enrollment_id: "enr-1", module_id: M1 }],
+      em: [{ enrollment_id: "enr-1", module_id: M1 }, { enrollment_id: "enr-1", module_id: M3 }],
     });
     await syncEnrollmentForRegistration("reg-1");
-    expect(s.lesson_progress).toHaveLength(0);
+    expect(s.enrollment_modules.map((r) => r.module_id).sort()).toEqual([M1, M2]);
+    expect(s.enrollments[0]).toMatchObject({ status: "active", landing_registration_id: "reg-1" });
+  });
+  it("C-1: pending enrollment with no rows + module purchase gets exactly the bought modules, before activation", async () => {
+    setPage([{ key: "opt", moduleIds: [M2] }]);
+    const s = world({ enrollments: [enr({ status: "pending" })] });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollment_modules).toEqual([expect.objectContaining({ enrollment_id: "enr-1", module_id: M2 })]);
+    const kinds = allWrites().filter((o) => ["enrollments", "enrollment_modules"].includes(o.table)).map((o) => `${o.table}:${o.op}`);
+    expect(kinds.indexOf("enrollment_modules:insert")).toBeLessThan(kinds.indexOf("enrollments:update"));
+    expect(s.enrollments[0].status).toBe("active");
+  });
+  it("C-1: failure on the module insert after the pending insert throws, and the retry heals", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M2] }]);
+    const s = world();
+    const inner = db.state.handler;
+    let failed = false;
+    db.state.handler = (op) => {
+      if (!failed && op.table === "enrollment_modules" && op.op === "insert") { failed = true; return { data: null, error: { message: "modboom" } }; }
+      return inner(op);
+    };
+    await expect(syncEnrollmentForRegistration("reg-1")).rejects.toThrow(/modboom/);
+    expect(s.enrollments).toHaveLength(1);
+    expect(s.enrollments[0]).toMatchObject({ status: "pending", portal_open: false, landing_registration_id: "reg-1" });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+    expect(s.enrollments).toHaveLength(1);
+    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true });
+    expect(s.enrollment_modules.map((r) => r.module_id).sort()).toEqual([M1, M2]);
+  });
+  it("I-1: widening an already-active legacy enrollment does not adopt it; a later reversal changes nothing", async () => {
+    setPage();
+    const s = world({ enrollments: [enr({ status: "active", portal_open: true })] });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0].landing_registration_id).toBeNull();
+    s.landing_registrations[0].status = "pending";
+    db.state.ops = [];
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(allWrites()).toHaveLength(0);
+    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true });
+  });
+  it("I-2: widening an open module-limited enrollment to the whole course unlocks the other modules' first lessons", async () => {
+    setPage();
+    const s = world({
+      enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "x" })],
+      em: [{ enrollment_id: "enr-1", module_id: M2 }],
+      progress: [{ student_id: STUDENT, lesson_id: "l2a", status: "completed" }],
+    });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollment_modules).toHaveLength(0);
+    const byLesson = Object.fromEntries(s.lesson_progress.map((p) => [p.lesson_id, p.status]));
+    expect(byLesson).toEqual({ l1a: "unlocked", l2a: "completed", l3a: "unlocked" });
+  });
+  it("I-3: a retry whose rows already exist still unlocks the first lessons (end-state driven), without downgrading", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M2] }]);
+    const s = world({
+      enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "reg-1" })],
+      em: [{ enrollment_id: "enr-1", module_id: M1 }, { enrollment_id: "enr-1", module_id: M2 }],
+      progress: [{ student_id: STUDENT, lesson_id: "l1a", status: "completed" }],
+    });
+    await syncEnrollmentForRegistration("reg-1");
+    const byLesson = Object.fromEntries(s.lesson_progress.map((p) => [p.lesson_id, p.status]));
+    expect(byLesson).toEqual({ l1a: "completed", l2a: "unlocked" });
+    const up = db.state.ops.find((o) => o.table === "lesson_progress" && o.op === "upsert");
+    expect(up?.upsertOptions).toMatchObject({ onConflict: "student_id,lesson_id", ignoreDuplicates: true });
+  });
+  it("M-2: a not-active enrollment with null access_level takes the registration's", async () => {
+    setPage(); const s = world({ enrollments: [enr({ status: "pending", access_level: null })] });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0].access_level).toBe("recorded");
+  });
+  it("M-1: any picked option without linked modules means the whole course", async () => {
+    setPage([{ key: "a", moduleIds: [M1] }, { key: "b", moduleIds: [] }]);
+    world({ regs: [reg({ option_keys: ["a", "b"] })] });
+    expect((await resolveAccess("reg-1"))!.desired.moduleIds).toEqual([]);
+    setPage([{ key: "a", moduleIds: [M1] }, { key: "b", moduleIds: [M2] }]);
+    expect([...(await resolveAccess("reg-1"))!.desired.moduleIds].sort()).toEqual([M1, M2]);
   });
   it("reversal of an owned enrollment: pending + closed", async () => {
     setPage(); const s = world({ regs: [reg({ status: "pending" })], enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "reg-1" })] });
@@ -242,6 +328,24 @@ describe("syncEnrollmentForRegistration", () => {
     setPage(); const s = world({ regs: [reg({ status: "reserved" })], enrollments: [enr({ status: "active", landing_registration_id: "reg-1" })] });
     await syncEnrollmentForRegistration("reg-1");
     expect(s.enrollments[0].status).toBe("reserved");
+  });
+  it("I-4: reverting the owner while another paid registration covers the course transfers ownership instead of closing", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ status: "pending" }), reg({ id: "reg-2", page_id: "page-2", status: "paid" }), reg({ id: "reg-3", page_id: "page-x", status: "paid" })],
+      enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "reg-1" })],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true, landing_registration_id: "reg-2" });
+  });
+  it("I-4: other paid registration on a different course or a test row does not stop the reversal", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ status: "pending" }), reg({ id: "reg-3", page_id: "page-x", status: "paid" }), reg({ id: "reg-4", page_id: "page-2", status: "paid", is_test: true })],
+      enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "reg-1" })],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("reverted");
+    expect(s.enrollments[0]).toMatchObject({ status: "pending", portal_open: false });
   });
   it("reversal does not touch an enrollment owned by someone else", async () => {
     setPage(); const s = world({ regs: [reg({ status: "pending" })], enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "other" })] });
@@ -254,7 +358,7 @@ describe("syncEnrollmentForRegistration", () => {
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
     db.state.ops = [];
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
-    expect(allWrites()).toHaveLength(0);
+    expect(allWrites().filter((o) => o.table !== "lesson_progress")).toHaveLength(0); // only the idempotent ignore-duplicates unlock upsert remains
   });
   it("throws on a DB error", async () => {
     setPage(); db.state.handler = () => ({ data: null, error: { message: "boom" } });
