@@ -70,7 +70,7 @@ describe.each([
       ["free-row", 400, STATUS_CHANGE_MESSAGES["free-row"]],
       ["amount-required", 400, STATUS_CHANGE_MESSAGES["amount-required"]],
       ["amount-invalid", 400, STATUS_CHANGE_MESSAGES["amount-invalid"]],
-      ["already-in-status", 409, STATUS_CHANGE_MESSAGES["already-in-status"]],
+      ["already-in-status", 422, STATUS_CHANGE_MESSAGES["already-in-status"]],
       ["stale", 409, "Someone else changed this just now. Reload to see the latest."],
       ["db-error", 500, "Could not update registration"],
     ];

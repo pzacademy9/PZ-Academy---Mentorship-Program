@@ -20,7 +20,7 @@ export function statusChangeResponse(result: ChangeStatusResult): NextResponse {
     case "amount-invalid":
       return NextResponse.json({ error: STATUS_CHANGE_MESSAGES[reason] }, { status: 400 });
     case "already-in-status":
-      return NextResponse.json({ error: STATUS_CHANGE_MESSAGES[reason] }, { status: 409 });
+      return NextResponse.json({ error: STATUS_CHANGE_MESSAGES[reason] }, { status: 422 });
     case "stale":
       return NextResponse.json({ error: STALE_MESSAGE }, { status: 409 });
     default:

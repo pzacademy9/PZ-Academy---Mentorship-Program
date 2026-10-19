@@ -20,6 +20,14 @@ describe("checkStatusChange", () => {
   it("underpaid same status with a new amount is allowed", () => {
     expect(checkStatusChange({ ...base, from: "underpaid", to: "underpaid", amount: 3000 })).toEqual({ ok: true, amountReceived: 3000 });
   });
+  it("paid with 0, a negative or NaN amount is amount-invalid", () => {
+    for (const amount of [0, -5, NaN]) {
+      expect(checkStatusChange({ ...base, to: "paid", amount })).toEqual({ ok: false, reason: "amount-invalid" });
+    }
+  });
+  it("amount-invalid wording fits both paid and underpaid", () => {
+    expect(STATUS_CHANGE_MESSAGES["amount-invalid"]).not.toMatch(/less than the full price\.$/);
+  });
   it("underpaid without amount is amount-required", () => {
     expect(checkStatusChange({ ...base, to: "underpaid" })).toEqual({ ok: false, reason: "amount-required" });
   });

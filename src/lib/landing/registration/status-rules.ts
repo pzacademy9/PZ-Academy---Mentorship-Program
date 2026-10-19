@@ -12,7 +12,7 @@ export const STATUS_CHANGE_MESSAGES: Record<Exclude<StatusChangeCheck, { ok: tru
   "free-row": "Free registrations have no payment, so their status cannot be changed.",
   "member-row": "This person is part of a group. Change the status on the group's main registration instead.",
   "amount-required": "Enter the amount that was actually received.",
-  "amount-invalid": "The amount received must be more than 0 and less than the full price.",
+  "amount-invalid": "Enter an amount received that is more than 0 (for Underpaid, also less than the full price).",
   "already-in-status": "This registration is already in that status.",
 };
 

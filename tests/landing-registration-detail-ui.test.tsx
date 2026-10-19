@@ -60,8 +60,19 @@ describe("StatusChangeControl", () => {
     fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
     fireEvent.click(screen.getByRole("button", { name: /save status/i }));
     expect(await screen.findByText("Someone else changed this just now. Reload to see the latest.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: /save status/i }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /reload/i }));
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("a 422 shows the server's message, not the reload notice", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 422, json: async () => ({ error: STATUS_CHANGE_MESSAGES["already-in-status"] }) });
+    openControl();
+    fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    expect(await screen.findByText(STATUS_CHANGE_MESSAGES["already-in-status"])).toBeTruthy();
+    expect(screen.queryByText(/Reload to see the latest/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /reload/i })).toBeNull();
   });
 
   it("sends status and from, then refreshes", async () => {
