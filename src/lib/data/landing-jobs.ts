@@ -98,6 +98,29 @@ export async function enqueueStatusEffects(registrationId: string): Promise<bool
   }
 }
 
+/**
+ * One enrollment_sync job: upsert back to pending with a fresh budget (an old finished job must run again).
+ * No email. Never throws; true only when the upsert succeeded.
+ */
+export async function enqueueEnrollmentSync(registrationId: string): Promise<boolean> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .upsert(
+        { registration_id: registrationId, type: "enrollment_sync", status: "pending", attempts: 0, next_run_at: new Date().toISOString(), last_error: null },
+        { onConflict: "registration_id,type" },
+      );
+    if (error) {
+      console.error("[landing-jobs] enqueue enrollment_sync failed:", error.code);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[landing-jobs] enqueue enrollment_sync crashed");
+    return false;
+  }
+}
+
 /** Last resort when the outbox cannot be written: run the handlers once, in order, without a job row. Never throws. */
 export async function runJobsDirect(registrationId: string, types: JobType[]): Promise<void> {
   for (const type of [...types].sort((a, b) => JOB_TYPES.indexOf(a) - JOB_TYPES.indexOf(b))) {

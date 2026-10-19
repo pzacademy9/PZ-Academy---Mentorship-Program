@@ -316,8 +316,8 @@ export async function findOpenRegistration(pageId: string, email: string): Promi
   };
 }
 
-/** Links guest registrations to the account that just signed in with the same email. Never throws. */
-export async function linkRegistrationsToStudent(userId: string, email: string): Promise<number> {
+/** Links guest registrations to the account that just signed in with the same email; returns the linked rows' id and status. Never throws. */
+export async function linkRegistrationsToStudentIds(userId: string, email: string): Promise<{ id: string; status: string }[]> {
   try {
     const admin = createAdminSupabase();
     const { data, error } = await admin
@@ -326,15 +326,20 @@ export async function linkRegistrationsToStudent(userId: string, email: string):
       .eq("email", lower(email))
       .is("student_id", null)
       .eq("is_test", false)
-      .select("id");
+      .select("id, status");
     if (error) {
       console.warn("[landing-registrations] link failed:", error.code);
-      return 0;
+      return [];
     }
-    return (data ?? []).length;
+    return ((data ?? []) as { id: string; status: string }[]).map((r) => ({ id: r.id, status: r.status }));
   } catch {
-    return 0;
+    return [];
   }
+}
+
+/** Same link, returning only how many rows changed. Never throws. */
+export async function linkRegistrationsToStudent(userId: string, email: string): Promise<number> {
+  return (await linkRegistrationsToStudentIds(userId, email)).length;
 }
 
 /** Registrations (not members) by this email since `sinceIso`. Fails open (0) so a DB blip never blocks sign-ups. */

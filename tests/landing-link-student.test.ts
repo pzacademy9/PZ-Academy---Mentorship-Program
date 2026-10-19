@@ -2,8 +2,9 @@
 // tests/landing-link-student.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const m = vi.hoisted(() => ({ link: vi.fn(), exchange: vi.fn(), getUser: vi.fn(), runInBackground: vi.fn() }));
-vi.mock("@/lib/data/landing-registrations", () => ({ linkRegistrationsToStudent: m.link }));
+const m = vi.hoisted(() => ({ link: vi.fn(), exchange: vi.fn(), getUser: vi.fn(), runInBackground: vi.fn(), enqueue: vi.fn(), runFor: vi.fn(), runDirect: vi.fn() }));
+vi.mock("@/lib/data/landing-registrations", () => ({ linkRegistrationsToStudentIds: m.link }));
+vi.mock("@/lib/data/landing-jobs", () => ({ enqueueEnrollmentSync: m.enqueue, runJobsFor: m.runFor, runJobsDirect: m.runDirect }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: m.runInBackground }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
@@ -26,7 +27,10 @@ const callbackReq = (q = "?code=abc") => new Request(`http://localhost:3000/auth
 
 beforeEach(() => {
   for (const f of Object.values(m)) f.mockReset();
-  m.link.mockResolvedValue(1);
+  m.link.mockResolvedValue([{ id: "r1", status: "pending" }]);
+  m.enqueue.mockResolvedValue(true);
+  m.runFor.mockReturnValue("runFor-promise");
+  m.runDirect.mockReturnValue("runDirect-promise");
   m.exchange.mockResolvedValue({ error: null });
   m.getUser.mockResolvedValue({ data: { user: confirmed } });
 });
@@ -42,9 +46,40 @@ describe("linkGuestRegistrations", () => {
     expect(await linkGuestRegistrations({ id: "user-1", email: "a@b.com", email_confirmed_at: null })).toBe(0);
     expect(m.link).not.toHaveBeenCalled();
   });
+  it("enrols each linked paid registration with an enrollment_sync job only, then runs the jobs", async () => {
+    m.link.mockResolvedValue([{ id: "r1", status: "paid" }, { id: "r2", status: "pending" }, { id: "r3", status: "paid" }]);
+    expect(await linkGuestRegistrations(confirmed)).toBe(3);
+    expect(m.enqueue.mock.calls).toEqual([["r1"], ["r3"]]);
+    expect(m.runFor.mock.calls).toEqual([["r1"], ["r3"]]);
+    expect(m.runInBackground).toHaveBeenCalledTimes(2);
+    expect(m.runDirect).not.toHaveBeenCalled();
+  });
+  it("queues nothing when no linked row is paid", async () => {
+    m.link.mockResolvedValue([{ id: "r1", status: "pending" }, { id: "r2", status: "underpaid" }]);
+    expect(await linkGuestRegistrations(confirmed)).toBe(2);
+    expect(m.enqueue).not.toHaveBeenCalled();
+    expect(m.runInBackground).not.toHaveBeenCalled();
+  });
+  it("queues nothing for an unconfirmed email", async () => {
+    await linkGuestRegistrations({ id: "user-1", email: "a@b.com", email_confirmed_at: null });
+    expect(m.enqueue).not.toHaveBeenCalled();
+  });
+  it("runs enrollment_sync directly when the job could not be queued", async () => {
+    m.link.mockResolvedValue([{ id: "r1", status: "paid" }]);
+    m.enqueue.mockResolvedValue(false);
+    expect(await linkGuestRegistrations(confirmed)).toBe(1);
+    expect(m.runDirect).toHaveBeenCalledWith("r1", ["enrollment_sync"]);
+    expect(m.runFor).not.toHaveBeenCalled();
+    expect(m.runInBackground).toHaveBeenCalledWith("runDirect-promise");
+  });
   it("never throws", async () => {
     m.link.mockRejectedValue(new Error("down"));
     await expect(linkGuestRegistrations(confirmed)).resolves.toBe(0);
+  });
+  it("still returns the linked count if enqueueing throws", async () => {
+    m.link.mockResolvedValue([{ id: "r1", status: "paid" }]);
+    m.enqueue.mockRejectedValue(new Error("boom"));
+    await expect(linkGuestRegistrations(confirmed)).resolves.toBe(1);
   });
 });
 
@@ -76,7 +111,7 @@ describe("/auth/callback", () => {
 
 describe("dashboard layout (password sign-ins)", () => {
   it("links in the background", async () => {
-    m.link.mockResolvedValue(2);
+    m.link.mockResolvedValue([{ id: "r1", status: "pending" }, { id: "r2", status: "pending" }]);
     await DashboardLayout({ children: null });
     expect(m.runInBackground).toHaveBeenCalledTimes(1);
     expect(m.link).toHaveBeenCalledWith("user-1", "ayesha@example.com");

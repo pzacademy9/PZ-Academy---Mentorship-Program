@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 
 import {
   buildRegistrationRows, createRegistration, getRegistrationStatus, attachVoucher, findOpenRegistration,
-  linkRegistrationsToStudent, countRecentRegistrations, getRegistrationBundle, markEmailStatus,
+  linkRegistrationsToStudent, linkRegistrationsToStudentIds, countRecentRegistrations, getRegistrationBundle, markEmailStatus,
   type CreateRegistrationInput, type OkQuote,
 } from "@/lib/data/landing-registrations";
 import { registrationOptionLabel, buildVerifyMessage, whatsappVerifyUrl } from "@/lib/landing/registration/labels";
@@ -215,6 +215,14 @@ describe("student linking and rate-limit counts", () => {
     db.state.handler = memoryHandler(s);
     expect(await linkRegistrationsToStudent("user-1", "Ayesha@Example.com")).toBe(2);
     expect(s.landing_registrations.map((r) => r.student_id)).toEqual(["user-1", "user-1", "other", null]);
+  });
+  it("linkRegistrationsToStudentIds returns the linked ids with their status", async () => {
+    const s = { landing_registrations: [lead({ id: "a", status: "paid" }), member({ id: "b", email: "ayesha@example.com", status: "pending" }), lead({ id: "c", student_id: "other" })] };
+    db.state.handler = memoryHandler(s);
+    const rows = await linkRegistrationsToStudentIds("user-1", "Ayesha@Example.com");
+    expect(rows.map((r) => ({ id: r.id, status: r.status }))).toEqual([{ id: "a", status: "paid" }, { id: "b", status: "pending" }]);
+    db.state.handler = () => ({ data: null, error: { code: "08006" } });
+    expect(await linkRegistrationsToStudentIds("user-1", "a@b.com")).toEqual([]);
   });
   it("linking never throws", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });

@@ -9,7 +9,7 @@ const handlers = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/landing/registration/job-handlers", () => ({ JOB_HANDLERS: handlers }));
 
-import { enqueueJobs, enqueueStatusEffects, JOB_TYPES, runJobsFor, drainDueJobs, retryFailedJobs, requeueSheetAppendJobs, makeWaitingJobsDue, nextRunAt } from "@/lib/data/landing-jobs";
+import { enqueueJobs, enqueueStatusEffects, enqueueEnrollmentSync, JOB_TYPES, runJobsFor, drainDueJobs, retryFailedJobs, requeueSheetAppendJobs, makeWaitingJobsDue, nextRunAt } from "@/lib/data/landing-jobs";
 
 const NOW = new Date("2026-10-13T10:00:00.000Z");
 const job = (over: Record<string, unknown> = {}) => ({
@@ -71,6 +71,22 @@ describe("enqueueStatusEffects", () => {
   });
   it("JOB_TYPES run order", () => {
     expect(JOB_TYPES).toEqual(["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"]);
+  });
+});
+
+describe("enqueueEnrollmentSync", () => {
+  it("upserts a single enrollment_sync job back to pending with a fresh budget", async () => {
+    db.state.handler = memoryHandler({});
+    await expect(enqueueEnrollmentSync("reg-1")).resolves.toBe(true);
+    const up = db.find("landing_jobs", "upsert")[0];
+    expect(up.payload).toEqual({ registration_id: "reg-1", type: "enrollment_sync", status: "pending", attempts: 0, next_run_at: NOW.toISOString(), last_error: null });
+    expect(up.upsertOptions).toMatchObject({ onConflict: "registration_id,type" });
+  });
+  it("never throws and reports failure", async () => {
+    db.state.handler = () => ({ data: null, error: { code: "08006" } });
+    await expect(enqueueEnrollmentSync("reg-1")).resolves.toBe(false);
+    db.state.handler = () => { throw new Error("socket closed"); };
+    await expect(enqueueEnrollmentSync("reg-1")).resolves.toBe(false);
   });
 });
 
