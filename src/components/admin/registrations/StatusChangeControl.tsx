@@ -65,7 +65,7 @@ export function StatusChangeControl({
 
   const { run: submit, pending } = useAsyncAction(async () => {
     if (!choice) return;
-    const typed = amount.trim() === "" ? null : Number(amount);
+    const typed = choice === "underpaid" && amount.trim() !== "" ? Number(amount) : null;
     const check = checkStatusChange({ rowType: "individual", from: status, to: choice, expectedAmount, amount: typed });
     if (!check.ok) {
       setError(STATUS_CHANGE_MESSAGES[check.reason]);
@@ -145,7 +145,10 @@ export function StatusChangeControl({
               </p>
               <button
                 type="button"
-                onClick={() => router.refresh()}
+                onClick={() => {
+                  setOpen(false);
+                  router.refresh();
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-2 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90"
               >
                 <RefreshCw className="w-4 h-4" aria-hidden="true" /> Reload

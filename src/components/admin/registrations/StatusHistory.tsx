@@ -1,8 +1,10 @@
 import { History } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import type { StatusEventRow } from "@/lib/data/landing-registration-admin";
+import type { RegistrationStatus } from "@/lib/landing/registration/config";
+import { REGISTRATION_STATUS_LABELS } from "./RegistrationStatusBadge";
 
-const label = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "New");
+const label = (s: string | null) => (s ? (REGISTRATION_STATUS_LABELS[s as RegistrationStatus] ?? s) : "New");
 
 /** Newest first. Each entry: the move, who did it, when, and whether it came from the app or the sheet. */
 export function StatusHistory({ events, showPerson }: { events: StatusEventRow[]; showPerson: boolean }) {

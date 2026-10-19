@@ -159,7 +159,7 @@ export function RegistrationDetailView({
               <Field label="Price">
                 <span className="font-headline font-semibold tabular-nums">{formatMoney(lead.expectedAmount, lead.currency)}</span>
               </Field>
-              <Field label="Promo code">{lead.promoCodeText ?? <Missing>None used</Missing>}</Field>
+              <Field label="Promo code">{lead.promoCodeText || <Missing>None used</Missing>}</Field>
               <Field label="Amount received">
                 <span className="font-headline font-semibold tabular-nums">{formatMoney(lead.amountReceived, lead.currency)}</span>
                 {balance !== null && (

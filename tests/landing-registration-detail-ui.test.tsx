@@ -130,3 +130,36 @@ describe("RegistrationDetailView", () => {
     expect(screen.queryByText("Zoya Khan")).toBeNull();
   });
 });
+
+describe("status dialog edge cases", () => {
+  it("a leftover amount does not block Paid after switching away from Underpaid", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "r1", status: "paid" }) });
+    openControl();
+    fireEvent.click(screen.getByRole("radio", { name: /underpaid/i }));
+    fireEvent.change(screen.getByLabelText("Amount received"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ status: "paid", from: "pending" });
+  });
+
+  it("Reload in the conflict state refreshes and closes the dialog", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "stale" }) });
+    openControl();
+    fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /reload/i }));
+    expect(refresh).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("an empty promo code shows None used", () => {
+    render(view(detail({}, { promoCodeText: "" })));
+    expect(screen.getByText("None used")).toBeTruthy();
+  });
+
+  it("history uses the standard status names", () => {
+    render(view(detail({ events: [{ at: "2026-10-05T09:32:00Z", from: "pending", to: "underpaid", source: "app", actorName: "A", registrationName: "Sara Ali" }] })));
+    expect(screen.getByText("Pending → Underpaid")).toBeTruthy();
+  });
+});
