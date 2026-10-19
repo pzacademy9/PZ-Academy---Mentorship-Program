@@ -90,6 +90,73 @@ begin
     case when v_after = v_before + 1 then 'PASS' else 'FAIL' end, v_before, v_after));
 end $$;
 
+-- 5b. Opening a module later unlocks its first lesson; no unlock while the portal is closed;
+-- pending -> active together with portal_open gives one "approved" bell and no portal_open bell.
+do $$
+declare
+  v_course  uuid;
+  v_mod_b   uuid;
+  v_first_b uuid;
+  v_student uuid;
+  v_enr     uuid;
+  v_n       int;
+  v_appr0   int;
+  v_appr1   int;
+  v_po0     int;
+  v_po1     int;
+begin
+  select m.course_id into v_course
+    from public.modules m
+   where exists (select 1 from public.lessons l where l.module_id = m.id)
+   group by m.course_id
+  having count(*) >= 2 limit 1;
+  if v_course is null then
+    insert into smoke_out(msg) values ('[SKIP] no course with 2+ modules that have lessons (module-open unlock cases)');
+    return;
+  end if;
+  select m.id into v_mod_b from public.modules m
+   where m.course_id = v_course and exists (select 1 from public.lessons l where l.module_id = m.id)
+   order by m.order_index desc, m.id limit 1;
+  select l.id into v_first_b from public.lessons l where l.module_id = v_mod_b order by l.order_index asc, l.id limit 1;
+
+  select p.id into v_student from public.profiles p
+   where not exists (select 1 from public.enrollments e where e.student_id = p.id and e.course_id = v_course)
+   limit 1;
+  if v_student is null then
+    insert into smoke_out(msg) values ('[SKIP] no unenrolled profile (module-open unlock cases)');
+    return;
+  end if;
+
+  -- portal closed: opening module B unlocks nothing
+  insert into public.enrollments (student_id, course_id, status, portal_open, access_level)
+  values (v_student, v_course, 'active', false, 'live') returning id into v_enr;
+  insert into public.enrollment_open_modules (enrollment_id, module_id) values (v_enr, v_mod_b);
+  select count(*) into v_n from public.lesson_progress where student_id = v_student and lesson_id = v_first_b and status = 'unlocked';
+  insert into smoke_out(msg) values (format('[%s] portal_open=false, open row for B -> B first lesson stays locked (unlocked rows: %s)',
+    case when v_n = 0 then 'PASS' else 'FAIL' end, v_n));
+
+  -- portal open, then B opened later: B's first lesson unlocks
+  update public.enrollments set portal_open = true where id = v_enr;
+  delete from public.lesson_progress where student_id = v_student;
+  delete from public.enrollment_open_modules where enrollment_id = v_enr;
+  insert into public.enrollment_open_modules (enrollment_id, module_id) values (v_enr, v_mod_b);
+  select count(*) into v_n from public.lesson_progress where student_id = v_student and lesson_id = v_first_b and status = 'unlocked';
+  insert into smoke_out(msg) values (format('[%s] live active + portal open, open row for B inserted later -> B first lesson unlocked (unlocked rows: %s)',
+    case when v_n = 1 then 'PASS' else 'FAIL' end, v_n));
+
+  -- pending -> active together with portal_open = true: one approved bell, no portal_open bell
+  delete from public.enrollments where id = v_enr;
+  insert into public.enrollments (student_id, course_id, status, portal_open, access_level)
+  values (v_student, v_course, 'pending', false, 'live') returning id into v_enr;
+  select count(*) into v_appr0 from public.notifications where user_id = v_student and type = 'enrollment_approved';
+  select count(*) into v_po0   from public.notifications where user_id = v_student and type = 'portal_open';
+  update public.enrollments set status = 'active', portal_open = true where id = v_enr;
+  select count(*) into v_appr1 from public.notifications where user_id = v_student and type = 'enrollment_approved';
+  select count(*) into v_po1   from public.notifications where user_id = v_student and type = 'portal_open';
+  insert into smoke_out(msg) values (format('[%s] pending -> active with portal_open=true -> one enrollment_approved (%s -> %s), no portal_open bell (%s -> %s)',
+    case when v_appr1 = v_appr0 + 1 and v_po1 = v_po0 then 'PASS' else 'FAIL' end, v_appr0, v_appr1, v_po0, v_po1));
+end $$;
+
 -- 6. Email log: a status kind cannot repeat, portal_link can
 do $$
 declare

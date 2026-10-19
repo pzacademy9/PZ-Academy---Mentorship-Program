@@ -122,6 +122,52 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 revoke all on function public._module_open_for(uuid, uuid) from public, anon, authenticated;
 
+-- ─── 3b. Opening a module later unlocks its first lesson ────────
+-- unlock_next_lesson only runs when a lesson is completed, so a module opened afterwards
+-- (batch finished for module B) would otherwise stay locked. Re-runnable: create or replace
+-- plus drop/create trigger. Does nothing while the portal is closed (the portal_open flip
+-- is handled by unlock_first_lesson_on_enroll).
+create or replace function public.unlock_first_lesson_on_module_open()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_enr    enrollments%rowtype;
+  v_lesson uuid;
+begin
+  select * into v_enr from public.enrollments where id = new.enrollment_id;
+  if v_enr.id is null or v_enr.status <> 'active' or not v_enr.portal_open then
+    return new;
+  end if;
+  if not public._module_open_for(v_enr.student_id, new.module_id) then
+    return new;
+  end if;
+
+  select l.id into v_lesson
+    from public.lessons l
+   where l.module_id = new.module_id
+   order by l.order_index asc, l.id
+   limit 1;
+
+  if v_lesson is not null then
+    insert into public.lesson_progress (student_id, lesson_id, status)
+    values (v_enr.student_id, v_lesson, 'unlocked')
+    on conflict (student_id, lesson_id)
+    do update set status = 'unlocked'
+    where lesson_progress.status = 'locked';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_open_module_inserted on public.enrollment_open_modules;
+create trigger on_open_module_inserted
+  after insert on public.enrollment_open_modules
+  for each row
+  execute function public.unlock_first_lesson_on_module_open();
+
 -- ─── 4. Bell when the portal opens ──────────────────────────────
 
 create or replace function public.notify_portal_opened()
