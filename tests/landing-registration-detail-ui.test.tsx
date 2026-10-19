@@ -164,6 +164,13 @@ describe("status dialog edge cases", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("campaign details use plain labels, not raw utm keys", () => {
+    render(view(detail({}, { utm: { utm_source: "facebook", utm_campaign: "ppc3" } })));
+    expect(screen.getByText("Where they came from: facebook")).toBeTruthy();
+    expect(screen.getByText("Campaign: ppc3")).toBeTruthy();
+    expect(screen.queryByText(/utm_/)).toBeNull();
+  });
+
   it("an empty promo code shows None used", () => {
     render(view(detail({}, { promoCodeText: "" })));
     expect(screen.getByText("None used")).toBeTruthy();

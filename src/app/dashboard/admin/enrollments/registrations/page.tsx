@@ -63,7 +63,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
         <div>
           <h1 className="font-headline font-bold text-2xl text-pz-secondary">Registrations</h1>
           <p className="font-body text-pz-on-surface-variant text-sm mt-1">
-            Review, assign and confirm sign-ups that came in through your landing pages.
+            Review sign-ups that came in through your landing pages and confirm their payment.
           </p>
         </div>
         <div className="flex flex-col px-3 py-2 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40">

@@ -45,6 +45,14 @@ function VoucherValue({ url }: { url: string | null }) {
  * The registration detail page body. Role-agnostic: the sales page passes showAgent={false},
  * its own back link and its own status endpoint.
  */
+const UTM_LABELS: Record<string, string> = {
+  utm_source: "Where they came from",
+  utm_medium: "Type of link",
+  utm_campaign: "Campaign",
+  utm_content: "Ad or link",
+  utm_term: "Search term",
+};
+
 export function RegistrationDetailView({
   detail,
   backHref,
@@ -201,7 +209,7 @@ export function RegistrationDetailView({
                   <Field label="Campaign details">
                     {utm.map(([k, v]) => (
                       <span key={k} className="block text-xs">
-                        {k}: {v}
+                        {UTM_LABELS[k] ?? k.replace(/^utm_/, "")}: {v}
                       </span>
                     ))}
                   </Field>

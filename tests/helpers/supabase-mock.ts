@@ -176,6 +176,7 @@ export function memoryHandler(store: Store, rpc?: RpcHandler): (op: Op) => Res {
     if (op.limit !== undefined) rows = rows.slice(0, op.limit);
     if (op.range) rows = rows.slice(op.range[0], op.range[1] + 1);
     const res = shape(op, rows);
+    // `count` is the total matched before limit/range, like PostgREST count: "exact".
     if (op.count) res.count = total;
     return res;
   };
