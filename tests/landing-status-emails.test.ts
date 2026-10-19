@@ -45,7 +45,7 @@ function stubAccess(b: RegistrationBundle, opts: { batchFinished?: boolean; cour
     return {
       registration: opts.statusOf ? { ...r, status: opts.statusOf(r) } : r, lead: b.lead, pageId: "page-1",
       courseId: opts.courseId === undefined ? "course-1" : opts.courseId, courseSlug: "ppc",
-      desired: desiredEnrollment({ status: r.status, mode: b.lead.mode, hasCourse: (opts.courseId === undefined ? "course-1" : opts.courseId) !== null, isTest: r.isTest, moduleIds: [], batchFinished: opts.batchFinished ?? false }),
+      desired: desiredEnrollment({ status: r.status, mode: b.lead.mode, hasCourse: (opts.courseId === undefined ? "course-1" : opts.courseId) !== null, isTest: r.isTest, moduleIds: [], finishedModuleIds: opts.batchFinished ? ["m1"] : [] }),
       hasAccount: r.studentId !== null,
     };
   });
