@@ -172,7 +172,7 @@ describe("syncEnrollmentForRegistration", () => {
     expect(s.enrollment_open_modules[0]).toMatchObject({ module_id: M1 });
     expect(writes("enrollments")[1].payload).toEqual({ status: "active", portal_open: true });
     const order = allWrites().map((o) => `${o.table}:${o.op}`);
-    expect(order.indexOf("enrollment_open_modules:insert")).toBeLessThan(order.indexOf("enrollments:update"));
+    expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
   });
   it("live paid module buyer: only bought AND finished modules get rows", async () => {
     setPage([{ key: "opt", moduleIds: [M1, M2] }]);
@@ -202,7 +202,7 @@ describe("syncEnrollmentForRegistration", () => {
     await syncEnrollmentForRegistration("reg-1");
     db.state.ops = [];
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
-    expect(allWrites().filter((o) => o.table !== "lesson_progress")).toHaveLength(0);
+    expect(allWrites()).toHaveLength(0);
   });
   it("live: a later finished module adds only the missing row to an active+open enrollment and never deletes", async () => {
     setPage();
@@ -213,8 +213,42 @@ describe("syncEnrollmentForRegistration", () => {
     });
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
     expect(s.enrollment_open_modules.map((r) => r.module_id).sort()).toEqual([M1, M2, M3]);
-    expect(writes("enrollment_open_modules").every((o) => o.op === "insert")).toBe(true);
+    expect(writes("enrollment_open_modules").every((o) => o.op === "upsert")).toBe(true);
     expect(s.lesson_progress).toHaveLength(0); // the DB trigger unlocks, not the app
+  });
+  it("live: active+open with open rows present and nothing finished: no enrollments write, rows intact", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ mode: "live" })],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "live", landing_registration_id: "reg-1" })],
+      open: [{ enrollment_id: "enr-1", module_id: M1 }],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(writes("enrollments")).toHaveLength(0);
+    expect(s.enrollment_open_modules).toHaveLength(1);
+  });
+  it("recorded->live upgrade, nothing finished: open rows for every course module before access_level flips", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ mode: "live" })],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "recorded", landing_registration_id: "reg-1" })],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+    expect(s.enrollments[0]).toMatchObject({ access_level: "live", portal_open: true });
+    expect(s.enrollment_open_modules.map((r) => r.module_id).sort()).toEqual([M1, M2, M3]);
+    const order = allWrites().map((o) => `${o.table}:${o.op}`);
+    expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
+  });
+  it("recorded->live upgrade with module coverage: rows only for the covered modules", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M2] }]);
+    const s = world({
+      regs: [reg({ mode: "live" })],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "recorded", landing_registration_id: "reg-1" })],
+      em: [{ enrollment_id: "enr-1", module_id: M1 }, { enrollment_id: "enr-1", module_id: M2 }],
+    });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0].access_level).toBe("live");
+    expect(s.enrollment_open_modules.map((r) => r.module_id).sort()).toEqual([M1, M2]);
   });
   it("live: active+closed enrollment gets rows before the portal opens", async () => {
     setPage();
@@ -225,7 +259,7 @@ describe("syncEnrollmentForRegistration", () => {
     await syncEnrollmentForRegistration("reg-1");
     expect(s.enrollments[0].portal_open).toBe(true);
     const order = allWrites().map((o) => `${o.table}:${o.op}`);
-    expect(order.indexOf("enrollment_open_modules:insert")).toBeLessThan(order.indexOf("enrollments:update"));
+    expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
   });
   it("guest: no-account, nothing written", async () => {
     setPage(); world({ regs: [reg({ student_id: null })] });

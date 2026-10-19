@@ -135,7 +135,9 @@ async function addOpenModules(enrollmentId: string, moduleIds: string[]): Promis
   const have = new Set((data ?? []).map((r) => r.module_id as string));
   const missing = moduleIds.filter((m) => !have.has(m));
   if (missing.length === 0) return 0;
-  const { error: insErr } = await admin.from("enrollment_open_modules").insert(missing.map((module_id) => ({ enrollment_id: enrollmentId, module_id })));
+  const { error: insErr } = await admin
+    .from("enrollment_open_modules")
+    .upsert(missing.map((module_id) => ({ enrollment_id: enrollmentId, module_id })), { onConflict: "enrollment_id,module_id", ignoreDuplicates: true });
   check("enrollment_open_modules insert", insErr);
   return missing.length;
 }
@@ -247,7 +249,8 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
   // Modules whose first lesson must be unlocked by hand: the DB trigger only fires when an enrollment
   // becomes active/open, never when module rows are added or removed. A not-active (or still closed)
   // enrollment relies on that trigger alone. Unlocking happens BEFORE the row changes, so a failure
-  // recomputes the same set on retry; an early unlocked row is harmless (the module gate needs coverage).
+  // recomputes the same set on retry; an early unlocked row is harmless (the module gate needs coverage;
+  // for a Live enrollment it also needs an open row, so a covered but unopened module stays gated).
   let unlockModules: string[] = [];
   if (widenedToWhole && portalOpen) {
     const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
@@ -269,7 +272,19 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
 
   // Open rows go in before portal_open can flip; on an already-open enrollment the DB trigger on the
   // insert unlocks that module's first lesson, so no unlockFirstLessons here.
-  const openAdded = d.accessLevel === "live" ? await addOpenModules(existing.id, d.openModuleIds) : 0;
+  // A recorded buyer upgrading to Live keeps what they had: since the Live gate needs an open row per
+  // module, open every covered module (after any widening) before access_level flips.
+  let openWanted = d.openModuleIds;
+  if (d.accessLevel === "live" && wasActive && existing.access_level === "recorded") {
+    let covers = [...have.filter((m) => !toDelete.includes(m)), ...toAdd];
+    if (covers.length === 0) {
+      const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
+      check("modules read", error);
+      covers = (all ?? []).map((m) => m.id);
+    }
+    openWanted = Array.from(new Set([...openWanted, ...covers]));
+  }
+  const openAdded = d.accessLevel === "live" ? await addOpenModules(existing.id, openWanted) : 0;
 
   const patch: Database["public"]["Tables"]["enrollments"]["Update"] = {};
   if (!wasActive) patch.status = "active";
