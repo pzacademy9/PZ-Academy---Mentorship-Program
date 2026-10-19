@@ -901,6 +901,39 @@ export type Database = {
           },
         ]
       }
+      enrollment_open_modules: {
+        Row: {
+          enrollment_id: string
+          module_id: string
+          opened_at: string
+        }
+        Insert: {
+          enrollment_id: string
+          module_id: string
+          opened_at?: string
+        }
+        Update: {
+          enrollment_id?: string
+          module_id?: string
+          opened_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_open_modules_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_open_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrollments: {
         Row: {
           access_level: string | null
@@ -1540,21 +1573,30 @@ export type Database = {
       }
       landing_email_log: {
         Row: {
+          claimed_at: string
+          id: string
           kind: string
           registration_id: string
           sent_at: string
+          state: string
           to_email: string
         }
         Insert: {
+          claimed_at?: string
+          id?: string
           kind: string
           registration_id: string
           sent_at?: string
+          state?: string
           to_email: string
         }
         Update: {
+          claimed_at?: string
+          id?: string
           kind?: string
           registration_id?: string
           sent_at?: string
+          state?: string
           to_email?: string
         }
         Relationships: [
