@@ -35,7 +35,11 @@ export interface LandingEmailContext {
   amountReceived?: number | null;
   /** Paid email: a group lead paid for this person. */
   coveredByGroup?: boolean;
-  /** Paid email: force the "portal opens after your batch" note on or off (otherwise inferred). */
+  /**
+   * Paid email caller contract: pass true exactly when the buyer is on a Live course and the
+   * portal is still closed. Only then do the "portal opens after your batch" note and the
+   * WhatsApp group buttons appear (together). Unset or false means neither is shown.
+   */
   portalOpensLater?: boolean;
 }
 export interface AdminAlertContext extends LandingEmailContext {
@@ -160,10 +164,8 @@ export function buildFreeJoiningEmail(c: LandingEmailContext): BuiltEmail {
 export function buildPaidEmail(c: LandingEmailContext): BuiltEmail {
   const fn = firstName(c.name);
   const portal = httpsHref(c.portalUrl ?? "");
-  const hasGroups = c.waGroups.some((g) => isValidWaGroupUrl(g.url));
-  // Live batch still running (no portal yet): inferred unless the caller says so. A guest on a
-  // recorded course has no groups and no portal link yet, so they only get the account note.
-  const portalLater = !portal && (c.portalOpensLater ?? (!c.needsAccount || hasGroups));
+  // Explicit only: never inferred from a missing link or from WhatsApp groups being present.
+  const portalLater = !portal && c.portalOpensLater === true;
   const paid = c.coveredByGroup ? "Covered by your group" : money(c.currency, c.amountReceived ?? c.amount);
   const signup = httpsHref(c.signupUrl ?? "");
   const accountNote = c.needsAccount

@@ -96,7 +96,7 @@ describe("paid email", () => {
     expect(buildPaidEmail(ctx({ portalUrl: portal })).html).toContain("PKR 11,500");
   });
   it("recorded + guest: account note with the email, no portal button", () => {
-    const e = buildPaidEmail(ctx({ waGroups: [], portalOpensLater: false, needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
+    const e = buildPaidEmail(ctx({ portalOpensLater: false, needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
     expect(e.html).toContain("create an account");
     expect(e.html).toContain("a@b.com");
     expect(e.html).toContain('href="https://academy.example.com/register"');
@@ -108,7 +108,7 @@ describe("paid email", () => {
     expect(e.html).not.toContain("href=\"javascript:");
   });
   it("live-closed + account: portal opens later, WhatsApp group, no portal button", () => {
-    const e = buildPaidEmail(ctx());
+    const e = buildPaidEmail(ctx({ portalOpensLater: true }));
     expect(e.subject).toBe("You're in, Ayesha - here's your access");
     expect(e.html).toContain("open after your batch finishes");
     expect(e.html).toContain("https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle");
@@ -116,10 +116,36 @@ describe("paid email", () => {
     expect(e.html).not.toContain("Open your learning portal");
   });
   it("live-closed + guest: portal-later, account note and WhatsApp", () => {
-    const e = buildPaidEmail(ctx({ needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
+    const e = buildPaidEmail(ctx({ portalOpensLater: true, needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
     expect(e.html).toContain("open after your batch finishes");
     expect(e.html).toContain("create an account");
     expect(e.html).toContain("https://chat.whatsapp.com/");
+  });
+  it("never contradicts: portal button never comes with the opens-later note or WhatsApp", () => {
+    const e = buildPaidEmail(ctx({ portalUrl: portal, portalOpensLater: true }));
+    expect(e.html).toContain("Open your learning portal");
+    expect(e.html).not.toContain("open after your batch finishes");
+    expect(e.html).not.toContain("chat.whatsapp.com");
+  });
+  it("recorded + account, no valid portal link, flag unset: no opens-later, no WhatsApp", () => {
+    for (const portalUrl of [undefined, "http://academy.example.com/portal"]) {
+      const e = buildPaidEmail(ctx({ portalUrl }));
+      expect(e.html).not.toContain("open after your batch finishes");
+      expect(e.html).not.toContain("chat.whatsapp.com");
+      expect(e.html).not.toContain("Open your learning portal");
+    }
+  });
+  it("recorded + guest with groups present, flag unset: account note only", () => {
+    const e = buildPaidEmail(ctx({ needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
+    expect(e.html).toContain("create an account");
+    expect(e.html).not.toContain("chat.whatsapp.com");
+    expect(e.html).not.toContain("open after your batch finishes");
+  });
+  it("portal button and account note render together", () => {
+    const e = buildPaidEmail(ctx({ portalUrl: portal, needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
+    expect(e.html).toContain("Open your learning portal");
+    expect(e.html).toContain("create an account");
+    expect(e.html).not.toContain("chat.whatsapp.com");
   });
   it("renders the portal button only for an https portalUrl", () => {
     for (const bad of ["http://academy.example.com/portal", "javascript:alert(1)"]) {
@@ -152,7 +178,9 @@ describe("underpaid email", () => {
     expect(e.html).not.toContain("<script>x</script>");
   });
   it("treats missing amountReceived as nothing received", () => {
-    expect(buildUnderpaidEmail(ctx()).html).toContain("PKR 11,500");
+    const html = buildUnderpaidEmail(ctx()).html;
+    expect(html).toContain("PKR 11,500");
+    expect(html).toMatch(/Amount received<\/td><td[^>]*>PKR 0</);
   });
 });
 
