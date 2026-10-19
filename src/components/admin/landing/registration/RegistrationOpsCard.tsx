@@ -21,6 +21,8 @@ export const JOB_LABEL: Record<JobType, string> = {
   email_received: "Confirmation email",
   email_members: "Group member emails",
   email_admin: "Team alert email",
+  enrollment_sync: "Course access",
+  email_status: "Payment status email",
 };
 
 export function sheetUrl(sheetId: string): string {

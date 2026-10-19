@@ -9,9 +9,13 @@ import { STATUS_LABELS, toSheetRow, type SheetRegistration } from "./sheet-row";
 import { selectWaGroups } from "./wa-groups";
 import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
 import {
-  buildAdminAlertEmail, buildFreeJoiningEmail, buildMemberReceivedEmail, buildReceivedEmail, buildVoucherResubmittedEmail,
+  buildAdminAlertEmail, buildFreeJoiningEmail, buildMemberReceivedEmail, buildPaidEmail, buildReceivedEmail, buildReservedEmail,
+  buildUnderpaidEmail, buildVoucherResubmittedEmail,
   formatStartsOn, withTestPrefix, type BuiltEmail, type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
+import { resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
+import { claimEmail, releaseEmail, type EmailLogKind } from "@/lib/data/landing-email-log";
+import { emailGetsPortalLink } from "./access-rules";
 import type { JobType } from "@/lib/data/landing-jobs";
 
 /** email_status value once the "received" email reached this person (makes retries idempotent). */
@@ -206,6 +210,74 @@ async function emailAdmin(registrationId: string): Promise<void> {
   await deliver(lead, adminTo, "PZ Academy", email);
 }
 
+const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "https://pharmacozyme.com";
+
+const STATUS_EMAIL_KIND: Partial<Record<RegistrationRecord["status"], EmailLogKind>> = { paid: "paid", underpaid: "underpaid", reserved: "reserved" };
+
+/** Brings enrollments in line with each person's status. Tries everyone, then rethrows the first error so the job retries. */
+async function enrollmentSync(registrationId: string): Promise<void> {
+  const bundle = await getRegistrationBundle(registrationId);
+  if (!bundle) return;
+  let firstError: unknown = null;
+  for (const person of [bundle.lead, ...bundle.members]) {
+    try {
+      await syncEnrollmentForRegistration(person.id);
+    } catch (err) {
+      if (!firstError) firstError = err;
+    }
+  }
+  if (firstError) throw firstError;
+}
+
+/**
+ * One Paid / Underpaid / Reserved email per person (lead and members independently), guarded by the
+ * sent-once log. Pending and Free get nothing here: the "received" email is their email.
+ */
+async function emailStatus(registrationId: string): Promise<void> {
+  const loaded = await load(registrationId);
+  if (!loaded) return;
+  const { lead, members } = loaded.bundle;
+  let base: LandingEmailContext | null = null;
+  let firstError: unknown = null;
+  for (const person of [lead, ...members]) {
+    const kind = STATUS_EMAIL_KIND[person.status];
+    if (!kind) continue;
+    let claimed = false;
+    try {
+      claimed = await claimEmail(person.id, kind, person.email);
+    } catch (err) {
+      if (!firstError) firstError = err;
+      continue;
+    }
+    if (!claimed) continue;
+    try {
+      base ??= await emailContext(lead, loaded.page);
+      const access = await resolveAccess(person.id);
+      if (!access) throw new Error("registration access could not be resolved");
+      const { desired, courseId, courseSlug, hasAccount } = access;
+      const isPaid = kind === "paid";
+      const portalUrl = hasAccount && courseSlug && emailGetsPortalLink(desired) ? `${appUrl()}/portal/${courseSlug}` : undefined;
+      const ctx: LandingEmailContext = {
+        ...base,
+        name: person.name,
+        email: person.email,
+        amountReceived: person.amountReceived,
+        coveredByGroup: person.rowType === "member",
+        portalUrl,
+        needsAccount: isPaid && courseId !== null && !hasAccount,
+        signupUrl: `${appUrl()}/register`,
+        portalOpensLater: isPaid && lead.mode === "live" && desired.action === "grant" && !desired.portalOpen,
+      };
+      const email = kind === "paid" ? buildPaidEmail(ctx) : kind === "underpaid" ? buildUnderpaidEmail(ctx) : buildReservedEmail(ctx);
+      await deliver(lead, person.email, person.name, email);
+    } catch (err) {
+      try { await releaseEmail(person.id, kind); } catch { /* the original error is the one to report */ }
+      if (!firstError) firstError = err;
+    }
+  }
+  if (firstError) throw firstError;
+}
+
 /** Resubmitted voucher: one best-effort alert to the team. Never throws (not an outbox job). */
 export async function notifyVoucherResubmitted(registrationId: string): Promise<void> {
   try {
@@ -234,4 +306,6 @@ export const JOB_HANDLERS: Record<JobType, (registrationId: string) => Promise<v
   email_received: emailReceived,
   email_members: emailMembers,
   email_admin: emailAdmin,
+  enrollment_sync: enrollmentSync,
+  email_status: emailStatus,
 };

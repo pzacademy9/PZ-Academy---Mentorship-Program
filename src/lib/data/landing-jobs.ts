@@ -10,9 +10,9 @@ import { JOB_HANDLERS } from "@/lib/landing/registration/job-handlers";
  * and a crashed worker's job is picked up again after the lease.
  */
 
-export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status";
+export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status" | "enrollment_sync" | "email_status";
 // Run order: the confirmation email goes first so a slow Apps Script call never delays it.
-export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_status", "email_members", "email_admin"];
+export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"];
 export const MAX_ATTEMPTS = 5;
 export const BACKOFF_MINUTES = [1, 5, 15, 60] as const;
 const LEASE_MINUTES = 10;
@@ -70,6 +70,30 @@ export async function enqueueSheetStatus(registrationId: string): Promise<boolea
     return true;
   } catch {
     console.error("[landing-jobs] enqueue sheet_status crashed");
+    return false;
+  }
+}
+
+/**
+ * Status side effects (enrollment sync + status email): upsert BOTH jobs back to pending with a fresh budget.
+ * Handlers read the current status, so flip-flops coalesce safely. Never throws; true only when the upsert succeeded.
+ */
+export async function enqueueStatusEffects(registrationId: string): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .upsert(
+        (["enrollment_sync", "email_status"] as const).map((type) => ({ registration_id: registrationId, type, status: "pending", attempts: 0, next_run_at: now, last_error: null })),
+        { onConflict: "registration_id,type" },
+      );
+    if (error) {
+      console.error("[landing-jobs] enqueue status effects failed:", error.code);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[landing-jobs] enqueue status effects crashed");
     return false;
   }
 }
