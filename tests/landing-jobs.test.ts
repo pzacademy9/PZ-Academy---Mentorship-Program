@@ -4,7 +4,7 @@ import { createSupabaseMock, filterValue, memoryHandler } from "./helpers/supaba
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 const handlers = vi.hoisted(() => ({
-  sheet_append: vi.fn(), email_received: vi.fn(), email_members: vi.fn(), email_admin: vi.fn(),
+  sheet_append: vi.fn(), sheet_status: vi.fn(), email_received: vi.fn(), email_members: vi.fn(), email_admin: vi.fn(),
 }));
 vi.mock("@/lib/landing/registration/job-handlers", () => ({ JOB_HANDLERS: handlers }));
 
@@ -75,6 +75,25 @@ describe("runJobsFor", () => {
     db.state.handler = memoryHandler(store);
     await runJobsFor("reg-1");
     expect(store.landing_jobs[0]).toMatchObject({ status: "pending", attempts: 1, last_error: "Brevo 502", next_run_at: "2026-10-13T10:01:00.000Z" });
+  });
+  it("a re-enqueue during a running job is not overwritten by the stale worker's done update", async () => {
+    const store = { landing_jobs: [job({ type: "sheet_status" })] };
+    db.state.handler = memoryHandler(store);
+    handlers.sheet_status = vi.fn(async () => {
+      Object.assign(store.landing_jobs[0], { status: "pending", attempts: 0, last_error: null }); // enqueueSheetStatus reset
+    });
+    await runJobsFor("reg-1");
+    expect(store.landing_jobs[0]).toMatchObject({ status: "pending", attempts: 0 });
+  });
+  it("a re-enqueue during a running job is not overwritten by the stale worker's failure update", async () => {
+    const store = { landing_jobs: [job({ type: "sheet_status" })] };
+    db.state.handler = memoryHandler(store);
+    handlers.sheet_status = vi.fn(async () => {
+      Object.assign(store.landing_jobs[0], { status: "pending", attempts: 0, last_error: null });
+      throw new Error("late failure");
+    });
+    await runJobsFor("reg-1");
+    expect(store.landing_jobs[0]).toMatchObject({ status: "pending", attempts: 0, last_error: null });
   });
   it("the fifth failure is final", async () => {
     handlers.email_received.mockRejectedValue(new Error("still down"));

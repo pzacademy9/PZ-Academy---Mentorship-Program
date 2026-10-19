@@ -84,6 +84,7 @@ const numOrNull = (v: unknown): number | null => (v === null || v === undefined 
 
 /** Neutralise LIKE wildcards, then quote the value for PostgREST's or() list so a comma cannot split it. */
 function searchPattern(q: string): string {
+  // PostgREST rewrites * to %, so the escaped \* matches a literal percent sign: intentional, it cannot widen a search.
   const like = q.trim().replace(/[\\%_*]/g, (c) => `\\${c}`);
   const quoted = `%${like}%`.replace(/[\\"]/g, (c) => `\\${c}`);
   return `"${quoted}"`;

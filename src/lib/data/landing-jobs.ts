@@ -102,7 +102,7 @@ async function runJob(job: JobRow): Promise<Outcome> {
     const handler = JOB_HANDLERS[job.type as JobType];
     if (!handler) throw new Error(`Unknown job type ${job.type}`);
     await handler(job.registration_id);
-    await admin.from("landing_jobs").update({ status: "done", last_error: null }).eq("id", job.id);
+    await admin.from("landing_jobs").update({ status: "done", last_error: null }).eq("id", job.id).eq("attempts", attempts); // a re-enqueue resets attempts, so a stale worker matches nothing
     return "done";
   } catch (err) {
     const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
@@ -110,7 +110,8 @@ async function runJob(job: JobRow): Promise<Outcome> {
     await admin
       .from("landing_jobs")
       .update(dead ? { status: "failed", last_error: message } : { status: "pending", last_error: message, next_run_at: nextRunAt(attempts, new Date()) })
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .eq("attempts", attempts);
     console.warn(`[landing-jobs] ${job.type} attempt ${attempts} failed`);
     return dead ? "failed" : "retry";
   }
