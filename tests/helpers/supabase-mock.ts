@@ -9,7 +9,7 @@
  * Every terminal call (await, single, maybeSingle) records an Op in `state.ops`.
  */
 export type Res = { data: unknown; error: unknown; count?: number | null };
-export type FilterKind = "eq" | "neq" | "in" | "is" | "gte" | "lte" | "gt" | "lt" | "ilike";
+export type FilterKind = "eq" | "neq" | "in" | "is" | "gte" | "lte" | "gt" | "lt" | "ilike" | "or";
 export interface Op {
   table: string;
   op: "select" | "insert" | "update" | "delete" | "upsert" | "rpc";
@@ -17,6 +17,7 @@ export interface Op {
   filters: [FilterKind, string, unknown][];
   orders: [string, boolean][];
   limit?: number;
+  range?: [number, number];
   single: boolean;
   count: boolean;
   head: boolean;
@@ -67,6 +68,9 @@ export function createSupabaseMock() {
       gt: filter("gt"),
       lt: filter("lt"),
       ilike: filter("ilike"),
+      // or("a.ilike.x,b.eq.y") is recorded as ["or", "or", expression]; memory mode does not evaluate it.
+      or: (expr: string) => { op.filters.push(["or", "or", expr]); return b; },
+      range: (from: number, to: number) => { op.range = [from, to]; return b; },
       order: (key: string, o?: { ascending?: boolean }) => { op.orders.push([key, o?.ascending !== false]); return b; },
       limit: (n: number) => { op.limit = n; return b; },
       maybeSingle: () => { op.single = true; return done(); },
@@ -129,6 +133,7 @@ function matches(row: Record<string, unknown>, filters: Op["filters"]): boolean 
       case "lte": return compare(v, value) <= 0;
       case "gt": return compare(v, value) > 0;
       case "lt": return compare(v, value) < 0;
+      case "or": return true;
       case "ilike": return typeof v === "string" && v.toLowerCase() === String(value).toLowerCase();
     }
   });
@@ -167,7 +172,11 @@ export function memoryHandler(store: Store, rpc?: RpcHandler): (op: Op) => Res {
     for (const [key, asc] of [...op.orders].reverse()) {
       rows.sort((a, b) => (asc ? 1 : -1) * compare(a[key], b[key]));
     }
+    const total = rows.length;
     if (op.limit !== undefined) rows = rows.slice(0, op.limit);
-    return shape(op, rows);
+    if (op.range) rows = rows.slice(op.range[0], op.range[1] + 1);
+    const res = shape(op, rows);
+    if (op.count) res.count = total;
+    return res;
   };
 }

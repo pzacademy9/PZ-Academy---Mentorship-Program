@@ -1,0 +1,186 @@
+// tests/landing-registration-admin-data.test.ts
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createSupabaseMock, filterValue, memoryHandler, type Store } from "./helpers/supabase-mock";
+
+const db = createSupabaseMock();
+vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
+
+import { listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
+
+const reg = (over: Record<string, unknown>) => ({
+  page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com",
+  option_label: "Live", mode: "live", region: "PK", expected_amount: 5000, amount_received: null, currency: "PKR",
+  status: "pending", status_source: "app", status_changed_at: null, agent_id: null, group_size: 1, is_test: false,
+  created_at: "2026-10-01T00:00:00Z", ...over,
+});
+const seed = (): Store => ({
+  landing_registrations: [
+    reg({ id: "a", name: "Ayesha", ref_id: "PZA-1", agent_id: "ag1", created_at: "2026-10-03T00:00:00Z" }),
+    reg({ id: "b", name: "Bilal", ref_id: "PZA-2", agent_id: "ag2", status: "paid", created_at: "2026-10-02T00:00:00Z" }),
+    reg({ id: "t", name: "Tester", ref_id: "PZA-3", agent_id: "ag1", is_test: true }),
+    reg({ id: "L", name: "Lead", ref_id: "PZA-4", row_type: "lead", agent_id: "ag1", group_size: 2, status: "underpaid", amount_received: 100 }),
+    reg({ id: "m1", name: "Member", row_type: "member", lead_registration_id: "L", agent_id: "ag1", status: "underpaid" }),
+    reg({ id: "f", name: "Free", ref_id: "PZA-5", status: "free", agent_id: "ag1" }),
+  ],
+  landing_pages: [{ id: "pg1", title: "PPC", slug: "ppc" }],
+  profiles: [{ id: "ag1", full_name: "Agent One" }, { id: "ag2", full_name: "Agent Two" }, { id: "adm", full_name: "Admin Person" }],
+  landing_status_events: [
+    { id: "e1", registration_id: "L", from_status: "pending", to_status: "underpaid", source: "app", changed_by: "adm", at: "2026-10-04T00:00:00Z" },
+    { id: "e2", registration_id: "m1", from_status: "pending", to_status: "underpaid", source: "sheet", changed_by: null, at: "2026-10-04T00:00:00Z" },
+  ],
+});
+let store: Store;
+let rpcResult: { data: unknown; error: unknown };
+beforeEach(() => {
+  db.reset();
+  store = seed();
+  rpcResult = { data: { ok: true, from: "pending", changed: 2 }, error: null };
+  db.state.handler = memoryHandler(store, () => rpcResult);
+});
+
+const admin = { userId: "adm", role: "admin" as const };
+const agent = (id = "ag1") => ({ userId: id, role: "sales_agent" as const });
+const regReads = () => db.find("landing_registrations", "select");
+
+describe("list", () => {
+  it("list for agent scope filters agent_id and excludes test rows", async () => {
+    const out = await listRegistrations({ kind: "agent", agentId: "ag1" }, {});
+    expect(out.rows.map((r) => r.id).sort()).toEqual(["L", "a", "f"]);
+    for (const op of regReads()) {
+      expect(filterValue(op, "eq", "agent_id")).toBe("ag1");
+      expect(filterValue(op, "eq", "is_test")).toBe(false);
+    }
+  });
+  it("agent scope ignores a caller-supplied agentId filter", async () => {
+    const out = await listRegistrations({ kind: "agent", agentId: "ag1" }, { agentId: "ag2" });
+    expect(out.rows.map((r) => r.id)).not.toContain("b");
+  });
+  it("list for all scope hides test rows unless includeTest", async () => {
+    expect((await listRegistrations({ kind: "all" }, {})).rows.map((r) => r.id)).not.toContain("t");
+    expect((await listRegistrations({ kind: "all", includeTest: true }, {})).rows.map((r) => r.id)).toContain("t");
+  });
+  it("list returns only individual and lead rows", async () => {
+    const out = await listRegistrations({ kind: "all" }, {});
+    expect(out.rows.map((r) => r.id)).not.toContain("m1");
+    expect(filterValue(regReads()[0], "in", "row_type")).toEqual(["individual", "lead"]);
+  });
+  it("list maps page and agent names", async () => {
+    const out = await listRegistrations({ kind: "all" }, {});
+    const a = out.rows.find((r) => r.id === "a")!;
+    expect(a).toMatchObject({ pageTitle: "PPC", agentName: "Agent One", refId: "PZA-1", status: "pending" });
+  });
+  it("search with % _ and commas is escaped and does not widen the match", async () => {
+    await listRegistrations({ kind: "all" }, { q: "50%_a,b\\c" });
+    const expr = String(filterValue(regReads()[0], "or", "or"));
+    expect(expr).toContain("name.ilike.");
+    expect(expr).toContain("email.ilike.");
+    expect(expr).toContain("ref_id.ilike.");
+    // LIKE wildcards are neutralised with a backslash (itself escaped for the quoted string),
+    // and the value is double-quoted so the comma cannot split the or() list.
+    expect(expr).toContain('"%50\\\\%\\\\_a,b\\\\\\\\c%"');
+    expect(expr.replace(/"(?:[^"\\]|\\.)*"/g, '""').split(",")).toHaveLength(3);
+  });
+  it("status filter and counts per status", async () => {
+    const out = await listRegistrations({ kind: "all" }, { status: "pending" });
+    expect(out.rows.map((r) => r.id)).toEqual(["a"]);
+    expect(out.total).toBe(1);
+    expect(out.pageSize).toBe(25);
+    expect(out.counts).toEqual({ all: 4, pending: 1, paid: 1, underpaid: 1, reserved: 0, free: 1 });
+  });
+});
+
+describe("detail", () => {
+  it("detail for non-owned agent id returns null", async () => {
+    expect(await getRegistrationDetail("b", { kind: "agent", agentId: "ag1" })).toBeNull();
+    expect(await getRegistrationDetail("t", { kind: "agent", agentId: "ag1" })).toBeNull();
+  });
+  it("detail for an unassigned registration is not found for an agent", async () => {
+    store.landing_registrations.push(reg({ id: "u", agent_id: null }));
+    expect(await getRegistrationDetail("u", { kind: "agent", agentId: "ag1" })).toBeNull();
+  });
+  it("detail returns members and events with actor names", async () => {
+    const d = await getRegistrationDetail("L", { kind: "agent", agentId: "ag1" });
+    expect(d!.lead.id).toBe("L");
+    expect(d!.members.map((m) => m.id)).toEqual(["m1"]);
+    expect(d!.page).toEqual({ id: "pg1", title: "PPC", slug: "ppc" });
+    expect(d!.agentName).toBe("Agent One");
+    expect(d!.events).toHaveLength(2);
+    expect(d!.events.find((e) => e.source === "app")).toMatchObject({ actorName: "Admin Person", registrationName: "Lead", to: "underpaid" });
+    expect(d!.events.find((e) => e.source === "sheet")).toMatchObject({ actorName: null, registrationName: "Member" });
+  });
+  it("detail of a member id is not found", async () => {
+    expect(await getRegistrationDetail("m1", { kind: "all" })).toBeNull();
+  });
+});
+
+describe("change", () => {
+  const rpcs = () => db.state.ops.filter((o) => o.op === "rpc");
+  const writes = () => db.state.ops.filter((o) => o.op === "update" || o.op === "insert");
+
+  it("change: member id returns member-row and calls no rpc", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "m1", to: "paid", expectedFrom: "underpaid", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "member-row" });
+    expect(rpcs()).toHaveLength(0);
+  });
+  it("change: agent not owner returns not-found and calls no rpc", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "b", to: "pending", expectedFrom: "paid", actor: agent("ag1") });
+    expect(r).toEqual({ ok: false, reason: "not-found" });
+    expect(rpcs()).toHaveLength(0);
+  });
+  it("change: free row returns free-row", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "f", to: "paid", expectedFrom: "free", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "free-row" });
+  });
+  it("change: underpaid without amount returns amount-required and calls no rpc", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "underpaid", expectedFrom: "pending", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "amount-required" });
+    expect(rpcs()).toHaveLength(0);
+  });
+  it("change: passes the caller's expectedFrom (not the freshly read status), amount, actor and source app to the rpc", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "underpaid", expectedFrom: "pending", amount: 2000, actor: agent("ag1") });
+    expect(r).toEqual({ ok: true, id: "a", status: "underpaid", rowsChanged: 2 });
+    expect(rpcs()).toHaveLength(1);
+    expect(rpcs()[0].table).toBe("landing_apply_status");
+    expect(rpcs()[0].payload).toEqual({
+      p_registration_id: "a", p_to_status: "underpaid", p_expected_from: "pending", p_amount: 2000, p_actor: "ag1", p_source: "app",
+    });
+  });
+  it("change: paid without an amount passes the expected amount", async () => {
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(rpcs()[0].payload).toMatchObject({ p_amount: 5000, p_to_status: "paid" });
+  });
+  it("change: expectedFrom that differs from the current status returns stale without a second write", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "reserved", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "stale" });
+    expect(rpcs()).toHaveLength(0);
+    expect(writes()).toHaveLength(0);
+  });
+  it("change: rpc stale becomes stale", async () => {
+    rpcResult = { data: { ok: false, reason: "stale" }, error: null };
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "stale" });
+  });
+  it("change: rpc not-found becomes not-found", async () => {
+    rpcResult = { data: { ok: false, reason: "not-found" }, error: null };
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "not-found" });
+  });
+  it("change: rpc error becomes db-error", async () => {
+    rpcResult = { data: null, error: { code: "XX000", message: "boom" } };
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "db-error" });
+  });
+  it("change: same status returns already-in-status", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "pending", expectedFrom: "pending", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "already-in-status" });
+    expect(rpcs()).toHaveLength(0);
+  });
+  it("change: an agent cannot change a test row, an admin can", async () => {
+    expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", actor: agent("ag1") })).ok).toBe(false);
+    expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", actor: admin })).ok).toBe(true);
+  });
+  it("change: the read is scoped to the agent's own rows", async () => {
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: agent("ag1") });
+    expect(filterValue(regReads()[0], "eq", "agent_id")).toBe("ag1");
+  });
+});

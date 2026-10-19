@@ -1942,6 +1942,7 @@ export type Database = {
       landing_status_events: {
         Row: {
           at: string
+          changed_by: string | null
           from_status: string | null
           id: string
           registration_id: string
@@ -1950,6 +1951,7 @@ export type Database = {
         }
         Insert: {
           at?: string
+          changed_by?: string | null
           from_status?: string | null
           id?: string
           registration_id: string
@@ -1958,6 +1960,7 @@ export type Database = {
         }
         Update: {
           at?: string
+          changed_by?: string | null
           from_status?: string | null
           id?: string
           registration_id?: string
@@ -1965,6 +1968,13 @@ export type Database = {
           to_status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "landing_status_events_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "landing_status_events_registration_id_fkey"
             columns: ["registration_id"]
@@ -3622,6 +3632,17 @@ export type Database = {
           question: string
           question_id: string
         }[]
+      }
+      landing_apply_status: {
+        Args: {
+          p_actor: string
+          p_amount: number | null
+          p_expected_from: string
+          p_registration_id: string
+          p_source: string
+          p_to_status: string
+        }
+        Returns: Json
       }
       landing_create_registration: {
         Args: {
