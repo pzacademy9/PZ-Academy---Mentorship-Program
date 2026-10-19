@@ -7,7 +7,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
-import { enqueueSheetStatus, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
+import { enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
 import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 
@@ -328,11 +328,16 @@ export async function changeRegistrationStatus(p: {
     return { ok: false, reason: "db-error" };
   }
 
-  // Push the new status to the event sheet. A sheet problem never fails the change: the job row is
+  // Push the new status to the event sheet and queue enrollment/email. A problem here never fails the change: the job row is
   // the durable record and the cron drain retries it.
   try {
-    if (await enqueueSheetStatus(rec.id)) runInBackground(runJobsFor(rec.id));
-    else runInBackground(runJobsDirect(rec.id, ["sheet_status"]));
+    // The sheet push and the enrollment/email jobs are independent groups: each is enqueued on its
+    // own, the outbox drain runs whichever enqueued, and a group that failed to enqueue runs directly.
+    const sheetQueued = await enqueueSheetStatus(rec.id).catch(() => false);
+    const effectsQueued = await enqueueStatusEffects(rec.id).catch(() => false);
+    if (sheetQueued || effectsQueued) runInBackground(runJobsFor(rec.id));
+    if (!sheetQueued) runInBackground(runJobsDirect(rec.id, ["sheet_status"]));
+    if (!effectsQueued) runInBackground(runJobsDirect(rec.id, ["enrollment_sync", "email_status"]));
   } catch {
     console.error("[landing-registration-admin] sheet status push crashed");
   }
