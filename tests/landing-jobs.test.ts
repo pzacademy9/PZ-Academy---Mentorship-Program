@@ -9,7 +9,10 @@ const handlers = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/landing/registration/job-handlers", () => ({ JOB_HANDLERS: handlers }));
 
-import { enqueueJobs, enqueueStatusEffects, enqueueEnrollmentSync, JOB_TYPES, runJobsFor, drainDueJobs, retryFailedJobs, requeueSheetAppendJobs, makeWaitingJobsDue, nextRunAt } from "@/lib/data/landing-jobs";
+const sweep = vi.hoisted(() => ({ sweepStaleClaims: vi.fn() }));
+vi.mock("@/lib/data/landing-email-log", () => sweep);
+
+import { enqueueJobs, enqueueEmailStatus, enqueueStatusEffects, enqueueEnrollmentSync, JOB_TYPES, runJobsFor, drainDueJobs, retryFailedJobs, requeueSheetAppendJobs, makeWaitingJobsDue, nextRunAt } from "@/lib/data/landing-jobs";
 
 const NOW = new Date("2026-10-13T10:00:00.000Z");
 const job = (over: Record<string, unknown> = {}) => ({
@@ -19,6 +22,7 @@ const job = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   db.reset();
+  sweep.sweepStaleClaims.mockReset().mockResolvedValue({ released: 0, registrationIds: [] });
   for (const h of Object.values(handlers)) h.mockReset().mockResolvedValue(undefined);
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
@@ -71,6 +75,22 @@ describe("enqueueStatusEffects", () => {
   });
   it("JOB_TYPES run order", () => {
     expect(JOB_TYPES).toEqual(["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"]);
+  });
+});
+
+describe("enqueueEmailStatus", () => {
+  it("upserts only the email_status job back to pending with a fresh budget", async () => {
+    db.state.handler = memoryHandler({});
+    await expect(enqueueEmailStatus("reg-1")).resolves.toBe(true);
+    const up = db.find("landing_jobs", "upsert")[0];
+    expect(up.payload).toEqual({ registration_id: "reg-1", type: "email_status", status: "pending", attempts: 0, next_run_at: NOW.toISOString(), last_error: null });
+    expect(up.upsertOptions).toMatchObject({ onConflict: "registration_id,type" });
+  });
+  it("never throws and reports failure", async () => {
+    db.state.handler = () => ({ data: null, error: { code: "08006" } });
+    await expect(enqueueEmailStatus("reg-1")).resolves.toBe(false);
+    db.state.handler = () => { throw new Error("socket closed"); };
+    await expect(enqueueEmailStatus("reg-1")).resolves.toBe(false);
   });
 });
 
@@ -166,6 +186,37 @@ describe("drainDueJobs and retryFailedJobs", () => {
       job({ id: "e", status: "done" }),
     ] });
     expect(await drainDueJobs(10)).toEqual({ ran: 3, failed: 1 });
+  });
+  it("sweeps stale email claims first and re-enqueues email_status for each released registration", async () => {
+    sweep.sweepStaleClaims.mockResolvedValue({ released: 2, registrationIds: ["reg-9", "reg-8"] });
+    const store = { landing_jobs: [] as Record<string, unknown>[] };
+    db.state.handler = memoryHandler(store);
+    await drainDueJobs(10);
+    expect(sweep.sweepStaleClaims).toHaveBeenCalledTimes(1);
+    const ups = db.find("landing_jobs", "upsert");
+    expect(ups.map((u) => (u.payload as { registration_id: string }).registration_id)).toEqual(["reg-9", "reg-8"]);
+    expect(ups.every((u) => (u.payload as { type: string }).type === "email_status")).toBe(true);
+    // the sweep ran before the batch was fetched, so the re-enqueued job is picked up in this drain
+    expect(db.state.ops.findIndex((o) => o.op === "upsert")).toBeLessThan(db.state.ops.findIndex((o) => o.op === "select"));
+  });
+  it("a sweep failure never stops the drain", async () => {
+    sweep.sweepStaleClaims.mockRejectedValue(new Error("db down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    db.state.handler = memoryHandler({ landing_jobs: [job({ id: "a" })] });
+    expect(await drainDueJobs(10)).toEqual({ ran: 1, failed: 0 });
+    expect(handlers.email_received).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith("[landing-jobs] stale email claim sweep failed");
+    warn.mockRestore();
+  });
+  it("runs a batch in JOB_TYPES order even when next_run_at orders it the other way", async () => {
+    const order: string[] = [];
+    for (const [type, h] of Object.entries(handlers)) h.mockImplementation(async () => { order.push(type); });
+    db.state.handler = memoryHandler({ landing_jobs: [
+      job({ id: "m", type: "email_status", next_run_at: "2026-10-13T08:00:00.000Z" }),
+      job({ id: "e", type: "enrollment_sync", next_run_at: "2026-10-13T09:00:00.000Z" }),
+    ] });
+    await drainDueJobs(10);
+    expect(order).toEqual(["enrollment_sync", "email_status"]);
   });
   it("requeues failed jobs of one page through the FK join, in batches, counting updates", async () => {
     const failed = Array.from({ length: 150 }, (_, i) => ({ id: `f${i}`, status: "failed" }));

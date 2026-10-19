@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { JOB_HANDLERS } from "@/lib/landing/registration/job-handlers";
+import { sweepStaleClaims } from "@/lib/data/landing-email-log";
 
 /**
  * Outbox for registration side effects (Sheet row, emails). The register route enqueues
@@ -98,6 +99,26 @@ export async function enqueueStatusEffects(registrationId: string): Promise<bool
   }
 }
 
+/** One email_status job: upsert back to pending with a fresh budget. Never throws; true only when the upsert succeeded. */
+export async function enqueueEmailStatus(registrationId: string): Promise<boolean> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .upsert(
+        { registration_id: registrationId, type: "email_status", status: "pending", attempts: 0, next_run_at: new Date().toISOString(), last_error: null },
+        { onConflict: "registration_id,type" },
+      );
+    if (error) {
+      console.error("[landing-jobs] enqueue email_status failed:", error.code);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[landing-jobs] enqueue email_status crashed");
+    return false;
+  }
+}
+
 /**
  * One enrollment_sync job: upsert back to pending with a fresh budget (an old finished job must run again).
  * No email. Never throws; true only when the upsert succeeded.
@@ -185,6 +206,12 @@ export async function drainDueJobs(limit = 25): Promise<{ ran: number; failed: n
   let ran = 0;
   let failed = 0;
   try {
+    try {
+      const { registrationIds } = await sweepStaleClaims();
+      for (const id of registrationIds) await enqueueEmailStatus(id);
+    } catch {
+      console.warn("[landing-jobs] stale email claim sweep failed"); // never stop the drain
+    }
     const { data } = await createAdminSupabase()
       .from("landing_jobs")
       .select("id, registration_id, type, attempts")
@@ -192,7 +219,8 @@ export async function drainDueJobs(limit = 25): Promise<{ ran: number; failed: n
       .lte("next_run_at", new Date().toISOString())
       .order("next_run_at", { ascending: true })
       .limit(limit);
-    for (const job of (data ?? []) as JobRow[]) {
+    // Stable sort: JOB_TYPES order, next_run_at order kept within a type (enrollment_sync before email_status).
+    for (const job of [...((data ?? []) as JobRow[])].sort(byTypeOrder)) {
       const outcome = await runJob(job);
       if (outcome === "skipped") continue;
       ran += 1;

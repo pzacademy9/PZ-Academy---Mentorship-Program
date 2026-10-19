@@ -52,6 +52,36 @@ export async function releaseEmail(registrationId: string, kind: EmailLogKind): 
   if (error) throw error;
 }
 
+/**
+ * Releases claims older than `olderThanMinutes` (a worker died between claim and send). Deletes only
+ * rows that are still 'claimed' and were selected here, so a row that just became 'sent' is never dropped.
+ * Returns the affected registration ids so the caller can re-enqueue their email_status job (done in
+ * landing-jobs: importing it here would be an import cycle).
+ * Accepted tradeoff: a claim this old may belong to an email that WAS sent but whose markEmailSent
+ * failed; releasing it can send one duplicate. A lost email is worse than a duplicate.
+ */
+export async function sweepStaleClaims(olderThanMinutes = 15): Promise<{ released: number; registrationIds: string[] }> {
+  const admin = createAdminSupabase();
+  const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString();
+  const { data: stale, error } = await admin
+    .from("landing_email_log")
+    .select("id, registration_id")
+    .eq("state", "claimed")
+    .lt("claimed_at", cutoff);
+  if (error) throw error;
+  const ids = (stale ?? []).map((r) => r.id as string);
+  if (ids.length === 0) return { released: 0, registrationIds: [] };
+  const { data: deleted, error: delErr } = await admin
+    .from("landing_email_log")
+    .delete()
+    .in("id", ids)
+    .eq("state", "claimed")
+    .select("registration_id");
+  if (delErr) throw delErr;
+  const registrationIds = Array.from(new Set((deleted ?? []).map((r) => r.registration_id as string)));
+  return { released: (deleted ?? []).length, registrationIds };
+}
+
 /** Emails that actually went out (claimed-but-unsent rows are not listed). */
 export async function listEmailLog(registrationIds: string[]): Promise<EmailLogEntry[]> {
   if (registrationIds.length === 0) return [];

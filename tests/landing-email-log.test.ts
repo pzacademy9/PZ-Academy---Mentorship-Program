@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createSupabaseMock, filterValue, memoryHandler, type Op, type Res } from "./helpers/supabase-mock";
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { claimEmail, releaseEmail, listEmailLog, markEmailSent, logPortalLink } from "@/lib/data/landing-email-log";
+import { claimEmail, releaseEmail, listEmailLog, markEmailSent, logPortalLink, sweepStaleClaims } from "@/lib/data/landing-email-log";
 
 /** In-memory table that enforces the partial unique index (registration_id, kind) on status kinds like Postgres. */
 function pkHandler(store: Record<string, Record<string, unknown>[]>) {
@@ -89,6 +89,50 @@ describe("releaseEmail", () => {
   it("throws when the delete fails", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });
     await expect(releaseEmail("reg-1", "paid")).rejects.toBeTruthy();
+  });
+});
+
+describe("sweepStaleClaims", () => {
+  const NOW = new Date("2026-10-20T10:00:00.000Z");
+  const ago = (m: number) => new Date(NOW.getTime() - m * 60_000).toISOString();
+  const row = (id: string, over: Record<string, unknown> = {}) => ({ id, registration_id: `reg-${id}`, kind: "paid", to_email: "a@x.com", state: "claimed", claimed_at: ago(1), ...over });
+  beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(NOW); });
+  afterEach(() => vi.useRealTimers());
+
+  it("releases a claim 16 minutes old and reports its registration; leaves a 2 minute old claim", async () => {
+    const store = { landing_email_log: [row("old", { claimed_at: ago(16) }), row("fresh", { claimed_at: ago(2) })] };
+    db.state.handler = memoryHandler(store);
+    expect(await sweepStaleClaims()).toEqual({ released: 1, registrationIds: ["reg-old"] });
+    expect(store.landing_email_log.map((r) => r.id)).toEqual(["fresh"]);
+  });
+  it("never touches a sent row, however old", async () => {
+    const store = { landing_email_log: [row("s1", { state: "sent", claimed_at: ago(60 * 24) })] };
+    db.state.handler = memoryHandler(store);
+    expect(await sweepStaleClaims()).toEqual({ released: 0, registrationIds: [] });
+    expect(store.landing_email_log).toHaveLength(1);
+  });
+  it("does not delete a row that became sent between the select and the delete", async () => {
+    const store = { landing_email_log: [row("race", { claimed_at: ago(20) })] };
+    const inner = memoryHandler(store);
+    db.state.handler = (op) => {
+      const res = inner(op);
+      if (op.op === "select") store.landing_email_log[0].state = "sent"; // markEmailSent lands after the select
+      return res;
+    };
+    expect(await sweepStaleClaims()).toEqual({ released: 0, registrationIds: [] });
+    expect(store.landing_email_log).toHaveLength(1);
+    const del = db.find("landing_email_log", "delete")[0];
+    expect(filterValue(del, "eq", "state")).toBe("claimed");
+    expect(filterValue(del, "in", "id")).toEqual(["race"]);
+  });
+  it("honours a custom cutoff", async () => {
+    const store = { landing_email_log: [row("a", { claimed_at: ago(6) })] };
+    db.state.handler = memoryHandler(store);
+    expect((await sweepStaleClaims(5)).released).toBe(1);
+  });
+  it("throws when the lookup fails", async () => {
+    db.state.handler = () => ({ data: null, error: { code: "08006" } });
+    await expect(sweepStaleClaims()).rejects.toBeTruthy();
   });
 });
 
