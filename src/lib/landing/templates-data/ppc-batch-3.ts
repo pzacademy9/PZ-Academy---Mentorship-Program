@@ -30,11 +30,11 @@ const PPC_REGISTRATION: RegistrationConfig = {
   ],
   defaultRegionKey: "PK",
   options: [
-    { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle" },
-    { key: "m1", label: "M1 Clinical Pharmacology", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/KLF9jSiENUE64EyZoOEH1W" },
-    { key: "m2", label: "M2 Acute & Chronic Therapeutics", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/Lj2CBmor48lHWLXHgmSdxz" },
-    { key: "m3", label: "M3 Critical Care & Emergency", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/Jjpym0jOL9hFgFNLz1JEQb" },
-    { key: "m4", label: "M4 IV Therapy & Safety", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/GOERJJxSCjeKl5eHkevmbk" },
+    { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle", moduleIds: [] },
+    { key: "m1", label: "M1 Clinical Pharmacology", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/KLF9jSiENUE64EyZoOEH1W", moduleIds: [] },
+    { key: "m2", label: "M2 Acute & Chronic Therapeutics", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/Lj2CBmor48lHWLXHgmSdxz", moduleIds: [] },
+    { key: "m3", label: "M3 Critical Care & Emergency", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/Jjpym0jOL9hFgFNLz1JEQb", moduleIds: [] },
+    { key: "m4", label: "M4 IV Therapy & Safety", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/GOERJJxSCjeKl5eHkevmbk", moduleIds: [] },
   ],
   moduleMix: { enabled: true, bundleOptionKey: "full" },
   tiers: [

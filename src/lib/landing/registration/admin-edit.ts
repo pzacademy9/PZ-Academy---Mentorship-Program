@@ -58,7 +58,7 @@ export function removeRegion(r: RegistrationConfig, key: string): RegistrationCo
 
 export function addOption(r: RegistrationConfig, kind: OptionDef["kind"], label: string): RegistrationConfig {
   const key = uniqueKey(label, r.options.map((o) => o.key));
-  return { ...r, options: [...r.options, { key, label, kind, free: false, waGroupUrl: "" }], prices: { ...r.prices, [key]: {} } };
+  return { ...r, options: [...r.options, { key, label, kind, free: false, waGroupUrl: "", moduleIds: [] }], prices: { ...r.prices, [key]: {} } };
 }
 
 export function updateOption(r: RegistrationConfig, key: string, patch: Partial<Omit<OptionDef, "key">>): RegistrationConfig {

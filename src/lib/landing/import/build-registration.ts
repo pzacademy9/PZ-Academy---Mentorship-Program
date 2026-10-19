@@ -66,7 +66,7 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     options.push({
       key, label: text(o.name),
       kind: o.kind === "module" || o.kind === "bundle" ? o.kind : moduleOptionKeys.has(key) ? "module" : "bundle",
-      free: o.free === true, waGroupUrl: text(o.wa_group),
+      free: o.free === true, waGroupUrl: text(o.wa_group), moduleIds: [],
     });
   }
   const optionName = (key: string) => options.find((o) => o.key === key)?.label.trim() || key;

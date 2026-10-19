@@ -17,7 +17,7 @@ const reg: RegistrationConfig = {
     { key: "UAE", label: "UAE", currency: "AED", classTime: "", timezoneLabel: "", accountKeys: [] },
   ],
   defaultRegionKey: "PK",
-  options: [{ key: "full", label: "Complete Course", kind: "bundle", free: false, waGroupUrl: "" }],
+  options: [{ key: "full", label: "Complete Course", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] }],
   tiers: [],
   prices: { full: { PK: { amount: 3200 }, UAE: { amount: 150 } } },
 };

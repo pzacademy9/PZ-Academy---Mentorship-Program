@@ -36,7 +36,7 @@ describe("buildRegistration", () => {
     const c = r.registration;
     expect(c.enabled).toBe(true);
     expect(c.regions[0]).toEqual({ key: "UAE", label: "UAE", currency: "AED", classTime: "6:30 PM", timezoneLabel: "UAE time", accountKeys: ["uae_bank"] });
-    expect(c.options[1]).toMatchObject({ key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/abcdefghij12" });
+    expect(c.options[1]).toMatchObject({ key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/abcdefghij12", moduleIds: [] });
     expect(c.tiers[0]).toMatchObject({ key: "g3", minSize: 3, maxSize: 3, percentOff: 20 });
     expect(c.tiers[1]).toMatchObject({ minSize: 2, maxSize: 5 });
     expect(c.prices.full.UAE).toEqual({ amount: 200, earlyAmount: 160, groupTotals: { g3: 480 }, earlyGroupTotals: { g3: 384 } });

@@ -259,8 +259,8 @@ const big = {
     regions: [PK, UAE],
     defaultRegionKey: "PK",
     options: [
-      { key: "full", label: "Full course", kind: "bundle" as const, free: false, waGroupUrl: "" },
-      { key: "m2", label: "Module 2 only", kind: "module" as const, free: false, waGroupUrl: "" },
+      { key: "full", label: "Full course", kind: "bundle" as const, free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m2", label: "Module 2 only", kind: "module" as const, free: false, waGroupUrl: "", moduleIds: [] },
     ],
     prices: { full: { PK: { amount: 1000 }, UAE: { amount: 50 } } },
   },
@@ -431,7 +431,7 @@ describe("Add a country", () => {
   });
 
   it("does not ask a price for a free option, and offers it in the new country", async () => {
-    const withFree = { ...draftPage, draft: { ...big, registration: { ...big.registration, options: [...big.registration.options, { key: "taster", label: "Free taster", kind: "bundle" as const, free: true, waGroupUrl: "" }] } } };
+    const withFree = { ...draftPage, draft: { ...big, registration: { ...big.registration, options: [...big.registration.options, { key: "taster", label: "Free taster", kind: "bundle" as const, free: true, waGroupUrl: "", moduleIds: [] }] } } };
     render(<LandingEditor page={withFree} versions={[]} variants={[]} accounts={ACCOUNTS} />);
     const { dialog } = await pickSaudi();
     expect(within(dialog).queryByLabelText("Free taster price")).toBeNull();

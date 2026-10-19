@@ -29,7 +29,7 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
     capacity: 0, whatsappVerifyNumber: "", successTitle: "", eventLabel: "", refPrefix: "",
     professions: [], discoveryOptions: [], pixelId: "",
     regions: regions.map((g) => ({ ...g, classTime: "", timezoneLabel: "", accountKeys: [] })),
-    options: registration.options.map((o) => ({ ...o, waGroupUrl: "" })),
+    options: registration.options.map((o) => ({ ...o, waGroupUrl: "", moduleIds: [] })),
   };
   // Stays put when the chosen country prices no card, so the visitor can switch back.
   const showSwitcher = registration.enabled && regions.length > 1 && cards.some((c) => c.option !== "");

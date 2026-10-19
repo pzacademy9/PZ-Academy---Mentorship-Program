@@ -17,7 +17,7 @@ const MDC_REGISTRATION: RegistrationConfig = {
   ],
   defaultRegionKey: "PK",
   options: [
-    { key: "workshop", label: "Mastering Dose Calculation Workshop", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/JcC6Hmmek4W42vUur36K4w" },
+    { key: "workshop", label: "Mastering Dose Calculation Workshop", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/JcC6Hmmek4W42vUur36K4w", moduleIds: [] },
   ],
   moduleMix: { enabled: false, bundleOptionKey: "" },
   tiers: [{ key: "group", label: "Group (3+)", minSize: 3, maxSize: 50, percentOff: 20 }],
