@@ -174,3 +174,56 @@ describe("status dialog edge cases", () => {
     expect(screen.getByText("Pending → Underpaid")).toBeTruthy();
   });
 });
+
+describe("StatusChangeControl refresh after save", () => {
+  const props = { registrationId: "r1", endpoint: "/api/admin/registrations/r1", expectedAmount: 5000, currency: "PKR", studentName: "Sara Ali" } as const;
+  const reload = vi.fn();
+  const realLocation = window.location;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    reload.mockReset();
+    Object.defineProperty(window, "location", { configurable: true, value: { ...realLocation, reload } });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(window, "location", { configurable: true, value: realLocation });
+  });
+
+  async function save() {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "r1", status: "paid" }) });
+    const utils = render(<StatusChangeControl {...props} status="pending" />);
+    fireEvent.click(screen.getByRole("button", { name: /change status/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    return utils;
+  }
+
+  it("closes the dialog, toasts and refreshes after a successful save", async () => {
+    await save();
+    expect(toast.success).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("does a full reload if the refreshed page never shows the new status", async () => {
+    await save();
+    expect(reload).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reload once the refreshed page shows the new status", async () => {
+    const { rerender } = await save();
+    rerender(<StatusChangeControl {...props} status="paid" />);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("does not reload after the control is gone", async () => {
+    const { unmount } = await save();
+    unmount();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(reload).not.toHaveBeenCalled();
+  });
+});

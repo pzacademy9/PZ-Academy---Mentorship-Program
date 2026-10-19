@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Info, RefreshCw, Wallet } from "lucide-react";
@@ -32,6 +32,9 @@ const OPTION_HELP: Record<ChangeableStatus, string> = {
   paid: "Payment received in full.",
 };
 
+/** How long to wait for the refreshed page to show the saved status before falling back to a full reload. */
+const REFRESH_GRACE_MS = 2500;
+
 const CONFLICT_MESSAGE = "Someone else changed this just now. Reload to see the latest.";
 
 /**
@@ -62,6 +65,22 @@ export function StatusChangeControl({
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+
+  // After a save we refresh the server-rendered page. If the new status has not arrived after a
+  // short grace period (a refresh that was dropped), reload the page so nobody sees a stale badge.
+  const awaiting = useRef<ChangeableStatus | null>(null);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearReloadTimer = () => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    reloadTimer.current = null;
+  };
+  useEffect(() => {
+    if (awaiting.current !== null && status === awaiting.current) {
+      awaiting.current = null;
+      clearReloadTimer();
+    }
+  }, [status]);
+  useEffect(() => clearReloadTimer, []);
 
   const { run: submit, pending } = useAsyncAction(async () => {
     if (!choice) return;
@@ -99,6 +118,13 @@ export function StatusChangeControl({
     setOpen(false);
     toast.success(`${studentName} marked ${REGISTRATION_STATUS_LABELS[choice].toLowerCase()}.`);
     router.refresh();
+    if (choice !== status) {
+      awaiting.current = choice;
+      clearReloadTimer();
+      reloadTimer.current = setTimeout(() => {
+        if (awaiting.current !== null) window.location.reload();
+      }, REFRESH_GRACE_MS);
+    }
   });
 
   if (status === "free") return null;

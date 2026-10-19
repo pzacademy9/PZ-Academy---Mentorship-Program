@@ -11,6 +11,10 @@ import { RegistrationsTable } from "@/components/admin/registrations/Registratio
 
 export const metadata = { title: "Page Registrations — PZ Academy" };
 
+// Payment status changes from a dialog on these pages: never serve a cached copy.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const STATUSES = ["pending", "reserved", "underpaid", "paid", "free"];
 const BASE_PATH = "/dashboard/admin/enrollments/registrations";
 

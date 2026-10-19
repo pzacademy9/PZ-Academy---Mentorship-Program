@@ -5,6 +5,10 @@ import { RegistrationDetailView } from "@/components/admin/registrations/Registr
 
 export const metadata = { title: "Registration — Sales Workspace" };
 
+// Payment status changes from a dialog on these pages: never serve a cached copy.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function SalesRegistrationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { user, role } = await requireSalesAgentPage();
   const { id } = await params;

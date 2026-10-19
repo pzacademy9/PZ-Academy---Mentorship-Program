@@ -12,6 +12,10 @@ import { RegistrationsTable } from "@/components/admin/registrations/Registratio
 
 export const metadata = { title: "My Registrations — Sales Workspace" };
 
+// Payment status changes from a dialog on these pages: never serve a cached copy.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const STATUSES = ["pending", "reserved", "underpaid", "paid", "free"];
 const BASE_PATH = "/dashboard/sales/registrations";
 
