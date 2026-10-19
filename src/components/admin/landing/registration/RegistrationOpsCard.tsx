@@ -17,6 +17,7 @@ const RegistrationModal = lazy(() => import("@/components/landing/registration/R
 
 export const JOB_LABEL: Record<JobType, string> = {
   sheet_append: "Sheet row",
+  sheet_status: "Sheet status",
   email_received: "Confirmation email",
   email_members: "Group member emails",
   email_admin: "Team alert email",

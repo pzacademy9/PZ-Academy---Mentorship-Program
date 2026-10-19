@@ -204,6 +204,10 @@ function doPost(e) {
     return handleAppendRegistrationRows_(body);
   }
 
+  if (body.action === "applyRegistrationStatus") {
+    return handleApplyRegistrationStatus_(body);
+  }
+
   return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
 }
 
@@ -720,6 +724,74 @@ function handleAppendRegistrationRows_(body) {
     }
     applyLandingStatusValidation_(sheet, start, fresh.length);
     return jsonResponse_({ status: "success", appended: fresh.length });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Writes the registration status (column P) and amount received (column O) for the given rows.
+ * Rows are found by Ref ID + email (landingRowKey_), never by row number, so a re-sorted sheet is safe.
+ * Rows not in the sheet are reported in `missing`, not treated as an error. Nothing but O and P is written.
+ */
+function handleApplyRegistrationStatus_(body) {
+  if (!body.sheetId || !Array.isArray(body.rows)) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId or rows" });
+  }
+  for (const r of body.rows) {
+    if (!r || LANDING_STATUS_VALUES.indexOf(r.status) === -1) {
+      return jsonResponse_({ status: "error", message: "Invalid status" });
+    }
+  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: "Sheet is busy, try again" });
+  }
+  try {
+    const ss = SpreadsheetApp.openById(body.sheetId);
+    const sheet = ss.getSheetByName(LANDING_TAB_NAME) || ss.getSheets()[0];
+    const lastRow = sheet.getLastRow();
+
+    // Read the key columns once.
+    const index = {};
+    if (lastRow >= 2) {
+      const emails = sheet.getRange(2, LANDING_COL.EMAIL, lastRow - 1, 1).getDisplayValues();
+      const refs = sheet.getRange(2, LANDING_COL.REF, lastRow - 1, 1).getDisplayValues();
+      for (let i = 0; i < emails.length; i++) {
+        const key = landingRowKey_(refs[i][0], emails[i][0]);
+        if (!(key in index)) index[key] = i + 2;
+      }
+    }
+
+    const missing = [];
+    const byRow = {};
+    for (const r of body.rows) {
+      const key = landingRowKey_(r.refId, r.email);
+      const rowNum = index[key];
+      if (rowNum === undefined) {
+        missing.push(key);
+        continue;
+      }
+      const amount = r.amountReceived === null || r.amountReceived === undefined || r.amountReceived === "" ? "" : Number(r.amountReceived);
+      byRow[rowNum] = [Number.isFinite(amount) || amount === "" ? amount : "", r.status];
+    }
+
+    // Write O:P only, one call per run of adjacent rows.
+    const rowNums = Object.keys(byRow).map(Number).sort((a, b) => a - b);
+    let i = 0;
+    while (i < rowNums.length) {
+      let j = i;
+      while (j + 1 < rowNums.length && rowNums[j + 1] === rowNums[j] + 1) j++;
+      const values = [];
+      for (let k = i; k <= j; k++) values.push(byRow[rowNums[k]]);
+      sheet.getRange(rowNums[i], LANDING_COL.STATUS - 1, values.length, 2).setValues(values);
+      i = j + 1;
+    }
+    return jsonResponse_({ status: "success", ok: true, updated: rowNums.length, missing: missing });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });
   } finally {

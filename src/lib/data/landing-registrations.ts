@@ -82,6 +82,8 @@ export interface RegistrationRecord {
   variantKey: string;
   isTest: boolean;
   createdAt: string;
+  statusChangedAt: string | null;
+  statusSource: "app" | "sheet";
 }
 export interface RegistrationBundle { lead: RegistrationRecord; members: RegistrationRecord[] }
 
@@ -95,7 +97,7 @@ const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !==
 const numOrNull = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number(v));
 const strArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
-function mapRecord(r: RegRow): RegistrationRecord {
+export function mapRecord(r: RegRow): RegistrationRecord {
   const row = r as unknown as Record<string, unknown>;
   return {
     id: str(row.id),
@@ -130,6 +132,8 @@ function mapRecord(r: RegRow): RegistrationRecord {
     variantKey: str(row.variant_key),
     isTest: row.is_test === true,
     createdAt: str(row.created_at),
+    statusChangedAt: strOrNull(row.status_changed_at),
+    statusSource: row.status_source === "sheet" ? "sheet" : "app",
   };
 }
 

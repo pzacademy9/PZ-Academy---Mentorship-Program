@@ -24,7 +24,7 @@ const rec = (over: Partial<RegistrationRecord> = {}): RegistrationRecord => ({
   consent: true, optionLabel: "Live - Full Course - Individual", optionKeys: ["full"], mode: "live", tierKey: "individual", groupSize: 1,
   promoCodeText: null, expectedAmount: 4800, amountReceived: null, currency: "PKR", paymentMethod: "faysal",
   voucherUrl: "https://drive.google.com/file/d/v1/view", status: "pending", emailStatus: null, agentId: null, studentId: null,
-  utm: { utm_campaign: "b3" }, variantKey: "", isTest: false, createdAt: "2026-10-13T10:00:00.000Z", ...over,
+  utm: { utm_campaign: "b3" }, variantKey: "", isTest: false, createdAt: "2026-10-13T10:00:00.000Z", statusChangedAt: null, statusSource: "app", ...over,
 });
 const page = (over: Partial<RegistrablePage> = {}): RegistrablePage => ({
   id: "page-1", slug: "ppc-b3", title: "PPC Batch 3", status: "published", content: contentWith(PPC_CONFIG), registration: PPC_CONFIG,

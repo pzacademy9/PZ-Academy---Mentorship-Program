@@ -1,5 +1,6 @@
 // src/lib/gas/event-sheet-client.ts
 import "server-only";
+import type { RegistrationStatus } from "@/lib/landing/registration/config";
 
 /**
  * Client for the landing-page actions in gas/sheets-sync/Code.gs. Same web app as
@@ -55,6 +56,16 @@ export async function appendRegistrationRows(sheetId: string, rows: string[][]):
   if (!token) return { ok: false, message: "SHEETS_SYNC_SECRET is not configured." };
   const r = await postToGas({ token, action: "appendRegistrationRows", sheetId, rows });
   return r.ok ? { ok: true } : { ok: false, message: r.message };
+}
+
+export interface StatusSheetRow { refId: string; email: string; status: string /* sheet label, e.g. "Paid" */; amountReceived: number | null }
+
+/** Writes the current payment status (and amount received) onto existing sheet rows, matched on Ref ID + email. */
+export async function applyRegistrationStatus(sheetId: string, rows: StatusSheetRow[]): Promise<{ ok: boolean }> {
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false };
+  const r = await postToGas({ token, action: "applyRegistrationStatus", sheetId, rows });
+  return { ok: r.ok };
 }
 
 export interface VoucherFile { base64: string; mimeType: string; filename: string }
