@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReceivedEmail, buildMemberReceivedEmail, buildFreeJoiningEmail, buildAdminAlertEmail,
-  buildVoucherResubmittedEmail, buildPaidEmail, buildUnderpaidEmail, buildReservedEmail, withTestPrefix, esc, firstName, money, formatStartsOn,
+  buildVoucherResubmittedEmail, buildPaidEmail, buildUnderpaidEmail, buildReservedEmail, buildPortalLinkEmail, withTestPrefix, esc, firstName, money, formatStartsOn,
   type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
 
@@ -204,5 +204,22 @@ describe("reserved email", () => {
     const e = buildReservedEmail(ctx({ name: "<script>x</script>\nBcc: a@b.c" }));
     expect(e.html).not.toContain("<script>x</script>");
     expect(e.subject).not.toMatch(/[\r\n]/);
+  });
+});
+
+describe("buildPortalLinkEmail", () => {
+  it("contains the portal link, the first name and the opened module titles", () => {
+    const e = buildPortalLinkEmail({ ...ctx(), portalUrl: "https://pharmacozyme.com/portal/pmh", moduleTitles: ["Module <One>", "Module Two"] });
+    expect(e.html).toContain("https://pharmacozyme.com/portal/pmh");
+    expect(e.html).toContain("Ayesha");
+    expect(e.html).toContain("Module &lt;One&gt;");
+    expect(e.html).toContain("Module Two");
+    expect(e.subject).toContain("Ayesha");
+    expect(e.subject.includes(String.fromCharCode(10))).toBe(false);
+  });
+  it("works with no module titles and refuses a non-https link as a button", () => {
+    const e = buildPortalLinkEmail({ ...ctx(), portalUrl: "javascript:alert(1)" });
+    expect(e.html).not.toContain('href="javascript:');
+    expect(e.html).not.toContain("now open:");
   });
 });

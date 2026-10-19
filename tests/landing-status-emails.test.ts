@@ -9,7 +9,7 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 const m = vi.hoisted(() => ({
   getRegistrationBundle: vi.fn(), markEmailStatus: vi.fn(), getRegistrablePageById: vi.fn(), listPaymentAccounts: vi.fn(),
-  sendTransactionalEmail: vi.fn(), resolveAccess: vi.fn(), syncEnrollmentForRegistration: vi.fn(), claimEmail: vi.fn(), releaseEmail: vi.fn(),
+  sendTransactionalEmail: vi.fn(), resolveAccess: vi.fn(), syncEnrollmentForRegistration: vi.fn(), claimEmail: vi.fn(), releaseEmail: vi.fn(), markEmailSent: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationBundle: m.getRegistrationBundle, markEmailStatus: m.markEmailStatus }));
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePageById: m.getRegistrablePageById }));
@@ -17,7 +17,7 @@ vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.l
 vi.mock("@/lib/gas/event-sheet-client", () => ({ appendRegistrationRows: vi.fn(), applyRegistrationStatus: vi.fn() }));
 vi.mock("@/lib/brevo", () => ({ sendTransactionalEmail: m.sendTransactionalEmail }));
 vi.mock("@/lib/data/landing-enrollment", () => ({ resolveAccess: m.resolveAccess, syncEnrollmentForRegistration: m.syncEnrollmentForRegistration }));
-vi.mock("@/lib/data/landing-email-log", () => ({ claimEmail: m.claimEmail, releaseEmail: m.releaseEmail }));
+vi.mock("@/lib/data/landing-email-log", () => ({ claimEmail: m.claimEmail, releaseEmail: m.releaseEmail, markEmailSent: m.markEmailSent }));
 
 import { JOB_HANDLERS } from "@/lib/landing/registration/job-handlers";
 

@@ -188,6 +188,22 @@ export function buildPaidEmail(c: LandingEmailContext): BuiltEmail {
   };
 }
 
+export function buildPortalLinkEmail(c: LandingEmailContext & { portalUrl: string; moduleTitles?: string[] }): BuiltEmail {
+  const fn = firstName(c.name);
+  const titles = (c.moduleTitles ?? []).filter((t) => t.trim() !== "");
+  const opened = titles.length
+    ? para(`${titles.length === 1 ? "This module is" : "These modules are"} now open: <strong>${titles.map(esc).join("</strong>, <strong>")}</strong>.`)
+    : "";
+  const body = [
+    para(`Hi ${esc(fn)}, good news: your learning portal for <strong>${esc(c.eventLabel)}</strong> is open.`),
+    opened,
+    button("Open your learning portal", c.portalUrl),
+    para(`If the button does not work, copy this link into your browser: ${esc(c.portalUrl)}`),
+    para("Sign in with the same email address you registered with."),
+  ].join("");
+  return { subject: oneLine(`Your course is open, ${fn} - start learning`), html: shell("Your portal is open", body, c.supportWhatsapp) };
+}
+
 export function buildUnderpaidEmail(c: LandingEmailContext): BuiltEmail {
   const fn = firstName(c.name);
   const received = c.amountReceived ?? 0;
