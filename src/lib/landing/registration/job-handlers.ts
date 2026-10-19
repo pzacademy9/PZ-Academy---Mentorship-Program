@@ -242,6 +242,8 @@ async function emailStatus(registrationId: string): Promise<void> {
   for (const person of [lead, ...members]) {
     const kind = STATUS_EMAIL_KIND[person.status];
     if (!kind) continue;
+    // The lead pays the group fee and members already got the received email: only Paid goes to members.
+    if (person.rowType === "member" && kind !== "paid") continue;
     let claimed = false;
     try {
       claimed = await claimEmail(person.id, kind, person.email);
@@ -254,6 +256,11 @@ async function emailStatus(registrationId: string): Promise<void> {
       base ??= await emailContext(lead, loaded.page);
       const access = await resolveAccess(person.id);
       if (!access) throw new Error("registration access could not be resolved");
+      if (STATUS_EMAIL_KIND[access.registration.status] !== kind) {
+        // Status moved since the bundle was read: the newer enqueue handles the current status.
+        await releaseEmail(person.id, kind);
+        continue;
+      }
       const { desired, courseId, courseSlug, hasAccount } = access;
       const isPaid = kind === "paid";
       const portalUrl = hasAccount && courseSlug && emailGetsPortalLink(desired) ? `${appUrl()}/portal/${courseSlug}` : undefined;
@@ -266,12 +273,12 @@ async function emailStatus(registrationId: string): Promise<void> {
         portalUrl,
         needsAccount: isPaid && courseId !== null && !hasAccount,
         signupUrl: `${appUrl()}/register`,
-        portalOpensLater: isPaid && lead.mode === "live" && desired.action === "grant" && !desired.portalOpen,
+        portalOpensLater: isPaid && lead.mode === "live" && !desired.portalOpen,
       };
       const email = kind === "paid" ? buildPaidEmail(ctx) : kind === "underpaid" ? buildUnderpaidEmail(ctx) : buildReservedEmail(ctx);
       await deliver(lead, person.email, person.name, email);
     } catch (err) {
-      try { await releaseEmail(person.id, kind); } catch { /* the original error is the one to report */ }
+      try { await releaseEmail(person.id, kind); } catch { console.warn("[landing-jobs] email claim release failed"); }
       if (!firstError) firstError = err;
     }
   }

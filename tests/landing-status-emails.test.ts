@@ -39,12 +39,13 @@ const member = (id: string, name: string, email: string, over: Partial<Registrat
 const group = () => bundle(rec({ rowType: "lead", tierKey: "g3", groupSize: 3 }), [member("reg-2", "Bilal", "bilal@example.com"), member("reg-3", "Sana", "sana@example.com")]);
 
 /** resolveAccess stub driven by the person's own row, like the real one. */
-function stubAccess(b: RegistrationBundle, opts: { batchFinished?: boolean } = {}) {
+function stubAccess(b: RegistrationBundle, opts: { batchFinished?: boolean; courseId?: string | null; statusOf?: (r: RegistrationRecord) => RegistrationRecord["status"] } = {}) {
   m.resolveAccess.mockImplementation(async (id: string) => {
     const r = [b.lead, ...b.members].find((x) => x.id === id)!;
     return {
-      registration: r, lead: b.lead, pageId: "page-1", courseId: "course-1", courseSlug: "ppc",
-      desired: desiredEnrollment({ status: r.status, mode: b.lead.mode, hasCourse: true, isTest: r.isTest, moduleIds: [], batchFinished: opts.batchFinished ?? false }),
+      registration: opts.statusOf ? { ...r, status: opts.statusOf(r) } : r, lead: b.lead, pageId: "page-1",
+      courseId: opts.courseId === undefined ? "course-1" : opts.courseId, courseSlug: "ppc",
+      desired: desiredEnrollment({ status: r.status, mode: b.lead.mode, hasCourse: (opts.courseId === undefined ? "course-1" : opts.courseId) !== null, isTest: r.isTest, moduleIds: [], batchFinished: opts.batchFinished ?? false }),
       hasAccount: r.studentId !== null,
     };
   });
@@ -169,6 +170,58 @@ describe("email_status", () => {
       expect(m.claimEmail).toHaveBeenCalledWith("reg-1", status, "ayesha@example.com");
       expect(sent()[0].subject).toContain(word);
     }
+  });
+});
+
+describe("email_status rulings", () => {
+  it("Live buyer on a page with no course still gets the opens-later note", async () => {
+    const b = bundle(rec());
+    m.getRegistrationBundle.mockResolvedValue(b);
+    stubAccess(b, { courseId: null });
+    await JOB_HANDLERS.email_status("reg-1");
+    expect(sent()[0].htmlContent).toContain("open after your batch finishes");
+    expect(sent()[0].htmlContent).toContain("Zoom link and updates are shared there");
+  });
+  it("a Live test row's Paid email includes the opens-later block", async () => {
+    db.state.users = { "admin-1": { email: "admin@pzacademy.example" } };
+    const b = bundle(rec({ isTest: true, studentId: "admin-1" }));
+    m.getRegistrationBundle.mockResolvedValue(b);
+    stubAccess(b);
+    await JOB_HANDLERS.email_status("reg-1");
+    expect(sent()[0].htmlContent).toContain("open after your batch finishes");
+    expect(sent()[0].htmlContent).toContain("Zoom link and updates are shared there");
+  });
+  it("group lead Underpaid or Reserved: lead only, no member claims", async () => {
+    for (const status of ["underpaid", "reserved"] as const) {
+      m.sendTransactionalEmail.mockClear();
+      m.claimEmail.mockClear();
+      const b = group();
+      for (const r of [b.lead, ...b.members]) r.status = status;
+      m.getRegistrationBundle.mockResolvedValue(b);
+      stubAccess(b);
+      await JOB_HANDLERS.email_status("reg-1");
+      expect(sent().map((s) => s.to)).toEqual(["ayesha@example.com"]);
+      expect(m.claimEmail).toHaveBeenCalledTimes(1);
+    }
+  });
+  it("status changed between bundle read and resolveAccess: nothing sent, claim released", async () => {
+    const b = bundle(rec());
+    m.getRegistrationBundle.mockResolvedValue(b);
+    stubAccess(b, { statusOf: () => "pending" });
+    await JOB_HANDLERS.email_status("reg-1");
+    expect(m.sendTransactionalEmail).not.toHaveBeenCalled();
+    expect(m.releaseEmail).toHaveBeenCalledWith("reg-1", "paid");
+  });
+  it("a failing release is logged and the original error still surfaces", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const b = bundle(rec());
+    m.getRegistrationBundle.mockResolvedValue(b);
+    stubAccess(b);
+    m.sendTransactionalEmail.mockRejectedValue(new Error("Brevo 502"));
+    m.releaseEmail.mockRejectedValue(new Error("db"));
+    await expect(JOB_HANDLERS.email_status("reg-1")).rejects.toThrow("Brevo 502");
+    expect(warn).toHaveBeenCalledWith("[landing-jobs] email claim release failed");
+    warn.mockRestore();
   });
 });
 
