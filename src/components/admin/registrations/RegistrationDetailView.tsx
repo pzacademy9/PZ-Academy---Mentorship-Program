@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Mail, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, MessageCircle, Phone, ShieldCheck } from "lucide-react";
 import { formatDateTime, initials } from "@/lib/format";
 import { formatMoney } from "@/lib/format-money";
 import type { RegistrationDetail } from "@/lib/data/landing-registration-admin";
@@ -51,12 +51,15 @@ export function RegistrationDetailView({
   backLabel,
   endpoint,
   showAgent,
+  changeNote,
 }: {
   detail: RegistrationDetail;
   backHref: string;
   backLabel: string;
   endpoint: string;
   showAgent: boolean;
+  /** A short line shown under the change button (the sales page uses it). */
+  changeNote?: string;
 }) {
   const { lead, members, page, agentName, events } = detail;
   const isGroup = lead.rowType === "lead" || members.length > 0;
@@ -111,6 +114,11 @@ export function RegistrationDetailView({
             </a>
           )}
         </div>
+        {changeNote && (
+          <p className="inline-flex items-center gap-1.5 font-body text-xs text-pz-on-surface-variant mt-2">
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {changeNote}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">

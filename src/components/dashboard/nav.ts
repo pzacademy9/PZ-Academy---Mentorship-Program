@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images,
+  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
@@ -18,6 +18,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Today", href: "/dashboard/sales", icon: ClipboardList, roles: ["sales_agent"] },
   { label: "My Contacts", shortLabel: "Contacts", href: "/dashboard/sales/contacts", icon: Users, roles: ["sales_agent"] },
+  { label: "Registrations", href: "/dashboard/sales/registrations", icon: ClipboardCheck, roles: ["sales_agent"] },
   { label: "Campaigns", href: "/dashboard/sales/campaigns", icon: Megaphone, roles: ["sales_agent"] },
   { label: "Add a Lead", shortLabel: "Add lead", href: "/dashboard/sales/add-lead", icon: UserPlus, roles: ["sales_agent"] },
   { label: "Help & Safety", shortLabel: "Help", href: "/dashboard/sales/help", icon: LifeBuoy, roles: ["sales_agent"] },

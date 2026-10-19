@@ -41,11 +41,12 @@ it("NAV_ITEMS is non-empty and every item has at least one role", () => {
   for (const i of NAV_ITEMS) expect(i.roles.length).toBeGreaterThan(0);
 });
 
-it("sales_agent sees Today, Contacts, Campaigns, Add lead, Help, then alerts and settings, nothing under /dashboard/admin", () => {
+it("sales_agent sees Today, Contacts, Registrations, Campaigns, Add lead, Help, then alerts and settings, nothing under /dashboard/admin", () => {
   const items = navForRole("sales_agent");
   expect(items.map((i) => i.href)).toEqual([
     "/dashboard/sales",
     "/dashboard/sales/contacts",
+    "/dashboard/sales/registrations",
     "/dashboard/sales/campaigns",
     "/dashboard/sales/add-lead",
     "/dashboard/sales/help",
@@ -53,7 +54,7 @@ it("sales_agent sees Today, Contacts, Campaigns, Add lead, Help, then alerts and
     "/dashboard/settings",
   ]);
   const { bar, more } = splitMobileNav(items, undefined);
-  expect(bar.map((i) => i.shortLabel ?? i.label)).toEqual(["Today", "Contacts", "Campaigns", "Add lead"]);
+  expect(bar.map((i) => i.shortLabel ?? i.label)).toEqual(["Today", "Contacts", "Registrations", "Campaigns"]);
   expect(more.map((i) => i.href)).toContain("/dashboard/sales/help");
   expect(items.some((i) => i.href.startsWith("/dashboard/admin"))).toBe(false);
   expect(activeHrefFor(items, "/dashboard/sales/contacts")).toBe("/dashboard/sales/contacts");
@@ -81,5 +82,14 @@ it("admins get the Promo Codes entry right after Landing Pages, others do not", 
   expect(activeHrefFor(navForRole("admin"), "/dashboard/admin/landing-promo-codes")).toBe("/dashboard/admin/landing-promo-codes");
   for (const r of ["sales_agent", "mentor", "student"] as const) {
     expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/admin/landing-promo-codes");
+  }
+});
+
+it("nav shows Registrations for sales_agent only", () => {
+  const items = navForRole("sales_agent").map((i) => i.href);
+  expect(items.indexOf("/dashboard/sales/registrations")).toBe(items.indexOf("/dashboard/sales/contacts") + 1);
+  expect(activeHrefFor(navForRole("sales_agent"), "/dashboard/sales/registrations/abc")).toBe("/dashboard/sales/registrations");
+  for (const r of ["student", "mentor", "admin", "super_admin"] as const) {
+    expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/sales/registrations");
   }
 });
