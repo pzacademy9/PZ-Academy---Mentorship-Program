@@ -46,17 +46,17 @@ describe("BatchAccessPanel", () => {
 
   it("requires confirmation before posting", async () => {
     await ready();
-    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[1]);
     expect(posts()).toHaveLength(0);
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/opens Module 2 for 12 Live students/)).toBeTruthy();
+    expect(within(dialog).getByText(/12 Live students paid and 8 already have this module open\. Pressing opens it for the rest and emails them the portal link\./)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(posts()).toHaveLength(0);
   });
 
   it("posts the module id after confirming and shows the result in plain words", async () => {
     await ready();
-    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[1]);
     fireEvent.click(await screen.findByRole("button", { name: "Yes, open it" }));
     await screen.findByText(/Opened for 12 students\. Emailed 11\. 1 email did not send \(press again to retry\)\. 2 students still need to sign up\./);
     expect(JSON.parse(posts()[0][1].body)).toEqual({ pageId: "p1", moduleId: "m2" });
@@ -119,5 +119,59 @@ describe("BatchAccessPanel", () => {
     fetchMock.mockImplementation(async () => json({}, false));
     render(<BatchAccessPanel pageOptions={PAGES} />);
     await screen.findByText("Something went wrong. Please try again.");
+  });
+
+  it("fully opened finished module: button still enabled, confirm text explains", async () => {
+    await ready();
+    const first = screen.getAllByRole("button", { name: "Batch finished" })[0] as HTMLButtonElement;
+    expect(first.disabled).toBe(false);
+    fireEvent.click(first);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Module 1: Everyone already has this module open\. Pressing again only sends the link to anyone who did not get it\./)).toBeTruthy();
+  });
+
+  it("whole-course confirm makes no count claim", async () => {
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Batch finished for the whole course" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Opens every module of this course for Live students who paid and emails them the portal link\. Students who already have a module open are not emailed again for it\./)).toBeTruthy();
+  });
+
+  it("clears earlier result strips when a new press starts", async () => {
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Send link" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, send it" }));
+    await screen.findByText(/Sent to 20\./);
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, open it" }));
+    await screen.findByText(/Opened for 12 students/);
+    expect(screen.queryByText(/Sent to 20\./)).toBeNull();
+  });
+
+  it("refreshes the overview after a failed press", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => (init?.method === "POST" ? json({}, false) : json(OVERVIEW)));
+    await ready();
+    const gets = () => fetchMock.mock.calls.filter((c) => !(c[1] as RequestInit | undefined)?.method).length;
+    const before = gets();
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, open it" }));
+    await screen.findByText("Something went wrong. Please try again.");
+    await waitFor(() => expect(gets()).toBe(before + 1));
+  });
+
+  it("a double click on Yes, open it posts once", async () => {
+    await ready();
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[0]);
+    const yes = await screen.findByRole("button", { name: "Yes, open it" });
+    fireEvent.click(yes);
+    fireEvent.click(yes);
+    await screen.findByText(/Opened for 12 students/);
+    expect(posts()).toHaveLength(1);
+  });
+
+  it("no modules shows different empty text from no course", async () => {
+    fetchMock.mockImplementation(async () => json({ courseTitle: "PPC", modules: [], recordedPaid: 0 }));
+    render(<BatchAccessPanel pageOptions={PAGES} />);
+    await screen.findByText("This course has no modules yet.");
   });
 });

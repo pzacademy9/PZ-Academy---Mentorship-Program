@@ -20,7 +20,7 @@ type LinkResult = { sent: number; notOpenYet: number; waitingForAccount: number;
 type Audience = "live" | "recorded" | "both";
 
 type Pending =
-  | { kind: "module"; moduleId: string; title: string; count: number }
+  | { kind: "module"; moduleId: string; title: string; paid: number; opened: number }
   | { kind: "course"; moduleCount: number }
   | { kind: "link" };
 
@@ -32,6 +32,19 @@ const AUDIENCES: { key: Audience; label: string }[] = [
 ];
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function moduleConfirmText(paid: number, opened: number): string {
+  if (opened >= paid) {
+    return "Everyone already has this module open. Pressing again only sends the link to anyone who did not get it.";
+  }
+  return `${plural(paid, "Live student", "Live students")} paid and ${opened} already ${opened === 1 ? "has" : "have"} this module open. Pressing opens it for the rest and emails them the portal link.`;
+}
+
+const AUDIENCE_CONFIRM: Record<Audience, string> = {
+  live: "Live students",
+  recorded: "Recorded students",
+  both: "Live and Recorded students",
+};
 
 function batchSentence(r: BatchResult): string {
   const parts = [`Opened for ${plural(r.opened, "student", "students")}.`, `Emailed ${r.emailed}.`];
@@ -94,6 +107,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
 
   const { run, pending: running } = useAsyncAction(async (action: Pending) => {
     setActionError(null);
+    setBatchStrip(null);
+    setLinkStrip(null);
     const isLink = action.kind === "link";
     try {
       const res = await fetch(isLink ? "/api/admin/landing/portal-links" : "/api/admin/landing/batch", {
@@ -117,6 +132,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
       }
     } catch {
       setActionError(ERROR_TEXT);
+      // A partial run may have changed the numbers.
+      if (!isLink) await load(pageId, false);
     }
   });
 
@@ -127,7 +144,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
     void run(action);
   }
 
-  const empty = !!overview && (overview.courseTitle === null || overview.modules.length === 0);
+  const noCourse = !!overview && overview.courseTitle === null;
+  const empty = !!overview && (noCourse || overview.modules.length === 0);
 
   return (
     <div className="space-y-6">
@@ -189,9 +207,11 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
           <div className="w-16 h-16 rounded-2xl bg-pz-surface-container-low flex items-center justify-center text-pz-on-surface-variant mb-4">
             <FolderX className="w-8 h-8" aria-hidden="true" />
           </div>
-          <h3 className="font-headline font-bold text-xl text-pz-on-surface mb-2">This page has no course yet.</h3>
+          <h3 className="font-headline font-bold text-xl text-pz-on-surface mb-2">{noCourse ? "This page has no course yet." : "This course has no modules yet."}</h3>
           <p className="font-body text-sm text-pz-on-surface-variant max-w-md">
-            Add a course to this page, or pick another page above, to open modules for students.
+            {noCourse
+              ? "Add a course to this page, or pick another page above, to open modules for students."
+              : "Add modules to this course, or pick another page above, to open them for students."}
           </p>
         </div>
       )}
@@ -262,7 +282,6 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
             <h3 className="font-headline font-bold text-base text-pz-on-surface px-1">Modules</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {overview.modules.map((m) => {
-                const done = !!m.finishedAt && m.opened >= m.paidLive;
                 return (
                   <div
                     key={m.id}
@@ -292,12 +311,12 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        disabled={running || done}
-                        onClick={() => setPending({ kind: "module", moduleId: m.id, title: m.title, count: m.paidLive })}
+                        disabled={running}
+                        onClick={() => setPending({ kind: "module", moduleId: m.id, title: m.title, paid: m.paidLive, opened: m.opened })}
                         className={primaryBtn}
                       >
-                        {done ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> : <LockOpen className="w-4 h-4" aria-hidden="true" />}
-                        {done ? "All opened" : "Batch finished"}
+                        <LockOpen className="w-4 h-4" aria-hidden="true" />
+                        Batch finished
                       </button>
                     </div>
                   </div>
@@ -366,11 +385,11 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
             </DialogTitle>
             <DialogDescription className="font-body text-pz-on-surface-variant">
               {pending?.kind === "module" &&
-                `This opens ${pending.title} for ${plural(pending.count, "Live student", "Live students")} and emails each of them the portal link. Continue?`}
+                `${pending.title}: ${moduleConfirmText(pending.paid, pending.opened)} Continue?`}
               {pending?.kind === "course" &&
-                `This opens all ${plural(pending.moduleCount, "module", "modules")} for your Live students and emails each of them the portal link. Continue?`}
+                "Opens every module of this course for Live students who paid and emails them the portal link. Students who already have a module open are not emailed again for it. Continue?"}
               {pending?.kind === "link" &&
-                `This emails the portal link to ${AUDIENCES.find((a) => a.key === audience)?.label.toLowerCase()}. Continue?`}
+                `This emails the portal link to ${AUDIENCE_CONFIRM[audience]}. Continue?`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
