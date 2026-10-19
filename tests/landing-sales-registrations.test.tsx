@@ -51,6 +51,14 @@ describe("sales registrations list page", () => {
     expect(screen.queryByLabelText(/agent/i)).toBeNull();
   });
 
+  it("a search that matches nothing keeps the filter bar and the no-match table state", async () => {
+    requireSales.mockResolvedValue({ user: { id: "agent-1" }, role: "sales_agent" });
+    render(await SalesRegistrationsPage({ searchParams: sp({ q: "zzz" }) }));
+    expect(screen.queryByText(/no registrations yet/i)).toBeNull();
+    expect(screen.getByRole("searchbox")).toBeTruthy();
+    expect(screen.getByText(/no registrations match these filters/i)).toBeTruthy();
+  });
+
   it("agent page with an empty user id shows nothing", async () => {
     requireSales.mockResolvedValue({ user: { id: "" }, role: "sales_agent" });
     render(await SalesRegistrationsPage({ searchParams: sp() }));

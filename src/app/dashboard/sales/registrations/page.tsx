@@ -41,6 +41,9 @@ export default async function SalesRegistrationsPage({ searchParams }: { searchP
 
   const query = { status: filters.status, mode: filters.mode, pageId: filters.pageId, q: filters.q, p: filters.page };
 
+  // "No registrations yet" only when nothing is filtered; otherwise keep the filter bar so it can be reset.
+  const hasFilters = filters.status !== "all" || !!filters.mode || !!filters.pageId || !!filters.q;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
@@ -58,7 +61,7 @@ export default async function SalesRegistrationsPage({ searchParams }: { searchP
         </div>
       </div>
 
-      {list.counts.all === 0 ? (
+      {list.counts.all === 0 && !hasFilters ? (
         <EmptyState
           icon={Inbox}
           title="No registrations yet"
