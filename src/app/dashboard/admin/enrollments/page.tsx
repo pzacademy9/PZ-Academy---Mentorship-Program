@@ -11,6 +11,7 @@ import {
 import { EnrollmentStatusBadge } from "@/components/admin/EnrollmentStatusBadge";
 import { EnrollmentFilterTabs } from "@/components/admin/EnrollmentFilterTabs";
 import { EnrollmentReviewActions } from "@/components/admin/EnrollmentReviewActions";
+import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { EnrollmentStatCards } from "@/components/admin/EnrollmentStatCards";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
@@ -45,6 +46,8 @@ export default async function AdminEnrollmentsPage({
 
   return (
     <div className="space-y-6">
+      <EnrollmentSourceTabs active="app" />
+
       <div>
         <h1 className="font-headline font-bold text-2xl text-pz-secondary">Enrollment Review</h1>
         <p className="font-body text-pz-on-surface-variant text-sm mt-1">

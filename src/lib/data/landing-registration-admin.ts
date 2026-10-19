@@ -194,6 +194,24 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   return { rows, total, pageSize: PAGE_SIZE, counts };
 }
 
+/** Page choices for the admin filter: every landing page, by title. */
+export async function listRegistrationPageOptions(): Promise<{ id: string; title: string }[]> {
+  const { data, error } = await createAdminSupabase().from("landing_pages").select("id, title").order("title", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({ id: p.id, title: p.title }));
+}
+
+/** Agent choices for the admin filter: every sales agent, by name. */
+export async function listRegistrationAgentOptions(): Promise<{ id: string; name: string }[]> {
+  const { data, error } = await createAdminSupabase()
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "sales_agent")
+    .order("full_name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({ id: p.id, name: p.full_name }));
+}
+
 /** The lead/individual/member row for `id` if this scope may see it, else null. */
 async function readScopedRow(id: string, scope: Scope): Promise<RegRow | null> {
   if (isEmptyAgentScope(scope)) return null;

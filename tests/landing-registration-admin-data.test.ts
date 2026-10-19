@@ -8,7 +8,7 @@ const jobs = vi.hoisted(() => ({ enqueueSheetStatus: vi.fn(), runJobsFor: vi.fn(
 vi.mock("@/lib/data/landing-jobs", () => ({ enqueueSheetStatus: jobs.enqueueSheetStatus, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobs.runInBackground }));
 
-import { listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
+import { listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
 const reg = (over: Record<string, unknown>) => ({
   page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com",
@@ -250,5 +250,18 @@ describe("change", () => {
     jobs.enqueueSheetStatus.mockResolvedValue(true);
     jobs.runInBackground.mockImplementation(() => { throw new Error("bg"); });
     expect((await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).ok).toBe(true);
+  });
+});
+
+describe("filter options", () => {
+  it("lists landing pages as id and title", async () => {
+    expect(await listRegistrationPageOptions()).toEqual([{ id: "pg1", title: "PPC" }]);
+  });
+  it("lists only sales agents as id and name", async () => {
+    store.profiles = [
+      { id: "ag1", full_name: "Agent One", role: "sales_agent" },
+      { id: "adm", full_name: "Admin Person", role: "admin" },
+    ];
+    expect(await listRegistrationAgentOptions()).toEqual([{ id: "ag1", name: "Agent One" }]);
   });
 });
