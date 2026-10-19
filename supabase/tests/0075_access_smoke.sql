@@ -60,4 +60,52 @@ begin
   raise notice '[%] expired -> module A closed (got %)', case when r = false then 'PASS' else 'FAIL' end, r;
 end $$;
 
+-- Module rows written BEFORE the portal opens: the first unlocked lesson must be in the allowed
+-- module (the second one, so a wrong "module 1" unlock would be caught).
+do $$
+declare
+  v_course  uuid;
+  v_mod_b   uuid;
+  v_student uuid;
+  v_enr     uuid;
+  v_bad     int;
+  v_good    int;
+begin
+  select m.course_id into v_course
+    from public.modules m
+   where exists (select 1 from public.lessons l where l.module_id = m.id)
+   group by m.course_id
+  having count(*) >= 2 limit 1;
+  if v_course is null then
+    raise notice '[SKIP] no course with 2+ modules that have lessons';
+    return;
+  end if;
+
+  select m.id into v_mod_b from public.modules m
+   where m.course_id = v_course and exists (select 1 from public.lessons l where l.module_id = m.id)
+   order by m.order_index desc, m.id limit 1;
+
+  select p.id into v_student from public.profiles p
+   where not exists (select 1 from public.enrollments e where e.student_id = p.id and e.course_id = v_course)
+   limit 1;
+  if v_student is null then
+    raise notice '[SKIP] no unenrolled profile for that course';
+    return;
+  end if;
+
+  insert into public.enrollments (student_id, course_id, status, portal_open)
+  values (v_student, v_course, 'pending', false) returning id into v_enr;
+  insert into public.enrollment_modules (enrollment_id, module_id) values (v_enr, v_mod_b);
+
+  update public.enrollments set status = 'active', portal_open = true where id = v_enr;
+
+  select count(*) filter (where l.module_id = v_mod_b),
+         count(*) filter (where l.module_id <> v_mod_b)
+    into v_good, v_bad
+    from public.lesson_progress lp join public.lessons l on l.id = lp.lesson_id
+   where lp.student_id = v_student and lp.status = 'unlocked';
+  raise notice '[%] module rows first: unlocked lesson is in the allowed module (allowed: %, other: %)',
+    case when v_good = 1 and v_bad = 0 then 'PASS' else 'FAIL' end, v_good, v_bad;
+end $$;
+
 rollback;

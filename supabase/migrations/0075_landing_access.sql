@@ -457,6 +457,85 @@ begin
 end;
 $$;
 
+-- 3g. Student insert policy (latest: 0013). Same checks, plus the new landing columns must
+-- be null so a student cannot squat a landing_registration_id or set access_level.
+-- (portal_open is left alone: a student inserting portal_open=true is today's behaviour.)
+drop policy if exists "enrollments: student insert" on public.enrollments;
+create policy "enrollments: student insert"
+  on public.enrollments for insert
+  with check (
+    student_id = auth.uid()
+    and status = 'pending'
+    and verified_by is null
+    and verified_at is null
+    and cert_issued = false
+    and cert_url is null
+    and rejection_reason is null
+    and landing_registration_id is null
+    and access_level is null
+  );
+
+-- 3h. get_quiz (latest: 0009). Student branch also requires module access. Like the
+-- existing "locked" case in this function, a denied caller gets an empty result.
+create or replace function public.get_quiz(p_lesson_id uuid)
+returns table (
+  question_id  uuid,
+  question     text,
+  options      jsonb,
+  order_index  integer
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select q.id, q.question, q.options, q.order_index
+  from public.quiz_questions q
+  where q.lesson_id = p_lesson_id
+    and (
+      get_my_role() in ('admin', 'super_admin')
+      or (
+        exists (
+          select 1 from public.lesson_progress lp
+          where lp.lesson_id = p_lesson_id
+            and lp.student_id = auth.uid()
+            and lp.status in ('unlocked', 'completed')
+        )
+        and public.can_access_module((select module_id from public.lessons where id = p_lesson_id))
+      )
+    )
+  order by q.order_index asc;
+$$;
+
+grant execute on function public.get_quiz(uuid) to authenticated;
+
+-- 3i. check_quiz_answer (latest: 0010). Same change, same empty-result style.
+create or replace function public.check_quiz_answer(p_question_id uuid)
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select q.correct_index
+  from public.quiz_questions q
+  where q.id = p_question_id
+    and (
+      get_my_role() in ('admin', 'super_admin')
+      or (
+        exists (
+          select 1 from public.lesson_progress lp
+          where lp.lesson_id = q.lesson_id
+            and lp.student_id = auth.uid()
+            and lp.status in ('unlocked', 'completed')
+        )
+        and public.can_access_module((select module_id from public.lessons where id = q.lesson_id))
+      )
+    );
+$$;
+
+grant execute on function public.check_quiz_answer(uuid) to authenticated;
+
 -- ─── 4. Smoke test ──────────────────────────────────────────────
 -- The same script lives in supabase/tests/0075_access_smoke.sql. Run it separately
 -- (it begins a transaction and rolls back, leaving no data).
