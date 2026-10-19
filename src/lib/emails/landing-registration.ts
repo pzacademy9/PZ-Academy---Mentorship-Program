@@ -25,6 +25,18 @@ export interface LandingEmailContext {
   waGroups: WaGroupButton[];
   verifyUrl: string;
   supportWhatsapp: string;
+  /** Paid email only: the learning portal link, set only when the portal is open for this person. */
+  portalUrl?: string;
+  /** Paid email only: true when the person has no account yet. */
+  needsAccount?: boolean;
+  signupUrl?: string;
+  email?: string;
+  /** Underpaid email: what we actually received. */
+  amountReceived?: number | null;
+  /** Paid email: a group lead paid for this person. */
+  coveredByGroup?: boolean;
+  /** Paid email: force the "portal opens after your batch" note on or off (otherwise inferred). */
+  portalOpensLater?: boolean;
 }
 export interface AdminAlertContext extends LandingEmailContext {
   email: string;
@@ -143,6 +155,57 @@ export function buildFreeJoiningEmail(c: LandingEmailContext): BuiltEmail {
     waHtml(c.waGroups, "The live link is shared only in this group before the session. Join now so you don't miss it."),
   ].join("");
   return { subject: oneLine(`You're in, ${fn} - here are your joining details`), html: shell("Your joining details", body, c.supportWhatsapp) };
+}
+
+export function buildPaidEmail(c: LandingEmailContext): BuiltEmail {
+  const fn = firstName(c.name);
+  const portal = httpsHref(c.portalUrl ?? "");
+  const hasGroups = c.waGroups.some((g) => isValidWaGroupUrl(g.url));
+  // Live batch still running (no portal yet): inferred unless the caller says so. A guest on a
+  // recorded course has no groups and no portal link yet, so they only get the account note.
+  const portalLater = !portal && (c.portalOpensLater ?? (!c.needsAccount || hasGroups));
+  const paid = c.coveredByGroup ? "Covered by your group" : money(c.currency, c.amountReceived ?? c.amount);
+  const signup = httpsHref(c.signupUrl ?? "");
+  const accountNote = c.needsAccount
+    ? para(`To open your course, create an account with this same email address${c.email ? ` (<strong>${esc(c.email)}</strong>)` : ""}${signup ? ` at <a href="${esc(signup)}" style="color:${C.primary};">${esc(signup)}</a>` : c.signupUrl ? ` on our website (${esc(c.signupUrl)})` : ""}.`)
+    : "";
+  const body = [
+    para(`Hi ${esc(fn)}, your payment is verified and your place in <strong>${esc(c.eventLabel)}</strong> is confirmed.`),
+    refBox(c.refId),
+    table([["Registration", c.optionLabel], ["Amount paid", paid], ...scheduleRows(c)]),
+    portal ? button("Open your learning portal", portal) : "",
+    accountNote,
+    portalLater ? para("Your recordings and course portal open after your batch finishes. We will email you the link.") : "",
+    portalLater ? waHtml(c.waGroups, "Zoom link and updates are shared there") : "",
+  ].join("");
+  return {
+    subject: oneLine(portal ? `Your course is ready, ${fn} - start learning` : `You're in, ${fn} - here's your access`),
+    html: shell("Payment verified", body, c.supportWhatsapp),
+  };
+}
+
+export function buildUnderpaidEmail(c: LandingEmailContext): BuiltEmail {
+  const fn = firstName(c.name);
+  const received = c.amountReceived ?? 0;
+  const balance = Math.max(0, c.amount - received);
+  const body = [
+    para(`Hi ${esc(fn)}, we received your payment for <strong>${esc(c.eventLabel)}</strong>, but it is less than the full fee. Please send the remaining balance to confirm your place.`),
+    refBox(c.refId),
+    table([["Registration", c.optionLabel], ["Amount due", money(c.currency, c.amount)], ["Amount received", money(c.currency, received)], ["Balance to pay", money(c.currency, balance)], ...scheduleRows(c)]),
+    accountsHtml(c.accounts),
+  ].join("");
+  return { subject: oneLine(`${fn}, your balance is outstanding - ${c.eventLabel}`), html: shell("Balance outstanding", body, c.supportWhatsapp) };
+}
+
+export function buildReservedEmail(c: LandingEmailContext): BuiltEmail {
+  const fn = firstName(c.name);
+  const body = [
+    para(`Hi ${esc(fn)}, we are holding a seat for you in <strong>${esc(c.eventLabel)}</strong>. Please complete your payment to confirm your place.`),
+    refBox(c.refId),
+    table([["Registration", c.optionLabel], ["Amount due", money(c.currency, c.amount)], ...scheduleRows(c)]),
+    accountsHtml(c.accounts),
+  ].join("");
+  return { subject: oneLine(`${fn}, your seat is reserved - complete payment to confirm`), html: shell("Your seat is reserved", body, c.supportWhatsapp) };
 }
 
 export function buildAdminAlertEmail(c: AdminAlertContext): BuiltEmail {
