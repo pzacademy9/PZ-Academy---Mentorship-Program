@@ -871,16 +871,49 @@ export type Database = {
         }
         Relationships: []
       }
+      enrollment_modules: {
+        Row: {
+          enrollment_id: string
+          module_id: string
+        }
+        Insert: {
+          enrollment_id: string
+          module_id: string
+        }
+        Update: {
+          enrollment_id?: string
+          module_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_modules_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrollments: {
         Row: {
+          access_level: string | null
           cert_issued: boolean
           cert_url: string | null
           course_id: string
           enrolled_at: string
           id: string
+          landing_registration_id: string | null
           payment_amount_pkr: number | null
           payment_screenshot_url: string | null
           payment_shortfall_pkr: number | null
+          portal_open: boolean
           rejection_reason: string | null
           sheet_pending_note: string | null
           sheet_pending_status: Database["public"]["Enums"]["enrollment_status"] | null
@@ -890,14 +923,17 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          access_level?: string | null
           cert_issued?: boolean
           cert_url?: string | null
           course_id: string
           enrolled_at?: string
           id?: string
+          landing_registration_id?: string | null
           payment_amount_pkr?: number | null
           payment_screenshot_url?: string | null
           payment_shortfall_pkr?: number | null
+          portal_open?: boolean
           rejection_reason?: string | null
           sheet_pending_note?: string | null
           sheet_pending_status?: Database["public"]["Enums"]["enrollment_status"] | null
@@ -907,14 +943,17 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          access_level?: string | null
           cert_issued?: boolean
           cert_url?: string | null
           course_id?: string
           enrolled_at?: string
           id?: string
+          landing_registration_id?: string | null
           payment_amount_pkr?: number | null
           payment_screenshot_url?: string | null
           payment_shortfall_pkr?: number | null
+          portal_open?: boolean
           rejection_reason?: string | null
           sheet_pending_note?: string | null
           sheet_pending_status?: Database["public"]["Enums"]["enrollment_status"] | null
@@ -929,6 +968,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_landing_registration_id_fkey"
+            columns: ["landing_registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
             referencedColumns: ["id"]
           },
           {
@@ -1442,6 +1488,81 @@ export type Database = {
             columns: ["page_id"]
             isOneToOne: false
             referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_batch_state: {
+        Row: {
+          finished_at: string
+          finished_by: string | null
+          id: string
+          module_id: string | null
+          page_id: string
+        }
+        Insert: {
+          finished_at?: string
+          finished_by?: string | null
+          id?: string
+          module_id?: string | null
+          page_id: string
+        }
+        Update: {
+          finished_at?: string
+          finished_by?: string | null
+          id?: string
+          module_id?: string | null
+          page_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_batch_state_finished_by_fkey"
+            columns: ["finished_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_batch_state_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_batch_state_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_email_log: {
+        Row: {
+          kind: string
+          registration_id: string
+          sent_at: string
+          to_email: string
+        }
+        Insert: {
+          kind: string
+          registration_id: string
+          sent_at?: string
+          to_email: string
+        }
+        Update: {
+          kind?: string
+          registration_id?: string
+          sent_at?: string
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_email_log_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
             referencedColumns: ["id"]
           },
         ]
@@ -3580,6 +3701,7 @@ export type Database = {
         Args: { p_booking_id: string; p_slots: string[] }
         Returns: number
       }
+      can_access_module: { Args: { p_module: string }; Returns: boolean }
       check_quiz_answer: { Args: { p_question_id: string }; Returns: number }
       complete_lesson: { Args: { p_lesson_id: string }; Returns: number }
       course_curriculum: {
