@@ -293,6 +293,9 @@ export async function applyEnrollmentStatus(params: {
     sheet_pending_status: null,
     sheet_pending_note: null,
     ...(params.clearShortfall ? { payment_shortfall_pkr: null } : {}),
+    // Admin approval is an explicit full grant: a registration reversed from Paid leaves
+    // portal_open=false, and approving it must not yield an active student with a closed portal.
+    ...(params.targetStatus === "active" ? { portal_open: true } : {}),
   };
 
   const admin = createAdminSupabase();

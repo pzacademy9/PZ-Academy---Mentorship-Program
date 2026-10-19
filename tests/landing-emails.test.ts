@@ -115,6 +115,14 @@ describe("paid email", () => {
     expect(e.html).toContain("Zoom link and updates are shared there");
     expect(e.html).not.toContain("Open your learning portal");
   });
+  it("noCourse: WhatsApp block kept, no opens-later sentence, no portal button; unset unchanged", () => {
+    const e = buildPaidEmail(ctx({ portalOpensLater: true, noCourse: true }));
+    expect(e.html).toContain("Zoom link and updates are shared there");
+    expect(e.html).toContain("https://chat.whatsapp.com/");
+    expect(e.html).not.toContain("open after your batch finishes");
+    expect(e.html).not.toContain("Open your learning portal");
+    expect(buildPaidEmail(ctx({ portalOpensLater: true })).html).toContain("open after your batch finishes");
+  });
   it("live-closed + guest: portal-later, account note and WhatsApp", () => {
     const e = buildPaidEmail(ctx({ portalOpensLater: true, needsAccount: true, email: "a@b.com", signupUrl: "https://academy.example.com/register" }));
     expect(e.html).toContain("open after your batch finishes");

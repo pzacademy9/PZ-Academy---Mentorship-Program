@@ -41,6 +41,8 @@ export interface LandingEmailContext {
    * WhatsApp group buttons appear (together). Unset or false means neither is shown.
    */
   portalOpensLater?: boolean;
+  /** The page has no linked course: Live buyers still get the WhatsApp/session block, but no "we will email you the portal link" promise. */
+  noCourse?: boolean;
 }
 export interface AdminAlertContext extends LandingEmailContext {
   email: string;
@@ -177,7 +179,7 @@ export function buildPaidEmail(c: LandingEmailContext): BuiltEmail {
     table([["Registration", c.optionLabel], ["Amount paid", paid], ...scheduleRows(c)]),
     portal ? button("Open your learning portal", portal) : "",
     accountNote,
-    portalLater ? para("Your recordings and course portal open after your batch finishes. We will email you the link.") : "",
+    portalLater && !c.noCourse ? para("Your recordings and course portal open after your batch finishes. We will email you the link.") : "",
     portalLater ? waHtml(c.waGroups, "Zoom link and updates are shared there") : "",
   ].join("");
   return {

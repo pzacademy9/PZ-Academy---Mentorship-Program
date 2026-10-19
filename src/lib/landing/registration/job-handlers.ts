@@ -274,6 +274,7 @@ async function emailStatus(registrationId: string): Promise<void> {
         needsAccount: isPaid && courseId !== null && !hasAccount,
         signupUrl: `${appUrl()}/register`,
         portalOpensLater: isPaid && lead.mode === "live" && !desired.portalOpen,
+        noCourse: courseId === null,
       };
       const email = kind === "paid" ? buildPaidEmail(ctx) : kind === "underpaid" ? buildUnderpaidEmail(ctx) : buildReservedEmail(ctx);
       await deliver(lead, person.email, person.name, email);

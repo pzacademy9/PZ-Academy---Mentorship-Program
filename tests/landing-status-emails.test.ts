@@ -174,12 +174,20 @@ describe("email_status", () => {
 });
 
 describe("email_status rulings", () => {
-  it("Live buyer on a page with no course still gets the opens-later note", async () => {
+  it("Live buyer on a page with a course gets both the WhatsApp block and the opens-later sentence", async () => {
+    const b = bundle(rec());
+    m.getRegistrationBundle.mockResolvedValue(b);
+    stubAccess(b);
+    await JOB_HANDLERS.email_status("reg-1");
+    expect(sent()[0].htmlContent).toContain("open after your batch finishes");
+    expect(sent()[0].htmlContent).toContain("Zoom link and updates are shared there");
+  });
+  it("Live buyer on a page with no course keeps the WhatsApp block but no portal-link promise", async () => {
     const b = bundle(rec());
     m.getRegistrationBundle.mockResolvedValue(b);
     stubAccess(b, { courseId: null });
     await JOB_HANDLERS.email_status("reg-1");
-    expect(sent()[0].htmlContent).toContain("open after your batch finishes");
+    expect(sent()[0].htmlContent).not.toContain("open after your batch finishes");
     expect(sent()[0].htmlContent).toContain("Zoom link and updates are shared there");
   });
   it("a Live test row's Paid email includes the opens-later block", async () => {
