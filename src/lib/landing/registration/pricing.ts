@@ -1,6 +1,6 @@
 // src/lib/landing/registration/pricing.ts
 // The one price calculation. The server recomputes every quote with this; the widget uses it for display only.
-import { INDIVIDUAL, type Mode, type OptionDef, type PriceCell, type RegistrationConfig, type TierDef } from "./config";
+import { INDIVIDUAL, type Mode, type OptionDef, type PriceCell, type RegistrationConfig, type TierDef } from "./types";
 
 export interface QuoteInput {
   config: RegistrationConfig;

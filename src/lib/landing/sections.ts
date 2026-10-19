@@ -20,7 +20,7 @@ export const SECTION_TYPES = [
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 export type FieldKind = "text" | "textarea" | "image" | "youtube" | "url" | "list" | "module"
-  | "choice" | "sectionRef" | "whatsapp";
+  | "choice" | "sectionRef" | "whatsapp" | "priceLink";
 
 export interface FieldDef {
   key: string;
@@ -145,6 +145,7 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
       text("note", "Note under the heading", { max: 300, example: "Early Bird ends 15 October" }),
       list("items", "Plans", [
         text("name", "Plan name", { required: true, max: 80 }),
+        { key: "option", label: "Linked to", kind: "priceLink", max: 40 },
         text("price", "Price", { required: true, max: 40, example: "PKR 4,800" }),
         text("oldPrice", "Crossed-out old price (optional)", { max: 40 }),
         text("badge", "Badge (optional)", { max: 30, example: "Best value" }),
@@ -263,6 +264,9 @@ export function fieldSchema(f: FieldDef): z.ZodTypeAny {
     }
     case "sectionRef":
       return z.string().max(64).default("");
+    case "priceLink":
+      // Optional on input so cards saved before linking existed still validate.
+      return z.string().max(f.max ?? 40).default("");
     case "whatsapp":
       return z.string().regex(/^(\d{8,15})?$/, "Digits only, with country code, like 923700199429").default("");
     case "image":

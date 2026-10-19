@@ -1,15 +1,36 @@
 // src/components/landing/sections/PricingCards.tsx
 import { RegisterButton } from "../RegisterButton";
 import { CheckList, rows, str } from "./util";
+import { cardPrice } from "@/lib/landing/registration/card-price";
+import { PricingCardsLive, type LiveCard, type LiveRegistration } from "./PricingCardsLive";
 import type { SectionProps } from "./types";
 
-export function PricingCards({ data, register }: SectionProps) {
+export function PricingCards({ data, register, registration, nowIso }: SectionProps) {
   const items = rows(data, "items")
-    .map((i) => ({ name: str(i, "name"), price: str(i, "price"), oldPrice: str(i, "oldPrice"), badge: str(i, "badge"), features: str(i, "features") }))
+    .map((i) => ({ name: str(i, "name"), price: str(i, "price"), oldPrice: str(i, "oldPrice"), badge: str(i, "badge"), features: str(i, "features"), option: str(i, "option") }))
     .filter((i) => i.name || i.price);
   if (items.length === 0) return null;
   const heading = str(data, "heading");
   const note = str(data, "note");
+  if (registration && items.some((i) => i.option !== "")) {
+    // Only what the price maths and the country switcher need: no invite links, account keys or class times reach the page source.
+    const live: LiveRegistration = {
+      enabled: registration.enabled, modes: registration.modes, recordedPercentOfRegular: registration.recordedPercentOfRegular,
+      regions: registration.regions.map(({ key, label, currency }) => ({ key, label, currency })),
+      defaultRegionKey: registration.defaultRegionKey,
+      options: registration.options.map(({ key, label, kind, free }) => ({ key, label, kind, free })),
+      moduleMix: registration.moduleMix, tiers: registration.tiers, prices: registration.prices, earlyBirdEndsAt: registration.earlyBirdEndsAt,
+    };
+    const cards: LiveCard[] = items;
+    // Same first-paint region as the island, so both agree on whether anything shows.
+    const first = registration.regions.some((g) => g.key === registration.defaultRegionKey) ? registration.defaultRegionKey : registration.regions[0]?.key ?? "";
+    const now = new Date(nowIso ?? Date.now());
+    const anything = cards.some((c) => c.option === "" || (!registration.enabled
+      ? c.price !== ""
+      : cardPrice(registration, c.option, first, now) !== null));
+    if (!anything) return null;
+    return <PricingCardsLive heading={heading} note={note} cards={cards} registration={live} nowIso={nowIso ?? now.toISOString()} register={register} />;
+  }
   return (
     <div className="border-b border-landing-border bg-landing-surface-container-lowest py-10 md:py-20">
       <div className="mx-auto max-w-7xl">

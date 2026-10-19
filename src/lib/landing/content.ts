@@ -5,6 +5,7 @@ import { validateSlug } from "./slug";
 import {
   normalizeRegistration, registrationConfigSchema, registrationProblems, type RegistrationConfig,
 } from "./registration/config";
+import { LINK_ALL_MODULES, LINK_GROUP } from "./registration/card-price";
 import { registrationTarget } from "./registration/setup-steps";
 import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
@@ -312,6 +313,8 @@ function fieldProblems(section: LandingSection, fields: FieldDef[], data: Record
       }
       items.forEach((item, n) => {
         for (const sub of f.itemFields ?? []) {
+          // A card linked to Prices by country shows its price automatically; priceCardProblems checks it instead.
+          if (section.type === "pricing_cards" && sub.key === "price" && !isBlank(item.option)) continue;
           if (sub.required && isBlank(item[sub.key])) {
             out.push({ message: `${f.itemLabel ?? "Item"} ${n + 1} in "${label}" needs "${sub.label}".`, sectionId: section.id, field: `${f.key}.${n}.${sub.key}` });
           }
@@ -393,6 +396,34 @@ function moduleProblems(c: LandingContent, out: Problem[]) {
   }
 }
 
+function priceCardProblems(c: LandingContent, out: Problem[]) {
+  const reg = c.registration;
+  for (const s of c.sections) {
+    if (!s.enabled || s.type !== "pricing_cards") continue;
+    const items = Array.isArray(s.data.items) ? (s.data.items as Record<string, unknown>[]) : [];
+    items.forEach((item, n) => {
+      const link = typeof item.option === "string" ? item.option.trim() : "";
+      if (link === "") return;
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      const field = `items.${n}.option`;
+      if (!reg.enabled) {
+        if (isBlank(item.price)) {
+          out.push({ message: `The card "${name}" has no price to show. Switch the registration form on or type a price.`, sectionId: s.id, field: `items.${n}.price` });
+        }
+        return;
+      }
+      const exists = link === LINK_ALL_MODULES ? reg.options.some((o) => o.kind === "module")
+        : link === LINK_GROUP ? reg.tiers.length > 0
+        : reg.options.some((o) => o.key === link);
+      if (!exists) {
+        out.push({ message: `The card "${name}" is linked to something that no longer exists.`, sectionId: s.id, field });
+        return;
+      }
+      // Missing per-country prices are already reported by registrationProblems.
+    });
+  }
+}
+
 export function computeReadiness(c: LandingContent, page: { title: string; slug: string }): { ready: boolean; problems: Problem[] } {
   const problems: Problem[] = [];
   if (page.title.trim() === "") problems.push({ message: "Give the page a name." });
@@ -418,6 +449,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   for (const s of enabled) if (s.type === "hero") heroProblems(c, s, problems);
   reviewProblems(c, problems);
   moduleProblems(c, problems);
+  priceCardProblems(c, problems);
   return { ready: problems.length === 0, problems };
 }
 

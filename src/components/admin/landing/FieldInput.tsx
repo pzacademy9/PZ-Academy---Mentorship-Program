@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { isSafeUrl, youtubeId } from "@/lib/landing/simple-text";
 import type { FieldDef } from "@/lib/landing/sections";
 import type { ModuleDef } from "@/lib/landing/variants";
+import type { RegistrationConfig } from "@/lib/landing/registration/config";
+import { cardPrice, priceLinkChoices } from "@/lib/landing/registration/card-price";
 import { LandingImageField } from "./LandingImageField";
 import { WhatsappNumberField } from "./WhatsappNumberField";
 
@@ -79,12 +81,30 @@ function BulletTextarea({ value, onValueChange, ...rest }: { value: string; onVa
 }
 
 /** `path` locates the control for the checklist's Fix button: "headline", or "items.0.q" inside a list. */
-export function FieldInput({ field, value, onChange, path, modules, sections }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string; modules?: ModuleDef[]; sections?: SectionOption[] }) {
+export function FieldInput({ field, value, onChange, path, modules, sections, registration }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string; modules?: ModuleDef[]; sections?: SectionOption[]; registration?: RegistrationConfig }) {
   const id = useId();
   const helpId = `${id}-help`;
   const errId = `${id}-err`;
 
-  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} modules={modules} sections={sections} />;
+  if (field.kind === "list") return <ListField field={field} value={value} onChange={onChange} path={path ?? field.key} modules={modules} sections={sections} registration={registration} />;
+
+  if (field.kind === "priceLink") {
+    // Without registration settings (other callers) there is nothing to link to: no select at all.
+    if (!registration) return null;
+    const current = typeof value === "string" ? value : "";
+    const choices = priceLinkChoices(registration);
+    const known = choices.some((c) => c.value === current);
+    return (
+      <div className="space-y-1.5">
+        <label htmlFor={id} className={LABEL}>{field.label}</label>
+        <select id={id} value={current} data-field-path={path} onChange={(e) => onChange(e.target.value)} className={cn(CONTROL, "h-auto")}>
+          <option value="">Not linked (type a price)</option>
+          {!known && current !== "" && <option value={current}>This price no longer exists</option>}
+          {choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+      </div>
+    );
+  }
 
   if (field.kind === "module") {
     // Pages without modules edit exactly as before: no select at all.
@@ -184,7 +204,22 @@ export function FieldInput({ field, value, onChange, path, modules, sections }: 
   );
 }
 
-function ListField({ field, value, onChange, path, modules, sections }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string; modules?: ModuleDef[]; sections?: SectionOption[] }) {
+/** What a linked card shows instead of a typed price box. */
+function AutomaticPrice({ label, link, registration }: { label: string; link: string; registration: RegistrationConfig }) {
+  const regions = registration.regions;
+  const region = regions.find((g) => g.key === registration.defaultRegionKey) ?? regions[0];
+  const p = region ? cardPrice(registration, link, region.key, new Date()) : null;
+  const where = region ? (region.label.trim() === "" ? region.key : region.label) : "";
+  return (
+    <div className="space-y-1.5">
+      <span className={LABEL}>{label}</span>
+      <p className={cn(HELP, "rounded-md border border-pz-outline-variant bg-pz-surface-container-high px-3 py-2")}>Automatic, from Prices by country</p>
+      {p && p.kind === "price" && <p className={HELP}>Today for {where}: {p.current}</p>}
+    </div>
+  );
+}
+
+function ListField({ field, value, onChange, path, modules, sections, registration }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path: string; modules?: ModuleDef[]; sections?: SectionOption[]; registration?: RegistrationConfig }) {
   const items: Item[] = Array.isArray(value) ? (value as Item[]) : [];
   const itemLabel = field.itemLabel ?? "Item";
   const max = field.maxItems ?? 40;
@@ -231,9 +266,14 @@ function ListField({ field, value, onChange, path, modules, sections }: { field:
               </span>
             </div>
             <div className="space-y-3">
-              {(field.itemFields ?? []).map((f) => (
-                <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} modules={modules} sections={sections} />
-              ))}
+              {(field.itemFields ?? []).map((f) => {
+                const link = typeof item.option === "string" ? item.option : "";
+                if (f.key === "oldPrice" && registration?.enabled && link !== "" && (field.itemFields ?? []).some((x) => x.kind === "priceLink")) return null;
+                if (f.key === "price" && registration?.enabled && link !== "" && (field.itemFields ?? []).some((x) => x.kind === "priceLink")) {
+                  return <AutomaticPrice key={f.key} label={f.label} link={link} registration={registration} />;
+                }
+                return <FieldInput key={f.key} field={f} path={`${path}.${i}.${f.key}`} value={item[f.key]} onChange={(v) => edit(i, f.key, v)} modules={modules} sections={sections} registration={registration} />;
+              })}
             </div>
           </li>
         ))}
