@@ -5,6 +5,7 @@ import {
   listRegistrationAgentOptions,
   type RegistrationListFilters,
 } from "@/lib/data/landing-registration-admin";
+import Link from "next/link";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { RegistrationFilters } from "@/components/admin/registrations/RegistrationFilters";
 import { RegistrationsTable } from "@/components/admin/registrations/RegistrationsTable";
@@ -66,11 +67,19 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
             Review sign-ups that came in through your landing pages and confirm their payment.
           </p>
         </div>
-        <div className="flex flex-col px-3 py-2 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40">
-          <span className="text-[10px] font-label text-pz-on-surface-variant uppercase font-semibold">Paid</span>
-          <span className="text-sm font-headline font-bold text-pz-on-surface tabular-nums">
-            {list.counts.paid} / {list.counts.all}
-          </span>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/admin/enrollments/registrations/access"
+            className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+          >
+            Batch access
+          </Link>
+          <div className="flex flex-col px-3 py-2 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40">
+            <span className="text-[10px] font-label text-pz-on-surface-variant uppercase font-semibold">Paid</span>
+            <span className="text-sm font-headline font-bold text-pz-on-surface tabular-nums">
+              {list.counts.paid} / {list.counts.all}
+            </span>
+          </div>
         </div>
       </div>
 
