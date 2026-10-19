@@ -8,6 +8,10 @@ const jobs = vi.hoisted(() => ({ enqueueSheetStatus: vi.fn(), enqueueStatusEffec
 vi.mock("@/lib/data/landing-jobs", () => ({ enqueueSheetStatus: jobs.enqueueSheetStatus, enqueueStatusEffects: jobs.enqueueStatusEffects, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobs.runInBackground }));
 
+const enr = vi.hoisted(() => ({ resolveAccess: vi.fn(), listEmailLog: vi.fn() }));
+vi.mock("@/lib/data/landing-enrollment", () => ({ resolveAccess: enr.resolveAccess }));
+vi.mock("@/lib/data/landing-email-log", () => ({ listEmailLog: enr.listEmailLog }));
+
 import { listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
 const reg = (over: Record<string, unknown>) => ({
@@ -40,6 +44,10 @@ beforeEach(() => {
   jobs.enqueueSheetStatus.mockResolvedValue(true);
   jobs.enqueueStatusEffects.mockResolvedValue(true);
   jobs.runJobsFor.mockResolvedValue(undefined);
+  enr.resolveAccess.mockReset();
+  enr.listEmailLog.mockReset();
+  enr.listEmailLog.mockResolvedValue([]);
+  enr.resolveAccess.mockResolvedValue({ lead: { mode: "live" }, courseId: null, hasAccount: false });
   store = seed();
   rpcResult = { data: { ok: true, from: "pending", changed: 2 }, error: null };
   db.state.handler = memoryHandler(store, () => rpcResult);
@@ -135,6 +143,81 @@ describe("detail", () => {
   });
   it("detail of a member id is not found", async () => {
     expect(await getRegistrationDetail("m1", { kind: "all" })).toBeNull();
+  });
+});
+
+describe("detail emails and access", () => {
+  const withCourse = (over: Record<string, unknown> = {}) => {
+    store.landing_registrations.find((r) => r.id === "L")!.student_id = "stu1";
+    enr.resolveAccess.mockResolvedValue({ lead: { mode: "live" }, courseId: "c1", hasAccount: true, ...over });
+    store.modules = [
+      { id: "m_b", course_id: "c1", title: "Beta", order_index: 2 },
+      { id: "m_a", course_id: "c1", title: "Alpha", order_index: 1 },
+      { id: "m_x", course_id: "c2", title: "Other course", order_index: 1 },
+    ];
+  };
+  it("admin with a Live enrollment and one open module", async () => {
+    withCourse();
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "active", portal_open: true, access_level: "live" }];
+    store.enrollment_modules = [];
+    store.enrollment_open_modules = [{ enrollment_id: "e1", module_id: "m_a" }];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access).toEqual({
+      mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true,
+      modules: [{ id: "m_a", title: "Alpha", open: true }, { id: "m_b", title: "Beta", open: false }],
+    });
+  });
+  it("covered modules only when the enrollment has enrollment_modules rows", async () => {
+    withCourse();
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "active", portal_open: true, access_level: "live" }];
+    store.enrollment_modules = [{ enrollment_id: "e1", module_id: "m_b" }];
+    store.enrollment_open_modules = [{ enrollment_id: "e1", module_id: "m_b" }];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access.modules).toEqual([{ id: "m_b", title: "Beta", open: true }]);
+  });
+  it("guest without an account has no enrollment status", async () => {
+    enr.resolveAccess.mockResolvedValue({ lead: { mode: "recorded" }, courseId: "c1", hasAccount: false });
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access).toEqual({ mode: "recorded", hasAccount: false, enrollmentStatus: null, portalOpen: null, modules: null });
+  });
+  it("recorded active and open enrollment opens every module", async () => {
+    withCourse({ lead: { mode: "recorded" } });
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "active", portal_open: true, access_level: "recorded" }];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access.modules).toEqual([{ id: "m_a", title: "Alpha", open: true }, { id: "m_b", title: "Beta", open: true }]);
+  });
+  it("a closed portal opens nothing", async () => {
+    withCourse();
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "active", portal_open: false, access_level: "live" }];
+    store.enrollment_open_modules = [{ enrollment_id: "e1", module_id: "m_a" }];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access.portalOpen).toBe(false);
+    expect(d!.access.modules!.every((m) => !m.open)).toBe(true);
+  });
+  it("agent scope returns access but no emails and never asks for the email log", async () => {
+    withCourse();
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "active", portal_open: true, access_level: "recorded" }];
+    enr.listEmailLog.mockResolvedValue([{ registrationId: "L", kind: "paid", toEmail: "x@y.com", sentAt: "2026-10-05T00:00:00Z" }]);
+    const d = await getRegistrationDetail("L", { kind: "agent", agentId: "ag1" });
+    expect(d!.emails).toEqual([]);
+    expect(enr.listEmailLog).not.toHaveBeenCalled();
+    expect(d!.access.enrollmentStatus).toBe("active");
+  });
+  it("a page with no course returns an empty access", async () => {
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access).toEqual({ mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, modules: null });
+    expect(db.find("enrollments", "select")).toHaveLength(0);
+  });
+  it("emails cover lead and members, newest first", async () => {
+    enr.listEmailLog.mockResolvedValue([
+      { registrationId: "L", kind: "reserved", toEmail: "lead@x.com", sentAt: "2026-10-02T00:00:00Z" },
+      { registrationId: "m1", kind: "paid", toEmail: "m@x.com", sentAt: "2026-10-05T00:00:00Z" },
+      { registrationId: "L", kind: "portal_link", toEmail: "lead@x.com", sentAt: "2026-10-03T00:00:00Z" },
+    ]);
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(enr.listEmailLog).toHaveBeenCalledWith(["L", "m1"]);
+    expect(d!.emails.map((m) => m.sentAt)).toEqual(["2026-10-05T00:00:00Z", "2026-10-03T00:00:00Z", "2026-10-02T00:00:00Z"]);
+    expect(d!.emails[0]).toEqual({ kind: "paid", toEmail: "m@x.com", sentAt: "2026-10-05T00:00:00Z" });
   });
 });
 

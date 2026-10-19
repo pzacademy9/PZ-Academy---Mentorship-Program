@@ -28,7 +28,7 @@ function rec(over: Partial<RegistrationRecord> = {}): RegistrationRecord {
 function detail(over: Partial<RegistrationDetail> = {}, lead: Partial<RegistrationRecord> = {}): RegistrationDetail {
   return {
     lead: rec(lead), members: [], page: { id: "p1", title: "PPC Masterclass", slug: "ppc" },
-    agentName: null, events: [], ...over,
+    agentName: null, events: [], emails: [], access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, modules: null }, ...over,
   };
 }
 const view = (d: RegistrationDetail, showAgent = true) => (
