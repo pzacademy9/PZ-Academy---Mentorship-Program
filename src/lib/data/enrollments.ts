@@ -48,6 +48,7 @@ export async function hasActiveEnrollment(courseId: string, userId: string): Pro
     .eq("course_id", courseId)
     .eq("student_id", userId)
     .eq("status", "active")
+    .eq("portal_open", true)
     .maybeSingle();
   return data !== null;
 }

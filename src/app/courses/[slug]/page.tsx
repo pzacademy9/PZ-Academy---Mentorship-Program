@@ -308,7 +308,7 @@ export default async function CourseDetailPage({
               <EnrollCta
                 signedIn={Boolean(user)}
                 slug={course.slug}
-                status={enrollment?.status ?? null}
+                status={enrollment && !(enrollment.status === "active" && !enrollment.portal_open) ? enrollment.status : null}
                 ctaVerb={copy.ctaVerb}
               />
 

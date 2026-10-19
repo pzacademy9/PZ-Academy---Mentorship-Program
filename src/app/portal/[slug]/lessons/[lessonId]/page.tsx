@@ -33,7 +33,7 @@ export default async function LessonPage({
   if (!course) notFound();
 
   const enrollment = await getEnrollment(course.id, user.id);
-  if (!enrollment) redirect("/courses");
+  if (!enrollment || (enrollment.status === "active" && !enrollment.portal_open)) redirect("/courses");
   if (enrollment.status !== "active") {
     return (
       <EnrollmentStatusScreen
