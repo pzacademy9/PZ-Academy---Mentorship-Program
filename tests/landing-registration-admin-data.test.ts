@@ -4,8 +4,8 @@ import { createSupabaseMock, filterValue, memoryHandler, type Store } from "./he
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
-const jobs = vi.hoisted(() => ({ enqueueSheetStatus: vi.fn(), runJobsFor: vi.fn(), runJobsDirect: vi.fn(), runInBackground: vi.fn() }));
-vi.mock("@/lib/data/landing-jobs", () => ({ enqueueSheetStatus: jobs.enqueueSheetStatus, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
+const jobs = vi.hoisted(() => ({ enqueueSheetStatus: vi.fn(), enqueueStatusEffects: vi.fn(), runJobsFor: vi.fn(), runJobsDirect: vi.fn(), runInBackground: vi.fn() }));
+vi.mock("@/lib/data/landing-jobs", () => ({ enqueueSheetStatus: jobs.enqueueSheetStatus, enqueueStatusEffects: jobs.enqueueStatusEffects, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobs.runInBackground }));
 
 import { listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
@@ -38,6 +38,7 @@ beforeEach(() => {
   db.reset();
   for (const f of Object.values(jobs)) f.mockReset();
   jobs.enqueueSheetStatus.mockResolvedValue(true);
+  jobs.enqueueStatusEffects.mockResolvedValue(true);
   jobs.runJobsFor.mockResolvedValue(undefined);
   store = seed();
   rpcResult = { data: { ok: true, from: "pending", changed: 2 }, error: null };
@@ -242,6 +243,42 @@ describe("change", () => {
     jobs.enqueueSheetStatus.mockResolvedValue(false);
     await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
     expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
+  });
+  const paid = () => changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+  it("a Paid change enqueues sheet and status effects and runs the jobs once", async () => {
+    expect((await paid()).ok).toBe(true);
+    expect(jobs.enqueueSheetStatus).toHaveBeenCalledWith("a");
+    expect(jobs.enqueueStatusEffects).toHaveBeenCalledWith("a");
+    expect(jobs.runJobsFor).toHaveBeenCalledTimes(1);
+    expect(jobs.runJobsFor).toHaveBeenCalledWith("a");
+    expect(jobs.runJobsDirect).not.toHaveBeenCalled();
+  });
+  it("sheet enqueue failing runs the sheet job directly plus the other group via the outbox", async () => {
+    jobs.enqueueSheetStatus.mockResolvedValue(false);
+    await paid();
+    expect(jobs.runJobsDirect).toHaveBeenCalledTimes(1);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
+    expect(jobs.runJobsFor).toHaveBeenCalledTimes(1);
+  });
+  it("status-effects enqueue failing runs enrollment and email directly plus the sheet via the outbox", async () => {
+    jobs.enqueueStatusEffects.mockResolvedValue(false);
+    await paid();
+    expect(jobs.runJobsDirect).toHaveBeenCalledTimes(1);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsFor).toHaveBeenCalledTimes(1);
+  });
+  it("both enqueues failing run all three directly and never use the outbox", async () => {
+    jobs.enqueueSheetStatus.mockResolvedValue(false);
+    jobs.enqueueStatusEffects.mockResolvedValue(false);
+    await paid();
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsFor).not.toHaveBeenCalled();
+  });
+  it("an enqueue that throws still returns ok", async () => {
+    jobs.enqueueStatusEffects.mockRejectedValue(new Error("boom"));
+    expect((await paid()).ok).toBe(true);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
   });
   it("a failing sheet call does not fail the status change", async () => {
     jobs.enqueueSheetStatus.mockRejectedValue(new Error("boom"));

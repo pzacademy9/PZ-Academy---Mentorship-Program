@@ -16,8 +16,8 @@ const W20_REGISTRATION: RegistrationConfig = {
   ],
   defaultRegionKey: "PK",
   options: [
-    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: "https://chat.whatsapp.com/HKo9nNrUCsB84AXPD3QPmH" },
-    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/Bf6XZabVsORFh237IRN7Az" },
+    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: "https://chat.whatsapp.com/HKo9nNrUCsB84AXPD3QPmH", moduleIds: [] },
+    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/Bf6XZabVsORFh237IRN7Az", moduleIds: [] },
   ],
   moduleMix: { enabled: false, bundleOptionKey: "" },
   tiers: [{ key: "group", label: "Group (3+)", minSize: 3, maxSize: 50, percentOff: 20 }],

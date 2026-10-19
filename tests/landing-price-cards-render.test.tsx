@@ -20,9 +20,9 @@ function cfg(over: Partial<RegistrationConfig> = {}): RegistrationConfig {
     ],
     defaultRegionKey: "PK",
     options: [
-      { key: "full", label: "Complete course", kind: "bundle", free: false, waGroupUrl: "" },
-      { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "" },
-      { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "" },
+      { key: "full", label: "Complete course", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
     ],
     moduleMix: { enabled: true, bundleOptionKey: "full" },
     tiers: [{ key: "g3", label: "Group", minSize: 3, maxSize: 50, percentOff: 20 }],

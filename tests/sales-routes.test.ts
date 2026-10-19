@@ -39,6 +39,7 @@ describe("sales route files", () => {
         "/src/app/api/sales/contacts/route.ts",
         "/src/app/api/sales/leads/route.ts",
         "/src/app/api/sales/numbers/[id]/freeze/route.ts",
+        "/src/app/api/sales/registrations/[id]/route.ts",
         "/src/app/api/sales/templates/route.ts",
         "/src/app/api/sales/today/route.ts",
       ].sort(),

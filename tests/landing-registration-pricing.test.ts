@@ -184,7 +184,7 @@ describe("inherited property names never leak into a quote", () => {
   };
   it("an option keyed 'constructor' with no price is no_price, never NaN or a throw", () => {
     const c = ppcConfig();
-    c.options.push({ key: "constructor", label: "X", kind: "module", free: false, waGroupUrl: "" });
+    c.options.push({ key: "constructor", label: "X", kind: "module", free: false, waGroupUrl: "", moduleIds: [] });
     const r = computeQuote({ config: c, regionKey: "PK", mode: "live", optionKeys: ["constructor"], tierKey: "individual", groupSize: 1, now: DURING_PPC_EB });
     expect(r).toEqual({ ok: false, reason: "no_price" });
     expect(availableOptions(c, "PK").map((o) => o.key)).not.toContain("constructor");

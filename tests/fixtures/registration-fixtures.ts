@@ -23,9 +23,9 @@ export const ppcConfig: RegistrationConfig = {
   ],
   defaultRegionKey: "PK",
   options: [
-    { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle" },
-    { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/KLF9jSiENUE64EyZoOEH1W" },
-    { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/Lj2CBmor48lHWLXHgmSdxz" },
+    { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/IGAWff910JFIzNCw42qGle", moduleIds: [] },
+    { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/KLF9jSiENUE64EyZoOEH1W", moduleIds: [] },
+    { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "https://chat.whatsapp.com/Lj2CBmor48lHWLXHgmSdxz", moduleIds: [] },
   ],
   moduleMix: { enabled: true, bundleOptionKey: "full" },
   tiers: [
@@ -56,8 +56,8 @@ export const webinarConfig: RegistrationConfig = {
   regions: [{ key: "PK", label: "Pakistan", currency: "PKR", classTime: "7:30 PM", timezoneLabel: "Pakistan Standard Time", accountKeys: ["paypal", "easypaisa", "faysal"] }],
   defaultRegionKey: "PK",
   options: [
-    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: "https://chat.whatsapp.com/HKo9nNrUCsB84AXPD3QPmH" },
-    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/Bf6XZabVsORFh237IRN7Az" },
+    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: "https://chat.whatsapp.com/HKo9nNrUCsB84AXPD3QPmH", moduleIds: [] },
+    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: "https://chat.whatsapp.com/Bf6XZabVsORFh237IRN7Az", moduleIds: [] },
   ],
   moduleMix: { enabled: false, bundleOptionKey: "" },
   tiers: [{ key: "group3plus", label: "Group (3 or more)", minSize: 3, maxSize: 50, percentOff: 20 }],

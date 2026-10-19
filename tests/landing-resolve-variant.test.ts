@@ -50,10 +50,10 @@ function build(): LandingContent {
     ],
     defaultRegionKey: "PK",
     options: [
-      { key: "bundle", label: "Bundle", kind: "bundle", free: false, waGroupUrl: "" },
-      { key: "m1", label: "M1", kind: "module", free: false, waGroupUrl: "" },
-      { key: "m2", label: "M2", kind: "module", free: false, waGroupUrl: "" },
-      { key: "pkonly", label: "PK only", kind: "bundle", free: false, waGroupUrl: "" },
+      { key: "bundle", label: "Bundle", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m1", label: "M1", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m2", label: "M2", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "pkonly", label: "PK only", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] },
     ],
     moduleMix: { enabled: true, bundleOptionKey: "bundle" },
     tiers: [

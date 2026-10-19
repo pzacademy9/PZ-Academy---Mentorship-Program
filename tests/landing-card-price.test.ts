@@ -20,11 +20,11 @@ function cfg(over: Partial<RegistrationConfig> = {}): RegistrationConfig {
     ],
     defaultRegionKey: "PK",
     options: [
-      { key: "full", label: "Complete course", kind: "bundle", free: false, waGroupUrl: "" },
-      { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "" },
-      { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "" },
-      { key: "m3", label: "Module 3", kind: "module", free: false, waGroupUrl: "" },
-      { key: "m4", label: "Module 4", kind: "module", free: false, waGroupUrl: "" },
+      { key: "full", label: "Complete course", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m3", label: "Module 3", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+      { key: "m4", label: "Module 4", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
     ],
     moduleMix: { enabled: true, bundleOptionKey: "full" },
     tiers: [{ key: "g3", label: "Group", minSize: 3, maxSize: 50, percentOff: 20 }],
@@ -110,7 +110,7 @@ describe("cardPrice", () => {
 
   it("(g) free option", () => {
     const c = cfg();
-    c.options.push({ key: "wk", label: "Workshop", kind: "bundle", free: true, waGroupUrl: "" });
+    c.options.push({ key: "wk", label: "Workshop", kind: "bundle", free: true, waGroupUrl: "", moduleIds: [] });
     c.prices.wk = { PK: { amount: 0 } };
     expect(cardPrice(c, "wk", "PK", before)).toMatchObject({ current: "Free", strike: null, recorded: null, groupLines: [] });
   });

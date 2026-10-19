@@ -304,7 +304,7 @@ describe("modules", () => {
 describe("module readiness", () => {
   const ready = () => {
     const c = emptyContent("course");
-    c.registration = { ...c.registration, regions: [{ key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] }], options: [{ key: "mod-2", label: "Module 2", kind: "module", free: false, waGroupUrl: "" }], prices: { "mod-2": { PK: { amount: 100 } } } };
+    c.registration = { ...c.registration, regions: [{ key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] }], options: [{ key: "mod-2", label: "Module 2", kind: "module", free: false, waGroupUrl: "", moduleIds: [] }], prices: { "mod-2": { PK: { amount: 100 } } } };
     return c;
   };
   const msgs = (c: ReturnType<typeof emptyContent>) => computeReadiness(c, { title: "T", slug: "a-page" }).problems.map((p) => p.message);
@@ -345,8 +345,8 @@ describe("price card readiness", () => {
     c.registration = {
       ...c.registration, enabled, modes: ["live"], regions: [PK, PH], defaultRegionKey: "PK",
       options: [
-        { key: "full", label: "Complete Course", kind: "bundle", free: false, waGroupUrl: "" },
-        { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "" },
+        { key: "full", label: "Complete Course", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] },
+        { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
       ],
       prices: { full: { PK: { amount: 4000 }, PH: { amount: 4000 } }, m2: { PK: { amount: 1000 } } },
     };

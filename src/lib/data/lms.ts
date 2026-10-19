@@ -123,7 +123,8 @@ export async function getEnrolledCourses(userId: string): Promise<EnrolledCourse
     .from("enrollments")
     .select("course_id, courses(id, slug, title, thumbnail_url, description)")
     .eq("student_id", userId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .eq("portal_open", true);
 
   if (!enrollments?.length) return [];
 
@@ -225,12 +226,23 @@ export async function getPublishedCourses(type?: CourseType): Promise<CourseCard
   }));
 }
 
+/**
+ * May this enrollment open the course portal? Active AND portal open.
+ * A closed portal is treated like "not enrolled" by the screens (the database
+ * already blocks lessons/quizzes for it via can_access_module).
+ */
+export function canOpenPortal(
+  e: { status: string; portal_open: boolean } | null | undefined,
+): boolean {
+  return !!e && e.status === "active" && e.portal_open;
+}
+
 /** The caller's enrollment for a course (or null). */
 export async function getEnrollment(courseId: string, userId: string) {
   const supabase = await createServerSupabase();
   const { data } = await supabase
     .from("enrollments")
-    .select("id, status, payment_shortfall_pkr")
+    .select("id, status, payment_shortfall_pkr, portal_open")
     .eq("course_id", courseId)
     .eq("student_id", userId)
     .maybeSingle();

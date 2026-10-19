@@ -47,7 +47,7 @@ describe("normalizeRegistration", () => {
     expect(Object.prototype.hasOwnProperty.call(r.prices, "constructor")).toBe(false);
     expect(({} as Record<string, unknown>).PK).toBeUndefined();
     expect(r.tiers[0].percentOff).toBe(90);
-    expect(r.options[0]).toEqual({ key: "full", label: "Full", kind: "bundle", free: false, waGroupUrl: "" });
+    expect(r.options[0]).toEqual({ key: "full", label: "Full", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] });
     expect(r.pixelId).toBe("");
   });
   it("keeps an explicitly empty mode list so readiness can ask for one", () => {
@@ -230,4 +230,32 @@ describe("page content carries the registration settings", () => {
     expect(c.registration.eventLabel).toBe("");
   });
   it("raises the content size cap to 400 KB", () => expect(MAX_CONTENT_BYTES).toBe(400_000));
+});
+
+describe("option moduleIds", () => {
+  const U1 = "11111111-1111-4111-8111-111111111111";
+  const U2 = "22222222-2222-4222-8222-222222222222";
+  it("an old saved option without moduleIds loads as []", () => {
+    const r = normalizeRegistration({ options: [{ key: "m1", label: "M1", kind: "module", free: false, waGroupUrl: "", moduleIds: [] }] });
+    expect(r.options[0].moduleIds).toEqual([]);
+  });
+  it("keeps uuid ids, drops junk and caps at 40", () => {
+    const many = Array.from({ length: 50 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
+    const r = normalizeRegistration({ options: [{ key: "m1", label: "M1", kind: "module", free: false, waGroupUrl: "", moduleIds: [U1, "nope", 5, U2] }, { key: "m2", label: "M2", kind: "module", free: false, waGroupUrl: "", moduleIds: many }] });
+    expect(r.options[0].moduleIds).toEqual([U1, U2]);
+    expect(r.options[1].moduleIds).toHaveLength(40);
+  });
+  it("the schema defaults a missing moduleIds to [] and keeps given ids", () => {
+    const c = JSON.parse(JSON.stringify(ppcConfig()));
+    delete c.options[0].moduleIds;
+    c.options[1].moduleIds = [U1];
+    const parsed = registrationConfigSchema.safeParse(c);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.options[0].moduleIds).toEqual([]);
+      expect(parsed.data.options[1].moduleIds).toEqual([U1]);
+    }
+    c.options[1].moduleIds = ["not-a-uuid"];
+    expect(registrationConfigSchema.safeParse(c).success).toBe(false);
+  });
 });

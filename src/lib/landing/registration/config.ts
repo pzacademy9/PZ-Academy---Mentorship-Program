@@ -51,7 +51,7 @@ const money = z.number().min(0).max(MAX_MONEY);
 const amountMap = z.record(z.string().max(32), money);
 const text = (max: number) => z.string().max(max);
 
-export const registrationConfigSchema: z.ZodType<RegistrationConfig> = z.object({
+export const registrationConfigSchema: z.ZodType<RegistrationConfig, unknown> = z.object({
   enabled: z.boolean(),
   modes: z.array(z.enum(MODES)).max(2),
   recordedPercentOfRegular: z.number().int().min(1).max(100),
@@ -70,6 +70,7 @@ export const registrationConfigSchema: z.ZodType<RegistrationConfig> = z.object(
     kind: z.enum(["bundle", "module"]),
     free: z.boolean(),
     waGroupUrl: text(FIELD_MAX.waUrl).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://"),
+    moduleIds: z.array(z.string().uuid()).max(40).default([]),
   })).max(12),
   moduleMix: z.object({ enabled: z.boolean(), bundleOptionKey: text(32) }),
   tiers: z.array(z.object({
@@ -111,6 +112,9 @@ const num = (v: unknown, min: number, max: number, fallback: number) =>
 const int = (v: unknown, min: number, max: number, fallback: number) => Math.round(num(v, min, max, fallback));
 const strList = (v: unknown, maxItems: number, maxLen: number): string[] =>
   Array.isArray(v) ? v.slice(0, SCAN_CAP).filter((x): x is string => typeof x === "string").slice(0, maxItems).map((x) => x.slice(0, maxLen)) : [];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuidList = (v: unknown, maxItems: number): string[] =>
+  Array.isArray(v) ? v.slice(0, SCAN_CAP).filter((x): x is string => typeof x === "string" && UUID_RE.test(x)).slice(0, maxItems) : [];
 function list<T>(v: unknown, max: number, f: (x: Record<string, unknown>) => T | null): T[] {
   if (!Array.isArray(v)) return [];
   return v.slice(0, SCAN_CAP).filter(isRecord).map(f).filter((x): x is T => x !== null).slice(0, max);
@@ -170,6 +174,7 @@ export function normalizeRegistration(raw: unknown): RegistrationConfig {
           kind: x.kind === "module" ? ("module" as const) : ("bundle" as const),
           free: x.free === true,
           waGroupUrl: typeof x.waGroupUrl === "string" && (x.waGroupUrl === "" || isSafeUrl(x.waGroupUrl)) ? x.waGroupUrl.slice(0, 200) : "",
+          moduleIds: uuidList(x.moduleIds, 40),
         }
       : null)),
     moduleMix: { enabled: mm.enabled === true, bundleOptionKey: str(mm.bundleOptionKey, 32) },

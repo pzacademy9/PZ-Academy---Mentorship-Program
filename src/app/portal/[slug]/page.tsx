@@ -21,7 +21,8 @@ export default async function PortalEntryPage({ params }: { params: { slug: stri
   const enrollment = await getEnrollment(course.id, user.id);
 
   // Not enrolled → upsell (Phase 4 will have a real /courses/[slug] detail page)
-  if (!enrollment) redirect("/courses");
+  // Active but portal closed: same screen as not enrolled.
+  if (!enrollment || (enrollment.status === "active" && !enrollment.portal_open)) redirect("/courses");
 
   // Allowlist, not a denylist: 'active' is the ONLY status that gets content.
   // Anything else renders its own status screen. Listing the blocked statuses

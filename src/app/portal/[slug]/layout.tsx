@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCourseBySlug, getEnrollment, getCourseProgress } from "@/lib/data/lms";
+import { getCourseBySlug, getEnrollment, getCourseProgress, canOpenPortal } from "@/lib/data/lms";
 import { getNotificationSummary } from "@/lib/data/notifications";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -22,7 +22,7 @@ export default async function PortalLayout({
 
   const course = await getCourseBySlug(params.slug);
   const enrollment = course ? await getEnrollment(course.id, user.id) : null;
-  const showProgress = course && enrollment?.status === "active";
+  const showProgress = course && canOpenPortal(enrollment);
   const progress = showProgress ? await getCourseProgress(course.id, user.id) : null;
   // The portal has its own header, so the bell has to be mounted here too —
   // otherwise a student deep in a lesson never sees an update.

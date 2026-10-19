@@ -17,11 +17,11 @@ export const PPC_CONFIG: RegistrationConfig = {
   ],
   defaultRegionKey: "PK",
   options: [
-    { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: `${WA}IGAWff910JFIzNCw42qGle` },
-    { key: "m1", label: "Clinical Pharmacology Workshop", kind: "module", free: false, waGroupUrl: `${WA}KLF9jSiENUE64EyZoOEH1W` },
-    { key: "m2", label: "Acute & Chronic Therapeutics Workshop", kind: "module", free: false, waGroupUrl: `${WA}Lj2CBmor48lHWLXHgmSdxz` },
-    { key: "m3", label: "Critical Care & Emergency Workshop", kind: "module", free: false, waGroupUrl: `${WA}Jjpym0jOL9hFgFNLz1JEQb` },
-    { key: "m4", label: "IV Therapy & Safety Workshop", kind: "module", free: false, waGroupUrl: `${WA}GOERJJxSCjeKl5eHkevmbk` },
+    { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: `${WA}IGAWff910JFIzNCw42qGle`, moduleIds: [] },
+    { key: "m1", label: "Clinical Pharmacology Workshop", kind: "module", free: false, waGroupUrl: `${WA}KLF9jSiENUE64EyZoOEH1W`, moduleIds: [] },
+    { key: "m2", label: "Acute & Chronic Therapeutics Workshop", kind: "module", free: false, waGroupUrl: `${WA}Lj2CBmor48lHWLXHgmSdxz`, moduleIds: [] },
+    { key: "m3", label: "Critical Care & Emergency Workshop", kind: "module", free: false, waGroupUrl: `${WA}Jjpym0jOL9hFgFNLz1JEQb`, moduleIds: [] },
+    { key: "m4", label: "IV Therapy & Safety Workshop", kind: "module", free: false, waGroupUrl: `${WA}GOERJJxSCjeKl5eHkevmbk`, moduleIds: [] },
   ],
   moduleMix: { enabled: true, bundleOptionKey: "full" },
   tiers: [
@@ -61,8 +61,8 @@ export const W20_CONFIG: RegistrationConfig = {
   ],
   defaultRegionKey: "PK",
   options: [
-    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: `${WA}HKo9nNrUCsB84AXPD3QPmH` },
-    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: `${WA}Bf6XZabVsORFh237IRN7Az` },
+    { key: "free", label: "Free Access", kind: "bundle", free: true, waGroupUrl: `${WA}HKo9nNrUCsB84AXPD3QPmH`, moduleIds: [] },
+    { key: "pro", label: "Pro Access", kind: "bundle", free: false, waGroupUrl: `${WA}Bf6XZabVsORFh237IRN7Az`, moduleIds: [] },
   ],
   moduleMix: { enabled: false, bundleOptionKey: "" },
   tiers: [{ key: "group", label: "Group (3+)", minSize: 3, maxSize: 50, percentOff: 20 }],
