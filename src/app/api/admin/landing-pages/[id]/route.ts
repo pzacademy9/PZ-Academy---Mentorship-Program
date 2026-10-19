@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { saveDraft } from "@/lib/data/landing-pages";
+import { getPageCourseModuleIds } from "@/lib/data/landing-course-modules";
 import { normalizeContent } from "@/lib/landing/content";
 import { saveDraftSchema, MAX_CONTENT_BYTES, isPageId } from "@/lib/validations/landing";
 
@@ -25,7 +26,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const result = await saveDraft(id, normalizeContent(parsed.data.content), parsed.data.baseRevision);
+  const content = normalizeContent(parsed.data.content);
+  // Module links must point at modules of this page's course; only look them up when some are set.
+  const linked = content.registration.options.flatMap((o) => o.moduleIds);
+  if (linked.length > 0) {
+    let courseModules: string[] | null | undefined;
+    try { courseModules = await getPageCourseModuleIds(id); } catch { return NextResponse.json({ error: "Could not save changes" }, { status: 500 }); }
+    if (courseModules === undefined) return NextResponse.json({ error: "Page not found" }, { status: 404 });
+    const allowed = new Set(courseModules ?? []);
+    if (linked.some((m) => !allowed.has(m))) {
+      return NextResponse.json({ error: "Pick modules from this page's course." }, { status: 400 });
+    }
+  }
+
+  const result = await saveDraft(id, content, parsed.data.baseRevision);
   if (!result.ok) {
     if (result.reason === "conflict") {
       return NextResponse.json(
