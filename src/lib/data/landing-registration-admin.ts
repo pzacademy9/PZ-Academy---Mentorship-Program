@@ -7,6 +7,8 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
+import { enqueueSheetStatus, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
+import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
@@ -294,6 +296,15 @@ export async function changeRegistrationStatus(p: {
     if (out.reason === "stale") return { ok: false, reason: "stale" };
     if (out.reason === "not-found") return { ok: false, reason: "not-found" };
     return { ok: false, reason: "db-error" };
+  }
+
+  // Push the new status to the event sheet. A sheet problem never fails the change: the job row is
+  // the durable record and the cron drain retries it.
+  try {
+    if (await enqueueSheetStatus(rec.id)) runInBackground(runJobsFor(rec.id));
+    else runInBackground(runJobsDirect(rec.id, ["sheet_status"]));
+  } catch {
+    console.error("[landing-registration-admin] sheet status push crashed");
   }
   return { ok: true, id: rec.id, status: p.to, rowsChanged: Number(out.changed ?? 0) };
 }

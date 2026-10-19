@@ -4,7 +4,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getRegistrationBundle, markEmailStatus, type RegistrationBundle, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { getRegistrablePageById, type RegistrablePage } from "@/lib/data/landing-public";
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
-import { appendRegistrationRows } from "@/lib/gas/event-sheet-client";
+import { appendRegistrationRows, applyRegistrationStatus } from "@/lib/gas/event-sheet-client";
 import { toSheetRow, type SheetRegistration } from "./sheet-row";
 import { selectWaGroups } from "./wa-groups";
 import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
@@ -128,6 +128,22 @@ async function sheetAppend(registrationId: string): Promise<void> {
   if (!res.ok) throw new Error(res.message ?? "Sheet append failed");
 }
 
+/** Pushes the current status to the sheet rows of the whole bundle. Skipped for tests and pages without a sheet. */
+async function sheetStatus(registrationId: string): Promise<void> {
+  const loaded = await load(registrationId);
+  if (!loaded) return;
+  const { bundle, page } = loaded;
+  if (bundle.lead.isTest || !page.sheetId) return;
+  const rows = [bundle.lead, ...bundle.members].map((r) => ({
+    refId: bundle.lead.refId ?? "",
+    email: r.email,
+    status: r.status,
+    amountReceived: r.amountReceived,
+  }));
+  const res = await applyRegistrationStatus(page.sheetId, rows);
+  if (!res.ok) throw new Error("Sheet status update failed");
+}
+
 async function emailReceived(registrationId: string): Promise<void> {
   const loaded = await load(registrationId);
   if (!loaded) return;
@@ -213,6 +229,7 @@ export async function notifyVoucherResubmitted(registrationId: string): Promise<
 
 export const JOB_HANDLERS: Record<JobType, (registrationId: string) => Promise<void>> = {
   sheet_append: sheetAppend,
+  sheet_status: sheetStatus,
   email_received: emailReceived,
   email_members: emailMembers,
   email_admin: emailAdmin,

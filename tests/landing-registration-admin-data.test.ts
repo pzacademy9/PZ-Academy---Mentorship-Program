@@ -4,6 +4,9 @@ import { createSupabaseMock, filterValue, memoryHandler, type Store } from "./he
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
+const jobs = vi.hoisted(() => ({ enqueueSheetStatus: vi.fn(), runJobsFor: vi.fn(), runJobsDirect: vi.fn(), runInBackground: vi.fn() }));
+vi.mock("@/lib/data/landing-jobs", () => ({ enqueueSheetStatus: jobs.enqueueSheetStatus, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
+vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobs.runInBackground }));
 
 import { listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
@@ -33,6 +36,9 @@ let store: Store;
 let rpcResult: { data: unknown; error: unknown };
 beforeEach(() => {
   db.reset();
+  for (const f of Object.values(jobs)) f.mockReset();
+  jobs.enqueueSheetStatus.mockResolvedValue(true);
+  jobs.runJobsFor.mockResolvedValue(undefined);
   store = seed();
   rpcResult = { data: { ok: true, from: "pending", changed: 2 }, error: null };
   db.state.handler = memoryHandler(store, () => rpcResult);
@@ -182,5 +188,31 @@ describe("change", () => {
   it("change: the read is scoped to the agent's own rows", async () => {
     await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: agent("ag1") });
     expect(filterValue(regReads()[0], "eq", "agent_id")).toBe("ag1");
+  });
+
+  it("change calls enqueueSheetStatus once after success and not on failure", async () => {
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(jobs.enqueueSheetStatus).toHaveBeenCalledTimes(1);
+    expect(jobs.enqueueSheetStatus).toHaveBeenCalledWith("a");
+    expect(jobs.runInBackground).toHaveBeenCalledTimes(1);
+    jobs.enqueueSheetStatus.mockClear();
+    rpcResult = { data: { ok: false, reason: "stale" }, error: null };
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    rpcResult = { data: null, error: { code: "XX000" } };
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(jobs.enqueueSheetStatus).not.toHaveBeenCalled();
+  });
+  it("change falls back to running the job directly when the outbox is unavailable", async () => {
+    jobs.enqueueSheetStatus.mockResolvedValue(false);
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
+  });
+  it("a failing sheet call does not fail the status change", async () => {
+    jobs.enqueueSheetStatus.mockRejectedValue(new Error("boom"));
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r.ok).toBe(true);
+    jobs.enqueueSheetStatus.mockResolvedValue(true);
+    jobs.runInBackground.mockImplementation(() => { throw new Error("bg"); });
+    expect((await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).ok).toBe(true);
   });
 });

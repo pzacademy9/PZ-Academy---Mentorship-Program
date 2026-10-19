@@ -10,9 +10,9 @@ import { JOB_HANDLERS } from "@/lib/landing/registration/job-handlers";
  * and a crashed worker's job is picked up again after the lease.
  */
 
-export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin";
+export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status";
 // Run order: the confirmation email goes first so a slow Apps Script call never delays it.
-export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "email_members", "email_admin"];
+export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_status", "email_members", "email_admin"];
 export const MAX_ATTEMPTS = 5;
 export const BACKOFF_MINUTES = [1, 5, 15, 60] as const;
 const LEASE_MINUTES = 10;
@@ -47,6 +47,29 @@ export async function enqueueJobs(registrationId: string, types: JobType[]): Pro
     return true;
   } catch {
     console.error("[landing-jobs] enqueue crashed");
+    return false;
+  }
+}
+
+/**
+ * One coalesced sheet_status job per registration: upsert on (registration_id, type) and put it back to
+ * pending with a fresh budget, so the handler always sends the current values. Never throws.
+ */
+export async function enqueueSheetStatus(registrationId: string): Promise<boolean> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .upsert(
+        { registration_id: registrationId, type: "sheet_status", status: "pending", attempts: 0, next_run_at: new Date().toISOString(), last_error: null },
+        { onConflict: "registration_id,type" },
+      );
+    if (error) {
+      console.error("[landing-jobs] enqueue sheet_status failed:", error.code);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[landing-jobs] enqueue sheet_status crashed");
     return false;
   }
 }
