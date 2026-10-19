@@ -58,7 +58,7 @@ export async function appendRegistrationRows(sheetId: string, rows: string[][]):
   return r.ok ? { ok: true } : { ok: false, message: r.message };
 }
 
-export interface StatusSheetRow { refId: string; email: string; status: RegistrationStatus; amountReceived: number | null }
+export interface StatusSheetRow { refId: string; email: string; status: string /* sheet label, e.g. "Paid" */; amountReceived: number | null }
 
 /** Writes the current payment status (and amount received) onto existing sheet rows, matched on Ref ID + email. */
 export async function applyRegistrationStatus(sheetId: string, rows: StatusSheetRow[]): Promise<{ ok: boolean }> {

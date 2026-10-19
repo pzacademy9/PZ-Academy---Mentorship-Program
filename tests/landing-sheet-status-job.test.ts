@@ -16,6 +16,8 @@ vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.l
 vi.mock("@/lib/gas/event-sheet-client", () => ({ appendRegistrationRows: m.appendRegistrationRows, applyRegistrationStatus: m.applyRegistrationStatus }));
 vi.mock("@/lib/brevo", () => ({ sendTransactionalEmail: m.sendTransactionalEmail }));
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { JOB_HANDLERS } from "@/lib/landing/registration/job-handlers";
 import { enqueueSheetStatus, JOB_TYPES } from "@/lib/data/landing-jobs";
 
@@ -69,10 +71,23 @@ describe("sheet_status handler", () => {
     m.getRegistrationBundle.mockResolvedValue(group());
     await JOB_HANDLERS.sheet_status("reg-1");
     expect(m.applyRegistrationStatus).toHaveBeenCalledWith("sheet-1", [
-      { refId: "PZA-PPC-001", email: "ayesha@example.com", status: "paid", amountReceived: 11500 },
-      { refId: "PZA-PPC-001", email: "bilal@example.com", status: "paid", amountReceived: null },
-      { refId: "PZA-PPC-001", email: "sana@example.com", status: "paid", amountReceived: null },
+      { refId: "PZA-PPC-001", email: "ayesha@example.com", status: "Paid", amountReceived: 11500 },
+      { refId: "PZA-PPC-001", email: "bilal@example.com", status: "Paid", amountReceived: null },
+      { refId: "PZA-PPC-001", email: "sana@example.com", status: "Paid", amountReceived: null },
     ]);
+  });
+  it("contract: every status the handler can send is in the Apps Script's own list", async () => {
+    const gs = readFileSync(join(process.cwd(), "gas", "sheets-sync", "Code.gs"), "utf8");
+    const list = /const LANDING_STATUS_VALUES = (\[[^\]]*\]);/.exec(gs);
+    expect(list).not.toBeNull();
+    const allowed: string[] = JSON.parse(list![1]);
+    for (const status of ["pending", "paid", "underpaid", "reserved", "free"] as const) {
+      m.applyRegistrationStatus.mockClear();
+      m.getRegistrationBundle.mockResolvedValue({ lead: rec({ status }), members: [] });
+      await JOB_HANDLERS.sheet_status("reg-1");
+      const rows = m.applyRegistrationStatus.mock.calls[0][1] as { status: string }[];
+      for (const r of rows) expect(allowed).toContain(r.status);
+    }
   });
   it("handler skips test registrations and pages without a sheet", async () => {
     m.getRegistrationBundle.mockResolvedValue({ lead: rec({ isTest: true }), members: [] });

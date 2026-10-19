@@ -1,13 +1,16 @@
 // tests/gas-apply-registration-status.test.ts
 // Runs the real Apps Script source in a vm sandbox with a fake SpreadsheetApp.
 import { describe, it, expect, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
 
 const root = process.cwd();
 const code = readFileSync(join(root, "gas", "sheets-sync", "Code.gs"), "utf8");
-const mirror = readFileSync(join(root, "gas", "clasp-project", "Sheet Sync.js"), "utf8");
+const mirrorPath = join(root, "gas", "clasp-project", "Sheet Sync.js");
+// The clasp mirror is gitignored: absent on a fresh checkout.
+const hasMirror = existsSync(mirrorPath);
+const mirror = hasMirror ? readFileSync(mirrorPath, "utf8") : "";
 
 const COLS = 24;
 type Cell = string | number;
@@ -116,7 +119,18 @@ describe("applyRegistrationStatus", () => {
     expect(writes).toHaveLength(0);
   });
 
-  it("the two script files are identical", () => {
+  it("rejects an invalid status label and writes nothing", () => {
+    const { post, writes } = load(data);
+    const r = post({ token: "good", action: "applyRegistrationStatus", sheetId: "s", rows: [
+      { refId: "PPC-1", email: "a@x.com", status: "Paid", amountReceived: 1 },
+      { refId: "PPC-1", email: "b@x.com", status: "paid", amountReceived: 1 },
+    ] });
+    expect(r).toMatchObject({ status: "error" });
+    expect(writes).toHaveLength(0);
+    expect(data[1][15]).toBe("Pending");
+  });
+
+  it.skipIf(!hasMirror)("the two script files are identical", () => {
     expect(mirror).toBe(code);
   });
 });

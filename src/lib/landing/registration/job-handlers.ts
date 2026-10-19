@@ -5,7 +5,7 @@ import { getRegistrationBundle, markEmailStatus, type RegistrationBundle, type R
 import { getRegistrablePageById, type RegistrablePage } from "@/lib/data/landing-public";
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
 import { appendRegistrationRows, applyRegistrationStatus } from "@/lib/gas/event-sheet-client";
-import { toSheetRow, type SheetRegistration } from "./sheet-row";
+import { STATUS_LABELS, toSheetRow, type SheetRegistration } from "./sheet-row";
 import { selectWaGroups } from "./wa-groups";
 import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
 import {
@@ -137,7 +137,8 @@ async function sheetStatus(registrationId: string): Promise<void> {
   const rows = [bundle.lead, ...bundle.members].map((r) => ({
     refId: bundle.lead.refId ?? "",
     email: r.email,
-    status: r.status,
+    // The script only knows the sheet words ("Paid"), not the database words ("paid").
+    status: STATUS_LABELS[r.status],
     amountReceived: r.amountReceived,
   }));
   const res = await applyRegistrationStatus(page.sheetId, rows);
