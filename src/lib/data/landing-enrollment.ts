@@ -227,20 +227,19 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
     else toAdd = d.moduleIds.filter((m) => !have.includes(m));
   }
 
-  // Modules whose first lesson must be unlocked by hand (active + open, no DB trigger for module rows).
+  // Modules whose first lesson must be unlocked by hand: the DB trigger only fires when an enrollment
+  // becomes active/open, never when module rows are added or removed. A not-active (or still closed)
+  // enrollment relies on that trigger alone. Unlocking happens BEFORE the row changes, so a failure
+  // recomputes the same set on retry; an early unlocked row is harmless (the module gate needs coverage).
   let unlockModules: string[] = [];
-  if (portalOpen) {
-    if (widenedToWhole) {
-      const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
-      check("modules read", error);
-      unlockModules = (all ?? []).map((m) => m.id).filter((m) => !have.includes(m));
-    } else if (d.moduleIds.length > 0 && (!wasActive || have.length > 0)) {
-      unlockModules = Array.from(new Set(wasActive ? [...have, ...toAdd] : d.moduleIds));
-    }
+  if (widenedToWhole && portalOpen) {
+    const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
+    check("modules read", error);
+    unlockModules = (all ?? []).map((m) => m.id).filter((m) => !have.includes(m));
+  } else if (wasActive && existing.portal_open) {
+    unlockModules = toAdd;
   }
-  // Widening an open enrollment to the whole course: unlock BEFORE the rows go, so a failure retries cleanly.
-  const unlockFirst = widenedToWhole && wasActive && existing.portal_open;
-  if (unlockFirst) await unlockFirstLessons(studentId, unlockModules);
+  await unlockFirstLessons(studentId, unlockModules);
 
   if (toDelete.length > 0) {
     const { error } = await admin.from("enrollment_modules").delete().eq("enrollment_id", existing.id).in("module_id", toDelete);
@@ -256,14 +255,12 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
   if (portalOpen !== existing.portal_open) patch.portal_open = portalOpen;
   if (d.accessLevel === "live" && existing.access_level === "recorded") patch.access_level = "live";
   if (!wasActive && existing.access_level === null) patch.access_level = d.accessLevel;
-  // Adopt the enrollment only when this registration is what activates it, so a later reversal
-  // can never close an enrollment that was already active.
-  if (!wasActive && existing.landing_registration_id === null) patch.landing_registration_id = registration.id;
+  // The registration that activates a non-active enrollment becomes its owner (replacing any stale
+  // owner); an already-active enrollment is never adopted, so a later reversal cannot close it.
+  if (!wasActive && existing.landing_registration_id !== registration.id) patch.landing_registration_id = registration.id;
   if (Object.keys(patch).length > 0) {
     const { error } = await admin.from("enrollments").update(patch).eq("id", existing.id);
     check("enrollments update", error);
   }
-  if (!unlockFirst) await unlockFirstLessons(studentId, unlockModules);
-
   return toDelete.length > 0 || toAdd.length > 0 || Object.keys(patch).length > 0 ? "granted" : "no-change";
 }

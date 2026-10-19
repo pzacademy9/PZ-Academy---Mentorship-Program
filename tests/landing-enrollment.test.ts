@@ -223,7 +223,7 @@ describe("syncEnrollmentForRegistration", () => {
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
     expect(s.enrollment_modules.map((r) => r.module_id).sort()).toEqual([M1, M2, M3]);
     const byLesson = Object.fromEntries(s.lesson_progress.map((p) => [p.lesson_id, p.status]));
-    expect(byLesson).toEqual({ l1a: "unlocked", l2a: "completed", l3a: "unlocked" });
+    expect(byLesson).toEqual({ l2a: "completed", l3a: "unlocked" }); // only the newly added M3 (M2 kept completed)
   });
   it("(b) a locked first lesson is updated to unlocked", async () => {
     setPage([{ key: "opt", moduleIds: [M1, M2] }]);
@@ -294,18 +294,65 @@ describe("syncEnrollmentForRegistration", () => {
     const byLesson = Object.fromEntries(s.lesson_progress.map((p) => [p.lesson_id, p.status]));
     expect(byLesson).toEqual({ l1a: "unlocked", l2a: "completed", l3a: "unlocked" });
   });
-  it("I-3: a retry whose rows already exist still unlocks the first lessons (end-state driven), without downgrading", async () => {
+  it("N-1: re-sync of an active+open module-limited enrollment with all rows present hand-unlocks nothing", async () => {
     setPage([{ key: "opt", moduleIds: [M1, M2] }]);
     const s = world({
       enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "reg-1" })],
       em: [{ enrollment_id: "enr-1", module_id: M1 }, { enrollment_id: "enr-1", module_id: M2 }],
-      progress: [{ student_id: STUDENT, lesson_id: "l1a", status: "completed" }],
+      progress: [{ student_id: STUDENT, lesson_id: "l1a", status: "unlocked" }],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(s.lesson_progress).toEqual([expect.objectContaining({ lesson_id: "l1a", status: "unlocked" })]);
+    expect(writes("lesson_progress")).toHaveLength(0);
+  });
+  it("N-1: a fresh or retried module grant leaves lesson unlocking to the DB trigger", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M2] }]);
+    const s = world({ enrollments: [enr({ status: "pending" })] });
+    await syncEnrollmentForRegistration("reg-1");
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.lesson_progress).toHaveLength(0);
+  });
+  it("N-1: adding a module to an active+open enrollment unlocks only that module's first lesson, before the row insert", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M3] }]);
+    const s = world({
+      enrollments: [enr({ status: "active", portal_open: true, landing_registration_id: "reg-1" })],
+      em: [{ enrollment_id: "enr-1", module_id: M1 }],
     });
     await syncEnrollmentForRegistration("reg-1");
-    const byLesson = Object.fromEntries(s.lesson_progress.map((p) => [p.lesson_id, p.status]));
-    expect(byLesson).toEqual({ l1a: "completed", l2a: "unlocked" });
-    const up = db.state.ops.find((o) => o.table === "lesson_progress" && o.op === "upsert");
-    expect(up?.upsertOptions).toMatchObject({ onConflict: "student_id,lesson_id", ignoreDuplicates: true });
+    expect(s.lesson_progress.map((p) => p.lesson_id)).toEqual(["l3a"]);
+    const order = allWrites().map((o) => `${o.table}:${o.op}`);
+    expect(order.indexOf("lesson_progress:upsert")).toBeLessThan(order.indexOf("enrollment_modules:insert"));
+  });
+  it("N-2: active+closed enrollment widened to whole course while opening: failure after the delete still leaves the unlocks done, and the retry completes", async () => {
+    setPage();
+    const s = world({
+      enrollments: [enr({ status: "active", portal_open: false, landing_registration_id: "x" })],
+      em: [{ enrollment_id: "enr-1", module_id: M2 }],
+    });
+    const inner = db.state.handler;
+    let failed = false;
+    db.state.handler = (op) => {
+      if (!failed && op.table === "enrollments" && op.op === "update") { failed = true; return { data: null, error: { message: "patchboom" } }; }
+      return inner(op);
+    };
+    await expect(syncEnrollmentForRegistration("reg-1")).rejects.toThrow(/patchboom/);
+    expect(s.enrollment_modules).toHaveLength(0);
+    expect(s.lesson_progress.map((p) => p.lesson_id).sort()).toEqual(["l1a", "l3a"]);
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true });
+    expect(s.lesson_progress.map((p) => p.lesson_id).sort()).toEqual(["l1a", "l3a"]);
+  });
+  it("N-3: a stale owner is replaced by the registration that activates, and reverting it then closes the enrollment", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ id: "reg-a", status: "pending" }), reg({ student_id: STUDENT })],
+      enrollments: [enr({ status: "pending", portal_open: true, landing_registration_id: "reg-a" })],
+    });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0]).toMatchObject({ status: "active", landing_registration_id: "reg-1" });
+    s.landing_registrations.find((r) => r.id === "reg-1")!.status = "pending";
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("reverted");
+    expect(s.enrollments[0]).toMatchObject({ status: "pending", portal_open: false });
   });
   it("M-2: a not-active enrollment with null access_level takes the registration's", async () => {
     setPage(); const s = world({ enrollments: [enr({ status: "pending", access_level: null })] });
