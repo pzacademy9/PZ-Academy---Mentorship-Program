@@ -33,6 +33,17 @@ it("returns the documented results and writes one event per changed row", () => 
   expect(sql).toMatch(/insert into public\.landing_status_events/i);
 });
 
+it("rejects free rows and same-status requests inside the function", () => {
+  expect(sql).toContain("'free-row'");
+  expect(sql).toContain("'already-in-status'");
+  expect(sql).toMatch(/v_from = 'free'/i);
+  expect(sql).toMatch(/v_from = p_to_status/i);
+});
+
+it("only touches status columns on rows whose status actually changes", () => {
+  expect(sql).toMatch(/where id = r\.id\s+and status <> p_to_status/i);
+});
+
 it("types carry changed_by and the function", () => {
   const ev = types.slice(types.indexOf("      landing_status_events: {"), types.indexOf("      landing_media: {"));
   expect((ev.match(/changed_by\??: string/g) ?? []).length).toBe(3);

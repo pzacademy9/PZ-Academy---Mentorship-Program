@@ -86,6 +86,20 @@ describe("list", () => {
     expect(expr).toContain('"%50\\\\%\\\\_a,b\\\\\\\\c%"');
     expect(expr.replace(/"(?:[^"\\]|\\.)*"/g, '""').split(",")).toHaveLength(3);
   });
+  it("search escapes * so PostgREST cannot turn it into a wildcard", async () => {
+    await listRegistrations({ kind: "all" }, { q: "a*b" });
+    const expr = String(filterValue(regReads()[0], "or", "or"));
+    expect(expr).toContain('"%a\\\\*b%"');
+  });
+  it("agent scope with an empty agentId lists nothing and never reads everything", async () => {
+    for (const agentId of ["", undefined as unknown as string]) {
+      const out = await listRegistrations({ kind: "agent", agentId }, {});
+      expect(out.rows).toEqual([]);
+      expect(out.total).toBe(0);
+      expect(out.counts.all).toBe(0);
+    }
+    for (const op of regReads()) expect(filterValue(op, "eq", "agent_id") ?? "").toBe("");
+  });
   it("status filter and counts per status", async () => {
     const out = await listRegistrations({ kind: "all" }, { status: "pending" });
     expect(out.rows.map((r) => r.id)).toEqual(["a"]);
@@ -113,6 +127,10 @@ describe("detail", () => {
     expect(d!.events).toHaveLength(2);
     expect(d!.events.find((e) => e.source === "app")).toMatchObject({ actorName: "Admin Person", registrationName: "Lead", to: "underpaid" });
     expect(d!.events.find((e) => e.source === "sheet")).toMatchObject({ actorName: null, registrationName: "Member" });
+  });
+  it("detail with an empty agent id is null, never the row", async () => {
+    expect(await getRegistrationDetail("a", { kind: "agent", agentId: "" })).toBeNull();
+    expect(await getRegistrationDetail("u", { kind: "agent", agentId: "" })).toBeNull();
   });
   it("detail of a member id is not found", async () => {
     expect(await getRegistrationDetail("m1", { kind: "all" })).toBeNull();
@@ -180,6 +198,24 @@ describe("change", () => {
     const r = await changeRegistrationStatus({ registrationId: "a", to: "pending", expectedFrom: "pending", actor: admin });
     expect(r).toEqual({ ok: false, reason: "already-in-status" });
     expect(rpcs()).toHaveLength(0);
+  });
+  it("change: an agent with an empty id gets not-found and no rpc", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: agent("") });
+    expect(r).toEqual({ ok: false, reason: "not-found" });
+    expect(rpcs()).toHaveLength(0);
+  });
+  it("change: rpc free-row and already-in-status are mapped, not db-error", async () => {
+    rpcResult = { data: { ok: false, reason: "free-row" }, error: null };
+    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).toEqual({ ok: false, reason: "free-row" });
+    rpcResult = { data: { ok: false, reason: "already-in-status" }, error: null };
+    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).toEqual({ ok: false, reason: "already-in-status" });
+  });
+  it("change: an unmapped rpc reason becomes db-error and is logged", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    rpcResult = { data: { ok: false, reason: "weird" }, error: null };
+    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).toEqual({ ok: false, reason: "db-error" });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("weird"));
+    warn.mockRestore();
   });
   it("change: an agent cannot change a test row, an admin can", async () => {
     expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", actor: agent("ag1") })).ok).toBe(false);

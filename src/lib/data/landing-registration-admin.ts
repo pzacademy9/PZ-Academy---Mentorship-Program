@@ -84,7 +84,7 @@ const numOrNull = (v: unknown): number | null => (v === null || v === undefined 
 
 /** Neutralise LIKE wildcards, then quote the value for PostgREST's or() list so a comma cannot split it. */
 function searchPattern(q: string): string {
-  const like = q.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+  const like = q.trim().replace(/[\\%_*]/g, (c) => `\\${c}`);
   const quoted = `%${like}%`.replace(/[\\"]/g, (c) => `\\${c}`);
   return `"${quoted}"`;
 }
@@ -102,12 +102,19 @@ async function profileNames(ids: (string | null | undefined)[]): Promise<Map<str
 }
 
 /** Visibility rules shared by every read: agents see only their own non-test rows; admins hide test rows unless asked. */
-function scopeParams(scope: Scope): { agentId: string | null; hideTest: boolean } {
-  if (scope.kind === "agent") return { agentId: scope.agentId, hideTest: true };
-  return { agentId: null, hideTest: !scope.includeTest };
+function scopeParams(scope: Scope): { agentFilter: boolean; agentId: string; hideTest: boolean } {
+  if (scope.kind === "agent") return { agentFilter: true, agentId: scope.agentId ?? "", hideTest: true };
+  return { agentFilter: false, agentId: "", hideTest: !scope.includeTest };
 }
 
+/** An agent scope with no usable id must see nothing (never fall through to "every row"). */
+const isEmptyAgentScope = (scope: Scope): boolean => scope.kind === "agent" && !scope.agentId;
+
 export async function listRegistrations(scope: Scope, f: RegistrationListFilters): Promise<RegistrationList> {
+  if (isEmptyAgentScope(scope)) {
+    const counts = { all: 0, pending: 0, reserved: 0, underpaid: 0, paid: 0, free: 0 } as Record<RegistrationStatus | "all", number>;
+    return { rows: [], total: 0, pageSize: PAGE_SIZE, counts };
+  }
   const admin = createAdminSupabase();
 
   // Everything except the status filter, so each status tab can show its own count.
@@ -117,7 +124,7 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
       .select(head ? "id" : "*", head ? { count: "exact", head: true } : undefined)
       .in("row_type", HEAD_ROW_TYPES);
     const sc = scopeParams(scope);
-    if (sc.agentId) query = query.eq("agent_id", sc.agentId);
+    if (sc.agentFilter) query = query.eq("agent_id", sc.agentId);
     if (sc.hideTest) query = query.eq("is_test", false);
     if (f.pageId) query = query.eq("page_id", f.pageId);
     if (f.mode) query = query.eq("mode", f.mode);
@@ -188,10 +195,11 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
 
 /** The lead/individual/member row for `id` if this scope may see it, else null. */
 async function readScopedRow(id: string, scope: Scope): Promise<RegRow | null> {
+  if (isEmptyAgentScope(scope)) return null;
   const admin = createAdminSupabase();
   const sc = scopeParams(scope);
   let query = admin.from("landing_registrations").select("*").eq("id", id);
-  if (sc.agentId) query = query.eq("agent_id", sc.agentId);
+  if (sc.agentFilter) query = query.eq("agent_id", sc.agentId);
   if (sc.hideTest) query = query.eq("is_test", false);
   const { data, error } = await query.maybeSingle();
   if (error) throw error;
@@ -295,6 +303,9 @@ export async function changeRegistrationStatus(p: {
   if (out.ok !== true) {
     if (out.reason === "stale") return { ok: false, reason: "stale" };
     if (out.reason === "not-found") return { ok: false, reason: "not-found" };
+    if (out.reason === "free-row") return { ok: false, reason: "free-row" };
+    if (out.reason === "already-in-status") return { ok: false, reason: "already-in-status" };
+    console.warn(`[landing-registration-admin] unmapped rpc reason: ${String(out.reason)}`);
     return { ok: false, reason: "db-error" };
   }
 

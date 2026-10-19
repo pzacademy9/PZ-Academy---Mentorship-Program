@@ -53,6 +53,13 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'stale');
   end if;
 
+  if v_from = 'free' then
+    return jsonb_build_object('ok', false, 'reason', 'free-row');
+  end if;
+  if v_from = p_to_status then
+    return jsonb_build_object('ok', false, 'reason', 'already-in-status');
+  end if;
+
   for r in
     select id, status
       from public.landing_registrations
@@ -75,7 +82,8 @@ begin
                                  when r.id = p_registration_id and p_amount is not null then p_amount
                                  else amount_received
                                end
-     where id = r.id;
+     where id = r.id
+       and status <> p_to_status;
   end loop;
 
   return jsonb_build_object('ok', true, 'from', v_from, 'changed', v_changed);
