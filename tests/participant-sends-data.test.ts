@@ -30,7 +30,7 @@ import { createSend, runEmailSend, retryFailed, markWhatsAppSent, getSend, previ
 
 const PAGE = "page-1";
 const cand = (id: string, o: Record<string, unknown> = {}) => ({
-  registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "0300", refId: `R-${id}`, status: "paid", ...o,
+  registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "+923001234567", refId: `R-${id}`, status: "paid", ...o,
 });
 const input = (o: Record<string, unknown> = {}) => ({
   pageId: PAGE, channel: "email" as const, subject: "Hi {{ first_name }}", body: "Hello {{ first_name }}, ref {{ ref_id }}", expectedCount: 3, expectedNotPaid: 0,

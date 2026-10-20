@@ -41,6 +41,11 @@ const timeLabel = (iso: string | null): string => {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Karachi" }).replace(" AM", " am").replace(" PM", " pm");
 };
 
+const leftOutWord = (r: Recipient): string => {
+  if (r.state === "skipped" && r.reason !== "no_phone") return SKIP_WORDS[r.reason] ?? "Left out";
+  return r.phone.trim() === "" ? "No phone number" : "Number not valid";
+};
+
 const initials = (name: string): string =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("");
 
@@ -263,7 +268,7 @@ export function WhatsAppSendList({ sendId, onClose }: WhatsAppSendListProps) {
                       <span className="text-xs font-headline font-bold text-pz-on-surface truncate">{r.name}</span>
                       {chip}
                       <span className="px-2 py-0.5 rounded text-[10px] font-headline font-bold bg-pz-error-container text-pz-on-error-container">
-                        {r.state === "skipped" ? SKIP_WORDS[r.reason] ?? "Left out" : r.phone.trim() === "" ? "No phone number" : "Number not valid"}
+                        {leftOutWord(r)}
                       </span>
                     </div>
                   </div>

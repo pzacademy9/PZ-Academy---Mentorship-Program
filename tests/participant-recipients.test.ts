@@ -3,7 +3,7 @@ import { planRecipients, summarize } from "@/lib/landing/participants/recipients
 import type { Candidate } from "@/lib/landing/participants/types";
 
 const c = (o: Partial<Candidate>): Candidate => ({
-  registrationId: "r", leadId: "l", isMember: false, name: "A", email: "a@x.com", phone: "+921", refId: "R", status: "paid", ...o,
+  registrationId: "r", leadId: "l", isMember: false, name: "A", email: "a@x.com", phone: "+923001234567", refId: "R", status: "paid", ...o,
 });
 
 describe("planRecipients", () => {
@@ -17,6 +17,12 @@ describe("planRecipients", () => {
     expect(planRecipients([x], "email", new Set()).skipped[0].reason).toBe("no_email");
     expect(planRecipients([x], "whatsapp", new Set()).send).toHaveLength(1);
   });
+  it("a saved number that is not a real phone number is left out of WhatsApp, still emailed", () => {
+    const x = c({ phone: "46646464644" });
+    expect(planRecipients([x], "whatsapp", new Set()).skipped[0].reason).toBe("no_phone");
+    expect(planRecipients([x], "email", new Set()).send).toHaveLength(1);
+  });
+
   it("empty phone: no_phone for whatsapp only", () => {
     const x = c({ phone: " " });
     expect(planRecipients([x], "whatsapp", new Set()).skipped[0].reason).toBe("no_phone");
@@ -32,7 +38,7 @@ describe("planRecipients", () => {
 
 describe("whatsapp no email dedupe", () => {
   it("keeps two candidates with same email and different phones", () => {
-    const p = planRecipients([c({ registrationId: "1", phone: "+921" }), c({ registrationId: "2", phone: "+922" })], "whatsapp", new Set());
+    const p = planRecipients([c({ registrationId: "1", phone: "+923001234567" }), c({ registrationId: "2", phone: "+923217892200" })], "whatsapp", new Set());
     expect(p.send).toHaveLength(2);
     expect(p.skipped).toHaveLength(0);
   });

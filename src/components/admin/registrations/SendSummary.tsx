@@ -43,7 +43,7 @@ function skippedLines(summary: Summary): string[] {
   const out: string[] = [];
   if (s.unsubscribed > 0) out.push(`${s.unsubscribed} unsubscribed`);
   if (s.no_email > 0) out.push(`${s.no_email} with no email`);
-  if (s.no_phone > 0) out.push(`${s.no_phone} with no phone number`);
+  if (s.no_phone > 0) out.push(`${s.no_phone} with no usable phone number`);
   if (s.merged > 0) out.push(`${s.merged} merged into another registration`);
   return out;
 }
