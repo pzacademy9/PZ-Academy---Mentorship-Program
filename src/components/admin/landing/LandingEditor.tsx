@@ -23,6 +23,7 @@ import { PageSettingsPanel } from "./PageSettingsPanel";
 import { RegistrationOpsCard } from "./registration/RegistrationOpsCard";
 import type { CourseModule } from "@/lib/data/landing-course-modules";
 import type { PaymentAccountSummary } from "./registration/RegistrationSetup";
+import { pruneModuleIds } from "@/lib/landing/registration/admin-edit";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { PreviewFrame } from "./PreviewFrame";
 import { PublishSlot, ReadinessSlot } from "./PublishSlot";
@@ -155,7 +156,12 @@ function EditorShell({
     const [a, b] = await Promise.all([saveMain(), saveLink()]);
     return a && b;
   }, [onLink, saveMain, saveLink]);
-  const [content, setContent] = useState<LandingContent>(page.draft);
+  const [content, setContent] = useState<LandingContent>(() => {
+    // A saved module id that is no longer in the course would block every save; drop it on load.
+    if (!courseModules) return page.draft;
+    const registration = pruneModuleIds(page.draft.registration, courseModules.map((m) => m.id));
+    return registration === page.draft.registration ? page.draft : { ...page.draft, registration };
+  });
   const [selection, setSelection] = useState<string>(page.draft.sections[0]?.id ?? SETTINGS);
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [drawer, setDrawer] = useState(false);

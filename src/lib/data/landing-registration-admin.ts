@@ -277,7 +277,7 @@ async function readAccess(lead: RegistrationRecord): Promise<RegistrationAccess>
   const opened = new Set((openRes.data ?? []).map((r) => r.module_id as string));
   const live = e.access_level === "live";
   const activeOpen = e.status === "active" && e.portal_open === true;
-  const mods = [...(modsRes.data ?? [])].sort((a, b) => a.order_index - b.order_index);
+  const mods = modsRes.data ?? []; // already in course order from the query
   const effective = covered.size === 0 ? mods : mods.filter((m) => covered.has(m.id));
   return {
     ...base,
@@ -319,7 +319,7 @@ export async function getRegistrationDetail(id: string, scope: Scope): Promise<R
   const emails = scope.kind === "agent"
     ? []
     : (await listEmailLog(people.map((p) => p.id)))
-        .sort((a, b) => (a.sentAt < b.sentAt ? 1 : a.sentAt > b.sentAt ? -1 : 0))
+        .sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt))
         .map((m) => ({ kind: m.kind, toEmail: m.toEmail, sentAt: m.sentAt }));
   const access = await readAccess(lead);
 

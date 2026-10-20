@@ -120,7 +120,7 @@ export function RegistrationSetup({
 
       <div className="space-y-4">
         <h3 className="font-headline text-base font-bold text-pz-on-surface">{current.label}</h3>
-        {current.key === "buy" && <BuyStep r={r} onChange={onChange} courseModules={courseModules ?? null} saveMessage={saveMessage ?? null} />}
+        {current.key === "buy" && <BuyStep r={r} onChange={onChange} courseModules={courseModules ?? null} />}
         {current.key === "groups" && <GroupsStep r={r} onChange={onChange} />}
         {current.key === "prices" && <PricesStep r={r} onChange={onChange} />}
         {current.key === "earlybird" && <EarlyBirdStep r={r} onChange={onChange} />}
@@ -129,6 +129,8 @@ export function RegistrationSetup({
         {current.key === "whatsapp" && <WhatsAppStep r={r} onChange={onChange} />}
         {current.key === "details" && <DetailsStep r={r} onChange={onChange} />}
       </div>
+
+      {saveMessage && <p role="alert" className={ERROR}>{saveMessage}</p>}
 
       <div className="flex items-center justify-between gap-2 border-t border-pz-outline-variant pt-3">
         <button type="button" className={TEXT_BTN} disabled={index <= 0} onClick={() => onStep(REG_STEPS[Math.max(0, index - 1)].key)}>
@@ -142,7 +144,7 @@ export function RegistrationSetup({
   );
 }
 
-function BuyStep({ r, onChange, courseModules, saveMessage }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void; courseModules: CourseModule[] | null; saveMessage: string | null }) {
+function BuyStep({ r, onChange, courseModules }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void; courseModules: CourseModule[] | null }) {
   const ordered = courseModules ? [...courseModules].sort((a, b) => a.order_index - b.order_index) : null;
   const toggleMode = (m: Mode) => onChange({ ...r, modes: r.modes.includes(m) ? r.modes.filter((x) => x !== m) : [...r.modes, m] });
   const bundles = r.options.filter((o) => o.kind === "bundle");
@@ -195,7 +197,7 @@ function BuyStep({ r, onChange, courseModules, saveMessage }: { r: RegistrationC
                           <input
                             type="checkbox"
                             className="h-3.5 w-3.5 rounded border-pz-outline-variant accent-pz-solid-forest"
-                            aria-label={m.title}
+                            aria-label={`${o.label || `Option ${i + 1}`}: ${m.title}`}
                             checked={on}
                             onChange={() => onChange(updateOption(r, o.key, { moduleIds: on ? o.moduleIds.filter((x) => x !== m.id) : [...o.moduleIds, m.id] }))}
                           />
@@ -209,7 +211,6 @@ function BuyStep({ r, onChange, courseModules, saveMessage }: { r: RegistrationC
             </li>
           ))}
         </ul>
-        {saveMessage && <p role="alert" className={ERROR}>{saveMessage}</p>}
         <div className="flex flex-wrap gap-2">
           <button type="button" className={TEXT_BTN} onClick={() => onChange(addOption(r, "bundle", "New package"))}><Plus className="h-4 w-4" aria-hidden="true" /> Add a package</button>
           <button type="button" className={TEXT_BTN} onClick={() => onChange(addOption(r, "module", "New module"))}><Plus className="h-4 w-4" aria-hidden="true" /> Add a module</button>

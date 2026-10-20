@@ -49,7 +49,7 @@ describe("BatchAccessPanel", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[1]);
     expect(posts()).toHaveLength(0);
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/12 Live students paid and 8 already have this module open\. Pressing opens it for the rest and emails them the portal link\./)).toBeTruthy();
+    expect(within(dialog).getByText(/12 Live students paid and 8 already have this module open\. Pressing opens it for the rest and emails the portal link to those who have signed up\./)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(posts()).toHaveLength(0);
   });
@@ -134,7 +134,7 @@ describe("BatchAccessPanel", () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Batch finished for the whole course" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/Opens every module of this course for Live students who paid and emails them the portal link\. Students who already have a module open are not emailed again for it\./)).toBeTruthy();
+    expect(within(dialog).getByText(/Opens every module of this course for Live students who paid and emails the portal link to those who have signed up\. Students who already have a module open are not emailed again for it\./)).toBeTruthy();
   });
 
   it("clears earlier result strips when a new press starts", async () => {
@@ -159,14 +159,47 @@ describe("BatchAccessPanel", () => {
     await waitFor(() => expect(gets()).toBe(before + 1));
   });
 
-  it("a double click on Yes, open it posts once", async () => {
+  it("a double click on Yes, open it posts once, even while the first request is still running", async () => {
+    let release: (r: Response) => void = () => {};
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === "POST" ? new Promise<Response>((r) => (release = r)) : Promise.resolve(json(OVERVIEW)),
+    );
     await ready();
     fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[0]);
     const yes = await screen.findByRole("button", { name: "Yes, open it" });
     fireEvent.click(yes);
     fireEvent.click(yes);
-    await screen.findByText(/Opened for 12 students/);
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    // still running: every press button is locked, so no second request can start
+    for (const b of screen.getAllByRole("button", { name: "Batch finished" })) expect((b as HTMLButtonElement).disabled).toBe(true);
     expect(posts()).toHaveLength(1);
+    release(json({ modulesFinished: 1, opened: 1, emailed: 1, alreadyOpen: 0, waitingForAccount: 0, failed: 0 }));
+    await screen.findByText(/Opened for 1 student\./);
+    expect(posts()).toHaveLength(1);
+  });
+
+  it("paid=0 confirm text reads sensibly", async () => {
+    fetchMock.mockImplementation(async () => json({ courseTitle: "PPC", modules: [{ id: "m9", title: "Module 9", finishedAt: null, paidLive: 0, opened: 0 }], recordedPaid: 0 }));
+    render(<BatchAccessPanel pageOptions={PAGES} />);
+    await screen.findByText("Module 9");
+    fireEvent.click(screen.getByRole("button", { name: "Batch finished" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Module 9: No Live students have paid yet/)).toBeTruthy();
+    expect(within(dialog).queryByText(/Everyone already/)).toBeNull();
+  });
+
+  it("a refresh that fails after a good press keeps the result and shows no error", async () => {
+    let posted = false;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") { posted = true; return json({ modulesFinished: 1, opened: 12, emailed: 12, alreadyOpen: 0, waitingForAccount: 0, failed: 0 }); }
+      return posted ? json({}, false) : json(OVERVIEW);
+    });
+    await ready();
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, open it" }));
+    await screen.findByText(/Opened for 12 students\. Emailed 12\./);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Send link" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByText("Something went wrong. Please try again.")).toBeNull();
   });
 
   it("no modules shows different empty text from no course", async () => {

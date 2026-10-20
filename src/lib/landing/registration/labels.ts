@@ -1,5 +1,5 @@
 // src/lib/landing/registration/labels.ts
-import type { Mode, RegistrationConfig } from "./config";
+import type { Mode, RegistrationView } from "./config";
 
 /**
  * Human label written to the Sheet ("Registration Option"), the emails and the WhatsApp
@@ -7,7 +7,7 @@ import type { Mode, RegistrationConfig } from "./config";
  * label is pasted into WhatsApp and Sheets, where long dashes render inconsistently.
  */
 export function registrationOptionLabel(
-  config: RegistrationConfig,
+  config: RegistrationView,
   sel: { mode: Mode; optionKeys: string[]; tierKey: string; groupSize: number },
 ): string {
   const options = sel.optionKeys.map((k) => config.options.find((o) => o.key === k)?.label ?? k).join(", ");
@@ -23,7 +23,7 @@ export function registrationOptionLabel(
 
 /** The prefilled WhatsApp message from the legacy PPC/MDC success screen. "" when not applicable. */
 export function buildVerifyMessage(
-  config: RegistrationConfig,
+  config: RegistrationView,
   d: { name: string; email: string; refId: string; optionLabel: string; isFree: boolean },
 ): string {
   if (d.isFree || !config.whatsappVerifyNumber) return "";

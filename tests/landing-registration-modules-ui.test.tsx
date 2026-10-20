@@ -29,17 +29,17 @@ describe("Modules this option gives", () => {
   it("lists the course modules in course order", () => {
     setup(reg());
     const row = screen.getByRole("group", { name: "Modules Module 1 gives" });
-    expect(within(row).getAllByRole("checkbox").map((c) => c.getAttribute("aria-label") ?? c.parentElement?.textContent)).toEqual(["Module 1: Clinical", "Module 2: ICU"]);
+    expect(within(row).getAllByRole("checkbox").map((c) => c.parentElement?.textContent)).toEqual(["Module 1: Clinical", "Module 2: ICU"]);
     expect(screen.getByText("Modules this option gives")).toBeTruthy();
   });
   it("ticking adds the module id to that option", () => {
     const onChange = setup(reg(["a"]));
-    fireEvent.click(screen.getByLabelText("Module 2: ICU"));
+    fireEvent.click(screen.getByLabelText("Module 1: Module 2: ICU"));
     expect(onChange.mock.calls[0][0].options[0].moduleIds).toEqual(["a", "b"]);
   });
   it("unticking removes it", () => {
     const onChange = setup(reg(["a", "b"]));
-    fireEvent.click(screen.getByLabelText("Module 1: Clinical"));
+    fireEvent.click(screen.getByLabelText("Module 1: Module 1: Clinical"));
     expect(onChange.mock.calls[0][0].options[0].moduleIds).toEqual(["b"]);
   });
   it("shows the whole course line when nothing is ticked", () => {
@@ -49,6 +49,15 @@ describe("Modules this option gives", () => {
   it("hides the row when the page has no course", () => {
     setup(reg(), { courseModules: null });
     expect(screen.queryByText("Modules this option gives")).toBeNull();
+  });
+  it("names the option in each module checkbox", () => {
+    setup(reg());
+    expect(screen.getByLabelText("Module 1: Module 1: Clinical")).toBeTruthy();
+  });
+  it("shows the server's message on every step, not only the buy step", () => {
+    const onChange = vi.fn();
+    render(<RegistrationSetup registration={reg()} accounts={[]} step="groups" onStep={() => {}} onChange={onChange} courseModules={mods} saveMessage="Nope." />);
+    expect(screen.getByRole("alert").textContent).toBe("Nope.");
   });
   it("shows the server's message", () => {
     setup(reg(["zzz"]), { courseModules: mods, saveMessage: "Pick modules from this page's course." });

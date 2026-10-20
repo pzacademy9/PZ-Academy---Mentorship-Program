@@ -41,7 +41,7 @@ export function RegistrationAccessCard({ access }: { access: RegistrationDetail[
 
       {modules === null ? (
         <p className="mt-4 p-4 rounded-lg bg-pz-surface-container-low text-center text-xs text-pz-on-surface-variant font-body">
-          {hasCourse ? "Modules appear once they sign up" : "No course on this page"}
+          {!hasCourse ? "No course on this page" : hasAccount ? "Modules appear once the registration is paid" : "Modules appear once they sign up"}
         </p>
       ) : modules.length === 0 ? (
         <p className="mt-4 p-4 rounded-lg bg-pz-surface-container-low text-center text-xs text-pz-on-surface-variant font-body">No modules yet</p>

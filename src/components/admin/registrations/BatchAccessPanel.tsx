@@ -21,7 +21,7 @@ type Audience = "live" | "recorded" | "both";
 
 type Pending =
   | { kind: "module"; moduleId: string; title: string; paid: number; opened: number }
-  | { kind: "course"; moduleCount: number }
+  | { kind: "course" }
   | { kind: "link" };
 
 const ERROR_TEXT = "Something went wrong. Please try again.";
@@ -34,10 +34,11 @@ const AUDIENCES: { key: Audience; label: string }[] = [
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function moduleConfirmText(paid: number, opened: number): string {
+  if (paid === 0) return "No Live students have paid yet, so nobody will be emailed. Pressing only marks this module as finished.";
   if (opened >= paid) {
     return "Everyone already has this module open. Pressing again only sends the link to anyone who did not get it.";
   }
-  return `${plural(paid, "Live student", "Live students")} paid and ${opened} already ${opened === 1 ? "has" : "have"} this module open. Pressing opens it for the rest and emails them the portal link.`;
+  return `${plural(paid, "Live student", "Live students")} paid and ${opened} already ${opened === 1 ? "has" : "have"} this module open. Pressing opens it for the rest and emails the portal link to those who have signed up.`;
 }
 
 const AUDIENCE_CONFIRM: Record<Audience, string> = {
@@ -95,7 +96,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
       const data = (await res.json()) as Overview;
       if (ticket === latest.current) setOverview(data);
     } catch {
-      if (ticket === latest.current) setLoadError(true);
+      // A background refresh that fails keeps the numbers on screen and says nothing: it must not hide a press that worked.
+      if (ticket === latest.current && showSpinner) setLoadError(true);
     } finally {
       if (ticket === latest.current) setLoading(false);
     }
@@ -110,6 +112,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
     setBatchStrip(null);
     setLinkStrip(null);
     const isLink = action.kind === "link";
+    let pressFailed = false;
     try {
       const res = await fetch(isLink ? "/api/admin/landing/portal-links" : "/api/admin/landing/batch", {
         method: "POST",
@@ -128,13 +131,15 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
           label: action.kind === "module" ? action.title : "Whole course",
           text: batchSentence(data as BatchResult),
         });
-        await load(pageId, false);
       }
     } catch {
+      pressFailed = true;
       setActionError(ERROR_TEXT);
-      // A partial run may have changed the numbers.
-      if (!isLink) await load(pageId, false);
     }
+    // After a press, good or failed (a partial run may have changed the numbers), show the current numbers.
+    // Kept outside the try so a refresh problem can never turn a successful press into an error.
+    if (!isLink) await load(pageId, false);
+    return pressFailed;
   });
 
   function confirm() {
@@ -249,7 +254,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
               <button
                 type="button"
                 disabled={running}
-                onClick={() => setPending({ kind: "course", moduleCount: overview.modules.length })}
+                onClick={() => setPending({ kind: "course" })}
                 className={primaryBtn}
               >
                 <LockOpen className="w-4 h-4" aria-hidden="true" />
@@ -387,7 +392,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
               {pending?.kind === "module" &&
                 `${pending.title}: ${moduleConfirmText(pending.paid, pending.opened)} Continue?`}
               {pending?.kind === "course" &&
-                "Opens every module of this course for Live students who paid and emails them the portal link. Students who already have a module open are not emailed again for it. Continue?"}
+                "Opens every module of this course for Live students who paid and emails the portal link to those who have signed up. Students who already have a module open are not emailed again for it. Continue?"}
               {pending?.kind === "link" &&
                 `This emails the portal link to ${AUDIENCE_CONFIRM[audience]}. Continue?`}
             </DialogDescription>

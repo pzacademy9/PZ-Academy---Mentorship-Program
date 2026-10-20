@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { RegistrationConfig } from "@/lib/landing/registration/config";
+import type { RegistrationView } from "@/lib/landing/registration/config";
 import { compressImage } from "@/lib/landing/compress-image";
 import { promoMessage } from "@/lib/landing/registration/promo";
 import { formatMoney } from "@/lib/landing/registration/format";
@@ -27,7 +27,7 @@ import { R_BTN_PRIMARY, R_BTN_SECONDARY } from "./ui";
 const STEP_LABEL: Record<StepKey, string> = { choose: "Choose", details: "Details", pay: "Pay", upload: "Upload" };
 const STEP_TITLE: Record<StepKey, string> = { choose: "Choose your option", details: "Your details", pay: "Pay", upload: "Upload your receipt" };
 /** Whether a server-reported field has a visible place on screen for this form. Otherwise its message goes in the form-level error. */
-function fieldHasPlace(field: string, config: RegistrationConfig, isFree: boolean, groupSize: number): boolean {
+function fieldHasPlace(field: string, config: RegistrationView, isFree: boolean, groupSize: number): boolean {
   switch (field) {
     case "regionKey": return config.regions.length > 1;
     case "mode": return config.modes.length > 1;

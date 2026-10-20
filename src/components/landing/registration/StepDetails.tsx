@@ -1,14 +1,14 @@
 "use client";
 
 import type { FieldErrors, FormState, LeadDraft, PersonDraft } from "@/lib/landing/registration/form-state";
-import type { RegistrationConfig } from "@/lib/landing/registration/config";
+import type { RegistrationView } from "@/lib/landing/registration/config";
 import { ConsentField, SelectField, TextField } from "./Field";
 import { R_BTN_SECONDARY, R_CARD } from "./ui";
 
 export function StepDetails({
   config, state, errors, isFree, onLead, onMember, onExpand, onConsent, onHoneypot,
 }: {
-  config: RegistrationConfig; state: FormState; errors: FieldErrors; isFree: boolean;
+  config: RegistrationView; state: FormState; errors: FieldErrors; isFree: boolean;
   onLead: (patch: Partial<LeadDraft>) => void; onMember: (i: number, patch: Partial<PersonDraft>) => void;
   onExpand: () => void; onConsent: (v: boolean) => void; onHoneypot: (v: string) => void;
 }) {

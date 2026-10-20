@@ -5,9 +5,9 @@ import { z } from "zod";
 import { isSafeUrl } from "../simple-text";
 import type { RegistrationStepKey } from "./setup-steps";
 
-import type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig } from "./types";
+import type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig, OptionView, RegistrationView } from "./types";
 import { INDIVIDUAL, MAX_GROUP_SIZE } from "./types";
-export type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig };
+export type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig, OptionView, RegistrationView };
 export { INDIVIDUAL, MAX_GROUP_SIZE };
 export const MODES = ["live", "recorded"] as const;
 export type RegistrationStatus = "pending" | "paid" | "underpaid" | "reserved" | "free";

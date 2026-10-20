@@ -1,9 +1,9 @@
 // src/lib/landing/registration/pricing.ts
 // The one price calculation. The server recomputes every quote with this; the widget uses it for display only.
-import { INDIVIDUAL, type Mode, type OptionDef, type PriceCell, type RegistrationConfig, type TierDef } from "./types";
+import { INDIVIDUAL, type Mode, type OptionView, type PriceCell, type RegistrationView, type TierDef } from "./types";
 
 export interface QuoteInput {
-  config: RegistrationConfig;
+  config: RegistrationView;
   regionKey: string;
   mode: Mode;
   optionKeys: string[];
@@ -26,14 +26,14 @@ export type QuoteResult =
 type Failure = Extract<QuoteResult, { ok: false }>;
 const fail = (reason: Failure["reason"]): Failure => ({ ok: false, reason });
 
-export function isEarlyBird(config: RegistrationConfig, now: Date): boolean {
+export function isEarlyBird(config: RegistrationView, now: Date): boolean {
   if (config.earlyBirdEndsAt.trim() === "") return false;
   const end = Date.parse(config.earlyBirdEndsAt);
   return Number.isFinite(end) && now.getTime() < end;
 }
 
 /** Known keys only, no duplicates, in config order; every module (or the bundle itself) collapses to the bundle. */
-export function resolveOptionKeys(config: RegistrationConfig, optionKeys: string[]): string[] {
+export function resolveOptionKeys(config: RegistrationView, optionKeys: string[]): string[] {
   const wanted = new Set(optionKeys);
   let keys = config.options.filter((o) => wanted.has(o.key)).map((o) => o.key);
   const mm = config.moduleMix;
@@ -50,7 +50,7 @@ export function resolveOptionKeys(config: RegistrationConfig, optionKeys: string
 }
 
 /** Options that have a price in this region (a free option is offered where it has a 0 cell). */
-export function availableOptions(config: RegistrationConfig, regionKey: string): OptionDef[] {
+export function availableOptions(config: RegistrationView, regionKey: string): OptionView[] {
   return config.options.filter((o) => cellOf(config, o.key, regionKey) !== undefined);
 }
 
@@ -58,7 +58,7 @@ export function availableOptions(config: RegistrationConfig, regionKey: string):
 function own<T>(obj: Record<string, T> | undefined, key: string): T | undefined {
   return obj !== undefined && Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
 }
-const cellOf = (config: RegistrationConfig, optionKey: string, regionKey: string): PriceCell | undefined =>
+const cellOf = (config: RegistrationView, optionKey: string, regionKey: string): PriceCell | undefined =>
   own(own(config.prices, optionKey), regionKey);
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
@@ -71,7 +71,7 @@ export function computeQuote(i: QuoteInput): QuoteResult {
   if (i.optionKeys.length === 0 || i.optionKeys.some((k) => !config.options.some((o) => o.key === k))) return fail("no_option");
 
   const keys = resolveOptionKeys(config, i.optionKeys);
-  const opts = keys.map((k) => config.options.find((o) => o.key === k) as OptionDef);
+  const opts = keys.map((k) => config.options.find((o) => o.key === k) as OptionView);
   const freeCount = opts.filter((o) => o.free).length;
   if (freeCount > 0 && freeCount < opts.length) return fail("mixed_free");
 

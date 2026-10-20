@@ -67,7 +67,8 @@ export async function sweepStaleClaims(olderThanMinutes = 15): Promise<{ release
     .from("landing_email_log")
     .select("id, registration_id")
     .eq("state", "claimed")
-    .lt("claimed_at", cutoff);
+    .lt("claimed_at", cutoff)
+    .limit(200); // the rest are picked up by the next drain
   if (error) throw error;
   const ids = (stale ?? []).map((r) => r.id as string);
   if (ids.length === 0) return { released: 0, registrationIds: [] };

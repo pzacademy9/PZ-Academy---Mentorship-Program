@@ -1,9 +1,9 @@
 // What the public registration routes may show about a page's registration settings. Pure (client-safe).
-import type { OptionDef, RegistrationConfig } from "./config";
+import type { OptionView, RegistrationConfig } from "./config";
 import { isEarlyBird, type QuoteResult } from "./pricing";
 
 /** An option as the public sees it: no module links (which course modules it unlocks stay private). */
-export type PublicOption = Omit<OptionDef, "moduleIds">;
+export type PublicOption = OptionView;
 /** Same shape as the stored config (the widget prices with it) minus module links, plus the server's Early Bird verdict. */
 export type PublicRegistration = Omit<RegistrationConfig, "options"> & { options: PublicOption[]; earlyBirdActive: boolean };
 export type QuoteFailureReason = Extract<QuoteResult, { ok: false }>["reason"];

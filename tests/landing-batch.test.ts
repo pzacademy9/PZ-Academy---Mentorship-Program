@@ -3,7 +3,21 @@ import { createSupabaseMock, memoryHandler, type Op, type Store } from "./helper
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
-const h = vi.hoisted(() => ({ page: null as null | Record<string, unknown>, send: vi.fn() }));
+const h = vi.hoisted(() => ({ page: null as null | Record<string, unknown>, send: vi.fn(), inFlight: 0, peak: 0, delay: false }));
+vi.mock("@/lib/data/landing-enrollment", async (orig) => {
+  const real = await orig<typeof import("@/lib/data/landing-enrollment")>();
+  return {
+    ...real,
+    resolveAccess: async (id: string) => {
+      h.inFlight++; h.peak = Math.max(h.peak, h.inFlight);
+      try {
+        // Later rows answer first, to prove the result order does not depend on who finishes first.
+        if (h.delay) await new Promise((r) => setTimeout(r, 30 - Math.min(25, Number(id.replace(/\D/g, "")) || 0)));
+        return await real.resolveAccess(id);
+      } finally { h.inFlight--; }
+    },
+  };
+});
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePageById: async () => h.page }));
 vi.mock("@/lib/brevo", () => ({ sendTransactionalEmail: h.send }));
 
@@ -66,6 +80,7 @@ beforeEach(() => {
   tick = 0;
   h.send.mockReset();
   h.send.mockResolvedValue({});
+  h.inFlight = 0; h.peak = 0; h.delay = false;
 });
 
 describe("finishBatch", () => {
@@ -159,6 +174,27 @@ describe("finishBatch", () => {
     expect(r).toEqual({ modulesFinished: 0, opened: 0, emailed: 0, alreadyOpen: 0, waitingForAccount: 0, failed: 0 });
     expect(db.state.ops.filter((o) => o.op !== "select")).toHaveLength(0);
     expect(h.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("paid access lookups", () => {
+  it("run at most 6 at a time and still keep the order of the rows", async () => {
+    h.delay = true;
+    const ids = Array.from({ length: 14 }, (_, i) => `r${String(i + 1).padStart(2, "0")}`);
+    setup(ids.map((id) => reg(id)));
+    const overview = await getBatchOverview(PAGE);
+    expect(overview.modules[0].paidLive).toBe(14);
+    expect(h.peak).toBeGreaterThan(1);
+    expect(h.peak).toBeLessThanOrEqual(6);
+  });
+  it("emailPortalLinks keeps row order when lookups finish out of order", async () => {
+    h.delay = true;
+    setup([reg("r01"), reg("r02"), reg("r03")]);
+    await press(null);
+    h.send.mockClear();
+    const r = await emailPortalLinks({ pageId: PAGE, audience: "live", adminId: ADMIN });
+    expect(r.sent).toBe(3);
+    expect(h.send.mock.calls.map((c) => c[0].to)).toEqual(["r01@x.com", "r02@x.com", "r03@x.com"]);
   });
 });
 

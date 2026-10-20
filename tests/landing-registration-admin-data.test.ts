@@ -203,6 +203,26 @@ describe("detail emails and access", () => {
     expect(enr.listEmailLog).not.toHaveBeenCalled();
     expect(d!.access.enrollmentStatus).toBe("active");
   });
+  it("an account and a course but no enrollment yet: modules stay null", async () => {
+    withCourse();
+    store.enrollments = [];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access).toEqual({ mode: "live", hasAccount: true, enrollmentStatus: null, portalOpen: null, hasCourse: true, modules: null });
+  });
+  it("a cancelled enrollment with portal_open true opens nothing", async () => {
+    withCourse();
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "cancelled", portal_open: true, access_level: "live" }];
+    store.enrollment_open_modules = [{ enrollment_id: "e1", module_id: "m_a" }];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access.enrollmentStatus).toBe("cancelled");
+    expect(d!.access.modules!.every((m) => !m.open)).toBe(true);
+  });
+  it("a null access_level on an active open enrollment is treated like recorded: every module open", async () => {
+    withCourse();
+    store.enrollments = [{ id: "e1", student_id: "stu1", course_id: "c1", status: "active", portal_open: true, access_level: null }];
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(d!.access.modules).toEqual([{ id: "m_a", title: "Alpha", open: true }, { id: "m_b", title: "Beta", open: true }]);
+  });
   it("a page with no course returns an empty access", async () => {
     const d = await getRegistrationDetail("L", { kind: "all" });
     expect(d!.access).toEqual({ mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null });

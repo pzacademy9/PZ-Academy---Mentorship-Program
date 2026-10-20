@@ -15,6 +15,7 @@ export interface BatchOverview {
 }
 
 const CONCURRENCY = 5;
+const ACCESS_CONCURRENCY = 6;
 const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "https://pharmacozyme.com";
 
 function check(what: string, error: { message: string } | null): void {
@@ -43,9 +44,14 @@ async function courseModules(courseId: string): Promise<{ id: string; title: str
 async function paidAccessRows(pageId: string): Promise<ResolvedAccess[]> {
   const { data, error } = await createAdminSupabase().from("landing_registrations").select("id").eq("page_id", pageId).eq("status", "paid").eq("is_test", false);
   check("landing_registrations read", error);
+  // Each lookup is several queries, so run a few at a time; results keep the order of the rows.
+  const rows = data ?? [];
+  const resolved: (ResolvedAccess | null)[] = new Array(rows.length).fill(null);
+  await pool(rows.map((r, i) => ({ id: r.id, i })), ACCESS_CONCURRENCY, async ({ id, i }) => {
+    resolved[i] = await resolveAccess(id);
+  });
   const out: ResolvedAccess[] = [];
-  for (const r of data ?? []) {
-    const access = await resolveAccess(r.id);
+  for (const access of resolved) {
     if (!access || access.registration.isTest || access.lead.isTest) continue;
     if (access.desired.action !== "grant" || !access.courseId) continue;
     out.push(access);
@@ -157,7 +163,7 @@ export async function finishBatch(p: { pageId: string; moduleId: string | null; 
       const newlyOpened = after.some((r) => !beforeSet.has(r.module_id));
       if (newlyOpened) result.opened++;
       const last = await lastLinkSentAt(a.registration.id);
-      const needing = last === null ? after : after.filter((r) => (r.opened_at ?? "") >= last);
+      const needing = last === null ? after : after.filter((r) => Date.parse(r.opened_at ?? "") >= Date.parse(last));
       if (after.length === 0 || needing.length === 0) { if (!newlyOpened) result.alreadyOpen++; return; }
       try {
         await sendLink(page, a, needing.map((r) => titles.get(r.module_id) ?? "").filter(Boolean));

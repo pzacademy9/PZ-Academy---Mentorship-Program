@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { computeQuote } from "@/lib/landing/registration/pricing";
 import { formatMoney } from "@/lib/landing/registration/format";
 import { INDIVIDUAL, type FieldErrors, type FormState } from "@/lib/landing/registration/form-state";
-import type { Mode, RegistrationConfig } from "@/lib/landing/registration/config";
+import type { Mode, RegistrationView } from "@/lib/landing/registration/config";
 import { R_CHOICE, R_ERROR, R_HINT, R_INPUT, R_LABEL } from "./ui";
 
 const LEGEND = "font-headline text-base font-bold text-landing-near-black";
@@ -12,7 +12,7 @@ const LEGEND = "font-headline text-base font-bold text-landing-near-black";
 export function StepChoose({
   config, state, errors, notice, isFree, onRegion, onMode, onToggleOption, onTier, onGroupSize, modeLocked = false,
 }: {
-  config: RegistrationConfig; state: FormState; errors: FieldErrors; notice: string | null; isFree: boolean;
+  config: RegistrationView; state: FormState; errors: FieldErrors; notice: string | null; isFree: boolean;
   onRegion: (k: string) => void; onMode: (m: Mode) => void; onToggleOption: (k: string) => void;
   onTier: (k: string) => void; onGroupSize: (n: number) => void; modeLocked?: boolean;
 }) {

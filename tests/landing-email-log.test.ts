@@ -125,6 +125,12 @@ describe("sweepStaleClaims", () => {
     expect(filterValue(del, "eq", "state")).toBe("claimed");
     expect(filterValue(del, "in", "id")).toEqual(["race"]);
   });
+  it("looks at no more than 200 stale claims per sweep", async () => {
+    const store = { landing_email_log: [row("a", { claimed_at: ago(20) })] };
+    db.state.handler = memoryHandler(store);
+    await sweepStaleClaims();
+    expect(db.find("landing_email_log", "select")[0].limit).toBe(200);
+  });
   it("honours a custom cutoff", async () => {
     const store = { landing_email_log: [row("a", { claimed_at: ago(6) })] };
     db.state.handler = memoryHandler(store);

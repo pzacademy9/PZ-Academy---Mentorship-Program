@@ -208,7 +208,12 @@ export async function drainDueJobs(limit = 25): Promise<{ ran: number; failed: n
   try {
     try {
       const { registrationIds } = await sweepStaleClaims();
-      for (const id of registrationIds) await enqueueEmailStatus(id);
+      for (const id of registrationIds) {
+        // Retry once: a failed enqueue would leave a released email with no job to send it.
+        if (!(await enqueueEmailStatus(id)) && !(await enqueueEmailStatus(id))) {
+          console.warn("[landing-jobs] could not re-queue the email job after a stale claim sweep:", id);
+        }
+      }
     } catch {
       console.warn("[landing-jobs] stale email claim sweep failed"); // never stop the drain
     }

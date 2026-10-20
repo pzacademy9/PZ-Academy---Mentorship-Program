@@ -271,6 +271,13 @@ describe("RegistrationDetailView: emails and course access", () => {
     expect(within(card).queryByText("No course on this page")).toBeNull();
   });
 
+  it("signed up with a course but no enrollment yet: modules wait for payment", () => {
+    render(view(detail({ access: { mode: "live", hasAccount: true, enrollmentStatus: null, portalOpen: null, hasCourse: true, modules: null } })));
+    const card = screen.getByRole("heading", { name: "Course access" }).closest("section")!;
+    expect(within(card).getByText("Modules appear once the registration is paid")).toBeTruthy();
+    expect(within(card).queryByText("Modules appear once they sign up")).toBeNull();
+  });
+
   it("portal not set up yet when there is no enrollment", () => {
     render(view(detail({ access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: true, modules: null } })));
     expect(screen.getByText("Portal: not set up yet")).toBeTruthy();

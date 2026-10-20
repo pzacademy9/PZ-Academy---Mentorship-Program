@@ -199,6 +199,27 @@ describe("drainDueJobs and retryFailedJobs", () => {
     // the sweep ran before the batch was fetched, so the re-enqueued job is picked up in this drain
     expect(db.state.ops.findIndex((o) => o.op === "upsert")).toBeLessThan(db.state.ops.findIndex((o) => o.op === "select"));
   });
+  it("retries a failed re-queue once, then warns", async () => {
+    sweep.sweepStaleClaims.mockResolvedValue({ released: 2, registrationIds: ["reg-9", "reg-8"] });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const inner = memoryHandler({ landing_jobs: [] as Record<string, unknown>[] });
+    const tries: Record<string, number> = {};
+    db.state.handler = (op) => {
+      if (op.op === "upsert") {
+        const id = (op.payload as { registration_id: string }).registration_id;
+        tries[id] = (tries[id] ?? 0) + 1;
+        // reg-9 fails once then works; reg-8 always fails
+        if (id === "reg-8" || tries[id] === 1) return { data: null, error: { code: "08006" } };
+      }
+      return inner(op);
+    };
+    await drainDueJobs(10);
+    expect(tries).toEqual({ "reg-9": 2, "reg-8": 2 });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][1] ?? warn.mock.calls[0][0])).toContain("reg-8");
+    warn.mockRestore(); err.mockRestore();
+  });
   it("a sweep failure never stops the drain", async () => {
     sweep.sweepStaleClaims.mockRejectedValue(new Error("db down"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

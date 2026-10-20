@@ -84,7 +84,7 @@ describe("/enroll/[slug] with a closed portal", () => {
 describe("EnrollCta", () => {
   it("portal_closed shows the closed note and no Enroll button or link", () => {
     render(<EnrollCta signedIn slug="ppc" status="portal_closed" ctaVerb="Enroll" />);
-    expect(screen.getByText("Your portal opens after your batch.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Opens after your batch" }).hasAttribute("disabled")).toBe(true);
     expect(screen.queryByText(/enroll/i)).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
   });

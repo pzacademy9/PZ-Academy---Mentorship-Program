@@ -1,6 +1,6 @@
 import type { QuoteResult } from "@/lib/landing/registration/pricing";
 import type { PromoResult } from "@/lib/landing/registration/promo";
-import type { RegistrationConfig } from "@/lib/landing/registration/config";
+import type { RegistrationView } from "@/lib/landing/registration/config";
 import type { FormState } from "@/lib/landing/registration/form-state";
 import { formatMoney } from "@/lib/landing/registration/format";
 
@@ -9,7 +9,7 @@ export function dueTotal(quote: QuoteResult | null, promo: PromoResult | null): 
   return promo && promo.ok ? promo.total : quote.total;
 }
 
-export function OrderSummary({ config, state, quote, promo }: { config: RegistrationConfig; state: FormState; quote: QuoteResult | null; promo: PromoResult | null }) {
+export function OrderSummary({ config, state, quote, promo }: { config: RegistrationView; state: FormState; quote: QuoteResult | null; promo: PromoResult | null }) {
   const region = config.regions.find((r) => r.key === state.regionKey);
   const labels = state.optionKeys.map((k) => config.options.find((o) => o.key === k)?.label ?? k);
   const tier = config.tiers.find((t) => t.key === state.tierKey);

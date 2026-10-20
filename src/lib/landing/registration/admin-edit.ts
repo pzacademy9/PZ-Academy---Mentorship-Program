@@ -65,6 +65,13 @@ export function updateOption(r: RegistrationConfig, key: string, patch: Partial<
   return { ...r, options: r.options.map((o) => (o.key === key ? { ...o, ...patch } : o)) };
 }
 
+/** Drops module ids that are not in the page's course, so a stale id can be neither shown nor sent. Same object when nothing changes. */
+export function pruneModuleIds(r: RegistrationConfig, courseModuleIds: string[]): RegistrationConfig {
+  const known = new Set(courseModuleIds);
+  if (r.options.every((o) => o.moduleIds.every((id) => known.has(id)))) return r;
+  return { ...r, options: r.options.map((o) => ({ ...o, moduleIds: o.moduleIds.filter((id) => known.has(id)) })) };
+}
+
 export function removeOption(r: RegistrationConfig, key: string): RegistrationConfig {
   const prices = { ...r.prices };
   delete prices[key];

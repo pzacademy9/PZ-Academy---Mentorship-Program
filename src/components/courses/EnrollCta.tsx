@@ -53,7 +53,6 @@ export function EnrollCta({
           <button disabled className={CTA_DISABLED}>
             Opens after your batch
           </button>
-          <p className={CTA_HELPER}>Your portal opens after your batch.</p>
         </div>
       );
     case "active":
