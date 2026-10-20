@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -14,104 +13,12 @@ import {
 } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { EnrollCta } from "@/components/courses/EnrollCta";
 import { CurriculumAccordion } from "@/components/courses/CurriculumAccordion";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getCourseBySlug, getCurriculum, getEnrollment } from "@/lib/data/lms";
 import { toEmbedUrl } from "@/lib/video-embed";
 import { PROGRAM_COPY } from "@/lib/program-copy";
-import type { Database } from "@/lib/supabase/database.types";
-
-const CTA_PRIMARY =
-  "block text-center w-full bg-pz-primary text-pz-on-primary py-4 rounded-lg font-bold text-lg hover:bg-pz-on-primary-container active:scale-95 transition-all shadow-lg shadow-pz-primary/20 font-headline";
-const CTA_DISABLED =
-  "w-full bg-pz-surface-container-high text-pz-on-surface-variant py-4 rounded-lg font-bold text-lg cursor-not-allowed font-headline";
-const CTA_HELPER = "text-xs text-pz-on-surface-variant text-center mt-2 font-body";
-
-/**
- * The sidebar call-to-action. Extracted from the sticky card because it now
- * covers seven states; as an inline ternary chain it was unreadable.
- *
- * The switch is exhaustive over enrollment_status by design — the annotated
- * return type makes a missing case a compile error rather than a blank CTA.
- */
-function EnrollCta({
-  signedIn,
-  slug,
-  status,
-  ctaVerb,
-}: {
-  signedIn: boolean;
-  slug: string;
-  status: Database["public"]["Enums"]["enrollment_status"] | null;
-  ctaVerb: "Enroll" | "Register";
-}): React.ReactElement {
-  if (!signedIn) {
-    return (
-      <Link href={`/login?returnUrl=/courses/${slug}`} className={CTA_PRIMARY}>
-        Log In to {ctaVerb}
-      </Link>
-    );
-  }
-  if (!status) {
-    return (
-      <Link href={`/enroll/${slug}`} className={CTA_PRIMARY}>
-        {ctaVerb} Now
-      </Link>
-    );
-  }
-
-  switch (status) {
-    case "active":
-      return (
-        <Link
-          href={`/portal/${slug}`}
-          className={`${CTA_PRIMARY} flex items-center justify-center gap-2`}
-        >
-          <BookOpen className="w-5 h-5" /> Continue Learning
-        </Link>
-      );
-    case "pending":
-      return (
-        <div>
-          <button disabled className={CTA_DISABLED}>
-            Awaiting Verification
-          </button>
-          <p className={CTA_HELPER}>We&apos;ll email you once your payment is verified.</p>
-        </div>
-      );
-    case "reserved":
-      return (
-        <div>
-          <Link href={`/enroll/${slug}`} className={CTA_PRIMARY}>
-            Complete Payment
-          </Link>
-          <p className={CTA_HELPER}>
-            Your seat is reserved. The course unlocks once payment is confirmed.
-          </p>
-        </div>
-      );
-    case "rejected":
-      return (
-        <div>
-          <Link href={`/enroll/${slug}`} className={CTA_PRIMARY}>
-            Submit New Payment
-          </Link>
-          <p className={CTA_HELPER}>
-            Your last submission wasn&apos;t approved — check your email for the reason.
-          </p>
-        </div>
-      );
-    case "expired":
-      return (
-        <div>
-          <Link href={`/enroll/${slug}`} className={CTA_PRIMARY}>
-            {ctaVerb} Again
-          </Link>
-          <p className={CTA_HELPER}>Your previous enrollment has expired.</p>
-        </div>
-      );
-  }
-}
 
 export async function generateMetadata({
   params,
@@ -308,7 +215,13 @@ export default async function CourseDetailPage({
               <EnrollCta
                 signedIn={Boolean(user)}
                 slug={course.slug}
-                status={enrollment && !(enrollment.status === "active" && !enrollment.portal_open) ? enrollment.status : null}
+                status={
+                  !enrollment
+                    ? null
+                    : enrollment.status === "active" && !enrollment.portal_open
+                      ? "portal_closed"
+                      : enrollment.status
+                }
                 ctaVerb={copy.ctaVerb}
               />
 

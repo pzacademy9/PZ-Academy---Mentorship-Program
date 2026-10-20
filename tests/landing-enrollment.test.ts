@@ -6,7 +6,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 const pageState = vi.hoisted(() => ({ page: null as null | { id: string; courseId: string | null; registration: { options: { key: string; moduleIds: string[] }[] } } }));
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePageById: async () => pageState.page }));
 
-import { isBatchFinished, resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
+import { finishedModuleIds, resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
 
 const PAGE = "page-1";
 const COURSE = "course-1";
@@ -29,39 +29,37 @@ const row = (module_id: string | null, page_id = PAGE) => ({ page_id, module_id,
 
 beforeEach(() => db.reset());
 
-describe("isBatchFinished", () => {
-  it("is false with no rows", async () => {
+describe("finishedModuleIds", () => {
+  it("empty with no rows", async () => {
     use(store([], ["a", "b"]));
-    expect(await isBatchFinished(PAGE, COURSE, [])).toBe(false);
-    expect(await isBatchFinished(PAGE, COURSE, ["a"])).toBe(false);
+    expect(await finishedModuleIds(PAGE, COURSE, [])).toEqual([]);
+    expect(await finishedModuleIds(PAGE, COURSE, ["a"])).toEqual([]);
   });
-  it("is true when a whole-course row exists", async () => {
-    use(store([row(null)], ["a"]));
-    expect(await isBatchFinished(PAGE, COURSE, [])).toBe(true);
-    expect(await isBatchFinished(PAGE, COURSE, ["a"])).toBe(true);
+  it("ignores the page-wide null row", async () => {
+    use(store([row(null)], ["a", "b"]));
+    expect(await finishedModuleIds(PAGE, COURSE, [])).toEqual([]);
+    expect(await finishedModuleIds(PAGE, COURSE, ["a"])).toEqual([]);
   });
   it("ignores rows of other pages", async () => {
-    use(store([row(null, "other")], ["a"]));
-    expect(await isBatchFinished(PAGE, COURSE, ["a"])).toBe(false);
+    use(store([row("a", "other")], ["a"]));
+    expect(await finishedModuleIds(PAGE, COURSE, ["a"])).toEqual([]);
   });
-  it("module buyer: true only when every bought module has a row", async () => {
+  it("module buyer: only covered modules that have a row", async () => {
     use(store([row("a"), row("b")], ["a", "b", "c"]));
-    expect(await isBatchFinished(PAGE, COURSE, ["a", "b"])).toBe(true);
-    expect(await isBatchFinished(PAGE, COURSE, ["a", "c"])).toBe(false);
+    expect((await finishedModuleIds(PAGE, COURSE, ["a", "c"])).sort()).toEqual(["a"]);
+    expect((await finishedModuleIds(PAGE, COURSE, ["a", "b"])).sort()).toEqual(["a", "b"]);
   });
-  it("whole-course buyer without a course row: true only when every module of the course has a row", async () => {
-    use(store([row("a"), row("b")], ["a", "b"]));
-    expect(await isBatchFinished(PAGE, COURSE, [])).toBe(true);
-    use(store([row("a")], ["a", "b"]));
-    expect(await isBatchFinished(PAGE, COURSE, [])).toBe(false);
+  it("whole-course buyer (covered empty): every course module with a row", async () => {
+    use(store([row("a"), row("c")], ["a", "b", "c"]));
+    expect((await finishedModuleIds(PAGE, COURSE, [])).sort()).toEqual(["a", "c"]);
   });
-  it("whole-course buyer, course with no modules: false", async () => {
-    use(store([row("a")], []));
-    expect(await isBatchFinished(PAGE, COURSE, [])).toBe(false);
+  it("a row for a module outside the course is not returned for a whole-course buyer", async () => {
+    use(store([row("zzz")], ["a"]));
+    expect(await finishedModuleIds(PAGE, COURSE, [])).toEqual([]);
   });
   it("throws on a query error", async () => {
     db.state.handler = () => ({ data: null, error: { message: "boom" } });
-    await expect(isBatchFinished(PAGE, COURSE, [])).rejects.toThrow(/boom/);
+    await expect(finishedModuleIds(PAGE, COURSE, [])).rejects.toThrow(/boom/);
   });
 });
 
@@ -77,7 +75,7 @@ const reg = (o: Record<string, unknown> = {}) => ({
 const setPage = (opts: { key: string; moduleIds: string[] }[] = [{ key: "opt", moduleIds: [] }], courseId: string | null = COURSE) => {
   pageState.page = { id: PAGE, courseId, registration: { options: opts } };
 };
-interface World { regs?: Record<string, unknown>[]; enrollments?: Record<string, unknown>[]; em?: Record<string, unknown>[]; batch?: Record<string, unknown>[]; progress?: Record<string, unknown>[] }
+interface World { regs?: Record<string, unknown>[]; enrollments?: Record<string, unknown>[]; em?: Record<string, unknown>[]; batch?: Record<string, unknown>[]; open?: Record<string, unknown>[]; progress?: Record<string, unknown>[] }
 const world = (w: World = {}): Store => {
   const s: Store = {
     landing_registrations: w.regs ?? [reg()],
@@ -91,6 +89,7 @@ const world = (w: World = {}): Store => {
     landing_batch_state: w.batch ?? [],
     enrollments: w.enrollments ?? [],
     enrollment_modules: w.em ?? [],
+    enrollment_open_modules: w.open ?? [],
     lesson_progress: w.progress ?? [],
   };
   use(s);
@@ -160,10 +159,107 @@ describe("syncEnrollmentForRegistration", () => {
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
     expect(writes("enrollments")[1].payload).toEqual({ status: "active", portal_open: false });
   });
-  it("live paid, batch finished: open", async () => {
-    setPage(); world({ regs: [reg({ mode: "live" })], batch: [row(null)] });
+  it("live paid, only the null page-wide row: still closed, no open rows", async () => {
+    setPage(); const s = world({ regs: [reg({ mode: "live" })], batch: [row(null)] });
     await syncEnrollmentForRegistration("reg-1");
+    expect(writes("enrollments")[1].payload).toEqual({ status: "active", portal_open: false });
+    expect(s.enrollment_open_modules).toHaveLength(0);
+  });
+  it("live paid whole-course, module M1 finished: exactly one open row, inserted before portal_open flips", async () => {
+    setPage(); const s = world({ regs: [reg({ mode: "live" })], batch: [row(M1)] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+    expect(s.enrollment_open_modules).toHaveLength(1);
+    expect(s.enrollment_open_modules[0]).toMatchObject({ module_id: M1 });
     expect(writes("enrollments")[1].payload).toEqual({ status: "active", portal_open: true });
+    const order = allWrites().map((o) => `${o.table}:${o.op}`);
+    expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
+  });
+  it("live paid module buyer: only bought AND finished modules get rows", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M2] }]);
+    const s = world({ regs: [reg({ mode: "live" })], batch: [row(M2), row(M3)] });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollment_open_modules.map((r) => r.module_id)).toEqual([M2]);
+  });
+  it("recorded paid never gets open rows even with finished modules", async () => {
+    setPage(); const s = world({ batch: [row(M1)] });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollment_open_modules).toHaveLength(0);
+  });
+  it("live paid, Pending, Paid again: reopens with the open rows intact, no duplicates", async () => {
+    setPage(); const s = world({ regs: [reg({ mode: "live" })], batch: [row(M1)] });
+    await syncEnrollmentForRegistration("reg-1");
+    s.landing_registrations[0].status = "pending";
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("reverted");
+    expect(s.enrollments[0]).toMatchObject({ status: "pending", portal_open: false });
+    expect(s.enrollment_open_modules).toHaveLength(1);
+    s.landing_registrations[0].status = "paid";
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+    expect(s.enrollments[0]).toMatchObject({ status: "active", portal_open: true });
+    expect(s.enrollment_open_modules).toHaveLength(1);
+  });
+  it("live paid, a second sync is a no-op", async () => {
+    setPage(); world({ regs: [reg({ mode: "live" })], batch: [row(M1)] });
+    await syncEnrollmentForRegistration("reg-1");
+    db.state.ops = [];
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("live: a later finished module adds only the missing row to an active+open enrollment and never deletes", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ mode: "live" })], batch: [row(M1), row(M2)],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "live", landing_registration_id: "reg-1" })],
+      open: [{ enrollment_id: "enr-1", module_id: M1 }, { enrollment_id: "enr-1", module_id: M3 }],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+    expect(s.enrollment_open_modules.map((r) => r.module_id).sort()).toEqual([M1, M2, M3]);
+    expect(writes("enrollment_open_modules").every((o) => o.op === "upsert")).toBe(true);
+    expect(s.lesson_progress).toHaveLength(0); // the DB trigger unlocks, not the app
+  });
+  it("live: active+open with open rows present and nothing finished: no enrollments write, rows intact", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ mode: "live" })],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "live", landing_registration_id: "reg-1" })],
+      open: [{ enrollment_id: "enr-1", module_id: M1 }],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-change");
+    expect(writes("enrollments")).toHaveLength(0);
+    expect(s.enrollment_open_modules).toHaveLength(1);
+  });
+  it("recorded->live upgrade, nothing finished: open rows for every course module before access_level flips", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ mode: "live" })],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "recorded", landing_registration_id: "reg-1" })],
+    });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+    expect(s.enrollments[0]).toMatchObject({ access_level: "live", portal_open: true });
+    expect(s.enrollment_open_modules.map((r) => r.module_id).sort()).toEqual([M1, M2, M3]);
+    const order = allWrites().map((o) => `${o.table}:${o.op}`);
+    expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
+  });
+  it("recorded->live upgrade with module coverage: rows only for the covered modules", async () => {
+    setPage([{ key: "opt", moduleIds: [M1, M2] }]);
+    const s = world({
+      regs: [reg({ mode: "live" })],
+      enrollments: [enr({ status: "active", portal_open: true, access_level: "recorded", landing_registration_id: "reg-1" })],
+      em: [{ enrollment_id: "enr-1", module_id: M1 }, { enrollment_id: "enr-1", module_id: M2 }],
+    });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0].access_level).toBe("live");
+    expect(s.enrollment_open_modules.map((r) => r.module_id).sort()).toEqual([M1, M2]);
+  });
+  it("live: active+closed enrollment gets rows before the portal opens", async () => {
+    setPage();
+    const s = world({
+      regs: [reg({ mode: "live" })], batch: [row(M1)],
+      enrollments: [enr({ status: "active", portal_open: false, access_level: "live", landing_registration_id: "reg-1" })],
+    });
+    await syncEnrollmentForRegistration("reg-1");
+    expect(s.enrollments[0].portal_open).toBe(true);
+    const order = allWrites().map((o) => `${o.table}:${o.op}`);
+    expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
   });
   it("guest: no-account, nothing written", async () => {
     setPage(); world({ regs: [reg({ student_id: null })] });

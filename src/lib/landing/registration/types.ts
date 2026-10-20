@@ -7,6 +7,8 @@ export interface RegionDef { key: string; label: string; currency: string; class
 // key: short upper-case code such as "PK" | "UAE" | "KSA" | "PH" | "IN" | "INTL"; currency ISO code such as "PKR"
 export interface OptionDef { key: string; label: string; kind: "bundle" | "module"; free: boolean; waGroupUrl: string; moduleIds: string[] }
 // moduleIds: course module ids this option grants ([] = whole course or none). waGroupUrl: "" or https://chat.whatsapp.com/<code>. An option is offered in a region only when prices[option][region] exists.
+/** An option as the browser sees it: the public routes never send which course modules it unlocks. */
+export type OptionView = Omit<OptionDef, "moduleIds">;
 export interface TierDef { key: string; label: string; minSize: number; maxSize: number; percentOff: number }
 // "individual" is implicit (size 1, 0%) and is NOT listed in tiers. Fixed-size tier: minSize === maxSize.
 export interface PriceCell {
@@ -38,3 +40,6 @@ export interface RegistrationConfig {
 
 export const INDIVIDUAL = "individual";
 export const MAX_GROUP_SIZE = 50;
+
+/** The registration settings as the browser sees them (RegistrationConfig minus each option's module links). The stored config fits it. */
+export type RegistrationView = Omit<RegistrationConfig, "options"> & { options: OptionView[] };

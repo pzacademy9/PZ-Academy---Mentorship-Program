@@ -1,7 +1,7 @@
 // src/lib/landing/registration/card-price.ts
 // Pure: what a linked pricing card shows. All maths comes from computeQuote / isEarlyBird; nothing is recomputed here.
 // Imported into the public page bundle, so no server-only, React or zod imports (types.ts, not config.ts, which builds the zod schema).
-import { INDIVIDUAL, MAX_GROUP_SIZE, type Mode, type OptionDef, type RegistrationConfig } from "./types";
+import { INDIVIDUAL, MAX_GROUP_SIZE, type Mode, type OptionView, type RegistrationView } from "./types";
 import { formatMoney } from "./format";
 import { availableOptions, computeQuote } from "./pricing";
 
@@ -20,7 +20,7 @@ export type CardPrice =
     }
   | { kind: "group"; lines: string[] };
 
-export function priceLinkChoices(config: RegistrationConfig): { value: string; label: string }[] {
+export function priceLinkChoices(config: RegistrationView): { value: string; label: string }[] {
   const out = config.options.map((o) => ({ value: o.key, label: o.label.trim() === "" ? o.key : o.label }));
   if (config.options.some((o) => o.kind === "module")) out.push({ value: LINK_ALL_MODULES, label: "All single modules" });
   if (config.tiers.length > 0) out.push({ value: LINK_GROUP, label: "Group discount" });
@@ -44,7 +44,7 @@ function groupLabel(minSize: number, maxSize: number, percentOff: number): strin
   return `${who}: ${percentOff}% off`;
 }
 
-export function cardPrice(config: RegistrationConfig, link: string, regionKey: string, now: Date): CardPrice | null {
+export function cardPrice(config: RegistrationView, link: string, regionKey: string, now: Date): CardPrice | null {
   const region = config.regions.find((r) => r.key === regionKey);
   if (!region) return null;
   const baseMode: Mode | null = config.modes.includes("live") ? "live" : config.modes.includes("recorded") ? "recorded" : null;
@@ -65,7 +65,7 @@ export function cardPrice(config: RegistrationConfig, link: string, regionKey: s
     if (config.tiers.length === 0) return null;
     const avail = availableOptions(config, regionKey).filter((o) => !o.free && o.kind === "bundle");
     const mm = config.moduleMix;
-    const bundle: OptionDef | undefined = (mm.enabled ? avail.find((o) => o.key === mm.bundleOptionKey) : undefined) ?? avail[0];
+    const bundle: OptionView | undefined = (mm.enabled ? avail.find((o) => o.key === mm.bundleOptionKey) : undefined) ?? avail[0];
     if (!bundle) {
       return { kind: "group", lines: config.tiers.map((t) => groupLabel(t.minSize, t.maxSize, t.percentOff)) };
     }

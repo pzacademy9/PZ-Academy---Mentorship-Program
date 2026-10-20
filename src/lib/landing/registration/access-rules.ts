@@ -8,8 +8,8 @@ export interface AccessInput {
   isTest: boolean;
   /** Module ids the bought option covers; [] = whole course. */
   moduleIds: string[];
-  /** True when the owner has pressed Batch finished for everything this buyer bought. */
-  batchFinished: boolean;
+  /** Modules this buyer covers that the owner has marked finished (whole-course buyer: finished set of all course modules). */
+  finishedModuleIds: string[];
 }
 export interface DesiredEnrollment {
   /** "skip" = do nothing at all (test row, no course, free row). */
@@ -18,14 +18,17 @@ export interface DesiredEnrollment {
   portalOpen: boolean;
   accessLevel: "live" | "recorded";
   moduleIds: string[];
+  /** Modules to open for a Live buyer (rows in enrollment_open_modules). Always [] for recorded. */
+  openModuleIds: string[];
 }
 
 export function desiredEnrollment(i: AccessInput): DesiredEnrollment {
-  const base = { accessLevel: i.mode, moduleIds: i.moduleIds };
+  const base = { accessLevel: i.mode, moduleIds: i.moduleIds, openModuleIds: [] as string[] };
   if (i.isTest || !i.hasCourse || i.status === "free") return { action: "skip", status: "pending", portalOpen: false, ...base };
   if (i.status === "paid") {
-    const portalOpen = i.mode === "recorded" || i.batchFinished;
-    return { action: "grant", status: "active", portalOpen, ...base };
+    const openModuleIds = i.mode === "live" ? i.finishedModuleIds : [];
+    const portalOpen = i.mode === "recorded" || openModuleIds.length > 0;
+    return { action: "grant", status: "active", portalOpen, ...base, openModuleIds };
   }
   return { action: "revert", status: i.status === "reserved" ? "reserved" : "pending", portalOpen: false, ...base };
 }

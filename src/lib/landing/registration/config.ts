@@ -5,9 +5,9 @@ import { z } from "zod";
 import { isSafeUrl } from "../simple-text";
 import type { RegistrationStepKey } from "./setup-steps";
 
-import type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig } from "./types";
+import type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig, OptionView, RegistrationView } from "./types";
 import { INDIVIDUAL, MAX_GROUP_SIZE } from "./types";
-export type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig };
+export type { Mode, RegionDef, OptionDef, TierDef, PriceCell, RegistrationConfig, OptionView, RegistrationView };
 export { INDIVIDUAL, MAX_GROUP_SIZE };
 export const MODES = ["live", "recorded"] as const;
 export type RegistrationStatus = "pending" | "paid" | "underpaid" | "reserved" | "free";
@@ -112,9 +112,10 @@ const num = (v: unknown, min: number, max: number, fallback: number) =>
 const int = (v: unknown, min: number, max: number, fallback: number) => Math.round(num(v, min, max, fallback));
 const strList = (v: unknown, maxItems: number, maxLen: number): string[] =>
   Array.isArray(v) ? v.slice(0, SCAN_CAP).filter((x): x is string => typeof x === "string").slice(0, maxItems).map((x) => x.slice(0, maxLen)) : [];
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Same check the schema applies, so the normalizer never keeps an id the schema would refuse.
+const uuidSchema = z.string().uuid();
 const uuidList = (v: unknown, maxItems: number): string[] =>
-  Array.isArray(v) ? v.slice(0, SCAN_CAP).filter((x): x is string => typeof x === "string" && UUID_RE.test(x)).slice(0, maxItems) : [];
+  Array.isArray(v) ? v.slice(0, SCAN_CAP).filter((x): x is string => typeof x === "string" && uuidSchema.safeParse(x).success).slice(0, maxItems) : [];
 function list<T>(v: unknown, max: number, f: (x: Record<string, unknown>) => T | null): T[] {
   if (!Array.isArray(v)) return [];
   return v.slice(0, SCAN_CAP).filter(isRecord).map(f).filter((x): x is T => x !== null).slice(0, max);

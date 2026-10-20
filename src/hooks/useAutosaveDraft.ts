@@ -38,6 +38,8 @@ export function useAutosaveDraft<T = LandingContent>({
   const initialRevisionRef = useRef(initialRevision);
   initialRevisionRef.current = initialRevision;
   const [state, setState] = useState<SaveState>("saved");
+  // The server's own words when it refuses the content (a 400), so the editor can show them.
+  const [message, setMessage] = useState<string | null>(null);
   const revision = useRef(initialRevision);
   const pending = useRef<T | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,7 +69,14 @@ export function useAutosaveDraft<T = LandingContent>({
             allOk = false;
             break;
           }
-          if (!res.ok) throw new Error(String(res.status));
+          if (!res.ok) {
+            if (res.status === 400) {
+              const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+              setMessage(typeof body?.error === "string" ? body.error : null);
+            }
+            throw new Error(String(res.status));
+          }
+          setMessage(null);
           const json = (await res.json()) as { revision: number };
           revision.current = json.revision;
           onRevisionRef.current?.(json.revision);
@@ -103,6 +112,7 @@ export function useAutosaveDraft<T = LandingContent>({
     (content: T) => {
       if (conflicted.current) return;
       pending.current = content;
+      setMessage(null);
       setState((s) => (s === "saving" ? s : "dirty"));
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void run(), delayMs);
@@ -130,5 +140,5 @@ export function useAutosaveDraft<T = LandingContent>({
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  return { state, schedule, saveNow, restart };
+  return { state, message, schedule, saveNow, restart };
 }

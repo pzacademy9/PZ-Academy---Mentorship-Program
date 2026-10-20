@@ -10,6 +10,8 @@ import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registra
 import { enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
 import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
+import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
+import { resolveAccess } from "@/lib/data/landing-enrollment";
 
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
 type ApplyArgs = Database["public"]["Functions"]["landing_apply_status"]["Args"];
@@ -66,6 +68,19 @@ export interface RegistrationDetail {
   page: { id: string; title: string; slug: string };
   agentName: string | null;
   events: StatusEventRow[];
+  /** Emails that went out to the lead and members, newest first. Always [] for an agent scope. */
+  emails: { kind: EmailLogKind; toEmail: string; sentAt: string }[];
+  /** The lead's course access. `modules` is null only when there is no course or no enrollment yet; otherwise the effective module list with open flags. */
+  access: RegistrationAccess;
+}
+export interface RegistrationAccess {
+  mode: "live" | "recorded";
+  hasAccount: boolean;
+  enrollmentStatus: string | null;
+  portalOpen: boolean | null;
+  /** True when the landing page has a course attached (even if this person has no enrollment yet). */
+  hasCourse: boolean;
+  modules: { id: string; title: string; open: boolean }[] | null;
 }
 export type ChangeStatusResult =
   | { ok: true; id: string; status: ChangeableStatus; rowsChanged: number }
@@ -225,6 +240,53 @@ async function readScopedRow(id: string, scope: Scope): Promise<RegRow | null> {
   return (data as RegRow | null) ?? null;
 }
 
+/** The lead's own enrollment shape for this page's course. Admin client, keyed by the lead's student id only. */
+async function readAccess(lead: RegistrationRecord): Promise<RegistrationAccess> {
+  const resolved = await resolveAccess(lead.id);
+  const base: RegistrationAccess = {
+    mode: resolved?.lead.mode ?? lead.mode,
+    hasAccount: resolved ? resolved.hasAccount : lead.studentId !== null,
+    enrollmentStatus: null,
+    portalOpen: null,
+    hasCourse: (resolved?.courseId ?? null) !== null,
+    modules: null,
+  };
+  const courseId = resolved?.courseId ?? null;
+  if (!courseId || !lead.studentId) return base;
+
+  const admin = createAdminSupabase();
+  const { data: enr, error: eErr } = await admin
+    .from("enrollments")
+    .select("id, status, portal_open, access_level")
+    .eq("student_id", lead.studentId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (eErr) throw eErr;
+  if (!enr) return base;
+  const e = enr as { id: string; status: string; portal_open: boolean; access_level: string | null };
+
+  const [coveredRes, openRes, modsRes] = await Promise.all([
+    admin.from("enrollment_modules").select("module_id").eq("enrollment_id", e.id),
+    admin.from("enrollment_open_modules").select("module_id").eq("enrollment_id", e.id),
+    admin.from("modules").select("id, title, order_index").eq("course_id", courseId).order("order_index", { ascending: true }),
+  ]);
+  if (coveredRes.error) throw coveredRes.error;
+  if (openRes.error) throw openRes.error;
+  if (modsRes.error) throw modsRes.error;
+  const covered = new Set((coveredRes.data ?? []).map((r) => r.module_id as string));
+  const opened = new Set((openRes.data ?? []).map((r) => r.module_id as string));
+  const live = e.access_level === "live";
+  const activeOpen = e.status === "active" && e.portal_open === true;
+  const mods = modsRes.data ?? []; // already in course order from the query
+  const effective = covered.size === 0 ? mods : mods.filter((m) => covered.has(m.id));
+  return {
+    ...base,
+    enrollmentStatus: e.status,
+    portalOpen: e.portal_open,
+    modules: effective.map((m) => ({ id: m.id, title: m.title, open: activeOpen && (!live || opened.has(m.id)) })),
+  };
+}
+
 export async function getRegistrationDetail(id: string, scope: Scope): Promise<RegistrationDetail | null> {
   const row = await readScopedRow(id, scope);
   if (!row || (row as unknown as { row_type: string }).row_type === "member") return null;
@@ -254,9 +316,18 @@ export async function getRegistrationDetail(id: string, scope: Scope): Promise<R
   const names = await profileNames([lead.agentId, ...events.map((e) => strOrNull(e.changed_by))]);
   const personName = new Map(people.map((p) => [p.id, p.name]));
 
+  const emails = scope.kind === "agent"
+    ? []
+    : (await listEmailLog(people.map((p) => p.id)))
+        .sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt))
+        .map((m) => ({ kind: m.kind, toEmail: m.toEmail, sentAt: m.sentAt }));
+  const access = await readAccess(lead);
+
   return {
     lead,
     members,
+    emails,
+    access,
     page: { id: page?.id ?? lead.pageId, title: page?.title ?? "", slug: page?.slug ?? "" },
     agentName: lead.agentId ? names.get(lead.agentId) ?? null : null,
     events: events.map((e) => ({

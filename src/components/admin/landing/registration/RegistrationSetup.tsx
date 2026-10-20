@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { CourseModule } from "@/lib/data/landing-course-modules";
 import type { PaymentAccount } from "@/lib/data/landing-payment-accounts";
 import { FIELD_MAX, MAX_CAPACITY, MAX_GROUP_SIZE, registrationProblems, type Mode, type RegistrationConfig } from "@/lib/landing/registration/config";
 import { isValidWaGroupUrl } from "@/lib/landing/registration/wa-groups";
@@ -38,13 +39,17 @@ const lines = (v: string) => v.split("\n").map((s) => s.trim()).filter(Boolean);
 const whole = (v: string, min = 0, max = Number.MAX_SAFE_INTEGER) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : min; };
 
 export function RegistrationSetup({
-  registration: r, accounts, step, onStep, onChange,
+  registration: r, accounts, step, onStep, onChange, courseModules, saveMessage,
 }: {
   registration: RegistrationConfig;
   accounts: PaymentAccountSummary[];
   step: RegistrationStepKey;
   onStep: (s: RegistrationStepKey) => void;
   onChange: (next: RegistrationConfig) => void;
+  /** The page's course modules, in course order. null or left out = no course, so no module row. */
+  courseModules?: CourseModule[] | null;
+  /** The server's message when it refused the last save. */
+  saveMessage?: string | null;
 }) {
   const problems = r.enabled ? registrationProblems(r) : [];
   const [now] = useState(() => Date.now());
@@ -115,7 +120,7 @@ export function RegistrationSetup({
 
       <div className="space-y-4">
         <h3 className="font-headline text-base font-bold text-pz-on-surface">{current.label}</h3>
-        {current.key === "buy" && <BuyStep r={r} onChange={onChange} />}
+        {current.key === "buy" && <BuyStep r={r} onChange={onChange} courseModules={courseModules ?? null} />}
         {current.key === "groups" && <GroupsStep r={r} onChange={onChange} />}
         {current.key === "prices" && <PricesStep r={r} onChange={onChange} />}
         {current.key === "earlybird" && <EarlyBirdStep r={r} onChange={onChange} />}
@@ -124,6 +129,8 @@ export function RegistrationSetup({
         {current.key === "whatsapp" && <WhatsAppStep r={r} onChange={onChange} />}
         {current.key === "details" && <DetailsStep r={r} onChange={onChange} />}
       </div>
+
+      {saveMessage && <p role="alert" className={ERROR}>{saveMessage}</p>}
 
       <div className="flex items-center justify-between gap-2 border-t border-pz-outline-variant pt-3">
         <button type="button" className={TEXT_BTN} disabled={index <= 0} onClick={() => onStep(REG_STEPS[Math.max(0, index - 1)].key)}>
@@ -137,7 +144,8 @@ export function RegistrationSetup({
   );
 }
 
-function BuyStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void }) {
+function BuyStep({ r, onChange, courseModules }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void; courseModules: CourseModule[] | null }) {
+  const ordered = courseModules ? [...courseModules].sort((a, b) => a.order_index - b.order_index) : null;
   const toggleMode = (m: Mode) => onChange({ ...r, modes: r.modes.includes(m) ? r.modes.filter((x) => x !== m) : [...r.modes, m] });
   const bundles = r.options.filter((o) => o.kind === "bundle");
   return (
@@ -175,6 +183,31 @@ function BuyStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Registr
               <button type="button" aria-label={`Remove option ${i + 1}`} className={ICON_BTN} onClick={() => onChange(removeOption(r, o.key))}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
+              {ordered && ordered.length > 0 && (
+                <fieldset aria-label={`Modules ${o.label || `Option ${i + 1}`} gives`} className="col-span-full min-w-0 space-y-1.5 border-t border-pz-outline-variant pt-2">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2">
+                    <span className="font-headline text-[11px] font-bold text-pz-on-surface">Modules this option gives</span>
+                    <span className="font-label text-[10px] text-pz-on-surface-variant">Nothing ticked = the whole course</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    {ordered.map((m) => {
+                      const on = o.moduleIds.includes(m.id);
+                      return (
+                        <label key={m.id} className={cn("flex cursor-pointer items-center gap-1.5", on ? "text-pz-on-surface" : "text-pz-on-surface-variant")}>
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-pz-outline-variant accent-pz-solid-forest"
+                            aria-label={`${o.label || `Option ${i + 1}`}: ${m.title}`}
+                            checked={on}
+                            onChange={() => onChange(updateOption(r, o.key, { moduleIds: on ? o.moduleIds.filter((x) => x !== m.id) : [...o.moduleIds, m.id] }))}
+                          />
+                          <span>{m.title}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
             </li>
           ))}
         </ul>

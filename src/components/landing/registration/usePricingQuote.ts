@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { computeQuote, type QuoteResult } from "@/lib/landing/registration/pricing";
-import type { Mode, RegistrationConfig } from "@/lib/landing/registration/config";
+import type { Mode, RegistrationView } from "@/lib/landing/registration/config";
 import type { PromoResult } from "@/lib/landing/registration/promo";
 import { variantQuery } from "./variant";
 import type { QuoteResponse } from "./types";
@@ -16,7 +16,7 @@ export interface PricingQuote { quote: QuoteResult | null; promo: PromoResult | 
  */
 export function usePricingQuote({
   slug, config, selection, promoCode, email, debounceMs = 300, variant,
-}: { slug: string; config: RegistrationConfig; selection: Selection; promoCode: string; email: string; debounceMs?: number; variant?: string }): PricingQuote {
+}: { slug: string; config: RegistrationView; selection: Selection; promoCode: string; email: string; debounceMs?: number; variant?: string }): PricingQuote {
   const code = promoCode.trim();
   const key = JSON.stringify([selection.regionKey, selection.mode, [...selection.optionKeys].sort(), selection.tierKey, selection.groupSize, code, code ? email.trim().toLowerCase() : ""]);
   const hasChoice = selection.optionKeys.length > 0;

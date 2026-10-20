@@ -1,5 +1,5 @@
 // The registration form as plain data, so every rule is unit-tested without rendering.
-import type { Mode, RegistrationConfig } from "./config";
+import type { Mode, RegistrationView } from "./config";
 import type { QuoteResult } from "./pricing";
 import type { RegisterPayload } from "./submit-schema";
 import { pickRegion } from "./region-pick";
@@ -38,7 +38,7 @@ const emptyPerson = (): PersonDraft => ({ name: "", email: "", whatsapp: "", pro
 const digits = (v: string) => v.replace(/\D/g, "");
 
 export function initialState(
-  config: RegistrationConfig,
+  config: RegistrationView,
   { country, me, regionParam }: { country: string | null; me: PersonDraft | null; regionParam?: string | null },
 ): FormState {
   const lead: LeadDraft = {
@@ -73,13 +73,13 @@ export function stepsFor(isFree: boolean): StepKey[] {
   return isFree ? ["choose", "details"] : ["choose", "details", "pay", "upload"];
 }
 
-export function isFreeSelection(config: RegistrationConfig, optionKeys: string[]): boolean {
+export function isFreeSelection(config: RegistrationView, optionKeys: string[]): boolean {
   if (optionKeys.length === 0) return false;
   return optionKeys.every((k) => config.options.find((o) => o.key === k)?.free === true);
 }
 
 /** Packages are chosen alone; modules combine; choosing every module collapses to the package when module mix is on. */
-export function toggleOption(config: RegistrationConfig, optionKeys: string[], key: string): { optionKeys: string[]; collapsed: boolean } {
+export function toggleOption(config: RegistrationView, optionKeys: string[], key: string): { optionKeys: string[]; collapsed: boolean } {
   const opt = config.options.find((o) => o.key === key);
   if (!opt) return { optionKeys, collapsed: false };
   if (opt.kind === "bundle") return { optionKeys: [key], collapsed: false };
@@ -93,7 +93,7 @@ export function toggleOption(config: RegistrationConfig, optionKeys: string[], k
   return { optionKeys: modules.filter((m) => next.includes(m)), collapsed: false };
 }
 
-export function tierBounds(config: RegistrationConfig, tierKey: string): { min: number; max: number } | null {
+export function tierBounds(config: RegistrationView, tierKey: string): { min: number; max: number } | null {
   if (tierKey === INDIVIDUAL) return { min: 1, max: 1 };
   const t = config.tiers.find((x) => x.key === tierKey);
   return t ? { min: t.minSize, max: t.maxSize } : null;
@@ -105,20 +105,20 @@ export function resizeMembers(members: PersonDraft[], groupSize: number): Person
   return [...members, ...Array.from({ length: want - members.length }, emptyPerson)];
 }
 
-export function chooseTier(state: FormState, config: RegistrationConfig, tierKey: string): FormState {
+export function chooseTier(state: FormState, config: RegistrationView, tierKey: string): FormState {
   const b = tierBounds(config, tierKey);
   if (!b) return state;
   return { ...state, tierKey, groupSize: b.min, members: resizeMembers(state.members, b.min) };
 }
 
-export function setGroupSize(state: FormState, config: RegistrationConfig, n: number): FormState {
+export function setGroupSize(state: FormState, config: RegistrationView, n: number): FormState {
   const b = tierBounds(config, state.tierKey);
   if (!b) return state;
   const size = Math.min(b.max, Math.max(b.min, Math.round(Number.isFinite(n) ? n : b.min)));
   return { ...state, groupSize: size, members: resizeMembers(state.members, size) };
 }
 
-export function quoteProblem(quote: QuoteResult | null, config: RegistrationConfig, tierKey: string): { field: string; message: string } | null {
+export function quoteProblem(quote: QuoteResult | null, config: RegistrationView, tierKey: string): { field: string; message: string } | null {
   if (!quote || quote.ok) return null;
   const b = tierBounds(config, tierKey) ?? { min: 1, max: 1 };
   switch (quote.reason) {
@@ -162,7 +162,7 @@ function checkPerson(p: PersonDraft, prefix: string, n: number | null, errors: F
 const CONSENT_MESSAGE = "Please tick the box to agree to the registration terms.";
 
 export function validateStep(
-  step: StepKey, state: FormState, config: RegistrationConfig, quote: QuoteResult | null,
+  step: StepKey, state: FormState, config: RegistrationView, quote: QuoteResult | null,
   { hasAccounts, isFree }: { hasAccounts: boolean; isFree: boolean },
 ): FieldErrors {
   const errors: FieldErrors = {};

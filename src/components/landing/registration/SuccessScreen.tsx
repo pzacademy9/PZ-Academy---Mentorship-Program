@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CheckCircle2, FlaskConical, MessageCircle } from "lucide-react";
-import type { Mode, RegistrationConfig } from "@/lib/landing/registration/config";
+import type { Mode, RegistrationView } from "@/lib/landing/registration/config";
 import { formatMoney } from "@/lib/landing/registration/format";
 import { whatsappVerifyUrl } from "@/lib/landing/registration/labels";
 import { isValidWaGroupUrl } from "@/lib/landing/registration/wa-groups";
@@ -13,7 +13,7 @@ import { R_BTN_PRIMARY, R_BTN_SECONDARY, R_BTN_WHATSAPP, R_CARD, R_HINT } from "
 
 export interface SuccessScreenProps {
   slug: string;
-  config: RegistrationConfig;
+  config: RegistrationView;
   result: RegisterSuccess;
   lead: { name: string; email: string };
   mode: Mode;

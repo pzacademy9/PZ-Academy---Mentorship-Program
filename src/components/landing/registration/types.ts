@@ -1,5 +1,5 @@
 // Browser-side shapes of the Part B public routes. Type-only imports: nothing server-only is bundled.
-import type { RegistrationConfig } from "@/lib/landing/registration/config";
+import type { PublicRegistration } from "@/lib/landing/registration/public-config";
 import type { QuoteResult } from "@/lib/landing/registration/pricing";
 import type { PromoResult } from "@/lib/landing/registration/promo";
 import type { WaGroupButton } from "@/lib/landing/registration/wa-groups";
@@ -10,7 +10,7 @@ import type { RegistrationStatus } from "@/lib/landing/registration/config";
 export interface PublicConfig {
   pageId: string;
   status: "published" | "closed";
-  registration: RegistrationConfig & { earlyBirdActive: boolean };
+  registration: PublicRegistration;
   accounts: PaymentAccount[];
   country: string | null;
 }

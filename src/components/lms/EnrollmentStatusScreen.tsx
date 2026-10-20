@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, XCircle, ArrowLeft, Bookmark, CircleSlash, type LucideIcon } from "lucide-react";
+import { Clock, XCircle, ArrowLeft, Bookmark, CircleSlash, Hourglass, type LucideIcon } from "lucide-react";
 import type { Database } from "@/lib/supabase/database.types";
 
 type EnrollmentStatus = Database["public"]["Enums"]["enrollment_status"];
@@ -11,8 +11,10 @@ type EnrollmentStatus = Database["public"]["Enums"]["enrollment_status"];
  * below then fails to compile if a new enrollment_status is ever added, which
  * is what stops the next status from silently falling through to a branch
  * that grants access. (That is exactly how 'reserved' would have leaked.)
+ * 'portal_closed' is the one extra variant: an active enrollment whose portal
+ * has not opened yet (batch still running).
  */
-type Variant = Exclude<EnrollmentStatus, "active">;
+type Variant = Exclude<EnrollmentStatus, "active"> | "portal_closed";
 
 interface VariantConfig {
   icon: LucideIcon;
@@ -66,6 +68,20 @@ const VARIANTS: Record<Variant, VariantConfig> = {
       </>
     ),
   },
+  portal_closed: {
+    icon: Hourglass,
+    iconWrap: "bg-pz-primary/10",
+    iconColor: "text-pz-primary",
+    title: "Your portal opens after your batch.",
+    body: (course) => (
+      <>
+        <span className="block font-headline font-semibold text-pz-primary dark:text-pz-lime text-base mb-2">
+          {course}
+        </span>
+        We will email you the link and show a bell notice here as soon as it opens.
+      </>
+    ),
+  },
   expired: {
     icon: CircleSlash,
     iconWrap: "bg-pz-muted/15",
@@ -103,12 +119,12 @@ export function EnrollmentStatusScreen({ variant, courseTitle, shortfallPkr }: E
         <h1 className="font-montserrat font-bold text-xl text-pz-forest dark:text-pz-on-surface mt-5">
           {title}
         </h1>
-        <p className="text-pz-muted dark:text-pz-on-surface-variant text-sm mt-2">{body(course, shortfallPkr)}</p>
+        <div className="text-pz-muted dark:text-pz-on-surface-variant text-sm mt-2">{body(course, shortfallPkr)}</div>
         <Link
           href="/dashboard/courses"
           className="mt-6 inline-flex items-center gap-2 text-pz-forest dark:text-pz-lime text-sm font-semibold hover:underline"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to My Courses
+          <ArrowLeft className="w-4 h-4" /> Back to my courses
         </Link>
       </div>
     </div>

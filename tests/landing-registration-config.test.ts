@@ -245,6 +245,12 @@ describe("option moduleIds", () => {
     expect(r.options[0].moduleIds).toEqual([U1, U2]);
     expect(r.options[1].moduleIds).toHaveLength(40);
   });
+  it("drops an id zod's uuid check rejects (bad version digit), keeps a real v4 id", () => {
+    const bad = "11111111-1111-1111-1111-111111111111";
+    expect(registrationConfigSchema.safeParse({ ...ppcConfig(), options: [{ ...ppcConfig().options[0], moduleIds: [bad] }] }).success).toBe(false);
+    const r = normalizeRegistration({ options: [{ key: "m1", label: "M1", kind: "module", free: false, waGroupUrl: "", moduleIds: [bad, U1] }] });
+    expect(r.options[0].moduleIds).toEqual([U1]);
+  });
   it("the schema defaults a missing moduleIds to [] and keeps given ids", () => {
     const c = JSON.parse(JSON.stringify(ppcConfig()));
     delete c.options[0].moduleIds;

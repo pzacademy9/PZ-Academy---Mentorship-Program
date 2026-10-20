@@ -8,25 +8,23 @@ import { getRegistrablePageById } from "@/lib/data/landing-public";
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
 
 /**
- * True when the batch for this page is marked finished for what the buyer bought.
- * - a whole-course row (module_id null) finishes everyone;
- * - a module buyer (moduleIds non-empty) is finished when every bought module has a row;
- * - a whole-course buyer without a whole-course row is finished only when the course has
- *   at least one module and every module of the course has a row.
+ * Modules this buyer covers that the owner has marked finished for this page. Reads per-module
+ * landing_batch_state rows only: the null (page-wide) row is a display marker and is ignored.
+ * coveredModuleIds empty = whole course (every module the course has now).
  */
-export async function isBatchFinished(pageId: string, courseId: string, moduleIds: string[]): Promise<boolean> {
+export async function finishedModuleIds(pageId: string, courseId: string, coveredModuleIds: string[]): Promise<string[]> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("landing_batch_state").select("module_id").eq("page_id", pageId);
   if (error) throw new Error(`landing_batch_state read failed: ${error.message}`);
-  const rows = data ?? [];
-  if (rows.some((r) => r.module_id === null)) return true;
-  const finished = new Set(rows.map((r) => r.module_id as string));
-  if (moduleIds.length > 0) return moduleIds.every((id) => finished.has(id));
-
-  const { data: mods, error: modErr } = await admin.from("modules").select("id").eq("course_id", courseId);
-  if (modErr) throw new Error(`modules read failed: ${modErr.message}`);
-  const all = (mods ?? []).map((m) => m.id);
-  return all.length > 0 && all.every((id) => finished.has(id));
+  const finished = new Set((data ?? []).map((r) => r.module_id).filter((m): m is string => m !== null));
+  if (finished.size === 0) return [];
+  let covered = coveredModuleIds;
+  if (covered.length === 0) {
+    const { data: mods, error: modErr } = await admin.from("modules").select("id").eq("course_id", courseId);
+    if (modErr) throw new Error(`modules read failed: ${modErr.message}`);
+    covered = (mods ?? []).map((m) => m.id);
+  }
+  return covered.filter((id) => finished.has(id));
 }
 
 export interface ResolvedAccess {
@@ -72,14 +70,14 @@ export async function resolveAccess(registrationId: string): Promise<ResolvedAcc
   const picked = page.registration.options.filter((o) => keys.has(o.key));
   // Any picked option without linked modules means the whole course.
   const moduleIds = picked.some((o) => (o.moduleIds ?? []).length === 0) ? [] : Array.from(new Set(picked.flatMap((o) => o.moduleIds ?? [])));
-  const batchFinished = courseId ? await isBatchFinished(page.id, courseId, moduleIds) : false;
+  const finished = courseId ? await finishedModuleIds(page.id, courseId, moduleIds) : [];
   const desired = desiredEnrollment({
     status: registration.status,
     mode: lead.mode,
     hasCourse: courseId !== null,
     isTest: registration.isTest,
     moduleIds,
-    batchFinished,
+    finishedModuleIds: finished,
   });
   return { registration, lead, pageId: page.id, courseId, courseSlug, desired, hasAccount: registration.studentId !== null };
 }
@@ -122,6 +120,26 @@ async function unlockFirstLessons(studentId: string, moduleIds: string[]): Promi
   check("lesson_progress insert", insErr);
   const { error: upErr } = await admin.from("lesson_progress").update({ status: "unlocked" }).eq("student_id", studentId).in("lesson_id", firstIds).eq("status", "locked");
   check("lesson_progress unlock", upErr);
+}
+
+/**
+ * Insert the missing enrollment_open_modules rows (never deletes). Must run BEFORE portal_open flips to
+ * true: the DB unlock trigger on that flip calls _module_open_for, which needs the rows.
+ * Returns how many rows were added.
+ */
+async function addOpenModules(enrollmentId: string, moduleIds: string[]): Promise<number> {
+  if (moduleIds.length === 0) return 0;
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("enrollment_open_modules").select("module_id").eq("enrollment_id", enrollmentId);
+  check("enrollment_open_modules read", error);
+  const have = new Set((data ?? []).map((r) => r.module_id as string));
+  const missing = moduleIds.filter((m) => !have.has(m));
+  if (missing.length === 0) return 0;
+  const { error: insErr } = await admin
+    .from("enrollment_open_modules")
+    .upsert(missing.map((module_id) => ({ enrollment_id: enrollmentId, module_id })), { onConflict: "enrollment_id,module_id", ignoreDuplicates: true });
+  check("enrollment_open_modules insert", insErr);
+  return missing.length;
 }
 
 /** Id of another non-test paid registration by this student on a page of this course, or null. */
@@ -201,6 +219,7 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
       const { error: modErr } = await admin.from("enrollment_modules").insert(d.moduleIds.map((module_id) => ({ enrollment_id: id, module_id })));
       check("enrollment_modules insert", modErr);
     }
+    if (d.accessLevel === "live") await addOpenModules(id, d.openModuleIds);
     const { error: actErr } = await admin.from("enrollments").update({ status: "active", portal_open: d.portalOpen }).eq("id", id);
     check("enrollments activate", actErr);
     return "granted";
@@ -230,7 +249,8 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
   // Modules whose first lesson must be unlocked by hand: the DB trigger only fires when an enrollment
   // becomes active/open, never when module rows are added or removed. A not-active (or still closed)
   // enrollment relies on that trigger alone. Unlocking happens BEFORE the row changes, so a failure
-  // recomputes the same set on retry; an early unlocked row is harmless (the module gate needs coverage).
+  // recomputes the same set on retry; an early unlocked row is harmless (the module gate needs coverage;
+  // for a Live enrollment it also needs an open row, so a covered but unopened module stays gated).
   let unlockModules: string[] = [];
   if (widenedToWhole && portalOpen) {
     const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
@@ -250,6 +270,22 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
     check("enrollment_modules insert", error);
   }
 
+  // Open rows go in before portal_open can flip; on an already-open enrollment the DB trigger on the
+  // insert unlocks that module's first lesson, so no unlockFirstLessons here.
+  // A recorded buyer upgrading to Live keeps what they had: since the Live gate needs an open row per
+  // module, open every covered module (after any widening) before access_level flips.
+  let openWanted = d.openModuleIds;
+  if (d.accessLevel === "live" && wasActive && existing.access_level === "recorded") {
+    let covers = [...have.filter((m) => !toDelete.includes(m)), ...toAdd];
+    if (covers.length === 0) {
+      const { data: all, error } = await admin.from("modules").select("id").eq("course_id", courseId);
+      check("modules read", error);
+      covers = (all ?? []).map((m) => m.id);
+    }
+    openWanted = Array.from(new Set([...openWanted, ...covers]));
+  }
+  const openAdded = d.accessLevel === "live" ? await addOpenModules(existing.id, openWanted) : 0;
+
   const patch: Database["public"]["Tables"]["enrollments"]["Update"] = {};
   if (!wasActive) patch.status = "active";
   if (portalOpen !== existing.portal_open) patch.portal_open = portalOpen;
@@ -262,5 +298,5 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
     const { error } = await admin.from("enrollments").update(patch).eq("id", existing.id);
     check("enrollments update", error);
   }
-  return toDelete.length > 0 || toAdd.length > 0 || Object.keys(patch).length > 0 ? "granted" : "no-change";
+  return toDelete.length > 0 || toAdd.length > 0 || openAdded > 0 || Object.keys(patch).length > 0 ? "granted" : "no-change";
 }

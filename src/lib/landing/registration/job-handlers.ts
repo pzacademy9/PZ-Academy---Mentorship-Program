@@ -14,7 +14,7 @@ import {
   formatStartsOn, withTestPrefix, type BuiltEmail, type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
 import { resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
-import { claimEmail, releaseEmail, type EmailLogKind } from "@/lib/data/landing-email-log";
+import { claimEmail, markEmailSent, releaseEmail, type EmailLogKind } from "@/lib/data/landing-email-log";
 import { emailGetsPortalLink } from "./access-rules";
 import type { JobType } from "@/lib/data/landing-jobs";
 
@@ -281,7 +281,10 @@ async function emailStatus(registrationId: string): Promise<void> {
     } catch (err) {
       try { await releaseEmail(person.id, kind); } catch { console.warn("[landing-jobs] email claim release failed"); }
       if (!firstError) firstError = err;
+      continue;
     }
+    // The email went out. If the log update fails the row stays 'claimed' (still blocks a resend).
+    try { await markEmailSent(person.id, kind); } catch { console.warn("[landing-jobs] email sent mark failed"); }
   }
   if (firstError) throw firstError;
 }

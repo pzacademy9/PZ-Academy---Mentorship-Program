@@ -1,9 +1,11 @@
 // What the public registration routes may show about a page's registration settings. Pure (client-safe).
-import type { RegistrationConfig } from "./config";
+import type { OptionView, RegistrationConfig } from "./config";
 import { isEarlyBird, type QuoteResult } from "./pricing";
 
-/** Same shape as the stored config (the widget prices with it), plus the server's Early Bird verdict. */
-export type PublicRegistration = RegistrationConfig & { earlyBirdActive: boolean };
+/** An option as the public sees it: no module links (which course modules it unlocks stay private). */
+export type PublicOption = OptionView;
+/** Same shape as the stored config (the widget prices with it) minus module links, plus the server's Early Bird verdict. */
+export type PublicRegistration = Omit<RegistrationConfig, "options"> & { options: PublicOption[]; earlyBirdActive: boolean };
 export type QuoteFailureReason = Extract<QuoteResult, { ok: false }>["reason"];
 
 /**
@@ -13,7 +15,7 @@ export type QuoteFailureReason = Extract<QuoteResult, { ok: false }>["reason"];
 export function toPublicRegistration(config: RegistrationConfig, now: Date): PublicRegistration {
   return {
     ...config,
-    options: config.options.map((o) => ({ ...o, waGroupUrl: "" })),
+    options: config.options.map(({ moduleIds: _moduleIds, ...o }) => ({ ...o, waGroupUrl: "" })),
     refPrefix: "",
     earlyBirdActive: isEarlyBird(config, now),
   };

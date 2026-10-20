@@ -11,7 +11,7 @@ const base: AccessInput = {
   hasCourse: true,
   isTest: false,
   moduleIds: [],
-  batchFinished: false,
+  finishedModuleIds: [],
 };
 
 describe("desiredEnrollment", () => {
@@ -20,14 +20,24 @@ describe("desiredEnrollment", () => {
     expect(d).toMatchObject({ action: "grant", status: "active", portalOpen: true, accessLevel: "recorded" });
   });
 
-  it("paid live stays closed until batch finished", () => {
-    const d = desiredEnrollment({ ...base, mode: "live" });
-    expect(d).toMatchObject({ action: "grant", status: "active", portalOpen: false, accessLevel: "live" });
+  it("paid recorded never gets open modules", () => {
+    const d = desiredEnrollment({ ...base, finishedModuleIds: ["a"] });
+    expect(d).toMatchObject({ portalOpen: true, openModuleIds: [] });
   });
 
-  it("paid live opens when batch finished", () => {
-    const d = desiredEnrollment({ ...base, mode: "live", batchFinished: true });
-    expect(d.portalOpen).toBe(true);
+  it("paid live with no finished modules stays closed", () => {
+    const d = desiredEnrollment({ ...base, mode: "live" });
+    expect(d).toMatchObject({ action: "grant", status: "active", portalOpen: false, accessLevel: "live", openModuleIds: [] });
+  });
+
+  it("paid live with module A finished opens the portal with [A]", () => {
+    const d = desiredEnrollment({ ...base, mode: "live", finishedModuleIds: ["a"] });
+    expect(d).toMatchObject({ portalOpen: true, openModuleIds: ["a"] });
+  });
+
+  it("revert and skip carry no open modules and stay closed", () => {
+    expect(desiredEnrollment({ ...base, mode: "live", status: "pending", finishedModuleIds: ["a"] })).toMatchObject({ action: "revert", portalOpen: false, openModuleIds: [] });
+    expect(desiredEnrollment({ ...base, mode: "live", isTest: true, finishedModuleIds: ["a"] })).toMatchObject({ action: "skip", portalOpen: false, openModuleIds: [] });
   });
 
   it("underpaid and pending revert to pending, closed", () => {
@@ -63,6 +73,7 @@ describe("emailGetsPortalLink", () => {
   it("is true only for open grants", () => {
     expect(emailGetsPortalLink(desiredEnrollment(base))).toBe(true);
     expect(emailGetsPortalLink(desiredEnrollment({ ...base, mode: "live" }))).toBe(false);
+    expect(emailGetsPortalLink(desiredEnrollment({ ...base, mode: "live", finishedModuleIds: ["a"] }))).toBe(true);
     expect(emailGetsPortalLink(desiredEnrollment({ ...base, status: "pending" }))).toBe(false);
     expect(emailGetsPortalLink(desiredEnrollment({ ...base, isTest: true }))).toBe(false);
   });

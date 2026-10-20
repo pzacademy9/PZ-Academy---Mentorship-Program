@@ -10,6 +10,7 @@ import type { RegistrationConfig } from "@/lib/landing/registration/config";
 import type { RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { FieldInput } from "./FieldInput";
 import { ModulesEditor, type ModulesEditorProps } from "./ModulesEditor";
+import type { CourseModule } from "@/lib/data/landing-course-modules";
 import { RegistrationSetup, type PaymentAccountSummary } from "./registration/RegistrationSetup";
 
 const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -53,10 +54,14 @@ function Card({ icon: Icon, title, children }: { icon: typeof Timer; title: stri
 
 export function PageSettingsPanel({
   settings, seo, slug, pageTitle, onSettings, onSeo,
-  registration, accounts, registrationStep, onRegistrationStep, onRegistration, modules, children,
+  registration, accounts, registrationStep, onRegistrationStep, onRegistration, modules, courseModules, saveMessage, children,
 }: {
   /** The Modules card (course and workshop pages only; omit it elsewhere). */
   modules?: ModulesEditorProps;
+  /** The page's course modules for the registration options (null = no course). */
+  courseModules?: CourseModule[] | null;
+  /** The server's message when it refused the last save. */
+  saveMessage?: string | null;
   settings: LandingSettings;
   seo: LandingSeo;
   /** Used only for the share-card preview line. */
@@ -97,6 +102,8 @@ export function PageSettingsPanel({
             step={registrationStep ?? "buy"}
             onStep={onRegistrationStep}
             onChange={onRegistration}
+            courseModules={courseModules}
+            saveMessage={saveMessage}
           />
         </div>
       )}

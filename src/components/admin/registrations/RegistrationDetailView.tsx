@@ -7,6 +7,8 @@ import { RegistrationStatusBadge } from "./RegistrationStatusBadge";
 import { StatusChangeControl } from "./StatusChangeControl";
 import { StatusHistory } from "./StatusHistory";
 import { GroupMembers } from "./GroupMembers";
+import { RegistrationEmailsCard } from "./RegistrationEmailsCard";
+import { RegistrationAccessCard } from "./RegistrationAccessCard";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -69,7 +71,7 @@ export function RegistrationDetailView({
   /** A short line shown under the change button (the sales page uses it). */
   changeNote?: string;
 }) {
-  const { lead, members, page, agentName, events } = detail;
+  const { lead, members, page, agentName, events, emails, access } = detail;
   const isGroup = lead.rowType === "lead" || members.length > 0;
   const balance =
     lead.status === "underpaid" && lead.expectedAmount !== null && lead.amountReceived !== null
@@ -221,6 +223,8 @@ export function RegistrationDetailView({
 
         <div className="lg:col-span-2 space-y-6">
           {isGroup && <GroupMembers lead={lead} members={members} />}
+          <RegistrationAccessCard access={access} />
+          {showAgent && <RegistrationEmailsCard emails={emails} />}
           <StatusHistory events={events} showPerson={isGroup} />
         </div>
       </div>

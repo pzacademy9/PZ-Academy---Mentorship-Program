@@ -442,9 +442,9 @@ vi.mock("@/components/admin/program/ImageUploadField", () => ({
     <button type="button" onClick={() => { const captured = onChange; uploads.pending.push((u) => captured(u)); }}>Fake pick file</button>
   ),
 }));
-const autosave = vi.hoisted(() => ({ state: "saved" as string, schedule: vi.fn(), saveNow: vi.fn(), onRevision: undefined as undefined | ((r: number) => void) }));
+const autosave = vi.hoisted(() => ({ message: null as string | null, state: "saved" as string, schedule: vi.fn(), saveNow: vi.fn(), onRevision: undefined as undefined | ((r: number) => void) }));
 vi.mock("@/hooks/useAutosaveDraft", () => ({
-  useAutosaveDraft: (args: { onRevision?: (r: number) => void }) => { autosave.onRevision = args.onRevision; return { state: autosave.state, schedule: autosave.schedule, saveNow: autosave.saveNow }; },
+  useAutosaveDraft: (args: { onRevision?: (r: number) => void }) => { autosave.onRevision = args.onRevision; return { state: autosave.state, message: autosave.message, schedule: autosave.schedule, saveNow: autosave.saveNow }; },
 }));
 import { PreviewFrame } from "@/components/admin/landing/PreviewFrame";
 import { LandingEditor } from "@/components/admin/landing/LandingEditor";
@@ -506,6 +506,29 @@ describe("LandingEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
     fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
     expect(autosave.schedule.mock.calls.at(-1)![0].settings.registerLabel).toBe("Join");
+  });
+  it("passes the save message through to the registration setup, on every step", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const withReg = { ...page, draft: updateRegistration(page.draft, ppcConfig) };
+    autosave.message = "Pick modules from this page's course.";
+    try {
+      render(<LandingEditor page={withReg} versions={[]} accounts={[]} />);
+      fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Group discounts/ }));
+      expect(screen.getByText("Pick modules from this page's course.")).toBeTruthy();
+    } finally { autosave.message = null; }
+  });
+  it("drops a saved module id that is not in the course, so the next save is accepted", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const reg = { ...ppcConfig, options: ppcConfig.options.map((o, i) => (i === 0 ? { ...o, moduleIds: ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"] } : o)) };
+    const withReg = { ...page, draft: updateRegistration(page.draft, reg) };
+    render(<LandingEditor page={withReg} versions={[]} accounts={[]} courseModules={[{ id: "22222222-2222-4222-8222-222222222222", title: "Module A", order_index: 1 }]} />);
+    fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
+    fireEvent.click(screen.getAllByLabelText(/: Module A$/)[0]);
+    const sent = autosave.schedule.mock.calls.at(-1)![0];
+    expect(sent.registration.options[0].moduleIds).toEqual([]);
   });
   it("a registration problem's Fix button opens Page settings at that registration step", async () => {
     const { ppcConfig } = await import("./fixtures/registration-fixtures");

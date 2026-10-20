@@ -9,7 +9,10 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 const m = vi.hoisted(() => ({
   getRegistrationBundle: vi.fn(), markEmailStatus: vi.fn(), getRegistrablePageById: vi.fn(),
   listPaymentAccounts: vi.fn(), appendRegistrationRows: vi.fn(), sendTransactionalEmail: vi.fn(),
+  claimEmail: vi.fn(), markEmailSent: vi.fn(), releaseEmail: vi.fn(), resolveAccess: vi.fn(), syncEnrollmentForRegistration: vi.fn(),
 }));
+vi.mock("@/lib/data/landing-email-log", () => ({ claimEmail: m.claimEmail, markEmailSent: m.markEmailSent, releaseEmail: m.releaseEmail }));
+vi.mock("@/lib/data/landing-enrollment", () => ({ resolveAccess: m.resolveAccess, syncEnrollmentForRegistration: m.syncEnrollmentForRegistration }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationBundle: m.getRegistrationBundle, markEmailStatus: m.markEmailStatus }));
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePageById: m.getRegistrablePageById }));
 vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.listPaymentAccounts }));
@@ -45,6 +48,9 @@ beforeEach(() => {
   m.appendRegistrationRows.mockResolvedValue({ ok: true });
   m.sendTransactionalEmail.mockResolvedValue({});
   m.markEmailStatus.mockResolvedValue(undefined);
+  m.claimEmail.mockResolvedValue(true);
+  m.markEmailSent.mockResolvedValue(undefined);
+  m.releaseEmail.mockResolvedValue(undefined);
   vi.stubEnv("LANDING_ADMIN_EMAIL", "team@pzacademy.example");
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -92,6 +98,31 @@ describe("sheet_append", () => {
     m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
     m.appendRegistrationRows.mockResolvedValue({ ok: false, message: "Sheet is busy, try again" });
     await expect(JOB_HANDLERS.sheet_append("reg-1")).rejects.toThrow("Sheet is busy");
+  });
+});
+
+describe("email_status", () => {
+  const paidAccess = (r: RegistrationRecord) => ({
+    registration: r, lead: r, pageId: "page-1", courseId: null, courseSlug: null, hasAccount: false,
+    desired: { action: "skip", status: "pending", portalOpen: false, accessLevel: "live", moduleIds: [], openModuleIds: [] },
+  });
+  it("marks the claim sent after a good send", async () => {
+    const r = rec({ status: "paid" });
+    m.getRegistrationBundle.mockResolvedValue(bundle(r));
+    m.resolveAccess.mockResolvedValue(paidAccess(r));
+    await JOB_HANDLERS.email_status("reg-1");
+    expect(m.sendTransactionalEmail).toHaveBeenCalledTimes(1);
+    expect(m.markEmailSent).toHaveBeenCalledWith("reg-1", "paid");
+    expect(m.releaseEmail).not.toHaveBeenCalled();
+  });
+  it("releases the claim and does not mark sent when the send fails", async () => {
+    const r = rec({ status: "paid" });
+    m.getRegistrationBundle.mockResolvedValue(bundle(r));
+    m.resolveAccess.mockResolvedValue(paidAccess(r));
+    m.sendTransactionalEmail.mockRejectedValueOnce(new Error("Brevo 502"));
+    await expect(JOB_HANDLERS.email_status("reg-1")).rejects.toThrow("Brevo 502");
+    expect(m.releaseEmail).toHaveBeenCalledWith("reg-1", "paid");
+    expect(m.markEmailSent).not.toHaveBeenCalled();
   });
 });
 

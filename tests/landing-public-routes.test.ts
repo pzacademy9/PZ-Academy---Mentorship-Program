@@ -76,6 +76,12 @@ describe("pure helpers", () => {
     expect(PPC_CONFIG.options[0].waGroupUrl).not.toBe("");
     expect(toPublicRegistration(PPC_CONFIG, AFTER_EB).earlyBirdActive).toBe(false);
   });
+  it("the public copy has no moduleIds on any option", () => {
+    const cfg = { ...PPC_CONFIG, options: PPC_CONFIG.options.map((o) => ({ ...o, moduleIds: ["11111111-1111-4111-8111-111111111111"] })) };
+    const pub = toPublicRegistration(cfg, PRE_EB);
+    for (const o of pub.options) expect(Object.keys(o)).not.toContain("moduleIds");
+    expect(cfg.options[0].moduleIds).toHaveLength(1);
+  });
   it("lists each region account once, in region order", () => {
     expect(regionAccountKeys(PPC_CONFIG)).toEqual(["faysal", "easypaisa", "mashreq", "paypal"]);
   });
