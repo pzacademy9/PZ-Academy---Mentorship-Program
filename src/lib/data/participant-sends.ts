@@ -285,6 +285,38 @@ export async function listSends(pageId: string): Promise<SendRow[]> {
       .order("created_at", { ascending: false }).order("id", { ascending: true }));
 }
 
+export type SendCounts = { sent: number; failed: number; skipped: number; waiting: number };
+/** A send as the "Messages sent" list shows it: the row, who sent it (null when no name is known) and its recipients counted by state. */
+export type SendListItem = SendRow & { senderName: string | null; counts: SendCounts };
+
+/** listSends plus counts per state (claimed counts as waiting) and the sender's name. Read in chunks, like the rest of this file. */
+export async function listSendSummaries(pageId: string): Promise<SendListItem[]> {
+  const admin = createAdminSupabase();
+  const sends = await listSends(pageId);
+  const counts = new Map<string, SendCounts>(sends.map((s) => [s.id, { sent: 0, failed: 0, skipped: 0, waiting: 0 }]));
+  for (let i = 0; i < sends.length; i += ID_CHUNK) {
+    const part = sends.slice(i, i + ID_CHUNK).map((s) => s.id);
+    const rows = await fetchAllRows<{ send_id: string; state: string }>("send counts read", () =>
+      admin.from("participant_send_recipients").select("send_id, state").in("send_id", part).order("id", { ascending: true }));
+    for (const r of rows) {
+      const c = counts.get(r.send_id);
+      if (!c) continue;
+      if (r.state === "sent") c.sent += 1;
+      else if (r.state === "failed") c.failed += 1;
+      else if (r.state === "skipped") c.skipped += 1;
+      else c.waiting += 1;
+    }
+  }
+  const actorIds = Array.from(new Set(sends.map((s) => s.created_by).filter((v): v is string => !!v)));
+  const names = new Map<string, string>();
+  for (let i = 0; i < actorIds.length; i += ID_CHUNK) {
+    const { data, error } = await admin.from("profiles").select("id, full_name").in("id", actorIds.slice(i, i + ID_CHUNK));
+    check("senders read", error);
+    for (const p of data ?? []) if (p.full_name) names.set(p.id as string, p.full_name as string);
+  }
+  return sends.map((s) => ({ ...s, senderName: s.created_by ? names.get(s.created_by) ?? null : null, counts: counts.get(s.id)! }));
+}
+
 export type SendDetail = {
   send: SendRow;
   recipients: SendRecipientRow[];

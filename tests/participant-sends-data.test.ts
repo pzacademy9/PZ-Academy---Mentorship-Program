@@ -26,7 +26,7 @@ vi.mock("@/lib/data/participant-prefs", () => ({
 }));
 vi.mock("@/lib/brevo-participants", () => ({ sendParticipantEmail: h.send }));
 
-import { createSend, runEmailSend, retryFailed, markWhatsAppSent, getSend, previewSend, sendTestToMe, listMessagesForRegistrations } from "@/lib/data/participant-sends";
+import { createSend, runEmailSend, retryFailed, markWhatsAppSent, getSend, previewSend, sendTestToMe, listMessagesForRegistrations, listSendSummaries } from "@/lib/data/participant-sends";
 
 const PAGE = "page-1";
 const cand = (id: string, o: Record<string, unknown> = {}) => ({
@@ -309,6 +309,29 @@ describe("whatsapp, messages and test send", () => {
     expect(r.ok).toBe(true);
     const rows = await listMessagesForRegistrations(["a"]);
     expect(rows).toEqual([expect.objectContaining({ registrationId: "a", channel: "email", subject: "Hi {{ first_name }}", state: "pending" })]);
+  });
+
+  it("listSendSummaries counts each state per send and names the sender", async () => {
+    store.profiles = [{ id: "admin-1", full_name: "Sarah Jenkins" }];
+    const r = await createSend(input());
+    expect(r.ok).toBe(true);
+    const id = (r as { sendId: string }).sendId;
+    store.participant_send_recipients[0].state = "sent";
+    store.participant_send_recipients[1].state = "failed";
+    store.participant_send_recipients.push({ id: "x1", send_id: id, registration_id: "z", state: "skipped", reason: "unsubscribed" });
+    store.participant_send_recipients.push({ id: "x2", send_id: "other-send", registration_id: "z", state: "sent", reason: "" });
+    const rows = await listSendSummaries(PAGE);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id, senderName: "Sarah Jenkins", counts: { sent: 1, failed: 1, skipped: 1, waiting: 1 } });
+  });
+
+  it("listSendSummaries leaves the sender out when no name is known and counts claimed as waiting", async () => {
+    const r = await createSend(input());
+    store.participant_send_recipients[0].state = "claimed";
+    const rows = await listSendSummaries(PAGE);
+    expect(rows[0].senderName).toBeNull();
+    expect(rows[0].counts.waiting).toBe(3);
+    expect(r.ok).toBe(true);
   });
 
   it("sendTestToMe prefixes [TEST], uses the preview footer and writes no rows", async () => {

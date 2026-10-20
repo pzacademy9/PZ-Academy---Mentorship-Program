@@ -12,6 +12,7 @@ import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
 import { resolveAccess } from "@/lib/data/landing-enrollment";
+import { listMessagesForRegistrations } from "@/lib/data/participant-sends";
 
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
 type ApplyArgs = Database["public"]["Functions"]["landing_apply_status"]["Args"];
@@ -72,6 +73,8 @@ export interface RegistrationDetail {
   events: StatusEventRow[];
   /** Emails that went out to the lead and members, newest first. Always [] for an agent scope. */
   emails: { kind: EmailLogKind; toEmail: string; sentAt: string }[];
+  /** Emails and WhatsApp messages the team sent from a campaign to the lead and members, newest first. Always [] for an agent scope. */
+  messages: { registrationId: string; channel: string; subject: string; state: string; sentAt: string | null; sendCreatedAt: string | null }[];
   /** The lead's course access. `modules` is null only when there is no course or no enrollment yet; otherwise the effective module list with open flags. */
   access: RegistrationAccess;
 }
@@ -331,12 +334,14 @@ export async function getRegistrationDetail(id: string, scope: Scope): Promise<R
     : (await listEmailLog(people.map((p) => p.id)))
         .sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt))
         .map((m) => ({ kind: m.kind, toEmail: m.toEmail, sentAt: m.sentAt }));
+  const messages = scope.kind === "agent" ? [] : await listMessagesForRegistrations(people.map((p) => p.id));
   const access = await readAccess(lead);
 
   return {
     lead,
     members,
     emails,
+    messages,
     access,
     page: { id: page?.id ?? lead.pageId, title: page?.title ?? "", slug: page?.slug ?? "" },
     agentName: lead.agentId ? names.get(lead.agentId) ?? null : null,

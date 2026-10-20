@@ -8,18 +8,15 @@ import type { BuilderChannel, CampaignBuilderRequest } from "./CampaignRegistrat
 import { buildRecipientBody } from "./builder-body";
 import { SendSummary, skippedTotal } from "./SendSummary";
 import { WhatsAppSendList } from "./WhatsAppSendList";
+import { PARTICIPANTS_API, call, runSendLoop } from "./run-send";
 
-const API = "/api/admin/participants";
+const API = PARTICIPANTS_API;
 
 type Template = { id: string; name: string; subject: string; emailBody: string; whatsappBody: string };
 type Step = "edit" | "review" | "sending" | "done" | "list";
 type Progress = { sent: number; failed: number; total: number };
 /** What the server recorded for the send, counted from its recipient rows. */
 type Recorded = { sent: number; failed: number; skipped: number };
-
-const FLAT_RUNS_BEFORE_PAUSE = 3;
-const MAX_RUNS = 300;
-const wait = (ms: number) => (ms > 0 ? new Promise<void>((r) => setTimeout(r, ms)) : Promise.resolve());
 
 const TAG_LABEL: Record<string, string> = {
   first_name: "First name",
@@ -30,20 +27,6 @@ const TAG_LABEL: Record<string, string> = {
 
 const CHANNEL_WORD: Record<BuilderChannel, string> = { email: "email", whatsapp: "WhatsApp message" };
 const CHANNEL_LABEL: Record<BuilderChannel, string> = { email: "Email", whatsapp: "WhatsApp" };
-
-async function call(url: string, method: "GET" | "POST", body?: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    return { status: res.status, data };
-  } catch {
-    return { status: 0, data: {} };
-  }
-}
 
 const errorText = (data: Record<string, unknown>, fallback: string): string =>
   typeof data.error === "string" && data.error !== "" ? data.error : fallback;
@@ -191,32 +174,22 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   }
 
   async function runLoop(id: string, start: Progress, total: number) {
-    let { sent, failed } = start;
     setStep("sending");
     setRunError(null);
     setRecorded(null);
-    let lastPending = Number.POSITIVE_INFINITY;
-    let flat = 0;
-    for (let i = 0; i < MAX_RUNS; i += 1) {
-      const { status, data } = await call(`${API}/sends/${id}/run`, "POST");
-      if (status !== 200 || typeof data.pending !== "number") {
-        setRunError("Sending stopped part way. Some messages may already have gone out. Press Continue sending to carry on.");
-        return;
-      }
-      sent += Number(data.sent) || 0;
-      failed += Number(data.failed) || 0;
-      setProgress({ sent, failed, total });
-      if (data.pending === 0) {
-        await loadRecorded(id);
-        setStep("done");
-        return;
-      }
-      flat = data.pending < lastPending ? 0 : flat + 1;
-      lastPending = data.pending;
-      if (flat >= FLAT_RUNS_BEFORE_PAUSE) break;
-      if (flat > 0) await wait(pauseMs);
+    const result = await runSendLoop(id, {
+      start,
+      pauseMs,
+      onProgress: (sent, failed) => setProgress({ sent, failed, total }),
+    });
+    if (result === "error") {
+      setRunError("Sending stopped part way. Some messages may already have gone out. Press Continue sending to carry on.");
+    } else if (result === "done") {
+      await loadRecorded(id);
+      setStep("done");
+    } else {
+      setRunError("Sending paused. Some people are still waiting. Press Continue sending to try again.");
     }
-    setRunError("Sending paused. Some people are still waiting. Press Continue sending to try again.");
   }
 
   /** The server's own count of what happened, so the result line never mixes in preview figures. */

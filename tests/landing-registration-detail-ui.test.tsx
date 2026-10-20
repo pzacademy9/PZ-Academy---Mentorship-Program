@@ -28,7 +28,7 @@ function rec(over: Partial<RegistrationRecord> = {}): RegistrationRecord {
 function detail(over: Partial<RegistrationDetail> = {}, lead: Partial<RegistrationRecord> = {}): RegistrationDetail {
   return {
     lead: rec(lead), members: [], page: { id: "p1", title: "PPC Masterclass", slug: "ppc" },
-    agentName: null, events: [], emails: [], access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null }, ...over,
+    agentName: null, events: [], emails: [], messages: [], access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null }, ...over,
   };
 }
 const view = (d: RegistrationDetail, showAgent = true) => (
@@ -248,6 +248,21 @@ describe("RegistrationDetailView: emails and course access", () => {
     const card = screen.getByRole("heading", { name: "Emails sent" }).closest("section")!;
     for (const label of ["Paid", "Portal link", "Underpaid", "Reserved"]) expect(within(card).getByText(label)).toBeTruthy();
     expect(within(card).getAllByText("sara@example.com")).toHaveLength(4);
+  });
+
+  it("admin sees a builder email and a WhatsApp mark in the same card", () => {
+    render(view(detail({ emails: sent, messages: [
+      { registrationId: "r1", channel: "email", subject: "Module 2 Schedule", state: "sent", sentAt: "2026-10-15T11:42:00Z", sendCreatedAt: "2026-10-15T11:40:00Z" },
+      { registrationId: "r1", channel: "whatsapp", subject: "", state: "sent", sentAt: "2026-10-16T08:00:00Z", sendCreatedAt: "2026-10-16T07:50:00Z" },
+    ] })));
+    const card = screen.getByRole("heading", { name: "Emails sent" }).closest("section")!;
+    expect(within(card).getByText("Module 2 Schedule")).toBeTruthy();
+    expect(within(card).getByText("Sent via WhatsApp")).toBeTruthy();
+  });
+
+  it("agent view with messages in the data still shows none", () => {
+    render(view(detail({ messages: [{ registrationId: "r1", channel: "email", subject: "Secret subject", state: "sent", sentAt: "2026-10-15T11:42:00Z", sendCreatedAt: "2026-10-15T11:40:00Z" }] }), false));
+    expect(screen.queryByText("Secret subject")).toBeNull();
   });
 
   it("shows the empty state when no email was sent", () => {
