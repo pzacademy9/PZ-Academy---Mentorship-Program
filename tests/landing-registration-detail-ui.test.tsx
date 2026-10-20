@@ -28,7 +28,7 @@ function rec(over: Partial<RegistrationRecord> = {}): RegistrationRecord {
 function detail(over: Partial<RegistrationDetail> = {}, lead: Partial<RegistrationRecord> = {}): RegistrationDetail {
   return {
     lead: rec(lead), members: [], page: { id: "p1", title: "PPC Masterclass", slug: "ppc" },
-    agentName: null, events: [], emails: [], access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, modules: null }, ...over,
+    agentName: null, events: [], emails: [], access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null }, ...over,
   };
 }
 const view = (d: RegistrationDetail, showAgent = true) => (
@@ -262,11 +262,23 @@ describe("RegistrationDetailView: emails and course access", () => {
   });
 
   it("guest without an account, portal closed", () => {
-    render(view(detail({ access: { mode: "recorded", hasAccount: false, enrollmentStatus: null, portalOpen: false, modules: [] } })));
+    render(view(detail({ access: { mode: "recorded", hasAccount: false, enrollmentStatus: null, portalOpen: false, hasCourse: true, modules: null } })));
     const card = screen.getByRole("heading", { name: "Course access" }).closest("section")!;
     expect(within(card).getByText("Recorded")).toBeTruthy();
     expect(within(card).getByText("Account: not signed up yet")).toBeTruthy();
     expect(within(card).getByText("Portal: closed")).toBeTruthy();
+    expect(within(card).getByText("Modules appear once they sign up")).toBeTruthy();
+    expect(within(card).queryByText("No course on this page")).toBeNull();
+  });
+
+  it("portal not set up yet when there is no enrollment", () => {
+    render(view(detail({ access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: true, modules: null } })));
+    expect(screen.getByText("Portal: not set up yet")).toBeTruthy();
+  });
+
+  it("an enrollment with no modules says so", () => {
+    render(view(detail({ access: { mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true, hasCourse: true, modules: [] } })));
+    expect(screen.getByText("No modules yet")).toBeTruthy();
   });
 
   it("page with no course says so", () => {
@@ -275,7 +287,7 @@ describe("RegistrationDetailView: emails and course access", () => {
   });
 
   it("lists modules with Open and Closed chips", () => {
-    render(view(detail({ access: { mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true, modules: [
+    render(view(detail({ access: { mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true, hasCourse: true, modules: [
       { id: "m1", title: "Module One", open: true }, { id: "m2", title: "Module Two", open: false },
     ] } })));
     const card = screen.getByRole("heading", { name: "Course access" }).closest("section")!;

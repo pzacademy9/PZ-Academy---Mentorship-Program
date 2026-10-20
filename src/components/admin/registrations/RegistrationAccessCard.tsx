@@ -3,7 +3,7 @@ import type { RegistrationDetail } from "@/lib/data/landing-registration-admin";
 
 /** What this person can get into: format, account, portal and each module. */
 export function RegistrationAccessCard({ access }: { access: RegistrationDetail["access"] }) {
-  const { mode, hasAccount, portalOpen, modules } = access;
+  const { mode, hasAccount, portalOpen, hasCourse, modules } = access;
   return (
     <section className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-6">
       <div className="flex items-center gap-2.5">
@@ -34,13 +34,17 @@ export function RegistrationAccessCard({ access }: { access: RegistrationDetail[
         <div className="p-2.5 bg-pz-surface-container-low rounded-lg flex flex-col gap-0.5">
           <span className="text-[10px] font-headline font-bold uppercase tracking-wider text-pz-on-surface-variant">Portal</span>
           <span className={`font-headline font-bold ${portalOpen ? "text-pz-primary" : "text-pz-on-surface-variant"}`}>
-            {portalOpen ? "Portal: open" : "Portal: closed"}
+            {portalOpen === null ? "Portal: not set up yet" : portalOpen ? "Portal: open" : "Portal: closed"}
           </span>
         </div>
       </div>
 
       {modules === null ? (
-        <p className="mt-4 p-4 rounded-lg bg-pz-surface-container-low text-center text-xs text-pz-on-surface-variant font-body">No course on this page</p>
+        <p className="mt-4 p-4 rounded-lg bg-pz-surface-container-low text-center text-xs text-pz-on-surface-variant font-body">
+          {hasCourse ? "Modules appear once they sign up" : "No course on this page"}
+        </p>
+      ) : modules.length === 0 ? (
+        <p className="mt-4 p-4 rounded-lg bg-pz-surface-container-low text-center text-xs text-pz-on-surface-variant font-body">No modules yet</p>
       ) : (
         <div className="mt-4">
           <div className="text-[11px] font-headline font-bold uppercase tracking-wider text-pz-on-surface-variant mb-1.5">Modules</div>

@@ -78,6 +78,8 @@ export interface RegistrationAccess {
   hasAccount: boolean;
   enrollmentStatus: string | null;
   portalOpen: boolean | null;
+  /** True when the landing page has a course attached (even if this person has no enrollment yet). */
+  hasCourse: boolean;
   modules: { id: string; title: string; open: boolean }[] | null;
 }
 export type ChangeStatusResult =
@@ -246,6 +248,7 @@ async function readAccess(lead: RegistrationRecord): Promise<RegistrationAccess>
     hasAccount: resolved ? resolved.hasAccount : lead.studentId !== null,
     enrollmentStatus: null,
     portalOpen: null,
+    hasCourse: (resolved?.courseId ?? null) !== null,
     modules: null,
   };
   const courseId = resolved?.courseId ?? null;

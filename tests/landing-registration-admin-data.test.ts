@@ -163,7 +163,7 @@ describe("detail emails and access", () => {
     store.enrollment_open_modules = [{ enrollment_id: "e1", module_id: "m_a" }];
     const d = await getRegistrationDetail("L", { kind: "all" });
     expect(d!.access).toEqual({
-      mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true,
+      mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true, hasCourse: true,
       modules: [{ id: "m_a", title: "Alpha", open: true }, { id: "m_b", title: "Beta", open: false }],
     });
   });
@@ -178,7 +178,7 @@ describe("detail emails and access", () => {
   it("guest without an account has no enrollment status", async () => {
     enr.resolveAccess.mockResolvedValue({ lead: { mode: "recorded" }, courseId: "c1", hasAccount: false });
     const d = await getRegistrationDetail("L", { kind: "all" });
-    expect(d!.access).toEqual({ mode: "recorded", hasAccount: false, enrollmentStatus: null, portalOpen: null, modules: null });
+    expect(d!.access).toEqual({ mode: "recorded", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: true, modules: null });
   });
   it("recorded active and open enrollment opens every module", async () => {
     withCourse({ lead: { mode: "recorded" } });
@@ -205,7 +205,7 @@ describe("detail emails and access", () => {
   });
   it("a page with no course returns an empty access", async () => {
     const d = await getRegistrationDetail("L", { kind: "all" });
-    expect(d!.access).toEqual({ mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, modules: null });
+    expect(d!.access).toEqual({ mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null });
     expect(db.find("enrollments", "select")).toHaveLength(0);
   });
   it("emails cover lead and members, newest first", async () => {
