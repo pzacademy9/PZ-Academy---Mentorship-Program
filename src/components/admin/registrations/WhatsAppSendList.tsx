@@ -38,7 +38,7 @@ const timeLabel = (iso: string | null): string => {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).replace(" AM", " am").replace(" PM", " pm");
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Karachi" }).replace(" AM", " am").replace(" PM", " pm");
 };
 
 const initials = (name: string): string =>

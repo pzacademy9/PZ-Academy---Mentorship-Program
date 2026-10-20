@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Inbox, Users, Radio, PlayCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
-import { formatDate, initials } from "@/lib/format";
+import { formatDatePkt, initials } from "@/lib/format";
 import { formatMoney } from "@/lib/format-money";
 import type { RegistrationListRow } from "@/lib/data/landing-registration-admin";
 import { RegistrationStatusBadge } from "./RegistrationStatusBadge";
@@ -117,7 +117,7 @@ export function RegistrationsTable({
             `${r.region} · ${r.mode === "live" ? "Live" : "Recorded"} · ${formatMoney(r.expectedAmount, r.currency)}`,
             <span key="status" className="inline-flex items-center gap-2">
               <RegistrationStatusBadge status={r.status} />
-              <span>{formatDate(r.createdAt)}</span>
+              <span>{formatDatePkt(r.createdAt)}</span>
             </span>,
             ...(showAgentColumn ? [`Agent: ${r.agentName ?? "None"}`] : []),
           ],
@@ -210,7 +210,7 @@ export function RegistrationsTable({
                           )}
                         </td>
                       )}
-                      <td className="py-4 px-3 pr-6 whitespace-nowrap font-headline font-semibold">{formatDate(r.createdAt)}</td>
+                      <td className="py-4 px-3 pr-6 whitespace-nowrap font-headline font-semibold">{formatDatePkt(r.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

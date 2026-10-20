@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, Mail, MessageCircle, Send, X } from "lucide-react";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTimePkt } from "@/lib/format";
 import type { SendCounts, SendListItem } from "@/lib/data/participant-sends";
 import { PARTICIPANTS_API, call, runSendLoop } from "./run-send";
 import { WhatsAppSendList } from "./WhatsAppSendList";
@@ -31,7 +31,7 @@ const FALLBACK_FAILURE = "The email service could not send this one.";
 const failureWords = (reason: string): string =>
   reason.trim() === "" ? "Could not be sent" : KNOWN_FAILURES.includes(reason) ? reason : FALLBACK_FAILURE;
 
-const whenOf = (s: SendListItem): string => (s.created_at ? formatDateTime(s.created_at) : "");
+const whenOf = (s: SendListItem): string => (s.created_at ? formatDateTimePkt(s.created_at) : "");
 
 const initials = (name: string): string =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("");

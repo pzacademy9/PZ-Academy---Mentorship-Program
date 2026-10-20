@@ -1,5 +1,5 @@
 import { Mail } from "lucide-react";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTimePkt } from "@/lib/format";
 import type { RegistrationDetail } from "@/lib/data/landing-registration-admin";
 
 const KINDS: Record<RegistrationDetail["emails"][number]["kind"], { label: string; className: string }> = {
@@ -36,7 +36,7 @@ function MessageRow({ m }: { m: Message }) {
         </div>
         {notSent && <span className={`text-[10px] font-headline font-bold shrink-0 ${STATE_CLASS[m.state] ?? "text-pz-on-surface-variant"}`}>{STATE_WORD[m.state] ?? m.state}</span>}
       </div>
-      {when && <span className="font-mono text-[10px] text-pz-on-surface-variant">{formatDateTime(when)}</span>}
+      {when && <span className="font-mono text-[10px] text-pz-on-surface-variant">{formatDateTimePkt(when)}</span>}
     </li>
   );
 }
@@ -66,7 +66,7 @@ export function RegistrationEmailsCard({ emails, messages = [] }: { emails: Regi
                   <li key={`${e.kind}-${e.sentAt}-${i}`} className="p-3 bg-pz-surface-container-low rounded-lg flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-headline font-extrabold ${KINDS[e.kind].className}`}>{KINDS[e.kind].label}</span>
-                      <span className="font-mono text-[10px] text-pz-on-surface-variant">{formatDateTime(e.sentAt)}</span>
+                      <span className="font-mono text-[10px] text-pz-on-surface-variant">{formatDateTimePkt(e.sentAt)}</span>
                     </div>
                     <span className="font-body text-xs text-pz-on-surface truncate">{e.toEmail}</span>
                   </li>

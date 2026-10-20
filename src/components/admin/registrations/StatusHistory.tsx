@@ -1,5 +1,5 @@
 import { History } from "lucide-react";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTimePkt } from "@/lib/format";
 import type { StatusEventRow } from "@/lib/data/landing-registration-admin";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { REGISTRATION_STATUS_LABELS } from "./RegistrationStatusBadge";
@@ -30,7 +30,7 @@ export function StatusHistory({ events, showPerson }: { events: StatusEventRow[]
                   {e.source === "sheet" ? "Sheet" : "App"}
                 </span>
               </div>
-              <p className="font-body text-xs text-pz-on-surface-variant mt-0.5">{formatDateTime(e.at)}</p>
+              <p className="font-body text-xs text-pz-on-surface-variant mt-0.5">{formatDateTimePkt(e.at)}</p>
               <p className="font-body text-xs text-pz-on-surface-variant">
                 <span>{e.actorName ?? (e.source === "sheet" ? "Changed in the sheet" : "Not recorded")}</span>
                 {showPerson && e.registrationName ? ` · ${e.registrationName}` : ""}
