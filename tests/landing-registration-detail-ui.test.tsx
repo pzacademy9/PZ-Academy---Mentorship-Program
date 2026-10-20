@@ -234,3 +234,56 @@ describe("StatusChangeControl refresh after save", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 });
+
+describe("RegistrationDetailView: emails and course access", () => {
+  const sent = [
+    { kind: "paid" as const, toEmail: "sara@example.com", sentAt: "2026-10-05T09:35:00Z" },
+    { kind: "portal_link" as const, toEmail: "sara@example.com", sentAt: "2026-10-05T09:36:00Z" },
+    { kind: "underpaid" as const, toEmail: "sara@example.com", sentAt: "2026-10-05T09:37:00Z" },
+    { kind: "reserved" as const, toEmail: "sara@example.com", sentAt: "2026-10-04T11:43:00Z" },
+  ];
+
+  it("admin sees an email row per email with its type chip and address", () => {
+    render(view(detail({ emails: sent })));
+    const card = screen.getByRole("heading", { name: "Emails sent" }).closest("section")!;
+    for (const label of ["Paid", "Portal link", "Underpaid", "Reserved"]) expect(within(card).getByText(label)).toBeTruthy();
+    expect(within(card).getAllByText("sara@example.com")).toHaveLength(4);
+  });
+
+  it("shows the empty state when no email was sent", () => {
+    render(view(detail()));
+    expect(screen.getByText("No emails sent yet")).toBeTruthy();
+  });
+
+  it("agent view hides the emails card", () => {
+    render(view(detail({ emails: sent }), false));
+    expect(screen.queryByRole("heading", { name: "Emails sent" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Course access" })).toBeTruthy();
+  });
+
+  it("guest without an account, portal closed", () => {
+    render(view(detail({ access: { mode: "recorded", hasAccount: false, enrollmentStatus: null, portalOpen: false, modules: [] } })));
+    const card = screen.getByRole("heading", { name: "Course access" }).closest("section")!;
+    expect(within(card).getByText("Recorded")).toBeTruthy();
+    expect(within(card).getByText("Account: not signed up yet")).toBeTruthy();
+    expect(within(card).getByText("Portal: closed")).toBeTruthy();
+  });
+
+  it("page with no course says so", () => {
+    render(view(detail()));
+    expect(screen.getByText("No course on this page")).toBeTruthy();
+  });
+
+  it("lists modules with Open and Closed chips", () => {
+    render(view(detail({ access: { mode: "live", hasAccount: true, enrollmentStatus: "active", portalOpen: true, modules: [
+      { id: "m1", title: "Module One", open: true }, { id: "m2", title: "Module Two", open: false },
+    ] } })));
+    const card = screen.getByRole("heading", { name: "Course access" }).closest("section")!;
+    expect(within(card).getByText("Live")).toBeTruthy();
+    expect(within(card).getByText("Account: signed up")).toBeTruthy();
+    expect(within(card).getByText("Portal: open")).toBeTruthy();
+    expect(within(screen.getByText("Module One").closest("li")!).getByText("Open")).toBeTruthy();
+    expect(within(screen.getByText("Module Two").closest("li")!).getByText("Closed")).toBeTruthy();
+    expect(screen.queryByText("No course on this page")).toBeNull();
+  });
+});
