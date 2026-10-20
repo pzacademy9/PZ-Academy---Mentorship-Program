@@ -32,7 +32,7 @@ function detail(over: Partial<RegistrationDetail> = {}, lead: Partial<Registrati
   };
 }
 const view = (d: RegistrationDetail, showAgent = true) => (
-  <RegistrationDetailView detail={d} backHref="/dashboard/admin/enrollments/registrations" backLabel="Back to registrations" endpoint="/api/admin/registrations/r1" showAgent={showAgent} />
+  <RegistrationDetailView detail={d} backHref="/dashboard/admin/enrollments/registrations/all" backLabel="Back to registrations" endpoint="/api/admin/registrations/r1" showAgent={showAgent} />
 );
 
 const fetchMock = vi.fn();
