@@ -16,7 +16,7 @@ import type { Channel, Summary } from "@/lib/landing/participants/types";
 export type SendRow = Tables<"participant_sends">;
 export type SendRecipientRow = Tables<"participant_send_recipients">;
 
-export type CreateSendFailureCode = "count_changed" | "not_paid_unconfirmed" | "no_recipients" | "no_course_for_portal_link" | "not_set_up";
+export type CreateSendFailureCode = "count_changed" | "not_paid_unconfirmed" | "no_recipients" | "no_course_for_portal_link" | "not_set_up" | "duplicate_send";
 export type CreateSendResult =
   | { ok: true; sendId: string; count: number }
   | { ok: false; code: CreateSendFailureCode; message: string; summary?: Summary };
@@ -33,7 +33,24 @@ const MESSAGES: Record<CreateSendFailureCode, string> = {
   no_recipients: "Nobody to send to.",
   no_course_for_portal_link: "This campaign has no course, so the portal link cannot be used in the message.",
   not_set_up: "Email sending is not set up yet.",
+  duplicate_send: "This message was just sent. Check Messages sent before sending again.",
 };
+const DUPLICATE_WINDOW_MS = 60 * 1000;
+const MAY_HAVE_BEEN_SENT = "May have been sent. Check before sending again.";
+const NO_PORTAL_LINK = "No portal link available";
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Reads every row of a query by paging with range() until a short page. `build` must give a stable total order. */
+async function fetchAllRows<T>(what: string, build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: { message: string } | null }> }): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build().range(from, from + 999);
+    check(what, error);
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < 1000) return out;
+  }
+}
 const fail = (code: CreateSendFailureCode, summary?: Summary): CreateSendResult => ({ ok: false, code, message: MESSAGES[code], summary });
 
 /** Runs fn over items, at most `limit` at a time. fn must not throw. */
@@ -80,18 +97,33 @@ async function portalUrlFor(courseId: string | null): Promise<string | null> {
 
 export async function createSend(input: {
   pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters;
-  subject: string; body: string; templateId?: string | null; expectedCount: number; confirmNotPaid: boolean; actorId: string;
+  subject: string; body: string; templateId?: string | null; expectedCount: number; expectedNotPaid: number; confirmNotPaid: boolean; actorId: string;
 }): Promise<CreateSendResult> {
-  const { planned, summary } = await plan(input);
-  if (planned.send.length !== input.expectedCount) return fail("count_changed", summary);
+  let resolved: Awaited<ReturnType<typeof plan>>;
+  try {
+    resolved = await plan(input);
+  } catch (e) {
+    // A ticked row stopped being a valid head since the preview (flagged or deleted): the list changed.
+    if (e instanceof Error && /not on this campaign/i.test(e.message)) return fail("count_changed");
+    throw e;
+  }
+  const { planned, summary } = resolved;
+  if (planned.send.length !== input.expectedCount || summary.notPaid !== input.expectedNotPaid) return fail("count_changed", summary);
   if (summary.notPaid > 0 && !input.confirmNotPaid) return fail("not_paid_unconfirmed", summary);
   if (planned.send.length === 0) return fail("no_recipients", summary);
   if (usesPortalLink(input.body) || usesPortalLink(input.subject)) {
-    if (!(await pageCourseId(input.pageId))) return fail("no_course_for_portal_link", summary);
+    // Same function that renders the link at send time.
+    if ((await portalUrlFor(await pageCourseId(input.pageId))) === null) return fail("no_course_for_portal_link", summary);
   }
   if (input.channel === "email" && !process.env.BREVO_API_KEY_PARTICIPANTS) return fail("not_set_up", summary);
 
   const admin = createAdminSupabase();
+  const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
+  const { data: recent, error: recentErr } = await admin.from("participant_sends").select("id")
+    .eq("page_id", input.pageId).eq("channel", input.channel).eq("subject", input.subject).eq("body", input.body).gte("created_at", since).limit(1);
+  check("duplicate check", recentErr);
+  if ((recent ?? []).length > 0) return fail("duplicate_send", summary);
+
   const { data: sendRow, error: sendErr } = await admin.from("participant_sends").insert({
     page_id: input.pageId,
     channel: input.channel,
@@ -118,7 +150,8 @@ export async function createSend(input: {
     const { error } = await admin.from("participant_send_recipients").insert(rows.slice(i, i + INSERT_CHUNK));
     if (error) {
       // Nothing may be left half-frozen: the send row (and its recipients, by cascade) goes away.
-      await admin.from("participant_sends").delete().eq("id", sendId);
+      const { error: delErr } = await admin.from("participant_sends").delete().eq("id", sendId);
+      if (delErr) console.error(`[participant-sends] CLEANUP FAILED: send ${sendId} is left half-created (recipients missing). Delete it by hand. ${delErr.message}`);
       throw new Error(`recipient insert failed: ${error.message}`);
     }
   }
@@ -164,10 +197,11 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
   check("send read", sendErr);
   if (!send || send.channel !== "email") return { sent: 0, failed: 0, pending: 0 };
 
-  // A run that died mid-way leaves rows claimed; after 15 minutes they count as pending again.
+  // A run that died mid-way leaves rows claimed. The email may or may not have gone out, so after
+  // 15 minutes they become failed (never pending): nothing is re-sent automatically, the owner decides via retryFailed.
   const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
   const { error: staleErr } = await admin.from("participant_send_recipients")
-    .update({ state: "pending", claimed_at: null }).eq("send_id", sendId).eq("state", "claimed").lt("claimed_at", cutoff);
+    .update({ state: "failed", reason: MAY_HAVE_BEEN_SENT }).eq("send_id", sendId).eq("state", "claimed").lt("claimed_at", cutoff);
   check("stale claim reset", staleErr);
 
   const { data: pendingData, error: pendErr } = await admin.from("participant_send_recipients")
@@ -187,12 +221,24 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
         .eq("id", r.id).eq("state", "pending").select("id");
       if (claimErr || !won || won.length === 0) return; // someone else has it
       const finish = async (patch: Partial<SendRecipientRow>) => {
-        const { error } = await admin.from("participant_send_recipients").update(patch).eq("id", r.id);
-        if (error) console.warn("[participant-sends] state update failed"); // stays claimed: still blocks a resend
+        // The email already went out when state is "sent": retry the mark so it is not later seen as stale.
+        const attempts = patch.state === "sent" ? 3 : 1;
+        for (let n = 1; n <= attempts; n++) {
+          const { error } = await admin.from("participant_send_recipients").update(patch).eq("id", r.id);
+          if (!error) return;
+          if (n < attempts) await sleep(100 * n);
+        }
+        // Stays claimed; after 15 minutes it turns failed ("may have been sent"), never pending.
+        console.warn("[participant-sends] state update failed");
       };
       const email = r.email.trim().toLowerCase();
       if (email === "") { await finish({ state: "skipped", reason: "no_email" }); return; }
       if (optedOut.has(email)) { await finish({ state: "skipped", reason: "unsubscribed" }); return; }
+      if ((usesPortalLink(send.body) || usesPortalLink(send.subject)) && portalUrl === null) {
+        failed += 1;
+        await finish({ state: "failed", reason: NO_PORTAL_LINK });
+        return;
+      }
       let result: { ok: true } | { ok: false; error: string };
       try {
         const token = await getOrCreateToken(email);
@@ -227,15 +273,16 @@ export async function markWhatsAppSent(sendId: string, recipientId: string, sent
   check("send read", sErr);
   if (!send || send.channel !== "whatsapp") throw new Error("Not a WhatsApp send");
   const patch = sent ? { state: "sent", sent_at: new Date().toISOString() } : { state: "pending", sent_at: null };
-  const { error } = await admin.from("participant_send_recipients").update(patch)
-    .eq("id", recipientId).eq("send_id", sendId).in("state", sent ? ["pending"] : ["sent"]);
+  const { data, error } = await admin.from("participant_send_recipients").update(patch)
+    .eq("id", recipientId).eq("send_id", sendId).in("state", ["pending", "sent"]).select("id");
   check("whatsapp mark", error);
+  if (!data || data.length === 0) throw new Error("Recipient not found");
 }
 
 export async function listSends(pageId: string): Promise<SendRow[]> {
-  const { data, error } = await createAdminSupabase().from("participant_sends").select("*").eq("page_id", pageId).order("created_at", { ascending: false });
-  check("sends read", error);
-  return (data ?? []) as SendRow[];
+  return fetchAllRows<SendRow>("sends read", () =>
+    createAdminSupabase().from("participant_sends").select("*").eq("page_id", pageId)
+      .order("created_at", { ascending: false }).order("id", { ascending: true }));
 }
 
 export async function getSend(sendId: string): Promise<{ send: SendRow; recipients: SendRecipientRow[] } | null> {
@@ -243,14 +290,9 @@ export async function getSend(sendId: string): Promise<{ send: SendRow; recipien
   const { data: send, error } = await admin.from("participant_sends").select("*").eq("id", sendId).maybeSingle();
   check("send read", error);
   if (!send) return null;
-  const recipients: SendRecipientRow[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error: rErr } = await admin.from("participant_send_recipients").select("*").eq("send_id", sendId)
-      .order("name", { ascending: true }).order("id", { ascending: true }).range(from, from + 999);
-    check("recipients read", rErr);
-    recipients.push(...((data ?? []) as SendRecipientRow[]));
-    if ((data ?? []).length < 1000) break;
-  }
+  const recipients = await fetchAllRows<SendRecipientRow>("recipients read", () =>
+    admin.from("participant_send_recipients").select("*").eq("send_id", sendId)
+      .order("name", { ascending: true }).order("id", { ascending: true }));
   return { send: send as SendRow, recipients };
 }
 
@@ -259,14 +301,17 @@ export async function listMessagesForRegistrations(registrationIds: string[]): P
   const ids = Array.from(new Set(registrationIds));
   const out: { registrationId: string; channel: string; subject: string; state: string; sentAt: string | null; sendCreatedAt: string | null }[] = [];
   for (let i = 0; i < ids.length; i += ID_CHUNK) {
-    const { data: recs, error } = await admin.from("participant_send_recipients").select("*").in("registration_id", ids.slice(i, i + ID_CHUNK));
-    check("messages read", error);
-    const rows = (recs ?? []) as SendRecipientRow[];
+    const part = ids.slice(i, i + ID_CHUNK);
+    const rows = await fetchAllRows<SendRecipientRow>("messages read", () =>
+      admin.from("participant_send_recipients").select("*").in("registration_id", part).order("id", { ascending: true }));
     if (rows.length === 0) continue;
     const sendIds = Array.from(new Set(rows.map((r) => r.send_id)));
-    const { data: sends, error: sErr } = await admin.from("participant_sends").select("*").in("id", sendIds);
-    check("messages sends read", sErr);
-    const byId = new Map(((sends ?? []) as SendRow[]).map((s) => [s.id, s]));
+    const byId = new Map<string, SendRow>();
+    for (let k = 0; k < sendIds.length; k += ID_CHUNK) {
+      const { data: sends, error: sErr } = await admin.from("participant_sends").select("*").in("id", sendIds.slice(k, k + ID_CHUNK));
+      check("messages sends read", sErr);
+      for (const s of (sends ?? []) as SendRow[]) byId.set(s.id, s);
+    }
     for (const r of rows) {
       const s = byId.get(r.send_id);
       if (!s) continue;

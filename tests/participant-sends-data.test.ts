@@ -5,10 +5,21 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 const h = vi.hoisted(() => ({
   candidates: [] as unknown[],
+  real: false,
+  throwErr: null as Error | null,
   unsub: new Set<string>(),
   send: vi.fn(),
 }));
-vi.mock("@/lib/data/participant-campaigns", () => ({ resolveCandidates: async () => h.candidates }));
+vi.mock("@/lib/data/participant-campaigns", async (orig) => {
+  const real = await orig<typeof import("@/lib/data/participant-campaigns")>();
+  return {
+    ...real,
+    resolveCandidates: async (i: Parameters<typeof real.resolveCandidates>[0]) => {
+      if (h.throwErr) throw h.throwErr;
+      return h.real ? real.resolveCandidates(i) : h.candidates;
+    },
+  };
+});
 vi.mock("@/lib/data/participant-prefs", () => ({
   getOrCreateToken: async (email: string) => `tok-${email}`,
   listUnsubscribed: async () => h.unsub,
@@ -22,7 +33,7 @@ const cand = (id: string, o: Record<string, unknown> = {}) => ({
   registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "0300", refId: `R-${id}`, status: "paid", ...o,
 });
 const input = (o: Record<string, unknown> = {}) => ({
-  pageId: PAGE, channel: "email" as const, subject: "Hi {{ first_name }}", body: "Hello {{ first_name }}, ref {{ ref_id }}", expectedCount: 3,
+  pageId: PAGE, channel: "email" as const, subject: "Hi {{ first_name }}", body: "Hello {{ first_name }}, ref {{ ref_id }}", expectedCount: 3, expectedNotPaid: 0,
   confirmNotPaid: false, actorId: "admin-1", ...o,
 });
 
@@ -42,6 +53,8 @@ const states = () => store.participant_send_recipients.map((r) => `${r.registrat
 beforeEach(() => {
   db.reset();
   h.candidates = [cand("a"), cand("b"), cand("c")];
+  h.real = false;
+  h.throwErr = null;
   h.unsub = new Set();
   h.send.mockReset();
   h.send.mockResolvedValue({ ok: true });
@@ -52,11 +65,11 @@ beforeEach(() => {
 describe("createSend", () => {
   it("refuses when someone has not paid, allows with confirmation and records it", async () => {
     h.candidates = [cand("a"), cand("b", { status: "pending" }), cand("c")];
-    const refused = await createSend(input());
+    const refused = await createSend(input({ expectedNotPaid: 1 }));
     expect(refused).toMatchObject({ ok: false, code: "not_paid_unconfirmed" });
     expect(store.participant_sends).toHaveLength(0);
     expect(store.participant_send_recipients).toHaveLength(0);
-    const ok = await createSend(input({ confirmNotPaid: true }));
+    const ok = await createSend(input({ confirmNotPaid: true, expectedNotPaid: 1 }));
     expect(ok).toMatchObject({ ok: true, count: 3 });
     expect(store.participant_sends[0]).toMatchObject({ not_paid_confirmed: true, not_paid_count: 1, recipient_count: 3, created_by: "admin-1" });
   });
@@ -66,6 +79,51 @@ describe("createSend", () => {
     expect(r).toMatchObject({ ok: false, code: "count_changed" });
     expect(store.participant_sends).toHaveLength(0);
     expect(store.participant_send_recipients).toHaveLength(0);
+  });
+
+  it("refuses with count_changed when the not-paid count differs from the preview", async () => {
+    h.candidates = [cand("a", { status: "pending" }), cand("b", { status: "pending" }), cand("c", { status: "pending" })];
+    const r = await createSend(input({ expectedNotPaid: 1, confirmNotPaid: true }));
+    expect(r).toMatchObject({ ok: false, code: "count_changed" });
+    expect(store.participant_sends).toHaveLength(0);
+  });
+
+  it("returns count_changed (not a throw) when a ticked row is no longer a valid head", async () => {
+    h.throwErr = new Error("A selected registration is not on this campaign");
+    expect(await createSend(input({ ids: ["a"] }))).toMatchObject({ ok: false, code: "count_changed" });
+    h.throwErr = new Error("database down");
+    await expect(createSend(input({ ids: ["a"] }))).rejects.toThrow(/database down/);
+  });
+
+  it("with the real resolver: test-lead members never appear and a pending lead member counts as not paid", async () => {
+    h.real = true;
+    const reg = (o: Record<string, unknown>) => ({
+      page_id: PAGE, row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com", whatsapp: "0300",
+      option_label: "Live", mode: "live", region: "PK", status: "paid", is_test: false, agent_id: null, created_at: "2026-10-01T00:00:00Z", ...o,
+    });
+    store.landing_registrations = [
+      reg({ id: "L", row_type: "lead", name: "Lead", email: "l@x.com", ref_id: "R-L", status: "paid" }),
+      reg({ id: "mt", row_type: "member", lead_registration_id: "L", name: "Test Member", email: "mt@x.com", is_test: true }),
+      reg({ id: "P", row_type: "lead", name: "Pend", email: "p@x.com", ref_id: "R-P", status: "pending" }),
+      reg({ id: "pm", row_type: "member", lead_registration_id: "P", name: "Pend Member", email: "pm@x.com", status: "pending" }),
+    ];
+    const refused = await createSend(input({ expectedCount: 3, expectedNotPaid: 2 }));
+    expect(refused).toMatchObject({ ok: false, code: "not_paid_unconfirmed" });
+    const ok = await createSend(input({ expectedCount: 3, expectedNotPaid: 2, confirmNotPaid: true }));
+    expect(ok).toMatchObject({ ok: true, count: 3 });
+    expect(store.participant_send_recipients.map((r) => r.registration_id).sort()).toEqual(["L", "P", "pm"]);
+  });
+
+  it("refuses a repeat of the same message within 60 seconds, allows it later or with another body", async () => {
+    const first = await createSend(input());
+    expect(first.ok).toBe(true);
+    const sends = store.participant_sends.length, recs = store.participant_send_recipients.length;
+    expect(await createSend(input())).toMatchObject({ ok: false, code: "duplicate_send" });
+    expect(store.participant_sends).toHaveLength(sends);
+    expect(store.participant_send_recipients).toHaveLength(recs);
+    expect(await createSend(input({ body: "Different {{ first_name }}" }))).toMatchObject({ ok: true });
+    store.participant_sends[0].created_at = new Date(Date.now() - 61 * 1000).toISOString();
+    expect(await createSend(input())).toMatchObject({ ok: true });
   });
 
   it("refuses when nobody is left", async () => {
@@ -147,14 +205,40 @@ describe("runEmailSend", () => {
     expect(await runEmailSend(id, 2)).toEqual({ sent: 2, failed: 0, pending: 1 });
   });
 
-  it("treats rows claimed over 15 minutes ago as pending, but not fresh ones", async () => {
+  it("turns rows claimed over 15 minutes ago into failed (never sent), and retryFailed makes them pending", async () => {
     const id = await made();
     const [first, second] = store.participant_send_recipients;
     Object.assign(first, { state: "claimed", claimed_at: new Date(Date.now() - 20 * 60 * 1000).toISOString() });
     Object.assign(second, { state: "claimed", claimed_at: new Date().toISOString() });
     const r = await runEmailSend(id);
-    expect(r.sent).toBe(2);
+    expect(r.sent).toBe(1);
+    expect(h.send.mock.calls.map((c) => c[0].to)).not.toContain(first.email);
+    expect(first).toMatchObject({ state: "failed", reason: "May have been sent. Check before sending again." });
     expect(second.state).toBe("claimed");
+    expect(await retryFailed(id)).toBe(1);
+    expect(first.state).toBe("pending");
+  });
+
+  it("retries the sent mark when it fails after the email went out", async () => {
+    const id = await made({ expectedCount: 3 });
+    const real = db.state.handler;
+    let failures = 2;
+    db.state.handler = (op) => {
+      const p = op.payload as { state?: string } | undefined;
+      if (op.table === "participant_send_recipients" && op.op === "update" && p?.state === "sent" && failures-- > 0) return { data: null, error: { message: "blip" } };
+      return real(op);
+    };
+    await runEmailSend(id);
+    expect(states().every((x) => x.endsWith(":sent"))).toBe(true);
+    expect(h.send).toHaveBeenCalledTimes(3);
+  });
+
+  it("fails a recipient whose portal link cannot be built instead of sending a blank link", async () => {
+    const id = await made({ body: "Go {{ portal_link }}" });
+    store.landing_pages[0].course_id = null;
+    expect(await runEmailSend(id)).toEqual({ sent: 0, failed: 3, pending: 0 });
+    expect(h.send).not.toHaveBeenCalled();
+    expect(store.participant_send_recipients[0]).toMatchObject({ state: "failed", reason: "No portal link available" });
   });
 
   it("renders per recipient, includes the portal URL and that recipient's unsubscribe URL", async () => {
@@ -207,14 +291,16 @@ describe("whatsapp, messages and test send", () => {
     expect(rec.state).toBe("pending");
     expect(rec.sent_at).toBeNull();
     expect(h.send).not.toHaveBeenCalled();
+    await expect(markWhatsAppSent(sendId, "nope", true)).rejects.toThrow("Recipient not found");
+    store.participant_send_recipients[1].state = "skipped";
+    await expect(markWhatsAppSent(sendId, store.participant_send_recipients[1].id as string, true)).rejects.toThrow("Recipient not found");
   });
 
   it("listMessagesForRegistrations joins sends", async () => {
     const r = await createSend(input());
-    const sendId = (r as { sendId: string }).sendId;
+    expect(r.ok).toBe(true);
     const rows = await listMessagesForRegistrations(["a"]);
     expect(rows).toEqual([expect.objectContaining({ registrationId: "a", channel: "email", subject: "Hi {{ first_name }}", state: "pending" })]);
-    expect(sendId).toBeTruthy();
   });
 
   it("sendTestToMe prefixes [TEST], uses the preview footer and writes no rows", async () => {
