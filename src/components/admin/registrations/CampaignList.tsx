@@ -101,7 +101,15 @@ export function CampaignList({ campaigns }: { campaigns: Campaign[] }) {
             Pick a campaign to see its sign-ups, or open the full list of every registration.
           </p>
         </div>
-        <AllRegistrationsLink total={campaigns.length > 0 ? total : undefined} />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/admin/enrollments/registrations/access"
+            className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
+          >
+            Batch access
+          </Link>
+          <AllRegistrationsLink total={campaigns.length > 0 ? total : undefined} />
+        </div>
       </div>
       {campaigns.length === 0 ? (
         <EmptyState

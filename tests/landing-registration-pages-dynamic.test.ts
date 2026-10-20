@@ -9,7 +9,6 @@ const PAGES = [
   "src/app/dashboard/admin/enrollments/registrations/all/page.tsx",
   "src/app/dashboard/sales/registrations/page.tsx",
   "src/app/dashboard/sales/registrations/[id]/page.tsx",
-  "src/app/dashboard/admin/enrollments/registrations/all/page.tsx",
 ];
 
 describe("registration pages are never cached", () => {

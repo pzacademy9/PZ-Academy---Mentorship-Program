@@ -38,4 +38,12 @@ describe("campaign list UI", () => {
     expect(screen.getByText("No campaigns yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: /All registrations/ })).toBeTruthy();
   });
+
+  it("links to batch access with and without campaigns", () => {
+    const { unmount } = render(<CampaignList campaigns={[camp()]} />);
+    expect(screen.getByRole("link", { name: "Batch access" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/access");
+    unmount();
+    render(<CampaignList campaigns={[]} />);
+    expect(screen.getByRole("link", { name: "Batch access" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/access");
+  });
 });
