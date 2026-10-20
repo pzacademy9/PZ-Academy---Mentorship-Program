@@ -8,6 +8,7 @@ import type { RegistrationListFilters, RegistrationListRow } from "@/lib/data/la
 import { RegistrationFilters } from "./RegistrationFilters";
 import { RegistrationsTable } from "./RegistrationsTable";
 import type { RegistrationQuery } from "./query";
+import { MessageBuilder } from "./MessageBuilder";
 
 /** Either the ticked rows on this page, or everyone matching the current filters. Never both. */
 export type CampaignSelection =
@@ -64,6 +65,7 @@ export function CampaignRegistrations({
 }: CampaignRegistrationsProps) {
   const [ids, setIds] = useState<Set<string>>(new Set());
   const [allInFilter, setAllInFilter] = useState(false);
+  const [builder, setBuilder] = useState<{ channel: BuilderChannel; request: CampaignBuilderRequest } | null>(null);
 
   const pageIds = rows.map((r) => r.id);
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => ids.has(id));
@@ -100,7 +102,10 @@ export function CampaignRegistrations({
     const selection: CampaignSelection = allInFilter
       ? { mode: "filter", filters }
       : { mode: "ids", ids: Array.from(ids) };
-    onOpenBuilder(channel, { pageId, pageTitle, selection, count });
+    const request: CampaignBuilderRequest = { pageId, pageTitle, selection, count };
+    // The email builder lives here; WhatsApp still goes through onOpenBuilder until its builder exists.
+    if (channel === "email") setBuilder({ channel, request });
+    onOpenBuilder(channel, request);
   }
 
   const showBanner = allInFilter || (allOnPage && total > rows.length);
@@ -165,6 +170,18 @@ export function CampaignRegistrations({
       />
 
       {messagesSlot}
+
+      {builder && (
+        <MessageBuilder
+          channel={builder.channel}
+          request={builder.request}
+          onClose={(sent) => {
+            setBuilder(null);
+            // A send was started: reload so the "Messages sent" list and the selection are fresh.
+            if (sent) window.location.reload();
+          }}
+        />
+      )}
 
       {count > 0 && (
         <aside aria-label="Selected registrations" className="fixed bottom-4 inset-x-4 md:left-72 md:right-8 z-40 pointer-events-none">

@@ -1,0 +1,551 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, BookmarkPlus, Eye, Info, Send, X } from "lucide-react";
+import type { Summary } from "@/lib/landing/participants/types";
+import { PARTICIPANT_TAGS, renderParticipantTags } from "@/lib/landing/participants/merge";
+import type { BuilderChannel, CampaignBuilderRequest } from "./CampaignRegistrations";
+import { buildRecipientBody } from "./builder-body";
+import { SendSummary, skippedTotal } from "./SendSummary";
+
+const API = "/api/admin/participants";
+
+type Template = { id: string; name: string; subject: string; emailBody: string; whatsappBody: string };
+type Step = "edit" | "review" | "sending" | "done";
+type Progress = { sent: number; failed: number; total: number };
+
+const TAG_LABEL: Record<string, string> = {
+  first_name: "First name",
+  full_name: "Full name",
+  ref_id: "Reference number",
+  portal_link: "Portal link",
+};
+
+const CHANNEL_WORD: Record<BuilderChannel, string> = { email: "email", whatsapp: "WhatsApp message" };
+
+async function call(url: string, method: "GET" | "POST", body?: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { status: res.status, data };
+  } catch {
+    return { status: 0, data: {} };
+  }
+}
+
+const errorText = (data: Record<string, unknown>, fallback: string): string =>
+  typeof data.error === "string" && data.error !== "" ? data.error : fallback;
+
+const inputBase =
+  "w-full bg-pz-surface-container-low text-pz-on-surface text-sm rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pz-primary shadow-sm disabled:opacity-60";
+const labelBase = "text-xs font-headline font-bold uppercase tracking-wider text-pz-on-surface-variant";
+
+export interface MessageBuilderProps {
+  /** "email" now; "whatsapp" is added in the next task. */
+  channel: BuilderChannel;
+  request: CampaignBuilderRequest;
+  /** `sent` is true when at least one send was started, so the page can refresh its lists. */
+  onClose: (sent: boolean) => void;
+}
+
+export function MessageBuilder({ channel, request, onClose }: MessageBuilderProps) {
+  const { pageId, pageTitle, selection } = request;
+  const word = CHANNEL_WORD[channel];
+
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateId, setTemplateId] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateMsg, setTemplateMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [step, setStep] = useState<Step>("edit");
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [ack, setAck] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [sendId, setSendId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Progress>({ sent: 0, failed: 0, total: 0 });
+  const [runError, setRunError] = useState<string | null>(null);
+
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const startedRef = useRef(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    let live = true;
+    void call(`${API}/templates`, "GET").then(({ status, data }) => {
+      if (live && status === 200 && Array.isArray(data.templates)) setTemplates(data.templates as Template[]);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /** Runs one request at a time. A second click while one is in flight does nothing. */
+  async function exclusive(fn: () => Promise<void>) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  const recipients = () => buildRecipientBody(pageId, selection);
+  const ready = subject.trim() !== "" && body.trim() !== "";
+
+  // ---- Email-specific: editor sections --------------------------------------------------------
+
+  function pickTemplate(id: string) {
+    setTemplateId(id);
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    setSubject(t.subject);
+    setBody(t.emailBody);
+  }
+
+  function insertTag(tag: string) {
+    const text = `{{ ${tag} }}`;
+    const el = bodyRef.current;
+    const start = el?.selectionStart ?? body.length;
+    const end = el?.selectionEnd ?? body.length;
+    setBody(body.slice(0, start) + text + body.slice(end));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + text.length, start + text.length);
+    });
+  }
+
+  async function saveTemplate() {
+    await exclusive(async () => {
+      const { status, data } = await call(`${API}/templates`, "POST", {
+        name: templateName,
+        subject,
+        emailBody: body,
+        whatsappBody: "",
+      });
+      if (status === 201 || status === 200) {
+        const t = data.template as Template;
+        setTemplates((prev) => [...prev.filter((x) => x.id !== t.id), t].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
+        setTemplateId(t.id);
+        setSavingTemplate(false);
+        setTemplateName("");
+        setTemplateMsg({ ok: true, text: "Template saved." });
+      } else {
+        setTemplateMsg({ ok: false, text: errorText(data, "Could not save the template") });
+      }
+    });
+  }
+
+  async function sendTest() {
+    await exclusive(async () => {
+      setTestMsg(null);
+      const { status, data } = await call(`${API}/test`, "POST", { pageId, subject, body });
+      if (status === 200) setTestMsg({ ok: true, text: "Test email sent to you." });
+      else setTestMsg({ ok: false, text: errorText(data, "Test send failed. Check the email settings.") });
+    });
+  }
+
+  // ---- Shared steps ---------------------------------------------------------------------------
+
+  async function review() {
+    await exclusive(async () => {
+      setEditError(null);
+      const { status, data } = await call(`${API}/preview`, "POST", { pageId, channel, ...recipients() });
+      if (status !== 200 || typeof data.summary !== "object" || data.summary === null) {
+        setEditError(errorText(data, "Could not build the list of people. Try again."));
+        return;
+      }
+      setSummary(data.summary as Summary);
+      setAck(false);
+      setNotice(null);
+      setStep("review");
+    });
+  }
+
+  async function runLoop(id: string, start: Progress, total: number) {
+    let { sent, failed } = start;
+    setStep("sending");
+    setRunError(null);
+    for (;;) {
+      const { status, data } = await call(`${API}/sends/${id}/run`, "POST");
+      if (status !== 200 || typeof data.pending !== "number") {
+        setRunError("Sending stopped part way. Some messages may already have gone out. Press Continue sending to carry on.");
+        return;
+      }
+      sent += Number(data.sent) || 0;
+      failed += Number(data.failed) || 0;
+      setProgress({ sent, failed, total });
+      if (data.pending === 0) break;
+    }
+    setStep("done");
+  }
+
+  async function confirm() {
+    if (!summary) return;
+    await exclusive(async () => {
+      setNotice(null);
+      const { status, data } = await call(`${API}/sends`, "POST", {
+        pageId,
+        channel,
+        ...recipients(),
+        subject,
+        body,
+        ...(templateId ? { templateId } : {}),
+        expectedCount: summary.total,
+        expectedNotPaid: summary.notPaid,
+        confirmNotPaid: summary.notPaid > 0 && ack,
+      });
+      if (status === 409) {
+        // Never retried automatically: the owner looks again.
+        if (data.code === "count_changed") {
+          if (typeof data.summary === "object" && data.summary !== null) setSummary(data.summary as Summary);
+          setAck(false);
+          setNotice("The list changed. Review it again.");
+        } else {
+          setNotice(errorText(data, "This could not be sent."));
+        }
+        setStep("review");
+        return;
+      }
+      if (status < 200 || status >= 300 || typeof data.sendId !== "string") {
+        setNotice(errorText(data, "Could not start the send. Nothing was sent."));
+        return;
+      }
+      startedRef.current = true;
+      const total = typeof data.count === "number" ? data.count : summary.total;
+      setSendId(data.sendId);
+      const first = { sent: 0, failed: 0, total };
+      setProgress(first);
+      await runLoop(data.sendId, first, total);
+    });
+  }
+
+  async function continueSending() {
+    if (!sendId) return;
+    await exclusive(() => runLoop(sendId, progress, progress.total));
+  }
+
+  async function resendFailed() {
+    if (!sendId) return;
+    await exclusive(async () => {
+      const { status, data } = await call(`${API}/sends/${sendId}/retry`, "POST");
+      if (status !== 200) {
+        setRunError(errorText(data, "Could not retry the failed ones."));
+        return;
+      }
+      await runLoop(sendId, { sent: progress.sent, failed: 0, total: progress.total }, progress.total);
+    });
+  }
+
+  function close() {
+    if (busy) return;
+    onClose(startedRef.current);
+  }
+
+  const reviewing = step !== "edit";
+  const running = step === "sending";
+  const pct = progress.total > 0 ? Math.min(100, Math.round((progress.sent / progress.total) * 100)) : 0;
+  const canConfirm = !!summary && summary.total > 0 && (summary.notPaid === 0 || ack) && !busy && step === "review";
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-pz-surface text-pz-on-surface" role="region" aria-label={`Write an ${word}`}>
+      {/* Top bar */}
+      <div className="w-full px-6 lg:px-8 py-6 bg-pz-surface-container-lowest shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-4">
+        <nav className="flex items-center gap-2 text-xs font-headline font-semibold text-pz-outline uppercase tracking-wider">
+          <span>All campaigns</span>
+          <span aria-hidden="true">/</span>
+          <span>{pageTitle}</span>
+          <span aria-hidden="true">/</span>
+          <span className="text-pz-primary font-bold">Email</span>
+        </nav>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 flex-wrap">
+            <h1 className="font-headline font-extrabold text-2xl lg:text-3xl text-pz-on-surface tracking-tight">
+              {`Email to ${request.count} ${request.count === 1 ? "person" : "people"} - ${pageTitle}`}
+            </h1>
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            disabled={busy}
+            className="self-end md:self-auto px-4 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container-low hover:bg-pz-surface-container-high transition-all flex items-center gap-2 shadow-sm disabled:opacity-60"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            Cancel and back
+          </button>
+        </div>
+      </div>
+
+      <div className="w-full max-w-[1400px] mx-auto px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Composer */}
+          <section className="lg:col-span-7 flex flex-col gap-6">
+            <div className="bg-pz-surface-container-lowest rounded-xl p-6 lg:p-7 shadow-[0_4px_24px_rgba(15,30,20,0.04)] flex flex-col gap-5">
+              {/* EMAIL: template picker */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="builder-template" className={labelBase}>Template</label>
+                  <button
+                    type="button"
+                    onClick={() => { setSavingTemplate((v) => !v); setTemplateMsg(null); }}
+                    className="text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors flex items-center gap-1"
+                  >
+                    <BookmarkPlus className="w-4 h-4" aria-hidden="true" />
+                    Save as template
+                  </button>
+                </div>
+                <select
+                  id="builder-template"
+                  value={templateId}
+                  onChange={(e) => pickTemplate(e.target.value)}
+                  disabled={busy}
+                  className={`${inputBase} font-medium`}
+                >
+                  <option value="">Start from scratch</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                {savingTemplate && (
+                  <div className="flex flex-wrap items-end gap-2 bg-pz-surface-container-low rounded-lg p-3">
+                    <div className="flex-1 min-w-48 flex flex-col gap-1">
+                      <label htmlFor="builder-template-name" className="text-xs font-headline font-semibold text-pz-on-surface-variant">Template name</label>
+                      <input
+                        id="builder-template-name"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        maxLength={120}
+                        className="w-full bg-pz-surface-container-lowest text-pz-on-surface text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pz-primary"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void saveTemplate()}
+                      disabled={busy || templateName.trim() === ""}
+                      className="px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container text-xs font-headline font-bold disabled:opacity-50"
+                    >
+                      Save template
+                    </button>
+                  </div>
+                )}
+                {templateMsg && (
+                  <p role="status" className={`text-xs font-headline font-semibold ${templateMsg.ok ? "text-pz-tertiary" : "text-pz-error"}`}>{templateMsg.text}</p>
+                )}
+              </div>
+
+              {/* EMAIL: subject */}
+              <div className="flex flex-col gap-2">
+                <label htmlFor="builder-subject" className={labelBase}>Subject</label>
+                <div className="relative">
+                  <input
+                    id="builder-subject"
+                    type="text"
+                    value={subject}
+                    maxLength={300}
+                    onChange={(e) => setSubject(e.target.value)}
+                    disabled={busy}
+                    className={`${inputBase} font-headline font-medium pr-24`}
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-pz-outline">{subject.length} characters</span>
+                </div>
+              </div>
+
+              {/* Tag chips */}
+              <div className="flex flex-col gap-2 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-headline font-semibold text-pz-on-surface-variant">Insert a name or link for each person:</span>
+                  <span className="text-xs text-pz-secondary font-medium">Click to add it where the cursor is</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PARTICIPANT_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => insertTag(tag)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 max-md:min-h-11 rounded-lg bg-pz-surface-container-high hover:bg-pz-primary-container/40 text-pz-on-surface hover:text-pz-on-primary-container text-xs font-headline font-medium transition-all shadow-sm disabled:opacity-60"
+                    >
+                      {TAG_LABEL[tag] ?? tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* EMAIL: message */}
+              <div className="flex flex-col gap-2">
+                <label htmlFor="builder-message" className={labelBase}>Message</label>
+                <textarea
+                  id="builder-message"
+                  ref={bodyRef}
+                  rows={12}
+                  value={body}
+                  maxLength={20000}
+                  onChange={(e) => setBody(e.target.value)}
+                  disabled={busy}
+                  className="w-full bg-pz-surface-container-low text-pz-on-surface text-sm leading-relaxed rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-pz-primary shadow-inner resize-y disabled:opacity-60"
+                />
+                <div className="flex items-center gap-2 px-3 py-2 bg-pz-surface-container rounded-lg text-xs text-pz-on-surface-variant font-medium">
+                  <Info className="w-4 h-4 text-pz-secondary shrink-0" aria-hidden="true" />
+                  <span>Links you paste become clickable. An unsubscribe link is added at the bottom automatically.</span>
+                </div>
+              </div>
+
+              {editError && (
+                <p role="alert" className="text-xs font-headline font-semibold text-pz-error">{editError}</p>
+              )}
+              {testMsg && (
+                <p role="status" className={`text-xs font-headline font-semibold ${testMsg.ok ? "text-pz-tertiary" : "text-pz-error"}`}>{testMsg.text}</p>
+              )}
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-pz-surface-container-low/40 p-4 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => void sendTest()}
+                  disabled={busy || body.trim() === ""}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg bg-pz-surface-container-lowest text-pz-on-surface text-sm font-headline font-semibold shadow-sm hover:bg-pz-surface-container-high transition-all disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4 text-pz-tertiary" aria-hidden="true" />
+                  Send test to me
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void review()}
+                  disabled={busy || !ready}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container hover:bg-pz-primary-fixed font-headline font-bold text-sm shadow-md transition-all disabled:opacity-50"
+                >
+                  Review and send
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* EMAIL: example of what one person gets */}
+          <section className="lg:col-span-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-pz-primary" aria-hidden="true" />
+                <span className="font-headline font-bold text-sm text-pz-on-surface">What one person will see</span>
+              </div>
+              <span className="text-xs text-pz-secondary font-medium">Example person</span>
+            </div>
+            <div className="bg-pz-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(15,30,20,0.06)] overflow-hidden">
+              <div className="p-5 bg-pz-surface-container-low/60 flex flex-col gap-1 text-xs">
+                <span className="text-[11px] font-headline font-bold text-pz-outline uppercase">Subject</span>
+                <span className="font-headline font-bold text-pz-primary">{renderExample(subject) || "Your subject appears here"}</span>
+              </div>
+              <div className="p-6 text-sm leading-relaxed whitespace-pre-wrap break-words text-pz-on-surface">
+                {renderExample(body) || "Your message appears here."}
+              </div>
+              <div className="px-6 py-4 bg-pz-surface-container-low text-[11px] text-pz-outline">
+                Unsubscribe link (added automatically)
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Review / send */}
+      {reviewing && summary && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-pz-on-surface/40 backdrop-blur-md overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-labelledby="builder-review-title" className="relative w-full max-w-2xl bg-pz-surface-container-lowest rounded-2xl shadow-[0_20px_60px_rgba(15,30,20,0.18)] overflow-hidden my-8 flex flex-col">
+            <div className="h-2 w-full bg-gradient-to-r from-pz-primary via-pz-primary-container to-pz-secondary-container" />
+            <div className="p-6 sm:p-7 pb-4 flex items-start justify-between gap-3">
+              <div className="flex flex-col">
+                <h2 id="builder-review-title" className="font-headline font-extrabold text-xl sm:text-2xl text-pz-on-surface tracking-tight">
+                  {step === "done" ? "Sending finished" : running ? "Sending" : `Review and confirm ${word}`}
+                </h2>
+                <p className="text-xs sm:text-sm text-pz-on-surface-variant mt-0.5">
+                  You are about to {channel === "email" ? "email" : "message"} <strong className="text-pz-on-surface font-semibold">{`${summary.total} ${summary.total === 1 ? "person" : "people"}`}</strong> in {pageTitle}.
+                </p>
+              </div>
+              {step === "review" && (
+                <button type="button" onClick={() => setStep("edit")} disabled={busy} aria-label="Close" className="w-8 h-8 shrink-0 rounded-lg bg-pz-surface-container hover:bg-pz-surface-container-high text-pz-on-surface-variant flex items-center justify-center transition-colors disabled:opacity-50">
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            {step === "review" && (
+              <SendSummary summary={summary} channelWord={word} acknowledged={ack} onAcknowledge={setAck} disabled={busy} notice={notice} />
+            )}
+
+            {(running || step === "done") && (
+              <div className="px-6 sm:px-7 py-2">
+                <div className="rounded-xl bg-pz-surface-container-low p-4 flex flex-col gap-2.5">
+                  <div className="flex justify-between text-xs font-headline font-semibold text-pz-on-surface-variant">
+                    <span>{step === "done" ? "Done" : "Sending"}</span>
+                    <span>{step === "done" ? `Sent ${progress.sent}, failed ${progress.failed}, skipped ${skippedTotal(summary)}` : `Sent ${progress.sent} of ${progress.total}`}</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-pz-surface-container-highest rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full bg-pz-primary-container rounded-full transition-all duration-500" style={{ width: `${step === "done" ? 100 : pct}%` }} />
+                  </div>
+                  {runError && <p role="alert" className="text-xs font-headline font-semibold text-pz-error">{runError}</p>}
+                </div>
+              </div>
+            )}
+
+            <div className="p-6 bg-pz-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-3 mt-2">
+              {step === "review" && (
+                <>
+                  <button type="button" onClick={() => setStep("edit")} disabled={busy} className="w-full sm:w-auto px-5 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container hover:bg-pz-surface-container-high transition-all disabled:opacity-50">
+                    Back to editing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirm()}
+                    disabled={!canConfirm}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container hover:bg-pz-primary-fixed font-headline font-bold text-sm shadow-md transition-all disabled:bg-pz-surface-container-high disabled:text-pz-outline disabled:shadow-none disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" aria-hidden="true" />
+                    {`Confirm and send (${summary.total} ${summary.total === 1 ? "email" : "emails"})`}
+                  </button>
+                </>
+              )}
+              {running && (
+                <>
+                  <span className="text-xs text-pz-on-surface-variant">Keep this window open until it finishes.</span>
+                  {runError && (
+                    <button type="button" onClick={() => void continueSending()} disabled={busy} className="w-full sm:w-auto px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm disabled:opacity-50">
+                      Continue sending
+                    </button>
+                  )}
+                </>
+              )}
+              {step === "done" && (
+                <>
+                  {progress.failed > 0 ? (
+                    <button type="button" onClick={() => void resendFailed()} disabled={busy} className="w-full sm:w-auto px-5 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container hover:bg-pz-surface-container-high transition-all disabled:opacity-50">
+                      Resend failed
+                    </button>
+                  ) : <span />}
+                  <button type="button" onClick={close} disabled={busy} className="w-full sm:w-auto px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm disabled:opacity-50">
+                    Back to the campaign
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Fills the tags with an example person so the preview reads like a real message. */
+function renderExample(text: string): string {
+  return renderParticipantTags(text, { name: "Sana Ahmed", refId: "REF-0001", portalUrl: "https://example.com/portal/your-course" }, "text");
+}
