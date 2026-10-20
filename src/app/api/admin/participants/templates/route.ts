@@ -20,7 +20,10 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const parsed = templateBodySchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (!parsed.success) {
+    const blank = parsed.error.issues.some((i) => i.message === "Give the template a name");
+    return NextResponse.json({ error: blank ? "Give the template a name" : "Invalid input" }, { status: 400 });
+  }
   try {
     const template = await saveTemplate({ ...parsed.data, actorId: auth.user.id });
     return NextResponse.json({ template }, { status: 201 });

@@ -123,6 +123,15 @@ describe("create send", () => {
   });
 });
 
+describe("ids limit", () => {
+  it("more than 1000 ids is 400, exactly 1000 is accepted", async () => {
+    const mk = (n: number) => Array.from({ length: n }, () => ID);
+    expect((await preview(req({ pageId: PAGE, channel: "email", ids: mk(1001) }))).status).toBe(400);
+    sends.previewSend.mockResolvedValue({ count: 1, summary: {} });
+    expect((await preview(req({ pageId: PAGE, channel: "email", ids: mk(1000) }))).status).toBe(200);
+  });
+});
+
 describe("list sends", () => {
   it("400 without a uuid pageId, otherwise lists", async () => {
     expect((await listSends(req(null, "GET", "http://x?pageId=zzz"))).status).toBe(400);
@@ -189,11 +198,29 @@ describe("test send", () => {
     expect((await testSend(req({ pageId: "x", subject: "s", body: "b" }))).status).toBe(400);
     expect(sends.sendTestToMe).not.toHaveBeenCalled();
   });
-  it("surfaces a failed send", async () => {
-    sends.sendTestToMe.mockResolvedValue({ ok: false, error: "boom" });
+  it("failed send: fixed 502, raw provider text never returned, logged", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    sends.sendTestToMe.mockResolvedValue({ ok: false, error: "brevo key xkeysib-SECRET rejected" });
     const res = await testSend(req({ pageId: PAGE, subject: "s", body: "b" }));
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect((await res.json()).error).toBe("boom");
+    const text = await res.text();
+    expect(res.status).toBe(502);
+    expect(JSON.parse(text)).toEqual({ error: "Test send failed. Check the email settings." });
+    expect(text).not.toContain("SECRET");
+    expect(spy).toHaveBeenCalled();
+    sends.sendTestToMe.mockRejectedValue(new Error("db password leaked"));
+    const res2 = await testSend(req({ pageId: PAGE, subject: "s", body: "b" }));
+    const text2 = await res2.text();
+    expect(res2.status).toBe(502);
+    expect(text2).not.toContain("leaked");
+    spy.mockRestore();
+  });
+  it("not set up: 503 with a plain message", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    sends.sendTestToMe.mockResolvedValue({ ok: false, error: "Participant email is not set up" });
+    const res = await testSend(req({ pageId: PAGE, subject: "s", body: "b" }));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "Email sending is not set up yet." });
+    spy.mockRestore();
   });
 });
 
@@ -210,6 +237,11 @@ describe("templates", () => {
     tpl.deleteTemplate.mockResolvedValue(undefined);
     expect((await delTpl(req(null, "DELETE"), ctx)).status).toBe(200);
     expect(tpl.deleteTemplate).toHaveBeenCalledWith(ID);
+  });
+  it("whitespace-only name is rejected by the schema with the message, store untouched", async () => {
+    const res = await createTpl(req({ ...body, name: "   " }));
+    expect(res.status).toBe(400);
+    expect(tpl.saveTemplate).not.toHaveBeenCalled();
   });
   it("blank name is 400 with the message; bad body is 400 Invalid input", async () => {
     tpl.saveTemplate.mockRejectedValue(new Error("Give the template a name"));

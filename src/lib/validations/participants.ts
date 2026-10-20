@@ -15,7 +15,7 @@ const filtersSchema = z.object({
 
 const channel = z.enum(["email", "whatsapp"]);
 const recipientSet = {
-  ids: z.array(uuid).min(1).max(20000).optional(),
+  ids: z.array(uuid).min(1).max(1000).optional(),
   filters: filtersSchema.optional(),
 };
 /** Exactly one of ids / filters. */
@@ -38,7 +38,7 @@ export const createSendBodySchema = z
   .refine(exactlyOne);
 
 export const templateBodySchema = z.object({
-  name: z.string().max(120),
+  name: z.string().trim().min(1, "Give the template a name").max(120),
   subject: z.string().max(300),
   emailBody: z.string().max(20000),
   whatsappBody: z.string().max(20000),

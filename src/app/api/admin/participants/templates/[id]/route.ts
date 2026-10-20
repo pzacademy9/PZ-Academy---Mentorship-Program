@@ -11,7 +11,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "Template not found" }, { status: 404 });
   const parsed = templateBodySchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (!parsed.success) {
+    const blank = parsed.error.issues.some((i) => i.message === "Give the template a name");
+    return NextResponse.json({ error: blank ? "Give the template a name" : "Invalid input" }, { status: 400 });
+  }
   try {
     const template = await saveTemplate({ ...parsed.data, id, actorId: auth.user.id });
     return NextResponse.json({ template });

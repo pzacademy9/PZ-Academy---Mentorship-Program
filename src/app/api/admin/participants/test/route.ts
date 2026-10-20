@@ -13,7 +13,17 @@ export async function POST(req: NextRequest) {
   if (!toEmail) return NextResponse.json({ error: "Your account has no email address" }, { status: 400 });
   const parsed = testBodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const result = await sendTestToMe({ pageId: parsed.data.pageId, subject: parsed.data.subject, body: parsed.data.body, toEmail });
-  if (!result.ok) return NextResponse.json({ error: result.error ?? "Test send failed" }, { status: 502 });
-  return NextResponse.json({ ok: true });
+  const fixed = () => NextResponse.json({ error: "Test send failed. Check the email settings." }, { status: 502 });
+  try {
+    const result = await sendTestToMe({ pageId: parsed.data.pageId, subject: parsed.data.subject, body: parsed.data.body, toEmail });
+    if (result.ok) return NextResponse.json({ ok: true });
+    console.error("participants test send failed", result.error);
+    if (result.error === "Participant email is not set up") {
+      return NextResponse.json({ error: "Email sending is not set up yet." }, { status: 503 });
+    }
+    return fixed();
+  } catch (e) {
+    console.error("participants test send threw", e);
+    return fixed();
+  }
 }
