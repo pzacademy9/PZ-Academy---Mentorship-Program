@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import type { Summary } from "@/lib/landing/participants/types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 
-const STATUS_LABEL: Record<RegistrationStatus, string> = {
+export const STATUS_LABEL: Record<RegistrationStatus, string> = {
   paid: "Paid",
   pending: "Pending",
   reserved: "Reserved",
@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<RegistrationStatus, string> = {
 const STATUS_ORDER: RegistrationStatus[] = ["paid", "pending", "reserved", "underpaid", "free"];
 const NOT_PAID_ORDER: RegistrationStatus[] = ["pending", "reserved", "underpaid", "free"];
 
-const STATUS_CHIP: Record<RegistrationStatus, string> = {
+export const STATUS_CHIP: Record<RegistrationStatus, string> = {
   paid: "bg-pz-primary-container/25 text-pz-on-primary-container",
   pending: "bg-pz-secondary-container/40 text-pz-on-secondary-container",
   reserved: "bg-pz-secondary-container/40 text-pz-on-secondary-container",

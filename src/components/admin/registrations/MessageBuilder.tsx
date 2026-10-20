@@ -7,11 +7,12 @@ import { PARTICIPANT_TAGS, renderParticipantTags } from "@/lib/landing/participa
 import type { BuilderChannel, CampaignBuilderRequest } from "./CampaignRegistrations";
 import { buildRecipientBody } from "./builder-body";
 import { SendSummary, skippedTotal } from "./SendSummary";
+import { WhatsAppSendList } from "./WhatsAppSendList";
 
 const API = "/api/admin/participants";
 
 type Template = { id: string; name: string; subject: string; emailBody: string; whatsappBody: string };
-type Step = "edit" | "review" | "sending" | "done";
+type Step = "edit" | "review" | "sending" | "done" | "list";
 type Progress = { sent: number; failed: number; total: number };
 /** What the server recorded for the send, counted from its recipient rows. */
 type Recorded = { sent: number; failed: number; skipped: number };
@@ -28,6 +29,7 @@ const TAG_LABEL: Record<string, string> = {
 };
 
 const CHANNEL_WORD: Record<BuilderChannel, string> = { email: "email", whatsapp: "WhatsApp message" };
+const CHANNEL_LABEL: Record<BuilderChannel, string> = { email: "Email", whatsapp: "WhatsApp" };
 
 async function call(url: string, method: "GET" | "POST", body?: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
   try {
@@ -51,7 +53,7 @@ const inputBase =
 const labelBase = "text-xs font-headline font-bold uppercase tracking-wider text-pz-on-surface-variant";
 
 export interface MessageBuilderProps {
-  /** "email" now; "whatsapp" is added in the next task. */
+  /** Which kind of message is being written. WhatsApp ends in a list of links; the server sends nothing. */
   channel: BuilderChannel;
   request: CampaignBuilderRequest;
   /** `sent` is true when at least one send was started, so the page can refresh its lists. */
@@ -63,6 +65,7 @@ export interface MessageBuilderProps {
 export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: MessageBuilderProps) {
   const { pageId, pageTitle, selection } = request;
   const word = CHANNEL_WORD[channel];
+  const isEmail = channel === "email";
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState("");
@@ -112,7 +115,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   }
 
   const recipients = () => buildRecipientBody(pageId, selection);
-  const ready = subject.trim() !== "" && body.trim() !== "";
+  const ready = body.trim() !== "" && (!isEmail || subject.trim() !== "");
 
   // ---- Email-specific: editor sections --------------------------------------------------------
 
@@ -120,8 +123,12 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
     setTemplateId(id);
     const t = templates.find((x) => x.id === id);
     if (!t) return;
-    setSubject(t.subject);
-    setBody(t.emailBody);
+    if (isEmail) {
+      setSubject(t.subject);
+      setBody(t.emailBody);
+    } else {
+      setBody(t.whatsappBody);
+    }
   }
 
   function insertTag(tag: string) {
@@ -140,9 +147,9 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
     await exclusive(async () => {
       const { status, data } = await call(`${API}/templates`, "POST", {
         name: templateName,
-        subject,
-        emailBody: body,
-        whatsappBody: "",
+        subject: isEmail ? subject : "",
+        emailBody: isEmail ? body : "",
+        whatsappBody: isEmail ? "" : body,
       });
       if (status === 201 || status === 200) {
         const t = data.template as Template;
@@ -229,7 +236,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
         pageId,
         channel,
         ...recipients(),
-        subject,
+        subject: isEmail ? subject : "",
         body,
         ...(templateId ? { templateId } : {}),
         expectedCount: summary.total,
@@ -271,6 +278,11 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
       startedRef.current = true;
       const total = typeof data.count === "number" ? data.count : summary.total;
       setSendId(data.sendId);
+      if (!isEmail) {
+        // The server sends nothing for WhatsApp: the owner opens each chat from the list.
+        setStep("list");
+        return;
+      }
       const first = { sent: 0, failed: 0, total };
       setProgress(first);
       await runLoop(data.sendId, first, total);
@@ -315,12 +327,12 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
           <span aria-hidden="true">/</span>
           <span>{pageTitle}</span>
           <span aria-hidden="true">/</span>
-          <span className="text-pz-primary font-bold">Email</span>
+          <span className="text-pz-primary font-bold">{CHANNEL_LABEL[channel]}</span>
         </nav>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 flex-wrap">
             <h1 className="font-headline font-extrabold text-2xl lg:text-3xl text-pz-on-surface tracking-tight">
-              {`Email to ${request.count} ${request.count === 1 ? "person" : "people"} - ${pageTitle}`}
+              {`${CHANNEL_LABEL[channel]} to ${request.count} ${request.count === 1 ? "person" : "people"} - ${pageTitle}`}
             </h1>
           </div>
           <button
@@ -393,21 +405,23 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
               </div>
 
               {/* EMAIL: subject */}
-              <div className="flex flex-col gap-2">
-                <label htmlFor="builder-subject" className={labelBase}>Subject</label>
-                <div className="relative">
-                  <input
-                    id="builder-subject"
-                    type="text"
-                    value={subject}
-                    maxLength={300}
-                    onChange={(e) => setSubject(e.target.value)}
-                    disabled={locked}
-                    className={`${inputBase} font-headline font-medium pr-24`}
-                  />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-pz-outline">{subject.length} characters</span>
+              {isEmail && (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="builder-subject" className={labelBase}>Subject</label>
+                  <div className="relative">
+                    <input
+                      id="builder-subject"
+                      type="text"
+                      value={subject}
+                      maxLength={300}
+                      onChange={(e) => setSubject(e.target.value)}
+                      disabled={locked}
+                      className={`${inputBase} font-headline font-medium pr-24`}
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-pz-outline">{subject.length} characters</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Tag chips */}
               <div className="flex flex-col gap-2 pt-1">
@@ -445,7 +459,11 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
                 />
                 <div className="flex items-center gap-2 px-3 py-2 bg-pz-surface-container rounded-lg text-xs text-pz-on-surface-variant font-medium">
                   <Info className="w-4 h-4 text-pz-secondary shrink-0" aria-hidden="true" />
-                  <span>Links you paste become clickable. An unsubscribe link is added at the bottom automatically.</span>
+                  <span>
+                    {isEmail
+                      ? "Links you paste become clickable. An unsubscribe link is added at the bottom automatically."
+                      : "WhatsApp formatting works here: *bold*, _italic_, ~strikethrough~. Links become clickable once the message is sent."}
+                  </span>
                 </div>
               </div>
 
@@ -458,15 +476,19 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-pz-surface-container-low/40 p-4 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => void sendTest()}
-                  disabled={locked || body.trim() === ""}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg bg-pz-surface-container-lowest text-pz-on-surface text-sm font-headline font-semibold shadow-sm hover:bg-pz-surface-container-high transition-all disabled:opacity-50"
-                >
-                  <Send className="w-4 h-4 text-pz-tertiary" aria-hidden="true" />
-                  Send test to me
-                </button>
+                {isEmail ? (
+                  <button
+                    type="button"
+                    onClick={() => void sendTest()}
+                    disabled={locked || body.trim() === ""}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg bg-pz-surface-container-lowest text-pz-on-surface text-sm font-headline font-semibold shadow-sm hover:bg-pz-surface-container-high transition-all disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4 text-pz-tertiary" aria-hidden="true" />
+                    Send test to me
+                  </button>
+                ) : (
+                  <span />
+                )}
                 <button
                   type="button"
                   onClick={() => void review()}
@@ -490,16 +512,20 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
               <span className="text-xs text-pz-secondary font-medium">Example person</span>
             </div>
             <div className="bg-pz-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(15,30,20,0.06)] overflow-hidden">
-              <div className="p-5 bg-pz-surface-container-low/60 flex flex-col gap-1 text-xs">
-                <span className="text-[11px] font-headline font-bold text-pz-outline uppercase">Subject</span>
-                <span className="font-headline font-bold text-pz-primary">{renderExample(subject) || "Your subject appears here"}</span>
-              </div>
+              {isEmail && (
+                <div className="p-5 bg-pz-surface-container-low/60 flex flex-col gap-1 text-xs">
+                  <span className="text-[11px] font-headline font-bold text-pz-outline uppercase">Subject</span>
+                  <span className="font-headline font-bold text-pz-primary">{renderExample(subject) || "Your subject appears here"}</span>
+                </div>
+              )}
               <div className="p-6 text-sm leading-relaxed whitespace-pre-wrap break-words text-pz-on-surface">
                 {renderExample(body) || "Your message appears here."}
               </div>
-              <div className="px-6 py-4 bg-pz-surface-container-low text-[11px] text-pz-outline">
-                Unsubscribe link (added automatically)
-              </div>
+              {isEmail && (
+                <div className="px-6 py-4 bg-pz-surface-container-low text-[11px] text-pz-outline">
+                  Unsubscribe link (added automatically)
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -508,15 +534,16 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
       {/* Review / send */}
       {reviewing && summary && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-pz-on-surface/40 backdrop-blur-md overflow-y-auto">
-          <div role="dialog" aria-modal="true" aria-labelledby="builder-review-title" className="relative w-full max-w-2xl bg-pz-surface-container-lowest rounded-2xl shadow-[0_20px_60px_rgba(15,30,20,0.18)] overflow-hidden my-8 flex flex-col">
+          <div role="dialog" aria-modal="true" aria-labelledby="builder-review-title" className={`relative w-full ${step === "list" ? "max-w-3xl" : "max-w-2xl"} bg-pz-surface-container-lowest rounded-2xl shadow-[0_20px_60px_rgba(15,30,20,0.18)] overflow-hidden my-8 flex flex-col`}>
             <div className="h-2 w-full bg-gradient-to-r from-pz-primary via-pz-primary-container to-pz-secondary-container" />
             <div className="p-6 sm:p-7 pb-4 flex items-start justify-between gap-3">
               <div className="flex flex-col">
                 <h2 id="builder-review-title" className="font-headline font-extrabold text-xl sm:text-2xl text-pz-on-surface tracking-tight">
-                  {step === "done" ? "Sending finished" : running ? "Sending" : `Review and confirm ${word}`}
+                  {step === "list" ? "Your WhatsApp list is ready" : step === "done" ? "Sending finished" : running ? "Sending" : `Review and confirm ${word}`}
                 </h2>
                 <p className="text-xs sm:text-sm text-pz-on-surface-variant mt-0.5">
-                  You are about to {channel === "email" ? "email" : "message"} <strong className="text-pz-on-surface font-semibold">{`${summary.total} ${summary.total === 1 ? "person" : "people"}`}</strong> in {pageTitle}.
+                  {step === "list" ? "Open each chat, send the message, then press Mark sent." : null}
+                  {step !== "list" && <>You are about to {channel === "email" ? "email" : "message"} <strong className="text-pz-on-surface font-semibold">{`${summary.total} ${summary.total === 1 ? "person" : "people"}`}</strong> in {pageTitle}.</>}
                 </p>
               </div>
               {step === "review" && (
@@ -529,6 +556,8 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
             {step === "review" && (
               <SendSummary summary={summary} channelWord={word} acknowledged={ack} onAcknowledge={setAck} disabled={busy} notice={notice} />
             )}
+
+            {step === "list" && sendId && <WhatsAppSendList sendId={sendId} onClose={close} />}
 
             {(running || step === "done") && (
               <div className="px-6 sm:px-7 py-2">
@@ -545,6 +574,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
               </div>
             )}
 
+            {step !== "list" && (
             <div className="p-6 bg-pz-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-3 mt-2">
               {step === "review" && (
                 <>
@@ -558,7 +588,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container hover:bg-pz-primary-fixed font-headline font-bold text-sm shadow-md transition-all disabled:bg-pz-surface-container-high disabled:text-pz-outline disabled:shadow-none disabled:cursor-not-allowed"
                   >
                     <Send className="w-4 h-4" aria-hidden="true" />
-                    {`Confirm and send (${summary.total} ${summary.total === 1 ? "email" : "emails"})`}
+                    {`Confirm and send (${summary.total} ${summary.total === 1 ? (isEmail ? "email" : "message") : isEmail ? "emails" : "messages"})`}
                   </button>
                 </>
               )}
@@ -591,6 +621,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
                 </>
               )}
             </div>
+            )}
           </div>
         </div>
       )}

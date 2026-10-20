@@ -285,7 +285,16 @@ export async function listSends(pageId: string): Promise<SendRow[]> {
       .order("created_at", { ascending: false }).order("id", { ascending: true }));
 }
 
-export async function getSend(sendId: string): Promise<{ send: SendRow; recipients: SendRecipientRow[] } | null> {
+export type SendDetail = {
+  send: SendRow;
+  recipients: SendRecipientRow[];
+  /** registration id -> the ref id its message shows (members take their lead's). */
+  refIds: Record<string, string>;
+  /** The campaign's portal link, or null when it has no course. */
+  portalUrl: string | null;
+};
+
+export async function getSend(sendId: string): Promise<SendDetail | null> {
   const admin = createAdminSupabase();
   const { data: send, error } = await admin.from("participant_sends").select("*").eq("id", sendId).maybeSingle();
   check("send read", error);
@@ -293,7 +302,9 @@ export async function getSend(sendId: string): Promise<{ send: SendRow; recipien
   const recipients = await fetchAllRows<SendRecipientRow>("recipients read", () =>
     admin.from("participant_send_recipients").select("*").eq("send_id", sendId)
       .order("name", { ascending: true }).order("id", { ascending: true }));
-  return { send: send as SendRow, recipients };
+  const refIds = Object.fromEntries(await refIdsFor(recipients.map((r) => r.registration_id)));
+  const portalUrl = await portalUrlFor(await pageCourseId((send as SendRow).page_id));
+  return { send: send as SendRow, recipients, refIds, portalUrl };
 }
 
 export async function listMessagesForRegistrations(registrationIds: string[]): Promise<{ registrationId: string; channel: string; subject: string; state: string; sentAt: string | null; sendCreatedAt: string | null }[]> {

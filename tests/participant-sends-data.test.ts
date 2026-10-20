@@ -26,7 +26,7 @@ vi.mock("@/lib/data/participant-prefs", () => ({
 }));
 vi.mock("@/lib/brevo-participants", () => ({ sendParticipantEmail: h.send }));
 
-import { createSend, runEmailSend, retryFailed, markWhatsAppSent, previewSend, sendTestToMe, listMessagesForRegistrations } from "@/lib/data/participant-sends";
+import { createSend, runEmailSend, retryFailed, markWhatsAppSent, getSend, previewSend, sendTestToMe, listMessagesForRegistrations } from "@/lib/data/participant-sends";
 
 const PAGE = "page-1";
 const cand = (id: string, o: Record<string, unknown> = {}) => ({
@@ -294,6 +294,14 @@ describe("whatsapp, messages and test send", () => {
     await expect(markWhatsAppSent(sendId, "nope", true)).rejects.toThrow("Recipient not found");
     store.participant_send_recipients[1].state = "skipped";
     await expect(markWhatsAppSent(sendId, store.participant_send_recipients[1].id as string, true)).rejects.toThrow("Recipient not found");
+  });
+
+  it("getSend adds each registration's ref id and the portal link for the rendered message", async () => {
+    const r = await createSend(input({ channel: "whatsapp" }));
+    const got = await getSend((r as { sendId: string }).sendId);
+    expect(got?.recipients).toHaveLength(3);
+    expect(got?.refIds).toEqual({ a: "R-a", b: "R-b", c: "R-c" });
+    expect(got?.portalUrl).toMatch(/\/portal\/pmh$/);
   });
 
   it("listMessagesForRegistrations joins sends", async () => {

@@ -103,8 +103,8 @@ export function CampaignRegistrations({
       ? { mode: "filter", filters }
       : { mode: "ids", ids: Array.from(ids) };
     const request: CampaignBuilderRequest = { pageId, pageTitle, selection, count };
-    // The email builder lives here; WhatsApp still goes through onOpenBuilder until its builder exists.
-    if (channel === "email") setBuilder({ channel, request });
+    // Both builders live here; onOpenBuilder is only a hook for the page to observe the click.
+    setBuilder({ channel, request });
     onOpenBuilder(channel, request);
   }
 
