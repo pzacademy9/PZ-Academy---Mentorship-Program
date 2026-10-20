@@ -5,7 +5,7 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { listCampaigns, listCampaignFilterOptions, resolveCandidates } from "@/lib/data/participant-campaigns";
+import { paging, listCampaigns, listCampaignFilterOptions, resolveCandidates } from "@/lib/data/participant-campaigns";
 
 const reg = (over: Record<string, unknown>) => ({
   page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com", whatsapp: "0300",
@@ -32,6 +32,8 @@ const seed = (): Store => ({
 });
 let store: Store;
 beforeEach(() => {
+  paging.pageSize = 1000;
+  paging.idChunk = 100;
   db.reset();
   store = seed();
   db.state.handler = memoryHandler(store);
@@ -85,5 +87,49 @@ describe("resolveCandidates", () => {
   it("region and optionLabel filters narrow the heads", async () => {
     const out = await resolveCandidates({ pageId: "pg1", filters: { region: "UAE", optionLabel: "Live Gold" } });
     expect(out.map((c) => c.registrationId).sort()).toEqual(["L", "m1", "m2"]);
+  });
+});
+
+describe("paging and chunking", () => {
+  const bulk = (n: number) => Array.from({ length: n }, (_, k) => reg({ id: `h${k}`, page_id: "pgB", row_type: "lead", name: `H${k}`, ref_id: `R${k}`, status: k % 2 ? "paid" : "pending", created_at: `2026-10-01T00:00:${String(k % 60).padStart(2, "0")}Z` }));
+  it("listCampaigns counts every head across several pages", async () => {
+    paging.pageSize = 3;
+    store.landing_pages.push({ id: "pgB", title: "Bulk", status: "published" });
+    store.landing_registrations.push(...bulk(10));
+    const c = (await listCampaigns()).find((x) => x.pageId === "pgB")!;
+    expect(c.total).toBe(10);
+    expect(c.counts).toMatchObject({ pending: 5, paid: 5 });
+  });
+  it("filters branch returns every head and every member across pages", async () => {
+    paging.pageSize = 3;
+    paging.idChunk = 4;
+    store.landing_registrations.push(...bulk(10));
+    for (let k = 0; k < 10; k++) store.landing_registrations.push(reg({ id: `bm${k}`, page_id: "pgB", row_type: "member", lead_registration_id: `h${k}`, name: `BM${k}` }));
+    const out = await resolveCandidates({ pageId: "pgB", filters: {} });
+    expect(out).toHaveLength(20);
+    expect(new Set(out.map((c) => c.registrationId)).size).toBe(20);
+  });
+  it("more than 100 ids are chunked and all resolved", async () => {
+    store.landing_registrations.push(...bulk(250));
+    const ids = Array.from({ length: 250 }, (_, k) => `h${k}`);
+    const out = await resolveCandidates({ pageId: "pgB", ids });
+    expect(out).toHaveLength(250);
+    let sawChunked = 0;
+    for (const op of db.find("landing_registrations", "select")) {
+      for (const [kind, key, v] of op.filters) {
+        if (kind === "in" && (key === "id" || key === "lead_registration_id")) { sawChunked++; expect((v as unknown[]).length).toBeLessThanOrEqual(100); }
+      }
+    }
+    expect(sawChunked).toBeGreaterThanOrEqual(6);
+  });
+  it("a test member under a non-test lead is excluded via the ids path", async () => {
+    const out = await resolveCandidates({ pageId: "pg1", ids: ["L"] });
+    expect(out.map((c) => c.registrationId).sort()).toEqual(["L", "m1", "m2"]);
+  });
+  it("q and agentId filters pass through", async () => {
+    await resolveCandidates({ pageId: "pg1", filters: { q: "Lead", agentId: "ag1" } });
+    const first = db.find("landing_registrations", "select")[0];
+    expect(first.filters.some(([k, key, v]) => k === "eq" && key === "agent_id" && v === "ag1")).toBe(true);
+    expect(first.filters.some(([k]) => k === "or")).toBe(true);
   });
 });

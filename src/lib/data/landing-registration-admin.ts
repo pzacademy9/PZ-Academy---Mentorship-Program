@@ -93,7 +93,7 @@ export type ChangeStatusResult =
 
 const PAGE_SIZE = 25 as const;
 const STATUSES: RegistrationStatus[] = ["pending", "reserved", "underpaid", "paid", "free"];
-const HEAD_ROW_TYPES = ["individual", "lead"];
+export const HEAD_ROW_TYPES = ["individual", "lead"];
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
