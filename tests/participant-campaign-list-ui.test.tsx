@@ -16,14 +16,14 @@ describe("campaign list UI", () => {
     expect(link.getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/campaign/pg1");
     expect(within(link).getByText("Live")).toBeTruthy();
     expect(within(link).getByText("7")).toBeTruthy();
-    expect(within(link).getByText("3 pending")).toBeTruthy();
-    expect(within(link).getByText("2 paid")).toBeTruthy();
+    expect(within(link).getByText("3 Pending")).toBeTruthy();
+    expect(within(link).getByText("2 Paid")).toBeTruthy();
   });
 
   it("shows 0 paid rather than blank, and friendly page states", () => {
     render(<CampaignList campaigns={[camp({ pageStatus: "draft", counts: { pending: 1, reserved: 0, underpaid: 0, paid: 0, free: 0 }, total: 1 }),
       camp({ pageId: "pg2", title: "Old", pageStatus: "closed" })]} />);
-    expect(screen.getByText("0 paid")).toBeTruthy();
+    expect(screen.getByText("0 Paid")).toBeTruthy();
     expect(screen.getByText("Draft")).toBeTruthy();
     expect(screen.getByText("Closed")).toBeTruthy();
   });

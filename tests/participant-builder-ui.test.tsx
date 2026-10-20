@@ -72,6 +72,13 @@ async function toReview() {
   await screen.findByText(/You are about to email/);
 }
 
+describe("header", () => {
+  it("names no number that could disagree with the review screen", async () => {
+    render(<MessageBuilder channel="email" request={request} onClose={() => {}} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Email to the selected registrations");
+  });
+});
+
 describe("review step", () => {
   it("shows the exact not-paid numbers and requires the tick box before Confirm enables", async () => {
     await toReview();
@@ -265,6 +272,14 @@ describe("fix round 1", () => {
     await screen.findByText("Could not confirm the send started. Check Messages sent before trying again.");
     expect(count("/api/admin/participants/sends/s1/run")).toHaveLength(0);
     expect(count("/api/admin/participants/sends")).toHaveLength(1);
+    const confirmBtn = screen.getByRole("button", { name: /Confirm and send/ }) as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+    fireEvent.click(confirmBtn);
+    expect(count("/api/admin/participants/sends")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Back to editing" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Review and send/ }));
+    fireEvent.click(await screen.findByRole("checkbox"));
+    await waitFor(() => expect((screen.getByRole("button", { name: /Confirm and send/ }) as HTMLButtonElement).disabled).toBe(false));
   });
 
   it("stops after 3 flat runs, shows the paused message, and can be closed", async () => {

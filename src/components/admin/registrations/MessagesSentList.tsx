@@ -5,6 +5,7 @@ import { ChevronRight, Mail, MessageCircle, Send, X } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import type { SendCounts, SendListItem } from "@/lib/data/participant-sends";
 import { PARTICIPANTS_API, call, runSendLoop } from "./run-send";
+import { WhatsAppSendList } from "./WhatsAppSendList";
 
 type Recipient = {
   id: string;
@@ -23,7 +24,12 @@ const SKIP_WORDS: Record<string, string> = {
 };
 
 const WHATSAPP_WORDS = 8;
-const REASON_MAX = 200;
+
+/** Reasons the team wrote itself; anything else is provider text and stays out of the screen. */
+const KNOWN_FAILURES = ["May have been sent. Check before sending again.", "No portal link available"];
+const FALLBACK_FAILURE = "The email service could not send this one.";
+const failureWords = (reason: string): string =>
+  reason.trim() === "" ? "Could not be sent" : KNOWN_FAILURES.includes(reason) ? reason : FALLBACK_FAILURE;
 
 const whenOf = (s: SendListItem): string => (s.created_at ? formatDateTime(s.created_at) : "");
 
@@ -90,7 +96,7 @@ function RecipientRow({ r }: { r: Recipient }) {
         ? "bg-pz-surface-container text-pz-on-surface-variant"
         : "bg-pz-secondary-container/40 text-pz-on-secondary-container";
   const reason = failed
-    ? (r.reason.trim() === "" ? "Could not be sent" : r.reason.slice(0, REASON_MAX))
+    ? failureWords(r.reason)
     : skipped
       ? SKIP_WORDS[r.reason] ?? "Not included"
       : "";
@@ -222,7 +228,9 @@ function SendDetailPanel({ send, pauseMs, onClose, onCounts }: { send: SendListI
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {loadError ? (
+          {!isEmail ? (
+            <WhatsAppSendList sendId={send.id} onClose={onClose} />
+          ) : loadError ? (
             <div className="flex flex-col gap-3">
               <p role="alert" className="text-xs font-headline font-semibold text-pz-error">{loadError}</p>
               <button type="button" onClick={() => void load()} className="self-start px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container text-xs font-headline font-bold">Try again</button>

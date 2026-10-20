@@ -150,7 +150,7 @@ describe("MessageBuilder in WhatsApp mode", () => {
     expect(screen.queryByLabelText("Subject")).toBeNull();
     expect(screen.queryByRole("button", { name: /Send test to me/ })).toBeNull();
     expect(screen.queryByText(/unsubscribe/i)).toBeNull();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("WhatsApp to 3 people");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("WhatsApp to the selected registrations");
   });
 
   it("is ready with a message alone", async () => {
@@ -264,7 +264,7 @@ describe("Send WhatsApp on the campaign page", () => {
     );
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     fireEvent.click(screen.getByRole("button", { name: "Send WhatsApp" }));
-    expect((await screen.findByRole("heading", { level: 1, name: /WhatsApp to 1 person/ })).textContent).toContain("TMC Batch 1");
+    expect((await screen.findByRole("heading", { level: 1, name: /WhatsApp to the selected registrations/ })).textContent).toContain("TMC Batch 1");
     expect(screen.queryByLabelText("Subject")).toBeNull();
   });
 });

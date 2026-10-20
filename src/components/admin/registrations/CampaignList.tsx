@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Megaphone } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { REGISTRATION_STATUS_LABELS } from "./RegistrationStatusBadge";
 import type { Campaign } from "@/lib/data/participant-campaigns";
 
 const ALL_HREF = "/dashboard/admin/enrollments/registrations/all";
@@ -81,7 +82,7 @@ function CampaignCard({ c }: { c: Campaign }) {
               c.counts[r.key] === 0 ? "bg-pz-surface-container-high text-pz-on-surface-variant opacity-60" : r.chip,
             )}
           >
-            {`${c.counts[r.key]} ${r.key}`}
+            {`${c.counts[r.key]} ${REGISTRATION_STATUS_LABELS[r.key]}`}
           </span>
         ))}
       </div>

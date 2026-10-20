@@ -69,7 +69,7 @@ describe("MessagesSentList", () => {
     const rowOf = (n: string) => screen.getByText(n).closest("li")!;
     expect(within(rowOf("Ayesha Sent")).getByText("Sent")).toBeTruthy();
     expect(within(rowOf("Bilal Failed")).getByText("Failed")).toBeTruthy();
-    expect(within(rowOf("Bilal Failed")).getByText("Mailbox full")).toBeTruthy();
+    expect(within(rowOf("Bilal Failed")).getByText("The email service could not send this one.")).toBeTruthy();
     expect(within(rowOf("Chand Unsub")).getByText("Unsubscribed")).toBeTruthy();
     expect(within(rowOf("Dua Phone")).getByText("No phone number")).toBeTruthy();
     expect(within(rowOf("Esa Email")).getByText("No email address")).toBeTruthy();
@@ -77,13 +77,36 @@ describe("MessagesSentList", () => {
     expect(within(rowOf("Gul Waiting")).getByText("Waiting")).toBeTruthy();
   });
 
-  it("shows a stored failure reason as text, never as HTML", async () => {
+  it("shows plain words for a failure, never the provider's own text", async () => {
     const s = send();
     fetchMock.mockResolvedValueOnce(detailReply(s, [recipient("b", "Bilal", "failed", "<img src=x onerror=alert(1)>")]));
     const { container } = render(<MessagesSentList sends={[s]} />);
     open(/Module 2 Schedule/);
-    expect(await screen.findByText("<img src=x onerror=alert(1)>")).toBeTruthy();
+    expect(await screen.findByText("The email service could not send this one.")).toBeTruthy();
+    expect(screen.queryByText(/onerror/)).toBeNull();
     expect(container.ownerDocument.querySelector("img")).toBeNull();
+  });
+
+  it("keeps the two known failure reasons as written", async () => {
+    const s = send();
+    fetchMock.mockResolvedValueOnce(detailReply(s, [
+      recipient("b", "Bilal", "failed", "May have been sent. Check before sending again."),
+      recipient("c", "Chand", "failed", "No portal link available"),
+    ]));
+    render(<MessagesSentList sends={[s]} />);
+    open(/Module 2 Schedule/);
+    expect(await screen.findByText("May have been sent. Check before sending again.")).toBeTruthy();
+    expect(screen.getByText("No portal link available")).toBeTruthy();
+  });
+
+  it("opening a WhatsApp send shows the links list, not the read-only rows", async () => {
+    const s = send({ channel: "whatsapp", subject: "", body: "Salam dear" });
+    fetchMock.mockResolvedValueOnce(json(200, { send: { body: "Salam dear" }, recipients: [recipient("a", "Ayesha", "pending")], refIds: {}, portalUrl: null }));
+    render(<MessagesSentList sends={[s]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Salam dear/ }));
+    expect(await screen.findByText("Your WhatsApp list")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Mark Ayesha as sent/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Resend failed|Continue sending/ })).toBeNull();
   });
 
   it("Resend failed calls retry and then run, and never creates a send", async () => {

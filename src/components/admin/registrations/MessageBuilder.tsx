@@ -64,6 +64,8 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   const [summary, setSummary] = useState<Summary | null>(null);
   const [ack, setAck] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** The create request got no answer: it may have gone through, so no second send until a fresh review. */
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const [sendId, setSendId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Progress>({ sent: 0, failed: 0, total: 0 });
   const [runError, setRunError] = useState<string | null>(null);
@@ -169,6 +171,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
       setSummary(data.summary as Summary);
       setAck(false);
       setNotice(null);
+      setUnconfirmed(false);
       setStep("review");
     });
   }
@@ -241,6 +244,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
         return;
       }
       if (status === 0) {
+        setUnconfirmed(true);
         setNotice("Could not confirm the send started. Check Messages sent before trying again.");
         return;
       }
@@ -289,7 +293,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   const running = step === "sending";
   const failedCount = recorded ? recorded.failed : progress.failed;
   const pct = progress.total > 0 ? Math.min(100, Math.round((progress.sent / progress.total) * 100)) : 0;
-  const canConfirm = !!summary && summary.total > 0 && (summary.notPaid === 0 || ack) && !busy && step === "review";
+  const canConfirm = !!summary && summary.total > 0 && (summary.notPaid === 0 || ack) && !busy && !unconfirmed && step === "review";
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-pz-surface text-pz-on-surface" role="region" aria-label={`Write an ${word}`}>
@@ -305,7 +309,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 flex-wrap">
             <h1 className="font-headline font-extrabold text-2xl lg:text-3xl text-pz-on-surface tracking-tight">
-              {`${CHANNEL_LABEL[channel]} to ${request.count} ${request.count === 1 ? "person" : "people"} - ${pageTitle}`}
+              {`${CHANNEL_LABEL[channel]} to the selected registrations - ${pageTitle}`}
             </h1>
           </div>
           <button
