@@ -30,7 +30,20 @@ describe("planRecipients", () => {
   });
 });
 
+describe("whatsapp no email dedupe", () => {
+  it("keeps two candidates with same email and different phones", () => {
+    const p = planRecipients([c({ registrationId: "1", phone: "+921" }), c({ registrationId: "2", phone: "+922" })], "whatsapp", new Set());
+    expect(p.send).toHaveLength(2);
+    expect(p.skipped).toHaveLength(0);
+  });
+});
+
 describe("summarize", () => {
+  it("counts merged duplicates on the email channel", () => {
+    const s = summarize(planRecipients([c({ registrationId: "1" }), c({ registrationId: "2", email: "A@X.com" })], "email", new Set()), "email");
+    expect(s.total).toBe(1);
+    expect(s.skipped.merged).toBe(1);
+  });
   it("counts statuses, notPaid, members, skipped", () => {
     const list = [
       c({ registrationId: "1", email: "1@x.com", status: "paid" }),

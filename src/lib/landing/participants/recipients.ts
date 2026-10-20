@@ -18,8 +18,8 @@ export function planRecipients(candidates: Candidate[], channel: Channel, unsubs
       skipped.push({ candidate, reason: "no_phone" });
       continue;
     }
-    // Same-email duplicates merge on either channel; blank emails never merge.
-    if (email !== "") {
+    // Email dedupe applies to the email channel only; WhatsApp does not dedupe.
+    if (channel === "email") {
       if (seen.has(email)) { skipped.push({ candidate, reason: "merged" }); continue; }
       seen.add(email);
     }

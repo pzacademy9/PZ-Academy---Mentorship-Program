@@ -20,7 +20,7 @@ export function renderParticipantTags(template: string, ctx: TagContext, mode: "
   const first = firstNameOf(ctx.name);
   const values: Record<string, string> = {
     first_name: first === "" ? "there" : first,
-    full_name: full === "" ? "there" : full,
+    full_name: full,
     ref_id: ctx.refId,
     portal_link: ctx.portalUrl ?? "",
   };

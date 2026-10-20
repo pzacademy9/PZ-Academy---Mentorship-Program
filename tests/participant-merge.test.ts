@@ -16,6 +16,9 @@ describe("renderParticipantTags", () => {
       "Dr Sara Khan|PZ-123|https://x.test/p/abc",
     );
   });
+  it("blank name gives empty full_name", () => {
+    expect(renderParticipantTags("[{{full_name}}]", { ...ctx, name: "  " }, "text")).toBe("[]");
+  });
   it("leaves unknown tags verbatim", () => {
     expect(renderParticipantTags("{{ zoom }}", ctx, "text")).toBe("{{ zoom }}");
   });
