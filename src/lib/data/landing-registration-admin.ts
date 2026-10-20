@@ -132,9 +132,7 @@ function scopeParams(scope: Scope): { agentFilter: boolean; agentId: string; hid
 const isEmptyAgentScope = (scope: Scope): boolean => scope.kind === "agent" && !scope.agentId;
 
 /** The head-row filters shared by the list and by campaign recipient resolution (everything except status and paging). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query: T, scope: Scope, f: RegistrationListFilters): T {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let qy: any = query.in("row_type", HEAD_ROW_TYPES);
   const sc = scopeParams(scope);
   if (sc.agentFilter) qy = qy.eq("agent_id", sc.agentId);
