@@ -263,7 +263,7 @@ export function WhatsAppSendList({ sendId, onClose }: WhatsAppSendListProps) {
                       <span className="text-xs font-headline font-bold text-pz-on-surface truncate">{r.name}</span>
                       {chip}
                       <span className="px-2 py-0.5 rounded text-[10px] font-headline font-bold bg-pz-error-container text-pz-on-error-container">
-                        {r.state === "skipped" ? SKIP_WORDS[r.reason] ?? "Left out" : "No phone number"}
+                        {r.state === "skipped" ? SKIP_WORDS[r.reason] ?? "Left out" : r.phone.trim() === "" ? "No phone number" : "Number not valid"}
                       </span>
                     </div>
                   </div>

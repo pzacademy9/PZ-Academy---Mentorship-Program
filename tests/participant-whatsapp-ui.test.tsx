@@ -96,6 +96,15 @@ describe("WhatsAppSendList", () => {
     expect(screen.queryByRole("button", { name: /Mark Tariq/ })).toBeNull();
   });
 
+  it("a saved number that is not valid says so, not that the number is missing", async () => {
+    handlers["GET /api/admin/participants/sends/s1"] = () => ({ json: detail([rec({ id: "rd", registration_id: "reg-d", name: "Hira Khan", phone: "46646464644" })]) });
+    render(<WhatsAppSendList sendId="s1" onClose={() => {}} />);
+    await screen.findByText("Hira Khan");
+    expect(screen.getByText("Number not valid")).toBeTruthy();
+    expect(screen.queryByText("No phone number")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Hira/ })).toBeNull();
+  });
+
   it("rows already sent come back sent from the server, with the time", async () => {
     render(<WhatsAppSendList sendId="s1" onClose={() => {}} />);
     await screen.findByText("Bilal Ahmed");
