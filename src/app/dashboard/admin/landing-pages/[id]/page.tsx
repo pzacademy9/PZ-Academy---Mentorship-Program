@@ -5,6 +5,7 @@ import { isPageId } from "@/lib/validations/landing";
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
 import { getPageSheetInfo } from "@/lib/data/landing-event-sheet";
 import { listVariants } from "@/lib/data/landing-variants";
+import { getPageCourseModules } from "@/lib/data/landing-course-modules";
 import { LandingEditor } from "@/components/admin/landing/LandingEditor";
 
 export const metadata = { title: "Edit Landing Page — PZ Academy" };
@@ -22,5 +23,7 @@ export default async function LandingEditorPage({ params }: { params: Promise<{ 
   const sheet = await getPageSheetInfo(id).catch(() => null);
   // Country / module links. A failed read throws (error page) rather than editing as if there were none.
   const variants = await listVariants(id);
-  return <LandingEditor key={page.id} page={page} versions={versions} accounts={accounts} sheetId={sheet?.sheetId ?? null} variants={variants} />;
+  // A failed read only hides the "Modules this option gives" row; the save route still checks every module.
+  const courseModules = await getPageCourseModules(id).catch(() => null);
+  return <LandingEditor key={page.id} page={page} versions={versions} accounts={accounts} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} />;
 }

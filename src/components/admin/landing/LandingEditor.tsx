@@ -21,6 +21,7 @@ import { SectionList } from "./SectionList";
 import { SectionForm } from "./SectionForm";
 import { PageSettingsPanel } from "./PageSettingsPanel";
 import { RegistrationOpsCard } from "./registration/RegistrationOpsCard";
+import type { CourseModule } from "@/lib/data/landing-course-modules";
 import type { PaymentAccountSummary } from "./registration/RegistrationSetup";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { PreviewFrame } from "./PreviewFrame";
@@ -72,11 +73,13 @@ const SAVE_DOT: Record<SaveState, string> = {
  * full browser reload.
  */
 export function LandingEditor({
-  page, versions, accounts = [], sheetId = null, variants = [],
+  page, versions, accounts = [], sheetId = null, variants = [], courseModules = null,
 }: {
   page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[]; sheetId?: string | null;
   /** The page's country / module links. */
   variants?: LandingVariant[];
+  /** The page's course modules, in course order. null = the page has no course. */
+  courseModules?: CourseModule[] | null;
 }) {
   const known = useRef(page.revision);
   const remountAbove = useRef<number | null>(null);
@@ -97,7 +100,7 @@ export function LandingEditor({
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} variants={variants} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} variants={variants} courseModules={courseModules} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -125,10 +128,10 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, accounts, sheetId, variants, onRevision, onRestored,
+  page, versions, accounts, sheetId, variants, courseModules, onRevision, onRestored,
 }: {
   page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; sheetId: string | null;
-  variants: LandingVariant[]; onRevision: (rev: number) => void; onRestored: () => void;
+  variants: LandingVariant[]; courseModules: CourseModule[] | null; onRevision: (rev: number) => void; onRestored: () => void;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -140,7 +143,7 @@ function EditorShell({
   }), [confirm]);
   // Called before the main page's autosave so both hooks keep a fixed call order.
   const link = useLinkEditing({ pageId: page.id, variants, confirmDiscard });
-  const { state: mainState, schedule, saveNow: saveMain } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
+  const { state: mainState, message: mainMessage, schedule, saveNow: saveMain } = useAutosaveDraft({ pageId: page.id, initialRevision: page.revision, onRevision });
   const state = worse(mainState, link.saveState);
   const saveLink = link.saveNow;
   const onLink = link.activeId !== null;
@@ -626,6 +629,7 @@ function EditorShell({
                   onSettings={() => {}}
                   onSeo={() => {}}
                   registration={content.registration}
+                  courseModules={courseModules}
                   accounts={accounts}
                   registrationStep={regStep}
                   onRegistrationStep={setRegStep}
@@ -643,6 +647,8 @@ function EditorShell({
               onSettings={(patch) => apply(updateSettings(contentRef.current, patch))}
               onSeo={(patch) => apply(updateSeo(contentRef.current, patch))}
               registration={content.registration}
+              courseModules={courseModules}
+              saveMessage={mainMessage}
               accounts={accounts}
               registrationStep={regStep}
               onRegistrationStep={setRegStep}

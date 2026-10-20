@@ -16,3 +16,16 @@ export async function getPageCourseModuleIds(pageId: string): Promise<string[] |
   if (modErr) throw modErr;
   return (mods ?? []).map((m) => m.id);
 }
+
+export type CourseModule = { id: string; title: string; order_index: number };
+
+/** The page's course modules in course order. null = the page has no course (or no such page). Throws on a database error. */
+export async function getPageCourseModules(pageId: string): Promise<CourseModule[] | null> {
+  const admin = createAdminSupabase();
+  const { data: page, error } = await admin.from("landing_pages").select("course_id").eq("id", pageId).maybeSingle();
+  if (error) throw error;
+  if (!page?.course_id) return null;
+  const { data: mods, error: modErr } = await admin.from("modules").select("id, title, order_index").eq("course_id", page.course_id).order("order_index", { ascending: true });
+  if (modErr) throw modErr;
+  return (mods ?? []).map((m) => ({ id: m.id, title: m.title, order_index: m.order_index }));
+}
