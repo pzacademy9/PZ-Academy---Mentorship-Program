@@ -133,7 +133,7 @@ describe("sending", () => {
     await toReview();
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: /Confirm and send/ }));
-    await screen.findByText("Sent 11, failed 1, skipped 3");
+    await screen.findByText("Sent 11, failed 1 (3 left out before sending)");
     expect(count("/api/admin/participants/sends/s1/run")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Resend failed" })).toBeTruthy();
   });
@@ -197,6 +197,103 @@ describe("sending", () => {
     fireEvent.click(screen.getByRole("button", { name: /Confirm and send/ }));
     await screen.findByText("This exact message was already sent to this campaign.");
     expect(count("/api/admin/participants/sends/s1/run")).toHaveLength(0);
+  });
+});
+
+const tickAndConfirm = () => {
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: /Confirm and send/ }));
+};
+
+describe("fix round 1", () => {
+  it("shows the server's recorded counts when it has them", async () => {
+    handlers["POST /api/admin/participants/sends/s1/run"] = () => ({ json: { sent: 11, failed: 1, pending: 0 } });
+    handlers["GET /api/admin/participants/sends/s1"] = () => ({ json: { send: {}, recipients: [
+      ...Array.from({ length: 10 }, () => ({ state: "sent" })), { state: "failed" }, { state: "skipped" }, { state: "skipped" },
+    ] } });
+    await toReview();
+    tickAndConfirm();
+    await screen.findByText("Sent 10, failed 1, skipped 2");
+    expect(screen.getByText(/may already have gone out/)).toBeTruthy();
+  });
+
+  it("clears the tick on a second preview", async () => {
+    await toReview();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Back to editing" }));
+    fireEvent.click(screen.getByRole("button", { name: /Review and send/ }));
+    await screen.findByText(/You are about to email/);
+    expect(count("/api/admin/participants/preview")).toHaveLength(2);
+    expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("locks the composer while the review is open and unlocks on Back to editing", async () => {
+    await toReview();
+    for (const name of ["Template", "Subject", "Message"]) expect((screen.getByLabelText(name) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /Portal link/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to editing" }));
+    expect((screen.getByLabelText("Subject") as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByLabelText("Message") as HTMLTextAreaElement).disabled).toBe(false);
+  });
+
+  it("a failed run shows Continue sending, which runs again and never creates again", async () => {
+    let n = 0;
+    handlers["POST /api/admin/participants/sends/s1/run"] = () => {
+      n += 1;
+      return n === 1 ? { status: 500, json: { error: "x" } } : { json: { sent: 12, failed: 0, pending: 0 } };
+    };
+    await toReview();
+    tickAndConfirm();
+    fireEvent.click(await screen.findByRole("button", { name: "Continue sending" }));
+    await screen.findByText(/Sent 12, failed 0/);
+    expect(count("/api/admin/participants/sends")).toHaveLength(1);
+    expect(count("/api/admin/participants/sends/s1/run")).toHaveLength(2);
+  });
+
+  it("a network failure on create says it could not confirm and does not run", async () => {
+    handlers["POST /api/admin/participants/sends"] = () => { throw new Error("offline"); };
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (method === "POST" && url === "/api/admin/participants/sends") throw new Error("offline");
+      const h = handlers[`${method} ${url}`];
+      const r = await h(undefined);
+      return json(r.status ?? 200, r.json);
+    });
+    await toReview();
+    tickAndConfirm();
+    await screen.findByText("Could not confirm the send started. Check Messages sent before trying again.");
+    expect(count("/api/admin/participants/sends/s1/run")).toHaveLength(0);
+    expect(count("/api/admin/participants/sends")).toHaveLength(1);
+  });
+
+  it("stops after 3 flat runs, shows the paused message, and can be closed", async () => {
+    handlers["POST /api/admin/participants/sends/s1/run"] = () => ({ json: { sent: 0, failed: 0, pending: 4 } });
+    const onClose = vi.fn();
+    render(<MessageBuilder channel="email" request={request} onClose={onClose} pauseMs={0} />);
+    await fill();
+    fireEvent.click(screen.getByRole("button", { name: /Review and send/ }));
+    await screen.findByText(/You are about to email/);
+    tickAndConfirm();
+    await screen.findByText("Sending paused. Some people are still waiting. Press Continue sending to try again.");
+    expect(count("/api/admin/participants/sends/s1/run").length).toBeLessThanOrEqual(5);
+    fireEvent.click(screen.getByRole("button", { name: "Back to the campaign" }));
+    expect(onClose).toHaveBeenCalledWith(true);
+  });
+
+  it("count_changed without a summary re-previews once, shows the new figures, and never creates twice", async () => {
+    handlers["POST /api/admin/participants/sends"] = () => ({ status: 409, json: { error: "x", code: "count_changed" } });
+    let n = 0;
+    handlers["POST /api/admin/participants/preview"] = () => {
+      n += 1;
+      return { json: { summary: n === 1 ? summary() : summary({ total: 11, notPaid: 2, byStatus: { paid: 9, pending: 2, reserved: 0, underpaid: 0, free: 0 } }), count: 11 } };
+    };
+    await toReview();
+    tickAndConfirm();
+    await screen.findByText("The list changed. Review it again.");
+    await screen.findByText(/2 people have not paid \(Pending 2\)/);
+    expect(count("/api/admin/participants/preview")).toHaveLength(2);
+    expect(count("/api/admin/participants/sends")).toHaveLength(1);
   });
 });
 

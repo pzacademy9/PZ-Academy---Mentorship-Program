@@ -13,6 +13,12 @@ const API = "/api/admin/participants";
 type Template = { id: string; name: string; subject: string; emailBody: string; whatsappBody: string };
 type Step = "edit" | "review" | "sending" | "done";
 type Progress = { sent: number; failed: number; total: number };
+/** What the server recorded for the send, counted from its recipient rows. */
+type Recorded = { sent: number; failed: number; skipped: number };
+
+const FLAT_RUNS_BEFORE_PAUSE = 3;
+const MAX_RUNS = 300;
+const wait = (ms: number) => (ms > 0 ? new Promise<void>((r) => setTimeout(r, ms)) : Promise.resolve());
 
 const TAG_LABEL: Record<string, string> = {
   first_name: "First name",
@@ -50,9 +56,11 @@ export interface MessageBuilderProps {
   request: CampaignBuilderRequest;
   /** `sent` is true when at least one send was started, so the page can refresh its lists. */
   onClose: (sent: boolean) => void;
+  /** Pause between runs that made no progress. Tests pass 0. */
+  pauseMs?: number;
 }
 
-export function MessageBuilder({ channel, request, onClose }: MessageBuilderProps) {
+export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: MessageBuilderProps) {
   const { pageId, pageTitle, selection } = request;
   const word = CHANNEL_WORD[channel];
 
@@ -73,6 +81,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
   const [sendId, setSendId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Progress>({ sent: 0, failed: 0, total: 0 });
   const [runError, setRunError] = useState<string | null>(null);
+  const [recorded, setRecorded] = useState<Recorded | null>(null);
 
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -178,7 +187,10 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
     let { sent, failed } = start;
     setStep("sending");
     setRunError(null);
-    for (;;) {
+    setRecorded(null);
+    let lastPending = Number.POSITIVE_INFINITY;
+    let flat = 0;
+    for (let i = 0; i < MAX_RUNS; i += 1) {
       const { status, data } = await call(`${API}/sends/${id}/run`, "POST");
       if (status !== 200 || typeof data.pending !== "number") {
         setRunError("Sending stopped part way. Some messages may already have gone out. Press Continue sending to carry on.");
@@ -187,9 +199,26 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
       sent += Number(data.sent) || 0;
       failed += Number(data.failed) || 0;
       setProgress({ sent, failed, total });
-      if (data.pending === 0) break;
+      if (data.pending === 0) {
+        await loadRecorded(id);
+        setStep("done");
+        return;
+      }
+      flat = data.pending < lastPending ? 0 : flat + 1;
+      lastPending = data.pending;
+      if (flat >= FLAT_RUNS_BEFORE_PAUSE) break;
+      if (flat > 0) await wait(pauseMs);
     }
-    setStep("done");
+    setRunError("Sending paused. Some people are still waiting. Press Continue sending to try again.");
+  }
+
+  /** The server's own count of what happened, so the result line never mixes in preview figures. */
+  async function loadRecorded(id: string) {
+    const { status, data } = await call(`${API}/sends/${id}`, "GET");
+    if (status !== 200 || !Array.isArray(data.recipients)) return;
+    const states = (data.recipients as { state?: string }[]).map((r) => r.state);
+    const n = (st: string) => states.filter((x) => x === st).length;
+    setRecorded({ sent: n("sent"), failed: n("failed"), skipped: n("skipped") });
   }
 
   async function confirm() {
@@ -210,13 +239,29 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
       if (status === 409) {
         // Never retried automatically: the owner looks again.
         if (data.code === "count_changed") {
-          if (typeof data.summary === "object" && data.summary !== null) setSummary(data.summary as Summary);
           setAck(false);
+          if (typeof data.summary === "object" && data.summary !== null) {
+            setSummary(data.summary as Summary);
+          } else {
+            // The server sent no new figures: ask once for them (a preview never sends anything).
+            const again = await call(`${API}/preview`, "POST", { pageId, channel, ...recipients() });
+            if (again.status === 200 && typeof again.data.summary === "object" && again.data.summary !== null) {
+              setSummary(again.data.summary as Summary);
+            } else {
+              setEditError(errorText(again.data, "Could not build the list of people. Try again."));
+              setStep("edit");
+              return;
+            }
+          }
           setNotice("The list changed. Review it again.");
         } else {
           setNotice(errorText(data, "This could not be sent."));
         }
         setStep("review");
+        return;
+      }
+      if (status === 0) {
+        setNotice("Could not confirm the send started. Check Messages sent before trying again.");
         return;
       }
       if (status < 200 || status >= 300 || typeof data.sendId !== "string") {
@@ -255,7 +300,9 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
   }
 
   const reviewing = step !== "edit";
+  const locked = busy || reviewing;
   const running = step === "sending";
+  const failedCount = recorded ? recorded.failed : progress.failed;
   const pct = progress.total > 0 ? Math.min(100, Math.round((progress.sent / progress.total) * 100)) : 0;
   const canConfirm = !!summary && summary.total > 0 && (summary.notPaid === 0 || ack) && !busy && step === "review";
 
@@ -279,7 +326,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
           <button
             type="button"
             onClick={close}
-            disabled={busy}
+            disabled={locked}
             className="self-end md:self-auto px-4 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container-low hover:bg-pz-surface-container-high transition-all flex items-center gap-2 shadow-sm disabled:opacity-60"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
@@ -310,7 +357,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                   id="builder-template"
                   value={templateId}
                   onChange={(e) => pickTemplate(e.target.value)}
-                  disabled={busy}
+                  disabled={locked}
                   className={`${inputBase} font-medium`}
                 >
                   <option value="">Start from scratch</option>
@@ -333,7 +380,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                     <button
                       type="button"
                       onClick={() => void saveTemplate()}
-                      disabled={busy || templateName.trim() === ""}
+                      disabled={locked || templateName.trim() === ""}
                       className="px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container text-xs font-headline font-bold disabled:opacity-50"
                     >
                       Save template
@@ -355,7 +402,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                     value={subject}
                     maxLength={300}
                     onChange={(e) => setSubject(e.target.value)}
-                    disabled={busy}
+                    disabled={locked}
                     className={`${inputBase} font-headline font-medium pr-24`}
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-pz-outline">{subject.length} characters</span>
@@ -374,7 +421,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                       key={tag}
                       type="button"
                       onClick={() => insertTag(tag)}
-                      disabled={busy}
+                      disabled={locked}
                       className="inline-flex items-center gap-1 px-3 py-1.5 max-md:min-h-11 rounded-lg bg-pz-surface-container-high hover:bg-pz-primary-container/40 text-pz-on-surface hover:text-pz-on-primary-container text-xs font-headline font-medium transition-all shadow-sm disabled:opacity-60"
                     >
                       {TAG_LABEL[tag] ?? tag}
@@ -393,7 +440,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                   value={body}
                   maxLength={20000}
                   onChange={(e) => setBody(e.target.value)}
-                  disabled={busy}
+                  disabled={locked}
                   className="w-full bg-pz-surface-container-low text-pz-on-surface text-sm leading-relaxed rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-pz-primary shadow-inner resize-y disabled:opacity-60"
                 />
                 <div className="flex items-center gap-2 px-3 py-2 bg-pz-surface-container rounded-lg text-xs text-pz-on-surface-variant font-medium">
@@ -414,7 +461,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                 <button
                   type="button"
                   onClick={() => void sendTest()}
-                  disabled={busy || body.trim() === ""}
+                  disabled={locked || body.trim() === ""}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg bg-pz-surface-container-lowest text-pz-on-surface text-sm font-headline font-semibold shadow-sm hover:bg-pz-surface-container-high transition-all disabled:opacity-50"
                 >
                   <Send className="w-4 h-4 text-pz-tertiary" aria-hidden="true" />
@@ -423,7 +470,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                 <button
                   type="button"
                   onClick={() => void review()}
-                  disabled={busy || !ready}
+                  disabled={locked || !ready}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container hover:bg-pz-primary-fixed font-headline font-bold text-sm shadow-md transition-all disabled:opacity-50"
                 >
                   Review and send
@@ -488,7 +535,7 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                 <div className="rounded-xl bg-pz-surface-container-low p-4 flex flex-col gap-2.5">
                   <div className="flex justify-between text-xs font-headline font-semibold text-pz-on-surface-variant">
                     <span>{step === "done" ? "Done" : "Sending"}</span>
-                    <span>{step === "done" ? `Sent ${progress.sent}, failed ${progress.failed}, skipped ${skippedTotal(summary)}` : `Sent ${progress.sent} of ${progress.total}`}</span>
+                    <span>{step === "done" ? recorded ? `Sent ${recorded.sent}, failed ${recorded.failed}, skipped ${recorded.skipped}` : `Sent ${progress.sent}, failed ${progress.failed} (${skippedTotal(summary)} left out before sending)` : `Sent ${progress.sent} of ${progress.total}`}</span>
                   </div>
                   <div className="w-full h-2.5 bg-pz-surface-container-highest rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                     <div className="h-full bg-pz-primary-container rounded-full transition-all duration-500" style={{ width: `${step === "done" ? 100 : pct}%` }} />
@@ -519,6 +566,11 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
                 <>
                   <span className="text-xs text-pz-on-surface-variant">Keep this window open until it finishes.</span>
                   {runError && (
+                    <button type="button" onClick={close} disabled={busy} className="w-full sm:w-auto px-5 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container hover:bg-pz-surface-container-high transition-all disabled:opacity-50">
+                      Back to the campaign
+                    </button>
+                  )}
+                  {runError && (
                     <button type="button" onClick={() => void continueSending()} disabled={busy} className="w-full sm:w-auto px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm disabled:opacity-50">
                       Continue sending
                     </button>
@@ -527,11 +579,12 @@ export function MessageBuilder({ channel, request, onClose }: MessageBuilderProp
               )}
               {step === "done" && (
                 <>
-                  {progress.failed > 0 ? (
+                  {failedCount > 0 ? (
                     <button type="button" onClick={() => void resendFailed()} disabled={busy} className="w-full sm:w-auto px-5 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container hover:bg-pz-surface-container-high transition-all disabled:opacity-50">
                       Resend failed
                     </button>
                   ) : <span />}
+                  {failedCount > 0 && <span className="text-xs text-pz-on-surface-variant">Some of these may already have gone out. Check before you resend.</span>}
                   <button type="button" onClick={close} disabled={busy} className="w-full sm:w-auto px-6 py-3 max-md:min-h-11 rounded-lg bg-pz-primary-container text-pz-on-primary-container font-headline font-bold text-sm disabled:opacity-50">
                     Back to the campaign
                   </button>
