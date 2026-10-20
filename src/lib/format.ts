@@ -24,6 +24,30 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+/**
+ * Pakistan-time variants for the admin registration screens. Pinning the zone
+ * stops the server (UTC) and the browser from printing different hours.
+ */
+export function formatDatePkt(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Karachi",
+  });
+}
+
+export function formatDateTimePkt(iso: string): string {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Karachi",
+  });
+}
+
 /** "3 days ago" — coarse on purpose; the exact timestamp sits beside it. */
 export function relativeTime(iso: string, now: Date = new Date()): string {
   const seconds = Math.round((now.getTime() - new Date(iso).getTime()) / 1000);

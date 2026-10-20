@@ -1,3 +1,4 @@
+import { normalizePhone } from "@/lib/crm/phone";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import type { Candidate, Channel, SkipReason, Summary } from "./types";
 
@@ -14,7 +15,7 @@ export function planRecipients(candidates: Candidate[], channel: Channel, unsubs
     if (channel === "email") {
       if (email === "") { skipped.push({ candidate, reason: "no_email" }); continue; }
       if (unsubscribed.has(email)) { skipped.push({ candidate, reason: "unsubscribed" }); continue; }
-    } else if (candidate.phone.trim() === "") {
+    } else if (!normalizePhone(candidate.phone).ok) {
       skipped.push({ candidate, reason: "no_phone" });
       continue;
     }

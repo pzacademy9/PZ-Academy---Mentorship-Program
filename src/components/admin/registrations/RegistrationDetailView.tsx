@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Mail, MessageCircle, Phone, ShieldCheck } from "lucide-react";
-import { formatDateTime, initials } from "@/lib/format";
+import { formatDateTimePkt, initials } from "@/lib/format";
 import { formatMoney } from "@/lib/format-money";
 import type { RegistrationDetail } from "@/lib/data/landing-registration-admin";
 import { RegistrationStatusBadge } from "./RegistrationStatusBadge";
@@ -160,7 +160,7 @@ export function RegistrationDetailView({
               <Field label="Country">{lead.region || <Missing />}</Field>
               <Field label="How they heard about us">{lead.discovery || <Missing />}</Field>
             </dl>
-            <p className="font-body text-xs text-pz-on-surface-variant mt-5">Submitted {formatDateTime(lead.createdAt)}</p>
+            <p className="font-body text-xs text-pz-on-surface-variant mt-5">Submitted {formatDateTimePkt(lead.createdAt)}</p>
           </Card>
 
           <Card title="Price and payment" subtitle="What was chosen, what it costs and what has come in">
