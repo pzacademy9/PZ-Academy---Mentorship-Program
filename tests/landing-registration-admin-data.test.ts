@@ -84,6 +84,14 @@ describe("list", () => {
     const a = out.rows.find((r) => r.id === "a")!;
     expect(a).toMatchObject({ pageTitle: "PPC", agentName: "Agent One", refId: "PZA-1", status: "pending" });
   });
+  it("region and optionLabel filters apply as equals", async () => {
+    store.landing_registrations.push(reg({ id: "u", name: "Uae", ref_id: "PZA-7", region: "UAE", option_label: "Gold" }));
+    const out = await listRegistrations({ kind: "all" }, { region: "UAE" });
+    expect(out.rows.map((r) => r.id)).toEqual(["u"]);
+    expect(out.total).toBe(1);
+    expect((await listRegistrations({ kind: "all" }, { optionLabel: "Gold" })).rows.map((r) => r.id)).toEqual(["u"]);
+    expect((await listRegistrations({ kind: "all" }, { region: "UAE", optionLabel: "Live" })).rows).toEqual([]);
+  });
   it("search with % _ and commas is escaped and does not widen the match", async () => {
     await listRegistrations({ kind: "all" }, { q: "50%_a,b\\c" });
     const expr = String(filterValue(regReads()[0], "or", "or"));

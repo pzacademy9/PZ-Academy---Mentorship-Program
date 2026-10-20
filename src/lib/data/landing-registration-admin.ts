@@ -25,6 +25,8 @@ export interface RegistrationListFilters {
   mode?: "live" | "recorded";
   agentId?: string;
   q?: string;
+  region?: string;
+  optionLabel?: string;
   page?: number;
 }
 export interface RegistrationListRow {
@@ -126,6 +128,27 @@ function scopeParams(scope: Scope): { agentFilter: boolean; agentId: string; hid
 /** An agent scope with no usable id must see nothing (never fall through to "every row"). */
 const isEmptyAgentScope = (scope: Scope): boolean => scope.kind === "agent" && !scope.agentId;
 
+/** The head-row filters shared by the list and by campaign recipient resolution (everything except status and paging). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query: T, scope: Scope, f: RegistrationListFilters): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let qy: any = query.in("row_type", HEAD_ROW_TYPES);
+  const sc = scopeParams(scope);
+  if (sc.agentFilter) qy = qy.eq("agent_id", sc.agentId);
+  if (sc.hideTest) qy = qy.eq("is_test", false);
+  if (f.pageId) qy = qy.eq("page_id", f.pageId);
+  if (f.mode) qy = qy.eq("mode", f.mode);
+  if (f.region) qy = qy.eq("region", f.region);
+  if (f.optionLabel) qy = qy.eq("option_label", f.optionLabel);
+  if (f.agentId && scope.kind === "all") qy = qy.eq("agent_id", f.agentId);
+  const q = f.q?.trim();
+  if (q) {
+    const p = searchPattern(q);
+    qy = qy.or(`name.ilike.${p},email.ilike.${p},ref_id.ilike.${p}`);
+  }
+  return qy as T;
+}
+
 export async function listRegistrations(scope: Scope, f: RegistrationListFilters): Promise<RegistrationList> {
   if (isEmptyAgentScope(scope)) {
     const counts = { all: 0, pending: 0, reserved: 0, underpaid: 0, paid: 0, free: 0 } as Record<RegistrationStatus | "all", number>;
@@ -134,24 +157,11 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   const admin = createAdminSupabase();
 
   // Everything except the status filter, so each status tab can show its own count.
-  const base = (head: boolean) => {
-    let query = admin
-      .from("landing_registrations")
-      .select(head ? "id" : "*", head ? { count: "exact", head: true } : undefined)
-      .in("row_type", HEAD_ROW_TYPES);
-    const sc = scopeParams(scope);
-    if (sc.agentFilter) query = query.eq("agent_id", sc.agentId);
-    if (sc.hideTest) query = query.eq("is_test", false);
-    if (f.pageId) query = query.eq("page_id", f.pageId);
-    if (f.mode) query = query.eq("mode", f.mode);
-    if (f.agentId && scope.kind === "all") query = query.eq("agent_id", f.agentId);
-    const q = f.q?.trim();
-    if (q) {
-      const p = searchPattern(q);
-      query = query.or(`name.ilike.${p},email.ilike.${p},ref_id.ilike.${p}`);
-    }
-    return query;
-  };
+  const base = (head: boolean) => applyHeadFilters(
+    admin.from("landing_registrations").select(head ? "id" : "*", head ? { count: "exact", head: true } : undefined),
+    scope,
+    f,
+  );
 
   const countFor = async (status: RegistrationStatus | "all"): Promise<number> => {
     const query = base(true);
