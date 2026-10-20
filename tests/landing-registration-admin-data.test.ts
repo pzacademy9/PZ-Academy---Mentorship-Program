@@ -11,6 +11,8 @@ vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobs.
 const enr = vi.hoisted(() => ({ resolveAccess: vi.fn(), listEmailLog: vi.fn() }));
 vi.mock("@/lib/data/landing-enrollment", () => ({ resolveAccess: enr.resolveAccess }));
 vi.mock("@/lib/data/landing-email-log", () => ({ listEmailLog: enr.listEmailLog }));
+const msgs = vi.hoisted(() => ({ listMessagesForRegistrations: vi.fn() }));
+vi.mock("@/lib/data/participant-sends", () => ({ listMessagesForRegistrations: msgs.listMessagesForRegistrations }));
 
 import { listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
@@ -47,6 +49,8 @@ beforeEach(() => {
   enr.resolveAccess.mockReset();
   enr.listEmailLog.mockReset();
   enr.listEmailLog.mockResolvedValue([]);
+  msgs.listMessagesForRegistrations.mockReset();
+  msgs.listMessagesForRegistrations.mockResolvedValue([]);
   enr.resolveAccess.mockResolvedValue({ lead: { mode: "live" }, courseId: null, hasAccount: false });
   store = seed();
   rpcResult = { data: { ok: true, from: "pending", changed: 2 }, error: null };
@@ -83,6 +87,14 @@ describe("list", () => {
     const out = await listRegistrations({ kind: "all" }, {});
     const a = out.rows.find((r) => r.id === "a")!;
     expect(a).toMatchObject({ pageTitle: "PPC", agentName: "Agent One", refId: "PZA-1", status: "pending" });
+  });
+  it("region and optionLabel filters apply as equals", async () => {
+    store.landing_registrations.push(reg({ id: "u", name: "Uae", ref_id: "PZA-7", region: "UAE", option_label: "Gold" }));
+    const out = await listRegistrations({ kind: "all" }, { region: "UAE" });
+    expect(out.rows.map((r) => r.id)).toEqual(["u"]);
+    expect(out.total).toBe(1);
+    expect((await listRegistrations({ kind: "all" }, { optionLabel: "Gold" })).rows.map((r) => r.id)).toEqual(["u"]);
+    expect((await listRegistrations({ kind: "all" }, { region: "UAE", optionLabel: "Live" })).rows).toEqual([]);
   });
   it("search with % _ and commas is escaped and does not widen the match", async () => {
     await listRegistrations({ kind: "all" }, { q: "50%_a,b\\c" });
@@ -143,6 +155,22 @@ describe("detail", () => {
   });
   it("detail of a member id is not found", async () => {
     expect(await getRegistrationDetail("m1", { kind: "all" })).toBeNull();
+  });
+});
+
+describe("detail messages from the team", () => {
+  const message = { registrationId: "m1", channel: "email", subject: "Module 2", state: "sent", sentAt: "2026-10-15T11:42:00Z", sendCreatedAt: "2026-10-15T11:40:00Z" };
+  it("admin gets the messages sent to the lead and the members", async () => {
+    msgs.listMessagesForRegistrations.mockResolvedValue([message]);
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(msgs.listMessagesForRegistrations).toHaveBeenCalledWith(["L", "m1"]);
+    expect(d!.messages).toEqual([message]);
+  });
+  it("agent gets none and the messages are never even read", async () => {
+    msgs.listMessagesForRegistrations.mockResolvedValue([message]);
+    const d = await getRegistrationDetail("L", { kind: "agent", agentId: "ag1" });
+    expect(d!.messages).toEqual([]);
+    expect(msgs.listMessagesForRegistrations).not.toHaveBeenCalled();
   });
 });
 

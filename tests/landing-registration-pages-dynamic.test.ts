@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 const PAGES = [
   "src/app/dashboard/admin/enrollments/registrations/page.tsx",
   "src/app/dashboard/admin/enrollments/registrations/[id]/page.tsx",
+  "src/app/dashboard/admin/enrollments/registrations/all/page.tsx",
   "src/app/dashboard/sales/registrations/page.tsx",
   "src/app/dashboard/sales/registrations/[id]/page.tsx",
 ];

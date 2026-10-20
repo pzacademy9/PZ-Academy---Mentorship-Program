@@ -2955,6 +2955,193 @@ export type Database = {
           },
         ]
       }
+      participant_email_prefs: {
+        Row: {
+          created_at: string | null
+          email: string
+          token: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          token?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          token?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: [
+        ]
+      }
+      participant_send_recipients: {
+        Row: {
+          claimed_at: string | null
+          email: string
+          id: string
+          is_member: boolean
+          name: string
+          phone: string
+          reason: string
+          registration_id: string
+          send_id: string
+          sent_at: string | null
+          state: string
+          status_at_send: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          email?: string
+          id?: string
+          is_member?: boolean
+          name: string
+          phone?: string
+          reason?: string
+          registration_id: string
+          send_id: string
+          sent_at?: string | null
+          state?: string
+          status_at_send: string
+        }
+        Update: {
+          claimed_at?: string | null
+          email?: string
+          id?: string
+          is_member?: boolean
+          name?: string
+          phone?: string
+          reason?: string
+          registration_id?: string
+          send_id?: string
+          sent_at?: string | null
+          state?: string
+          status_at_send?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participant_send_recipients_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_send_recipients_send_id_fkey"
+            columns: ["send_id"]
+            isOneToOne: false
+            referencedRelation: "participant_sends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participant_sends: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          not_paid_confirmed: boolean
+          not_paid_count: number
+          page_id: string
+          recipient_count: number
+          subject: string
+          template_id: string | null
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          not_paid_confirmed?: boolean
+          not_paid_count?: number
+          page_id: string
+          recipient_count: number
+          subject?: string
+          template_id?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          not_paid_confirmed?: boolean
+          not_paid_count?: number
+          page_id?: string
+          recipient_count?: number
+          subject?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participant_sends_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_sends_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_sends_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "participant_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participant_templates: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email_body: string
+          id: string
+          name: string
+          subject: string
+          updated_at: string | null
+          whatsapp_body: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email_body?: string
+          id?: string
+          name: string
+          subject?: string
+          updated_at?: string | null
+          whatsapp_body?: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email_body?: string
+          id?: string
+          name?: string
+          subject?: string
+          updated_at?: string | null
+          whatsapp_body?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participant_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_accounts: {
         Row: {
           active: boolean

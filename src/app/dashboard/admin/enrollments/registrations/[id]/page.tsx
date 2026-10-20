@@ -19,7 +19,7 @@ export default async function AdminRegistrationDetailPage({ params }: { params: 
   return (
     <RegistrationDetailView
       detail={detail}
-      backHref="/dashboard/admin/enrollments/registrations"
+      backHref="/dashboard/admin/enrollments/registrations/all"
       backLabel="Back to registrations"
       endpoint={`/api/admin/registrations/${detail.lead.id}`}
       showAgent

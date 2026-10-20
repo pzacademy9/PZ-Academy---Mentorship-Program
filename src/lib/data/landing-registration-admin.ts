@@ -12,6 +12,7 @@ import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
 import { resolveAccess } from "@/lib/data/landing-enrollment";
+import { listMessagesForRegistrations } from "@/lib/data/participant-sends";
 
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
 type ApplyArgs = Database["public"]["Functions"]["landing_apply_status"]["Args"];
@@ -25,6 +26,8 @@ export interface RegistrationListFilters {
   mode?: "live" | "recorded";
   agentId?: string;
   q?: string;
+  region?: string;
+  optionLabel?: string;
   page?: number;
 }
 export interface RegistrationListRow {
@@ -70,6 +73,8 @@ export interface RegistrationDetail {
   events: StatusEventRow[];
   /** Emails that went out to the lead and members, newest first. Always [] for an agent scope. */
   emails: { kind: EmailLogKind; toEmail: string; sentAt: string }[];
+  /** Emails and WhatsApp messages the team sent from a campaign to the lead and members, newest first. Always [] for an agent scope. */
+  messages: { registrationId: string; channel: string; subject: string; state: string; sentAt: string | null; sendCreatedAt: string | null }[];
   /** The lead's course access. `modules` is null only when there is no course or no enrollment yet; otherwise the effective module list with open flags. */
   access: RegistrationAccess;
 }
@@ -91,7 +96,7 @@ export type ChangeStatusResult =
 
 const PAGE_SIZE = 25 as const;
 const STATUSES: RegistrationStatus[] = ["pending", "reserved", "underpaid", "paid", "free"];
-const HEAD_ROW_TYPES = ["individual", "lead"];
+export const HEAD_ROW_TYPES = ["individual", "lead"];
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
@@ -126,6 +131,27 @@ function scopeParams(scope: Scope): { agentFilter: boolean; agentId: string; hid
 /** An agent scope with no usable id must see nothing (never fall through to "every row"). */
 const isEmptyAgentScope = (scope: Scope): boolean => scope.kind === "agent" && !scope.agentId;
 
+/** The head-row filters shared by the list and by campaign recipient resolution (everything except status and paging). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query: T, scope: Scope, f: RegistrationListFilters): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let qy: any = query.in("row_type", HEAD_ROW_TYPES);
+  const sc = scopeParams(scope);
+  if (sc.agentFilter) qy = qy.eq("agent_id", sc.agentId);
+  if (sc.hideTest) qy = qy.eq("is_test", false);
+  if (f.pageId) qy = qy.eq("page_id", f.pageId);
+  if (f.mode) qy = qy.eq("mode", f.mode);
+  if (f.region) qy = qy.eq("region", f.region);
+  if (f.optionLabel) qy = qy.eq("option_label", f.optionLabel);
+  if (f.agentId && scope.kind === "all") qy = qy.eq("agent_id", f.agentId);
+  const q = f.q?.trim();
+  if (q) {
+    const p = searchPattern(q);
+    qy = qy.or(`name.ilike.${p},email.ilike.${p},ref_id.ilike.${p}`);
+  }
+  return qy as T;
+}
+
 export async function listRegistrations(scope: Scope, f: RegistrationListFilters): Promise<RegistrationList> {
   if (isEmptyAgentScope(scope)) {
     const counts = { all: 0, pending: 0, reserved: 0, underpaid: 0, paid: 0, free: 0 } as Record<RegistrationStatus | "all", number>;
@@ -134,24 +160,11 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   const admin = createAdminSupabase();
 
   // Everything except the status filter, so each status tab can show its own count.
-  const base = (head: boolean) => {
-    let query = admin
-      .from("landing_registrations")
-      .select(head ? "id" : "*", head ? { count: "exact", head: true } : undefined)
-      .in("row_type", HEAD_ROW_TYPES);
-    const sc = scopeParams(scope);
-    if (sc.agentFilter) query = query.eq("agent_id", sc.agentId);
-    if (sc.hideTest) query = query.eq("is_test", false);
-    if (f.pageId) query = query.eq("page_id", f.pageId);
-    if (f.mode) query = query.eq("mode", f.mode);
-    if (f.agentId && scope.kind === "all") query = query.eq("agent_id", f.agentId);
-    const q = f.q?.trim();
-    if (q) {
-      const p = searchPattern(q);
-      query = query.or(`name.ilike.${p},email.ilike.${p},ref_id.ilike.${p}`);
-    }
-    return query;
-  };
+  const base = (head: boolean) => applyHeadFilters(
+    admin.from("landing_registrations").select(head ? "id" : "*", head ? { count: "exact", head: true } : undefined),
+    scope,
+    f,
+  );
 
   const countFor = async (status: RegistrationStatus | "all"): Promise<number> => {
     const query = base(true);
@@ -321,12 +334,14 @@ export async function getRegistrationDetail(id: string, scope: Scope): Promise<R
     : (await listEmailLog(people.map((p) => p.id)))
         .sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt))
         .map((m) => ({ kind: m.kind, toEmail: m.toEmail, sentAt: m.sentAt }));
+  const messages = scope.kind === "agent" ? [] : await listMessagesForRegistrations(people.map((p) => p.id));
   const access = await readAccess(lead);
 
   return {
     lead,
     members,
     emails,
+    messages,
     access,
     page: { id: page?.id ?? lead.pageId, title: page?.title ?? "", slug: page?.slug ?? "" },
     agentName: lead.agentId ? names.get(lead.agentId) ?? null : null,
