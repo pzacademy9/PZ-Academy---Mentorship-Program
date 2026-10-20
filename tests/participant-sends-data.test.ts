@@ -126,6 +126,15 @@ describe("createSend", () => {
     expect(await createSend(input())).toMatchObject({ ok: true });
   });
 
+  it("handles a 20,000 character body: still refuses an identical repeat and allows a different one", async () => {
+    const big = "ا".repeat(20000);
+    expect(await createSend(input({ body: big }))).toMatchObject({ ok: true });
+    expect(await createSend(input({ body: big }))).toMatchObject({ ok: false, code: "duplicate_send" });
+    expect(await createSend(input({ body: big.slice(1) }))).toMatchObject({ ok: true });
+    const dup = db.state.ops.filter((o) => o.table === "participant_sends" && o.op === "select").flatMap((o) => o.filters.map((f) => f[1]));
+    expect(dup).not.toContain("body");
+  });
+
   it("refuses when nobody is left", async () => {
     h.candidates = [];
     expect(await createSend(input({ expectedCount: 0 }))).toMatchObject({ ok: false, code: "no_recipients" });

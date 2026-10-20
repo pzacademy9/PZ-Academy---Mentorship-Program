@@ -14,6 +14,18 @@ describe("buildParticipantHtml", () => {
     expect(html).toContain('<a href="https://x.com/z"');
     expect(html).toContain("Hi<br>See");
   });
+  it("keeps escaped quotes, brackets and punctuation outside the link", () => {
+    const a = buildParticipantHtml({ bodyText: "'https://x.com/a'", unsubscribeUrl: url });
+    expect(a).toContain('<a href="https://x.com/a">https://x.com/a</a>&#39;');
+    const b = buildParticipantHtml({ bodyText: '"https://x.com/a"', unsubscribeUrl: url });
+    expect(b).toContain('<a href="https://x.com/a">https://x.com/a</a>&quot;');
+    const c = buildParticipantHtml({ bodyText: "<https://x.com/a>", unsubscribeUrl: url });
+    expect(c).toContain('<a href="https://x.com/a">https://x.com/a</a>&gt;');
+    const d = buildParticipantHtml({ bodyText: "See https://x.com/a.", unsubscribeUrl: url });
+    expect(d).toContain('<a href="https://x.com/a">https://x.com/a</a>.');
+    const e = buildParticipantHtml({ bodyText: "(https://x.com/a&b=1).", unsubscribeUrl: url });
+    expect(e).toContain('<a href="https://x.com/a&amp;b=1">https://x.com/a&amp;b=1</a>).');
+  });
   it("contains the unsubscribe url", () => {
     expect(buildParticipantHtml({ bodyText: "x", unsubscribeUrl: url })).toContain(url);
   });

@@ -35,7 +35,8 @@ export const createSendBodySchema = z
     expectedNotPaid: z.number().int().min(0),
     confirmNotPaid: z.boolean(),
   })
-  .refine(exactlyOne);
+  .refine(exactlyOne)
+  .refine((v) => v.channel !== "email" || v.subject.trim() !== "");
 
 export const templateBodySchema = z.object({
   name: z.string().trim().min(1, "Give the template a name").max(120),
@@ -49,7 +50,7 @@ export const markSentBodySchema = z.object({ sent: z.boolean() });
 /** The test goes to the signed-in admin, so there is deliberately no address field. */
 export const testBodySchema = z.object({
   pageId: uuid,
-  subject: z.string().max(300),
+  subject: z.string().trim().min(1).max(300),
   body: z.string().min(1).max(20000),
 });
 

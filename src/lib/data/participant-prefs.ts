@@ -20,11 +20,11 @@ export async function listUnsubscribed(emails: string[]): Promise<Set<string>> {
   const keys = Array.from(new Set(emails.map((e) => e.trim().toLowerCase())));
   if (keys.length === 0) return out;
   const admin = createAdminSupabase();
-  for (let i = 0; i < keys.length; i += 200) {
+  for (let i = 0; i < keys.length; i += 100) {
     const { data, error } = await admin
       .from(TABLE)
       .select("email, unsubscribed_at")
-      .in("email", keys.slice(i, i + 200));
+      .in("email", keys.slice(i, i + 100));
     if (error) throw new Error(error.message);
     for (const r of data ?? []) if (r.unsubscribed_at !== null) out.add(r.email);
   }
@@ -32,11 +32,12 @@ export async function listUnsubscribed(emails: string[]): Promise<Set<string>> {
 }
 
 /** Unsubscribe by opaque token. No authentication: the token only opts out its own address. */
-export async function unsubscribeParticipantByToken(token: string): Promise<"ok" | "already" | "not-found"> {
+export async function unsubscribeParticipantByToken(token: string): Promise<"ok" | "already" | "not-found" | "error"> {
   const admin = createAdminSupabase();
-  const { data } = await admin.from(TABLE).select("email, unsubscribed_at").eq("token", token).maybeSingle();
+  const { data, error: readErr } = await admin.from(TABLE).select("email, unsubscribed_at").eq("token", token).maybeSingle();
+  if (readErr) return "error";
   if (!data) return "not-found";
   if (data.unsubscribed_at !== null) return "already";
   const { error } = await admin.from(TABLE).update({ unsubscribed_at: new Date().toISOString() }).eq("email", data.email);
-  return error ? "not-found" : "ok";
+  return error ? "error" : "ok";
 }

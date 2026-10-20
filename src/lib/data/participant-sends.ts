@@ -119,10 +119,11 @@ export async function createSend(input: {
 
   const admin = createAdminSupabase();
   const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
-  const { data: recent, error: recentErr } = await admin.from("participant_sends").select("id")
-    .eq("page_id", input.pageId).eq("channel", input.channel).eq("subject", input.subject).eq("body", input.body).gte("created_at", since).limit(1);
+  const { data: recent, error: recentErr } = await admin.from("participant_sends").select("subject, body")
+    .eq("page_id", input.pageId).eq("channel", input.channel).gte("created_at", since);
   check("duplicate check", recentErr);
-  if ((recent ?? []).length > 0) return fail("duplicate_send", summary);
+  // Compared here, not in the query: a long message in the URL would be refused.
+  if ((recent ?? []).some((r) => r.subject === input.subject && r.body === input.body)) return fail("duplicate_send", summary);
 
   const { data: sendRow, error: sendErr } = await admin.from("participant_sends").insert({
     page_id: input.pageId,

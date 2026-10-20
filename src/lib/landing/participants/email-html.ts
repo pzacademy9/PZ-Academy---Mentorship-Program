@@ -8,9 +8,25 @@ function escapeHtml(s: string): string {
 export function buildParticipantHtml(opts: { bodyText: string; unsubscribeUrl: string }): string {
   const escaped = escapeHtml(opts.bodyText.replace(/\r\n?/g, "\n"));
   const linked = escaped.replace(/https:\/\/[^\s<]+/g, (url) => {
-    // Keep trailing punctuation outside the link.
-    const m = url.match(/^(.*?)([.,;:!?)]*)$/)!;
-    return `<a href="${m[1]}">${m[1]}</a>${m[2]}`;
+    // Keep a trailing escaped character (&#39; &quot; &lt; &gt; &amp;) and trailing punctuation outside the link.
+    let link = url;
+    let tail = "";
+    for (;;) {
+      const entity = link.match(/&(?:#39|quot|lt|gt|amp);$/);
+      if (entity) {
+        tail = entity[0] + tail;
+        link = link.slice(0, -entity[0].length);
+        continue;
+      }
+      const punct = link.match(/[.,;:!?)]$/);
+      if (punct) {
+        tail = punct[0] + tail;
+        link = link.slice(0, -1);
+        continue;
+      }
+      break;
+    }
+    return `<a href="${link}">${link}</a>${tail}`;
   });
   return buildCampaignHtml({ bodyHtml: linked.replace(/\n/g, "<br>"), unsubscribeUrl: opts.unsubscribeUrl });
 }

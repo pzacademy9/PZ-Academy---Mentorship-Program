@@ -113,6 +113,7 @@ describe("create send", () => {
       { ...createBody, expectedCount: 0 },
       { ...createBody, pageId: "nope" },
       { ...createBody, filters: {} },
+      { ...createBody, subject: "   " },
       "not json",
     ]) {
       const res = await createSend(req(body));
@@ -196,7 +197,13 @@ describe("test send", () => {
     expect((await testSend(req({ pageId: PAGE, subject: "s", body: "b" }))).status).toBe(400);
     gate.email = "admin@example.com";
     expect((await testSend(req({ pageId: "x", subject: "s", body: "b" }))).status).toBe(400);
+    expect((await testSend(req({ pageId: PAGE, subject: "  ", body: "b" }))).status).toBe(400);
     expect(sends.sendTestToMe).not.toHaveBeenCalled();
+  });
+  it("a whatsapp send with a blank subject is still accepted", async () => {
+    sends.createSend.mockResolvedValue({ ok: true, sendId: "s1", count: 1 });
+    const res = await createSend(req({ ...createBody, channel: "whatsapp", subject: "" }));
+    expect(res.status).not.toBe(400);
   });
   it("failed send: fixed 502, raw provider text never returned, logged", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});

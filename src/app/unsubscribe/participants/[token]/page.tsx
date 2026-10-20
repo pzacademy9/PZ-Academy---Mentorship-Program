@@ -17,7 +17,9 @@ export default async function ParticipantUnsubscribePage({ params }: { params: P
         ? "You were already unsubscribed"
         : result === "preview"
           ? "This is a preview. Nothing was changed."
-          : "This link is not valid";
+          : result === "error"
+            ? "Something went wrong. Please try the link again in a little while."
+            : "This link is not valid";
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-pz-offwhite px-6">

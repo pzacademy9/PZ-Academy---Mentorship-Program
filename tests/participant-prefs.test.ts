@@ -42,6 +42,15 @@ describe("unsubscribeParticipantByToken", () => {
     expect(await unsubscribeParticipantByToken("t1")).toBe("already");
     expect(await unsubscribeParticipantByToken("nope")).toBe("not-found");
   });
+  it("returns error, not not-found, when the database fails", async () => {
+    db.state.handler = () => ({ data: null, error: { message: "down" } });
+    expect(await unsubscribeParticipantByToken("t1")).toBe("error");
+  });
+  it("returns error when the update fails", async () => {
+    const inner = prefsHandler({ participant_email_prefs: [{ email: "a@b.com", token: "t1", unsubscribed_at: null }] });
+    db.state.handler = (op) => (op.op === "update" ? { data: null, error: { message: "down" } } : inner(op));
+    expect(await unsubscribeParticipantByToken("t1")).toBe("error");
+  });
 });
 
 describe("listUnsubscribed", () => {
