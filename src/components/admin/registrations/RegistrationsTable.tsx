@@ -63,6 +63,7 @@ export function RegistrationsTable({
   filters,
   detailHrefBase,
   showAgentColumn,
+  selectable,
 }: {
   rows: RegistrationListRow[];
   total: number;
@@ -71,6 +72,13 @@ export function RegistrationsTable({
   filters: RegistrationQuery;
   detailHrefBase: string;
   showAgentColumn: boolean;
+  /** Campaign page only: adds a tick box to every row and one in the header. */
+  selectable?: {
+    isSelected: (id: string) => boolean;
+    onToggle: (id: string) => void;
+    allOnPageSelected: boolean;
+    onTogglePage: () => void;
+  };
 }) {
   if (rows.length === 0) {
     return (
@@ -114,13 +122,29 @@ export function RegistrationsTable({
             ...(showAgentColumn ? [`Agent: ${r.agentName ?? "None"}`] : []),
           ],
         }}
+        selection={
+          selectable
+            ? { isSelected: (r) => selectable.isSelected(r.id), onToggle: (r) => selectable.onToggle(r.id), label: (r) => `Select ${r.name}` }
+            : undefined
+        }
         table={
           <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs min-w-[64rem]">
                 <thead>
                   <tr className="border-b border-pz-outline-variant/40 text-pz-on-surface-variant text-left bg-pz-surface-container-low">
-                    <th className={`${TH} pl-6`}>Name</th>
+                    {selectable && (
+                      <th className="py-3.5 pl-6 pr-0 w-10">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all on this page"
+                          checked={selectable.allOnPageSelected}
+                          onChange={selectable.onTogglePage}
+                          className="rounded border-pz-outline-variant w-4 h-4 cursor-pointer accent-pz-primary"
+                        />
+                      </th>
+                    )}
+                    <th className={`${TH} ${selectable ? "pl-3" : "pl-6"}`}>Name</th>
                     <th className={TH}>Page</th>
                     <th className={TH}>Country</th>
                     <th className={TH}>Option</th>
@@ -135,9 +159,20 @@ export function RegistrationsTable({
                   {rows.map((r) => (
                     <tr
                       key={r.id}
-                      className={`hover:bg-pz-surface-container/40 transition-colors${r.isTest ? " opacity-80 hover:opacity-100" : ""}`}
+                      className={`hover:bg-pz-surface-container/40 transition-colors${r.isTest ? " opacity-80 hover:opacity-100" : ""}${selectable?.isSelected(r.id) ? " bg-pz-primary-fixed/20" : ""}`}
                     >
-                      <td className="py-4 pl-6 pr-3 min-w-[13rem]">
+                      {selectable && (
+                        <td className="py-4 pl-6 pr-0 w-10">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${r.name}`}
+                            checked={selectable.isSelected(r.id)}
+                            onChange={() => selectable.onToggle(r.id)}
+                            className="rounded border-pz-outline-variant w-4 h-4 cursor-pointer accent-pz-primary"
+                          />
+                        </td>
+                      )}
+                      <td className={`py-4 ${selectable ? "pl-3" : "pl-6"} pr-3 min-w-[13rem]`}>
                         <Link href={href(r)} className="flex items-start gap-2.5 group">
                           <span className="w-8 h-8 shrink-0 rounded-full bg-pz-primary-container text-pz-on-primary-container grid place-items-center font-headline font-bold text-xs mt-0.5">
                             {initials(r.name)}

@@ -20,6 +20,7 @@ export function RegistrationFilters({
   counts,
   pageOptions,
   agentOptions,
+  campaignOptions,
 }: {
   basePath: string;
   filters: RegistrationQuery;
@@ -27,9 +28,14 @@ export function RegistrationFilters({
   pageOptions: { id: string; title: string }[];
   /** Pass for the admin view only; leave out and the Agent filter is not shown. */
   agentOptions?: { id: string; name: string }[];
+  /**
+   * Campaign page only: the page is fixed by the address, so the Page choice is dropped and
+   * Country and What they bought are offered instead.
+   */
+  campaignOptions?: { regions: string[]; optionLabels: string[] };
 }) {
   const active = filters.status && filters.status !== "all" ? filters.status : "all";
-  const anyFilter = Boolean(filters.q || filters.mode || filters.pageId || filters.agentId);
+  const anyFilter = Boolean(filters.q || filters.mode || filters.pageId || filters.agentId || filters.region || filters.optionLabel);
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -69,12 +75,30 @@ export function RegistrationFilters({
             className="w-full h-9 pl-9 pr-3 bg-pz-surface-container-lowest border border-pz-outline-variant/40 rounded-lg text-xs font-body text-pz-on-surface placeholder:text-pz-on-surface-variant/60"
           />
         </div>
-        <select name="pageId" defaultValue={filters.pageId ?? ""} aria-label="Page" className={SELECT}>
-          <option value="">All pages</option>
-          {pageOptions.map((p) => (
-            <option key={p.id} value={p.id}>{p.title}</option>
-          ))}
-        </select>
+        {!campaignOptions && (
+          <select name="pageId" defaultValue={filters.pageId ?? ""} aria-label="Page" className={SELECT}>
+            <option value="">All pages</option>
+            {pageOptions.map((p) => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </select>
+        )}
+        {campaignOptions && (
+          <>
+            <select name="region" defaultValue={filters.region ?? ""} aria-label="Country" className={SELECT}>
+              <option value="">All countries</option>
+              {campaignOptions.regions.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            <select name="optionLabel" defaultValue={filters.optionLabel ?? ""} aria-label="What they bought" className={SELECT}>
+              <option value="">What they bought</option>
+              {campaignOptions.optionLabels.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </>
+        )}
         <select name="mode" defaultValue={filters.mode ?? ""} aria-label="Live or recorded" className={SELECT}>
           <option value="">Live or recorded</option>
           <option value="live">Live</option>
