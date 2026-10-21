@@ -89,6 +89,14 @@ describe("sheet_status handler", () => {
       for (const r of rows) expect(allowed).toContain(r.status);
     }
   });
+  it("a row the sheet did not have keeps its remembered value; the others are updated", async () => {
+    m.getRegistrationBundle.mockResolvedValue(group());
+    m.applyRegistrationStatus.mockResolvedValue({ ok: true, missing: ["PZA-PPC-001|bilal@example.com"] });
+    await JOB_HANDLERS.sheet_status("reg-1");
+    const ids = db.find("landing_sheet_snapshots", "update").map((o) => o.filters.find(([k, f]) => k === "eq" && f === "registration_id")?.[2]);
+    expect(ids).toHaveLength(2);
+    expect(ids).not.toContain(group().members[0].id);
+  });
   it("handler skips test registrations and pages without a sheet", async () => {
     m.getRegistrationBundle.mockResolvedValue({ lead: rec({ isTest: true }), members: [] });
     await JOB_HANDLERS.sheet_status("reg-1");

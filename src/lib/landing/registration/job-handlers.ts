@@ -3,6 +3,7 @@ import { sendTransactionalEmail } from "@/lib/brevo";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getRegistrationBundle, markEmailStatus, type RegistrationBundle, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { getRegistrablePageById, type RegistrablePage } from "@/lib/data/landing-public";
+import { saveSnapshots, saveStatusSnapshots } from "@/lib/data/landing-sheet-sync";
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
 import { appendRegistrationRows, applyRegistrationStatus } from "@/lib/gas/event-sheet-client";
 import { STATUS_LABELS, toSheetRow, type SheetRegistration } from "./sheet-row";
@@ -130,6 +131,10 @@ async function sheetAppend(registrationId: string): Promise<void> {
   );
   const res = await appendRegistrationRows(page.sheetId, rows);
   if (!res.ok) throw new Error(res.message ?? "Sheet append failed");
+  // Remember what we just wrote so a later sheet scan can tell a sheet edit from an app edit.
+  await saveSnapshots([bundle.lead, ...bundle.members].map((r) => ({
+    id: r.id, status: r.status, amountReceived: r.amountReceived, name: r.name, email: r.email, whatsapp: r.whatsapp,
+  })));
 }
 
 /** Pushes the current status to the sheet rows of the whole bundle. Skipped for tests and pages without a sheet. */
@@ -147,6 +152,15 @@ async function sheetStatus(registrationId: string): Promise<void> {
   }));
   const res = await applyRegistrationStatus(page.sheetId, rows);
   if (!res.ok) throw new Error("Sheet status update failed");
+  // Only status and amount: a status push must not overwrite the stored name/email/WhatsApp snapshot.
+  // A row the script could not find was not rewritten, so its remembered value must stay as it was (sheet == snapshot).
+  const missing = new Set((res.missing ?? []).map((k) => k.trim()));
+  const keyOf = (r: { email: string }) => `${(bundle.lead.refId ?? "").trim().toUpperCase()}|${r.email.trim().toLowerCase()}`;
+  await saveStatusSnapshots(
+    [bundle.lead, ...bundle.members]
+      .filter((r) => !missing.has(keyOf(r)))
+      .map((r) => ({ id: r.id, status: r.status, amountReceived: r.amountReceived })),
+  );
 }
 
 async function emailReceived(registrationId: string): Promise<void> {

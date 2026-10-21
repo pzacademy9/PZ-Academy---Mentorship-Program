@@ -60,12 +60,31 @@ export async function appendRegistrationRows(sheetId: string, rows: string[][]):
 
 export interface StatusSheetRow { refId: string; email: string; status: string /* sheet label, e.g. "Paid" */; amountReceived: number | null }
 
-/** Writes the current payment status (and amount received) onto existing sheet rows, matched on Ref ID + email. */
-export async function applyRegistrationStatus(sheetId: string, rows: StatusSheetRow[]): Promise<{ ok: boolean }> {
+/** Writes the current payment status (and amount received) onto existing sheet rows, matched on Ref ID + email. `missing` lists the rows that were not found. */
+export async function applyRegistrationStatus(sheetId: string, rows: StatusSheetRow[]): Promise<{ ok: boolean; missing: string[] }> {
   const token = process.env.SHEETS_SYNC_SECRET;
-  if (!token) return { ok: false };
+  if (!token) return { ok: false, missing: [] };
   const r = await postToGas({ token, action: "applyRegistrationStatus", sheetId, rows });
-  return { ok: r.ok };
+  if (!r.ok) return { ok: false, missing: [] };
+  // Keys (REF ID upper-case + "|" + email lower-case) of rows the script could not find in the sheet.
+  const raw = r.data.missing;
+  return { ok: true, missing: Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [] };
+}
+
+/** Asks Apps Script to scan one landing sheet now and send its rows to the app. */
+export async function requestSheetScan(sheetId: string): Promise<{ ok: boolean; message?: string }> {
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false, message: "SHEETS_SYNC_SECRET is not configured." };
+  const r = await postToGas({ token, action: "scanLandingSheet", sheetId });
+  return r.ok ? { ok: true } : { ok: false, message: r.message };
+}
+
+/** Creates the 5-minute scan trigger in Apps Script (idempotent there). */
+export async function installLandingScanTrigger(): Promise<{ ok: boolean; message?: string }> {
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false, message: "SHEETS_SYNC_SECRET is not configured." };
+  const r = await postToGas({ token, action: "installLandingScanTrigger" });
+  return r.ok ? { ok: true } : { ok: false, message: r.message };
 }
 
 export interface VoucherFile { base64: string; mimeType: string; filename: string }
