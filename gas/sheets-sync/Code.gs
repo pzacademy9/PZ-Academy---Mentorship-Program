@@ -939,7 +939,7 @@ function handleInstallLandingScanTrigger_(body) {
   try {
     const exists = ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction() === "scanLandingSheets");
     if (exists) return jsonResponse_({ status: "success", created: false, message: "Already installed" });
-    ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(5).create();
+    ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(15).create();
     return jsonResponse_({ status: "success", created: true, message: "Installed" });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });

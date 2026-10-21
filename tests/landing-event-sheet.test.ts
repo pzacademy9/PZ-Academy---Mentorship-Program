@@ -264,7 +264,7 @@ describe("GAS source", () => {
     }
     expect(code).toContain("const LANDING_SCAN_BUDGET_MS = 270000;");
     expect(code).toContain('replace("/api/webhooks/sheets-sync", "/api/webhooks/landing-sheet-scan")');
-    expect(code).toContain('ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(5).create()');
+    expect(code).toContain('ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(15).create()');
     const scan = code.slice(code.indexOf("function scanOneLandingSheet_("), code.indexOf("function handleScanLandingSheet_("));
     expect(scan).toContain("getDisplayValues()");
     expect(scan).toContain("waitLock(10000)");
