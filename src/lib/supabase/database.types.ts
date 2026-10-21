@@ -2102,6 +2102,104 @@ export type Database = {
           },
         ]
       }
+      landing_sheet_snapshots: {
+        Row: {
+          amount_received: number | null
+          email: string | null
+          name: string | null
+          registration_id: string
+          status: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          amount_received?: number | null
+          email?: string | null
+          name?: string | null
+          registration_id: string
+          status?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          amount_received?: number | null
+          email?: string | null
+          name?: string | null
+          registration_id?: string
+          status?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_sheet_snapshots_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: true
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_sheet_sync_log: {
+        Row: {
+          app_value: string | null
+          created_at: string
+          detail: string
+          field: string
+          id: string
+          outcome: string
+          page_id: string
+          ref_id: string
+          registration_id: string | null
+          row_number: number | null
+          scan_id: string
+          sheet_value: string | null
+        }
+        Insert: {
+          app_value?: string | null
+          created_at?: string
+          detail?: string
+          field: string
+          id?: string
+          outcome: string
+          page_id: string
+          ref_id?: string
+          registration_id?: string | null
+          row_number?: number | null
+          scan_id: string
+          sheet_value?: string | null
+        }
+        Update: {
+          app_value?: string | null
+          created_at?: string
+          detail?: string
+          field?: string
+          id?: string
+          outcome?: string
+          page_id?: string
+          ref_id?: string
+          registration_id?: string | null
+          row_number?: number | null
+          scan_id?: string
+          sheet_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_sheet_sync_log_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_sheet_sync_log_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_status_events: {
         Row: {
           at: string
