@@ -200,8 +200,13 @@ describe("after an admin edit (snapshot holds the old contact details)", () => {
     expect(p.changes).toEqual([]);
     expect(p.appWins.filter((w) => w.field === "status")).toEqual([]);
   });
-  it("the email-fix pairing still finds the row by name against the snapshot", () => {
-    const p = planScan([row({ name: "Ann Lee", email: "typo@x.com" })], [reg({ name: "Ann Lee", email: "ann.new@x.com" })], [snap({ name: "Ann Lee", email: "ann@x.com" })], "live");
-    expect(p.unknownRows).toEqual([]);
+  it("the email-fix pairing finds the row only through the snapshot (app name and WhatsApp differ from the sheet row)", () => {
+    const app = reg({ name: "Ann Smith", whatsapp: "923009999999", email: "ann.new@x.com" });
+    const sheetRow = row({ name: "Ann Lee", whatsapp: "923001234567", email: "ann@x.com" });
+    const withSnap = planScan([sheetRow], [app], [snap({ name: "Ann Lee", whatsapp: "923001234567", email: "ann@x.com" })], "live");
+    expect(withSnap.unknownRows).toEqual([]);
+    expect(withSnap.changes).toEqual([]);
+    const without = planScan([sheetRow], [app], [], "live");
+    expect(without.unknownRows).toHaveLength(1);
   });
 });

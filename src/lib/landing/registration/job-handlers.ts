@@ -145,23 +145,37 @@ async function sheetStatus(registrationId: string): Promise<void> {
  * Only the contact snapshot moves, and only after the row was found: status/amount are never touched here.
  */
 async function sheetDetails(registrationId: string): Promise<void> {
-  const loaded = await load(registrationId);
-  if (!loaded) return;
-  const { bundle, page } = loaded;
+  // getRegistrationBundle treats its argument as the LEAD id. For a member it returns the member as a
+  // lead-shaped head, so resolve the real lead first and read the group from there (members carry no ref).
+  let bundle = await getRegistrationBundle(registrationId);
+  if (!bundle) return;
+  const leadId = bundle.lead.leadRegistrationId;
+  if (leadId) {
+    bundle = await getRegistrationBundle(leadId);
+    if (!bundle) return;
+  }
+  const page = await getRegistrablePageById(bundle.lead.pageId);
+  if (!page) return;
   if (bundle.lead.isTest || !page.sheetId) return;
   const person = [bundle.lead, ...bundle.members].find((r) => r.id === registrationId);
-  if (!person) return;
+  if (!person || person.isTest) return;
   const { data: snap, error } = await createAdminSupabase()
     .from("landing_sheet_snapshots").select("email").eq("registration_id", registrationId).maybeSingle();
   if (error) throw new Error("Sheet snapshot lookup failed");
-  const matchEmail = snap?.email?.trim() || person.email;
   const refId = bundle.lead.refId ?? "";
-  const res = await applyRegistrationDetails(page.sheetId, [
-    { refId, matchEmail, name: person.name, email: person.email, whatsapp: person.whatsapp },
-  ]);
-  if (!res.ok) throw new Error("Sheet details update failed");
-  const key = `${refId.trim().toUpperCase()}|${matchEmail.trim().toLowerCase()}`;
-  if ((res.missing ?? []).some((k) => k.trim() === key)) throw new Error("Sheet row not found for the details update");
+  const snapEmail = snap?.email?.trim() || person.email;
+  const keyFor = (email: string) => `${refId.trim().toUpperCase()}|${email.trim().toLowerCase()}`;
+  const push = async (matchEmail: string): Promise<boolean> => {
+    const res = await applyRegistrationDetails(page.sheetId!, [
+      { refId, matchEmail, name: person.name, email: person.email, whatsapp: person.whatsapp },
+    ]);
+    if (!res.ok) throw new Error("Sheet details update failed");
+    return !(res.missing ?? []).some((k) => k.trim() === keyFor(matchEmail));
+  };
+  let found = await push(snapEmail);
+  // A lost reply or a failed snapshot save leaves the sheet already showing the new email: try that once.
+  if (!found && snapEmail.trim().toLowerCase() !== person.email.trim().toLowerCase()) found = await push(person.email);
+  if (!found) throw new Error("Sheet row not found for the details update");
   await saveContactSnapshots([{ id: person.id, name: person.name, email: person.email, whatsapp: person.whatsapp }]);
 }
 
