@@ -164,30 +164,25 @@ describe("listEmailLog", () => {
 });
 
 describe("logManualEmail", () => {
-  it("upserts on (registration_id, kind): a second send of the same kind refreshes the row, no conflict", async () => {
-    const store: Record<string, Record<string, unknown>[]> = {};
-    const inner = memoryHandler(store);
-    // Like the real table: a plain insert of an existing (registration_id, kind) conflicts; an upsert replaces the row.
-    db.state.handler = (op) => {
-      const p = op.payload as Record<string, unknown>;
-      const exists = (store[op.table] ?? []).some((r) => r.registration_id === p?.registration_id && r.kind === p?.kind);
-      if (op.op === "insert" && exists) return { data: null, error: { code: "23505" } };
-      if (op.op === "upsert") store[op.table] = (store[op.table] ?? []).filter((r) => !(r.registration_id === p.registration_id && r.kind === p.kind));
-      return inner(op);
-    };
+  it("is a plain insert of a sent row; two sends of the same kind are two inserts", async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date("2026-10-20T10:00:00.000Z"));
-      await logManualEmail("reg-1", "manual_paid", "old@x.com");
+      await logManualEmail("reg-1", "manual_paid", "a@x.com");
       vi.setSystemTime(new Date("2026-10-21T11:30:00.000Z"));
-      await logManualEmail("reg-1", "manual_paid", "new@x.com");
+      await logManualEmail("reg-1", "manual_paid", "b@x.com");
     } finally {
       vi.useRealTimers();
     }
-    const rows = store.landing_email_log.filter((r) => r.kind === "manual_paid");
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ registration_id: "reg-1", state: "sent", to_email: "new@x.com", sent_at: "2026-10-21T11:30:00.000Z" });
-    expect(db.find("landing_email_log", "upsert")[0].upsertOptions).toEqual({ onConflict: "registration_id,kind" });
+    expect(db.find("landing_email_log", "upsert")).toHaveLength(0);
+    const inserts = db.find("landing_email_log", "insert");
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0].payload).toEqual({ registration_id: "reg-1", kind: "manual_paid", to_email: "a@x.com", state: "sent", sent_at: "2026-10-20T10:00:00.000Z" });
+    expect(inserts[1].payload).toEqual({ registration_id: "reg-1", kind: "manual_paid", to_email: "b@x.com", state: "sent", sent_at: "2026-10-21T11:30:00.000Z" });
+  });
+  it("throws when the insert fails", async () => {
+    db.state.handler = () => ({ data: null, error: { code: "42P10" } });
+    await expect(logManualEmail("reg-1", "manual_paid", "a@x.com")).rejects.toBeTruthy();
   });
 });
 

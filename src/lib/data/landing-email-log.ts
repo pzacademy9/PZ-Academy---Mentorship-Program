@@ -44,16 +44,13 @@ export async function logPortalLink(registrationId: string, toEmail: string): Pr
 type ManualLogKind = "manual_received" | "manual_paid" | "manual_underpaid" | "manual_reserved";
 
 /**
- * Records an admin "send again" that went out. The table is keyed (registration_id, kind), so a second
- * send of the same kind replaces the row (state 'sent', new time and address) instead of conflicting.
+ * Records an admin "send again" that went out. Like portal_link, manual rows are not unique per
+ * (registration, kind): each send is its own 'sent' row and lastSentAt takes the latest.
  */
 export async function logManualEmail(registrationId: string, kind: ManualLogKind, toEmail: string): Promise<void> {
   const { error } = await createAdminSupabase()
     .from("landing_email_log")
-    .upsert(
-      { registration_id: registrationId, kind, to_email: toEmail, state: "sent", sent_at: new Date().toISOString() },
-      { onConflict: "registration_id,kind" },
-    );
+    .insert({ registration_id: registrationId, kind, to_email: toEmail, state: "sent", sent_at: new Date().toISOString() });
   if (error) throw error;
 }
 

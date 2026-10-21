@@ -129,6 +129,24 @@ describe("sendStatusEmailAgain", () => {
     expect(m.sendTransactionalEmail.mock.calls[0][0]).toMatchObject({ to: "bilal@example.com" });
     expect(m.logManualEmail).toHaveBeenCalledWith("reg-2", "manual_paid", "bilal@example.com");
   });
+  it("member Received sends the member received email, and needs a confirm once a manual_received row exists", async () => {
+    const lead = rec({ rowType: "lead" });
+    const member = rec({ id: "reg-2", rowType: "member", leadRegistrationId: "reg-1", name: "Bilal", email: "bilal@example.com", status: "pending" });
+    m.resolveAccess.mockResolvedValue(access(member, lead));
+    expect(await sendStatusEmailAgain({ registrationId: "reg-2", kind: "received", confirmedAgain: false })).toEqual({ ok: true });
+    expect(m.sendTransactionalEmail.mock.calls[0][0]).toMatchObject({ to: "bilal@example.com", subject: "You're in Ayesha's group - confirming within 24h" });
+    expect(m.logManualEmail).toHaveBeenCalledWith("reg-2", "manual_received", "bilal@example.com");
+    m.sendTransactionalEmail.mockClear();
+    m.lastSentAt.mockResolvedValue("2026-10-21T11:30:00.000Z");
+    expect(await sendStatusEmailAgain({ registrationId: "reg-2", kind: "received", confirmedAgain: false })).toEqual({ ok: false, reason: "needs-confirm", sentAt: "2026-10-21T11:30:00.000Z" });
+    expect(m.lastSentAt).toHaveBeenLastCalledWith("reg-2", ["manual_received"]);
+    expect(m.sendTransactionalEmail).not.toHaveBeenCalled();
+  });
+  it("a free lead's Received sends the free joining-details email", async () => {
+    m.resolveAccess.mockResolvedValue(access(rec({ status: "free", expectedAmount: 0, amountReceived: null })));
+    expect(await sendStatusEmailAgain({ registrationId: "reg-1", kind: "received", confirmedAgain: false })).toEqual({ ok: true });
+    expect(m.sendTransactionalEmail.mock.calls[0][0].subject).toBe("You're in, Ayesha - here are your joining details");
+  });
   it("unknown registration is not-found", async () => {
     m.resolveAccess.mockResolvedValue(null);
     expect(await sendStatusEmailAgain({ registrationId: "nope", kind: "paid", confirmedAgain: false })).toEqual({ ok: false, reason: "not-found" });
