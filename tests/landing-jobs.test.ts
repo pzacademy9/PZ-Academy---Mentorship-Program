@@ -74,7 +74,7 @@ describe("enqueueStatusEffects", () => {
     await expect(enqueueStatusEffects("reg-1")).resolves.toBe(false);
   });
   it("JOB_TYPES run order", () => {
-    expect(JOB_TYPES).toEqual(["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"]);
+    expect(JOB_TYPES).toEqual(["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "sheet_details", "email_members", "email_admin"]);
   });
 });
 

@@ -8,6 +8,10 @@ const KINDS: Record<RegistrationDetail["emails"][number]["kind"], { label: strin
   reserved: { label: "Reserved", className: "bg-pz-surface-container-high text-pz-on-surface-variant" },
   // Not drawn on the design screens: reuses the Underpaid colours from the status badge.
   underpaid: { label: "Underpaid", className: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300" },
+  manual_paid: { label: "Paid (sent again)", className: "bg-pz-primary-fixed text-pz-on-primary-fixed" },
+  manual_received: { label: "Pending (sent again)", className: "bg-pz-surface-container-high text-pz-on-surface-variant" },
+  manual_underpaid: { label: "Underpaid (sent again)", className: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300" },
+  manual_reserved: { label: "Reserved (sent again)", className: "bg-pz-surface-container-high text-pz-on-surface-variant" },
 };
 
 type Message = RegistrationDetail["messages"][number];

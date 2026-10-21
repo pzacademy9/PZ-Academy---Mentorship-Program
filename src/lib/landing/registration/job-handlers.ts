@@ -333,4 +333,5 @@ export const JOB_HANDLERS: Record<JobType, (registrationId: string) => Promise<v
   email_admin: emailAdmin,
   enrollment_sync: enrollmentSync,
   email_status: emailStatus,
+  sheet_details: async () => {}, // temporary no-op, replaced in Task 4
 };

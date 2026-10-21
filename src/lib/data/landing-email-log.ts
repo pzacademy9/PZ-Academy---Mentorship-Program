@@ -8,7 +8,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
  * portal_link emails are not guarded: each one is logged as its own 'sent' row and may repeat.
  */
 
-export type EmailLogKind = "paid" | "underpaid" | "reserved" | "portal_link";
+export type EmailLogKind = "paid" | "underpaid" | "reserved" | "portal_link" | "manual_received" | "manual_paid" | "manual_underpaid" | "manual_reserved";
 
 export interface EmailLogEntry { registrationId: string; kind: EmailLogKind; toEmail: string; sentAt: string }
 
