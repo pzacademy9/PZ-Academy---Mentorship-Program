@@ -184,3 +184,29 @@ describe("planScan report", () => {
     expect(p.appWins).toEqual([]);
   });
 });
+
+describe("after an admin edit (snapshot holds the old contact details)", () => {
+  // The app changed name/email, the snapshot still holds the old values until the sheet push lands, the sheet is unchanged.
+  const edited = reg({ name: "Ann Smith", email: "ann.new@x.com" });
+  const stale = snap({ name: "Ann Lee", email: "ann@x.com" });
+  it("plans no change and no app-wins while the sheet still equals the snapshot", () => {
+    const p = planScan([row({ name: "Ann Lee", email: "ann@x.com" })], [edited], [stale], "live");
+    expect(p.changes).toEqual([]);
+    expect(p.appWins).toEqual([]);
+    expect(p.rejected).toEqual([]);
+  });
+  it("does not report a status app-win when only contact fields differ", () => {
+    const p = planScan([row({ name: "Ann Lee", email: "ann@x.com", status: "Pending" })], [{ ...edited, status: "paid" }], [stale], "live");
+    expect(p.changes).toEqual([]);
+    expect(p.appWins.filter((w) => w.field === "status")).toEqual([]);
+  });
+  it("the email-fix pairing finds the row only through the snapshot (app name and WhatsApp differ from the sheet row)", () => {
+    const app = reg({ name: "Ann Smith", whatsapp: "923009999999", email: "ann.new@x.com" });
+    const sheetRow = row({ name: "Ann Lee", whatsapp: "923001234567", email: "ann@x.com" });
+    const withSnap = planScan([sheetRow], [app], [snap({ name: "Ann Lee", whatsapp: "923001234567", email: "ann@x.com" })], "live");
+    expect(withSnap.unknownRows).toEqual([]);
+    expect(withSnap.changes).toEqual([]);
+    const without = planScan([sheetRow], [app], [], "live");
+    expect(without.unknownRows).toHaveLength(1);
+  });
+});

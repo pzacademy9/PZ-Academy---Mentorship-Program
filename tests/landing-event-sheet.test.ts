@@ -29,7 +29,7 @@ vi.mock("@/lib/gas/event-sheet-client", async (orig) => {
   };
 });
 
-import { createEventSheet, appendRegistrationRows, uploadLandingVoucher, requestSheetScan, installLandingScanTrigger } from "@/lib/gas/event-sheet-client";
+import { createEventSheet, appendRegistrationRows, applyRegistrationDetails, uploadLandingVoucher, requestSheetScan, installLandingScanTrigger } from "@/lib/gas/event-sheet-client";
 import { POST as createSheet } from "@/app/api/admin/landing-pages/[id]/sheet/route";
 import { SHEET_HEADERS } from "@/lib/landing/registration/sheet-row";
 
@@ -110,6 +110,22 @@ describe("event-sheet-client", () => {
     vi.stubEnv("SHEETS_SYNC_SECRET", "");
     expect((await requestSheetScan("sheet-1")).ok).toBe(false);
     expect((await installLandingScanTrigger()).ok).toBe(false);
+  });
+  it("applyRegistrationDetails posts the action with the token, parses missing and never leaks the token", async () => {
+    const rows = [{ refId: "PZA-1", matchEmail: "old@x.com", name: "N", email: "new@x.com", whatsapp: "0300" }];
+    fetchMock.mockReturnValue(gasReply({ status: "success", ok: true, updated: 0, missing: ["PZA-1|old@x.com", 5] }));
+    const logs = [vi.spyOn(console, "log"), vi.spyOn(console, "error"), vi.spyOn(console, "warn")];
+    const r = await applyRegistrationDetails("sheet-1", rows);
+    expect(r).toEqual({ ok: true, missing: ["PZA-1|old@x.com"] });
+    expect(sentBody()).toEqual({ token: "sync-secret-value", action: "applyRegistrationDetails", sheetId: "sheet-1", rows });
+    for (const l of logs) expect(JSON.stringify(l.mock.calls)).not.toContain("sync-secret-value");
+    fetchMock.mockReturnValue(gasReply({ status: "error", message: "Sheet is busy" }));
+    expect(await applyRegistrationDetails("sheet-1", rows)).toEqual({ ok: false, missing: [] });
+    vi.stubEnv("SHEETS_SYNC_SECRET", "");
+    fetchMock.mockClear();
+    expect(await applyRegistrationDetails("sheet-1", rows)).toEqual({ ok: false, missing: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
   it("uploadLandingVoucher rejects a non-https url", async () => {
     fetchMock.mockReturnValue(gasReply({ status: "success", url: "javascript:alert(1)" }));
@@ -252,6 +268,27 @@ describe("GAS source", () => {
     expect(set).toBeGreaterThan(-1);
     expect(fmt).toBeLessThan(set);
     expect(fn).toContain("LANDING_TEXT_COLS");
+  });
+  it("applyRegistrationDetails: token-checked, locked, finds rows by ref+email, writes only columns A to C", () => {
+    const gate = code.indexOf('body.token !== props.getProperty("SYNC_SECRET")');
+    expect(code.indexOf('body.action === "applyRegistrationDetails"')).toBeGreaterThan(gate);
+    expect(code).toContain("handleApplyRegistrationDetails_(body)");
+    const start = code.indexOf("function handleApplyRegistrationDetails_");
+    expect(start).toBeGreaterThan(-1);
+    const fn = code.slice(start, code.indexOf("\n}\n", start));
+    expect(fn).toContain("LockService.getScriptLock()");
+    expect(fn).toContain("waitLock(10000)");
+    expect(fn).toContain("landingRowKey_(r.refId, r.matchEmail)");
+    expect(fn).toContain("missing.push(");
+    expect(fn).toContain("landingCell_(r.name, 1)");
+    expect(fn).toContain("landingCell_(r.email, 2)");
+    expect(fn).toContain("landingCell_(r.whatsapp, 3)");
+    expect(fn).toContain('setNumberFormat("@")');
+    const writes: string[] = [];
+    const re = /getRange\(([^)]*)\)\s*\.setValues/g;
+    for (let hit = re.exec(fn); hit; hit = re.exec(fn)) writes.push(hit[1].replace(/\s/g, ""));
+    expect(writes).toEqual(["rowNum,1,1,3"]);
+    expect(fn).not.toContain("LANDING_COL.STATUS");
   });
   it("never prefixes an apostrophe onto the text-formatted columns", () => {
     const fn = code.slice(code.indexOf("function landingCell_"), code.indexOf("function landingRowKey_"));

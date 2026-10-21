@@ -11,7 +11,8 @@ const row = (i: number, over: Partial<RegistrationListRow> = {}): RegistrationLi
   id: `r${i}`, refId: null, name: `Person ${i}`, email: `p${i}@x.com`, pageId: "pg1", pageTitle: "TMC Batch 1",
   optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
   status: "paid", agentId: null, agentName: null, groupSize: 1, isTest: false,
-  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null, ...over,
+  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null,
+  voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, ...over,
 });
 const rows = Array.from({ length: 25 }, (_, i) => row(i + 1));
 const counts = { all: 57, pending: 10, reserved: 5, underpaid: 2, paid: 35, free: 5 };

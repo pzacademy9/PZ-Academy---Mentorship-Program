@@ -11,9 +11,9 @@ import { sweepStaleClaims } from "@/lib/data/landing-email-log";
  * and a crashed worker's job is picked up again after the lease.
  */
 
-export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status" | "enrollment_sync" | "email_status";
+export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status" | "enrollment_sync" | "email_status" | "sheet_details";
 // Run order: the confirmation email goes first so a slow Apps Script call never delays it.
-export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"];
+export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_details", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"];
 export const MAX_ATTEMPTS = 5;
 export const BACKOFF_MINUTES = [1, 5, 15, 60] as const;
 const LEASE_MINUTES = 10;
@@ -71,6 +71,29 @@ export async function enqueueSheetStatus(registrationId: string): Promise<boolea
     return true;
   } catch {
     console.error("[landing-jobs] enqueue sheet_status crashed");
+    return false;
+  }
+}
+
+/**
+ * One coalesced sheet_details job per registration (name/email/WhatsApp push): upsert back to pending with a
+ * fresh budget so the handler always sends the current values. Never throws; true only when the upsert succeeded.
+ */
+export async function enqueueSheetDetails(registrationId: string): Promise<boolean> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .upsert(
+        { registration_id: registrationId, type: "sheet_details", status: "pending", attempts: 0, next_run_at: new Date().toISOString(), last_error: null },
+        { onConflict: "registration_id,type" },
+      );
+    if (error) {
+      console.error("[landing-jobs] enqueue sheet_details failed:", error.code);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[landing-jobs] enqueue sheet_details crashed");
     return false;
   }
 }

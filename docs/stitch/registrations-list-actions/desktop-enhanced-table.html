@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&amp;family=Handlee&amp;family=Montserrat:wght@600;700;800;900&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-tertiary": "#ffffff", "background": "#f9f9f9", "outline": "#707a68", "error": "#ba1a1a", "tertiary-container": "#9fcfa9", "inverse-on-surface": "#f0f1f1", "primary": "#246d00", "on-secondary-fixed": "#261900", "surface-container": "#eeeeee", "on-secondary": "#ffffff", "surface-dim": "#dadada", "secondary-fixed-dim": "#f6be3b", "on-tertiary-fixed": "#00210e", "surface-container-low": "#f3f3f4", "primary-container": "#7ed957", "inverse-primary": "#81dc5a", "surface": "#f9f9f9", "on-surface-variant": "#404a3a", "on-primary-fixed-variant": "#195200", "on-secondary-fixed-variant": "#5c4300", "on-error-container": "#93000a", "surface-bright": "#f9f9f9", "on-error": "#ffffff", "secondary": "#7a5900", "surface-container-highest": "#e2e2e2", "secondary-fixed": "#ffdea1", "on-primary": "#ffffff", "outline-variant": "#bfcab5", "on-background": "#1a1c1c", "tertiary": "#3b6849", "on-secondary-container": "#715300", "error-container": "#ffdad6", "surface-variant": "#e2e2e2", "on-surface": "#1a1c1c", "tertiary-fixed": "#bdeec7", "surface-container-high": "#e8e8e8", "tertiary-fixed-dim": "#a2d2ac", "on-tertiary-container": "#2d593c", "on-primary-fixed": "#062100", "surface-container-lowest": "#ffffff", "surface-tint": "#246d00", "on-tertiary-fixed-variant": "#234f33", "inverse-surface": "#2f3131", "primary-fixed-dim": "#81dc5a", "secondary-container": "#ffc644", "primary-fixed": "#9cf973", "on-primary-container": "#1d5d00" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": {}, "fontFamily": { "headline": [ "Montserrat" ], "display": [ "Montserrat" ], "body": [ "Fredoka" ], "label": [ "Handlee" ] }, "fontSize": {} } } }</script></head><body class="bg-surface font-body text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 px-6 flex items-center gap-3 bg-surface-container-lowest"><div class="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-on-primary font-headline font-black text-base shadow-sm">PZ</div><div class="flex flex-col"><span class="text-base font-headline font-extrabold tracking-tight text-on-surface leading-tight">PharmaZyme</span><span class="font-label text-xs text-secondary font-medium tracking-wide leading-none">Academy Admin</span></div></div><div class="px-4 py-3"><div class="px-3 py-2 rounded-lg bg-surface-container-low flex items-center justify-between"><span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant font-headline">Workspace</span><span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary-container text-on-primary-container">v2.4 Live</span></div></div><nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-lg"><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="overview" href="#"><span class="material-symbols-outlined text-[20px]">space_dashboard</span><span>Overview</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="cohorts" href="#"><span class="material-symbols-outlined text-[20px]">groups_2</span><span>Cohorts</span></a><a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 transition-colors bg-primary-container text-on-primary-container font-semibold rounded-lg" data-path="registrations" href="#"><span class="material-symbols-outlined text-[20px]">how_to_reg</span><span>Registrations</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="landing-pages" href="#"><span class="material-symbols-outlined text-[20px]">web</span><span>Landing Pages</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="promo-codes" href="#"><span class="material-symbols-outlined text-[20px]">loyalty</span><span>Promo Codes</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="agent-performance" href="#"><span class="material-symbols-outlined text-[20px]">trending_up</span><span>Agent Performance</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span>Settings</span></a></nav><div class="p-4 bg-surface-container-low mx-3 mb-4 rounded-xl"><div class="flex items-center gap-2 mb-1"><span class="material-symbols-outlined text-secondary text-[18px]">verified</span><span class="text-xs font-bold font-headline text-on-surface">Accreditation Hub</span></div><p class="text-[11px] text-on-surface-variant leading-relaxed font-body">CME &amp; Clinical Trials intake cycles active.</p></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-8 flex items-center justify-between gap-6"><div class="flex items-center gap-4 flex-1 max-w-xl"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 text-sm bg-surface-container-lowest rounded-lg border-0 ring-0 focus:outline-none placeholder:text-outline text-on-surface bg-surface-container-low" placeholder="Search applicants, NPI, transaction ID, or cohort..." type="text"/></div><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface shrink-0"><span class="material-symbols-outlined text-primary text-[18px]">school</span><select class="bg-transparent text-xs font-semibold text-on-surface focus:outline-none cursor-pointer pr-1"><option>Spring 2025 Clinical Biozyme</option><option>Winter 2025 Enzymology</option><option>Fall 2024 Fast-Track</option></select></div></div><div class="flex items-center gap-4 shrink-0"><button class="w-9 h-9 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-colors relative"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error"></span></button><div class="flex items-center gap-3 pl-2"><div class="flex flex-col text-right"><span class="text-xs font-headline font-bold text-on-surface leading-tight">Dr. Elena Vance</span><span class="text-[11px] font-label text-secondary leading-none">Dean of Admissions</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<div class="p-6 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
+<!-- Top Action / Context Row -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<h1 class="text-3xl font-headline font-black text-on-surface tracking-tight">Registrations</h1>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary-container text-on-primary-container">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+            PPC Masterclass Active
+          </span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-container-high text-on-surface-variant">
+<span class="material-symbols-outlined text-[15px] text-primary">sync</span>
+            Live Sync: Sheets DB
+          </span>
+</div>
+<p class="text-sm text-on-surface-variant font-body">Manage applicant enrollments, fee reconciliations, and communication dispatch across cohorts.</p>
+</div>
+<!-- Segment Toggle Tabs -->
+<div class="flex items-center p-1 rounded-xl bg-surface-container-high self-start lg:self-auto shadow-inner">
+<button class="px-4 py-2 rounded-lg text-xs font-headline font-semibold text-on-surface-variant hover:text-on-surface transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">phone_iphone</span>
+          App Sign-ups (48)
+        </button>
+<button class="px-4 py-2 rounded-lg text-xs font-headline font-bold bg-surface-container-lowest text-primary shadow-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">desktop_windows</span>
+          Page Registrations (132)
+        </button>
+</div>
+</div>
+<!-- Summary KPI Bento Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm flex items-center justify-between">
+<div class="space-y-1">
+<span class="text-xs uppercase font-headline tracking-wider text-on-surface-variant font-semibold">Total Revenue Collected</span>
+<div class="text-2xl font-headline font-extrabold text-on-surface">PKR 1,482,000</div>
+<div class="text-[12px] font-label text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+            +18.4% vs previous cohort
+          </div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm flex items-center justify-between">
+<div class="space-y-1">
+<span class="text-xs uppercase font-headline tracking-wider text-on-surface-variant font-semibold">Verified Paid</span>
+<div class="flex items-baseline gap-1.5">
+<span class="text-2xl font-headline font-extrabold text-primary">81</span>
+<span class="text-sm font-semibold text-on-surface-variant">/ 132 seats</span>
+</div>
+<div class="w-36 h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 61.3%;"></div>
+</div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-primary-container/30 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl">verified_user</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm flex items-center justify-between">
+<div class="space-y-1">
+<span class="text-xs uppercase font-headline tracking-wider text-on-surface-variant font-semibold">Underpaid / Partial</span>
+<div class="text-2xl font-headline font-extrabold text-secondary">09 Cases</div>
+<div class="text-[12px] text-error flex items-center gap-1 font-medium">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+            PKR 76,500 pending recovery
+          </div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed/50 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-2xl">pending_actions</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm flex items-center justify-between">
+<div class="space-y-1">
+<span class="text-xs uppercase font-headline tracking-wider text-on-surface-variant font-semibold">Pending Audit</span>
+<div class="text-2xl font-headline font-extrabold text-on-surface">28 Slips</div>
+<div class="text-[12px] font-label text-tertiary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+            Avg. turnaround: 42 mins
+          </div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-2xl">receipt_long</span>
+</div>
+</div>
+</div>
+<!-- Filter Control Strip -->
+<div class="bg-surface-container-lowest p-4 rounded-2xl shadow-sm space-y-4">
+<div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+<!-- Search bar -->
+<div class="relative flex-1 min-w-[280px]">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+<input class="w-full pl-11 pr-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-body text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container transition-all" placeholder="Search by Doctor Name, PMDC/NPI, Ref Code, Bank Slip #..." type="text"/>
+</div>
+<!-- Dropdowns -->
+<div class="flex flex-wrap items-center gap-2">
+<div class="flex items-center gap-1.5 px-3 py-2 bg-surface-container-low rounded-xl text-xs font-headline font-semibold text-on-surface">
+<span class="text-outline text-[11px]">Batch:</span>
+<select class="bg-transparent focus:outline-none cursor-pointer">
+<option>Batch 04 (Current)</option>
+<option>Batch 03 (Archived)</option>
+<option>Batch 02 (Archived)</option>
+</select>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-2 bg-surface-container-low rounded-xl text-xs font-headline font-semibold text-on-surface">
+<span class="text-outline text-[11px]">Format:</span>
+<select class="bg-transparent focus:outline-none cursor-pointer">
+<option>All Formats</option>
+<option>On-Campus Lab</option>
+<option>Hybrid Webinar</option>
+</select>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-2 bg-surface-container-low rounded-xl text-xs font-headline font-semibold text-on-surface">
+<span class="text-outline text-[11px]">Agent:</span>
+<select class="bg-transparent focus:outline-none cursor-pointer">
+<option>All Admissions Reps</option>
+<option>Dr. Elena Vance</option>
+<option>Zubair Tariq</option>
+<option>Maria Siddiqui</option>
+</select>
+</div>
+<button class="px-3.5 py-2 bg-surface-container hover:bg-surface-container-high rounded-xl text-xs font-headline font-bold text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+            Export CSV
+          </button>
+</div>
+</div>
+<!-- Status Tabs Line -->
+<div class="flex items-center gap-1 overflow-x-auto pt-2">
+<button class="px-4 py-1.5 rounded-lg text-xs font-headline font-bold bg-primary text-on-primary shadow-sm flex items-center gap-1.5">
+<span>All</span>
+<span class="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">132</span>
+</button>
+<button class="px-4 py-1.5 rounded-lg text-xs font-headline font-semibold bg-surface-container-low text-on-surface-variant hover:bg-surface-container flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-amber-500"></span>
+<span>Pending</span>
+<span class="text-[11px] text-outline">28</span>
+</button>
+<button class="px-4 py-1.5 rounded-lg text-xs font-headline font-semibold bg-surface-container-low text-on-surface-variant hover:bg-surface-container flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-slate-400"></span>
+<span>Reserved</span>
+<span class="text-[11px] text-outline">14</span>
+</button>
+<button class="px-4 py-1.5 rounded-lg text-xs font-headline font-semibold bg-surface-container-low text-on-surface-variant hover:bg-surface-container flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span>Underpaid</span>
+<span class="text-[11px] text-outline">9</span>
+</button>
+<button class="px-4 py-1.5 rounded-lg text-xs font-headline font-semibold bg-surface-container-low text-on-surface-variant hover:bg-surface-container flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Paid</span>
+<span class="text-[11px] text-outline">81</span>
+</button>
+</div>
+</div>
+<!-- Enhanced Registrations Table -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-sm overflow-visible">
+<div class="overflow-x-auto overflow-y-visible">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-[11px] font-headline uppercase font-bold text-on-surface-variant tracking-wider">
+<th class="py-3.5 px-4 w-12 text-center">
+<input class="rounded accent-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</th>
+<th class="py-3.5 px-4 min-w-[260px]">Clinician / Candidate</th>
+<th class="py-3.5 px-4 min-w-[130px]">Cohort Track</th>
+<th class="py-3.5 px-4 min-w-[170px]">Voucher &amp; Proof</th>
+<th class="py-3.5 px-4 min-w-[110px]">Status</th>
+<th class="py-3.5 px-4 min-w-[140px]">Advisor / Rep</th>
+<th class="py-3.5 px-4 text-right pr-6 w-16">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y-0 text-sm font-body">
+<!-- ROW 1: Dr. Zainab Qasim (Has waiting pill & Row Action Menu OPEN) -->
+<tr class="bg-primary-container/10 hover:bg-primary-container/20 transition-colors">
+<td class="py-4 px-4 text-center">
+<input checked="" class="rounded accent-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed font-headline font-bold flex items-center justify-center text-sm shadow-sm">
+                    ZQ
+                  </div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-2">
+<span class="font-headline font-bold text-on-surface text-[14px]">Dr. Zainab Qasim</span>
+<!-- Sheet update waiting tag -->
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-container text-on-secondary-container animate-pulse">
+<span class="material-symbols-outlined text-[12px]">sync</span>
+                        Sheet update waiting
+                      </span>
+</div>
+<div class="text-xs text-on-surface-variant">zainab.q@hospital.org • +92 321 9876543</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-mono font-bold text-outline uppercase">Ref: PZA-PPC-102</span>
+<span class="text-[10px] text-on-surface-variant">• Applied 2 hrs ago</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="font-headline font-semibold text-xs text-on-surface block">PPC Biozyme Core</span>
+<span class="text-[11px] text-on-surface-variant font-label">Hybrid / Hands-on Lab</span>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2.5">
+<!-- Voucher Thumbnail with verified badge and tooltip preview -->
+<div class="relative group cursor-pointer">
+<div class="w-11 h-14 rounded-lg bg-surface-container-high overflow-hidden shadow-xs relative flex flex-col justify-between p-1 bg-gradient-to-b from-white to-surface-container">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-[10px] text-primary">receipt</span>
+<span class="text-[8px] font-mono font-bold text-outline">HBL</span>
+</div>
+<div class="space-y-0.5 text-[6px] text-outline font-mono leading-none">
+<div>TXN: #9841</div>
+<div>PKR 25K</div>
+</div>
+<div class="w-4 h-4 rounded-full bg-primary/20 text-primary flex items-center justify-center self-end">
+<span class="material-symbols-outlined text-[10px]">done_all</span>
+</div>
+</div>
+<!-- Tooltip Hover Preview -->
+<div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex flex-col bg-inverse-surface text-inverse-on-surface p-2 rounded-lg shadow-xl text-[10px] font-body z-30 w-44 pointer-events-none">
+<span class="font-bold font-headline text-white flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-primary-fixed">visibility</span>
+                        Click to preview voucher
+                      </span>
+<span class="text-[9px] text-surface-dim">Verified Habib Bank slip #88291823. Amount: PKR 25,000 paid in full.</span>
+</div>
+</div>
+<div>
+<div class="font-headline font-extrabold text-sm text-primary">PKR 25,000</div>
+<span class="text-[10px] font-mono text-outline">Ref: TXN-88291</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-primary-container text-on-primary-container">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                  Paid
+                </span>
+</td>
+<td class="py-4 px-4">
+<span class="text-xs font-semibold text-on-surface block">Dr. Elena Vance</span>
+<span class="text-[11px] font-label text-secondary">Dean Outreach</span>
+</td>
+<!-- KEBAB ACTION CELL WITH OPEN DROPDOWN MENU -->
+<td class="py-4 px-4 text-right pr-6 relative">
+<button class="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container text-on-surface flex items-center justify-center ml-auto">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+<!-- Open Action Dropdown -->
+<div class="absolute right-6 top-12 w-52 bg-surface-container-lowest rounded-xl shadow-xl py-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+<div class="px-3 py-1.5 text-[10px] uppercase font-headline font-bold text-outline tracking-wider">Candidate Actions</div>
+<!-- 1. Edit details -->
+<a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors" href="#modal-edit">
+<span class="material-symbols-outlined text-[18px] text-tertiary">edit_note</span>
+<span>Edit details</span>
+</a>
+<!-- 2. Status email -->
+<a class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors" href="#modal-status-email">
+<span class="material-symbols-outlined text-[18px] text-primary">mark_email_read</span>
+<span>Status email</span>
+</a>
+<!-- 3. Send email -->
+<button class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">mail</span>
+<span>Send email</span>
+</button>
+<!-- 4. Send WhatsApp -->
+<button class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#128C7E] hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+<span>Send WhatsApp</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 2: Dr. Farooq Tariq (Has sheet update waiting tag & Underpaid status) -->
+<tr class="hover:bg-surface-container-low/70 transition-colors">
+<td class="py-4 px-4 text-center">
+<input class="rounded accent-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-secondary-fixed text-on-secondary-fixed font-headline font-bold flex items-center justify-center text-sm shadow-sm">
+                    FT
+                  </div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-2">
+<span class="font-headline font-bold text-on-surface text-[14px]">Dr. Farooq Tariq</span>
+<!-- Sheet update waiting tag -->
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-container text-on-secondary-container">
+<span class="material-symbols-outlined text-[12px]">sync</span>
+                        Sheet update waiting
+                      </span>
+</div>
+<div class="text-xs text-on-surface-variant">f.tariq@medcenter.pk • +92 300 4521190</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-mono font-bold text-outline uppercase">Ref: PZA-PPC-087</span>
+<span class="text-[10px] text-on-surface-variant">• 4 hrs ago</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="font-headline font-semibold text-xs text-on-surface block">PPC Masterclass Active</span>
+<span class="text-[11px] text-on-surface-variant font-label">Virtual Immersion</span>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2.5">
+<div class="relative group cursor-pointer">
+<div class="w-11 h-14 rounded-lg bg-surface-container-high overflow-hidden shadow-xs relative flex flex-col justify-between p-1 bg-gradient-to-b from-white to-surface-container">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-[10px] text-secondary">receipt</span>
+<span class="text-[8px] font-mono font-bold text-outline">MBL</span>
+</div>
+<div class="space-y-0.5 text-[6px] text-outline font-mono leading-none">
+<div>SLIP: #3911</div>
+<div>PKR 15K</div>
+</div>
+<div class="w-4 h-4 rounded-full bg-secondary/20 text-secondary flex items-center justify-center self-end">
+<span class="material-symbols-outlined text-[10px]">info</span>
+</div>
+</div>
+</div>
+<div>
+<div class="font-headline font-extrabold text-sm text-secondary">PKR 15,000</div>
+<span class="text-[10px] font-bold text-error">Short by PKR 10,000</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-error-container text-on-error-container">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                  Underpaid
+                </span>
+</td>
+<td class="py-4 px-4">
+<span class="text-xs font-semibold text-on-surface block">Zubair Tariq</span>
+<span class="text-[11px] font-label text-secondary">Senior Agent</span>
+</td>
+<td class="py-4 px-4 text-right pr-6">
+<button class="w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant flex items-center justify-center ml-auto">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- ROW 3: Dr. Sara Mehmood (Pending) -->
+<tr class="hover:bg-surface-container-low/70 transition-colors">
+<td class="py-4 px-4 text-center">
+<input class="rounded accent-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high text-on-surface-variant font-headline font-bold flex items-center justify-center text-sm shadow-sm">
+                    SM
+                  </div>
+<div class="space-y-0.5">
+<span class="font-headline font-bold text-on-surface text-[14px] block">Dr. Sara Mehmood</span>
+<div class="text-xs text-on-surface-variant">sara.m@kemu.edu • +92 333 1122334</div>
+<span class="text-[10px] font-mono font-bold text-outline uppercase">Ref: PZA-PPC-094</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="font-headline font-semibold text-xs text-on-surface block">Enzymology Rapid</span>
+<span class="text-[11px] text-on-surface-variant font-label">Classroom Batch</span>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2.5">
+<div class="w-11 h-14 rounded-lg bg-surface-container-high overflow-hidden shadow-xs relative flex flex-col justify-between p-1 bg-gradient-to-b from-white to-surface-container">
+<span class="material-symbols-outlined text-[12px] text-outline">hourglass_empty</span>
+<span class="text-[7px] text-outline font-mono">Unverified</span>
+</div>
+<div>
+<div class="font-headline font-semibold text-sm text-on-surface">PKR 25,000</div>
+<span class="text-[10px] text-outline">Uploaded via EasyPaisa</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-secondary-fixed text-on-secondary-fixed">
+<span class="material-symbols-outlined text-[14px]">hourglass_top</span>
+                  Pending
+                </span>
+</td>
+<td class="py-4 px-4">
+<span class="text-xs font-semibold text-on-surface block">Maria Siddiqui</span>
+<span class="text-[11px] font-label text-secondary">Admissions Rep</span>
+</td>
+<td class="py-4 px-4 text-right pr-6">
+<button class="w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant flex items-center justify-center ml-auto">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- ROW 4: Dr. Bilawal Shah (Reserved) -->
+<tr class="hover:bg-surface-container-low/70 transition-colors">
+<td class="py-4 px-4 text-center">
+<input class="rounded accent-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed-dim text-on-tertiary-fixed font-headline font-bold flex items-center justify-center text-sm shadow-sm">
+                    BS
+                  </div>
+<div class="space-y-0.5">
+<span class="font-headline font-bold text-on-surface text-[14px] block">Dr. Bilawal Shah</span>
+<div class="text-xs text-on-surface-variant">bilawal.shah@aku.edu • +92 345 9988771</div>
+<span class="text-[10px] font-mono font-bold text-outline uppercase">Ref: PZA-PPC-110</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="font-headline font-semibold text-xs text-on-surface block">PPC Masterclass Active</span>
+<span class="text-[11px] text-on-surface-variant font-label">Pre-registered Hold</span>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<div class="w-11 h-14 rounded-lg bg-surface-container border-2 border-dashed border-outline/30 flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-[16px]">file_present</span>
+</div>
+<div>
+<span class="text-xs font-semibold text-on-surface-variant">Seat Reserved</span>
+<div class="text-[10px] text-outline">Exp: 48 hours left</div>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-surface-container-highest text-on-surface">
+<span class="material-symbols-outlined text-[14px]">lock_clock</span>
+                  Reserved
+                </span>
+</td>
+<td class="py-4 px-4">
+<span class="text-xs font-semibold text-on-surface block">Dr. Elena Vance</span>
+<span class="text-[11px] font-label text-secondary">Dean Outreach</span>
+</td>
+<td class="py-4 px-4 text-right pr-6">
+<button class="w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant flex items-center justify-center ml-auto">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+<div class="p-4 bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
+<div>Showing <span class="font-bold text-on-surface">1 - 4</span> of <span class="font-bold text-on-surface">132</span> total candidates</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high font-semibold text-on-surface disabled:opacity-50" disabled="">Previous</button>
+<span class="px-3 py-1.5 rounded-lg bg-primary text-on-primary font-bold">1</span>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high font-semibold text-on-surface">2</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high font-semibold text-on-surface">3</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high font-semibold text-on-surface">Next</button>
+</div>
+</div>
+</div>
+<!-- ========================================================================= -->
+<!-- MODAL DIALOGS SHOWCASE SECTION (Material-3 Polish)                        -->
+<!-- Displays Dialog 1 ("Edit details") & Dialog 2 ("Status email") side-by-side -->
+<!-- ========================================================================= -->
+<div class="pt-6 space-y-6">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<div class="space-y-0.5">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<h2 class="text-xl font-headline font-black text-on-surface">Modal Dialogs Showcase</h2>
+</div>
+<p class="text-xs text-on-surface-variant font-body">Interactive preview of the modal flows triggered from the row action menu.</p>
+</div>
+<span class="text-xs font-label text-secondary self-start sm:self-auto bg-secondary-fixed/30 px-3 py-1 rounded-full">Material-3 Spec Complete</span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+<!-- ============================================== -->
+<!-- DIALOG 1: EDIT CANDIDATE DETAILS MODAL         -->
+<!-- ============================================== -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-xl p-6 md:p-8 space-y-6 relative overflow-hidden" id="modal-edit">
+<!-- Dialog Header -->
+<div class="flex items-start justify-between">
+<div class="space-y-1">
+<div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary-container text-on-primary-container">
+                Ref: PZA-PPC-102
+              </div>
+<h3 class="text-xl font-headline font-black text-on-surface">Edit candidate details</h3>
+<p class="text-xs text-on-surface-variant font-body">Updating personal contact information for Dr. Zainab Qasim</p>
+</div>
+<button class="w-8 h-8 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Form Fields -->
+<div class="space-y-4">
+<!-- Full Name -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wider">
+                Full Name
+              </label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">badge</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-surface-container-low rounded-xl text-sm font-headline font-semibold text-on-surface focus:outline-none focus:bg-surface-container" type="text" value="Dr. Zainab Qasim"/>
+</div>
+</div>
+<!-- Email Address -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wider">
+                Email Address
+              </label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">mail</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-surface-container-low rounded-xl text-sm font-headline font-semibold text-on-surface focus:outline-none focus:bg-surface-container" type="email" value="zainab.q@hospital.org"/>
+</div>
+</div>
+<!-- WhatsApp Phone Number -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wider">
+                WhatsApp Phone Number
+              </label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">chat</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-surface-container-low rounded-xl text-sm font-headline font-semibold text-on-surface focus:outline-none focus:bg-surface-container" type="text" value="+92 321 9876543"/>
+</div>
+</div>
+<!-- DISTINCT CLEAR HELPER NOTE BOX (Verbatim requirement) -->
+<div class="p-3.5 rounded-xl bg-surface-container flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px] shrink-0 mt-0.5">info</span>
+<div class="space-y-0.5">
+<p class="text-xs font-headline font-bold text-on-surface">The person's account is not changed</p>
+<p class="text-[11px] font-body text-on-surface-variant leading-relaxed">
+                  Edits apply solely to directory index and transactional communication queues. Academy LMS credentials and primary login hashes remain linked to original NPI credentials.
+                </p>
+</div>
+</div>
+</div>
+<!-- Dialog Actions -->
+<div class="flex items-center justify-end gap-3 pt-2">
+<button class="px-5 py-2.5 rounded-xl text-xs font-headline font-bold text-on-surface-variant hover:bg-surface-container transition-colors">
+              Cancel
+            </button>
+<button class="px-6 py-2.5 rounded-xl text-xs font-headline font-bold bg-primary hover:bg-primary/90 text-on-primary shadow-md shadow-primary/20 flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-[16px]">check</span>
+              Save details
+            </button>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- DIALOG 2: STATUS EMAIL MULTI-STATE DIALOG      -->
+<!-- ============================================== -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-xl p-6 md:p-8 space-y-6 relative overflow-hidden" id="modal-status-email">
+<!-- Dialog Header -->
+<div class="flex items-start justify-between">
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-secondary-fixed text-on-secondary-fixed">
+                  Database Status: Pending
+                </span>
+<span class="text-xs font-label text-secondary">Candidate: Dr. Ayesha Khan</span>
+</div>
+<h3 class="text-xl font-headline font-black text-on-surface">Dispatch Status Email</h3>
+<p class="text-xs text-on-surface-variant font-body">Select email notification template and override state dispatch.</p>
+</div>
+<button class="w-8 h-8 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Step A: Four Choices of Status Emails (Selectable Radio Cards) -->
+<div class="space-y-2">
+<span class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wider">
+              Step A: Select Email Type
+            </span>
+<div class="grid grid-cols-2 gap-2.5">
+<!-- Choice 1: Pending -->
+<label class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-colors flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-secondary text-[20px]">hourglass_top</span>
+<div>
+<div class="text-xs font-headline font-bold text-on-surface">Pending</div>
+<div class="text-[10px] text-on-surface-variant">Deposit pending slip</div>
+</div>
+</div>
+<input class="accent-primary w-4 h-4 cursor-pointer" name="status_choice" type="radio"/>
+</label>
+<!-- Choice 2: Paid (SELECTED: Triggers warning mismatch demonstration) -->
+<label class="p-3 rounded-xl bg-primary-container/20 ring-2 ring-primary cursor-pointer transition-colors flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary text-[20px]">task_alt</span>
+<div>
+<div class="text-xs font-headline font-bold text-primary">Paid</div>
+<div class="text-[10px] text-on-primary-container font-medium">Full receipt &amp; seat</div>
+</div>
+</div>
+<input checked="" class="accent-primary w-4 h-4 cursor-pointer" name="status_choice" type="radio"/>
+</label>
+<!-- Choice 3: Reserved -->
+<label class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-colors flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-outline text-[20px]">bookmark</span>
+<div>
+<div class="text-xs font-headline font-bold text-on-surface">Reserved</div>
+<div class="text-[10px] text-on-surface-variant">48-hour slot hold</div>
+</div>
+</div>
+<input class="accent-primary w-4 h-4 cursor-pointer" name="status_choice" type="radio"/>
+</label>
+<!-- Choice 4: Underpaid -->
+<label class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-colors flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-error text-[20px]">error_outline</span>
+<div>
+<div class="text-xs font-headline font-bold text-on-surface">Underpaid</div>
+<div class="text-[10px] text-on-surface-variant">Balance remainder</div>
+</div>
+</div>
+<input class="accent-primary w-4 h-4 cursor-pointer" name="status_choice" type="radio"/>
+</label>
+</div>
+</div>
+<!-- HIGH VISIBILITY AMBER ALERT BANNER (When selection does not match current DB status) -->
+<div class="p-4 rounded-xl bg-secondary-fixed/40 flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary text-[22px] shrink-0 mt-0.5">warning</span>
+<div class="space-y-1">
+<div class="text-xs font-headline font-extrabold text-on-secondary-fixed leading-snug">
+                ⚠️ Warning: Selected email (Paid) does not match Dr. Ayesha's current database status (Pending).
+              </div>
+<p class="text-[11px] font-body text-on-secondary-fixed leading-relaxed">
+                Candidate will receive Paid onboarding credentials, Zoom passcode, and official invoice despite slip not being confirmed by Finance.
+              </p>
+</div>
+</div>
+<!-- STEP B / CONFIRM STATE: RESEND SAFEGUARD NOTE -->
+<div class="p-3.5 rounded-xl bg-surface-container-low space-y-2">
+<div class="flex items-center justify-between">
+<span class="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Step B: Dispatch Safeguard</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-error/10 text-error">Duplicate Protection</span>
+</div>
+<div class="flex items-start gap-2 text-xs font-body text-on-surface">
+<span class="material-symbols-outlined text-outline text-[18px]">history</span>
+<div>
+<span class="font-bold">This person already got this email on 14 Oct 2026, 11:20 AM.</span> Send again?
+              </div>
+</div>
+</div>
+<!-- Dialog Actions with specific Safeguard Buttons -->
+<div class="flex items-center justify-between pt-2">
+<button class="px-4 py-2.5 rounded-xl text-xs font-headline font-bold text-on-surface-variant hover:bg-surface-container transition-colors">
+              Cancel
+            </button>
+<div class="flex items-center gap-2">
+<button class="px-4 py-2.5 rounded-xl text-xs font-headline font-bold bg-secondary hover:bg-secondary/90 text-on-secondary shadow-md shadow-secondary/20 flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[16px]">forward_to_inbox</span>
+                Send again anyway
+              </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

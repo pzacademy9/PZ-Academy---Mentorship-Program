@@ -10,7 +10,8 @@ const row = (over: Partial<RegistrationListRow> = {}): RegistrationListRow => ({
   id: "r1", refId: "PZA-PPC-102", name: "Zainab Qasim", email: "z@x.com", pageId: "pg1", pageTitle: "PPC Masterclass",
   optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 15725, amountReceived: null, currency: "PKR",
   status: "paid", agentId: "ag1", agentName: "Sarah Jenkins", groupSize: 1, isTest: false,
-  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null, ...over,
+  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null,
+  voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, ...over,
 });
 const counts = { all: 9, pending: 2, reserved: 1, underpaid: 1, paid: 4, free: 1 };
 const table = (rows: RegistrationListRow[], extra: Partial<Parameters<typeof RegistrationsTable>[0]> = {}) =>

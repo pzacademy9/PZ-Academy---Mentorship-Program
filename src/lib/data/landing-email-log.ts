@@ -8,7 +8,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
  * portal_link emails are not guarded: each one is logged as its own 'sent' row and may repeat.
  */
 
-export type EmailLogKind = "paid" | "underpaid" | "reserved" | "portal_link";
+export type EmailLogKind = "paid" | "underpaid" | "reserved" | "portal_link" | "manual_received" | "manual_paid" | "manual_underpaid" | "manual_reserved";
 
 export interface EmailLogEntry { registrationId: string; kind: EmailLogKind; toEmail: string; sentAt: string }
 
@@ -39,6 +39,41 @@ export async function logPortalLink(registrationId: string, toEmail: string): Pr
     .from("landing_email_log")
     .insert({ registration_id: registrationId, kind: "portal_link", to_email: toEmail, state: "sent" });
   if (error) throw error;
+}
+
+type ManualLogKind = "manual_received" | "manual_paid" | "manual_underpaid" | "manual_reserved";
+
+/**
+ * Records an admin "send again" that went out. Like portal_link, manual rows are not unique per
+ * (registration, kind): each send is its own 'sent' row and lastSentAt takes the latest.
+ */
+export async function logManualEmail(registrationId: string, kind: ManualLogKind, toEmail: string): Promise<void> {
+  const { error } = await createAdminSupabase()
+    .from("landing_email_log")
+    .insert({ registration_id: registrationId, kind, to_email: toEmail, state: "sent", sent_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+const AUTOMATIC_TWIN: Partial<Record<EmailLogKind, EmailLogKind>> = {
+  paid: "manual_paid", manual_paid: "paid",
+  underpaid: "manual_underpaid", manual_underpaid: "underpaid",
+  reserved: "manual_reserved", manual_reserved: "reserved",
+};
+
+/** Latest time any of these kinds (or its automatic/manual twin) actually went out, or null. */
+export async function lastSentAt(registrationId: string, kinds: EmailLogKind[]): Promise<string | null> {
+  const all = Array.from(new Set(kinds.flatMap((k) => (AUTOMATIC_TWIN[k] ? [k, AUTOMATIC_TWIN[k] as EmailLogKind] : [k]))));
+  if (all.length === 0) return null;
+  const { data, error } = await createAdminSupabase()
+    .from("landing_email_log")
+    .select("sent_at")
+    .eq("registration_id", registrationId)
+    .eq("state", "sent")
+    .in("kind", all)
+    .order("sent_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return (data?.[0]?.sent_at as string | undefined) ?? null;
 }
 
 /** Drops an unsent claim after a failed send so a retry can claim again. Never touches sent history. */
