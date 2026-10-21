@@ -25,11 +25,11 @@ describe("0078 landing sheet sync migration", () => {
     expect(sql).not.toMatch(/create policy/i);
   });
   it("constrains sheet_sync_state to report/live", () => {
-    expect(sql).toMatch(/check (sheet_sync_state in ('report','live'))/);
+    expect(sql).toMatch(/check \(sheet_sync_state in \('report','live'\)\)/);
   });
   it("has the right foreign key actions", () => {
-    expect(sql).toMatch(/page_ids+uuid not null references public.landing_pages(id) on delete cascade/);
-    expect(sql).toMatch(/registration_id uuid references public.landing_registrations(id) on delete set null/);
+    expect(sql).toMatch(/page_id\s+uuid not null references public\.landing_pages\(id\) on delete cascade/);
+    expect(sql).toMatch(/registration_id uuid references public\.landing_registrations\(id\) on delete set null/);
   });
   it("indexes the log", () => {
     expect(sql).toMatch(/\(page_id, scan_id\)/);
