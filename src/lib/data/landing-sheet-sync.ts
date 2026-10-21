@@ -95,6 +95,22 @@ export async function applySheetChanges(pageId: string, changes: PlannedChange[]
       if (!data) { done("rejected", "This registration no longer exists"); continue; }
       const rec = mapRecord(data as RegRow);
 
+      // The plan was built against change.appValue: if the app moved on since then, the old sheet value must not win.
+      const current: Record<PlannedChange["field"], string | number | null> = {
+        status: rec.status,
+        amount: rec.amountReceived,
+        name: rec.name.trim(),
+        whatsapp: rec.whatsapp.replace(/\D/g, ""),
+        email: rec.email.trim().toLowerCase(),
+      };
+      const planned = typeof change.appValue === "string"
+        ? (change.field === "name" ? change.appValue.trim()
+          : change.field === "whatsapp" ? change.appValue.replace(/\D/g, "")
+          : change.field === "email" ? change.appValue.trim().toLowerCase()
+          : change.appValue)
+        : change.appValue;
+      if (current[change.field] !== planned) { done("skipped", "Changed in the app since the sheet was checked"); continue; }
+
       if (change.field === "status") {
         const to = typeof change.sheetValue === "string" ? parseSheetStatus(change.sheetValue) : null;
         if (to === null || to === "free") { done("rejected", "That status is not one the app can set"); continue; }
@@ -109,7 +125,7 @@ export async function applySheetChanges(pageId: string, changes: PlannedChange[]
         const args: ApplyArgs = {
           p_registration_id: rec.id,
           p_to_status: to,
-          p_expected_from: rec.status,
+          p_expected_from: rec.status, // equals the planned status (checked above)
           p_amount: check.amountReceived,
           p_actor: null,
           p_source: "sheet",
@@ -124,8 +140,9 @@ export async function applySheetChanges(pageId: string, changes: PlannedChange[]
           else { console.warn(`${LOG} unmapped rpc reason: ${String(r.reason)}`); done("rejected", "Could not save this status change"); }
           continue;
         }
-        await queueStatusFollowUps(rec.id);
+        // Snapshot first: the sheet push started by the follow-ups writes its own snapshot and must not be overwritten.
         await updateSnapshot(rec.id, { status: to, amount_received: paired ? pairedAmount : check.amountReceived });
+        await queueStatusFollowUps(rec.id);
         done("applied", "Status updated");
         continue;
       }

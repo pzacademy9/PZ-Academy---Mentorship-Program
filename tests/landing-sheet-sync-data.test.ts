@@ -174,4 +174,29 @@ describe("applySheetChanges", () => {
     expect((await applySheetChanges("p1", [ch("status", "paid", "free")]))[0].outcome).toBe("rejected");
     expect(queueStatusFollowUps).not.toHaveBeenCalled();
   });
+
+  it("skips a status change when the app moved on since the plan, without calling the RPC or follow-ups", async () => {
+    setup(row({ status: "paid", amount_received: 5000 }));
+    const out = await applySheetChanges("p1", [ch("status", "reserved", "pending")]);
+    expect(out[0]).toMatchObject({ outcome: "skipped", detail: "Changed in the app since the sheet was checked" });
+    expect(db.state.ops.some((o) => o.op === "rpc")).toBe(false);
+    expect(queueStatusFollowUps).not.toHaveBeenCalled();
+  });
+
+  it("skips a name change when the app name differs from the planned one", async () => {
+    setup(row({ name: "Changed In App" }));
+    const out = await applySheetChanges("p1", [ch("name", "Sheet Name", "A")]);
+    expect(out[0]).toMatchObject({ outcome: "skipped", detail: "Changed in the app since the sheet was checked" });
+    expect(db.find("landing_registrations", "update")).toHaveLength(0);
+  });
+
+  it("updates the snapshot before queueing follow-ups", async () => {
+    setup();
+    const order: string[] = [];
+    queueStatusFollowUps.mockImplementationOnce(async () => { order.push("queue"); });
+    const inner = db.state.handler;
+    db.state.handler = (op) => { if (op.table === "landing_sheet_snapshots" && op.op === "update") order.push("snapshot"); return inner(op); };
+    await applySheetChanges("p1", [ch("status", "paid", "pending"), ch("amount", null, null)]);
+    expect(order).toEqual(["snapshot", "queue"]);
+  });
 });
