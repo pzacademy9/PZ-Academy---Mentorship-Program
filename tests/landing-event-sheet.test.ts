@@ -29,7 +29,7 @@ vi.mock("@/lib/gas/event-sheet-client", async (orig) => {
   };
 });
 
-import { createEventSheet, appendRegistrationRows, uploadLandingVoucher } from "@/lib/gas/event-sheet-client";
+import { createEventSheet, appendRegistrationRows, uploadLandingVoucher, requestSheetScan, installLandingScanTrigger } from "@/lib/gas/event-sheet-client";
 import { POST as createSheet } from "@/app/api/admin/landing-pages/[id]/sheet/route";
 import { SHEET_HEADERS } from "@/lib/landing/registration/sheet-row";
 
@@ -96,6 +96,20 @@ describe("event-sheet-client", () => {
       action: "uploadLandingVoucher", secret: "drive-secret-value", pageSlug: "ppc-b3",
       mimeType: "image/png", base64: "AAAA", filename: "voucher_1.png", folderId: "folder-1",
     });
+  });
+  it("requestSheetScan and installLandingScanTrigger post their actions with the token and never leak it", async () => {
+    fetchMock.mockImplementation(() => gasReply({ status: "success" }));
+    expect(await requestSheetScan("sheet-1")).toEqual({ ok: true });
+    expect(sentBody(0)).toEqual({ token: "sync-secret-value", action: "scanLandingSheet", sheetId: "sheet-1" });
+    expect(await installLandingScanTrigger()).toEqual({ ok: true });
+    expect(sentBody(1)).toEqual({ token: "sync-secret-value", action: "installLandingScanTrigger" });
+    fetchMock.mockImplementation(() => gasReply({ status: "error", message: "Sheet is busy" }));
+    const failed = await requestSheetScan("sheet-1");
+    expect(failed).toEqual({ ok: false, message: "Sheet is busy" });
+    expect(JSON.stringify(failed)).not.toContain("sync-secret-value");
+    vi.stubEnv("SHEETS_SYNC_SECRET", "");
+    expect((await requestSheetScan("sheet-1")).ok).toBe(false);
+    expect((await installLandingScanTrigger()).ok).toBe(false);
   });
   it("uploadLandingVoucher rejects a non-https url", async () => {
     fetchMock.mockReturnValue(gasReply({ status: "success", url: "javascript:alert(1)" }));
@@ -242,6 +256,28 @@ describe("GAS source", () => {
   it("never prefixes an apostrophe onto the text-formatted columns", () => {
     const fn = code.slice(code.indexOf("function landingCell_"), code.indexOf("function landingRowKey_"));
     expect(fn).toContain("LANDING_TEXT_COLS");
+  });
+
+  it("defines the sheet scanner functions, the 270000 ms budget and the scan URL replacement", () => {
+    for (const fn of ["function scanLandingSheets()", "function scanOneLandingSheet_(", "function handleScanLandingSheet_(", "function handleInstallLandingScanTrigger_("]) {
+      expect(code).toContain(fn);
+    }
+    expect(code).toContain("const LANDING_SCAN_BUDGET_MS = 270000;");
+    expect(code).toContain('replace("/api/webhooks/sheets-sync", "/api/webhooks/landing-sheet-scan")');
+    expect(code).toContain('ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(5).create()');
+    const scan = code.slice(code.indexOf("function scanOneLandingSheet_("), code.indexOf("function handleScanLandingSheet_("));
+    expect(scan).toContain("getDisplayValues()");
+    expect(scan).toContain("waitLock(10000)");
+    expect(scan).toContain("LANDING_SCAN_MAX_ROWS");
+    expect(code).toContain("const LANDING_SCAN_MAX_ROWS = 5000;");
+  });
+  it("registers both scan actions in doPost after the SYNC_SECRET gate", () => {
+    const gate = code.indexOf('body.token !== props.getProperty("SYNC_SECRET")');
+    expect(code.indexOf('body.action === "scanLandingSheet"')).toBeGreaterThan(gate);
+    expect(code.indexOf('body.action === "installLandingScanTrigger"')).toBeGreaterThan(gate);
+  });
+  it("keeps the landing columns and headers unchanged", () => {
+    expect(code).toContain("const LANDING_COL = { NAME: 1, EMAIL: 2, ROW_TYPE: 8, VOUCHER: 10, STATUS: 16, REF: 19 };");
   });
 
   function LANDING_COLS_HEADERS() {

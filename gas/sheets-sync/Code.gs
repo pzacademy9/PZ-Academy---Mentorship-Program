@@ -208,6 +208,14 @@ function doPost(e) {
     return handleApplyRegistrationStatus_(body);
   }
 
+  if (body.action === "scanLandingSheet") {
+    return handleScanLandingSheet_(body);
+  }
+
+  if (body.action === "installLandingScanTrigger") {
+    return handleInstallLandingScanTrigger_(body);
+  }
+
   return jsonResponse_({ status: "error", message: "Unknown action: " + body.action });
 }
 
@@ -796,6 +804,145 @@ function handleApplyRegistrationStatus_(body) {
     return jsonResponse_({ status: "error", message: String(err) });
   } finally {
     lock.releaseLock();
+  }
+}
+
+// ---- Landing sheet scan: sends each landing sheet's rows to the app so manual edits sync back. ----
+const LANDING_SCAN_BUDGET_MS = 270000; // stop starting new sheets after 4 min 30 s (the limit is 6 min)
+const LANDING_SCAN_MAX_ROWS = 5000;
+
+/** The scan endpoint, derived from WEBHOOK_URL. Returns "" (and logs) when it cannot be derived safely. */
+function landingScanUrl_() {
+  const base = PropertiesService.getScriptProperties().getProperty("WEBHOOK_URL") || "";
+  const url = base.replace("/api/webhooks/sheets-sync", "/api/webhooks/landing-sheet-scan");
+  if (!base || url === base) {
+    console.error("Landing scan: WEBHOOK_URL does not contain /api/webhooks/sheets-sync, so no scan URL can be built.");
+    return "";
+  }
+  return url;
+}
+
+/** POSTs a JSON body to the scan endpoint. Returns the parsed reply, or null after logging a short error. */
+function postLandingScan_(url, payload) {
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  });
+  const code = res.getResponseCode();
+  let data = null;
+  try {
+    data = JSON.parse(res.getContentText());
+  } catch (err) {
+    data = null;
+  }
+  if (code !== 200 || !data || data.status === "error") {
+    console.error("Landing scan (" + payload.action + ") failed: HTTP " + code + (data && data.message ? " - " + String(data.message) : ""));
+    return null;
+  }
+  return data;
+}
+
+/** Time-trigger handler: scans every landing sheet the app lists, one after another, within the time budget. */
+function scanLandingSheets() {
+  const started = Date.now();
+  const url = landingScanUrl_();
+  if (!url) return;
+  const token = PropertiesService.getScriptProperties().getProperty("SYNC_SECRET");
+  let list = null;
+  try {
+    list = postLandingScan_(url, { token: token, action: "listSheets" });
+  } catch (err) {
+    console.error(String(err));
+    return;
+  }
+  if (!list || !Array.isArray(list.sheets)) return;
+  for (const s of list.sheets) {
+    if (Date.now() - started > LANDING_SCAN_BUDGET_MS) {
+      console.error("Landing scan: time budget used, remaining sheets wait for the next run.");
+      return;
+    }
+    if (!s || !s.sheetId) continue;
+    try {
+      scanOneLandingSheet_(String(s.sheetId));
+    } catch (err) {
+      console.error(String(err));
+    }
+  }
+}
+
+/** Reads one landing sheet in a single range read and POSTs its rows to the app. Skips quietly when the sheet is busy. */
+function scanOneLandingSheet_(sheetId) {
+  const url = landingScanUrl_();
+  if (!url) return { scanned: false };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return { scanned: false, busy: true };
+  }
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheetByName(LANDING_TAB_NAME) || ss.getSheets()[0];
+    const lastRow = sheet.getLastRow();
+    const rows = [];
+    if (lastRow >= 2) {
+      const values = sheet.getRange(2, 1, lastRow - 1, 23).getDisplayValues();
+      for (let i = 0; i < values.length; i++) {
+        const v = values[i];
+        const refId = String(v[LANDING_COL.REF - 1]).trim();
+        const email = String(v[LANDING_COL.EMAIL - 1]).trim();
+        if (!refId && !email) continue;
+        rows.push({
+          rowNumber: i + 2,
+          refId: refId,
+          email: email,
+          name: String(v[LANDING_COL.NAME - 1]),
+          whatsapp: String(v[2]),
+          status: String(v[LANDING_COL.STATUS - 1]),
+          amount: String(v[14]),
+          rowType: String(v[LANDING_COL.ROW_TYPE - 1]),
+        });
+      }
+    }
+    let toSend = rows;
+    if (rows.length > LANDING_SCAN_MAX_ROWS) {
+      console.error("Landing scan: a sheet has " + rows.length + " rows, sending only the first " + LANDING_SCAN_MAX_ROWS + ".");
+      toSend = rows.slice(0, LANDING_SCAN_MAX_ROWS);
+    }
+    const token = PropertiesService.getScriptProperties().getProperty("SYNC_SECRET");
+    const reply = postLandingScan_(url, { token: token, action: "scan", sheetId: sheetId, rows: toSend });
+    return { scanned: reply !== null, rows: toSend.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** doPost action scanLandingSheet: scan one sheet now ("Scan now", after approval). */
+function handleScanLandingSheet_(body) {
+  if (!body.sheetId) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId" });
+  }
+  try {
+    const r = scanOneLandingSheet_(String(body.sheetId));
+    if (r.busy) return jsonResponse_({ status: "error", message: "Sheet is busy, try again" });
+    if (!r.scanned) return jsonResponse_({ status: "error", message: "The scan did not complete" });
+    return jsonResponse_({ status: "success", rows: r.rows });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  }
+}
+
+/** doPost action installLandingScanTrigger: creates the 5-minute scan trigger once. Safe to call repeatedly. */
+function handleInstallLandingScanTrigger_(body) {
+  try {
+    const exists = ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction() === "scanLandingSheets");
+    if (exists) return jsonResponse_({ status: "success", created: false, message: "Already installed" });
+    ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(5).create();
+    return jsonResponse_({ status: "success", created: true, message: "Installed" });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
   }
 }
 

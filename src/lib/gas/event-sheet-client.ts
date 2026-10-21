@@ -68,6 +68,22 @@ export async function applyRegistrationStatus(sheetId: string, rows: StatusSheet
   return { ok: r.ok };
 }
 
+/** Asks Apps Script to scan one landing sheet now and send its rows to the app. */
+export async function requestSheetScan(sheetId: string): Promise<{ ok: boolean; message?: string }> {
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false, message: "SHEETS_SYNC_SECRET is not configured." };
+  const r = await postToGas({ token, action: "scanLandingSheet", sheetId });
+  return r.ok ? { ok: true } : { ok: false, message: r.message };
+}
+
+/** Creates the 5-minute scan trigger in Apps Script (idempotent there). */
+export async function installLandingScanTrigger(): Promise<{ ok: boolean; message?: string }> {
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false, message: "SHEETS_SYNC_SECRET is not configured." };
+  const r = await postToGas({ token, action: "installLandingScanTrigger" });
+  return r.ok ? { ok: true } : { ok: false, message: r.message };
+}
+
 export interface VoucherFile { base64: string; mimeType: string; filename: string }
 
 export async function uploadLandingVoucher(
