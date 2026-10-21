@@ -8,7 +8,8 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 const m = vi.hoisted(() => ({
   getRegistrationBundle: vi.fn(), markEmailStatus: vi.fn(), getRegistrablePageById: vi.fn(),
-  listPaymentAccounts: vi.fn(), appendRegistrationRows: vi.fn(), sendTransactionalEmail: vi.fn(),
+  listPaymentAccounts: vi.fn(), appendRegistrationRows: vi.fn(), applyRegistrationStatus: vi.fn(), sendTransactionalEmail: vi.fn(),
+  saveSnapshots: vi.fn(), saveStatusSnapshots: vi.fn(),
   claimEmail: vi.fn(), markEmailSent: vi.fn(), releaseEmail: vi.fn(), resolveAccess: vi.fn(), syncEnrollmentForRegistration: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-email-log", () => ({ claimEmail: m.claimEmail, markEmailSent: m.markEmailSent, releaseEmail: m.releaseEmail }));
@@ -16,7 +17,8 @@ vi.mock("@/lib/data/landing-enrollment", () => ({ resolveAccess: m.resolveAccess
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationBundle: m.getRegistrationBundle, markEmailStatus: m.markEmailStatus }));
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePageById: m.getRegistrablePageById }));
 vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.listPaymentAccounts }));
-vi.mock("@/lib/gas/event-sheet-client", () => ({ appendRegistrationRows: m.appendRegistrationRows }));
+vi.mock("@/lib/gas/event-sheet-client", () => ({ appendRegistrationRows: m.appendRegistrationRows, applyRegistrationStatus: m.applyRegistrationStatus }));
+vi.mock("@/lib/data/landing-sheet-sync", () => ({ saveSnapshots: m.saveSnapshots, saveStatusSnapshots: m.saveStatusSnapshots }));
 vi.mock("@/lib/brevo", () => ({ sendTransactionalEmail: m.sendTransactionalEmail }));
 
 import { JOB_HANDLERS, toSheetRegistration, notifyVoucherResubmitted, RECEIVED_SENT } from "@/lib/landing/registration/job-handlers";
@@ -46,6 +48,9 @@ beforeEach(() => {
   m.getRegistrablePageById.mockResolvedValue(page());
   m.listPaymentAccounts.mockResolvedValue([{ key: "faysal", label: "Faysal Bank", kind: "bank", rows: [{ label: "Account No.", value: "3573499000006913" }], displayText: "" }]);
   m.appendRegistrationRows.mockResolvedValue({ ok: true });
+  m.applyRegistrationStatus.mockResolvedValue({ ok: true });
+  m.saveSnapshots.mockResolvedValue(undefined);
+  m.saveStatusSnapshots.mockResolvedValue(undefined);
   m.sendTransactionalEmail.mockResolvedValue({});
   m.markEmailStatus.mockResolvedValue(undefined);
   m.claimEmail.mockResolvedValue(true);
@@ -98,6 +103,66 @@ describe("sheet_append", () => {
     m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
     m.appendRegistrationRows.mockResolvedValue({ ok: false, message: "Sheet is busy, try again" });
     await expect(JOB_HANDLERS.sheet_append("reg-1")).rejects.toThrow("Sheet is busy");
+  });
+  it("remembers lead and members as last written (normalizing happens in saveSnapshots)", async () => {
+    const b = groupBundle();
+    b.lead.status = "paid";
+    b.lead.amountReceived = 11500;
+    m.getRegistrationBundle.mockResolvedValue(b);
+    await JOB_HANDLERS.sheet_append("reg-1");
+    const saved = m.saveSnapshots.mock.calls[0][0] as { id: string }[];
+    expect(saved.map((r) => r.id)).toEqual(["reg-1", "reg-2", "reg-3"]);
+    expect(saved[0]).toEqual({ id: "reg-1", status: "paid", amountReceived: 11500, name: "Ayesha Khan", email: "ayesha@example.com", whatsapp: "+923001234567" });
+  });
+  it("saves no snapshot when the append fails, or for tests and pages without a sheet", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
+    m.appendRegistrationRows.mockResolvedValue({ ok: false, message: "busy" });
+    await expect(JOB_HANDLERS.sheet_append("reg-1")).rejects.toThrow();
+    m.appendRegistrationRows.mockResolvedValue({ ok: true });
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec({ isTest: true })));
+    await JOB_HANDLERS.sheet_append("reg-1");
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
+    m.getRegistrablePageById.mockResolvedValue(page({ sheetId: null }));
+    await JOB_HANDLERS.sheet_append("reg-1");
+    expect(m.saveSnapshots).not.toHaveBeenCalled();
+  });
+  it("throws when the snapshot save fails so the job retries", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
+    m.saveSnapshots.mockRejectedValue(new Error("db down"));
+    await expect(JOB_HANDLERS.sheet_append("reg-1")).rejects.toThrow("db down");
+  });
+});
+
+describe("sheet_status snapshots", () => {
+  it("writes only status and amount after a good push", async () => {
+    const b = groupBundle();
+    b.lead.status = "paid";
+    b.lead.amountReceived = 11500;
+    m.getRegistrationBundle.mockResolvedValue(b);
+    await JOB_HANDLERS.sheet_status("reg-1");
+    expect(m.saveSnapshots).not.toHaveBeenCalled();
+    expect(m.saveStatusSnapshots).toHaveBeenCalledWith([
+      { id: "reg-1", status: "paid", amountReceived: 11500 },
+      { id: "reg-2", status: "pending", amountReceived: null },
+      { id: "reg-3", status: "pending", amountReceived: null },
+    ]);
+  });
+  it("writes nothing when the push fails, or for tests and pages without a sheet", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
+    m.applyRegistrationStatus.mockResolvedValue({ ok: false });
+    await expect(JOB_HANDLERS.sheet_status("reg-1")).rejects.toThrow();
+    m.applyRegistrationStatus.mockResolvedValue({ ok: true });
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec({ isTest: true })));
+    await JOB_HANDLERS.sheet_status("reg-1");
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
+    m.getRegistrablePageById.mockResolvedValue(page({ sheetId: null }));
+    await JOB_HANDLERS.sheet_status("reg-1");
+    expect(m.saveStatusSnapshots).not.toHaveBeenCalled();
+  });
+  it("throws when the snapshot update fails so the job retries", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
+    m.saveStatusSnapshots.mockRejectedValue(new Error("db down"));
+    await expect(JOB_HANDLERS.sheet_status("reg-1")).rejects.toThrow("db down");
   });
 });
 
