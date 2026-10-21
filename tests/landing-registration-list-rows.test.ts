@@ -71,6 +71,20 @@ describe("listRegistrations row extras", () => {
   });
 });
 
+describe("list survives a failing extras lookup", () => {
+  it("still returns rows, with sheetUpdateWaiting false, when the jobs lookup errors", async () => {
+    const inner = memoryHandler(store);
+    db.state.handler = (op) => (op.table === "landing_jobs" ? { data: null, error: { code: "XX000" } } : inner(op));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rows } = await listRegistrations({ kind: "all" }, {});
+    expect(rows.length).toBe(3);
+    expect(rows.every((r) => r.sheetUpdateWaiting === false)).toBe(true);
+    expect(rows.find((r) => r.id === "b")?.lastEmailAt).toEqual({ paid: "2026-10-06T00:00:00Z", received: "2026-10-07T00:00:00Z" });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
 describe("loadRowExtras", () => {
   it("queries jobs and email log in chunks of at most 100 ids", async () => {
     const ids = Array.from({ length: 250 }, (_, i) => `r${i}`);

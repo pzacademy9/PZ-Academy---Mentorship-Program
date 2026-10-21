@@ -13,7 +13,7 @@ import { sweepStaleClaims } from "@/lib/data/landing-email-log";
 
 export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status" | "enrollment_sync" | "email_status" | "sheet_details";
 // Run order: the confirmation email goes first so a slow Apps Script call never delays it.
-export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_status", "enrollment_sync", "email_status", "sheet_details", "email_members", "email_admin"];
+export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_details", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"];
 export const MAX_ATTEMPTS = 5;
 export const BACKOFF_MINUTES = [1, 5, 15, 60] as const;
 const LEASE_MINUTES = 10;

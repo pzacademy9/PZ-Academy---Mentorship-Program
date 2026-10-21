@@ -191,10 +191,11 @@ export async function loadRowExtras(
       admin.from("landing_jobs").select("registration_id").eq("type", "sheet_details").neq("status", "done").in("registration_id", part),
       !includeEmails ? Promise.resolve({ data: [] as { registration_id: string; kind: string; sent_at: string | null }[], error: null }) : admin.from("landing_email_log").select("registration_id, kind, sent_at").eq("state", "sent").in("kind", Object.keys(EMAIL_LOG_TO_KIND)).in("registration_id", part).order("sent_at", { ascending: false }),
     ]);
-    if (jobs.error) throw jobs.error;
-    if (logs.error) throw logs.error;
-    for (const j of jobs.data ?? []) waiting.add(j.registration_id as string);
-    for (const l of logs.data ?? []) {
+    // Extras are decoration: a failed lookup must not break the whole list, so it degrades to empty.
+    if (jobs.error) console.error("[landing-registration-admin] waiting-jobs lookup failed:", jobs.error.code ?? "unknown");
+    if (logs.error) console.error("[landing-registration-admin] email-log lookup failed:", logs.error.code ?? "unknown");
+    for (const j of jobs.error ? [] : jobs.data ?? []) waiting.add(j.registration_id as string);
+    for (const l of logs.error ? [] : logs.data ?? []) {
       const kind = EMAIL_LOG_TO_KIND[l.kind as string];
       const at = l.sent_at as string | null;
       if (!kind || !at) continue;

@@ -93,6 +93,15 @@ describe("voucher thumbnail", () => {
     expect(screen.getByRole("link").querySelector("img")).toBeNull();
     expect(screen.getByRole("link").getAttribute("href")).toBe("https://example.com/slip.pdf");
   });
+  it("shows plain text, no link, for a non-https url", () => {
+    const { container } = render(<VoucherThumb url="javascript:alert(1)" />);
+    expect(container.querySelector("a")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Voucher")).toBeTruthy();
+    cleanup();
+    const card = render(<VoucherThumb url="javascript:alert(1)" variant="card" />);
+    expect(card.container.querySelector("a")).toBeNull();
+  });
   it("says No voucher when there is no link", () => {
     render(<VoucherThumb url={null} />);
     expect(screen.getByText("No voucher")).toBeTruthy();
@@ -171,6 +180,14 @@ describe("status email dialog", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Paid/ }));
     expect(screen.getByText("You picked the Paid email, but this person's status is Pending.")).toBeTruthy();
     expect(screen.getByText(/does not change the person's status/i)).toBeTruthy();
+  });
+
+  it("treats a free row as matching the Pending email", () => {
+    open(row({ status: "free" }));
+    expect((screen.getByRole("radio", { name: /Pending/ }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByText(/You picked/)).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: /Paid/ }));
+    expect(screen.getByText(/You picked the Paid email/)).toBeTruthy();
   });
 
   it("sends once without confirmation, then closes and refreshes", async () => {

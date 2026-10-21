@@ -80,9 +80,13 @@ export async function updateRegistrationDetails(p: { registrationId: string; nam
     return { ok: false, reason: "db-error" };
   }
 
-  // A problem here never fails the edit: the job row is the durable record and the cron drain retries it.
+  // A problem here never fails the edit. If the job row was written, the cron drain retries it; if the enqueue
+  // itself failed there is no job row, so the sheet is only updated by the direct attempt below (or a later scan).
   try {
-    const queued = await enqueueSheetDetails(data.id).catch(() => false);
+    const queued = await enqueueSheetDetails(data.id).catch(() => {
+      console.error("[landing-registration-edit] could not queue the sheet details job for registration", data.id);
+      return false;
+    });
     runInBackground(queued ? runJobsFor(data.id) : runJobsDirect(data.id, ["sheet_details"]));
   } catch {
     console.error("[landing-registration-edit] sheet details push crashed");

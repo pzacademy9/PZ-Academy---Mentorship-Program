@@ -14,6 +14,9 @@ export function VoucherThumb({ url, variant = "cell" }: { url: string | null; va
   const [failed, setFailed] = useState(false);
   if (!url) return <span className="text-xs text-pz-on-surface-variant/80 italic">No voucher</span>;
 
+  // Only a real https link becomes a clickable link; anything else (javascript:, data:, plain text) is shown as text.
+  if (!url.startsWith("https://")) return <span className="text-xs text-pz-on-surface-variant">Voucher</span>;
+
   const src = failed ? null : voucherThumbSrc(url);
   const box = (
     <span className={BOX}>

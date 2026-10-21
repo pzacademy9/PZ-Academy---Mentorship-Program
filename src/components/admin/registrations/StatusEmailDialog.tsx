@@ -26,6 +26,7 @@ const KIND_EFFECT: Record<ManualEmailKind, string> = {
 };
 const KIND_FOR_STATUS: Partial<Record<RegistrationStatus, ManualEmailKind>> = {
   pending: "received",
+  free: "received",
   paid: "paid",
   underpaid: "underpaid",
   reserved: "reserved",

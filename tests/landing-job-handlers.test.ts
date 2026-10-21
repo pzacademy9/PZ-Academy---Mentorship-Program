@@ -159,6 +159,29 @@ describe("sheet_status snapshots", () => {
     await JOB_HANDLERS.sheet_status("reg-1");
     expect(m.saveStatusSnapshots).not.toHaveBeenCalled();
   });
+  it("matches the sheet row on the snapshot email after an unsynced email edit, and saves the status snapshot", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec({ email: "new@example.com", status: "paid", amountReceived: 4800 })));
+    db.state.handler = () => ({ data: [{ registration_id: "reg-1", email: " Old@Example.com " }], error: null });
+    await JOB_HANDLERS.sheet_status("reg-1");
+    const rows = m.applyRegistrationStatus.mock.calls[0][1] as { email: string }[];
+    expect(rows[0].email).toBe("Old@Example.com");
+    expect(m.saveStatusSnapshots).toHaveBeenCalledWith([{ id: "reg-1", status: "paid", amountReceived: 4800 }]);
+    // The script reports the row missing under the snapshot-email key: no status snapshot is saved.
+    m.saveStatusSnapshots.mockClear();
+    m.applyRegistrationStatus.mockResolvedValue({ ok: true, missing: ["PZA-PPC-001|old@example.com"] });
+    await JOB_HANDLERS.sheet_status("reg-1");
+    expect(m.saveStatusSnapshots).toHaveBeenCalledWith([]);
+  });
+  it("matches on the current email when no snapshot exists", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(rec({ email: "new@example.com" })));
+    db.state.handler = () => ({ data: [], error: null });
+    await JOB_HANDLERS.sheet_status("reg-1");
+    expect((m.applyRegistrationStatus.mock.calls[0][1] as { email: string }[])[0].email).toBe("new@example.com");
+    m.applyRegistrationStatus.mockResolvedValue({ ok: true, missing: ["PZA-PPC-001|new@example.com"] });
+    m.saveStatusSnapshots.mockClear();
+    await JOB_HANDLERS.sheet_status("reg-1");
+    expect(m.saveStatusSnapshots).toHaveBeenCalledWith([]);
+  });
   it("throws when the snapshot update fails so the job retries", async () => {
     m.getRegistrationBundle.mockResolvedValue(bundle(rec()));
     m.saveStatusSnapshots.mockRejectedValue(new Error("db down"));

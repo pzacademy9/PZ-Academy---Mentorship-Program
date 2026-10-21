@@ -118,9 +118,21 @@ async function sheetStatus(registrationId: string): Promise<void> {
   if (!loaded) return;
   const { bundle, page } = loaded;
   if (bundle.lead.isTest || !page.sheetId) return;
-  const rows = [bundle.lead, ...bundle.members].map((r) => ({
+  const people = [bundle.lead, ...bundle.members];
+  // The sheet row is found by the email the sheet currently shows: the remembered snapshot email when there is
+  // one (an in-app email edit may not have reached the sheet yet), else the current email.
+  const { data: snaps, error: snapErr } = await createAdminSupabase()
+    .from("landing_sheet_snapshots").select("registration_id, email").in("registration_id", people.map((r) => r.id));
+  if (snapErr) throw new Error("Sheet snapshot lookup failed");
+  const snapEmail = new Map<string, string>();
+  for (const s of (snaps ?? []) as { registration_id: string; email: string | null }[]) {
+    const e = s.email?.trim();
+    if (e) snapEmail.set(s.registration_id, e);
+  }
+  const matchEmailOf = (r: { id: string; email: string }) => snapEmail.get(r.id) ?? r.email;
+  const rows = people.map((r) => ({
     refId: bundle.lead.refId ?? "",
-    email: r.email,
+    email: matchEmailOf(r),
     // The script only knows the sheet words ("Paid"), not the database words ("paid").
     status: STATUS_LABELS[r.status],
     amountReceived: r.amountReceived,
@@ -130,9 +142,9 @@ async function sheetStatus(registrationId: string): Promise<void> {
   // Only status and amount: a status push must not overwrite the stored name/email/WhatsApp snapshot.
   // A row the script could not find was not rewritten, so its remembered value must stay as it was (sheet == snapshot).
   const missing = new Set((res.missing ?? []).map((k) => k.trim()));
-  const keyOf = (r: { email: string }) => `${(bundle.lead.refId ?? "").trim().toUpperCase()}|${r.email.trim().toLowerCase()}`;
+  const keyOf = (r: { id: string; email: string }) => `${(bundle.lead.refId ?? "").trim().toUpperCase()}|${matchEmailOf(r).trim().toLowerCase()}`;
   await saveStatusSnapshots(
-    [bundle.lead, ...bundle.members]
+    people
       .filter((r) => !missing.has(keyOf(r)))
       .map((r) => ({ id: r.id, status: r.status, amountReceived: r.amountReceived })),
   );
