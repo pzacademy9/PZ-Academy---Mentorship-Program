@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listRegistrations, listRegistrationPageOptions, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
@@ -68,6 +69,14 @@ export default async function AdminCampaignRegistrationsPage({
   return (
     <div className="space-y-6">
       <EnrollmentSourceTabs active="page" />
+      <div className="flex justify-end">
+        <Link
+          href={`${DETAIL_BASE}/sheet/${pageId}`}
+          className="inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+        >
+          Sheet sync
+        </Link>
+      </div>
       <CampaignRegistrations
         // A new page of results or a new filter starts with nothing ticked.
         key={JSON.stringify(query)}
