@@ -148,7 +148,7 @@ export function StatusEmailDialog({
         </fieldset>
 
         {mismatch && (
-          <div className="flex gap-3 p-3.5 rounded-lg bg-pz-tertiary-fixed text-pz-on-tertiary-fixed">
+          <div className="flex gap-3 p-3.5 rounded-lg bg-pz-secondary-fixed text-pz-on-secondary-fixed">
             <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" aria-hidden="true" />
             <div className="flex flex-col gap-1">
               <p className="text-xs font-headline font-bold">{`You picked the ${KIND_LABEL[kind]} email, but this person's status is ${STATUS_LABEL[row.status]}.`}</p>
