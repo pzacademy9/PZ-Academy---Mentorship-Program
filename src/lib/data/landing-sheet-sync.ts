@@ -3,7 +3,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
-import { parseSheetStatus, planScan, type PlannedChange, type PlanResult, type SheetScanRow, type AppReg, type Snapshot } from "@/lib/landing/registration/sheet-sync-engine";
+import { parseSheetStatus, planScan, type SyncField, type PlannedChange, type PlanResult, type SheetScanRow, type AppReg, type Snapshot } from "@/lib/landing/registration/sheet-sync-engine";
 import { enqueueSheetStatus } from "@/lib/data/landing-jobs";
 import { mapRecord } from "@/lib/data/landing-registrations";
 import { queueStatusFollowUps } from "@/lib/data/landing-registration-admin";
@@ -374,4 +374,185 @@ export async function runScan(sheetId: string, rows: SheetScanRow[]): Promise<Sc
     .eq("id", pageId);
   if (uErr) console.error(`${LOG} page update failed:`, (uErr as { code?: string }).code);
   return summary;
+}
+
+// ---------------------------------------------------------------------------------------------
+// First-scan review: what the owner sees, and approving it.
+// ---------------------------------------------------------------------------------------------
+
+export interface SheetSyncStatus {
+  pageId: string;
+  state: SyncState;
+  lastScannedAt: string | null;
+  waiting: number;
+  report: { logId: string; registrationId: string; name: string; field: SyncField; sheetValue: string; appValue: string }[];
+  problems: { rowNumber: number | null; refId: string; field: string; outcome: string; detail: string }[];
+}
+
+const SYNC_FIELDS: readonly string[] = ["status", "amount", "name", "email", "whatsapp"];
+const isSyncField = (f: string): f is SyncField => SYNC_FIELDS.includes(f);
+
+/** Raised when an approval cannot go ahead; the message is safe to show to the owner. */
+export class ApproveRefused extends Error {}
+
+type LogRow = Database["public"]["Tables"]["landing_sheet_sync_log"]["Row"];
+type ReportRow = LogRow & { registration_id: string; field: SyncField };
+
+async function loadReportRows(pageId: string): Promise<ReportRow[]> {
+  const db = createAdminSupabase();
+  const all: LogRow[] = [];
+  for (let from = 0; ; from += CHUNK) {
+    const { data, error } = await db
+      .from("landing_sheet_sync_log").select("*").eq("page_id", pageId).eq("outcome", "report")
+      .order("created_at", { ascending: true }).order("id", { ascending: true })
+      .range(from, from + CHUNK - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as LogRow[];
+    all.push(...rows);
+    if (rows.length < CHUNK) break;
+  }
+  return all.filter((r): r is ReportRow => r.registration_id !== null && isSyncField(r.field));
+}
+
+/** What the review screen shows for one page: the first-scan differences and the latest problems. */
+export async function getSheetSyncStatus(pageId: string): Promise<SheetSyncStatus> {
+  const db = createAdminSupabase();
+  const { data: page, error: pErr } = await db
+    .from("landing_pages").select("id, sheet_sync_state, sheet_last_scanned_at, sheet_sync_waiting").eq("id", pageId).maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!page) throw new Error("Page not found");
+  const state: SyncState = page.sheet_sync_state === "live" ? "live" : "report";
+
+  const reportRows = state === "report" ? await loadReportRows(pageId) : [];
+  const names = new Map<string, string>();
+  const ids = Array.from(new Set(reportRows.map((r) => r.registration_id)));
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const { data, error } = await db.from("landing_registrations").select("id, name").in("id", ids.slice(i, i + ID_CHUNK));
+    if (error) throw new Error(error.message);
+    for (const r of data ?? []) names.set(r.id as string, (r.name as string) ?? "");
+  }
+
+  const { data: probs, error: prErr } = await db
+    .from("landing_sheet_sync_log").select("*").eq("page_id", pageId)
+    .in("outcome", ["rejected", "unknown-row", "duplicate-row"])
+    .order("row_number", { ascending: true }).limit(500);
+  if (prErr) throw new Error(prErr.message);
+
+  return {
+    pageId,
+    state,
+    lastScannedAt: (page.sheet_last_scanned_at as string | null) ?? null,
+    waiting: Number(page.sheet_sync_waiting ?? 0),
+    report: reportRows.map((r) => ({
+      logId: r.id,
+      registrationId: r.registration_id,
+      name: names.get(r.registration_id) ?? "",
+      field: r.field,
+      sheetValue: r.sheet_value ?? "",
+      appValue: r.app_value ?? "",
+    })),
+    problems: ((probs ?? []) as LogRow[]).map((r) => ({ rowNumber: r.row_number, refId: r.ref_id, field: r.field, outcome: r.outcome, detail: r.detail })),
+  };
+}
+
+const normField = (field: SyncField, v: string): string =>
+  field === "whatsapp" ? v.replace(/\D/g, "") : field === "email" ? v.trim().toLowerCase() : v.trim();
+
+/** The log stores values as text: turn them back into what the planner produced. */
+function toTyped(field: SyncField, v: string | null): string | number | null {
+  if (field === "amount") return v === null || v === "" ? null : Number(v);
+  return v === null ? "" : v;
+}
+
+/**
+ * Approves the first scan of a page. Ticked differences (by registration + field) are applied from the sheet;
+ * the rest keep the app's values (status/amount: the sheet is rewritten; name/email/WhatsApp: both sides stay and
+ * the sheet's value is remembered so the next scan sees no difference). The page goes live LAST, so a failure part
+ * way leaves it in review and the approval can simply be repeated.
+ */
+export async function approveReport(
+  pageId: string,
+  applyKeys: { registrationId: string; field: SyncField }[],
+): Promise<{ applied: number; keptApp: number }> {
+  const db = createAdminSupabase();
+  const { data: page, error: pErr } = await db.from("landing_pages").select("id, sheet_sync_state").eq("id", pageId).maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!page) throw new ApproveRefused("Page not found.");
+  if (page.sheet_sync_state === "live") throw new ApproveRefused("This page's sheet is already being kept in sync. There is nothing left to approve.");
+
+  const report = await loadReportRows(pageId);
+  const ticked = new Set(applyKeys.map((k) => `${k.registrationId}|${k.field}`));
+  const isTicked = (r: ReportRow) => ticked.has(`${r.registration_id}|${r.field}`);
+
+  // 1. Every registration gets a remembered sheet state (from the app's values) if it has none, so later updates have a row to change.
+  const records = await loadPageRegistrations(pageId);
+  const existing = new Set<string>();
+  const allIds = records.map((r) => r.id);
+  for (let i = 0; i < allIds.length; i += ID_CHUNK) {
+    const { data, error } = await db.from("landing_sheet_snapshots").select("registration_id").in("registration_id", allIds.slice(i, i + ID_CHUNK));
+    if (error) throw new Error(error.message);
+    for (const s of data ?? []) existing.add(s.registration_id as string);
+  }
+  const missing: SnapshotInput[] = records.filter((r) => !existing.has(r.id)).map((r) => {
+    const m = mapRecord(r);
+    return { id: m.id, status: m.status, amountReceived: m.amountReceived, name: m.name, email: m.email, whatsapp: m.whatsapp };
+  });
+  for (let i = 0; i < missing.length; i += CHUNK) await saveSnapshots(missing.slice(i, i + CHUNK));
+
+  // 2. Build the changes to apply. A ticked status brings its amount row along; an amount alone is an amount-only edit.
+  const byReg = new Map<string, ReportRow[]>();
+  for (const r of report) byReg.set(r.registration_id, [...(byReg.get(r.registration_id) ?? []), r]);
+  const changes: PlannedChange[] = [];
+  const toPush = new Set<string>();
+  const keptContact: { registrationId: string; field: SyncField; sheetValue: string }[] = [];
+  for (const [regId, rows] of Array.from(byReg.entries())) {
+    const statusRow = rows.find((r) => r.field === "status");
+    const statusTicked = statusRow !== undefined && isTicked(statusRow);
+    for (const r of rows) {
+      const change: PlannedChange = { registrationId: regId, field: r.field, sheetValue: toTyped(r.field, r.sheet_value), appValue: toTyped(r.field, r.app_value) };
+      if (r.field === "status") {
+        if (statusTicked) changes.push(change); else toPush.add(regId);
+      } else if (r.field === "amount") {
+        if (statusTicked || isTicked(r)) changes.push(change); else toPush.add(regId);
+      } else if (isTicked(r)) {
+        changes.push(change);
+      } else {
+        keptContact.push({ registrationId: regId, field: r.field, sheetValue: normField(r.field, r.sheet_value ?? "") });
+      }
+    }
+  }
+
+  // 3. Apply the ticked changes.
+  const outcomes = changes.length > 0 ? await applySheetChanges(pageId, changes) : [];
+  const pairedAmount = (o: ApplyOutcome) => o.change.field === "amount" && changes.some((c) => c.registrationId === o.change.registrationId && c.field === "status");
+  const applied = outcomes.filter((o) => o.outcome === "applied" && !pairedAmount(o)).length;
+
+  // 4. Unticked status/amount: rewrite the sheet to the app's value (the remembered value is already the app's).
+  for (const regId of Array.from(toPush)) {
+    if (!(await enqueueSheetStatus(regId))) throw new Error("Could not queue the sheet update; try again");
+  }
+
+  // 5. Unticked name/email/WhatsApp: both sides stay; remember the sheet's value so it is not seen as a change again.
+  const now = new Date().toISOString();
+  for (const k of keptContact) {
+    const { error } = await db.from("landing_sheet_snapshots").update({ ...(k.field === "name" ? { name: k.sheetValue } : k.field === "email" ? { email: k.sheetValue } : { whatsapp: k.sheetValue }), updated_at: now }).eq("registration_id", k.registrationId);
+    if (error) throw new Error(error.message);
+  }
+  if (keptContact.length > 0) {
+    const scanId = crypto.randomUUID();
+    const logs: LogInsert[] = keptContact.map((k) => ({
+      page_id: pageId, scan_id: scanId, registration_id: k.registrationId, field: k.field,
+      outcome: "kept-app", sheet_value: k.sheetValue, detail: "The app's value was kept; the sheet was left as it is",
+    }));
+    const { error } = await db.from("landing_sheet_sync_log").insert(logs);
+    if (error) console.error(`${LOG} log write failed:`, (error as { code?: string }).code);
+  }
+
+  // 6. Finish: clear the review list, then go live last.
+  const { error: dErr } = await db.from("landing_sheet_sync_log").delete().eq("page_id", pageId).eq("outcome", "report");
+  if (dErr) throw new Error(dErr.message);
+  const { error: lErr } = await db.from("landing_pages").update({ sheet_sync_state: "live" }).eq("id", pageId);
+  if (lErr) throw new Error(lErr.message);
+
+  return { applied, keptApp: keptContact.length };
 }
