@@ -1756,6 +1756,9 @@ export type Database = {
           status: string
           title: string
           updated_at: string
+          sheet_last_scanned_at: string | null
+          sheet_sync_state: string
+          sheet_sync_waiting: number
         }
         Insert: {
           course_id?: string | null
@@ -1774,6 +1777,9 @@ export type Database = {
           status?: string
           title: string
           updated_at?: string
+          sheet_last_scanned_at?: string | null
+          sheet_sync_state?: string
+          sheet_sync_waiting?: number
         }
         Update: {
           course_id?: string | null
@@ -1792,6 +1798,9 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+          sheet_last_scanned_at?: string | null
+          sheet_sync_state?: string
+          sheet_sync_waiting?: number
         }
         Relationships: [
           {
