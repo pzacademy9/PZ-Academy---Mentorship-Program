@@ -4,7 +4,7 @@ import { createSupabaseMock, filterValue, memoryHandler, type Op, type Res } fro
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { claimEmail, releaseEmail, listEmailLog, markEmailSent, logPortalLink, sweepStaleClaims } from "@/lib/data/landing-email-log";
+import { claimEmail, releaseEmail, listEmailLog, markEmailSent, logPortalLink, sweepStaleClaims, logManualEmail, lastSentAt } from "@/lib/data/landing-email-log";
 
 /** In-memory table that enforces the partial unique index (registration_id, kind) on status kinds like Postgres. */
 function pkHandler(store: Record<string, Record<string, unknown>[]>) {
@@ -160,5 +160,47 @@ describe("listEmailLog", () => {
   it("throws when the lookup fails", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });
     await expect(listEmailLog(["reg-1"])).rejects.toBeTruthy();
+  });
+});
+
+describe("logManualEmail", () => {
+  it("upserts on (registration_id, kind): a second send of the same kind refreshes the row, no conflict", async () => {
+    const store: Record<string, Record<string, unknown>[]> = {};
+    const inner = memoryHandler(store);
+    // Like the real table: a plain insert of an existing (registration_id, kind) conflicts; an upsert replaces the row.
+    db.state.handler = (op) => {
+      const p = op.payload as Record<string, unknown>;
+      const exists = (store[op.table] ?? []).some((r) => r.registration_id === p?.registration_id && r.kind === p?.kind);
+      if (op.op === "insert" && exists) return { data: null, error: { code: "23505" } };
+      if (op.op === "upsert") store[op.table] = (store[op.table] ?? []).filter((r) => !(r.registration_id === p.registration_id && r.kind === p.kind));
+      return inner(op);
+    };
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-20T10:00:00.000Z"));
+      await logManualEmail("reg-1", "manual_paid", "old@x.com");
+      vi.setSystemTime(new Date("2026-10-21T11:30:00.000Z"));
+      await logManualEmail("reg-1", "manual_paid", "new@x.com");
+    } finally {
+      vi.useRealTimers();
+    }
+    const rows = store.landing_email_log.filter((r) => r.kind === "manual_paid");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ registration_id: "reg-1", state: "sent", to_email: "new@x.com", sent_at: "2026-10-21T11:30:00.000Z" });
+    expect(db.find("landing_email_log", "upsert")[0].upsertOptions).toEqual({ onConflict: "registration_id,kind" });
+  });
+});
+
+describe("lastSentAt", () => {
+  it("returns the latest sent_at among sent rows, counting the automatic twin of a manual kind", async () => {
+    db.state.handler = memoryHandler({
+      landing_email_log: [
+        { registration_id: "reg-1", kind: "paid", state: "sent", sent_at: "2026-10-15T09:00:00.000Z" },
+        { registration_id: "reg-1", kind: "manual_paid", state: "claimed", sent_at: "2026-10-18T09:00:00.000Z" },
+        { registration_id: "reg-2", kind: "paid", state: "sent", sent_at: "2026-10-19T09:00:00.000Z" },
+      ],
+    });
+    expect(await lastSentAt("reg-1", ["manual_paid"])).toBe("2026-10-15T09:00:00.000Z");
+    expect(await lastSentAt("reg-1", ["manual_reserved"])).toBeNull();
   });
 });

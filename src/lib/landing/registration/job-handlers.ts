@@ -7,16 +7,14 @@ import { saveSnapshots, saveStatusSnapshots } from "@/lib/data/landing-sheet-syn
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
 import { appendRegistrationRows, applyRegistrationStatus } from "@/lib/gas/event-sheet-client";
 import { STATUS_LABELS, toSheetRow, type SheetRegistration } from "./sheet-row";
-import { selectWaGroups } from "./wa-groups";
-import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
 import {
-  buildAdminAlertEmail, buildFreeJoiningEmail, buildMemberReceivedEmail, buildPaidEmail, buildReceivedEmail, buildReservedEmail,
-  buildUnderpaidEmail, buildVoucherResubmittedEmail,
-  formatStartsOn, withTestPrefix, type BuiltEmail, type LandingEmailContext,
+  buildAdminAlertEmail, buildFreeJoiningEmail, buildMemberReceivedEmail, buildReceivedEmail,
+  buildVoucherResubmittedEmail, withTestPrefix, type BuiltEmail, type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
+import { buildStatusEmail, emailContext } from "./status-email";
+import { manualKindsFor, type ManualEmailKind } from "./manual-kinds";
 import { resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
-import { claimEmail, markEmailSent, releaseEmail, type EmailLogKind } from "@/lib/data/landing-email-log";
-import { emailGetsPortalLink } from "./access-rules";
+import { claimEmail, lastSentAt, logManualEmail, markEmailSent, releaseEmail } from "@/lib/data/landing-email-log";
 import type { JobType } from "@/lib/data/landing-jobs";
 
 /** email_status value once the "received" email reached this person (makes retries idempotent). */
@@ -44,38 +42,16 @@ async function testRecipient(lead: RegistrationRecord): Promise<string | null> {
   return data?.user?.email ?? null;
 }
 
-async function deliver(lead: RegistrationRecord, intendedTo: string, toName: string, email: BuiltEmail): Promise<void> {
+/** True when an email was handed to Brevo; false when a test registration has no admin address to receive it. */
+async function deliver(lead: RegistrationRecord, intendedTo: string, toName: string, email: BuiltEmail): Promise<boolean> {
   const to = lead.isTest ? await testRecipient(lead) : intendedTo;
-  if (!to) return;
+  if (!to) return false;
   const final = lead.isTest ? withTestPrefix(email) : email;
   await sendTransactionalEmail({ to, toName, subject: final.subject, htmlContent: final.html });
+  return true;
 }
 
 const sheetUrl = (page: RegistrablePage) => (page.sheetId ? `https://docs.google.com/spreadsheets/d/${page.sheetId}/edit` : "");
-
-async function emailContext(lead: RegistrationRecord, page: RegistrablePage): Promise<LandingEmailContext> {
-  const cfg = page.registration;
-  const region = cfg.regions.find((r) => r.key === lead.region) ?? null;
-  const isFree = lead.status === "free";
-  const accounts = !isFree && region ? await listPaymentAccounts(region.accountKeys) : [];
-  const refId = lead.refId ?? "";
-  const verifyMessage = buildVerifyMessage(cfg, { name: lead.name, email: lead.email, refId, optionLabel: lead.optionLabel, isFree });
-  return {
-    name: lead.name,
-    eventLabel: cfg.eventLabel || page.title,
-    refId,
-    optionLabel: lead.optionLabel,
-    currency: lead.currency,
-    amount: lead.expectedAmount ?? 0,
-    groupSize: lead.groupSize,
-    region: region ? { label: region.label, classTime: region.classTime, timezoneLabel: region.timezoneLabel } : null,
-    startsOn: formatStartsOn(page.content.settings.countdownTo),
-    accounts,
-    waGroups: selectWaGroups(cfg, lead.optionKeys, lead.mode),
-    verifyUrl: verifyMessage ? whatsappVerifyUrl(cfg.whatsappVerifyNumber, verifyMessage) : "",
-    supportWhatsapp: cfg.whatsappVerifyNumber,
-  };
-}
 
 /**
  * One database row -> Part A's SheetRegistration (Task 5). Members carry the lead's ref and
@@ -224,9 +200,7 @@ async function emailAdmin(registrationId: string): Promise<void> {
   await deliver(lead, adminTo, "PZ Academy", email);
 }
 
-const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "https://pharmacozyme.com";
-
-const STATUS_EMAIL_KIND: Partial<Record<RegistrationRecord["status"], EmailLogKind>> = { paid: "paid", underpaid: "underpaid", reserved: "reserved" };
+const STATUS_EMAIL_KIND: Partial<Record<RegistrationRecord["status"], "paid" | "underpaid" | "reserved">> = { paid: "paid", underpaid: "underpaid", reserved: "reserved" };
 
 /** Brings enrollments in line with each person's status. Tries everyone, then rethrows the first error so the job retries. */
 async function enrollmentSync(registrationId: string): Promise<void> {
@@ -275,22 +249,7 @@ async function emailStatus(registrationId: string): Promise<void> {
         await releaseEmail(person.id, kind);
         continue;
       }
-      const { desired, courseId, courseSlug, hasAccount } = access;
-      const isPaid = kind === "paid";
-      const portalUrl = hasAccount && courseSlug && emailGetsPortalLink(desired) ? `${appUrl()}/portal/${courseSlug}` : undefined;
-      const ctx: LandingEmailContext = {
-        ...base,
-        name: person.name,
-        email: person.email,
-        amountReceived: person.amountReceived,
-        coveredByGroup: person.rowType === "member",
-        portalUrl,
-        needsAccount: isPaid && courseId !== null && !hasAccount,
-        signupUrl: `${appUrl()}/register`,
-        portalOpensLater: isPaid && lead.mode === "live" && !desired.portalOpen,
-        noCourse: courseId === null,
-      };
-      const email = kind === "paid" ? buildPaidEmail(ctx) : kind === "underpaid" ? buildUnderpaidEmail(ctx) : buildReservedEmail(ctx);
+      const email = await buildStatusEmail({ kind, person, lead, page: loaded.page, asOf: "now", base, access });
       await deliver(lead, person.email, person.name, email);
     } catch (err) {
       try { await releaseEmail(person.id, kind); } catch { console.warn("[landing-jobs] email claim release failed"); }
@@ -301,6 +260,43 @@ async function emailStatus(registrationId: string): Promise<void> {
     try { await markEmailSent(person.id, kind); } catch { console.warn("[landing-jobs] email sent mark failed"); }
   }
   if (firstError) throw firstError;
+}
+
+export type SendAgainResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "not-allowed" | "needs-confirm" | "send-failed"; sentAt?: string };
+
+/**
+ * Admin "send again": sends the TEXT of one status email to one person and logs it. It never claims the
+ * automatic sent-once log, enqueues jobs, changes the status, or touches email_status or enrollment,
+ * so a stale Paid can never enrol anyone. If the person already got this email, the caller must confirm.
+ */
+export async function sendStatusEmailAgain(p: { registrationId: string; kind: ManualEmailKind; confirmedAgain: boolean }): Promise<SendAgainResult> {
+  const access = await resolveAccess(p.registrationId);
+  if (!access) return { ok: false, reason: "not-found" };
+  const { registration: person, lead } = access;
+  if (!manualKindsFor(person.rowType).includes(p.kind)) return { ok: false, reason: "not-allowed" };
+
+  let sentAt = await lastSentAt(person.id, [p.kind === "received" ? "manual_received" : p.kind]);
+  // The automatic Received email leaves no log row: email_status is its record.
+  if (!sentAt && p.kind === "received" && person.emailStatus === RECEIVED_SENT) sentAt = person.createdAt;
+  if (sentAt && !p.confirmedAgain) return { ok: false, reason: "needs-confirm", sentAt };
+
+  const page = await getRegistrablePageById(access.pageId);
+  if (!page) return { ok: false, reason: "not-found" };
+  try {
+    const email = await buildStatusEmail({ kind: p.kind, person, lead, page, asOf: "now", access });
+    const delivered = await deliver(lead, person.email, person.name, email);
+    if (!delivered) return { ok: false, reason: "send-failed" };
+  } catch {
+    return { ok: false, reason: "send-failed" };
+  }
+  try {
+    await logManualEmail(person.id, `manual_${p.kind}`, person.email);
+  } catch {
+    console.warn("[landing-jobs] manual email log failed"); // the email went out; do not report a failure
+  }
+  return { ok: true };
 }
 
 /** Resubmitted voucher: one best-effort alert to the team. Never throws (not an outbox job). */
