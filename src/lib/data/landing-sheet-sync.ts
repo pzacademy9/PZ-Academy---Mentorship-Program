@@ -215,6 +215,8 @@ export async function listSheetsToScan(): Promise<{ sheetId: string; pageId: str
 }
 
 const CHUNK = 1000;
+/** Ids per `.in()` filter: keeps the request URL short. */
+const ID_CHUNK = 100;
 
 /** Every registration of one page (leads, members, individuals), read in chunks of 1000. */
 async function loadPageRegistrations(pageId: string): Promise<RegRow[]> {
@@ -236,8 +238,8 @@ async function loadPageRegistrations(pageId: string): Promise<RegRow[]> {
 async function loadSnapshots(regIds: string[]): Promise<Snapshot[]> {
   const db = createAdminSupabase();
   const out: Snapshot[] = [];
-  for (let i = 0; i < regIds.length; i += CHUNK) {
-    const { data, error } = await db.from("landing_sheet_snapshots").select("*").in("registration_id", regIds.slice(i, i + CHUNK));
+  for (let i = 0; i < regIds.length; i += ID_CHUNK) {
+    const { data, error } = await db.from("landing_sheet_snapshots").select("*").in("registration_id", regIds.slice(i, i + ID_CHUNK));
     if (error) throw new Error(error.message);
     for (const s of data ?? []) {
       out.push({
@@ -354,6 +356,11 @@ export async function runScan(sheetId: string, rows: SheetScanRow[]): Promise<Sc
     add({ row_number: r.rowNumber, ref_id: r.refId, field: "row", outcome: "duplicate-row", detail: "Another row in the sheet has the same Ref ID and email; this one was ignored" });
     summary.duplicates++;
   }
+
+  // Only the latest problems stay: earlier unresolved rows are replaced by this scan's. Applied history is kept.
+  const { error: dErr } = await db.from("landing_sheet_sync_log").delete().eq("page_id", pageId)
+    .in("outcome", ["rejected", "unknown-row", "duplicate-row", "skipped"]);
+  if (dErr) throw new Error(dErr.message);
 
   for (let i = 0; i < logRows.length; i += CHUNK) {
     const { error } = await db.from("landing_sheet_sync_log").insert(logRows.slice(i, i + CHUNK));

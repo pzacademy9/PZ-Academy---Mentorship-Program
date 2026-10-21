@@ -165,11 +165,36 @@ describe("runScan", () => {
     expect(ranges).toEqual([[0, 999], [1000, 1999]]);
   });
 
+  it("reads snapshots in chunks of at most 100 ids and still sees all of them", async () => {
+    const regs = Array.from({ length: 250 }, (_, i) => regRow({ id: `r${i}`, ref_id: `PZ-${i}`, email: `u${i}@x.com` }));
+    const snaps = regs.map((r, i) => snap({ registration_id: r.id, email: `u${i}@x.com` }));
+    setup("live", regs, snaps);
+    // Rows equal the snapshots, so a missed snapshot would show up as a change against the app.
+    const rows = regs.map((r, i) => sheetRow({ rowNumber: i + 2, refId: `PZ-${i}`, email: `u${i}@x.com`, name: "A" }));
+    const res = await runScan("S1", rows);
+    const reads = db.find("landing_sheet_snapshots", "select");
+    expect(reads).toHaveLength(3);
+    for (const op of reads) expect((op.filters.find(([k]) => k === "in")![2] as string[]).length).toBeLessThanOrEqual(100);
+    expect(res).toMatchObject({ applied: 0, rejected: 0, unknown: 0 });
+  });
+
+  it("two scans with the same problem leave one set of problem rows and keep applied history", async () => {
+    setup("live", [regRow()], [snap()]);
+    store.landing_sheet_sync_log.push({ id: "hist", page_id: "p1", outcome: "applied", scan_id: "old", field: "name" });
+    const rows = [sheetRow(), sheetRow({ rowNumber: 3, refId: "PZ-999", email: "z@x.com", name: "Zed" }), sheetRow({ rowNumber: 4 })];
+    await runScan("S1", rows);
+    const first = log().filter((l) => l.outcome !== "applied").length;
+    await runScan("S1", rows);
+    expect(first).toBe(2);
+    expect(log().filter((l) => l.outcome === "unknown-row")).toHaveLength(1);
+    expect(log().filter((l) => l.outcome === "duplicate-row")).toHaveLength(1);
+    expect(log().map((l) => l.id)).toContain("hist");
+  });
+
   it("never logs tokens or row contents to the console", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const spies = (["log", "error", "warn"] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
     setup("live", [regRow()], [snap()]);
     await runScan("S1", [sheetRow({ name: "Secret Person", status: "Paid", amount: "5000" })]);
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
+    for (const spy of spies) { expect(spy).not.toHaveBeenCalled(); spy.mockRestore(); }
   });
 });
