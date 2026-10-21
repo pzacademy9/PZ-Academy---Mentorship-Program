@@ -12,13 +12,12 @@ import {
   buildVoucherResubmittedEmail, withTestPrefix, type BuiltEmail, type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
 import { buildStatusEmail, emailContext } from "./status-email";
-import { manualKindsFor, type ManualEmailKind } from "./manual-kinds";
+import { manualKindsFor, RECEIVED_SENT, type ManualEmailKind } from "./manual-kinds";
 import { resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
 import { claimEmail, lastSentAt, logManualEmail, markEmailSent, releaseEmail } from "@/lib/data/landing-email-log";
 import type { JobType } from "@/lib/data/landing-jobs";
 
-/** email_status value once the "received" email reached this person (makes retries idempotent). */
-export const RECEIVED_SENT = "received_sent";
+export { RECEIVED_SENT };
 
 type Loaded = { bundle: RegistrationBundle; page: RegistrablePage };
 

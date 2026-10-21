@@ -11,6 +11,7 @@ import { enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } f
 import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
+import { RECEIVED_SENT, type ManualEmailKind } from "@/lib/landing/registration/manual-kinds";
 import { resolveAccess } from "@/lib/data/landing-enrollment";
 import { listMessagesForRegistrations } from "@/lib/data/participant-sends";
 
@@ -50,6 +51,13 @@ export interface RegistrationListRow {
   isTest: boolean;
   createdAt: string;
   statusChangedAt: string | null;
+  /** The payment voucher link. Admin-only: always null for an agent scope. */
+  voucherUrl: string | null;
+  whatsapp: string;
+  /** A sheet_details job for this person exists and is not done (pending, running or failed). */
+  sheetUpdateWaiting: boolean;
+  /** Latest time each status email (automatic or manual) went out to this person. */
+  lastEmailAt: Partial<Record<ManualEmailKind, string>>;
 }
 export interface RegistrationList {
   rows: RegistrationListRow[];
@@ -150,6 +158,52 @@ export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query:
   return qy as T;
 }
 
+const ID_CHUNK = 100;
+const chunks = <T,>(xs: T[]): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < xs.length; i += ID_CHUNK) out.push(xs.slice(i, i + ID_CHUNK));
+  return out;
+};
+const EMAIL_LOG_TO_KIND: Record<string, ManualEmailKind> = {
+  paid: "paid", manual_paid: "paid",
+  underpaid: "underpaid", manual_underpaid: "underpaid",
+  reserved: "reserved", manual_reserved: "reserved",
+  manual_received: "received",
+};
+
+/**
+ * Per-row list extras in two queries (chunked to 100 ids per .in()): which people have an unfinished
+ * sheet_details job, and the latest sent time per status email kind. An automatic Received has no log
+ * row; it counts through email_status, dated at createdAt (same fallback as sendStatusEmailAgain).
+ */
+export async function loadRowExtras(
+  people: { id: string; createdAt: string; emailStatus: string | null }[],
+): Promise<{ waiting: Set<string>; lastEmail: Map<string, Partial<Record<ManualEmailKind, string>>> }> {
+  const admin = createAdminSupabase();
+  const waiting = new Set<string>();
+  const lastEmail = new Map<string, Partial<Record<ManualEmailKind, string>>>();
+  for (const p of people) if (p.emailStatus === RECEIVED_SENT) lastEmail.set(p.id, { received: p.createdAt });
+  const ids = people.map((p) => p.id);
+  for (const part of chunks(ids)) {
+    const [jobs, logs] = await Promise.all([
+      admin.from("landing_jobs").select("registration_id").eq("type", "sheet_details").neq("status", "done").in("registration_id", part),
+      admin.from("landing_email_log").select("registration_id, kind, sent_at").eq("state", "sent").in("kind", Object.keys(EMAIL_LOG_TO_KIND)).in("registration_id", part).order("sent_at", { ascending: false }),
+    ]);
+    if (jobs.error) throw jobs.error;
+    if (logs.error) throw logs.error;
+    for (const j of jobs.data ?? []) waiting.add(j.registration_id as string);
+    for (const l of logs.data ?? []) {
+      const kind = EMAIL_LOG_TO_KIND[l.kind as string];
+      const at = l.sent_at as string | null;
+      if (!kind || !at) continue;
+      const cur = lastEmail.get(l.registration_id as string) ?? {};
+      if (!cur[kind] || at > (cur[kind] as string)) cur[kind] = at;
+      lastEmail.set(l.registration_id as string, cur);
+    }
+  }
+  return { waiting, lastEmail };
+}
+
 export async function listRegistrations(scope: Scope, f: RegistrationListFilters): Promise<RegistrationList> {
   if (isEmptyAgentScope(scope)) {
     const counts = { all: 0, pending: 0, reserved: 0, underpaid: 0, paid: 0, free: 0 } as Record<RegistrationStatus | "all", number>;
@@ -195,6 +249,9 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   }
   const names = await profileNames(records.map((r) => strOrNull(r.agent_id)));
 
+  const extras = await loadRowExtras(records.map((r) => ({ id: str(r.id), createdAt: str(r.created_at), emailStatus: strOrNull(r.email_status) })));
+  const isAgent = scope.kind === "agent";
+
   const rows: RegistrationListRow[] = records.map((r) => ({
     id: str(r.id),
     refId: strOrNull(r.ref_id),
@@ -215,6 +272,10 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
     isTest: r.is_test === true,
     createdAt: str(r.created_at),
     statusChangedAt: strOrNull(r.status_changed_at),
+    voucherUrl: isAgent ? null : strOrNull(r.voucher_url),
+    whatsapp: str(r.whatsapp),
+    sheetUpdateWaiting: extras.waiting.has(str(r.id)),
+    lastEmailAt: extras.lastEmail.get(str(r.id)) ?? {},
   }));
   const total = f.status && f.status !== "all" ? counts[f.status] : all;
   return { rows, total, pageSize: PAGE_SIZE, counts };
