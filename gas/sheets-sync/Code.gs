@@ -811,15 +811,14 @@ function handleApplyRegistrationStatus_(body) {
 const LANDING_SCAN_BUDGET_MS = 270000; // stop starting new sheets after 4 min 30 s (the limit is 6 min)
 const LANDING_SCAN_MAX_ROWS = 5000;
 
-/** The scan endpoint, derived from WEBHOOK_URL. Returns "" (and logs) when it cannot be derived safely. */
+/**
+ * The scan endpoint. Always the live site unless the script property LANDING_SCAN_URL overrides it
+ * (WEBHOOK_URL is not used: it can point at a test address and belongs to the course sheet sync).
+ */
+const LANDING_SCAN_DEFAULT_URL = "https://pz-academy.pharmacozyme.com/api/webhooks/landing-sheet-scan";
 function landingScanUrl_() {
-  const base = PropertiesService.getScriptProperties().getProperty("WEBHOOK_URL") || "";
-  const url = base.replace("/api/webhooks/sheets-sync", "/api/webhooks/landing-sheet-scan");
-  if (!base || url === base) {
-    console.error("Landing scan: WEBHOOK_URL does not contain /api/webhooks/sheets-sync, so no scan URL can be built.");
-    return "";
-  }
-  return url;
+  const override = PropertiesService.getScriptProperties().getProperty("LANDING_SCAN_URL");
+  return override || LANDING_SCAN_DEFAULT_URL;
 }
 
 /** POSTs a JSON body to the scan endpoint. Returns the parsed reply, or null after logging a short error. */
