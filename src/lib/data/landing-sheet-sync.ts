@@ -530,6 +530,18 @@ export async function approveReport(
   const pairedAmount = (o: ApplyOutcome) => o.change.field === "amount" && changes.some((c) => c.registrationId === o.change.registrationId && c.field === "status");
   const applied = outcomes.filter((o) => o.outcome === "applied" && !pairedAmount(o)).length;
 
+  // A ticked change the applier skipped or rejected (the app moved on, or it was not allowed) is handled like an unticked one:
+  // the sheet still shows its value, so remember that value and let the queued job rewrite the sheet; otherwise the next scan
+  // would take the sheet's value for a fresh edit. Contact fields just remember the sheet's value so it is not retried every scan.
+  const declinedContact: { registrationId: string; field: SyncField; sheetValue: string }[] = [];
+  for (const o of outcomes) {
+    if (o.outcome === "applied") continue;
+    const c = o.change;
+    if (c.field === "status") push(c.registrationId, { status: String(c.sheetValue ?? "") });
+    else if (c.field === "amount") push(c.registrationId, { amount_received: typeof c.sheetValue === "number" ? c.sheetValue : null });
+    else declinedContact.push({ registrationId: c.registrationId, field: c.field, sheetValue: normField(c.field, typeof c.sheetValue === "string" ? c.sheetValue : "") });
+  }
+
   // 4. Unticked status/amount: the app's value stays and the sheet is rewritten to it by a queued job. Until that lands the
   // sheet still shows its own value, so remember THAT value; otherwise the next scan would take it for a fresh edit and apply it.
   // The job later resets the remembered value to the app's once the sheet has been rewritten.
@@ -541,7 +553,7 @@ export async function approveReport(
   }
 
   // 5. Unticked name/email/WhatsApp: both sides stay; remember the sheet's value so it is not seen as a change again.
-  for (const k of keptContact) {
+  for (const k of [...keptContact, ...declinedContact]) {
     const { error } = await db.from("landing_sheet_snapshots").update({ ...(k.field === "name" ? { name: k.sheetValue } : k.field === "email" ? { email: k.sheetValue } : { whatsapp: k.sheetValue }), updated_at: now }).eq("registration_id", k.registrationId);
     if (error) throw new Error(error.message);
   }

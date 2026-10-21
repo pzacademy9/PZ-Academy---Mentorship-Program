@@ -213,7 +213,7 @@ describe("approve then live scan", () => {
     expect(live().sheet_sync_state).toBe("live");
   });
 
-  it("two approvals at once apply each change at most once and a following live scan applies nothing declined", async () => {
+  it("two approvals started together: each change is applied once, one snapshot per registration, and a following live scan applies nothing declined", async () => {
     seed("report",
       [reg(R1, { ref_id: "X-1" }), reg(R2, { ref_id: "X-2", email: "r2@x.com" })],
       [rep("l1", R1, "status", "paid", "pending"), rep("l2", R2, "status", "paid", "pending"), rep("l3", R2, "name", "Sana K.", "Ayesha")]);
@@ -233,6 +233,25 @@ describe("approve then live scan", () => {
     expect(summary).toMatchObject({ applied: 0 });
     expect(db.state.ops.some((o) => o.op === "rpc")).toBe(false);
     expect(store.landing_registrations.find((r) => r.id === R2)!.status).toBe("pending");
+  });
+});
+
+describe("ticked change that cannot be applied", () => {
+  it("is treated like an unticked one: sheet value remembered, sheet push queued, next live scan changes nothing", async () => {
+    seed("report", [reg(R1, { ref_id: "X-1", status: "pending" })], [rep("l1", R1, "status", "paid", "pending")]);
+    store.landing_registrations[0].status = "underpaid"; // the app moved on after the report was made
+    const res = await approvePost(post({ pageId: PAGE, applyKeys: [{ registrationId: R1, field: "status" }] }));
+    expect(await res.json()).toEqual({ applied: 0, keptApp: 0 });
+    expect(store.landing_sheet_snapshots[0]).toMatchObject({ registration_id: R1, status: "paid" });
+    expect(enqueueSheetStatus).toHaveBeenCalledWith(R1);
+    expect(runJobsFor).toHaveBeenCalledWith(R1);
+    queueStatusFollowUps.mockClear();
+    db.state.ops = [];
+    const summary = await runScan("sheet-1", [{ rowNumber: 2, refId: "X-1", email: `${R1}@x.com`, name: "Ayesha", whatsapp: "923001234567", status: "Paid", amount: "", rowType: "individual" }]);
+    expect(summary).toMatchObject({ applied: 0 });
+    expect(db.state.ops.some((o) => o.op === "rpc")).toBe(false);
+    expect(queueStatusFollowUps).not.toHaveBeenCalled();
+    expect(store.landing_registrations[0].status).toBe("underpaid");
   });
 });
 

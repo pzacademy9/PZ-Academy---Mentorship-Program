@@ -29,6 +29,13 @@ describe("saveSnapshots", () => {
     const [op] = db.find("landing_sheet_snapshots", "upsert");
     expect((op.payload as Record<string, unknown>[])[0]).toMatchObject({ name: "Ayesha Khan", email: "ayesha@example.com", whatsapp: "923001234567" });
   });
+  it("insertOnly leaves existing rows alone (ignoreDuplicates); the default still overwrites", async () => {
+    await saveSnapshots([reg("r1")], { insertOnly: true });
+    expect(db.find("landing_sheet_snapshots", "upsert")[0].upsertOptions).toMatchObject({ onConflict: "registration_id", ignoreDuplicates: true });
+    db.reset();
+    await saveSnapshots([reg("r1")]);
+    expect(db.find("landing_sheet_snapshots", "upsert")[0].upsertOptions).toEqual({ onConflict: "registration_id" });
+  });
   it("does nothing for an empty list", async () => {
     await saveSnapshots([]);
     expect(db.state.ops).toHaveLength(0);
