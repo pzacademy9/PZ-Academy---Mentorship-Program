@@ -269,6 +269,7 @@ describe("Send WhatsApp on the campaign page", () => {
       id: "r1", refId: null, name: "Person 1", email: "p1@x.com", pageId: "pg1", pageTitle: "TMC Batch 1",
       optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
       status: "paid", agentId: null, agentName: null, groupSize: 1, isTest: false, createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null,
+      voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {},
     };
     render(
       <CampaignRegistrations

@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Inbox, Users, Radio, PlayCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, Users, Radio, PlayCircle, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDatePkt, initials } from "@/lib/format";
@@ -7,6 +8,7 @@ import { formatMoney } from "@/lib/format-money";
 import type { RegistrationListRow } from "@/lib/data/landing-registration-admin";
 import { RegistrationStatusBadge } from "./RegistrationStatusBadge";
 import { registrationHref, type RegistrationQuery } from "./query";
+import { VoucherThumb } from "./VoucherThumb";
 
 const TH = "py-3.5 px-3 font-headline font-bold text-[11px] tracking-wide uppercase";
 
@@ -33,6 +35,16 @@ function MembersChip({ groupSize }: { groupSize: number }) {
   return (
     <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold bg-pz-secondary-container text-pz-on-secondary-container">
       <Users className="w-3 h-3" aria-hidden="true" />+{groupSize - 1} members
+    </span>
+  );
+}
+
+function WaitingTag({ row }: { row: RegistrationListRow }) {
+  if (!row.sheetUpdateWaiting) return null;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold bg-pz-tertiary-fixed text-pz-on-tertiary-fixed">
+      <RefreshCw className="w-3 h-3" aria-hidden="true" />
+      Sheet update waiting
     </span>
   );
 }
@@ -64,6 +76,7 @@ export function RegistrationsTable({
   detailHrefBase,
   showAgentColumn,
   selectable,
+  rowActions,
 }: {
   rows: RegistrationListRow[];
   total: number;
@@ -79,6 +92,8 @@ export function RegistrationsTable({
     allOnPageSelected: boolean;
     onTogglePage: () => void;
   };
+  /** Admin lists only: renders the row menu, and turns on the voucher picture. */
+  rowActions?: (row: RegistrationListRow) => ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -105,6 +120,14 @@ export function RegistrationsTable({
         getKey={(r) => r.id}
         mobile={{
           href,
+          actions: rowActions,
+          footer: rowActions
+            ? (r) => (
+                <div className="px-3 pb-3 flex items-center gap-2">
+                  <VoucherThumb url={r.voucherUrl} variant="card" />
+                </div>
+              )
+            : undefined,
           title: (r) => (
             <span className="inline-flex flex-wrap items-center gap-1.5">
               {r.name}
@@ -115,6 +138,7 @@ export function RegistrationsTable({
           meta: (r) => [
             `${r.pageTitle} · ${r.optionLabel}`,
             `${r.region} · ${r.mode === "live" ? "Live" : "Recorded"} · ${formatMoney(r.expectedAmount, r.currency)}`,
+            ...(r.sheetUpdateWaiting ? [<WaitingTag key="waiting" row={r} />] : []),
             <span key="status" className="inline-flex items-center gap-2">
               <RegistrationStatusBadge status={r.status} />
               <span>{formatDatePkt(r.createdAt)}</span>
@@ -130,7 +154,7 @@ export function RegistrationsTable({
         table={
           <div className="bg-pz-surface-container-lowest rounded-2xl border border-pz-outline-variant/40 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs min-w-[64rem]">
+              <table className="w-full text-xs min-w-[72rem]">
                 <thead>
                   <tr className="border-b border-pz-outline-variant/40 text-pz-on-surface-variant text-left bg-pz-surface-container-low">
                     {selectable && (
@@ -151,8 +175,10 @@ export function RegistrationsTable({
                     <th className={TH}>Live or Recorded</th>
                     <th className={`${TH} text-right`}>Amount</th>
                     <th className={TH}>Status</th>
+                    {rowActions && <th className={TH}>Voucher</th>}
                     {showAgentColumn && <th className={TH}>Agent</th>}
-                    <th className={`${TH} pr-6`}>Date</th>
+                    <th className={`${TH} ${rowActions ? "" : "pr-6"}`}>Date</th>
+                    {rowActions && <th className={`${TH} pr-4 w-12`}><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pz-outline-variant/30 text-pz-on-surface">
@@ -182,6 +208,7 @@ export function RegistrationsTable({
                               <span className="font-headline font-bold truncate group-hover:text-pz-primary transition-colors">{r.name}</span>
                               {r.isTest && <TestChip />}
                               <MembersChip groupSize={r.groupSize} />
+                              <WaitingTag row={r} />
                             </span>
                             <span className="text-[11px] text-pz-on-surface-variant truncate">{r.email}</span>
                             {r.refId && <span className="text-[10px] text-pz-tertiary font-semibold mt-0.5">Ref: {r.refId}</span>}
@@ -196,6 +223,7 @@ export function RegistrationsTable({
                       <td className="py-4 px-3 whitespace-nowrap"><ModeChip mode={r.mode} /></td>
                       <td className="py-4 px-3 text-right whitespace-nowrap"><Amount row={r} /></td>
                       <td className="py-4 px-3 whitespace-nowrap"><RegistrationStatusBadge status={r.status} /></td>
+                      {rowActions && <td className="py-4 px-3 whitespace-nowrap"><VoucherThumb url={r.voucherUrl} /></td>}
                       {showAgentColumn && (
                         <td className="py-4 px-3 whitespace-nowrap">
                           {r.agentName ? (
@@ -210,7 +238,8 @@ export function RegistrationsTable({
                           )}
                         </td>
                       )}
-                      <td className="py-4 px-3 pr-6 whitespace-nowrap font-headline font-semibold">{formatDatePkt(r.createdAt)}</td>
+                      <td className={`py-4 px-3 ${rowActions ? "" : "pr-6 "}whitespace-nowrap font-headline font-semibold`}>{formatDatePkt(r.createdAt)}</td>
+                      {rowActions && <td className="py-4 pl-1 pr-4 text-right">{rowActions(r)}</td>}
                     </tr>
                   ))}
                 </tbody>

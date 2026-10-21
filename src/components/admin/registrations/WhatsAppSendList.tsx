@@ -41,9 +41,15 @@ const timeLabel = (iso: string | null): string => {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Karachi" }).replace(" AM", " am").replace(" PM", " pm");
 };
 
+/** Why a number cannot be messaged on WhatsApp, in plain words; null when it can. */
+export const phoneProblemWord = (phone: string): string | null => {
+  if (normalizePhone(phone).ok) return null;
+  return phone.trim() === "" ? "No phone number" : "Number not valid";
+};
+
 const leftOutWord = (r: Recipient): string => {
   if (r.state === "skipped" && r.reason !== "no_phone") return SKIP_WORDS[r.reason] ?? "Left out";
-  return r.phone.trim() === "" ? "No phone number" : "Number not valid";
+  return phoneProblemWord(r.phone) ?? "Number not valid";
 };
 
 const initials = (name: string): string =>

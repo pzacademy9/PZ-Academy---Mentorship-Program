@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { RegistrationFilters } from "@/components/admin/registrations/RegistrationFilters";
-import { RegistrationsTable } from "@/components/admin/registrations/RegistrationsTable";
+import { AllRegistrationsList } from "@/components/admin/registrations/AllRegistrationsList";
 
 export const metadata = { title: "Page Registrations — PZ Academy" };
 
@@ -92,7 +92,7 @@ export default async function AdminAllRegistrationsPage({ searchParams }: { sear
         agentOptions={agentOptions}
       />
 
-      <RegistrationsTable
+      <AllRegistrationsList
         rows={list.rows}
         total={list.total}
         pageSize={list.pageSize}

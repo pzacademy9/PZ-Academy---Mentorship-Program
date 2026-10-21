@@ -10,6 +10,10 @@ export function ResponsiveList<T>({
     title: (row: T) => React.ReactNode;
     meta?: (row: T) => React.ReactNode[];
     href?: (row: T) => string;
+    /** Sits beside the card link (outside it), for example a row menu button. */
+    actions?: (row: T) => React.ReactNode;
+    /** A full-width strip under the card's main line, outside the card link. */
+    footer?: (row: T) => React.ReactNode;
   };
   /** The existing desktop table, rendered unchanged at md and up. */
   table: React.ReactNode;
@@ -32,7 +36,8 @@ export function ResponsiveList<T>({
             </div>
           );
           return (
-            <li key={getKey(row)} className="flex items-stretch rounded-xl border border-border bg-card">
+            <li key={getKey(row)} className="rounded-xl border border-border bg-card">
+              <div className="flex items-stretch">
               {selection && (
                 <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center">
                   <input
@@ -51,6 +56,9 @@ export function ResponsiveList<T>({
               ) : (
                 <div className={cn("flex min-w-0 flex-1 items-center p-3", selection && "pl-0")}>{body}</div>
               )}
+              {mobile.actions && <div className="flex shrink-0 items-center pr-1">{mobile.actions(row)}</div>}
+              </div>
+              {mobile.footer?.(row)}
             </li>
           );
         })}

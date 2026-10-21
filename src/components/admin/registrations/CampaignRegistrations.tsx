@@ -9,6 +9,7 @@ import { RegistrationFilters } from "./RegistrationFilters";
 import { RegistrationsTable } from "./RegistrationsTable";
 import type { RegistrationQuery } from "./query";
 import { MessageBuilder } from "./MessageBuilder";
+import { RowActions } from "./RowActions";
 
 /** Either the ticked rows on this page, or everyone matching the current filters. Never both. */
 export type CampaignSelection =
@@ -108,6 +109,11 @@ export function CampaignRegistrations({
     onOpenBuilder(channel, request);
   }
 
+  function openForRow(channel: BuilderChannel, request: CampaignBuilderRequest) {
+    setBuilder({ channel, request });
+    onOpenBuilder(channel, request);
+  }
+
   const showBanner = allInFilter || (allOnPage && total > rows.length);
 
   return (
@@ -166,6 +172,7 @@ export function CampaignRegistrations({
         filters={query}
         detailHrefBase={detailHrefBase}
         showAgentColumn={false}
+        rowActions={(r) => <RowActions row={r} onOpenBuilder={openForRow} />}
         selectable={{ isSelected, onToggle: toggleRow, allOnPageSelected: allOnPage || allInFilter, onTogglePage: togglePage }}
       />
 
