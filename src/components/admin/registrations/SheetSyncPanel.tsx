@@ -142,14 +142,11 @@ export function SheetSyncPanel({
     }
   }
 
-  async function approve() {
+  async function submit(applyKeys: { registrationId: string; field: string }[], doneText?: string) {
     if (approving) return;
     setApproving(true);
     setApproveNote(null);
     try {
-      const applyKeys = report
-        .filter((r) => ticked.has(keyOf(r.registrationId, r.field)))
-        .map((r) => ({ registrationId: r.registrationId, field: r.field }));
       const res = await fetch(APPROVE_ROUTE, {
         method: "POST",
         credentials: "same-origin",
@@ -162,7 +159,7 @@ export function SheetSyncPanel({
       }
       const data = (await res.json()) as { applied?: number; keptApp?: number };
       setApproveNote({
-        text: `Done. ${data.applied ?? 0} changes applied, ${data.keptApp ?? 0} kept as in the app.`,
+        text: doneText ?? `Done. ${data.applied ?? 0} changes applied, ${data.keptApp ?? 0} kept as in the app.`,
         error: false,
       });
       router.refresh();
@@ -172,6 +169,18 @@ export function SheetSyncPanel({
       setApproving(false);
     }
   }
+
+  const approve = () =>
+    submit(report.filter((r) => ticked.has(keyOf(r.registrationId, r.field))).map((r) => ({ registrationId: r.registrationId, field: r.field })));
+  const startSync = () => submit([], "Done. The sheet is now kept up to date.");
+
+  const neverChecked = status.lastScannedAt === null;
+  const canStart = status.state === "report" && !neverChecked && report.length === 0;
+  const startButton = (
+    <button type="button" onClick={startSync} disabled={approving} className={cn(primaryBtn, "text-sm px-5 py-2.5")}>
+      {approving ? "Starting…" : "Start keeping the sheet up to date"}
+    </button>
+  );
 
   const checked = status.lastScannedAt
     ? `Sheet: checked ${relativeTime(status.lastScannedAt)}`
@@ -328,17 +337,14 @@ export function SheetSyncPanel({
       )}
 
       {/* Nothing to do */}
-      {status.state === "report" && report.length === 0 && problems.length === 0 && (
-        <p className="flex items-center gap-3 rounded-xl bg-pz-surface-container-lowest border border-pz-outline-variant/40 p-6 text-sm font-headline font-semibold text-pz-on-surface">
-          <CheckCircle2 className="w-5 h-5 text-pz-primary shrink-0" aria-hidden="true" />
-          Everything matches. Sheet and app agree.
-        </p>
-      )}
-      {status.state === "live" && problems.length === 0 && (
-        <p className="flex items-center gap-3 rounded-xl bg-pz-surface-container-lowest border border-pz-outline-variant/40 p-6 text-sm font-headline font-semibold text-pz-on-surface">
-          <CheckCircle2 className="w-5 h-5 text-pz-primary shrink-0" aria-hidden="true" />
-          Everything matches. Sheet and app agree.
-        </p>
+      {!showReview && problems.length === 0 && (
+        <div className="space-y-4 rounded-xl bg-pz-surface-container-lowest border border-pz-outline-variant/40 p-6">
+          <p className="flex items-center gap-3 text-sm font-headline font-semibold text-pz-on-surface">
+            {neverChecked ? null : <CheckCircle2 className="w-5 h-5 text-pz-primary shrink-0" aria-hidden="true" />}
+            {neverChecked ? "Not checked yet. Press Scan now." : "Everything matches. Sheet and app agree."}
+          </p>
+          {canStart && <div>{startButton}</div>}
+        </div>
       )}
 
       {/* Needs attention: information only */}
@@ -376,6 +382,7 @@ export function SheetSyncPanel({
               </li>
             ))}
           </ul>
+          {canStart && <div className="pt-2">{startButton}</div>}
         </section>
       )}
     </div>

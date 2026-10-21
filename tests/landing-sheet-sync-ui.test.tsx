@@ -159,4 +159,37 @@ describe("SheetSyncPanel", () => {
     expect(text).toMatch(/Keep app value/);
     expect(text).not.toMatch(/snapshot|webhook|variant|override|resolve|schema|yaml/i);
   });
+
+  it("offers to start keeping the sheet up to date when the first scan found no differences", async () => {
+    fetchMock.mockReturnValue(jsonRes({ applied: 0, keptApp: 0 }));
+    setup({ report: [], problems: [], waiting: 0 });
+    fireEvent.click(screen.getByRole("button", { name: /start keeping the sheet up to date/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/landing-sheet-sync/approve");
+    expect(body(fetchMock.mock.calls[0])).toEqual({ pageId: PAGE, applyKeys: [] });
+    expect(await screen.findByText("Done. The sheet is now kept up to date.")).toBeTruthy();
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows the start button below the problems when nothing differs but problems exist", () => {
+    setup({ report: [] });
+    expect(screen.getByRole("button", { name: /start keeping the sheet up to date/i })).toBeTruthy();
+    expect(screen.queryByText("Everything matches. Sheet and app agree.")).toBeNull();
+  });
+
+  it("never claims a match before the first check, in either state", () => {
+    for (const state of ["report", "live"] as const) {
+      cleanup();
+      setup({ state, report: [], problems: [], lastScannedAt: null, waiting: 0 });
+      expect(screen.getByText("Not checked yet. Press Scan now.")).toBeTruthy();
+      expect(screen.queryByText(/everything matches/i)).toBeNull();
+      expect(screen.queryByRole("button", { name: /start keeping/i })).toBeNull();
+    }
+  });
+
+  it("does not offer the start button once the page is live", () => {
+    setup({ state: "live", report: [], problems: [] });
+    expect(screen.getByText("Everything matches. Sheet and app agree.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /start keeping/i })).toBeNull();
+  });
 });
