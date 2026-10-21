@@ -71,6 +71,21 @@ export async function applyRegistrationStatus(sheetId: string, rows: StatusSheet
   return { ok: true, missing: Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [] };
 }
 
+export interface DetailsSheetRow { refId: string; matchEmail: string; name: string; email: string; whatsapp: string }
+
+/**
+ * Writes name, email and WhatsApp (columns A to C only) onto existing sheet rows after an admin edit.
+ * A row is found by Ref ID + `matchEmail` (the email the sheet currently shows). `missing` lists the rows that were not found.
+ */
+export async function applyRegistrationDetails(sheetId: string, rows: DetailsSheetRow[]): Promise<{ ok: boolean; missing: string[] }> {
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false, missing: [] };
+  const r = await postToGas({ token, action: "applyRegistrationDetails", sheetId, rows });
+  if (!r.ok) return { ok: false, missing: [] };
+  const raw = r.data.missing;
+  return { ok: true, missing: Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [] };
+}
+
 /** Asks Apps Script to scan one landing sheet now and send its rows to the app. */
 export async function requestSheetScan(sheetId: string): Promise<{ ok: boolean; message?: string }> {
   const token = process.env.SHEETS_SYNC_SECRET;

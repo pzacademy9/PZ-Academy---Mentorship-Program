@@ -208,6 +208,10 @@ function doPost(e) {
     return handleApplyRegistrationStatus_(body);
   }
 
+  if (body.action === "applyRegistrationDetails") {
+    return handleApplyRegistrationDetails_(body);
+  }
+
   if (body.action === "scanLandingSheet") {
     return handleScanLandingSheet_(body);
   }
@@ -800,6 +804,64 @@ function handleApplyRegistrationStatus_(body) {
       i = j + 1;
     }
     return jsonResponse_({ status: "success", ok: true, updated: rowNums.length, missing: missing });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Writes name (A), email (B) and WhatsApp (C) onto existing rows after an admin edit in the app.
+ * Each row is found by Ref ID + the email the sheet currently shows (matchEmail), never by row number.
+ * Rows not in the sheet are reported in `missing`, not treated as an error. Nothing but A:C is written:
+ * never the status, amount or any other column.
+ */
+function handleApplyRegistrationDetails_(body) {
+  if (!body.sheetId || !Array.isArray(body.rows)) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId or rows" });
+  }
+  for (const r of body.rows) {
+    if (!r || !r.refId || !r.matchEmail) {
+      return jsonResponse_({ status: "error", message: "Invalid row" });
+    }
+  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: "Sheet is busy, try again" });
+  }
+  try {
+    const ss = SpreadsheetApp.openById(body.sheetId);
+    const sheet = ss.getSheetByName(LANDING_TAB_NAME) || ss.getSheets()[0];
+    const lastRow = sheet.getLastRow();
+
+    const index = {};
+    if (lastRow >= 2) {
+      const emails = sheet.getRange(2, LANDING_COL.EMAIL, lastRow - 1, 1).getDisplayValues();
+      const refs = sheet.getRange(2, LANDING_COL.REF, lastRow - 1, 1).getDisplayValues();
+      for (let i = 0; i < emails.length; i++) {
+        const key = landingRowKey_(refs[i][0], emails[i][0]);
+        if (!(key in index)) index[key] = i + 2;
+      }
+    }
+
+    const missing = [];
+    let updated = 0;
+    for (const r of body.rows) {
+      const key = landingRowKey_(r.refId, r.matchEmail);
+      const rowNum = index[key];
+      if (rowNum === undefined) {
+        missing.push(key);
+        continue;
+      }
+      // WhatsApp (column C) is a text column: format first so a number-looking value keeps its zeros.
+      sheet.getRange(rowNum, 3).setNumberFormat("@");
+      sheet.getRange(rowNum, 1, 1, 3).setValues([[landingCell_(r.name, 1), landingCell_(r.email, 2), landingCell_(r.whatsapp, 3)]]);
+      updated++;
+    }
+    return jsonResponse_({ status: "success", ok: true, updated: updated, missing: missing });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });
   } finally {

@@ -184,3 +184,24 @@ describe("planScan report", () => {
     expect(p.appWins).toEqual([]);
   });
 });
+
+describe("after an admin edit (snapshot holds the old contact details)", () => {
+  // The app changed name/email, the snapshot still holds the old values until the sheet push lands, the sheet is unchanged.
+  const edited = reg({ name: "Ann Smith", email: "ann.new@x.com" });
+  const stale = snap({ name: "Ann Lee", email: "ann@x.com" });
+  it("plans no change and no app-wins while the sheet still equals the snapshot", () => {
+    const p = planScan([row({ name: "Ann Lee", email: "ann@x.com" })], [edited], [stale], "live");
+    expect(p.changes).toEqual([]);
+    expect(p.appWins).toEqual([]);
+    expect(p.rejected).toEqual([]);
+  });
+  it("does not report a status app-win when only contact fields differ", () => {
+    const p = planScan([row({ name: "Ann Lee", email: "ann@x.com", status: "Pending" })], [{ ...edited, status: "paid" }], [stale], "live");
+    expect(p.changes).toEqual([]);
+    expect(p.appWins.filter((w) => w.field === "status")).toEqual([]);
+  });
+  it("the email-fix pairing still finds the row by name against the snapshot", () => {
+    const p = planScan([row({ name: "Ann Lee", email: "typo@x.com" })], [reg({ name: "Ann Lee", email: "ann.new@x.com" })], [snap({ name: "Ann Lee", email: "ann@x.com" })], "live");
+    expect(p.unknownRows).toEqual([]);
+  });
+});

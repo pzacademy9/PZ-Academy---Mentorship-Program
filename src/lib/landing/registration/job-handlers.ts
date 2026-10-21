@@ -3,9 +3,9 @@ import { sendTransactionalEmail } from "@/lib/brevo";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getRegistrationBundle, markEmailStatus, type RegistrationBundle, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { getRegistrablePageById, type RegistrablePage } from "@/lib/data/landing-public";
-import { saveSnapshots, saveStatusSnapshots } from "@/lib/data/landing-sheet-sync";
+import { saveContactSnapshots, saveSnapshots, saveStatusSnapshots } from "@/lib/data/landing-sheet-sync";
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
-import { appendRegistrationRows, applyRegistrationStatus } from "@/lib/gas/event-sheet-client";
+import { appendRegistrationRows, applyRegistrationDetails, applyRegistrationStatus } from "@/lib/gas/event-sheet-client";
 import { STATUS_LABELS, toSheetRow, type SheetRegistration } from "./sheet-row";
 import {
   buildAdminAlertEmail, buildFreeJoiningEmail, buildMemberReceivedEmail, buildReceivedEmail,
@@ -137,6 +137,32 @@ async function sheetStatus(registrationId: string): Promise<void> {
       .filter((r) => !missing.has(keyOf(r)))
       .map((r) => ({ id: r.id, status: r.status, amountReceived: r.amountReceived })),
   );
+}
+
+/**
+ * Pushes one person's edited name, email and WhatsApp onto their sheet row. The row is found by the lead's
+ * Ref ID + the email the sheet currently shows (the remembered snapshot email; the current email if none).
+ * Only the contact snapshot moves, and only after the row was found: status/amount are never touched here.
+ */
+async function sheetDetails(registrationId: string): Promise<void> {
+  const loaded = await load(registrationId);
+  if (!loaded) return;
+  const { bundle, page } = loaded;
+  if (bundle.lead.isTest || !page.sheetId) return;
+  const person = [bundle.lead, ...bundle.members].find((r) => r.id === registrationId);
+  if (!person) return;
+  const { data: snap, error } = await createAdminSupabase()
+    .from("landing_sheet_snapshots").select("email").eq("registration_id", registrationId).maybeSingle();
+  if (error) throw new Error("Sheet snapshot lookup failed");
+  const matchEmail = snap?.email?.trim() || person.email;
+  const refId = bundle.lead.refId ?? "";
+  const res = await applyRegistrationDetails(page.sheetId, [
+    { refId, matchEmail, name: person.name, email: person.email, whatsapp: person.whatsapp },
+  ]);
+  if (!res.ok) throw new Error("Sheet details update failed");
+  const key = `${refId.trim().toUpperCase()}|${matchEmail.trim().toLowerCase()}`;
+  if ((res.missing ?? []).some((k) => k.trim() === key)) throw new Error("Sheet row not found for the details update");
+  await saveContactSnapshots([{ id: person.id, name: person.name, email: person.email, whatsapp: person.whatsapp }]);
 }
 
 async function emailReceived(registrationId: string): Promise<void> {
@@ -329,5 +355,5 @@ export const JOB_HANDLERS: Record<JobType, (registrationId: string) => Promise<v
   email_admin: emailAdmin,
   enrollment_sync: enrollmentSync,
   email_status: emailStatus,
-  sheet_details: async () => {}, // temporary no-op, replaced in Task 4
+  sheet_details: sheetDetails,
 };
