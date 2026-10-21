@@ -423,7 +423,10 @@ async function loadReportRows(pageId: string): Promise<ReportRow[]> {
     all.push(...rows);
     if (rows.length < CHUNK) break;
   }
-  return all.filter((r): r is ReportRow => r.registration_id !== null && isSyncField(r.field));
+  // Older scans' rows may linger briefly (new rows go in before old ones are removed): only the newest scan counts.
+  // Rows are sorted oldest first, so the last one belongs to the newest scan.
+  const newestScan = all.length > 0 ? all[all.length - 1].scan_id : null;
+  return all.filter((r): r is ReportRow => r.scan_id === newestScan && r.registration_id !== null && isSyncField(r.field));
 }
 
 /** What the review screen shows for one page: the first-scan differences and the latest problems. */
@@ -480,7 +483,8 @@ function toTyped(field: SyncField, v: string | null): string | number | null {
  * Approves the first scan of a page. Ticked differences (by registration + field) are applied from the sheet;
  * the rest keep the app's values (status/amount: the sheet is rewritten; name/email/WhatsApp: both sides stay and
  * the sheet's value is remembered so the next scan sees no difference). The page goes live LAST, so a failure part
- * way leaves it in review and the approval can simply be repeated.
+ * way leaves it in review. A retry after a partial failure may be refused with "Press Scan now, then approve" (the app's
+ * values have changed), in which case scan again and approve the new list.
  */
 export async function approveReport(
   pageId: string,

@@ -195,6 +195,26 @@ describe("approve", () => {
   });
 });
 
+describe("two scans of report rows", () => {
+  const twoScans = () => {
+    seed("report", [reg(R1)], [
+      { ...rep("old1", R1, "name", "Old Name", "Ayesha"), scan_id: "s-old", created_at: "2026-10-21T10:00:00.000Z" },
+      { ...rep("new1", R1, "name", "New Name", "Ayesha"), scan_id: "s-new", created_at: "2026-10-21T10:05:00.000Z" },
+    ]);
+  };
+  it("status shows only the newest scan's rows", async () => {
+    twoScans();
+    const body = await (await statusGet(get(`?pageId=${PAGE}`))).json() as { report: { logId: string; sheetValue: string }[] };
+    expect(body.report).toMatchObject([{ logId: "new1", sheetValue: "New Name" }]);
+  });
+  it("approve builds changes from the newest scan only", async () => {
+    twoScans();
+    const res = await approvePost(post({ pageId: PAGE, applyKeys: [{ registrationId: R1, field: "name" }], scannedAt: null }));
+    expect(await res.json()).toEqual({ applied: 1, keptApp: 0 });
+    expect(store.landing_registrations[0].name).toBe("New Name");
+  });
+});
+
 describe("approve guards", () => {
   const SCANNED = "2026-10-21T10:00:00.000Z";
   const seedScanned = () => {
