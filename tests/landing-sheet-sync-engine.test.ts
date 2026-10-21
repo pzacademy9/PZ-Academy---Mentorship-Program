@@ -42,7 +42,10 @@ describe("planScan live", () => {
   });
   it("applies a sheet status edit (' paid ' becomes Paid)", () => {
     const p = planScan([row({ status: " paid " })], [reg()], [snap()], "live");
-    expect(p.changes).toEqual([{ registrationId: "r1", field: "status", sheetValue: "paid", appValue: "pending" }]);
+    expect(p.changes).toEqual([
+      { registrationId: "r1", field: "status", sheetValue: "paid", appValue: "pending" },
+      { registrationId: "r1", field: "amount", sheetValue: null, appValue: null },
+    ]);
   });
   it("app wins when both sheet and app moved from the snapshot", () => {
     const p = planScan([row({ status: "Paid" })], [reg({ status: "reserved" })], [snap()], "live");
@@ -128,15 +131,56 @@ describe("email fix pairing", () => {
   });
 });
 
+describe("review fixes", () => {
+  const under = reg({ status: "underpaid", amountReceived: 1500 });
+  const underSnap = snap({ status: "underpaid", amountReceived: 1500 });
+  it("Underpaid -> Paid with unchanged amount cell carries the amount", () => {
+    const p = planScan([row({ status: "Paid", amount: "1500" })], [under], [underSnap], "live");
+    expect(p.changes.map((c) => [c.field, c.sheetValue])).toEqual([["status", "paid"], ["amount", 1500]]);
+  });
+  it("Underpaid -> Pending carries a null amount even if the cell still has one", () => {
+    const p = planScan([row({ status: "Pending", amount: "1500" })], [under], [underSnap], "live");
+    expect(p.changes.map((c) => [c.field, c.sheetValue])).toEqual([["status", "pending"], ["amount", null]]);
+  });
+  it("Paid with a blank amount leaves amount null", () => {
+    const p = planScan([row({ status: "Paid" })], [reg()], [snap()], "live");
+    expect(p.changes.map((c) => [c.field, c.sheetValue])).toEqual([["status", "paid"], ["amount", null]]);
+  });
+  it("hand-typed row with different name and WhatsApp stays unknown", () => {
+    const p = planScan([row({ email: "other@x.com", name: "Someone Else", whatsapp: "923111111111" })], [reg()], [snap()], "live");
+    expect(p.unknownRows).toHaveLength(1);
+    expect(p.changes).toEqual([]);
+  });
+  it("duplicate key: winning row gets no identity changes, duplicate still reported", () => {
+    const p = planScan([row({ name: "Other", whatsapp: "923009999999" }), row({ rowNumber: 3 })], [reg()], [snap()], "live");
+    expect(p.duplicateRows).toHaveLength(1);
+    expect(p.changes).toEqual([]);
+  });
+  it("email fix to an email owned by another registration is rejected", () => {
+    const regs = [reg(), reg({ id: "r2", rowType: "member", email: "taken@x.com", name: "T" })];
+    const p = planScan([row({ rowNumber: 2 }), row({ rowNumber: 3, email: "taken@x.com", name: "T" })], regs, [], "live");
+    expect(p.rejected).toEqual([]);
+    const q = planScan([row({ email: "taken@x.com" })], [reg({ email: "old@x.com" }), reg({ id: "r2", refId: "Z", leadRefId: "Z", email: "taken@x.com" })], [], "live");
+    expect(q.rejected[0]).toMatchObject({ field: "email", reason: "bad-email" });
+  });
+  it("amount parsing is strict about separators", () => {
+    expect(parseSheetAmount("1.500,00")).toBe("invalid");
+    expect(parseSheetAmount("1,5")).toBe("invalid");
+    expect(parseSheetAmount("Rs 1500")).toBe("invalid");
+    expect(parseSheetAmount("1,50,000")).toBe(150000);
+    expect(parseSheetAmount("1,500")).toBe(1500);
+  });
+});
+
 describe("planScan report", () => {
   it("lists every difference without snapshots", () => {
     const p = planScan([row({ status: "Paid", name: "Zed", whatsapp: "923009999999" })], [reg()], [], "report");
-    expect(p.changes.map((c) => c.field).sort()).toEqual(["name", "status", "whatsapp"]);
+    expect(p.changes.map((c) => c.field).sort()).toEqual(["amount", "name", "status", "whatsapp"]);
     expect(p.appWins).toEqual([]);
   });
   it("ignores snapshots entirely", () => {
     const p = planScan([row({ status: "Paid" })], [reg({ status: "reserved" })], [snap()], "report");
-    expect(p.changes).toHaveLength(1);
+    expect(p.changes.map((c) => c.field)).toEqual(["status", "amount"]);
     expect(p.appWins).toEqual([]);
   });
 });

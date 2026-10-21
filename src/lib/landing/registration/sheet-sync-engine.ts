@@ -27,10 +27,10 @@ export function parseSheetStatus(text: string): RegistrationStatus | null {
 }
 
 export function parseSheetAmount(text: string): number | null | "invalid" {
-  const t = text.trim().replace(/,/g, "");
+  const t = text.trim();
   if (t === "") return null;
-  if (!/^\d+(\.\d+)?$/.test(t)) return "invalid";
-  const n = Number(t);
+  if (!/^\d{1,3}(,\d{2,3})*(\.\d+)?$|^\d+(\.\d+)?$/.test(t)) return "invalid";
+  const n = Number(t.replace(/,/g, ""));
   return Number.isFinite(n) ? n : "invalid";
 }
 
@@ -48,15 +48,16 @@ export function planScan(rows: SheetScanRow[], regs: AppReg[], snapshots: Snapsh
 
   // Pass 1: first row per key wins; later ones are duplicates.
   const seen = new Set<string>();
+  const dupKeys = new Set<string>();
   const matched = new Set<string>();
-  const pairs: { row: SheetScanRow; reg: AppReg; emailFix: boolean }[] = [];
+  const pairs: { row: SheetScanRow; reg: AppReg; emailFix: boolean; dup: boolean }[] = [];
   const leftoverRows: SheetScanRow[] = [];
   for (const row of rows) {
     const k = keyOf(row.refId, row.email);
-    if (seen.has(k)) { out.duplicateRows.push(row); continue; }
+    if (seen.has(k)) { out.duplicateRows.push(row); dupKeys.add(k); continue; }
     seen.add(k);
     const reg = regByKey.get(k);
-    if (reg) { matched.add(reg.id); pairs.push({ row, reg, emailFix: false }); }
+    if (reg) { matched.add(reg.id); pairs.push({ row, reg, emailFix: false, dup: false }); }
     else leftoverRows.push(row);
   }
 
@@ -66,18 +67,25 @@ export function planScan(rows: SheetScanRow[], regs: AppReg[], snapshots: Snapsh
     const ref = normRef(row.refId);
     const rowsLeft = leftoverRows.filter((r) => normRef(r.refId) === ref);
     const regsLeft = regs.filter((r) => !matched.has(r.id) && normRef(r.leadRefId) === ref);
-    if (rowsLeft.length === 1 && regsLeft.length === 1) pairs.push({ row, reg: regsLeft[0], emailFix: true });
-    else out.unknownRows.push(row);
+    const cand = regsLeft[0];
+    // A hand-typed row must still look like the orphan: same name or same WhatsApp as the app or its last push.
+    const snap = cand ? snapById.get(cand.id) : undefined;
+    const looksSame = (r: AppReg | Snapshot) =>
+      normName(r.name).toLowerCase() === normName(row.name).toLowerCase() || (normWa(row.whatsapp) !== "" && normWa(r.whatsapp) === normWa(row.whatsapp));
+    if (rowsLeft.length === 1 && regsLeft.length === 1 && (looksSame(cand) || (snap !== undefined && looksSame(snap)))) {
+      pairs.push({ row, reg: cand, emailFix: true, dup: false });
+    } else out.unknownRows.push(row);
   }
 
-  for (const { row, reg, emailFix } of pairs) {
-    if (reg.isTest) continue;
-    planPair(row, reg, emailFix, snapById.get(reg.id), mode, out);
+  for (const p of pairs) {
+    const dup = dupKeys.has(keyOf(p.row.refId, p.row.email));
+    if (p.reg.isTest) continue;
+    planPair(p.row, p.reg, p.emailFix, dup, regs, snapById.get(p.reg.id), mode, out);
   }
   return out;
 }
 
-function planPair(row: SheetScanRow, reg: AppReg, emailFix: boolean, snap: Snapshot | undefined, mode: "report" | "live", out: PlanResult): void {
+function planPair(row: SheetScanRow, reg: AppReg, emailFix: boolean, dup: boolean, allRegs: AppReg[], snap: Snapshot | undefined, mode: "report" | "live", out: PlanResult): void {
   const live = mode === "live";
   // What the sheet is compared with: the app value (report) or the last pushed value (live; no snapshot = app).
   const base = live && snap
@@ -94,22 +102,23 @@ function planPair(row: SheetScanRow, reg: AppReg, emailFix: boolean, snap: Snaps
   };
 
   // Email only differs through the email-fix pairing, since email is part of the match key.
-  if (emailFix) {
+  if (emailFix && !dup) {
     const e = normEmail(row.email);
     if (e !== normEmail(base.email) && !appMoved(normEmail(reg.email) !== normEmail(base.email), "email")) {
-      if (!validEmail(e)) reject("email", "bad-email", row.email);
+      if (!validEmail(e) || allRegs.some((r) => r.id !== reg.id && normEmail(r.email) === e)) reject("email", "bad-email", row.email);
       else change("email", e, reg.email);
     }
   }
 
+  // A duplicated key makes it unclear whose row this is: never apply identity edits from it.
   const name = normName(row.name);
-  if (name !== normName(base.name) && !appMoved(normName(reg.name) !== normName(base.name), "name")) {
+  if (!dup && name !== normName(base.name) && !appMoved(normName(reg.name) !== normName(base.name), "name")) {
     if (name.length < 1 || name.length > 200) reject("name", "bad-name", row.name);
     else change("name", name, reg.name);
   }
 
   const wa = normWa(row.whatsapp);
-  if (wa !== normWa(base.whatsapp) && !appMoved(normWa(reg.whatsapp) !== normWa(base.whatsapp), "whatsapp")) {
+  if (!dup && wa !== normWa(base.whatsapp) && !appMoved(normWa(reg.whatsapp) !== normWa(base.whatsapp), "whatsapp")) {
     if (wa.length < 8 || wa.length > 15) reject("whatsapp", "bad-whatsapp", row.whatsapp);
     else change("whatsapp", wa, reg.whatsapp);
   }
@@ -142,7 +151,8 @@ function planPair(row: SheetScanRow, reg: AppReg, emailFix: boolean, snap: Snaps
       return;
     }
     change("status", status, reg.status);
-    if (amountActive) change("amount", amount, reg.amountReceived);
+    // Always carry the validated amount; Paid with a blank cell stays null (the applier derives the expected amount).
+    change("amount", status === "paid" && amount === null ? null : check.amountReceived, reg.amountReceived);
     return;
   }
 
