@@ -93,6 +93,17 @@ describe("runScan", () => {
     expect(ids).toContain("keep2");
   });
 
+  it("report mode: a failed report write throws, keeps the previous list and does not mark the page as checked", async () => {
+    setup("report");
+    store.landing_sheet_sync_log.push({ id: "old", page_id: "p1", outcome: "report", scan_id: "x" });
+    const inner = db.state.handler;
+    db.state.handler = (op) => (op.table === "landing_sheet_sync_log" && op.op === "insert" ? { data: null, error: { message: "boom" } } : inner(op));
+    await expect(runScan("S1", [sheetRow({ status: "Paid", amount: "5000" })])).rejects.toThrow("boom");
+    expect(log().map((l) => l.id)).toEqual(["old"]);
+    expect(store.landing_pages[0].sheet_last_scanned_at).toBeNull();
+    expect(store.landing_pages[0].sheet_sync_waiting).toBe(0);
+  });
+
   it("live mode applies a status change, logs it, and a second identical scan applies nothing", async () => {
     setup("live", [regRow()], [snap()]);
     const rows = [sheetRow({ status: "Paid", amount: "5000" })];

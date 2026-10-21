@@ -316,8 +316,6 @@ export async function runScan(sheetId: string, rows: SheetScanRow[]): Promise<Sc
   const summary: ScanSummary = { applied: 0, rejected: 0, skipped: 0, unknown: 0, duplicates: 0, differences: 0 };
 
   if (mode === "report") {
-    const { error } = await db.from("landing_sheet_sync_log").delete().eq("page_id", pageId).eq("outcome", "report");
-    if (error) throw new Error(error.message);
     for (const c of plan.changes) {
       add({ registration_id: c.registrationId, ...where(c.registrationId), field: c.field, outcome: "report", sheet_value: asText(c.sheetValue), app_value: asText(c.appValue), detail: "Would change the app to match the sheet" });
     }
@@ -358,13 +356,26 @@ export async function runScan(sheetId: string, rows: SheetScanRow[]): Promise<Sc
     summary.duplicates++;
   }
 
+  // Report mode: the new list goes in FIRST and the older one is removed after, so a failed write never leaves the owner
+  // looking at an empty list (which would read as "everything matches"). A failure stops the scan before the page is marked as checked.
+  if (mode === "report") {
+    const reportLogs = logRows.filter((l) => l.outcome === "report");
+    for (let i = 0; i < reportLogs.length; i += CHUNK) {
+      const { error } = await db.from("landing_sheet_sync_log").insert(reportLogs.slice(i, i + CHUNK));
+      if (error) throw new Error(error.message);
+    }
+    const { error: oErr } = await db.from("landing_sheet_sync_log").delete().eq("page_id", pageId).eq("outcome", "report").neq("scan_id", scanId);
+    if (oErr) throw new Error(oErr.message);
+  }
+
   // Only the latest problems stay: earlier unresolved rows are replaced by this scan's. Applied history is kept.
   const { error: dErr } = await db.from("landing_sheet_sync_log").delete().eq("page_id", pageId)
     .in("outcome", ["rejected", "unknown-row", "duplicate-row", "skipped"]);
   if (dErr) throw new Error(dErr.message);
 
-  for (let i = 0; i < logRows.length; i += CHUNK) {
-    const { error } = await db.from("landing_sheet_sync_log").insert(logRows.slice(i, i + CHUNK));
+  const restLogs = mode === "report" ? logRows.filter((l) => l.outcome !== "report") : logRows;
+  for (let i = 0; i < restLogs.length; i += CHUNK) {
+    const { error } = await db.from("landing_sheet_sync_log").insert(restLogs.slice(i, i + CHUNK));
     if (error) console.error(`${LOG} log write failed:`, (error as { code?: string }).code);
   }
 
@@ -474,12 +485,18 @@ function toTyped(field: SyncField, v: string | null): string | number | null {
 export async function approveReport(
   pageId: string,
   applyKeys: { registrationId: string; field: SyncField }[],
+  scannedAt: string | null,
 ): Promise<{ applied: number; keptApp: number }> {
   const db = createAdminSupabase();
-  const { data: page, error: pErr } = await db.from("landing_pages").select("id, sheet_sync_state").eq("id", pageId).maybeSingle();
+  const { data: page, error: pErr } = await db.from("landing_pages").select("id, sheet_sync_state, sheet_last_scanned_at").eq("id", pageId).maybeSingle();
   if (pErr) throw new Error(pErr.message);
   if (!page) throw new ApproveRefused("Page not found.");
   if (page.sheet_sync_state === "live") throw new ApproveRefused("This page's sheet is already being kept in sync. There is nothing left to approve.");
+
+  // The owner approves the list they saw: refuse if the sheet was checked again since (instants, not strings).
+  const current = page.sheet_last_scanned_at ? Date.parse(page.sheet_last_scanned_at as string) : null;
+  const seen = scannedAt ? Date.parse(scannedAt) : null;
+  if (current !== seen) throw new ApproveRefused("The sheet was checked again. Please look at the list again, then approve.");
 
   const report = await loadReportRows(pageId);
   const ticked = new Set(applyKeys.map((k) => `${k.registrationId}|${k.field}`));
@@ -493,6 +510,14 @@ export async function approveReport(
     const { data, error } = await db.from("landing_sheet_snapshots").select("registration_id").in("registration_id", allIds.slice(i, i + ID_CHUNK));
     if (error) throw new Error(error.message);
     for (const s of data ?? []) existing.add(s.registration_id as string);
+  }
+  // The remembered state is built from the app's CURRENT values, so refuse if the app changed after the check the owner reviewed.
+  if (current !== null) {
+    for (let i = 0; i < allIds.length; i += ID_CHUNK) {
+      const { data, error } = await db.from("landing_status_events").select("registration_id, at").in("registration_id", allIds.slice(i, i + ID_CHUNK)).gt("at", new Date(current).toISOString()).limit(1);
+      if (error) throw new Error(error.message);
+      if ((data ?? []).length > 0) throw new ApproveRefused("Something changed in the app since the last check. Press Scan now, then approve.");
+    }
   }
   const missing: SnapshotInput[] = records.filter((r) => !existing.has(r.id)).map((r) => {
     const m = mapRecord(r);

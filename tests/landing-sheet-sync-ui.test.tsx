@@ -66,6 +66,7 @@ describe("SheetSyncPanel", () => {
     expect(body(fetchMock.mock.calls[0])).toEqual({
       pageId: PAGE,
       applyKeys: [{ registrationId: R1, field: "status" }, { registrationId: R2, field: "email" }],
+      scannedAt: expect.any(String),
     });
   });
 
@@ -166,7 +167,7 @@ describe("SheetSyncPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /start keeping the sheet up to date/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/landing-sheet-sync/approve");
-    expect(body(fetchMock.mock.calls[0])).toEqual({ pageId: PAGE, applyKeys: [] });
+    expect(body(fetchMock.mock.calls[0])).toEqual({ pageId: PAGE, applyKeys: [], scannedAt: expect.any(String) });
     expect(await screen.findByText("Done. The sheet is now kept up to date.")).toBeTruthy();
     expect(refresh).toHaveBeenCalled();
   });

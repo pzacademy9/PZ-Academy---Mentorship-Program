@@ -153,7 +153,14 @@ async function sheetStatus(registrationId: string): Promise<void> {
   const res = await applyRegistrationStatus(page.sheetId, rows);
   if (!res.ok) throw new Error("Sheet status update failed");
   // Only status and amount: a status push must not overwrite the stored name/email/WhatsApp snapshot.
-  await saveStatusSnapshots([bundle.lead, ...bundle.members].map((r) => ({ id: r.id, status: r.status, amountReceived: r.amountReceived })));
+  // A row the script could not find was not rewritten, so its remembered value must stay as it was (sheet == snapshot).
+  const missing = new Set((res.missing ?? []).map((k) => k.trim()));
+  const keyOf = (r: { email: string }) => `${(bundle.lead.refId ?? "").trim().toUpperCase()}|${r.email.trim().toLowerCase()}`;
+  await saveStatusSnapshots(
+    [bundle.lead, ...bundle.members]
+      .filter((r) => !missing.has(keyOf(r)))
+      .map((r) => ({ id: r.id, status: r.status, amountReceived: r.amountReceived })),
+  );
 }
 
 async function emailReceived(registrationId: string): Promise<void> {

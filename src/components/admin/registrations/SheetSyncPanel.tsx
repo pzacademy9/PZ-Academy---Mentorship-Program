@@ -151,7 +151,7 @@ export function SheetSyncPanel({
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId, applyKeys }),
+        body: JSON.stringify({ pageId, applyKeys, scannedAt: status?.lastScannedAt ?? null }),
       });
       if (!res.ok) {
         setApproveNote({ text: await readMessage(res, ERROR_TEXT), error: true });
