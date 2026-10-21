@@ -76,6 +76,29 @@ export async function enqueueSheetStatus(registrationId: string): Promise<boolea
 }
 
 /**
+ * One coalesced sheet_details job per registration (name/email/WhatsApp push): upsert back to pending with a
+ * fresh budget so the handler always sends the current values. Never throws; true only when the upsert succeeded.
+ */
+export async function enqueueSheetDetails(registrationId: string): Promise<boolean> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .upsert(
+        { registration_id: registrationId, type: "sheet_details", status: "pending", attempts: 0, next_run_at: new Date().toISOString(), last_error: null },
+        { onConflict: "registration_id,type" },
+      );
+    if (error) {
+      console.error("[landing-jobs] enqueue sheet_details failed:", error.code);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[landing-jobs] enqueue sheet_details crashed");
+    return false;
+  }
+}
+
+/**
  * Status side effects (enrollment sync + status email): upsert BOTH jobs back to pending with a fresh budget.
  * Handlers read the current status, so flip-flops coalesce safely. Never throws; true only when the upsert succeeded.
  */

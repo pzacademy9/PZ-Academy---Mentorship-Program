@@ -52,6 +52,25 @@ export async function saveStatusSnapshots(regs: StatusSnapshotInput[]): Promise<
   }
 }
 
+export interface ContactSnapshotInput { id: string; name: string; email: string; whatsapp: string }
+
+/**
+ * After a details push: updates ONLY name, email and WhatsApp of snapshots that already exist, so the
+ * stored status/amount stay as last written. Registrations without a snapshot are skipped. Same
+ * normalization as saveSnapshots. Throws on a database error.
+ */
+export async function saveContactSnapshots(regs: ContactSnapshotInput[]): Promise<void> {
+  const now = new Date().toISOString();
+  const db = createAdminSupabase();
+  for (const r of regs) {
+    const { error } = await db
+      .from("landing_sheet_snapshots")
+      .update({ name: r.name.trim(), email: r.email.trim().toLowerCase(), whatsapp: r.whatsapp.replace(/\D/g, ""), updated_at: now })
+      .eq("registration_id", r.id);
+    if (error) throw new Error(error.message);
+  }
+}
+
 export type ApplyOutcome = { change: PlannedChange; outcome: "applied" | "skipped" | "rejected"; detail: string };
 
 const LOG = "[landing-sheet-sync]";
