@@ -4093,7 +4093,7 @@ export type Database = {
       }
       landing_apply_status: {
         Args: {
-          p_actor: string
+          p_actor: string | null
           p_amount: number | null
           p_expected_from: string
           p_registration_id: string

@@ -412,18 +412,24 @@ export async function changeRegistrationStatus(p: {
     return { ok: false, reason: "db-error" };
   }
 
-  // Push the new status to the event sheet and queue enrollment/email. A problem here never fails the change: the job row is
-  // the durable record and the cron drain retries it.
+  await queueStatusFollowUps(rec.id);
+  return { ok: true, id: rec.id, status: p.to, rowsChanged: Number(out.changed ?? 0) };
+}
+
+/**
+ * Push the new status to the event sheet and queue enrollment/email. A problem here never fails the change: the job row is
+ * the durable record and the cron drain retries it.
+ */
+export async function queueStatusFollowUps(registrationId: string): Promise<void> {
   try {
     // The sheet push and the enrollment/email jobs are independent groups: each is enqueued on its
     // own, the outbox drain runs whichever enqueued, and a group that failed to enqueue runs directly.
-    const sheetQueued = await enqueueSheetStatus(rec.id).catch(() => false);
-    const effectsQueued = await enqueueStatusEffects(rec.id).catch(() => false);
-    if (sheetQueued || effectsQueued) runInBackground(runJobsFor(rec.id));
-    if (!sheetQueued) runInBackground(runJobsDirect(rec.id, ["sheet_status"]));
-    if (!effectsQueued) runInBackground(runJobsDirect(rec.id, ["enrollment_sync", "email_status"]));
+    const sheetQueued = await enqueueSheetStatus(registrationId).catch(() => false);
+    const effectsQueued = await enqueueStatusEffects(registrationId).catch(() => false);
+    if (sheetQueued || effectsQueued) runInBackground(runJobsFor(registrationId));
+    if (!sheetQueued) runInBackground(runJobsDirect(registrationId, ["sheet_status"]));
+    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, ["enrollment_sync", "email_status"]));
   } catch {
     console.error("[landing-registration-admin] sheet status push crashed");
   }
-  return { ok: true, id: rec.id, status: p.to, rowsChanged: Number(out.changed ?? 0) };
 }
