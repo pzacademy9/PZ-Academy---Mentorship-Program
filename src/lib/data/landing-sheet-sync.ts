@@ -3,7 +3,8 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
-import { parseSheetStatus, type PlannedChange } from "@/lib/landing/registration/sheet-sync-engine";
+import { parseSheetStatus, planScan, type PlannedChange, type PlanResult, type SheetScanRow, type AppReg, type Snapshot } from "@/lib/landing/registration/sheet-sync-engine";
+import { enqueueSheetStatus } from "@/lib/data/landing-jobs";
 import { mapRecord } from "@/lib/data/landing-registrations";
 import { queueStatusFollowUps } from "@/lib/data/landing-registration-admin";
 
@@ -189,4 +190,181 @@ export async function applySheetChanges(pageId: string, changes: PlannedChange[]
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Scan: receives the sheet's rows, plans, applies (live) or only reports (report), and logs.
+// ---------------------------------------------------------------------------------------------
+
+type LogInsert = Database["public"]["Tables"]["landing_sheet_sync_log"]["Insert"];
+type SyncState = "report" | "live";
+
+export interface ScanSummary { applied: number; rejected: number; skipped: number; unknown: number; duplicates: number; differences: number }
+
+/** Sheets to scan, oldest scan first (never scanned first). */
+export async function listSheetsToScan(): Promise<{ sheetId: string; pageId: string; state: SyncState }[]> {
+  const { data, error } = await createAdminSupabase()
+    .from("landing_pages")
+    .select("id, sheet_id, sheet_sync_state, sheet_last_scanned_at")
+    .neq("sheet_id", "")
+    .order("sheet_last_scanned_at", { ascending: true, nullsFirst: true });
+  if (error) throw new Error(error.message);
+  return (data ?? [])
+    .filter((p) => typeof p.sheet_id === "string" && p.sheet_id !== "")
+    .map((p) => ({ sheetId: p.sheet_id as string, pageId: p.id, state: (p.sheet_sync_state === "live" ? "live" : "report") as SyncState }));
+}
+
+const CHUNK = 1000;
+
+/** Every registration of one page (leads, members, individuals), read in chunks of 1000. */
+async function loadPageRegistrations(pageId: string): Promise<RegRow[]> {
+  const db = createAdminSupabase();
+  const all: RegRow[] = [];
+  for (let from = 0; ; from += CHUNK) {
+    const { data, error } = await db
+      .from("landing_registrations").select("*").eq("page_id", pageId)
+      .order("created_at", { ascending: true }).order("id", { ascending: true })
+      .range(from, from + CHUNK - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as RegRow[];
+    all.push(...rows);
+    if (rows.length < CHUNK) break;
+  }
+  return all;
+}
+
+async function loadSnapshots(regIds: string[]): Promise<Snapshot[]> {
+  const db = createAdminSupabase();
+  const out: Snapshot[] = [];
+  for (let i = 0; i < regIds.length; i += CHUNK) {
+    const { data, error } = await db.from("landing_sheet_snapshots").select("*").in("registration_id", regIds.slice(i, i + CHUNK));
+    if (error) throw new Error(error.message);
+    for (const s of data ?? []) {
+      out.push({
+        registrationId: s.registration_id,
+        status: (s.status ?? "pending") as RegistrationStatus,
+        amountReceived: s.amount_received === null || s.amount_received === undefined ? null : Number(s.amount_received),
+        name: s.name ?? "", email: s.email ?? "", whatsapp: s.whatsapp ?? "",
+      });
+    }
+  }
+  return out;
+}
+
+const REJECT_WORDS: Record<string, string> = {
+  "bad-status": "The status in the sheet is not one the app can set",
+  "bad-amount": "The amount in the sheet is not valid",
+  "member-status": "This person is part of a group; change the status on the group's main registration",
+  "free-row": "Free registrations have no payment, so their status cannot be changed",
+  "test-row": "Test registrations are ignored",
+  "bad-email": "The email in the sheet is not valid or is already used on this page",
+  "bad-name": "The name in the sheet is empty or too long",
+  "bad-whatsapp": "The WhatsApp number in the sheet is not a valid number",
+  "amount-required": "An amount is needed for this status",
+};
+
+const asText = (v: string | number | null | undefined): string | null => (v === null || v === undefined ? null : String(v));
+
+/**
+ * Handles one sheet scan. Report mode only records what it would change. Live mode applies the
+ * sheet's edits and queues a sheet rewrite where the app's value won. Every decision is logged
+ * under one scan id. Throws on a database error before anything is applied.
+ */
+export async function runScan(sheetId: string, rows: SheetScanRow[]): Promise<ScanSummary | { error: "unknown-sheet" }> {
+  const db = createAdminSupabase();
+  const { data: page, error: pErr } = await db
+    .from("landing_pages").select("id, sheet_sync_state").eq("sheet_id", sheetId).maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!page) return { error: "unknown-sheet" };
+  const pageId = page.id as string;
+  const mode: SyncState = page.sheet_sync_state === "live" ? "live" : "report";
+
+  const records = await loadPageRegistrations(pageId);
+  const refById = new Map(records.map((r) => [r.id, r.ref_id ?? ""]));
+  const regs: AppReg[] = records.map((r) => {
+    const m = mapRecord(r);
+    return {
+      id: m.id,
+      refId: m.refId,
+      leadRefId: m.rowType === "member" ? (m.leadRegistrationId ? refById.get(m.leadRegistrationId) ?? "" : "") : (m.refId ?? ""),
+      rowType: m.rowType,
+      name: m.name, email: m.email, whatsapp: m.whatsapp,
+      status: m.status, amountReceived: m.amountReceived,
+      expectedAmount: m.expectedAmount ?? 0,
+      isTest: m.isTest,
+    };
+  });
+  const snapshots = mode === "live" ? await loadSnapshots(regs.map((r) => r.id)) : [];
+  const plan: PlanResult = planScan(rows, regs, snapshots, mode);
+
+  // Where a planned item came from in the sheet, for the log.
+  const regById = new Map(regs.map((r) => [r.id, r]));
+  const rowByKey = new Map(rows.map((r) => [`${r.refId.trim().toUpperCase()}|${r.email.trim().toLowerCase()}`, r]));
+  const where = (registrationId: string) => {
+    const reg = regById.get(registrationId);
+    const row = reg ? rowByKey.get(`${reg.leadRefId.trim().toUpperCase()}|${reg.email.trim().toLowerCase()}`) : undefined;
+    return { ref_id: reg?.leadRefId ?? "", row_number: row?.rowNumber ?? null };
+  };
+
+  const scanId = crypto.randomUUID();
+  const logRows: LogInsert[] = [];
+  const add = (l: Omit<LogInsert, "page_id" | "scan_id">) => logRows.push({ ...l, page_id: pageId, scan_id: scanId });
+
+  const summary: ScanSummary = { applied: 0, rejected: 0, skipped: 0, unknown: 0, duplicates: 0, differences: 0 };
+
+  if (mode === "report") {
+    const { error } = await db.from("landing_sheet_sync_log").delete().eq("page_id", pageId).eq("outcome", "report");
+    if (error) throw new Error(error.message);
+    for (const c of plan.changes) {
+      add({ registration_id: c.registrationId, ...where(c.registrationId), field: c.field, outcome: "report", sheet_value: asText(c.sheetValue), app_value: asText(c.appValue), detail: "Would change the app to match the sheet" });
+    }
+    summary.differences = plan.changes.length;
+  } else {
+    const outcomes = await applySheetChanges(pageId, plan.changes);
+    for (const o of outcomes) {
+      add({ registration_id: o.change.registrationId, ...where(o.change.registrationId), field: o.change.field, outcome: o.outcome, sheet_value: asText(o.change.sheetValue), app_value: asText(o.change.appValue), detail: o.detail });
+      if (o.outcome === "applied") summary.applied++;
+      else if (o.outcome === "skipped") summary.skipped++;
+      else summary.rejected++;
+    }
+    const queued = new Set<string>();
+    for (const w of plan.appWins) {
+      const sheetRewrite = w.field === "status" || w.field === "amount";
+      add({
+        registration_id: w.registrationId, ...where(w.registrationId), field: w.field, outcome: "skipped",
+        detail: sheetRewrite ? "Changed in the app since the last sync; the sheet will be updated to match" : "Changed in the app since the last sync; the app value was kept",
+      });
+      summary.skipped++;
+      if (sheetRewrite && !queued.has(w.registrationId)) {
+        queued.add(w.registrationId);
+        try { await enqueueSheetStatus(w.registrationId); } catch { /* the sheet is re-checked on the next scan */ }
+      }
+    }
+  }
+
+  for (const r of plan.rejected) {
+    add({ registration_id: r.registrationId, ref_id: where(r.registrationId).ref_id, row_number: r.rowNumber, field: r.field, outcome: "rejected", sheet_value: r.sheetValue, detail: REJECT_WORDS[r.reason] ?? "Not allowed" });
+    summary.rejected++;
+  }
+  for (const r of plan.unknownRows) {
+    add({ row_number: r.rowNumber, ref_id: r.refId, field: "row", outcome: "unknown-row", detail: "This row does not match any registration on the page" });
+    summary.unknown++;
+  }
+  for (const r of plan.duplicateRows) {
+    add({ row_number: r.rowNumber, ref_id: r.refId, field: "row", outcome: "duplicate-row", detail: "Another row in the sheet has the same Ref ID and email; this one was ignored" });
+    summary.duplicates++;
+  }
+
+  for (let i = 0; i < logRows.length; i += CHUNK) {
+    const { error } = await db.from("landing_sheet_sync_log").insert(logRows.slice(i, i + CHUNK));
+    if (error) console.error(`${LOG} log write failed:`, (error as { code?: string }).code);
+  }
+
+  const waiting = summary.rejected + summary.unknown + summary.duplicates + summary.differences;
+  const { error: uErr } = await db
+    .from("landing_pages")
+    .update({ sheet_last_scanned_at: new Date().toISOString(), sheet_sync_waiting: waiting })
+    .eq("id", pageId);
+  if (uErr) console.error(`${LOG} page update failed:`, (uErr as { code?: string }).code);
+  return summary;
 }
