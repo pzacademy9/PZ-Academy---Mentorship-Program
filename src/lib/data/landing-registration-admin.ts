@@ -178,16 +178,18 @@ const EMAIL_LOG_TO_KIND: Record<string, ManualEmailKind> = {
  */
 export async function loadRowExtras(
   people: { id: string; createdAt: string; emailStatus: string | null }[],
+  opts: { includeEmails?: boolean } = {},
 ): Promise<{ waiting: Set<string>; lastEmail: Map<string, Partial<Record<ManualEmailKind, string>>> }> {
   const admin = createAdminSupabase();
   const waiting = new Set<string>();
   const lastEmail = new Map<string, Partial<Record<ManualEmailKind, string>>>();
-  for (const p of people) if (p.emailStatus === RECEIVED_SENT) lastEmail.set(p.id, { received: p.createdAt });
+  const includeEmails = opts.includeEmails !== false;
+  for (const p of people) if (includeEmails && p.emailStatus === RECEIVED_SENT) lastEmail.set(p.id, { received: p.createdAt });
   const ids = people.map((p) => p.id);
   for (const part of chunks(ids)) {
     const [jobs, logs] = await Promise.all([
       admin.from("landing_jobs").select("registration_id").eq("type", "sheet_details").neq("status", "done").in("registration_id", part),
-      admin.from("landing_email_log").select("registration_id, kind, sent_at").eq("state", "sent").in("kind", Object.keys(EMAIL_LOG_TO_KIND)).in("registration_id", part).order("sent_at", { ascending: false }),
+      !includeEmails ? Promise.resolve({ data: [] as { registration_id: string; kind: string; sent_at: string | null }[], error: null }) : admin.from("landing_email_log").select("registration_id, kind, sent_at").eq("state", "sent").in("kind", Object.keys(EMAIL_LOG_TO_KIND)).in("registration_id", part).order("sent_at", { ascending: false }),
     ]);
     if (jobs.error) throw jobs.error;
     if (logs.error) throw logs.error;
@@ -197,7 +199,7 @@ export async function loadRowExtras(
       const at = l.sent_at as string | null;
       if (!kind || !at) continue;
       const cur = lastEmail.get(l.registration_id as string) ?? {};
-      if (!cur[kind] || at > (cur[kind] as string)) cur[kind] = at;
+      if (!cur[kind] || Date.parse(at) > Date.parse(cur[kind] as string)) cur[kind] = at;
       lastEmail.set(l.registration_id as string, cur);
     }
   }
@@ -249,7 +251,7 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   }
   const names = await profileNames(records.map((r) => strOrNull(r.agent_id)));
 
-  const extras = await loadRowExtras(records.map((r) => ({ id: str(r.id), createdAt: str(r.created_at), emailStatus: strOrNull(r.email_status) })));
+  const extras = await loadRowExtras(records.map((r) => ({ id: str(r.id), createdAt: str(r.created_at), emailStatus: strOrNull(r.email_status) })), { includeEmails: scope.kind !== "agent" });
   const isAgent = scope.kind === "agent";
 
   const rows: RegistrationListRow[] = records.map((r) => ({

@@ -65,6 +65,9 @@ describe("listRegistrations row extras", () => {
     expect(rows.length).toBe(3);
     expect(rows.every((r) => r.voucherUrl === null)).toBe(true);
     expect(rows.find((r) => r.id === "a")?.whatsapp).toBe("0311");
+    expect(rows.every((r) => Object.keys(r.lastEmailAt).length === 0)).toBe(true);
+    expect(db.find("landing_email_log", "select").length).toBe(0);
+    expect(db.find("landing_jobs", "select").length).toBe(1);
   });
 });
 
