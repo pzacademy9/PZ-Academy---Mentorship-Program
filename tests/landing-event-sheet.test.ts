@@ -263,7 +263,8 @@ describe("GAS source", () => {
       expect(code).toContain(fn);
     }
     expect(code).toContain("const LANDING_SCAN_BUDGET_MS = 270000;");
-    expect(code).toContain('replace("/api/webhooks/sheets-sync", "/api/webhooks/landing-sheet-scan")');
+    expect(code).toContain('const LANDING_SCAN_DEFAULT_URL = "https://pz-academy.pharmacozyme.com/api/webhooks/landing-sheet-scan"');
+    expect(code).toContain('getProperty("LANDING_SCAN_URL")');
     expect(code).toContain('ScriptApp.newTrigger("scanLandingSheets").timeBased().everyMinutes(15).create()');
     const scan = code.slice(code.indexOf("function scanOneLandingSheet_("), code.indexOf("function handleScanLandingSheet_("));
     expect(scan).toContain("getDisplayValues()");
