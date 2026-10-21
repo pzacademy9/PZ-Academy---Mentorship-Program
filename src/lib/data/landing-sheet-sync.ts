@@ -4,7 +4,8 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
 import { parseSheetStatus, planScan, type SyncField, type PlannedChange, type PlanResult, type SheetScanRow, type AppReg, type Snapshot } from "@/lib/landing/registration/sheet-sync-engine";
-import { enqueueSheetStatus } from "@/lib/data/landing-jobs";
+import { enqueueSheetStatus, runJobsFor } from "@/lib/data/landing-jobs";
+import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord } from "@/lib/data/landing-registrations";
 import { queueStatusFollowUps } from "@/lib/data/landing-registration-admin";
 
@@ -18,7 +19,7 @@ export interface StatusSnapshotInput { id: string; status: RegistrationStatus; a
  * Remembers what the app last wrote to each sheet row. Values are stored in the form the planner
  * compares with (email lower+trim, WhatsApp digits only, name trimmed). Throws on a database error.
  */
-export async function saveSnapshots(regs: SnapshotInput[]): Promise<void> {
+export async function saveSnapshots(regs: SnapshotInput[], opts: { insertOnly?: boolean } = {}): Promise<void> {
   if (regs.length === 0) return;
   const now = new Date().toISOString();
   const rows = regs.map((r) => ({
@@ -30,7 +31,7 @@ export async function saveSnapshots(regs: SnapshotInput[]): Promise<void> {
     whatsapp: r.whatsapp.replace(/\D/g, ""),
     updated_at: now,
   }));
-  const { error } = await createAdminSupabase().from("landing_sheet_snapshots").upsert(rows, { onConflict: "registration_id" });
+  const { error } = await createAdminSupabase().from("landing_sheet_snapshots").upsert(rows, opts.insertOnly ? { onConflict: "registration_id", ignoreDuplicates: true } : { onConflict: "registration_id" });
   if (error) throw new Error(error.message);
 }
 
@@ -497,13 +498,15 @@ export async function approveReport(
     const m = mapRecord(r);
     return { id: m.id, status: m.status, amountReceived: m.amountReceived, name: m.name, email: m.email, whatsapp: m.whatsapp };
   });
-  for (let i = 0; i < missing.length; i += CHUNK) await saveSnapshots(missing.slice(i, i + CHUNK));
+  // Insert-only: a second approval running at the same time must never overwrite a value the first one set.
+  for (let i = 0; i < missing.length; i += CHUNK) await saveSnapshots(missing.slice(i, i + CHUNK), { insertOnly: true });
 
   // 2. Build the changes to apply. A ticked status brings its amount row along; an amount alone is an amount-only edit.
   const byReg = new Map<string, ReportRow[]>();
   for (const r of report) byReg.set(r.registration_id, [...(byReg.get(r.registration_id) ?? []), r]);
   const changes: PlannedChange[] = [];
-  const toPush = new Set<string>();
+  const toPush = new Map<string, { status?: string; amount_received?: number | null }>();
+  const push = (regId: string, patch: { status?: string; amount_received?: number | null }) => toPush.set(regId, { ...(toPush.get(regId) ?? {}), ...patch });
   const keptContact: { registrationId: string; field: SyncField; sheetValue: string }[] = [];
   for (const [regId, rows] of Array.from(byReg.entries())) {
     const statusRow = rows.find((r) => r.field === "status");
@@ -511,9 +514,9 @@ export async function approveReport(
     for (const r of rows) {
       const change: PlannedChange = { registrationId: regId, field: r.field, sheetValue: toTyped(r.field, r.sheet_value), appValue: toTyped(r.field, r.app_value) };
       if (r.field === "status") {
-        if (statusTicked) changes.push(change); else toPush.add(regId);
+        if (statusTicked) changes.push(change); else push(regId, { status: r.sheet_value ?? "" });
       } else if (r.field === "amount") {
-        if (statusTicked || isTicked(r)) changes.push(change); else toPush.add(regId);
+        if (statusTicked || isTicked(r)) changes.push(change); else push(regId, { amount_received: toTyped("amount", r.sheet_value) as number | null });
       } else if (isTicked(r)) {
         changes.push(change);
       } else {
@@ -527,13 +530,17 @@ export async function approveReport(
   const pairedAmount = (o: ApplyOutcome) => o.change.field === "amount" && changes.some((c) => c.registrationId === o.change.registrationId && c.field === "status");
   const applied = outcomes.filter((o) => o.outcome === "applied" && !pairedAmount(o)).length;
 
-  // 4. Unticked status/amount: rewrite the sheet to the app's value (the remembered value is already the app's).
-  for (const regId of Array.from(toPush)) {
+  // 4. Unticked status/amount: the app's value stays and the sheet is rewritten to it by a queued job. Until that lands the
+  // sheet still shows its own value, so remember THAT value; otherwise the next scan would take it for a fresh edit and apply it.
+  // The job later resets the remembered value to the app's once the sheet has been rewritten.
+  const now = new Date().toISOString();
+  for (const [regId, patch] of Array.from(toPush.entries())) {
+    const { error } = await db.from("landing_sheet_snapshots").update({ ...patch, updated_at: now }).eq("registration_id", regId);
+    if (error) throw new Error(error.message);
     if (!(await enqueueSheetStatus(regId))) throw new Error("Could not queue the sheet update; try again");
   }
 
   // 5. Unticked name/email/WhatsApp: both sides stay; remember the sheet's value so it is not seen as a change again.
-  const now = new Date().toISOString();
   for (const k of keptContact) {
     const { error } = await db.from("landing_sheet_snapshots").update({ ...(k.field === "name" ? { name: k.sheetValue } : k.field === "email" ? { email: k.sheetValue } : { whatsapp: k.sheetValue }), updated_at: now }).eq("registration_id", k.registrationId);
     if (error) throw new Error(error.message);
@@ -553,6 +560,9 @@ export async function approveReport(
   if (dErr) throw new Error(dErr.message);
   const { error: lErr } = await db.from("landing_pages").update({ sheet_sync_state: "live" }).eq("id", pageId);
   if (lErr) throw new Error(lErr.message);
+
+  // Start the sheet rewrites now rather than waiting for the daily run. A failure here never fails the approval.
+  for (const regId of Array.from(toPush.keys())) runInBackground(runJobsFor(regId));
 
   return { applied, keptApp: keptContact.length };
 }
