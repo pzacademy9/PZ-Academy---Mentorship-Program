@@ -150,7 +150,7 @@ Handler rules, in order (each is a test):
 
 **Interfaces:** Consumes `getMetaPurchase` from Task 1.
 
-Mapping: no row and status is `paid` and lead not test = `waiting`; no row otherwise = `none`; `claimed` = `waiting`; `sent` = `sent`; `skipped_old` = `skipped_old`.
+Mapping: no row = `none` always (rows Paid before this feature shipped have no row and no job); `claimed` = `waiting`; `sent` = `sent`; `skipped_old` = `skipped_old`.
 
 - [ ] **Step 1: Failing tests** for the mapping and that a sales agent never receives Meta data.
 - [ ] **Step 2: Implement.** One plain text line in the detail view, same typography as the neighbouring lines (no new component, no new colors): "Meta Purchase: Sent on <date>", "Meta Purchase: Waiting to send", "Meta Purchase: Not sent (older than 7 days)". Show nothing for `none`.

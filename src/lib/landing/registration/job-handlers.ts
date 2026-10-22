@@ -316,15 +316,16 @@ async function emailStatus(registrationId: string): Promise<void> {
   if (firstError) throw firstError;
 }
 
-/**
- * One Meta Purchase per registration, ever, on the first Paid. A group sends one event for the lead row at the
- * lead's own amount; members never fire. The claim row (primary key = registration id) decides who sends.
- */
 /** A lost claim is only "handled" when the row is sent or skipped; a fresh 'claimed' (or vanished) row means retry later. */
 async function requireSettled(registrationId: string): Promise<void> {
   const existing = await getMetaPurchase(registrationId);
   if (!existing || existing.state === "claimed") throw new Error("Meta Purchase send in progress");
 }
+
+/**
+ * One Meta Purchase per registration, ever, on the first Paid. A group sends one event for the lead row at the
+ * lead's own amount; members never fire. The claim row (primary key = registration id) decides who sends.
+ */
 
 async function metaPurchase(registrationId: string): Promise<void> {
   const loaded = await load(registrationId);

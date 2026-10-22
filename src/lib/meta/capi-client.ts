@@ -7,9 +7,9 @@ export async function sendMetaEvent(
   pixelId: string,
   event: MetaEvent,
 ): Promise<void> {
-  const token = process.env.META_CAPI_ACCESS_TOKEN ?? "";
+  const token = (process.env.META_CAPI_ACCESS_TOKEN ?? "").trim();
   if (!token) throw new Error("Meta key not set");
-  const testCode = process.env.META_CAPI_TEST_EVENT_CODE ?? "";
+  const testCode = (process.env.META_CAPI_TEST_EVENT_CODE ?? "").trim();
 
   const body: Record<string, unknown> = { data: [event], access_token: token };
   if (testCode) body.test_event_code = testCode;

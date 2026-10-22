@@ -369,10 +369,11 @@ const NO_META: RegistrationDetail["metaPurchase"] = { state: "none", at: null };
 
 async function readMetaPurchase(lead: RegistrationRecord): Promise<RegistrationDetail["metaPurchase"]> {
   const row = await getMetaPurchase(lead.id);
-  if (!row) return lead.status === "paid" && !lead.isTest ? { state: "waiting", at: null } : NO_META;
+  // No row is always "none": rows Paid before this feature shipped have no row and no job, so they would wait forever.
+  if (!row) return NO_META;
   if (row.state === "sent") return { state: "sent", at: row.sentAt };
   if (row.state === "skipped_old") return { state: "skipped_old", at: null };
-  return { state: "waiting", at: null };
+  return { state: "waiting", at: null }; // 'claimed'
 }
 
 export async function getRegistrationDetail(id: string, scope: Scope): Promise<RegistrationDetail | null> {

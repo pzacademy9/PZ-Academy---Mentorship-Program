@@ -181,11 +181,11 @@ describe("detail messages from the team", () => {
 
 describe("detail Meta Purchase status", () => {
   const setLead = (over: Record<string, unknown>) => Object.assign(store.landing_registrations.find((r) => r.id === "L")!, over);
-  it("no row, lead paid, not test: waiting", async () => {
+  it("no row, lead paid, not test: none (paid before the feature shipped, no job exists)", async () => {
     setLead({ status: "paid" });
     const d = await getRegistrationDetail("L", { kind: "all" });
     expect(meta.getMetaPurchase).toHaveBeenCalledWith("L");
-    expect(d!.metaPurchase).toEqual({ state: "waiting", at: null });
+    expect(d!.metaPurchase).toEqual({ state: "none", at: null });
   });
   it("no row, lead not paid: none", async () => {
     expect((await getRegistrationDetail("L", { kind: "all" }))!.metaPurchase).toEqual({ state: "none", at: null });
