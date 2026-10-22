@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&amp;family=Handlee&amp;family=Montserrat:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f9f9f9;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "tertiary": "#3b6849", "surface": "#f9f9f9", "surface-bright": "#f9f9f9", "surface-container-lowest": "#ffffff", "surface-tint": "#246d00", "on-tertiary": "#ffffff", "error": "#ba1a1a", "on-primary": "#ffffff", "surface-container": "#eeeeee", "on-tertiary-container": "#2d593c", "inverse-on-surface": "#f0f1f1", "secondary-fixed": "#ffdea1", "tertiary-container": "#9fcfa9", "on-primary-fixed": "#062100", "primary-container": "#7ed957", "surface-container-low": "#f3f3f4", "outline-variant": "#bfcab5", "on-surface-variant": "#404a3a", "surface-dim": "#dadada", "surface-variant": "#e2e2e2", "background": "#f9f9f9", "inverse-primary": "#81dc5a", "primary-fixed": "#9cf973", "on-error-container": "#93000a", "secondary-container": "#ffc644", "tertiary-fixed": "#bdeec7", "on-secondary-fixed-variant": "#5c4300", "outline": "#707a68", "tertiary-fixed-dim": "#a2d2ac", "on-surface": "#1a1c1c", "secondary": "#7a5900", "secondary-fixed-dim": "#f6be3b", "on-secondary": "#ffffff", "surface-container-high": "#e8e8e8", "on-tertiary-fixed-variant": "#234f33", "on-error": "#ffffff", "inverse-surface": "#2f3131", "primary": "#246d00", "on-primary-container": "#1d5d00", "on-secondary-fixed": "#261900", "on-primary-fixed-variant": "#195200", "on-background": "#1a1c1c", "error-container": "#ffdad6", "primary-fixed-dim": "#81dc5a", "on-tertiary-fixed": "#00210e", "surface-container-highest": "#e2e2e2", "on-secondary-container": "#715300" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, fontFamily: { "headline": ["Montserrat"], "display": ["Montserrat"], "body": ["Fredoka"], "label": ["Handlee"] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body text-on-surface antialiased flex flex-col min-h-screen selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe transition-all"><div class="h-16 px-4 flex items-center justify-between gap-3"><div class="flex items-center gap-2.5 min-w-0 flex-1"><img alt="Modern sleek emblem for PharmaZyme Academy Sales &amp; Admissions CRM, featuring an academic graduation cap fused with clinical DNA leaf motif in deep navy and forest teal. Design context: - Primary color: #006b5f
+- Font: plusJakartaSans
+- Mode: light
+- Roundness: rounded-md
+. The logo should be visually consistent with these brand tokens." class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1VYCo6dGDUiRUuFCYGBT_x1DboX7iVf_yiseNX8T1K9_RgrshTy3BGpnEIEgqxRnNxlRHZNZFpOzXK8Sf86M4bUDpA3-WFQwC-HcAOBvFM9c2HyEtz-GDgCMM-iHLFH0BdvacTJKElVhM-nIsZwjNmWn-FbF1rn4VS6-52FtoT1x77IonycyvR0zQMCXNql3SuwGXZcu8dBV41a7nLrCKqXVlHDxGdzVtdu9jKdUM-BlFol-VWR3cEKqM8"/><div class="flex flex-col min-w-0"><span class="text-xs font-semibold tracking-wider uppercase text-tertiary font-headline leading-none">PZ Academy Sales</span><span class="text-sm font-bold font-headline text-on-surface truncate mt-0.5">Links</span></div></div><div class="flex items-center gap-2 flex-shrink-0"><button aria-label="Agent profile" class="relative p-0.5 rounded-full ring-2 ring-primary/20 hover:ring-primary transition-all flex items-center justify-center" type="button"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VFOqXJZk-4Ohpv7E5-WAmJf-kul8NWIi9aspdfVR6Dfn8EX0XhJqpPuCRpVEoTmmlVkLZv_CBuithdRGYnJkwezP380D5haOSllWJNOeIjfO37kTOI8Ba1nRqtTBQN3x-p02_fshYH4e3M2F91NIZ5eEh8ShvP0WLccMHT1iAUpJlNYahYveTXOvKAv44v3f6p9LFkIG-Mz_aVU9Ae1kMuMgCYZ-tW1U00Jt_1dPpVrBxtNyyBR3ltNg"/><span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-primary-container rounded-full ring-2 ring-surface"></span></button></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full pb-8">
+<!-- Toast Feedback Element -->
+<div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-on-surface text-surface rounded-full shadow-xl flex items-center gap-2 text-xs font-headline font-bold transition-all duration-300 pointer-events-none opacity-0 translate-y-2" id="toast-pill">
+<span class="material-symbols-outlined text-primary-fixed text-base">check_circle</span>
+<span>Link copied to clipboard!</span>
+</div>
+<!-- Screen Header & Context Banner -->
+<div class="px-4 pt-2 pb-4 flex flex-col gap-3">
+<div class="flex items-start justify-between gap-3">
+<div class="flex flex-col">
+<h1 class="text-2xl font-bold font-headline text-on-surface tracking-tight">My links</h1>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed mt-1">
+          Share your own link for each course. We count everyone who comes through it, so you can see how you are doing.
+        </p>
+</div>
+<div class="flex-shrink-0 mt-0.5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container-high rounded-full text-xs font-label font-bold text-tertiary">
+<span class="material-symbols-outlined text-[14px]">badge</span>
+          Ref: ayesha-k
+        </span>
+</div>
+</div>
+<!-- Section Switcher Tabs to view Active Links, Demo States & Mode -->
+<div class="flex items-center gap-2 p-1 bg-surface-container-low rounded-lg overflow-x-auto no-scrollbar">
+<button class="flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-primary bg-tertiary shadow-sm text-center whitespace-nowrap" id="tab-btn-live" onclick="switchLinkTab('live')" type="button">
+        Active Links (3)
+      </button>
+<button class="flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-surface-variant hover:text-on-surface text-center whitespace-nowrap" id="tab-btn-empty" onclick="switchLinkTab('empty')" type="button">
+        Empty State
+      </button>
+<button class="flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-surface-variant hover:text-on-surface text-center whitespace-nowrap" id="tab-btn-states" onclick="switchLinkTab('states')" type="button">
+        Skeleton &amp; Error
+      </button>
+</div>
+</div>
+<!-- TAB PANEL 1: LIVE ACTIVE CARDS -->
+<div class="flex flex-col px-4 space-y-4" id="tab-panel-live">
+<!-- Card 1: PPC Batch 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_4px_20px_rgba(15,30,20,0.06)] flex flex-col gap-3 relative transition-all">
+<!-- Top Row -->
+<div class="flex items-start justify-between gap-2">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<h2 class="text-base font-bold font-headline text-on-surface truncate">PPC Batch 3</h2>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold font-headline bg-primary-container text-on-primary-container uppercase tracking-wider">
+              Live
+            </span>
+</div>
+<p class="text-xs font-body text-on-surface-variant mt-0.5">Workshop · starts 4 September</p>
+</div>
+<div class="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-lg">science</span>
+</div>
+</div>
+<!-- Middle: Monospace Link Box -->
+<div class="w-full bg-surface-container-low rounded-lg p-2.5 flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0 flex-1">
+<span class="material-symbols-outlined text-on-surface-variant text-base flex-shrink-0">link</span>
+<span class="font-mono text-xs text-on-surface font-medium truncate select-all">
+            pzacademy.com/e/ppc-batch-3?...ref=ayesha-k
+          </span>
+</div>
+<span class="text-[10px] font-label text-secondary flex-shrink-0 font-bold uppercase tracking-wider">Tracked</span>
+</div>
+<!-- Action Button -->
+<button class="w-full h-12 bg-primary hover:opacity-95 text-on-primary rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] shadow-sm" onclick="copyLinkAction(this, 'https://pzacademy.com/e/ppc-b3?ref=ayesha-k')" type="button">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+<span>Copy link</span>
+</button>
+<!-- Stats Grid (3 Equal Columns) -->
+<div class="grid grid-cols-3 gap-2 pt-1">
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">visibility</span>
+<span class="text-[11px] font-headline font-semibold">Views</span>
+</div>
+<span class="text-base font-bold font-headline text-on-surface">128</span>
+</div>
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">person_add</span>
+<span class="text-[11px] font-headline font-semibold">Registered</span>
+</div>
+<span class="text-base font-bold font-headline text-on-surface">14</span>
+</div>
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">check_circle</span>
+<span class="text-[11px] font-headline font-semibold">Paid</span>
+</div>
+<span class="text-base font-bold font-headline text-tertiary">9</span>
+</div>
+</div>
+<!-- Bottom Note -->
+<div class="flex items-center gap-1.5 pt-1">
+<span class="material-symbols-outlined text-xs text-on-surface-variant">info</span>
+<p class="text-[11px] font-body text-on-surface-variant">Counts are only for people who came through your link.</p>
+</div>
+</div>
+<!-- Card 2: Clinical Pharmacotherapy 101 (Preserved in Copied State demonstration) -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_4px_20px_rgba(15,30,20,0.06)] flex flex-col gap-3 relative transition-all">
+<div class="flex items-start justify-between gap-2">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<h2 class="text-base font-bold font-headline text-on-surface truncate">Clinical Pharmacotherapy 101</h2>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold font-headline bg-primary-container text-on-primary-container uppercase tracking-wider">
+              Live
+            </span>
+</div>
+<p class="text-xs font-body text-on-surface-variant mt-0.5">Full certification · starts 18 September</p>
+</div>
+<div class="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-lg">medical_services</span>
+</div>
+</div>
+<!-- Middle: Monospace Link Box -->
+<div class="w-full bg-surface-container-low rounded-lg p-2.5 flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0 flex-1">
+<span class="material-symbols-outlined text-tertiary text-base flex-shrink-0">link</span>
+<span class="font-mono text-xs text-on-surface font-medium truncate select-all">
+            pzacademy.com/e/pharm-101?...ref=ayesha-k
+          </span>
+</div>
+<span class="text-[10px] font-label text-secondary flex-shrink-0 font-bold uppercase tracking-wider">Active</span>
+</div>
+<!-- Full-Width Button: Copied State -->
+<button class="w-full h-12 bg-tertiary text-on-tertiary rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-default" type="button">
+<span class="material-symbols-outlined text-xl text-primary-fixed">check</span>
+<span class="text-primary-fixed">Copied!</span>
+</button>
+<!-- Stats Grid (3 Columns) -->
+<div class="grid grid-cols-3 gap-2 pt-1">
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">visibility</span>
+<span class="text-[11px] font-headline font-semibold">Views</span>
+</div>
+<span class="text-base font-bold font-headline text-on-surface">246</span>
+</div>
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">person_add</span>
+<span class="text-[11px] font-headline font-semibold">Registered</span>
+</div>
+<span class="text-base font-bold font-headline text-on-surface">38</span>
+</div>
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">check_circle</span>
+<span class="text-[11px] font-headline font-semibold">Paid</span>
+</div>
+<span class="text-base font-bold font-headline text-tertiary">24</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 pt-1">
+<span class="material-symbols-outlined text-xs text-on-surface-variant">info</span>
+<p class="text-[11px] font-body text-on-surface-variant">Counts are only for people who came through your link.</p>
+</div>
+</div>
+<!-- Card 3: Enzyme Kinetics Weekend -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_4px_20px_rgba(15,30,20,0.06)] flex flex-col gap-3 relative transition-all">
+<div class="flex items-start justify-between gap-2">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<h2 class="text-base font-bold font-headline text-on-surface truncate">Enzyme Kinetics Weekend</h2>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold font-headline bg-primary-container text-on-primary-container uppercase tracking-wider">
+              Live
+            </span>
+</div>
+<p class="text-xs font-body text-on-surface-variant mt-0.5">Masterclass · starts 30 September</p>
+</div>
+<div class="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-lg">biotech</span>
+</div>
+</div>
+<!-- Middle: Monospace Link Box -->
+<div class="w-full bg-surface-container-low rounded-lg p-2.5 flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0 flex-1">
+<span class="material-symbols-outlined text-on-surface-variant text-base flex-shrink-0">link</span>
+<span class="font-mono text-xs text-on-surface font-medium truncate select-all">
+            pzacademy.com/e/kinetics-wknd?...ref=ayesha-k
+          </span>
+</div>
+<span class="text-[10px] font-label text-secondary flex-shrink-0 font-bold uppercase tracking-wider">Tracked</span>
+</div>
+<!-- Action Button -->
+<button class="w-full h-12 bg-primary hover:opacity-95 text-on-primary rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] shadow-sm" onclick="copyLinkAction(this, 'https://pzacademy.com/e/kinetics-wknd?ref=ayesha-k')" type="button">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+<span>Copy link</span>
+</button>
+<!-- Stats Grid (3 Columns) -->
+<div class="grid grid-cols-3 gap-2 pt-1">
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">visibility</span>
+<span class="text-[11px] font-headline font-semibold">Views</span>
+</div>
+<span class="text-base font-bold font-headline text-on-surface">89</span>
+</div>
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">person_add</span>
+<span class="text-[11px] font-headline font-semibold">Registered</span>
+</div>
+<span class="text-base font-bold font-headline text-on-surface">11</span>
+</div>
+<div class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-center">
+<div class="flex items-center gap-1 text-on-surface-variant mb-0.5">
+<span class="material-symbols-outlined text-[15px]">check_circle</span>
+<span class="text-[11px] font-headline font-semibold">Paid</span>
+</div>
+<span class="text-base font-bold font-headline text-tertiary">7</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 pt-1">
+<span class="material-symbols-outlined text-xs text-on-surface-variant">info</span>
+<p class="text-[11px] font-body text-on-surface-variant">Counts are only for people who came through your link.</p>
+</div>
+</div>
+</div>
+<!-- TAB PANEL 2: INTERACTIVE EMPTY STATE -->
+<div class="hidden flex-col px-4" id="tab-panel-empty">
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(15,30,20,0.06)] flex flex-col items-center text-center">
+<!-- Playful Megaphone + Link Illustration Composition -->
+<div class="relative w-28 h-28 mb-5 flex items-center justify-center">
+<div class="absolute inset-0 bg-primary-container/20 rounded-full animate-pulse"></div>
+<div class="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center shadow-inner relative">
+<span class="material-symbols-outlined text-tertiary text-4xl">campaign</span>
+<div class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-on-secondary-container text-lg">link</span>
+</div>
+</div>
+<!-- Decorative little stars/sparks -->
+<span class="absolute top-2 right-2 text-secondary text-xs material-symbols-outlined animate-bounce">auto_awesome</span>
+<span class="absolute bottom-3 left-2 text-primary text-xs material-symbols-outlined">spark</span>
+</div>
+<h3 class="text-lg font-bold font-headline text-on-surface mb-2">
+        No pages are open for registration yet
+      </h3>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed max-w-xs">
+        When a course or workshop opens, your personal link will appear here.
+      </p>
+<div class="mt-6 p-3 bg-surface-container-low rounded-lg w-full flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm text-tertiary">notifications_active</span>
+<span class="text-[11px] font-headline font-semibold text-tertiary">You will be alerted as soon as links go live</span>
+</div>
+</div>
+</div>
+<!-- TAB PANEL 3: SKELETON LOADING & ERROR STATES -->
+<div class="hidden flex-col px-4 space-y-5" id="tab-panel-states">
+<!-- State 1: Skeleton Card -->
+<div class="flex flex-col gap-1">
+<span class="text-[11px] font-label font-bold text-secondary uppercase tracking-wider px-1">Loading State</span>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_4px_20px_rgba(15,30,20,0.06)] flex flex-col gap-3 animate-pulse">
+<div class="flex items-center justify-between">
+<div class="flex flex-col gap-2 w-3/4">
+<div class="h-4 bg-surface-container-high rounded w-2/3"></div>
+<div class="h-3 bg-surface-container rounded w-1/2"></div>
+</div>
+<div class="w-8 h-8 bg-surface-container rounded-lg"></div>
+</div>
+<div class="w-full h-10 bg-surface-container-low rounded-lg"></div>
+<div class="w-full h-12 bg-surface-container-high rounded-lg"></div>
+<div class="grid grid-cols-3 gap-2 pt-1">
+<div class="h-14 bg-surface-container rounded-lg"></div>
+<div class="h-14 bg-surface-container rounded-lg"></div>
+<div class="h-14 bg-surface-container rounded-lg"></div>
+</div>
+</div>
+</div>
+<!-- State 2: Error Card -->
+<div class="flex flex-col gap-1">
+<span class="text-[11px] font-label font-bold text-error uppercase tracking-wider px-1">Network Error State</span>
+<div class="bg-error-container/40 rounded-xl p-5 shadow-[0_4px_20px_rgba(15,30,20,0.06)] flex flex-col items-center text-center gap-3">
+<div class="w-12 h-12 rounded-full bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-2xl">sync_problem</span>
+</div>
+<div class="flex flex-col">
+<h4 class="text-sm font-bold font-headline text-on-surface">Connection interrupted</h4>
+<p class="text-xs font-body text-on-surface-variant mt-1 max-w-[240px]">
+            We could not load your links. Please try again.
+          </p>
+</div>
+<button class="w-full h-12 bg-tertiary hover:bg-tertiary/90 text-on-tertiary rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98]" id="retry-btn" onclick="retryReload()" type="button">
+<span class="material-symbols-outlined text-lg">refresh</span>
+<span>Try again</span>
+</button>
+</div>
+</div>
+<!-- Side-by-side Dark Mode Preview Concept Container -->
+<div class="flex flex-col gap-1 pt-2">
+<span class="text-[11px] font-label font-bold text-tertiary uppercase tracking-wider px-1">Dark Mode Presentation Preview</span>
+<div class="bg-[#1f2421] text-[#f0f1f1] rounded-xl p-4 shadow-xl flex flex-col gap-3">
+<div class="flex items-start justify-between">
+<div>
+<div class="flex items-center gap-2">
+<span class="font-bold font-headline text-sm text-white">PPC Batch 3</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-headline bg-primary-container text-on-primary-container">LIVE</span>
+</div>
+<p class="text-xs font-body text-gray-400 mt-0.5">Night Shift Edition</p>
+</div>
+<span class="material-symbols-outlined text-emerald-400 text-lg">dark_mode</span>
+</div>
+<div class="w-full bg-[#161a17] rounded-lg p-2 flex items-center justify-between">
+<span class="font-mono text-xs text-gray-300 truncate">pzacademy.com/e/...ref=ayesha-k</span>
+<span class="material-symbols-outlined text-xs text-emerald-400">lock</span>
+</div>
+<button class="w-full h-10 bg-primary-container text-on-primary-container rounded-lg font-headline font-bold text-xs flex items-center justify-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-base">content_copy</span>
+<span>Copy link</span>
+</button>
+<div class="grid grid-cols-3 gap-2 text-center text-xs">
+<div class="p-1.5 rounded bg-[#161a17]"><span class="text-gray-400 text-[10px] block">Views</span><b class="text-white">128</b></div>
+<div class="p-1.5 rounded bg-[#161a17]"><span class="text-gray-400 text-[10px] block">Reg</span><b class="text-white">14</b></div>
+<div class="p-1.5 rounded bg-[#161a17]"><span class="text-gray-400 text-[10px] block">Paid</span><b class="text-emerald-400">9</b></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Dynamic Tab Switcher for Reviewing Requested States
+  function switchLinkTab(tabName) {
+    const livePanel = document.getElementById('tab-panel-live');
+    const emptyPanel = document.getElementById('tab-panel-empty');
+    const statesPanel = document.getElementById('tab-panel-states');
+
+    const liveBtn = document.getElementById('tab-btn-live');
+    const emptyBtn = document.getElementById('tab-btn-empty');
+    const statesBtn = document.getElementById('tab-btn-states');
+
+    // Hide all
+    livePanel.classList.add('hidden');
+    emptyPanel.classList.add('hidden');
+    statesPanel.classList.add('hidden');
+
+    // Reset button styling
+    [liveBtn, emptyBtn, statesBtn].forEach(btn => {
+      btn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-surface-variant hover:text-on-surface text-center whitespace-nowrap";
+    });
+
+    if (tabName === 'live') {
+      livePanel.classList.remove('hidden');
+      liveBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-primary bg-tertiary shadow-sm text-center whitespace-nowrap";
+    } else if (tabName === 'empty') {
+      emptyPanel.classList.remove('hidden');
+      emptyBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-primary bg-tertiary shadow-sm text-center whitespace-nowrap";
+    } else if (tabName === 'states') {
+      statesPanel.classList.remove('hidden');
+      statesBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-headline font-bold transition-all text-on-primary bg-tertiary shadow-sm text-center whitespace-nowrap";
+    }
+  }
+
+  // Interactive Copy Feedback with animated state and toast
+  function copyLinkAction(buttonElem, urlToCopy) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(urlToCopy).catch(function() {});
+    }
+
+    const originalContent = buttonElem.innerHTML;
+    const originalClasses = buttonElem.className;
+
+    // Transition to Copied active feedback
+    buttonElem.className = "w-full h-12 bg-tertiary text-on-tertiary rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm";
+    buttonElem.innerHTML = `
+      <span class="material-symbols-outlined text-xl text-primary-fixed">check</span>
+      <span class="text-primary-fixed">Copied!</span>
+    `;
+
+    // Trigger toast
+    const toast = document.getElementById('toast-pill');
+    if (toast) {
+      toast.classList.remove('opacity-0', 'translate-y-2');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-2');
+      }, 2200);
+    }
+
+    setTimeout(() => {
+      buttonElem.className = originalClasses;
+      buttonElem.innerHTML = originalContent;
+    }, 2500);
+  }
+
+  // Retry button interaction for error card
+  function retryReload() {
+    const btn = document.getElementById('retry-btn');
+    if (!btn) return;
+    btn.innerHTML = `<span class="material-symbols-outlined text-lg animate-spin">refresh</span><span>Reloading...</span>`;
+    setTimeout(() => {
+      switchLinkTab('live');
+      btn.innerHTML = `<span class="material-symbols-outlined text-lg">refresh</span><span>Try again</span>`;
+    }, 900);
+  }
+
+  // Highlight bottom navigation "Links" active item reliably
+  (function setActiveNav() {
+    const navLinks = document.querySelectorAll('nav a');
+    navLinks.forEach(link => {
+      const path = link.getAttribute('data-path');
+      if (path === 'links') {
+        link.classList.remove('text-on-surface-variant');
+        link.classList.add('text-primary', 'font-semibold');
+        const icon = link.querySelector('.material-symbols-outlined');
+        if (icon) {
+          icon.style.fontVariationSettings = "'FILL' 1";
+        }
+      }
+    });
+  })();
+</script></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]" data-active-classes="text-primary font-semibold"><div class="flex items-center justify-around h-16 px-2"><a class="flex flex-col items-center justify-center flex-1 py-1 text-on-surface-variant hover:text-on-surface transition-colors min-h-[44px]" data-path="today" href="#"><span class="material-symbols-outlined text-[22px]">calendar_today</span><span class="text-[11px] font-medium mt-0.5 tracking-tight font-body">Today</span></a><a class="flex flex-col items-center justify-center flex-1 py-1 text-on-surface-variant hover:text-on-surface transition-colors min-h-[44px]" data-path="my-contacts" href="#"><span class="material-symbols-outlined text-[22px]">contacts</span><span class="text-[11px] font-medium mt-0.5 tracking-tight font-body">My Contacts</span></a><a aria-current="page" class="flex flex-col items-center justify-center flex-1 py-1 transition-colors min-h-[44px] text-primary font-semibold" data-path="links" href="#"><span class="material-symbols-outlined text-[22px]">link</span><span class="text-[11px] font-medium mt-0.5 tracking-tight font-body">Links</span></a><a class="flex flex-col items-center justify-center flex-1 py-1 text-on-surface-variant hover:text-on-surface transition-colors min-h-[44px]" data-path="add-lead" href="#"><span class="material-symbols-outlined text-[22px]">person_add</span><span class="text-[11px] font-medium mt-0.5 tracking-tight font-body">Add Lead</span></a><a class="flex flex-col items-center justify-center flex-1 py-1 text-on-surface-variant hover:text-on-surface transition-colors min-h-[44px]" data-path="help" href="#"><span class="material-symbols-outlined text-[22px]">help</span><span class="text-[11px] font-medium mt-0.5 tracking-tight font-body">Help</span></a></div></nav></body></html>
