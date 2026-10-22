@@ -6,6 +6,7 @@ import { listPaymentCountries } from "@/lib/data/landing-payment-countries";
 import { getPageSheetInfo } from "@/lib/data/landing-event-sheet";
 import { listVariants } from "@/lib/data/landing-variants";
 import { getPageCourseModules } from "@/lib/data/landing-course-modules";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { LandingEditor } from "@/components/admin/landing/LandingEditor";
 
 export const metadata = { title: "Edit Landing Page — PZ Academy" };
@@ -32,5 +33,8 @@ export default async function LandingEditorPage({ params }: { params: Promise<{ 
     console.error("Could not load course modules for page", id, e);
     return null;
   });
-  return <LandingEditor key={page.id} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} />;
+  // A failed read just leaves the picker with "No course" only.
+  const { data: courseRows } = await createAdminSupabase().from("courses").select("id, title").order("title");
+  const courses = (courseRows ?? []) as { id: string; title: string }[];
+  return <LandingEditor key={page.id} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} courses={courses} />;
 }

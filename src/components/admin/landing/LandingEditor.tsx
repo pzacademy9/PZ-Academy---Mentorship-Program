@@ -24,6 +24,7 @@ import { RegistrationOpsCard } from "./registration/RegistrationOpsCard";
 import type { CourseModule } from "@/lib/data/landing-course-modules";
 import { pruneModuleIds } from "@/lib/landing/registration/admin-edit";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
+import { CourseMainPicker } from "./CourseMainPicker";
 import { PreviewFrame } from "./PreviewFrame";
 import { PublishSlot, ReadinessSlot } from "./PublishSlot";
 import { ReadinessPanel } from "./ReadinessPanel";
@@ -73,8 +74,10 @@ const SAVE_DOT: Record<SaveState, string> = {
  * full browser reload.
  */
 export function LandingEditor({
-  page, versions, centralRegionKeys = [], sheetId = null, variants = [], courseModules = null,
+  page, versions, centralRegionKeys = [], sheetId = null, variants = [], courseModules = null, courses = [],
 }: {
+  /** Courses a page can be tied to. */
+  courses?: { id: string; title: string }[];
   page: LandingPage; versions: LandingVersion[]; /** Region keys that already have a central payment account list. */
   centralRegionKeys?: string[]; sheetId?: string | null;
   /** The page's country / module links. */
@@ -101,7 +104,7 @@ export function LandingEditor({
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheetId} variants={variants} courseModules={courseModules} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheetId} variants={variants} courseModules={courseModules} courses={courses} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -129,8 +132,9 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, centralRegionKeys, sheetId, variants, courseModules, onRevision, onRestored,
+  page, versions, centralRegionKeys, sheetId, variants, courseModules, courses, onRevision, onRestored,
 }: {
+  courses: { id: string; title: string }[];
   page: LandingPage; versions: LandingVersion[]; centralRegionKeys: string[]; sheetId: string | null;
   variants: LandingVariant[]; courseModules: CourseModule[] | null; onRevision: (rev: number) => void; onRestored: () => void;
 }) {
@@ -440,6 +444,7 @@ function EditorShell({
           <span className="shrink-0 rounded-full bg-pz-surface-container-high px-2 py-0.5 font-body text-[11px] font-medium text-pz-on-surface-variant">{KIND_LABEL[page.kind]}</span>
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
+        <CourseMainPicker pageId={page.id} courses={courses} courseId={page.courseId ?? null} isMainPage={page.isMainPage ?? false} />
         {options.length > 0 && (
           <VariantSwitcher options={options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
         )}
