@@ -13,6 +13,13 @@ export function isBatchOpen(a: {
   return a.capacity === 0 || a.taken < a.capacity;
 }
 
+/** Formatted start date, or "" when unset, invalid, or already in the past (a stale date would mislead visitors). */
+function upcomingStartsOn(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isNaN(t) && t < Date.now()) return "";
+  return formatStartsOn(iso);
+}
+
 const ROW_CAP = 1000;
 interface PageRow { id: string; course_id: string | null; slug: string; title: string; status: string; published: unknown }
 
@@ -66,7 +73,8 @@ export async function getOpenLiveBatches(): Promise<Map<string, OpenLiveBatch>> 
       const { count, error } = await admin
         .from("landing_registrations").select("id", { count: "exact", head: true }).eq("page_id", p.id).eq("is_test", false);
       if (error) throw new Error(error.message);
-      return count ?? 0;
+      // Fail closed: a missing count is treated as full, never as zero taken.
+      return count ?? Number.POSITIVE_INFINITY;
     }));
 
     unfinished.forEach(({ p, content }, i) => {
@@ -84,8 +92,8 @@ export async function getOpenLiveBatches(): Promise<Map<string, OpenLiveBatch>> 
       out.set(courseId, {
         courseId,
         slug: p.slug,
-        title: p.title,
-        startsOn: formatStartsOn(content.settings.batchStartsOn ?? ""),
+        title: content.seo.title.trim() || p.title,
+        startsOn: upcomingStartsOn(content.settings.batchStartsOn ?? ""),
         href: `/e/${p.slug}?src=website`,
       });
     });

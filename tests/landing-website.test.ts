@@ -23,8 +23,9 @@ describe("isBatchOpen", () => {
   it("is true for unlimited capacity", () => expect(isBatchOpen({ ...ok, capacity: 0, taken: 500 })).toBe(true));
 });
 
-const content = (over: Record<string, unknown> = {}, startsOn = "2026-11-01T00:00:00Z") => ({
+const content = (over: Record<string, unknown> = {}, startsOn = "2099-11-01T00:00:00Z", seoTitle = "") => ({
   settings: { batchStartsOn: startsOn },
+  seo: { title: seoTitle },
   registration: { enabled: true, modes: ["live"], capacity: 0, ...over },
 });
 const page = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -44,11 +45,30 @@ describe("getOpenLiveBatches", () => {
     store.landing_pages.push(page("p1"));
     const m = await getOpenLiveBatches();
     expect(m.size).toBe(1);
-    expect(m.get("c1")).toEqual({ courseId: "c1", slug: "slug-p1", title: "Title p1", startsOn: "1 November 2026", href: "/e/slug-p1?src=website" });
+    expect(m.get("c1")).toEqual({ courseId: "c1", slug: "slug-p1", title: "Title p1", startsOn: "1 November 2099", href: "/e/slug-p1?src=website" });
   });
   it("leaves startsOn empty when unset", async () => {
     store.landing_pages.push(page("p1", { published: content({}, "") }));
     expect((await getOpenLiveBatches()).get("c1")?.startsOn).toBe("");
+  });
+  it("prefers the published SEO title over the admin working name", async () => {
+    store.landing_pages.push(page("p1", { published: content({}, "", "Public Title") }));
+    expect((await getOpenLiveBatches()).get("c1")?.title).toBe("Public Title");
+  });
+  it("blanks a start date that has already passed but keeps an invalid or future one as before", async () => {
+    store.landing_pages.push(page("p1", { published: content({}, "2020-01-01T00:00:00Z") }));
+    expect((await getOpenLiveBatches()).get("c1")?.startsOn).toBe("");
+    store.landing_pages[0] = page("p1", { published: content({}, "not a date") });
+    expect((await getOpenLiveBatches()).get("c1")?.startsOn).toBe("");
+  });
+  it("fails closed when the head count comes back null", async () => {
+    store.landing_pages.push(page("p1", { published: content({ capacity: 5 }) }));
+    const base = memoryHandler(store);
+    db.state.handler = (op) => {
+      const res = base(op);
+      return op.table === "landing_registrations" && op.head ? { ...res, count: null } : res;
+    };
+    expect((await getOpenLiveBatches()).size).toBe(0);
   });
   it("ignores a non-main page of the same course", async () => {
     store.landing_pages.push(page("p1", { is_main_page: false }));
