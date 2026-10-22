@@ -74,6 +74,17 @@ describe("listEnrollmentsForReview alsoPaidViaLanding", () => {
     expect(await flag(enrollment("e1", "stu-1", "c-1", null), [reg({})])).toBe(false);
     expect(await flag(enrollment("e1", "stu-1", "c-1", ""), [reg({})])).toBe(false);
   });
+  it("logs a failed landing read and still returns the list with the flag off", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    store = { landing_pages: [], landing_registrations: [] };
+    const base = memoryHandler(store);
+    admin.state.handler = (op) => (op.table === "landing_registrations" ? { data: null, error: { message: "boom" } } : base(op));
+    server.state.handler = () => ({ data: [enrollment("e1", "stu-1", "c-1", "u/shot.png")], error: null });
+    const rows = await listEnrollmentsForReview("all");
+    expect(rows[0].alsoPaidViaLanding).toBe(false);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("landing registrations read failed"), "boom");
+    spy.mockRestore();
+  });
   it("uses one batched registrations query and one pages query regardless of row count", async () => {
     store = {
       landing_pages: [{ id: "p-1", course_id: "c-1" }],

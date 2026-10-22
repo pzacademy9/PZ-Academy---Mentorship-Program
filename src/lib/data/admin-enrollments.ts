@@ -128,6 +128,7 @@ function toRow(row: RawReviewRow, emails: Map<string, string>): EnrollmentReview
     enrolledAt: row.enrolled_at,
     paymentAmountPkr: row.payment_amount_pkr,
     hasScreenshot: Boolean(row.payment_screenshot_url),
+    // Hardcoded here on purpose: only listEnrollmentsForReview computes this flag (it needs the batched landing lookup).
     alsoPaidViaLanding: false,
     paymentShortfallPkr: row.payment_shortfall_pkr,
     sheetPendingStatus: row.sheet_pending_status,
@@ -169,12 +170,14 @@ async function landingPaidPairs(studentIds: string[]): Promise<Set<string>> {
 
   const regs: { page_id: string; student_id: string }[] = [];
   for (const ids of chunk(studentIds, ID_CHUNK)) {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("landing_registrations")
       .select("page_id, student_id")
       .in("student_id", ids)
       .in("status", ["paid", "free"])
       .eq("is_test", false);
+    // The flag is advisory: log a failed read (so a silent blank is diagnosable) but never throw.
+    if (error) console.error("[admin-enrollments] landing registrations read failed", error.message);
     regs.push(...((data ?? []) as { page_id: string; student_id: string }[]));
   }
   if (regs.length === 0) return pairs;
@@ -182,7 +185,8 @@ async function landingPaidPairs(studentIds: string[]): Promise<Set<string>> {
   const pageCourse = new Map<string, string>();
   const pageIds = Array.from(new Set(regs.map((r) => r.page_id)));
   for (const ids of chunk(pageIds, ID_CHUNK)) {
-    const { data } = await admin.from("landing_pages").select("id, course_id").in("id", ids);
+    const { data, error } = await admin.from("landing_pages").select("id, course_id").in("id", ids);
+    if (error) console.error("[admin-enrollments] landing pages read failed", error.message);
     for (const p of (data ?? []) as { id: string; course_id: string | null }[]) {
       if (p.course_id) pageCourse.set(p.id, p.course_id);
     }
