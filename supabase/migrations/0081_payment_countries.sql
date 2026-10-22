@@ -1,8 +1,11 @@
 -- 0081_payment_countries.sql
--- Central payment accounts per country: one list per region key (PK, UAE, KSA, PH, IN, INTL)
+-- Central payment accounts per country: one list per region key (PK, UAE, SA, PH, IN, INTL)
 -- instead of an account picker on every landing page. A page region keeps its own label,
 -- currency, class time and timezone; only the accounts come from here.
 -- Service role only (RLS on, zero policies), same as landing_meta_events.
+-- The seed reproduces what the live page shows today (region keys PK, UAE, SA, PH, IN, INTL).
+-- New pages made from the templates use region key KSA, which has no central country until the
+-- owner adds one on the Payment accounts screen (until then it uses its own list).
 -- The owner pastes this into the Supabase SQL editor. Safe to run twice.
 
 create table if not exists public.payment_countries (
@@ -27,7 +30,7 @@ alter table public.payment_country_accounts enable row level security;
 insert into public.payment_countries (region_key, name, sort) values
   ('PK',   'Pakistan',             10),
   ('UAE',  'United Arab Emirates', 20),
-  ('KSA',  'Saudi Arabia',         30),
+  ('SA',   'Saudi Arabia',         30),
   ('PH',   'Philippines',          40),
   ('IN',   'India',                50),
   ('INTL', 'International',        60)
@@ -37,9 +40,12 @@ insert into public.payment_country_accounts (region_key, account_key, sort) valu
   ('PK',   'faysal',    10),
   ('PK',   'easypaisa', 20),
   ('UAE',  'mashreq',   10),
-  ('KSA',  'anb',       10),
-  ('PH',   'pnb_ph',    10),
-  ('PH',   'gcash',     20),
+  ('UAE',  'paypal',    20),
+  ('SA',   'anb',       10),
+  ('SA',   'paypal',    20),
+  ('PH',   'gcash',     10),
+  ('PH',   'pnb_ph',    20),
   ('IN',   'pnb_in',    10),
+  ('IN',   'paypal',    20),
   ('INTL', 'paypal',    10)
 on conflict (region_key, account_key) do nothing;

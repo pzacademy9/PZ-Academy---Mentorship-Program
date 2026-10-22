@@ -11,7 +11,7 @@ const countries: Row[] = [
   { region_key: "PK", name: "Pakistan", sort: 10, active: true },
   { region_key: "PH", name: "Philippines", sort: 20, active: true },
   { region_key: "UAE", name: "United Arab Emirates", sort: 30, active: true },
-  { region_key: "KSA", name: "Saudi Arabia", sort: 40, active: true },
+  { region_key: "SA", name: "Saudi Arabia", sort: 40, active: true },
 ];
 const links: Row[] = [
   { region_key: "PK", account_key: "easypaisa", sort: 20 },
@@ -92,8 +92,8 @@ describe("resolveRegionAccountKeys", () => {
     await expect(resolveRegionAccountKeys([{ key: "PK", accountKeys: ["paypal", "easypaisa", "faysal"] }])).resolves.toEqual({ PK: ["faysal", "easypaisa"] });
   });
   it("falls back to the region's own keys, active only and in the region's order, when there is no central list", async () => {
-    await expect(resolveRegionAccountKeys([{ key: "KSA", accountKeys: ["paypal", "anb"] }, { key: "IN", accountKeys: ["paypal"] }])).resolves.toEqual({
-      KSA: ["paypal"],
+    await expect(resolveRegionAccountKeys([{ key: "SA", accountKeys: ["paypal", "anb"] }, { key: "IN", accountKeys: ["paypal"] }])).resolves.toEqual({
+      SA: ["paypal"],
       IN: ["paypal"],
     });
   });
@@ -102,7 +102,7 @@ describe("resolveRegionAccountKeys", () => {
     await expect(resolveRegionAccountKeys([{ key: "UAE", accountKeys: ["paypal", "mashreq"] }])).resolves.toEqual({ UAE: ["paypal"] });
   });
   it("returns [] for a region with neither a central list nor usable old keys", async () => {
-    await expect(resolveRegionAccountKeys([{ key: "KSA", accountKeys: ["anb"] }, { key: "XX", accountKeys: [] }])).resolves.toEqual({ KSA: [], XX: [] });
+    await expect(resolveRegionAccountKeys([{ key: "SA", accountKeys: ["anb"] }, { key: "XX", accountKeys: [] }])).resolves.toEqual({ SA: [], XX: [] });
   });
   it("uses the old keys when the new tables do not exist yet", async () => {
     db.state.handler = (op) => (op.table === "payment_accounts" ? serve(op) : { data: null, error: { code: "PGRST205" } });
@@ -120,7 +120,7 @@ describe("listPaymentCountries", () => {
   it("returns every country in sort order with all its accounts, hidden included, in link order", async () => {
     accounts = accounts.map((a) => (a.key === "gcash" ? { ...a, active: false } : a));
     const out = await listPaymentCountries();
-    expect(out.map((c) => c.regionKey)).toEqual(["PK", "PH", "UAE", "KSA"]);
+    expect(out.map((c) => c.regionKey)).toEqual(["PK", "PH", "UAE", "SA"]);
     expect(out[1].accounts.map((a) => [a.key, a.active])).toEqual([["pnb_ph", true], ["gcash", false]]);
     expect(out[0]).toMatchObject({ regionKey: "PK", name: "Pakistan", sort: 10, active: true });
     expect(out[0].accounts[0]).toEqual({ key: "faysal", label: "FAYSAL", kind: "bank", active: true, sort: 10 });
