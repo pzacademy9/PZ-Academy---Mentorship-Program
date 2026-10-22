@@ -136,6 +136,19 @@ describe("publish", () => {
     expect(res.status).toBe(422);
     expect((await res.json()).problems).toEqual([{ message: "Fill in \"Headline\"" }]);
   });
+  it("no-accounts is 422 with the readiness error shape", async () => {
+    const problems = [{ message: "Add payment accounts for Pakistan on the Payment accounts screen before publishing." }];
+    publishLandingPage.mockResolvedValue({ ok: false, reason: "no-accounts", problems });
+    const res = await publish(req({}), ctx);
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({ error: "The page is not ready to publish yet.", problems });
+  });
+  it("a failed account check is 500 with a plain message", async () => {
+    publishLandingPage.mockResolvedValue({ ok: false, reason: "accounts-check-failed" });
+    const res = await publish(req({}), ctx);
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("We could not check the payment accounts. Please try again.");
+  });
   it("returns ok when published", async () => {
     publishLandingPage.mockResolvedValue({ ok: true, version: 1 });
     expect((await publish(req({}), ctx)).status).toBe(200);

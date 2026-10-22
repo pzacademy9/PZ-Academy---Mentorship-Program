@@ -2,6 +2,7 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
 import { revalidateLandingSlug } from "./landing-revalidate";
+import { resolveRegionAccountKeys } from "./landing-payment-countries";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
@@ -30,8 +31,8 @@ export type CreateResult = { ok: true; id: string } | { ok: false; reason: "slug
 export type SaveResult = { ok: true; revision: number } | { ok: false; reason: "conflict" | "not-found" | "db-error" };
 export type PublishResult =
   | { ok: true; version: number }
-  | { ok: false; reason: "not-found" | "db-error" | "conflict" }
-  | { ok: false; reason: "not-ready"; problems: Problem[] };
+  | { ok: false; reason: "not-found" | "db-error" | "conflict" | "accounts-check-failed" }
+  | { ok: false; reason: "not-ready" | "no-accounts"; problems: Problem[] };
 export type SimpleResult = { ok: true } | { ok: false; reason: "not-found" | "not-published" | "db-error" };
 
 const UNIQUE_VIOLATION = "23505";
@@ -172,6 +173,25 @@ export async function publishLandingPage(userId: string, id: string): Promise<Pu
   // The server re-checks readiness: the disabled Publish button is not a security boundary.
   const readiness = computeReadiness(page.draft, { title: page.title, slug: page.slug });
   if (!readiness.ready) return { ok: false, reason: "not-ready", problems: readiness.problems };
+  // A paid region with no payment account would show visitors an empty pay list. Strict check, publish only.
+  const reg = page.draft.registration;
+  if (reg.enabled) {
+    const paid = reg.regions.filter((g) =>
+      reg.options.some((o) => !o.free && Object.prototype.hasOwnProperty.call(reg.prices[o.key] ?? {}, g.key)));
+    if (paid.length > 0) {
+      let resolved: Record<string, string[]>;
+      try {
+        resolved = await resolveRegionAccountKeys(paid);
+      } catch (error) {
+        console.error("[landing-publish] could not check the payment accounts", error);
+        return { ok: false, reason: "accounts-check-failed" };
+      }
+      const problems: Problem[] = paid
+        .filter((g) => (resolved[g.key] ?? []).length === 0)
+        .map((g) => ({ message: `Add payment accounts for ${g.label} on the Payment accounts screen before publishing.`, sectionId: "registration:accounts" }));
+      if (problems.length > 0) return { ok: false, reason: "no-accounts", problems };
+    }
+  }
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("landing_publish_page", { p_page_id: id, p_user: userId, p_revision: page.revision });
   if (error) return { ok: false, reason: rpcFailure(error) };

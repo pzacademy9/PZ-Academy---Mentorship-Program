@@ -9,6 +9,9 @@ vi.mock("@/lib/landing/content", async () => {
   return { ...actual, computeReadiness: (...a: Parameters<typeof actual.computeReadiness>) => (forceReady ? { ready: true, problems: [] } : actual.computeReadiness(...a)) };
 });
 
+const resolveRegionAccountKeys = vi.fn();
+vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveRegionAccountKeys: (...a: unknown[]) => resolveRegionAccountKeys(...a) }));
+
 type Res = { data: unknown; error: unknown };
 interface Op { table: string; op: "select" | "insert" | "update" | "delete"; payload?: Record<string, unknown>; filters: [string, unknown][] }
 let forceReady = false;
@@ -45,7 +48,8 @@ import {
   rollbackLandingPage, saveDraft, publishLandingPage, getPublishedLandingPage, getLandingPage, renameLandingPage,
   duplicateLandingPage, setPageStatus, listVersions,
 } from "@/lib/data/landing-pages";
-import { emptyContent } from "@/lib/landing/content";
+import { emptyContent, updateRegistration } from "@/lib/landing/content";
+import { ppcConfig } from "./fixtures/registration-fixtures";
 
 const content = emptyContent("course");
 const pageRow = (over: Record<string, unknown> = {}) => ({
@@ -56,7 +60,7 @@ const pageRow = (over: Record<string, unknown> = {}) => ({
 const find = (table: string, op: Op["op"]) => ops.filter((o) => o.table === table && o.op === op);
 
 beforeEach(() => {
-  ops = []; forceReady = false; revalidatePath.mockReset();
+  ops = []; forceReady = false; resolveRegionAccountKeys.mockReset(); revalidatePath.mockReset();
   rpcCalls = []; rpcHandler = () => ({ data: null, error: null });
 });
 
@@ -142,6 +146,50 @@ describe("publishLandingPage", () => {
   it("a read error while loading the page is db-error and calls nothing", async () => {
     handler = () => ({ data: null, error: { code: "08006", message: "down" } });
     expect(await publishLandingPage("u", "p1")).toEqual({ ok: false, reason: "db-error" });
+    expect(rpcCalls).toHaveLength(0);
+  });
+});
+
+describe("publishLandingPage: payment accounts", () => {
+  const regCfg = (over: Record<string, unknown> = {}) => ({ ...JSON.parse(JSON.stringify(ppcConfig)), enabled: true, ...over });
+  const withReg = (cfg: unknown) => pageRow({ draft: updateRegistration(content, cfg as never), status: "draft", published: null });
+  const setup = (cfg: unknown) => {
+    forceReady = true;
+    handler = () => ({ data: withReg(cfg), error: null });
+    rpcHandler = () => ({ data: 4, error: null });
+  };
+  const allKeys = () => Object.fromEntries(ppcConfig.regions.map((r) => [r.key, ["faysal"]]));
+
+  it("refuses when a region with a paid price has no accounts, naming the country, and writes nothing", async () => {
+    setup(regCfg());
+    resolveRegionAccountKeys.mockResolvedValue({ ...allKeys(), UAE: [] });
+    const r = await publishLandingPage("u", "p1");
+    expect(r).toMatchObject({ ok: false, reason: "no-accounts" });
+    if (r.ok || r.reason !== "no-accounts") throw new Error("expected no-accounts");
+    expect(r.problems.map((p) => p.message)).toEqual(["Add payment accounts for United Arab Emirates on the Payment accounts screen before publishing."]);
+    expect(rpcCalls).toHaveLength(0);
+  });
+  it("publishes when every paid region has accounts", async () => {
+    setup(regCfg());
+    resolveRegionAccountKeys.mockResolvedValue(allKeys());
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: true, version: 4 });
+  });
+  it("lets a region with only free prices go live with no accounts", async () => {
+    const cfg = regCfg();
+    cfg.options = cfg.options.map((o: { free: boolean }) => ({ ...o, free: true }));
+    setup(cfg);
+    resolveRegionAccountKeys.mockResolvedValue(Object.fromEntries(ppcConfig.regions.map((r) => [r.key, []])));
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: true, version: 4 });
+  });
+  it("does not check when the built-in form is off", async () => {
+    setup(regCfg({ enabled: false }));
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: true, version: 4 });
+    expect(resolveRegionAccountKeys).not.toHaveBeenCalled();
+  });
+  it("a resolver error is accounts-check-failed and publishes nothing", async () => {
+    setup(regCfg());
+    resolveRegionAccountKeys.mockRejectedValue(new Error("down"));
+    expect(await publishLandingPage("u", "p1")).toEqual({ ok: false, reason: "accounts-check-failed" });
     expect(rpcCalls).toHaveLength(0);
   });
 });
