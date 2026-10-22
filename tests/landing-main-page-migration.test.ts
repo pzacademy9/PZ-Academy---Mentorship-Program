@@ -25,6 +25,15 @@ describe("0084 landing main page migration", () => {
     expect(sql).toContain("to service_role");
     expect(sql).toContain("main_needs_course");
   });
+  it("clears the main flag when a course is deleted (before update trigger)", () => {
+    expect(sql).toContain("drop trigger if exists landing_pages_clear_main_without_course");
+    expect(sql).toMatch(/create trigger landing_pages_clear_main_without_course\s+before update on public\.landing_pages/);
+    expect(sql).toContain("new.is_main_page := false");
+    expect(sql).toContain("revoke all on function public.landing_pages_clear_main_without_course");
+  });
+  it("raises page_not_found on a bad page id", () => {
+    expect(sql.match(/raise exception 'page_not_found'/g)?.length).toBe(2);
+  });
   it("creates no policies", () => {
     expect(sql).not.toMatch(/create policy/i);
   });

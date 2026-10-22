@@ -12,6 +12,28 @@ alter table public.landing_pages
 create unique index if not exists landing_pages_main_per_course
   on public.landing_pages (course_id) where is_main_page;
 
+-- Deleting a course nulls landing_pages.course_id (FK on delete set null). That update fires this
+-- trigger first, which clears the main flag so the check above does not block the delete.
+create or replace function public.landing_pages_clear_main_without_course()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.course_id is null then
+    new.is_main_page := false;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.landing_pages_clear_main_without_course() from public, anon, authenticated;
+
+drop trigger if exists landing_pages_clear_main_without_course on public.landing_pages;
+create trigger landing_pages_clear_main_without_course
+  before update on public.landing_pages
+  for each row execute function public.landing_pages_clear_main_without_course();
+
 -- Sets the page's course and main flag in one step. When p_main is true, every other page of
 -- that course loses the flag first so the unique index is never violated.
 create or replace function public.landing_set_main_page(
@@ -40,11 +62,17 @@ begin
        set course_id = p_course_id,
            is_main_page = true
      where id = p_page_id;
+    if not found then
+      raise exception 'page_not_found';
+    end if;
   else
     update public.landing_pages
        set course_id = p_course_id,
            is_main_page = false
      where id = p_page_id;
+    if not found then
+      raise exception 'page_not_found';
+    end if;
   end if;
 end;
 $$;
