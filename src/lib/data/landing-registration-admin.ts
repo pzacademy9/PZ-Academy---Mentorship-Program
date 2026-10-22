@@ -4,6 +4,7 @@
 // does not own (or one with no agent) behaves exactly like an id that does not exist.
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { getMetaPurchase } from "@/lib/data/landing-meta-events";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
@@ -85,6 +86,8 @@ export interface RegistrationDetail {
   messages: { registrationId: string; channel: string; subject: string; state: string; sentAt: string | null; sendCreatedAt: string | null }[];
   /** The lead's course access. `modules` is null only when there is no course or no enrollment yet; otherwise the effective module list with open flags. */
   access: RegistrationAccess;
+  /** Meta Purchase status for the lead. Always "none" for an agent scope. */
+  metaPurchase: { state: "sent" | "skipped_old" | "waiting" | "none"; at: string | null };
 }
 export interface RegistrationAccess {
   mode: "live" | "recorded";
@@ -362,6 +365,17 @@ async function readAccess(lead: RegistrationRecord): Promise<RegistrationAccess>
   };
 }
 
+const NO_META: RegistrationDetail["metaPurchase"] = { state: "none", at: null };
+
+async function readMetaPurchase(lead: RegistrationRecord): Promise<RegistrationDetail["metaPurchase"]> {
+  const row = await getMetaPurchase(lead.id);
+  // No row is always "none": rows Paid before this feature shipped have no row and no job, so they would wait forever.
+  if (!row) return NO_META;
+  if (row.state === "sent") return { state: "sent", at: row.sentAt };
+  if (row.state === "skipped_old") return { state: "skipped_old", at: null };
+  return { state: "waiting", at: null }; // 'claimed'
+}
+
 export async function getRegistrationDetail(id: string, scope: Scope): Promise<RegistrationDetail | null> {
   const row = await readScopedRow(id, scope);
   if (!row || (row as unknown as { row_type: string }).row_type === "member") return null;
@@ -398,6 +412,7 @@ export async function getRegistrationDetail(id: string, scope: Scope): Promise<R
         .map((m) => ({ kind: m.kind, toEmail: m.toEmail, sentAt: m.sentAt }));
   const messages = scope.kind === "agent" ? [] : await listMessagesForRegistrations(people.map((p) => p.id));
   const access = await readAccess(lead);
+  const metaPurchase = scope.kind === "agent" ? NO_META : await readMetaPurchase(lead);
 
   return {
     lead,
@@ -405,6 +420,7 @@ export async function getRegistrationDetail(id: string, scope: Scope): Promise<R
     emails,
     messages,
     access,
+    metaPurchase,
     page: { id: page?.id ?? lead.pageId, title: page?.title ?? "", slug: page?.slug ?? "" },
     agentName: lead.agentId ? names.get(lead.agentId) ?? null : null,
     events: events.map((e) => ({
@@ -492,7 +508,7 @@ export async function queueStatusFollowUps(registrationId: string): Promise<void
     const effectsQueued = await enqueueStatusEffects(registrationId).catch(() => false);
     if (sheetQueued || effectsQueued) runInBackground(runJobsFor(registrationId));
     if (!sheetQueued) runInBackground(runJobsDirect(registrationId, ["sheet_status"]));
-    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, ["enrollment_sync", "email_status"]));
+    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, ["enrollment_sync", "email_status", "meta_purchase"]));
   } catch {
     console.error("[landing-registration-admin] sheet status push crashed");
   }

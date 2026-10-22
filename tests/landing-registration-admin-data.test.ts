@@ -14,6 +14,9 @@ vi.mock("@/lib/data/landing-email-log", () => ({ listEmailLog: enr.listEmailLog 
 const msgs = vi.hoisted(() => ({ listMessagesForRegistrations: vi.fn() }));
 vi.mock("@/lib/data/participant-sends", () => ({ listMessagesForRegistrations: msgs.listMessagesForRegistrations }));
 
+const meta = vi.hoisted(() => ({ getMetaPurchase: vi.fn() }));
+vi.mock("@/lib/data/landing-meta-events", () => ({ getMetaPurchase: meta.getMetaPurchase }));
+
 import { listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
 const reg = (over: Record<string, unknown>) => ({
@@ -49,6 +52,8 @@ beforeEach(() => {
   enr.resolveAccess.mockReset();
   enr.listEmailLog.mockReset();
   enr.listEmailLog.mockResolvedValue([]);
+  meta.getMetaPurchase.mockReset();
+  meta.getMetaPurchase.mockResolvedValue(null);
   msgs.listMessagesForRegistrations.mockReset();
   msgs.listMessagesForRegistrations.mockResolvedValue([]);
   enr.resolveAccess.mockResolvedValue({ lead: { mode: "live" }, courseId: null, hasAccount: false });
@@ -171,6 +176,42 @@ describe("detail messages from the team", () => {
     const d = await getRegistrationDetail("L", { kind: "agent", agentId: "ag1" });
     expect(d!.messages).toEqual([]);
     expect(msgs.listMessagesForRegistrations).not.toHaveBeenCalled();
+  });
+});
+
+describe("detail Meta Purchase status", () => {
+  const setLead = (over: Record<string, unknown>) => Object.assign(store.landing_registrations.find((r) => r.id === "L")!, over);
+  it("no row, lead paid, not test: none (paid before the feature shipped, no job exists)", async () => {
+    setLead({ status: "paid" });
+    const d = await getRegistrationDetail("L", { kind: "all" });
+    expect(meta.getMetaPurchase).toHaveBeenCalledWith("L");
+    expect(d!.metaPurchase).toEqual({ state: "none", at: null });
+  });
+  it("no row, lead not paid: none", async () => {
+    expect((await getRegistrationDetail("L", { kind: "all" }))!.metaPurchase).toEqual({ state: "none", at: null });
+  });
+  it("no row, paid test lead: none", async () => {
+    setLead({ status: "paid", is_test: true });
+    expect((await getRegistrationDetail("L", { kind: "all", includeTest: true }))!.metaPurchase).toEqual({ state: "none", at: null });
+  });
+  it("claimed row: waiting", async () => {
+    meta.getMetaPurchase.mockResolvedValue({ state: "claimed", sentAt: null, detail: "" });
+    expect((await getRegistrationDetail("L", { kind: "all" }))!.metaPurchase).toEqual({ state: "waiting", at: null });
+  });
+  it("sent row: sent with its time", async () => {
+    meta.getMetaPurchase.mockResolvedValue({ state: "sent", sentAt: "2026-10-22T08:00:00Z", detail: "" });
+    expect((await getRegistrationDetail("L", { kind: "all" }))!.metaPurchase).toEqual({ state: "sent", at: "2026-10-22T08:00:00Z" });
+  });
+  it("skipped_old row: skipped_old", async () => {
+    meta.getMetaPurchase.mockResolvedValue({ state: "skipped_old", sentAt: null, detail: "" });
+    expect((await getRegistrationDetail("L", { kind: "all" }))!.metaPurchase).toEqual({ state: "skipped_old", at: null });
+  });
+  it("agent never gets Meta data and it is never read", async () => {
+    setLead({ status: "paid" });
+    meta.getMetaPurchase.mockResolvedValue({ state: "sent", sentAt: "2026-10-22T08:00:00Z", detail: "" });
+    const d = await getRegistrationDetail("L", { kind: "agent", agentId: "ag1" });
+    expect(d!.metaPurchase).toEqual({ state: "none", at: null });
+    expect(meta.getMetaPurchase).not.toHaveBeenCalled();
   });
 });
 
@@ -395,7 +436,7 @@ describe("change", () => {
     jobs.enqueueStatusEffects.mockResolvedValue(false);
     await paid();
     expect(jobs.runJobsDirect).toHaveBeenCalledTimes(1);
-    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
     expect(jobs.runJobsFor).toHaveBeenCalledTimes(1);
   });
   it("both enqueues failing run all three directly and never use the outbox", async () => {
@@ -403,13 +444,13 @@ describe("change", () => {
     jobs.enqueueStatusEffects.mockResolvedValue(false);
     await paid();
     expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
-    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
     expect(jobs.runJobsFor).not.toHaveBeenCalled();
   });
   it("an enqueue that throws still returns ok", async () => {
     jobs.enqueueStatusEffects.mockRejectedValue(new Error("boom"));
     expect((await paid()).ok).toBe(true);
-    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
   });
   it("a failing sheet call does not fail the status change", async () => {
     jobs.enqueueSheetStatus.mockRejectedValue(new Error("boom"));

@@ -5,7 +5,7 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 const handlers = vi.hoisted(() => ({
   sheet_append: vi.fn(), sheet_status: vi.fn(), email_received: vi.fn(), email_members: vi.fn(), email_admin: vi.fn(),
-  enrollment_sync: vi.fn(), email_status: vi.fn(),
+  enrollment_sync: vi.fn(), email_status: vi.fn(), meta_purchase: vi.fn(),
 }));
 vi.mock("@/lib/landing/registration/job-handlers", () => ({ JOB_HANDLERS: handlers }));
 
@@ -57,13 +57,14 @@ describe("enqueueJobs", () => {
 });
 
 describe("enqueueStatusEffects", () => {
-  it("upserts both status jobs back to pending with a fresh budget", async () => {
+  it("upserts the three status jobs back to pending with a fresh budget", async () => {
     db.state.handler = memoryHandler({});
     await expect(enqueueStatusEffects("reg-1")).resolves.toBe(true);
     const up = db.find("landing_jobs", "upsert")[0];
     expect(up.payload).toEqual([
       { registration_id: "reg-1", type: "enrollment_sync", status: "pending", attempts: 0, next_run_at: NOW.toISOString(), last_error: null },
       { registration_id: "reg-1", type: "email_status", status: "pending", attempts: 0, next_run_at: NOW.toISOString(), last_error: null },
+      { registration_id: "reg-1", type: "meta_purchase", status: "pending", attempts: 0, next_run_at: NOW.toISOString(), last_error: null },
     ]);
     expect(up.upsertOptions).toMatchObject({ onConflict: "registration_id,type" });
   });
@@ -74,7 +75,7 @@ describe("enqueueStatusEffects", () => {
     await expect(enqueueStatusEffects("reg-1")).resolves.toBe(false);
   });
   it("JOB_TYPES run order", () => {
-    expect(JOB_TYPES).toEqual(["email_received", "sheet_append", "sheet_details", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"]);
+    expect(JOB_TYPES).toEqual(["email_received", "sheet_append", "sheet_details", "sheet_status", "enrollment_sync", "email_status", "meta_purchase", "email_members", "email_admin"]);
   });
 });
 

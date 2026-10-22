@@ -71,7 +71,7 @@ export function RegistrationDetailView({
   /** A short line shown under the change button (the sales page uses it). */
   changeNote?: string;
 }) {
-  const { lead, members, page, agentName, events, emails, messages, access } = detail;
+  const { lead, members, page, agentName, events, emails, messages, access, metaPurchase } = detail;
   const isGroup = lead.rowType === "lead" || members.length > 0;
   const balance =
     lead.status === "underpaid" && lead.expectedAmount !== null && lead.amountReceived !== null
@@ -224,7 +224,7 @@ export function RegistrationDetailView({
         <div className="lg:col-span-2 space-y-6">
           {isGroup && <GroupMembers lead={lead} members={members} />}
           <RegistrationAccessCard access={access} />
-          {showAgent && <RegistrationEmailsCard emails={emails} messages={messages} />}
+          {showAgent && <RegistrationEmailsCard emails={emails} messages={messages} metaPurchase={metaPurchase} />}
           <StatusHistory events={events} showPerson={isGroup} />
         </div>
       </div>

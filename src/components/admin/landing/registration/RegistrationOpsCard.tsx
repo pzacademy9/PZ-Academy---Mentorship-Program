@@ -24,6 +24,7 @@ export const JOB_LABEL: Record<JobType, string> = {
   enrollment_sync: "Course access",
   email_status: "Payment status email",
   sheet_details: "Sheet details",
+  meta_purchase: "Meta Purchase",
 };
 
 export function sheetUrl(sheetId: string): string {

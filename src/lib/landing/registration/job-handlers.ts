@@ -15,6 +15,9 @@ import { buildStatusEmail, emailContext } from "./status-email";
 import { manualKindsFor, RECEIVED_SENT, type ManualEmailKind } from "./manual-kinds";
 import { resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
 import { claimEmail, lastSentAt, logManualEmail, markEmailSent, releaseEmail } from "@/lib/data/landing-email-log";
+import { claimMetaPurchase, firstPaidAt, getMetaPurchase, markMetaPurchaseSent, markMetaPurchaseSkipped, releaseMetaPurchase } from "@/lib/data/landing-meta-events";
+import { buildPurchaseEvent, isTooOld } from "@/lib/meta/capi-payload";
+import { sendMetaEvent } from "@/lib/meta/capi-client";
 import type { JobType } from "@/lib/data/landing-jobs";
 
 export { RECEIVED_SENT };
@@ -313,6 +316,65 @@ async function emailStatus(registrationId: string): Promise<void> {
   if (firstError) throw firstError;
 }
 
+/** A lost claim is only "handled" when the row is sent or skipped; a fresh 'claimed' (or vanished) row means retry later. */
+async function requireSettled(registrationId: string): Promise<void> {
+  const existing = await getMetaPurchase(registrationId);
+  if (!existing || existing.state === "claimed") throw new Error("Meta Purchase send in progress");
+}
+
+/**
+ * One Meta Purchase per registration, ever, on the first Paid. A group sends one event for the lead row at the
+ * lead's own amount; members never fire. The claim row (primary key = registration id) decides who sends.
+ */
+
+async function metaPurchase(registrationId: string): Promise<void> {
+  const loaded = await load(registrationId);
+  if (!loaded) return;
+  const { lead } = loaded.bundle;
+  const { page } = loaded;
+  if (lead.isTest || lead.status !== "paid" || lead.rowType === "member") return;
+
+  // RegistrationRecord does not carry the Meta cookies: read them directly.
+  const { data: cookies, error: cookieErr } = await createAdminSupabase()
+    .from("landing_registrations").select("fbp, fbc").eq("id", lead.id).maybeSingle();
+  if (cookieErr) throw new Error("Meta cookie lookup failed");
+
+  const paidAt = (await firstPaidAt(lead.id)) ?? lead.statusChangedAt ?? lead.createdAt;
+  const eventId = `purchase-${lead.id}`;
+  if (isTooOld(paidAt, new Date())) {
+    if (await claimMetaPurchase(lead.id, eventId)) await markMetaPurchaseSkipped(lead.id, "older than 7 days");
+    else await requireSettled(lead.id);
+    return;
+  }
+
+  if (!(await claimMetaPurchase(lead.id, eventId))) {
+    await requireSettled(lead.id);
+    return;
+  }
+
+  const release = async () => {
+    try { await releaseMetaPurchase(lead.id); } catch { console.warn("[landing-jobs] meta purchase claim release failed"); }
+  };
+  try {
+    const pixelId = page.registration.pixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
+    if (!pixelId) throw new Error("Meta Pixel ID not set");
+    const value = lead.amountReceived ?? lead.expectedAmount ?? 0;
+    if (value <= 0) throw new Error("Meta Purchase has no amount");
+    const base = process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com";
+    const event = buildPurchaseEvent({
+      registrationId: lead.id, email: lead.email, whatsapp: lead.whatsapp, name: lead.name,
+      fbp: cookies?.fbp ?? "", fbc: cookies?.fbc ?? "", value, currency: lead.currency,
+      eventTimeIso: paidAt, sourceUrl: `${base.replace(/\/+$/, "")}/${page.slug}`,
+    });
+    await sendMetaEvent(pixelId, event);
+    // Sent. If this write fails the row stays 'claimed' (still blocks a second send).
+    try { await markMetaPurchaseSent(lead.id, { value, currency: lead.currency }); } catch { console.warn("[landing-jobs] meta purchase sent mark failed"); }
+  } catch (err) {
+    await release();
+    throw err;
+  }
+}
+
 export type SendAgainResult =
   | { ok: true }
   | { ok: false; reason: "not-found" | "not-allowed" | "needs-confirm" | "send-failed"; sentAt?: string };
@@ -381,4 +443,5 @@ export const JOB_HANDLERS: Record<JobType, (registrationId: string) => Promise<v
   enrollment_sync: enrollmentSync,
   email_status: emailStatus,
   sheet_details: sheetDetails,
+  meta_purchase: metaPurchase,
 };

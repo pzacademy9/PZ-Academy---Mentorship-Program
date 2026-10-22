@@ -11,9 +11,9 @@ import { sweepStaleClaims } from "@/lib/data/landing-email-log";
  * and a crashed worker's job is picked up again after the lease.
  */
 
-export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status" | "enrollment_sync" | "email_status" | "sheet_details";
+export type JobType = "sheet_append" | "email_received" | "email_members" | "email_admin" | "sheet_status" | "enrollment_sync" | "email_status" | "sheet_details" | "meta_purchase";
 // Run order: the confirmation email goes first so a slow Apps Script call never delays it.
-export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_details", "sheet_status", "enrollment_sync", "email_status", "email_members", "email_admin"];
+export const JOB_TYPES: readonly JobType[] = ["email_received", "sheet_append", "sheet_details", "sheet_status", "enrollment_sync", "email_status", "meta_purchase", "email_members", "email_admin"];
 export const MAX_ATTEMPTS = 5;
 export const BACKOFF_MINUTES = [1, 5, 15, 60] as const;
 const LEASE_MINUTES = 10;
@@ -99,7 +99,7 @@ export async function enqueueSheetDetails(registrationId: string): Promise<boole
 }
 
 /**
- * Status side effects (enrollment sync + status email): upsert BOTH jobs back to pending with a fresh budget.
+ * Status side effects (enrollment sync + status email + Meta Purchase): upsert ALL jobs back to pending with a fresh budget.
  * Handlers read the current status, so flip-flops coalesce safely. Never throws; true only when the upsert succeeded.
  */
 export async function enqueueStatusEffects(registrationId: string): Promise<boolean> {
@@ -108,7 +108,7 @@ export async function enqueueStatusEffects(registrationId: string): Promise<bool
     const { error } = await createAdminSupabase()
       .from("landing_jobs")
       .upsert(
-        (["enrollment_sync", "email_status"] as const).map((type) => ({ registration_id: registrationId, type, status: "pending", attempts: 0, next_run_at: now, last_error: null })),
+        (["enrollment_sync", "email_status", "meta_purchase"] as const).map((type) => ({ registration_id: registrationId, type, status: "pending", attempts: 0, next_run_at: now, last_error: null })),
         { onConflict: "registration_id,type" },
       );
     if (error) {
