@@ -11,12 +11,12 @@ const m = vi.hoisted(() => ({
   listPaymentAccounts: vi.fn(), appendRegistrationRows: vi.fn(), applyRegistrationStatus: vi.fn(), sendTransactionalEmail: vi.fn(),
   saveSnapshots: vi.fn(), saveStatusSnapshots: vi.fn(),
   claimEmail: vi.fn(), markEmailSent: vi.fn(), releaseEmail: vi.fn(), resolveAccess: vi.fn(), syncEnrollmentForRegistration: vi.fn(),
-  claimMetaPurchase: vi.fn(), markMetaPurchaseSent: vi.fn(), markMetaPurchaseSkipped: vi.fn(), releaseMetaPurchase: vi.fn(), firstPaidAt: vi.fn(),
+  claimMetaPurchase: vi.fn(), getMetaPurchase: vi.fn(), markMetaPurchaseSent: vi.fn(), markMetaPurchaseSkipped: vi.fn(), releaseMetaPurchase: vi.fn(), firstPaidAt: vi.fn(),
   sendMetaEvent: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-meta-events", () => ({
   claimMetaPurchase: m.claimMetaPurchase, markMetaPurchaseSent: m.markMetaPurchaseSent, markMetaPurchaseSkipped: m.markMetaPurchaseSkipped,
-  releaseMetaPurchase: m.releaseMetaPurchase, firstPaidAt: m.firstPaidAt,
+  releaseMetaPurchase: m.releaseMetaPurchase, firstPaidAt: m.firstPaidAt, getMetaPurchase: m.getMetaPurchase,
 }));
 vi.mock("@/lib/meta/capi-client", () => ({ sendMetaEvent: m.sendMetaEvent }));
 vi.mock("@/lib/data/landing-email-log", () => ({ claimEmail: m.claimEmail, markEmailSent: m.markEmailSent, releaseEmail: m.releaseEmail }));
@@ -65,6 +65,7 @@ beforeEach(() => {
   m.releaseEmail.mockResolvedValue(undefined);
   vi.stubEnv("LANDING_ADMIN_EMAIL", "team@pzacademy.example");
   m.claimMetaPurchase.mockResolvedValue(true);
+  m.getMetaPurchase.mockResolvedValue({ state: "sent", sentAt: null, detail: "" });
   m.markMetaPurchaseSent.mockResolvedValue(undefined);
   m.markMetaPurchaseSkipped.mockResolvedValue(undefined);
   m.releaseMetaPurchase.mockResolvedValue(undefined);
@@ -344,6 +345,37 @@ describe("meta_purchase", () => {
     expect(m.sendMetaEvent).not.toHaveBeenCalled();
     expect(m.markMetaPurchaseSent).not.toHaveBeenCalled();
     expect(m.releaseMetaPurchase).not.toHaveBeenCalled();
+  });
+  it("lost claim with a fresh 'claimed' row throws so the outbox retries, and sends nothing", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.claimMetaPurchase.mockResolvedValue(false);
+    m.getMetaPurchase.mockResolvedValue({ state: "claimed", sentAt: null, detail: "" });
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).rejects.toThrow("Meta Purchase send in progress");
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("lost claim with a sent or skipped_old row returns quietly", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.claimMetaPurchase.mockResolvedValue(false);
+    for (const state of ["sent", "skipped_old"] as const) {
+      m.getMetaPurchase.mockResolvedValue({ state, sentAt: null, detail: "" });
+      await expect(JOB_HANDLERS.meta_purchase("reg-1")).resolves.toBeUndefined();
+    }
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("lost claim with the row vanished throws", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.claimMetaPurchase.mockResolvedValue(false);
+    m.getMetaPurchase.mockResolvedValue(null);
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).rejects.toThrow("Meta Purchase send in progress");
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("older than 7 days with a fresh 'claimed' row also throws", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.firstPaidAt.mockResolvedValue(new Date(Date.now() - 8 * 86_400_000).toISOString());
+    m.claimMetaPurchase.mockResolvedValue(false);
+    m.getMetaPurchase.mockResolvedValue({ state: "claimed", sentAt: null, detail: "" });
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).rejects.toThrow("Meta Purchase send in progress");
+    expect(m.markMetaPurchaseSkipped).not.toHaveBeenCalled();
   });
   it("two simultaneous calls send once", async () => {
     m.getRegistrationBundle.mockResolvedValue(bundle(paid()));

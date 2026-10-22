@@ -15,7 +15,7 @@ import { buildStatusEmail, emailContext } from "./status-email";
 import { manualKindsFor, RECEIVED_SENT, type ManualEmailKind } from "./manual-kinds";
 import { resolveAccess, syncEnrollmentForRegistration } from "@/lib/data/landing-enrollment";
 import { claimEmail, lastSentAt, logManualEmail, markEmailSent, releaseEmail } from "@/lib/data/landing-email-log";
-import { claimMetaPurchase, firstPaidAt, markMetaPurchaseSent, markMetaPurchaseSkipped, releaseMetaPurchase } from "@/lib/data/landing-meta-events";
+import { claimMetaPurchase, firstPaidAt, getMetaPurchase, markMetaPurchaseSent, markMetaPurchaseSkipped, releaseMetaPurchase } from "@/lib/data/landing-meta-events";
 import { buildPurchaseEvent, isTooOld } from "@/lib/meta/capi-payload";
 import { sendMetaEvent } from "@/lib/meta/capi-client";
 import type { JobType } from "@/lib/data/landing-jobs";
@@ -320,6 +320,12 @@ async function emailStatus(registrationId: string): Promise<void> {
  * One Meta Purchase per registration, ever, on the first Paid. A group sends one event for the lead row at the
  * lead's own amount; members never fire. The claim row (primary key = registration id) decides who sends.
  */
+/** A lost claim is only "handled" when the row is sent or skipped; a fresh 'claimed' (or vanished) row means retry later. */
+async function requireSettled(registrationId: string): Promise<void> {
+  const existing = await getMetaPurchase(registrationId);
+  if (!existing || existing.state === "claimed") throw new Error("Meta Purchase send in progress");
+}
+
 async function metaPurchase(registrationId: string): Promise<void> {
   const loaded = await load(registrationId);
   if (!loaded) return;
@@ -336,10 +342,14 @@ async function metaPurchase(registrationId: string): Promise<void> {
   const eventId = `purchase-${lead.id}`;
   if (isTooOld(paidAt, new Date())) {
     if (await claimMetaPurchase(lead.id, eventId)) await markMetaPurchaseSkipped(lead.id, "older than 7 days");
+    else await requireSettled(lead.id);
     return;
   }
 
-  if (!(await claimMetaPurchase(lead.id, eventId))) return; // already sent, skipped or being sent
+  if (!(await claimMetaPurchase(lead.id, eventId))) {
+    await requireSettled(lead.id);
+    return;
+  }
 
   const release = async () => {
     try { await releaseMetaPurchase(lead.id); } catch { console.warn("[landing-jobs] meta purchase claim release failed"); }
