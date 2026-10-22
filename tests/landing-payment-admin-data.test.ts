@@ -155,10 +155,17 @@ describe("setCountryAccounts", () => {
     await expect(setCountryAccounts("pk", ["faysal"])).resolves.toEqual({ ok: false });
     expect(db.state.ops).toHaveLength(0);
   });
-  it("an empty list is allowed and skips the key check", async () => {
-    db.state.handler = known;
-    await expect(setCountryAccounts("PK", [])).resolves.toEqual({ ok: true });
-    expect(db.state.ops.filter((o) => o.op === "rpc")).toHaveLength(1);
+  it("rejects an empty list without calling the database", async () => {
+    await expect(setCountryAccounts("PK", [])).resolves.toEqual({ ok: false });
+    expect(db.state.ops).toHaveLength(0);
+  });
+  it("the sql function rejects an empty list and locks the country row before any delete", () => {
+    const sql = readFileSync("supabase/migrations/0082_payment_country_accounts_fn.sql", "utf8");
+    expect(sql).toMatch(/cardinality\(v_keys\) = 0[\s\S]*?raise exception 'empty_list'/);
+    const lock = sql.search(/from public\.payment_countries where region_key = p_region_key for update/);
+    expect(lock).toBeGreaterThan(-1);
+    expect(sql.indexOf("empty_list")).toBeLessThan(sql.search(/delete from/));
+    expect(lock).toBeLessThan(sql.search(/delete from/));
   });
   it("returns ok:false (no partial write) when the function is not installed yet", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -185,10 +192,12 @@ describe("schemas", () => {
     expect(accountCreateSchema.safeParse({ ...input, rows: [{ label: "a".repeat(81), value: "b" }] }).success).toBe(false);
     expect(accountCreateSchema.safeParse({ ...input, rows: [{ label: "a", value: "b".repeat(201) }] }).success).toBe(false);
     expect(accountCreateSchema.safeParse({ ...input, kind: "cash" }).success).toBe(false);
+    expect(accountCreateSchema.safeParse({ ...input, rows: [] }).success).toBe(false);
   });
   it("accountPatchSchema takes partial fields but not an empty object", () => {
     expect(accountPatchSchema.safeParse({ active: false }).success).toBe(true);
     expect(accountPatchSchema.safeParse({}).success).toBe(false);
+    expect(accountPatchSchema.safeParse({ rows: [] }).success).toBe(false);
   });
   it("countryCreateSchema and countryPatchSchema", () => {
     expect(countryCreateSchema.safeParse({ regionKey: "KSA", name: "Saudi" }).success).toBe(true);
@@ -200,6 +209,7 @@ describe("schemas", () => {
   it("countryAccountsSchema rejects duplicate keys and 13 accounts", () => {
     expect(countryAccountsSchema.safeParse({ accountKeys: ["faysal", "paypal"] }).success).toBe(true);
     expect(countryAccountsSchema.safeParse({ accountKeys: ["faysal", "faysal"] }).success).toBe(false);
+    expect(countryAccountsSchema.safeParse({ accountKeys: [] }).success).toBe(false);
     expect(countryAccountsSchema.safeParse({ accountKeys: Array.from({ length: 12 }, (_, i) => `acct_${i}`) }).success).toBe(true);
     expect(countryAccountsSchema.safeParse({ accountKeys: Array.from({ length: 13 }, (_, i) => `acct_${i}`) }).success).toBe(false);
   });

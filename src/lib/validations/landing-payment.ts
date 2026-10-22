@@ -14,7 +14,7 @@ const row = z.object({
 const accountFields = {
   label: z.string().trim().min(1, "Give the account a name.").max(80, "The name can be 80 characters at most."),
   kind,
-  rows: z.array(row).max(MAX_ACCOUNT_ROWS, "An account can have 8 details at most."),
+  rows: z.array(row).min(1, "Add at least one detail.").max(MAX_ACCOUNT_ROWS, "An account can have 8 details at most."),
   displayText: z.string().trim().max(120, "The short note can be 120 characters at most."),
 };
 
@@ -40,6 +40,7 @@ export const countryPatchSchema = z
 export const countryAccountsSchema = z.object({
   accountKeys: z
     .array(z.string().regex(ACCOUNT_KEY_RE, "That account is not valid."))
+    .min(1, "A country needs at least one account.")
     .max(MAX_ACCOUNTS_PER_COUNTRY, "A country can have 12 accounts at most.")
     .refine((keys) => new Set(keys).size === keys.length, "An account can only be listed once."),
 });

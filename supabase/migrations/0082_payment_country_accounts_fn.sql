@@ -1,7 +1,8 @@
 -- 0082_payment_country_accounts_fn.sql
 -- Replaces a country's account list in ONE transaction, so a failure never leaves the country
 -- empty (the Supabase client cannot run a multi-statement transaction). Order = array order,
--- sort = index * 10. The country must exist and every key must exist in payment_accounts,
+-- sort = index * 10. The list must not be empty (a country always keeps at least one account),
+-- the country row is locked first so concurrent saves never merge, the country must exist and every key must exist in payment_accounts,
 -- with no repeats. Service role only.
 -- The owner pastes this into the Supabase SQL editor. Safe to run twice.
 
@@ -18,7 +19,12 @@ declare
   v_distinct integer;
   v_known    integer;
 begin
-  perform 1 from public.payment_countries where region_key = p_region_key;
+  if cardinality(v_keys) = 0 then
+    raise exception 'empty_list';
+  end if;
+
+  -- Lock the country row so two saves for the same country run one after the other.
+  perform 1 from public.payment_countries where region_key = p_region_key for update;
   if not found then
     raise exception 'unknown country %', p_region_key;
   end if;
