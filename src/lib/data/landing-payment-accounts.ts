@@ -133,3 +133,23 @@ export async function updatePaymentAccount(
   if (error) throw error;
   return { ok: (data ?? []).length > 0 };
 }
+
+/** An account as the admin screen sees it: hidden accounts included, with all its details. */
+export interface PaymentAccountFull extends PaymentAccount {
+  active: boolean;
+}
+
+/** Every account in the library, hidden ones included (admin screen). Throws on a read error. */
+export async function listAllPaymentAccounts(): Promise<PaymentAccountFull[]> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("payment_accounts").select("key, label, kind, rows, display_text, active").order("sort").order("key");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    key: r.key,
+    label: r.label,
+    kind: KINDS.includes(r.kind) ? (r.kind as PaymentAccountKind) : "bank",
+    rows: cleanRows(r.rows),
+    displayText: r.display_text ?? "",
+    active: r.active,
+  }));
+}
