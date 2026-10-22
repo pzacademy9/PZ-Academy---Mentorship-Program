@@ -89,10 +89,43 @@ describe("getOpenLiveBatches", () => {
     store.landing_pages.push(page("p1", { published: null }));
     expect((await getOpenLiveBatches()).size).toBe(0);
   });
-  it("does three reads for several courses", async () => {
+  it("does three reads when no page has a capacity limit", async () => {
     store.landing_pages.push(page("p1"), page("p2", { course_id: "c2" }));
     await getOpenLiveBatches();
-    expect(db.state.ops.length).toBeLessThanOrEqual(4);
+    expect(db.state.ops.map((o) => o.table)).toEqual(["landing_pages", "landing_batch_state", "modules"]);
+  });
+  it("adds one head count per limited page and uses the returned count, not row length", async () => {
+    store.landing_pages.push(
+      page("p1", { published: content({ capacity: 5 }) }),
+      page("p2", { course_id: "c2", published: content({ capacity: 5 }) }),
+    );
+    store.landing_registrations.push({ page_id: "p1", is_test: false });
+    const base = memoryHandler(store);
+    db.state.handler = (op) => {
+      const res = base(op);
+      // p2 reports 7 taken by count even though only zero rows exist.
+      if (op.table === "landing_registrations" && op.head) {
+        const id = op.filters.find(([k, f]) => k === "eq" && f === "page_id")?.[2];
+        return { ...res, count: id === "p2" ? 7 : res.count };
+      }
+      return res;
+    };
+    const m = await getOpenLiveBatches();
+    expect(Array.from(m.keys())).toEqual(["c1"]);
+    const heads = db.state.ops.filter((o) => o.table === "landing_registrations");
+    expect(heads).toHaveLength(2);
+    expect(heads.every((o) => o.head && o.count)).toBe(true);
+  });
+  it("treats a possibly truncated read as an empty result", async () => {
+    store.landing_pages.push(page("p1"));
+    for (let i = 0; i < 1000; i++) store.modules.push({ id: `m${i}`, course_id: "c1" });
+    expect((await getOpenLiveBatches()).size).toBe(0);
+    expect(console.warn).toHaveBeenCalled();
+  });
+  it("only asks for published pages", async () => {
+    store.landing_pages.push(page("p1", { status: "draft" }));
+    expect((await getOpenLiveBatches()).size).toBe(0);
+    expect(db.state.ops[0].filters).toContainEqual(["eq", "status", "published"]);
   });
   it("never throws", async () => {
     db.state.handler = () => ({ data: null, error: { message: "boom" } });
