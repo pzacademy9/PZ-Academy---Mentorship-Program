@@ -33,8 +33,9 @@ export default async function LandingEditorPage({ params }: { params: Promise<{ 
     console.error("Could not load course modules for page", id, e);
     return null;
   });
-  // A failed read just leaves the picker with "No course" only.
-  const { data: courseRows } = await createAdminSupabase().from("courses").select("id, title").order("title");
-  const courses = (courseRows ?? []) as { id: string; title: string }[];
+  // A failed read hides the course picker so a blank list cannot be saved as "No course".
+  const { data: courseRows, error: coursesError } = await createAdminSupabase().from("courses").select("id, title").order("title");
+  if (coursesError) console.error("Could not load courses for page", id, coursesError);
+  const courses = coursesError ? null : ((courseRows ?? []) as { id: string; title: string }[]);
   return <LandingEditor key={page.id} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} courses={courses} />;
 }

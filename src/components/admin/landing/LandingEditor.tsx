@@ -76,8 +76,8 @@ const SAVE_DOT: Record<SaveState, string> = {
 export function LandingEditor({
   page, versions, centralRegionKeys = [], sheetId = null, variants = [], courseModules = null, courses = [],
 }: {
-  /** Courses a page can be tied to. */
-  courses?: { id: string; title: string }[];
+  /** Courses a page can be tied to. null = the list failed to load; the picker is hidden. */
+  courses?: { id: string; title: string }[] | null;
   page: LandingPage; versions: LandingVersion[]; /** Region keys that already have a central payment account list. */
   centralRegionKeys?: string[]; sheetId?: string | null;
   /** The page's country / module links. */
@@ -134,7 +134,7 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
 function EditorShell({
   page, versions, centralRegionKeys, sheetId, variants, courseModules, courses, onRevision, onRestored,
 }: {
-  courses: { id: string; title: string }[];
+  courses: { id: string; title: string }[] | null;
   page: LandingPage; versions: LandingVersion[]; centralRegionKeys: string[]; sheetId: string | null;
   variants: LandingVariant[]; courseModules: CourseModule[] | null; onRevision: (rev: number) => void; onRestored: () => void;
 }) {
@@ -181,6 +181,17 @@ function EditorShell({
     setServerProblems(null); // the server's list described the old content; the local check takes over again
     schedule(next);
   }, [schedule]);
+
+  // Changing the page's course (router.refresh brings new modules) can leave option module ids that
+  // are not in the new course; every later save would be refused. Re-prune and save the result.
+  const seenModules = useRef(courseModules);
+  useEffect(() => {
+    if (seenModules.current === courseModules) return;
+    seenModules.current = courseModules;
+    const cur = contentRef.current;
+    const registration = pruneModuleIds(cur.registration, courseModules?.map((m) => m.id) ?? []);
+    if (registration !== cur.registration) apply({ ...cur, registration });
+  }, [courseModules, apply]);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -444,7 +455,7 @@ function EditorShell({
           <span className="shrink-0 rounded-full bg-pz-surface-container-high px-2 py-0.5 font-body text-[11px] font-medium text-pz-on-surface-variant">{KIND_LABEL[page.kind]}</span>
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
-        <CourseMainPicker pageId={page.id} courses={courses} courseId={page.courseId ?? null} isMainPage={page.isMainPage ?? false} />
+        {courses && <CourseMainPicker pageId={page.id} courses={courses} courseId={page.courseId ?? null} isMainPage={page.isMainPage ?? false} />}
         {options.length > 0 && (
           <VariantSwitcher options={options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
         )}
