@@ -492,7 +492,7 @@ export async function queueStatusFollowUps(registrationId: string): Promise<void
     const effectsQueued = await enqueueStatusEffects(registrationId).catch(() => false);
     if (sheetQueued || effectsQueued) runInBackground(runJobsFor(registrationId));
     if (!sheetQueued) runInBackground(runJobsDirect(registrationId, ["sheet_status"]));
-    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, ["enrollment_sync", "email_status"]));
+    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, ["enrollment_sync", "email_status", "meta_purchase"]));
   } catch {
     console.error("[landing-registration-admin] sheet status push crashed");
   }

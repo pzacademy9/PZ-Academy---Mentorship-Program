@@ -11,7 +11,14 @@ const m = vi.hoisted(() => ({
   listPaymentAccounts: vi.fn(), appendRegistrationRows: vi.fn(), applyRegistrationStatus: vi.fn(), sendTransactionalEmail: vi.fn(),
   saveSnapshots: vi.fn(), saveStatusSnapshots: vi.fn(),
   claimEmail: vi.fn(), markEmailSent: vi.fn(), releaseEmail: vi.fn(), resolveAccess: vi.fn(), syncEnrollmentForRegistration: vi.fn(),
+  claimMetaPurchase: vi.fn(), markMetaPurchaseSent: vi.fn(), markMetaPurchaseSkipped: vi.fn(), releaseMetaPurchase: vi.fn(), firstPaidAt: vi.fn(),
+  sendMetaEvent: vi.fn(),
 }));
+vi.mock("@/lib/data/landing-meta-events", () => ({
+  claimMetaPurchase: m.claimMetaPurchase, markMetaPurchaseSent: m.markMetaPurchaseSent, markMetaPurchaseSkipped: m.markMetaPurchaseSkipped,
+  releaseMetaPurchase: m.releaseMetaPurchase, firstPaidAt: m.firstPaidAt,
+}));
+vi.mock("@/lib/meta/capi-client", () => ({ sendMetaEvent: m.sendMetaEvent }));
 vi.mock("@/lib/data/landing-email-log", () => ({ claimEmail: m.claimEmail, markEmailSent: m.markEmailSent, releaseEmail: m.releaseEmail }));
 vi.mock("@/lib/data/landing-enrollment", () => ({ resolveAccess: m.resolveAccess, syncEnrollmentForRegistration: m.syncEnrollmentForRegistration }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationBundle: m.getRegistrationBundle, markEmailStatus: m.markEmailStatus }));
@@ -57,6 +64,13 @@ beforeEach(() => {
   m.markEmailSent.mockResolvedValue(undefined);
   m.releaseEmail.mockResolvedValue(undefined);
   vi.stubEnv("LANDING_ADMIN_EMAIL", "team@pzacademy.example");
+  m.claimMetaPurchase.mockResolvedValue(true);
+  m.markMetaPurchaseSent.mockResolvedValue(undefined);
+  m.markMetaPurchaseSkipped.mockResolvedValue(undefined);
+  m.releaseMetaPurchase.mockResolvedValue(undefined);
+  m.firstPaidAt.mockResolvedValue(new Date().toISOString());
+  m.sendMetaEvent.mockResolvedValue(undefined);
+  vi.stubEnv("NEXT_PUBLIC_META_PIXEL_ID", "env-pixel");
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -267,5 +281,140 @@ describe("emails", () => {
   it("voucher re-upload alert never throws", async () => {
     m.getRegistrationBundle.mockRejectedValue(new Error("db down"));
     await expect(notifyVoucherResubmitted("reg-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("meta_purchase", () => {
+  const paid = (over: Partial<RegistrationRecord> = {}) => rec({ status: "paid", amountReceived: 4800, ...over });
+  beforeEach(() => { db.state.handler = () => ({ data: { fbp: "fb.1.1.2", fbc: "fb.1.1.3" }, error: null }); });
+
+  it("does nothing when the registration or page is missing", async () => {
+    m.getRegistrationBundle.mockResolvedValue(null);
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.claimMetaPurchase).not.toHaveBeenCalled();
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.getRegistrablePageById.mockResolvedValue(null);
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.claimMetaPurchase).not.toHaveBeenCalled();
+  });
+  it("does nothing for test rows, non-paid rows and member rows", async () => {
+    for (const lead of [paid({ isTest: true }), rec({ status: "pending" }), rec({ status: "free" }), rec({ status: "underpaid" }), paid({ rowType: "member" })]) {
+      m.getRegistrationBundle.mockResolvedValue(bundle(lead));
+      await JOB_HANDLERS.meta_purchase("reg-1");
+    }
+    expect(m.claimMetaPurchase).not.toHaveBeenCalled();
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("reads fbp and fbc straight from landing_registrations", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    const op = db.find("landing_registrations", "select")[0];
+    expect(op.filters).toContainEqual(["eq", "id", "reg-1"]);
+    const event = m.sendMetaEvent.mock.calls[0][1];
+    expect(event.user_data.fbp).toBe("fb.1.1.2");
+    expect(event.user_data.fbc).toBe("fb.1.1.3");
+  });
+  it("sends one Purchase with the stable event id, then marks sent", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.firstPaidAt.mockResolvedValue("2026-10-22T08:00:00.000Z");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-22T09:00:00.000Z"));
+    try { await JOB_HANDLERS.meta_purchase("reg-1"); } finally { vi.useRealTimers(); }
+    expect(m.claimMetaPurchase).toHaveBeenCalledWith("reg-1", "purchase-reg-1");
+    expect(m.sendMetaEvent).toHaveBeenCalledTimes(1);
+    const [pixel, event] = m.sendMetaEvent.mock.calls[0];
+    expect(pixel).toBe("env-pixel");
+    expect(event).toMatchObject({ event_name: "Purchase", event_id: "purchase-reg-1", event_time: Date.parse("2026-10-22T08:00:00.000Z") / 1000, custom_data: { value: 4800, currency: "PKR" } });
+    expect(event.event_source_url.endsWith("/ppc-b3")).toBe(true);
+    expect(m.markMetaPurchaseSent).toHaveBeenCalledWith("reg-1", { value: 4800, currency: "PKR" });
+    expect(m.releaseMetaPurchase).not.toHaveBeenCalled();
+  });
+  it("falls back to statusChangedAt when no paid event is logged", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid({ statusChangedAt: "2026-10-22T07:00:00.000Z" })));
+    m.firstPaidAt.mockResolvedValue(null);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-22T09:00:00.000Z"));
+    try { await JOB_HANDLERS.meta_purchase("reg-1"); } finally { vi.useRealTimers(); }
+    expect(m.sendMetaEvent.mock.calls[0][1].event_time).toBe(Date.parse("2026-10-22T07:00:00.000Z") / 1000);
+  });
+  it("sends nothing when the claim already exists (paid again, or a simultaneous job)", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.claimMetaPurchase.mockResolvedValue(false);
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+    expect(m.markMetaPurchaseSent).not.toHaveBeenCalled();
+    expect(m.releaseMetaPurchase).not.toHaveBeenCalled();
+  });
+  it("two simultaneous calls send once", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.claimMetaPurchase.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await Promise.all([JOB_HANDLERS.meta_purchase("reg-1"), JOB_HANDLERS.meta_purchase("reg-1")]);
+    expect(m.sendMetaEvent).toHaveBeenCalledTimes(1);
+  });
+  it("records skipped_old and sends nothing when the first Paid is over 7 days old", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.firstPaidAt.mockResolvedValue(new Date(Date.now() - 8 * 86_400_000).toISOString());
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.claimMetaPurchase).toHaveBeenCalledWith("reg-1", "purchase-reg-1");
+    expect(m.markMetaPurchaseSkipped).toHaveBeenCalledWith("reg-1", "older than 7 days");
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("too old but already claimed: records nothing", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.firstPaidAt.mockResolvedValue(new Date(Date.now() - 8 * 86_400_000).toISOString());
+    m.claimMetaPurchase.mockResolvedValue(false);
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.markMetaPurchaseSkipped).not.toHaveBeenCalled();
+  });
+  it("the page pixel id wins over the env one", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.getRegistrablePageById.mockResolvedValue(page({ registration: { ...PPC_CONFIG, pixelId: "page-pixel" } }));
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.sendMetaEvent.mock.calls[0][0]).toBe("page-pixel");
+  });
+  it("releases the claim and throws when no pixel id is set", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    vi.stubEnv("NEXT_PUBLIC_META_PIXEL_ID", "");
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).rejects.toThrow("Meta Pixel ID not set");
+    expect(m.releaseMetaPurchase).toHaveBeenCalledWith("reg-1");
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("amount received wins, else expected; zero releases and throws", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid({ amountReceived: null, expectedAmount: 5000 })));
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.sendMetaEvent.mock.calls[0][1].custom_data.value).toBe(5000);
+    m.sendMetaEvent.mockClear();
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid({ amountReceived: null, expectedAmount: null })));
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).rejects.toThrow("Meta Purchase has no amount");
+    expect(m.releaseMetaPurchase).toHaveBeenCalledWith("reg-1");
+    expect(m.sendMetaEvent).not.toHaveBeenCalled();
+  });
+  it("a group uses only the lead row amount, never member rows", async () => {
+    const b = groupBundle();
+    b.lead.status = "paid";
+    b.lead.amountReceived = 11500;
+    b.members[0].amountReceived = 999;
+    m.getRegistrationBundle.mockResolvedValue(b);
+    await JOB_HANDLERS.meta_purchase("reg-1");
+    expect(m.sendMetaEvent).toHaveBeenCalledTimes(1);
+    expect(m.sendMetaEvent.mock.calls[0][1].custom_data.value).toBe(11500);
+  });
+  it("releases the claim and rethrows when Meta fails, even if the release itself fails", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.sendMetaEvent.mockRejectedValue(new Error("Meta rejected the event (HTTP 500)"));
+    m.releaseMetaPurchase.mockRejectedValue(new Error("db down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).rejects.toThrow("Meta rejected the event");
+    expect(m.releaseMetaPurchase).toHaveBeenCalledWith("reg-1");
+    expect(m.markMetaPurchaseSent).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+  it("a failed sent-mark does not throw (the claimed row still blocks a second send)", async () => {
+    m.getRegistrationBundle.mockResolvedValue(bundle(paid()));
+    m.markMetaPurchaseSent.mockRejectedValue(new Error("db down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(JOB_HANDLERS.meta_purchase("reg-1")).resolves.toBeUndefined();
+    expect(m.releaseMetaPurchase).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

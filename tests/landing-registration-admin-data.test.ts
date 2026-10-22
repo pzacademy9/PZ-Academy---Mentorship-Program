@@ -395,7 +395,7 @@ describe("change", () => {
     jobs.enqueueStatusEffects.mockResolvedValue(false);
     await paid();
     expect(jobs.runJobsDirect).toHaveBeenCalledTimes(1);
-    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
     expect(jobs.runJobsFor).toHaveBeenCalledTimes(1);
   });
   it("both enqueues failing run all three directly and never use the outbox", async () => {
@@ -403,13 +403,13 @@ describe("change", () => {
     jobs.enqueueStatusEffects.mockResolvedValue(false);
     await paid();
     expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
-    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
     expect(jobs.runJobsFor).not.toHaveBeenCalled();
   });
   it("an enqueue that throws still returns ok", async () => {
     jobs.enqueueStatusEffects.mockRejectedValue(new Error("boom"));
     expect((await paid()).ok).toBe(true);
-    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status"]);
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
   });
   it("a failing sheet call does not fail the status change", async () => {
     jobs.enqueueSheetStatus.mockRejectedValue(new Error("boom"));
