@@ -3,7 +3,8 @@
 -- instead of an account picker on every landing page. A page region keeps its own label,
 -- currency, class time and timezone; only the accounts come from here.
 -- Service role only (RLS on, zero policies), same as landing_meta_events.
--- The seed reproduces what the live page shows today (region keys PK, UAE, SA, PH, IN, INTL).
+-- The seed mirrors the live page (region keys PK, UAE, SA, PH, IN, INTL), except PayPal is added
+-- to PK and PH on the owner's instruction (PayPal is used in all countries, always listed last).
 -- New pages made from the templates use region key KSA, which has no central country until the
 -- owner adds one on the Payment accounts screen (until then it uses its own list).
 -- The owner pastes this into the Supabase SQL editor. Safe to run twice.
@@ -39,12 +40,14 @@ on conflict (region_key) do nothing;
 insert into public.payment_country_accounts (region_key, account_key, sort) values
   ('PK',   'faysal',    10),
   ('PK',   'easypaisa', 20),
+  ('PK',   'paypal',    30),
   ('UAE',  'mashreq',   10),
   ('UAE',  'paypal',    20),
   ('SA',   'anb',       10),
   ('SA',   'paypal',    20),
   ('PH',   'gcash',     10),
   ('PH',   'pnb_ph',    20),
+  ('PH',   'paypal',    30),
   ('IN',   'pnb_in',    10),
   ('IN',   'paypal',    20),
   ('INTL', 'paypal',    10)
