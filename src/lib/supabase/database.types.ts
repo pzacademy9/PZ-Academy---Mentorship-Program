@@ -1653,6 +1653,47 @@ export type Database = {
           },
         ]
       }
+      landing_meta_events: {
+        Row: {
+          created_at: string
+          currency: string | null
+          detail: string
+          event_id: string
+          registration_id: string
+          sent_at: string | null
+          state: string
+          value: number | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          detail?: string
+          event_id: string
+          registration_id: string
+          sent_at?: string | null
+          state: string
+          value?: number | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          detail?: string
+          event_id?: string
+          registration_id?: string
+          sent_at?: string | null
+          state?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_meta_events_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: true
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_page_versions: {
         Row: {
           content: Json
