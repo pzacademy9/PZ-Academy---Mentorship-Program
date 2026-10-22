@@ -10,14 +10,31 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 
 export type MetaPurchaseState = "claimed" | "sent" | "skipped_old";
 
-/** True when this caller now owns the send; false when a row already exists (claimed, sent or skipped). */
+/** A claim older than this is treated as abandoned by a crashed worker and may be taken over. */
+export const STALE_CLAIM_MINUTES = 15;
+
+/**
+ * True when this caller now owns the send; false when a row already exists (fresh claim, sent or
+ * skipped). A stale claim (crash between claim and send) is taken over: Meta de-duplicates on the
+ * stable event_id, so a re-send is harmless.
+ */
 export async function claimMetaPurchase(registrationId: string, eventId: string): Promise<boolean> {
-  const { error } = await createAdminSupabase()
+  const admin = createAdminSupabase();
+  const { error } = await admin
     .from("landing_meta_events")
     .insert({ registration_id: registrationId, event_id: eventId, state: "claimed" });
   if (!error) return true;
-  if (error.code === "23505") return false;
-  throw error;
+  if (error.code !== "23505") throw error;
+  const cutoff = new Date(Date.now() - STALE_CLAIM_MINUTES * 60_000).toISOString();
+  const { data, error: takeErr } = await admin
+    .from("landing_meta_events")
+    .update({ created_at: new Date().toISOString() })
+    .eq("registration_id", registrationId)
+    .eq("state", "claimed")
+    .lt("created_at", cutoff)
+    .select("registration_id");
+  if (takeErr) throw takeErr;
+  return (data ?? []).length === 1;
 }
 
 /** Marks a claimed Purchase as sent, recording what was sent. */
