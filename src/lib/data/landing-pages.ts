@@ -38,6 +38,7 @@ export type PublishResult =
 export type SimpleResult = { ok: true } | { ok: false; reason: "not-found" | "not-published" | "db-error" };
 
 const UNIQUE_VIOLATION = "23505";
+const PUBLIC_COLUMNS = "id, slug, kind, title, status, published";
 const COLUMNS = "id, slug, kind, title, status, draft, published, revision, published_at, created_by, created_at, updated_at, course_id, is_main_page";
 
 function mapRow(r: Row): LandingPage {
@@ -76,14 +77,13 @@ export async function getLandingPage(id: string): Promise<LandingPage | null> {
 /** Public read. Only published or closed pages with a published copy are visible. */
 export async function getPublishedLandingPage(slug: string) {
   const admin = createAdminSupabase();
-  const { data, error } = await admin.from("landing_pages").select(COLUMNS).eq("slug", slug).maybeSingle();
+  const { data, error } = await admin.from("landing_pages").select(PUBLIC_COLUMNS).eq("slug", slug).maybeSingle();
   // Throw so ISR keeps the previous good page instead of caching a 404 for a live page.
   if (error) throw error;
   if (!data || data.status === "draft" || !data.published) return null;
-  const p = mapRow(data);
   return {
-    page: { id: p.id, slug: p.slug, kind: p.kind, title: p.title, status: p.status },
-    content: p.published as LandingContent,
+    page: { id: data.id, slug: data.slug, kind: data.kind as PageKind, title: data.title, status: data.status as PageStatus },
+    content: normalizeContent(data.published),
   };
 }
 
