@@ -1,7 +1,9 @@
 // src/lib/data/landing-payment-countries.ts
 import "server-only";
+import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { listPaymentAccounts, type PaymentAccountKind } from "@/lib/data/landing-payment-accounts";
+import { REGION_KEY_RE, countryAccountsSchema, countryCreateSchema, countryPatchSchema } from "@/lib/validations/landing-payment";
 
 /**
  * Central payment accounts per country (migration 0081). A country owns only the list of accounts
@@ -113,4 +115,63 @@ export async function resolveRegionAccountKeys(
     out[r.key] = central[r.key] ?? Array.from(new Set(r.accountKeys)).filter((k) => active.has(k));
   }
   return out;
+}
+
+// ---------------------------------------------------------------- admin writes
+
+/** Adds a country at the end of the list. `exists` when the region key is taken. Throws on other errors. */
+export async function createPaymentCountry(input: { regionKey: string; name: string }): Promise<{ ok: true } | { ok: false; reason: "invalid" | "exists" }> {
+  const parsed = countryCreateSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, reason: "invalid" };
+  const admin = createAdminSupabase();
+  const existing = await admin.from("payment_countries").select("sort");
+  if (existing.error) throw existing.error;
+  const sort = (existing.data ?? []).reduce((m, c) => Math.max(m, c.sort), 0) + 10;
+  const { error } = await admin
+    .from("payment_countries")
+    .insert({ region_key: parsed.data.regionKey, name: parsed.data.name, sort, active: true });
+  if (error?.code === "23505") return { ok: false, reason: "exists" };
+  if (error) throw error;
+  return { ok: true };
+}
+
+/** Renames or hides a country (`active: false`). ok:false when nothing matched. */
+export async function updatePaymentCountry(regionKey: string, patch: { name?: string; active?: boolean }): Promise<{ ok: boolean }> {
+  if (!REGION_KEY_RE.test(regionKey)) return { ok: false };
+  const parsed = countryPatchSchema.safeParse(patch);
+  if (!parsed.success) return { ok: false };
+  const update: TablesUpdate<"payment_countries"> = { updated_at: new Date().toISOString() };
+  if (parsed.data.name !== undefined) update.name = parsed.data.name;
+  if (parsed.data.active !== undefined) update.active = parsed.data.active;
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("payment_countries").update(update).eq("region_key", regionKey).select("region_key");
+  if (error) throw error;
+  return { ok: (data ?? []).length > 0 };
+}
+
+/**
+ * Replaces a country's account list (array order, sort = index * 10) in one database transaction
+ * (migration 0082). ok:false for an unknown country or account, a duplicate, more than 12, or when
+ * the function is not installed yet; in every such case nothing is written.
+ */
+export async function setCountryAccounts(regionKey: string, accountKeys: string[]): Promise<{ ok: boolean }> {
+  if (!REGION_KEY_RE.test(regionKey)) return { ok: false };
+  const parsed = countryAccountsSchema.safeParse({ accountKeys });
+  if (!parsed.success) return { ok: false };
+  const keys = parsed.data.accountKeys;
+  const admin = createAdminSupabase();
+  if (keys.length > 0) {
+    const found = await admin.from("payment_accounts").select("key").in("key", keys);
+    if (found.error) throw found.error;
+    if ((found.data ?? []).length !== keys.length) return { ok: false };
+  }
+  const { error } = await admin.rpc("landing_set_country_accounts", { p_region_key: regionKey, p_account_keys: keys });
+  if (!error) return { ok: true };
+  if (error.code === "PGRST202" || error.code === "42883") {
+    console.error("landing_set_country_accounts is missing: paste migration 0082", error);
+    return { ok: false };
+  }
+  // The function raises (default P0001) for an unknown country or key; nothing was written.
+  if (error.code === "P0001") return { ok: false };
+  throw error;
 }

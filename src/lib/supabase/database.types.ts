@@ -4229,6 +4229,10 @@ export type Database = {
         Args: { p_user: string; p_variant_id: string; p_version: number }
         Returns: number
       }
+      landing_set_country_accounts: {
+        Args: { p_account_keys: string[]; p_region_key: string }
+        Returns: undefined
+      }
       mentor_review_stats: {
         Args: { p_mentor_ids: string[] }
         Returns: {
