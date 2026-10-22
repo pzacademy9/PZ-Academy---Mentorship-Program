@@ -78,6 +78,26 @@ describe("attribution", () => {
     expect(a.fbp).toBe("fb.1.111.222");
     expect(readFbc(6_000, local, "_fbc=fb.1.9.FROMCOOKIE")).toBe("fb.1.9.FROMCOOKIE");
   });
+  it("stores ?src=website in the session utm", () => {
+    const session = memKV();
+    captureAttribution("?src=website", 0, memKV(), session);
+    expect(readAttribution(0, memKV(), session, "").utm).toEqual({ src: "website" });
+  });
+  it("keeps the agent ref exactly as before when ?ref and ?src arrive together", () => {
+    const local = memKV(); const session = memKV();
+    captureAttribution("?ref=agent-one&src=website", 1_000, local, session);
+    expect(readAgentRef(1_000, local)).toBe("agent-one");
+    expect(JSON.parse(local.data.get(AGENT_REF_KEY) as string)).toEqual({ code: "agent-one", exp: 1_000 + 30 * DAY });
+    expect(readAttribution(1_000, local, session, "").utm).toEqual({ src: "website" });
+  });
+  it("a later visit with only ?src=website does not remove or overwrite a stored ref", () => {
+    const local = memKV(); const session = memKV();
+    captureAttribution("?ref=agent-one", 1_000, local, session);
+    const before = local.data.get(AGENT_REF_KEY);
+    captureAttribution("?src=website", 2_000, local, session);
+    expect(local.data.get(AGENT_REF_KEY)).toBe(before);
+    expect(readAgentRef(2_000, local)).toBe("agent-one");
+  });
   it("works with no storage at all", () => {
     expect(() => captureAttribution("?ref=abc&utm_source=x", 0, null, null)).not.toThrow();
     expect(readAttribution(0, null, null, "")).toEqual({ refCode: "", utm: {}, fbp: "", fbc: "" });

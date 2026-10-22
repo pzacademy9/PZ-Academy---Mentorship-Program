@@ -6,7 +6,7 @@ export const FBC_KEY = "pz_fbc";
 const DAY = 86_400_000;
 const AGENT_REF_MS = 30 * DAY;
 const FBC_MS = 90 * DAY;
-const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
+const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src"] as const;
 const REF_RE = /^[a-z0-9][a-z0-9-]{1,39}$/i;
 const FBCLID_RE = /^[\w-]{10,500}$/;
 
