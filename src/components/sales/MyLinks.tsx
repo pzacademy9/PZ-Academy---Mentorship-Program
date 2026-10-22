@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Eye, Info, Link2, UserPlus, CircleCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -21,12 +21,15 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Eye; label: string; v
 function LinkCard({ row }: { row: MyLinkRow }) {
   const [state, setState] = useState<"idle" | "copied" | "manual">("idle");
   const boxRef = useRef<HTMLInputElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(row.link);
       setState("copied");
-      setTimeout(() => setState("idle"), 2500);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setState("idle"), 2500);
     } catch {
       // Clipboard blocked: select the link so it can be copied by hand.
       boxRef.current?.focus();
@@ -59,11 +62,10 @@ function LinkCard({ row }: { row: MyLinkRow }) {
           {state === "copied" ? "Copied!" : "Copy link"}
         </button>
       </div>
-      {state === "manual" && (
-        <p role="status" className="mt-2 font-body text-xs text-pz-on-surface-variant">
-          Your browser did not allow copying. The link is selected above: press Ctrl+C (or hold and tap Copy on a phone).
-        </p>
-      )}
+      <p role="status" aria-live="polite" className={state === "manual" ? "mt-2 font-body text-xs text-pz-on-surface-variant" : "sr-only"}>
+        {state === "copied" && "Copied!"}
+        {state === "manual" && "Your browser did not allow copying. The link is selected above: press Ctrl+C (or hold and tap Copy on a phone)."}
+      </p>
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-pz-outline-variant pt-4">
         <div className="flex w-full gap-2 md:w-auto">
           <Stat icon={Eye} label="Views" value={row.views} />

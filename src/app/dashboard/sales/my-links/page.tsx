@@ -1,6 +1,6 @@
 import { requireSalesAgentPage } from "@/lib/auth/require-sales";
 import { getAgentLinkStats, listPublishedLinkPages } from "@/lib/data/landing-agent-stats";
-import { getOrCreateAgentLink } from "@/lib/data/landing-agent-links";
+import { AgentLinkError, getOrCreateAgentLink } from "@/lib/data/landing-agent-links";
 import { MyLinks, type MyLinkRow } from "@/components/sales/MyLinks";
 
 export const metadata = { title: "My Links — Sales Workspace" };
@@ -10,11 +10,21 @@ export const fetchCache = "force-no-store";
 export default async function MyLinksPage() {
   // The agent is always the signed-in user; nothing from the URL decides whose numbers these are.
   const { user } = await requireSalesAgentPage();
-  const [{ code }, pages, stats] = await Promise.all([
-    getOrCreateAgentLink(user.id),
-    listPublishedLinkPages(),
-    getAgentLinkStats(user.id),
-  ]);
+  let code: string;
+  try {
+    ({ code } = await getOrCreateAgentLink(user.id));
+  } catch (e) {
+    if (e instanceof AgentLinkError && e.reason === "not-sales-agent") {
+      return (
+        <div className="space-y-2">
+          <h1 className="font-headline text-2xl font-bold text-pz-secondary">My links</h1>
+          <p className="font-body text-sm text-pz-on-surface-variant">Only sales agents have personal links.</p>
+        </div>
+      );
+    }
+    throw e;
+  }
+  const [pages, stats] = await Promise.all([listPublishedLinkPages(), getAgentLinkStats(user.id)]);
 
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   const byPage = new Map(stats.map((s) => [s.pageId, s]));

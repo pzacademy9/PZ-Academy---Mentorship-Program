@@ -37,6 +37,33 @@ describe("agent leaderboard page", () => {
     expect(getBoard).toHaveBeenLastCalledWith("30d");
   });
 
+  it("shows a row that registered earlier but paid in the window", async () => {
+    getBoard.mockResolvedValue([{ agentId: "a3", name: "Late Payer", registered: 0, paid: 1, revenue: [{ currency: "PKR", amount: 5000 }] }]);
+    render(await LeaderboardPage({ searchParams: sp({ range: "7d" }) }));
+    expect(screen.queryByText(/no sales in this period/i)).toBeNull();
+    expect(screen.getAllByText("Late Payer").length).toBeGreaterThan(0);
+  });
+
+  it("shows the paid rate only for all time, never above 100%", async () => {
+    getBoard.mockResolvedValue([{ agentId: "a4", name: "Odd", registered: 1, paid: 3, revenue: [] }]);
+    const win = render(await LeaderboardPage({ searchParams: sp({ range: "7d" }) }));
+    expect(win.container.textContent).not.toMatch(/%/);
+    win.unmount();
+    const all = render(await LeaderboardPage({ searchParams: sp({ range: "all" }) }));
+    const rates = Array.from(all.container.querySelectorAll("p, span, td"))
+      .filter((e) => e.children.length === 0)
+      .map((e) => e.textContent ?? "")
+      .filter((t) => /^\d+%/.test(t.trim()));
+    expect(rates.length).toBeGreaterThan(0);
+    for (const r of rates) expect(parseInt(r, 10)).toBeLessThanOrEqual(100);
+  });
+
+  it("names a blank agent Unnamed agent", async () => {
+    getBoard.mockResolvedValue([{ agentId: "a5", name: "", registered: 2, paid: 1, revenue: [] }]);
+    render(await LeaderboardPage({ searchParams: sp() }));
+    expect(screen.getAllByText("Unnamed agent").length).toBe(2);
+  });
+
   it("shows an empty state with no agents", async () => {
     getBoard.mockResolvedValue([]);
     render(await LeaderboardPage({ searchParams: sp() }));

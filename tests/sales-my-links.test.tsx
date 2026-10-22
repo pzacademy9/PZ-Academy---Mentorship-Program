@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 vi.mock("server-only", () => ({}));
-const { requireSales, getStats, getLink, listPages } = vi.hoisted(() => ({
+const { requireSales, getStats, getLink, listPages, AgentLinkError } = vi.hoisted(() => ({
   requireSales: vi.fn(), getStats: vi.fn(), getLink: vi.fn(), listPages: vi.fn(),
+  AgentLinkError: class extends Error { constructor(public reason: string) { super(reason); } },
 }));
 vi.mock("@/lib/auth/require-sales", () => ({ requireSalesAgentPage: requireSales }));
 vi.mock("@/lib/data/landing-agent-stats", () => ({ getAgentLinkStats: getStats, listPublishedLinkPages: listPages }));
-vi.mock("@/lib/data/landing-agent-links", () => ({ getOrCreateAgentLink: getLink }));
+vi.mock("@/lib/data/landing-agent-links", () => ({ getOrCreateAgentLink: getLink, AgentLinkError }));
 
 import MyLinksPage from "@/app/dashboard/sales/my-links/page";
 
@@ -56,13 +57,26 @@ describe("My links page", () => {
     expect(screen.getByText(/no pages are open for registration yet/i)).toBeTruthy();
   });
 
+  it("an admin opening the page gets a plain note, not a crash", async () => {
+    getLink.mockRejectedValue(new AgentLinkError("not-sales-agent"));
+    render(await MyLinksPage());
+    expect(screen.getByText("Only sales agents have personal links.")).toBeTruthy();
+    expect(listPages).not.toHaveBeenCalled();
+  });
+
+  it("other link errors still throw", async () => {
+    getLink.mockRejectedValue(new AgentLinkError("db-error"));
+    await expect(MyLinksPage()).rejects.toThrow("db-error");
+  });
+
   it("Copy copies the exact link", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     render(await MyLinksPage());
     fireEvent.click(screen.getAllByRole("button", { name: /copy link/i })[0]);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://pharmacozyme.com/e/ppc-batch-3?ref=ayesha-7k2"));
-    await waitFor(() => expect(screen.getByText(/copied/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByRole("status")[0].textContent).toBe("Copied!"));
+    expect(screen.getAllByRole("status")[0].getAttribute("aria-live")).toBe("polite");
   });
 
   it("falls back to a manual-copy message when the clipboard is blocked", async () => {

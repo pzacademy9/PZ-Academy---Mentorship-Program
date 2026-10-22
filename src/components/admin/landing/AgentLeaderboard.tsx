@@ -13,7 +13,7 @@ const RANGES: { key: Range; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-const pct = (paid: number, registered: number) => (registered > 0 ? Math.round((paid / registered) * 100) : 0);
+const pct = (paid: number, registered: number) => (registered > 0 ? Math.min(100, Math.round((paid / registered) * 100)) : 0);
 
 function sumRevenue(rows: LeaderRow[]) {
   const totals = new Map<string, number>();
@@ -47,7 +47,9 @@ export function AgentLeaderboard({ rows, range }: { rows: LeaderRow[]; range: Ra
   const registered = rows.reduce((n, r) => n + r.registered, 0);
   const paid = rows.reduce((n, r) => n + r.paid, 0);
   const revenue = sumRevenue(rows);
-  const noSales = rows.length === 0 || registered === 0;
+  const noSales = rows.length === 0 || (registered === 0 && paid === 0);
+  // In a window, registered counts by registration date and paid by first-Paid date, so a rate can pass 100%: show it for all time only.
+  const showRate = range === "all";
 
   return (
     <div className="space-y-6">
@@ -90,7 +92,7 @@ export function AgentLeaderboard({ rows, range }: { rows: LeaderRow[]; range: Ra
             </Tile>
             <Tile label="Total paid">
               <p className="font-headline text-3xl font-bold text-pz-on-surface">{paid.toLocaleString("en-US")}</p>
-              <p className="mt-1 font-body text-xs text-pz-on-surface-variant">{pct(paid, registered)}% of registered</p>
+              {showRate && <p className="mt-1 font-body text-xs text-pz-on-surface-variant">{pct(paid, registered)}% of registered</p>}
             </Tile>
             <Tile label="Total revenue">
               {revenue.length === 0 ? (
@@ -109,7 +111,7 @@ export function AgentLeaderboard({ rows, range }: { rows: LeaderRow[]; range: Ra
                   <th className="px-4 py-3 font-semibold">Agent</th>
                   <th className="px-4 py-3 text-right font-semibold">Registered</th>
                   <th className="px-4 py-3 text-right font-semibold">Paid</th>
-                  <th className="px-4 py-3 text-right font-semibold">Paid rate</th>
+                  {showRate && <th className="px-4 py-3 text-right font-semibold">Paid rate</th>}
                   <th className="px-4 py-3 text-right font-semibold">Revenue</th>
                 </tr>
               </thead>
@@ -117,10 +119,10 @@ export function AgentLeaderboard({ rows, range }: { rows: LeaderRow[]; range: Ra
                 {rows.map((r, i) => (
                   <tr key={r.agentId}>
                     <td className="px-4 py-3 text-pz-on-surface-variant">{i + 1}</td>
-                    <td className="px-4 py-3 font-semibold text-pz-on-surface">{r.name}</td>
+                    <td className="px-4 py-3 font-semibold text-pz-on-surface">{r.name.trim() || "Unnamed agent"}</td>
                     <td className="px-4 py-3 text-right">{r.registered}</td>
                     <td className="px-4 py-3 text-right">{r.paid}</td>
-                    <td className="px-4 py-3 text-right">{pct(r.paid, r.registered)}%</td>
+                    {showRate && <td className="px-4 py-3 text-right">{pct(r.paid, r.registered)}%</td>}
                     <td className="px-4 py-3"><Revenue revenue={r.revenue} /></td>
                   </tr>
                 ))}
@@ -133,7 +135,7 @@ export function AgentLeaderboard({ rows, range }: { rows: LeaderRow[]; range: Ra
               <li key={r.agentId} className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
                 <p className="font-headline text-base font-bold text-pz-on-surface">
                   <span className="mr-2 text-pz-on-surface-variant">#{i + 1}</span>
-                  {r.name}
+                  {r.name.trim() || "Unnamed agent"}
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-pz-surface-container-low p-3 font-body">
                   <div>
@@ -143,7 +145,8 @@ export function AgentLeaderboard({ rows, range }: { rows: LeaderRow[]; range: Ra
                   <div>
                     <p className="text-xs uppercase text-pz-on-surface-variant">Paid</p>
                     <p className="text-lg font-bold">
-                      {r.paid} <span className="text-xs font-semibold text-pz-on-surface-variant">{pct(r.paid, r.registered)}% paid</span>
+                      {r.paid}
+                      {showRate && <span className="ml-1 text-xs font-semibold text-pz-on-surface-variant">{pct(r.paid, r.registered)}% paid</span>}
                     </p>
                   </div>
                 </div>
