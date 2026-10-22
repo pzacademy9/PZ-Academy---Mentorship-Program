@@ -83,6 +83,20 @@ describe("attribution", () => {
     captureAttribution("?src=website", 0, memKV(), session);
     expect(readAttribution(0, memKV(), session, "").utm).toEqual({ src: "website" });
   });
+  it("a later bare ?src merges into an earlier ad utm instead of replacing it", () => {
+    const session = memKV();
+    captureAttribution("?utm_source=fb&utm_campaign=ppc3", 0, memKV(), session);
+    captureAttribution("?src=website", 10, memKV(), session);
+    expect(readAttribution(10, memKV(), session, "").utm).toEqual({ utm_source: "fb", utm_campaign: "ppc3", src: "website" });
+  });
+  it("a bare ?src with no earlier utm just stores src, and a new ad utm set still replaces", () => {
+    const session = memKV();
+    captureAttribution("?src=website", 0, memKV(), session);
+    expect(readAttribution(0, memKV(), session, "").utm).toEqual({ src: "website" });
+    captureAttribution("?utm_source=fb&src=website", 5, memKV(), session);
+    captureAttribution("?utm_source=ig", 10, memKV(), session);
+    expect(readAttribution(10, memKV(), session, "").utm).toEqual({ utm_source: "ig" });
+  });
   it("keeps the agent ref exactly as before when ?ref and ?src arrive together", () => {
     const local = memKV(); const session = memKV();
     captureAttribution("?ref=agent-one&src=website", 1_000, local, session);

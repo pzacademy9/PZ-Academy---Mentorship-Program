@@ -35,7 +35,12 @@ export function captureAttribution(search: string, now: number, local: KV | null
     const v = (q.get(k) ?? "").trim().slice(0, 150);
     if (v) utm[k] = v;
   }
-  if (session && Object.keys(utm).length > 0) session.setItem(UTM_KEY, JSON.stringify(utm));
+  if (session && Object.keys(utm).length > 0) {
+    // A bare ?src (e.g. from the website) must not erase an earlier ad utm_* set; merge it in instead.
+    const onlySrc = Object.keys(utm).length === 1 && "src" in utm;
+    const merged = onlySrc && session.getItem(UTM_KEY) ? { ...readUtm(session), ...utm } : utm;
+    session.setItem(UTM_KEY, JSON.stringify(merged));
+  }
   const fbclid = (q.get("fbclid") ?? "").trim();
   if (local && FBCLID_RE.test(fbclid)) local.setItem(FBC_KEY, JSON.stringify({ value: `fb.1.${now}.${fbclid}`, exp: now + FBC_MS }));
 }
