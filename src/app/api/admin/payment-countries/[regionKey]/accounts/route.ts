@@ -15,7 +15,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ regi
 
   try {
     const result = await setCountryAccounts(regionKey, parsed.data.accountKeys);
-    if (!result.ok) return NextResponse.json({ error: "That country or one of its accounts was not found." }, { status: 404 });
+    if (!result.ok) {
+      if (result.reason === "not_ready") {
+        return NextResponse.json({ error: "Country lists are not switched on yet. Please try again later." }, { status: 503 });
+      }
+      return NextResponse.json({ error: "That country or one of its accounts was not found." }, { status: 404 });
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Could not save the list. Please try again." }, { status: 500 });

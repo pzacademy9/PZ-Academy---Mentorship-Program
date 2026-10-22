@@ -45,7 +45,7 @@ describe("PaymentAccountsManager list", () => {
   it("marks a hidden account and counts it in the country heading", () => {
     render(<PaymentAccountsManager countries={COUNTRIES} accounts={ACCOUNTS} />);
     const ph = screen.getByTestId("country-PH");
-    expect(within(ph).getByText("Hidden from students")).toBeTruthy();
+    expect(within(ph).getAllByText("Hidden from students")).toHaveLength(2);
     expect(within(ph).getByText("1 hidden")).toBeTruthy();
     expect(within(ph).getByRole("switch", { name: "Shown to students: GCash" }).getAttribute("aria-checked")).toBe("false");
   });
@@ -75,6 +75,28 @@ describe("PaymentAccountsManager saving", () => {
     expect(url).toBe("/api/admin/payment-countries/PK/accounts");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ accountKeys: ["easypaisa", "faysal_bank"] });
+  });
+  it("the arrows stay off after a move until the refreshed order arrives (no second PUT)", async () => {
+    render(<PaymentAccountsManager countries={COUNTRIES} accounts={ACCOUNTS} />);
+    const pk = within(screen.getByTestId("country-PK"));
+    fireEvent.click(pk.getByRole("button", { name: "Move Faysal Bank down" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    const calls = fetchMock().mock.calls.length;
+    const again = pk.getByRole("button", { name: "Move Faysal Bank down" }) as HTMLButtonElement;
+    expect(again.disabled).toBe(true);
+    fireEvent.click(again);
+    expect(fetchMock().mock.calls.length).toBe(calls);
+  });
+  it("labels the switch Hidden from students when off and Shown to students when on", () => {
+    render(<PaymentAccountsManager countries={COUNTRIES} accounts={ACCOUNTS} />);
+    const ph = within(screen.getByTestId("country-PH"));
+    expect(ph.getAllByText("Hidden from students").length).toBeGreaterThanOrEqual(2);
+    expect(within(screen.getByTestId("country-PK")).getAllByText("Shown to students")).toHaveLength(2);
+  });
+  it("explains what turning a country off does", () => {
+    render(<PaymentAccountsManager countries={COUNTRIES} accounts={ACCOUNTS} />);
+    fireEvent.click(within(screen.getByTestId("country-LK")).getByRole("button", { name: "Edit country" }));
+    expect(screen.getByText("When off, each page shows its own accounts.")).toBeTruthy();
   });
   it("the first account cannot move up", () => {
     render(<PaymentAccountsManager countries={COUNTRIES} accounts={ACCOUNTS} />);

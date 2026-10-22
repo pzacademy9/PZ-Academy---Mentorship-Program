@@ -116,6 +116,7 @@ export function EditCountryDialog({
               <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
               Use this country&apos;s list on landing pages
             </label>
+            <p className={HELP}>When off, each page shows its own accounts.</p>
             <Button type="submit" disabled={savingDetails}>{savingDetails ? "Saving..." : "Save country"}</Button>
           </form>
 

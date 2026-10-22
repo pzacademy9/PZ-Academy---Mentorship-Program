@@ -166,27 +166,30 @@ export async function updatePaymentCountry(regionKey: string, patch: { name?: st
 
 /**
  * Replaces a country's account list (array order, sort = index * 10) in one database transaction
- * (migration 0082). ok:false for an unknown country or account, a duplicate, more than 12, or when
- * the function is not installed yet; in every such case nothing is written.
+ * (migration 0082). not_found for a bad region, unknown country or account, a duplicate, an empty list or more
+ * than 12; not_ready when the function is not installed yet. In every such case nothing is written.
  */
-export async function setCountryAccounts(regionKey: string, accountKeys: string[]): Promise<{ ok: boolean }> {
-  if (!REGION_KEY_RE.test(regionKey)) return { ok: false };
+export async function setCountryAccounts(
+  regionKey: string,
+  accountKeys: string[],
+): Promise<{ ok: true } | { ok: false; reason: "not_found" | "not_ready" }> {
+  if (!REGION_KEY_RE.test(regionKey)) return { ok: false, reason: "not_found" };
   const parsed = countryAccountsSchema.safeParse({ accountKeys });
-  if (!parsed.success) return { ok: false };
+  if (!parsed.success) return { ok: false, reason: "not_found" };
   const keys = parsed.data.accountKeys;
   const admin = createAdminSupabase();
   if (keys.length > 0) {
     const found = await admin.from("payment_accounts").select("key").in("key", keys);
     if (found.error) throw found.error;
-    if ((found.data ?? []).length !== keys.length) return { ok: false };
+    if ((found.data ?? []).length !== keys.length) return { ok: false, reason: "not_found" };
   }
   const { error } = await admin.rpc("landing_set_country_accounts", { p_region_key: regionKey, p_account_keys: keys });
   if (!error) return { ok: true };
   if (error.code === "PGRST202" || error.code === "42883") {
     console.error("landing_set_country_accounts is missing: paste migration 0082", error);
-    return { ok: false };
+    return { ok: false, reason: "not_ready" };
   }
   // The function raises (default P0001) for an unknown country or key; nothing was written.
-  if (error.code === "P0001") return { ok: false };
+  if (error.code === "P0001") return { ok: false, reason: "not_found" };
   throw error;
 }

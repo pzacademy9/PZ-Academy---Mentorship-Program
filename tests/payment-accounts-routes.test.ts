@@ -98,7 +98,13 @@ describe("payment routes", () => {
     expect((await putAccounts(req({ accountKeys: ["a_b", "c_d"] }, "PUT"), regCtx)).status).toBe(200);
     expect(d.setCountryAccounts).toHaveBeenCalledWith("PK", ["a_b", "c_d"]);
     expect((await putAccounts(req({ accountKeys: [] }, "PUT"), regCtx)).status).toBe(400);
-    d.setCountryAccounts.mockResolvedValue({ ok: false });
+    d.setCountryAccounts.mockResolvedValue({ ok: false, reason: "not_found" });
     expect((await putAccounts(req({ accountKeys: ["a_b"] }, "PUT"), regCtx)).status).toBe(404);
+  });
+  it("answers 503 with a plain message when the list function is not installed yet", async () => {
+    d.setCountryAccounts.mockResolvedValue({ ok: false, reason: "not_ready" });
+    const res = await putAccounts(req({ accountKeys: ["a_b"] }, "PUT"), regCtx);
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe("Country lists are not switched on yet. Please try again later.");
   });
 });

@@ -146,17 +146,17 @@ describe("setCountryAccounts", () => {
   });
   it("rejects an unknown account key without calling the rpc", async () => {
     db.state.handler = known;
-    await expect(setCountryAccounts("PK", ["faysal", "ghost"])).resolves.toEqual({ ok: false });
+    await expect(setCountryAccounts("PK", ["faysal", "ghost"])).resolves.toEqual({ ok: false, reason: "not_found" });
     expect(db.state.ops.some((o) => o.op === "rpc")).toBe(false);
   });
   it("rejects duplicates, more than 12 and a bad region key without touching the database", async () => {
-    await expect(setCountryAccounts("PK", ["faysal", "faysal"])).resolves.toEqual({ ok: false });
-    await expect(setCountryAccounts("PK", Array.from({ length: 13 }, (_, i) => `acct_${i}`))).resolves.toEqual({ ok: false });
-    await expect(setCountryAccounts("pk", ["faysal"])).resolves.toEqual({ ok: false });
+    await expect(setCountryAccounts("PK", ["faysal", "faysal"])).resolves.toEqual({ ok: false, reason: "not_found" });
+    await expect(setCountryAccounts("PK", Array.from({ length: 13 }, (_, i) => `acct_${i}`))).resolves.toEqual({ ok: false, reason: "not_found" });
+    await expect(setCountryAccounts("pk", ["faysal"])).resolves.toEqual({ ok: false, reason: "not_found" });
     expect(db.state.ops).toHaveLength(0);
   });
   it("rejects an empty list without calling the database", async () => {
-    await expect(setCountryAccounts("PK", [])).resolves.toEqual({ ok: false });
+    await expect(setCountryAccounts("PK", [])).resolves.toEqual({ ok: false, reason: "not_found" });
     expect(db.state.ops).toHaveLength(0);
   });
   it("the sql function rejects an empty list and locks the country row before any delete", () => {
@@ -171,7 +171,7 @@ describe("setCountryAccounts", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     for (const code of ["PGRST202", "42883"]) {
       db.state.handler = (op) => (op.op === "rpc" ? { data: null, error: { code, message: "function missing" } } : known(op));
-      await expect(setCountryAccounts("PK", ["faysal"])).resolves.toEqual({ ok: false });
+      await expect(setCountryAccounts("PK", ["faysal"])).resolves.toEqual({ ok: false, reason: "not_ready" });
     }
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
@@ -179,7 +179,7 @@ describe("setCountryAccounts", () => {
   });
   it("returns ok:false when the function rejects the country, throws any other error", async () => {
     db.state.handler = (op) => (op.op === "rpc" ? { data: null, error: { code: "P0001", message: "unknown country" } } : known(op));
-    await expect(setCountryAccounts("XX", ["faysal"])).resolves.toEqual({ ok: false });
+    await expect(setCountryAccounts("XX", ["faysal"])).resolves.toEqual({ ok: false, reason: "not_found" });
     db.state.handler = (op) => (op.op === "rpc" ? { data: null, error: { code: "08006" } } : known(op));
     await expect(setCountryAccounts("PK", ["faysal"])).rejects.toMatchObject({ code: "08006" });
   });

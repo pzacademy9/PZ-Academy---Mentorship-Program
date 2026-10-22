@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, ChevronDown, ChevronUp, EyeOff, Globe2, Pencil, Plus } from "lucide-react";
@@ -40,11 +40,23 @@ export function PaymentAccountsManager({ countries, accounts }: { countries: Pay
     router.refresh();
   }, { getKey: (a) => a.key });
 
-  const { run: move } = useAsyncAction(async (country: PaymentCountry, from: number, to: number) => {
+  // After a move saves, the arrows for that country stay off until the refreshed order arrives, so a
+  // quick second click cannot swap from the old order and undo the first move.
+  const orderOf = (c: PaymentCountry) => c.accounts.map((a) => a.key).join(",");
+  const [waiting, setWaiting] = useState<{ regionKey: string; before: string } | null>(null);
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setWaiting(null), 8000);
+    return () => clearTimeout(t);
+  }, [waiting]);
+
+  const { run: move, pending: moving } = useAsyncAction(async (country: PaymentCountry, from: number, to: number) => {
     const keys = country.accounts.map((a) => a.key);
+    const before = keys.join(",");
     [keys[from], keys[to]] = [keys[to], keys[from]];
     const res = await send(`/api/admin/payment-countries/${country.regionKey}/accounts`, "PUT", { accountKeys: keys });
     if (!res.ok) { toast.error(res.error); return; }
+    setWaiting({ regionKey: country.regionKey, before });
     router.refresh();
   });
 
@@ -68,6 +80,7 @@ export function PaymentAccountsManager({ countries, accounts }: { countries: Pay
 
       {countries.map((c) => {
         const hidden = c.accounts.filter((a) => !a.active).length;
+        const locked = moving || (waiting?.regionKey === c.regionKey && waiting.before === orderOf(c));
         return (
           <section key={c.regionKey} data-testid={`country-${c.regionKey}`} className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -76,7 +89,7 @@ export function PaymentAccountsManager({ countries, accounts }: { countries: Pay
                 <span className="rounded bg-pz-surface-container-high px-2 py-0.5 font-mono text-xs font-semibold text-pz-on-surface-variant">{c.regionKey}</span>
                 <span className={HELP}>{c.accounts.length === 1 ? "1 account" : `${c.accounts.length} accounts`}</span>
                 {hidden > 0 && <span className={HELP}>{`${hidden} hidden`}</span>}
-                {!c.active && <span className={HELP}>Not in use</span>}
+                {!c.active && <span className={HELP}>Not in use: each page shows its own accounts</span>}
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => setModal({ type: "edit-country", regionKey: c.regionKey })}>
                 Edit country
@@ -110,10 +123,10 @@ export function PaymentAccountsManager({ countries, accounts }: { countries: Pay
                       )}
                     >
                       <div className="flex flex-col gap-1">
-                        <button type="button" className={ICON_BTN} aria-label={`Move ${a.label} up`} disabled={i === 0} onClick={() => void move(c, i, i - 1)}>
+                        <button type="button" className={ICON_BTN} aria-label={`Move ${a.label} up`} disabled={locked || i === 0} onClick={() => void move(c, i, i - 1)}>
                           <ChevronUp aria-hidden="true" className="h-4 w-4" />
                         </button>
-                        <button type="button" className={ICON_BTN} aria-label={`Move ${a.label} down`} disabled={i === c.accounts.length - 1} onClick={() => void move(c, i, i + 1)}>
+                        <button type="button" className={ICON_BTN} aria-label={`Move ${a.label} down`} disabled={locked || i === c.accounts.length - 1} onClick={() => void move(c, i, i + 1)}>
                           <ChevronDown aria-hidden="true" className="h-4 w-4" />
                         </button>
                       </div>
@@ -140,7 +153,7 @@ export function PaymentAccountsManager({ countries, accounts }: { countries: Pay
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={HELP}>Shown to students</span>
+                        <span className={HELP}>{a.active ? "Shown to students" : "Hidden from students"}</span>
                         <button
                           type="button"
                           role="switch"
