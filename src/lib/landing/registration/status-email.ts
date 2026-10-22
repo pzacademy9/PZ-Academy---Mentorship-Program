@@ -1,5 +1,6 @@
 import "server-only";
 import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
+import { resolveAccountKeysSafe } from "@/lib/data/landing-payment-countries";
 import type { RegistrationRecord } from "@/lib/data/landing-registrations";
 import type { RegistrablePage } from "@/lib/data/landing-public";
 import { resolveAccess, type ResolvedAccess } from "@/lib/data/landing-enrollment";
@@ -19,7 +20,8 @@ export async function emailContext(lead: RegistrationRecord, page: RegistrablePa
   const cfg = page.registration;
   const region = cfg.regions.find((r) => r.key === lead.region) ?? null;
   const isFree = lead.status === "free";
-  const accounts = !isFree && region ? await listPaymentAccounts(region.accountKeys) : [];
+  const accountKeys = !isFree && region ? ((await resolveAccountKeysSafe([region]))[region.key] ?? []) : [];
+  const accounts = accountKeys.length > 0 ? await listPaymentAccounts(accountKeys) : [];
   const refId = lead.refId ?? "";
   const verifyMessage = buildVerifyMessage(cfg, { name: lead.name, email: lead.email, refId, optionLabel: lead.optionLabel, isFree });
   return {

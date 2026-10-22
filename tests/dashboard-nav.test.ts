@@ -41,13 +41,14 @@ it("NAV_ITEMS is non-empty and every item has at least one role", () => {
   for (const i of NAV_ITEMS) expect(i.roles.length).toBeGreaterThan(0);
 });
 
-it("sales_agent sees Today, Contacts, Registrations, Campaigns, Add lead, Help, then alerts and settings, nothing under /dashboard/admin", () => {
+it("sales_agent sees Today, Contacts, Registrations, Campaigns, My Links, Add lead, Help, then alerts and settings, nothing under /dashboard/admin", () => {
   const items = navForRole("sales_agent");
   expect(items.map((i) => i.href)).toEqual([
     "/dashboard/sales",
     "/dashboard/sales/contacts",
     "/dashboard/sales/registrations",
     "/dashboard/sales/campaigns",
+    "/dashboard/sales/my-links",
     "/dashboard/sales/add-lead",
     "/dashboard/sales/help",
     "/dashboard/notifications",

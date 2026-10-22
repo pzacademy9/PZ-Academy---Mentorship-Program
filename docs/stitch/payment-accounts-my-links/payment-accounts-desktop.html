@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Handlee&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@100..900&family=Handlee:wght@100..900&family=Montserrat:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {"colors": {"primary": "#246d00", "on-primary-container": "#1d5d00", "on-primary-fixed-variant": "#195200", "surface-container": "#eeeeee", "primary-container": "#7ed957", "on-secondary": "#ffffff", "inverse-primary": "#81dc5a", "surface-dim": "#dadada", "on-secondary-container": "#715300", "on-error-container": "#93000a", "secondary-container": "#ffc644", "on-primary-fixed": "#062100", "surface-container-lowest": "#ffffff", "on-error": "#ffffff", "error": "#ba1a1a", "secondary-fixed": "#ffdea1", "background": "#f9f9f9", "on-primary": "#ffffff", "tertiary-fixed": "#bdeec7", "on-secondary-fixed-variant": "#5c4300", "error-container": "#ffdad6", "surface-container-high": "#e8e8e8", "primary-fixed": "#9cf973", "on-tertiary-fixed-variant": "#234f33", "tertiary-fixed-dim": "#a2d2ac", "secondary-fixed-dim": "#f6be3b", "secondary": "#7a5900", "on-background": "#1a1c1c", "on-surface-variant": "#404a3a", "surface-variant": "#e2e2e2", "primary-fixed-dim": "#81dc5a", "surface-tint": "#246d00", "tertiary-container": "#9fcfa9", "on-tertiary-container": "#2d593c", "inverse-on-surface": "#f0f1f1", "inverse-surface": "#2f3131", "on-tertiary-fixed": "#00210e", "surface-bright": "#f9f9f9", "on-secondary-fixed": "#261900", "surface-container-low": "#f3f3f4", "on-surface": "#1a1c1c", "tertiary": "#3b6849", "outline": "#707a68", "surface-container-highest": "#e2e2e2", "surface": "#f9f9f9", "outline-variant": "#bfcab5", "on-tertiary": "#ffffff"}, "borderRadius": {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"}, "spacing": {}, "fontFamily": {"headline": ["Montserrat"], "display": ["Montserrat"], "body": ["Fredoka"], "label": ["Handlee"]}, "fontSize": {}}}}</script></head><body class="bg-surface font-body text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col flex-1 overflow-y-auto"><div class="h-16 px-6 flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-2xl">biotech</span></div><div class="flex flex-col"><span class="font-headline font-bold text-base tracking-tight text-on-surface leading-tight">PharmaZyme</span><span class="font-label text-xs text-primary font-medium tracking-wide">ACADEMY OPS</span></div></div><div class="px-4 py-2"><span class="font-label text-xs uppercase tracking-wider text-outline px-3 block mb-2 font-medium">Operations Core</span><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-sm"><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="overview" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span>Overview</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="cohorts" href="#"><span class="material-symbols-outlined text-[20px]">groups_3</span><span>Cohorts</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="registrations" href="#"><span class="material-symbols-outlined text-[20px]">how_to_reg</span><span>Registrations</span></a></nav></div><div class="px-4 py-2"><span class="font-label text-xs uppercase tracking-wider text-outline px-3 block mb-2 font-medium">Acquisitions & Growth</span><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-sm"><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="landing-pages" href="#"><span class="material-symbols-outlined text-[20px]">web</span><span>Landing Pages</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="promo-codes" href="#"><span class="material-symbols-outlined text-[20px]">loyalty</span><span>Promo Codes</span></a><a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all bg-primary-container text-on-primary-container font-semibold shadow-sm" data-path="payment-accounts" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span>Payment Accounts</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="agent-performance" href="#"><span class="material-symbols-outlined text-[20px]">trending_up</span><span>Agent Performance</span></a></nav></div><div class="px-4 py-2"><span class="font-label text-xs uppercase tracking-wider text-outline px-3 block mb-2 font-medium">System Control</span><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-sm"><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="settings" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span>Settings</span></a></nav></div></div><div class="p-4 mx-4 mb-4 rounded-lg bg-surface-container-low flex items-center justify-between"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">verified</span><span class="text-xs font-headline font-semibold text-on-surface">Fall 2024 Active</span></div><span class="material-symbols-outlined text-outline text-[16px]">swap_horiz</span></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl z-40 px-8 flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center gap-6 flex-1 max-w-xl"><div class="relative w-full max-w-md"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline text-sm outline-none focus:bg-surface-container transition-all" placeholder="Search candidates, admissions, cohort keys..." type="text"/></div><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low text-xs font-headline font-medium text-on-surface-variant"><span class="material-symbols-outlined text-[16px] text-primary">school</span><span>Cohort:</span><select class="bg-transparent text-on-surface font-semibold outline-none cursor-pointer text-xs"><option>Fall Term Alpha 2024</option><option>Spring Term Beta 2025</option><option>Executive Fellowship 2024</option></select></div></div><div class="flex items-center gap-4"><button class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error"></span></button><div class="h-8 w-[1px] bg-surface-container-highest"></div><div class="flex items-center gap-3 pl-2"><div class="flex flex-col text-right"><span class="text-sm font-headline font-bold text-on-surface leading-snug">Dr. Elena Vance</span><span class="text-[11px] font-label text-outline leading-tight">Dean of Admissions</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-screen px-8 py-8"><div class="flex flex-col w-full max-w-7xl mx-auto space-y-10 pb-16">
+<!-- TOP CONTEXT BANNER & HEADER -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
+<div class="space-y-1.5 max-w-3xl">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-[14px]">account_balance_wallet</span>
+          Global Treasury Routing
+        </span>
+<span class="text-xs font-label text-outline">v2.4 Live Sync</span>
+</div>
+<h1 class="text-3xl lg:text-4xl font-headline font-extrabold tracking-tight text-on-surface">
+        Payment accounts
+      </h1>
+<p class="text-sm md:text-base font-body text-on-surface-variant leading-relaxed">
+        Where students send their tuition fees, organized by country. Change an account here once and every course landing page, invoice, and automated admission email updates immediately.
+      </p>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-3 shrink-0">
+<button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-headline font-semibold text-sm bg-surface-container-lowest hover:bg-surface-container text-on-surface shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0" onclick="openAddCountryModal()" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">public</span>
+<span>+ Add country</span>
+</button>
+<button class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-headline font-semibold text-sm bg-primary hover:bg-[#1a5500] text-on-primary shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 active:translate-y-0" onclick="openEditAccountModal('Faysal Bank', 'bank')" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>+ Add account</span>
+</button>
+</div>
+</div>
+<!-- STATS & AUDIT STRIP -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">public</span>
+</div>
+<div>
+<div class="text-xl font-headline font-bold text-on-surface">7 Regions</div>
+<div class="text-xs font-body text-outline">6 Active, 1 Needs Setup</div>
+</div>
+</div>
+<span class="text-xs font-label px-2 py-1 rounded bg-surface-container text-on-surface-variant">Global Map</span>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">check_circle</span>
+</div>
+<div>
+<div class="text-xl font-headline font-bold text-on-surface">8 Accounts</div>
+<div class="text-xs font-body text-outline">7 Visible to candidates</div>
+</div>
+</div>
+<span class="inline-flex items-center text-xs font-semibold text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container inline-block mr-1"></span> Live
+      </span>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">sync_saved_locally</span>
+</div>
+<div>
+<div class="text-xl font-headline font-bold text-on-surface">Auto-Synced</div>
+<div class="text-xs font-body text-outline">14 Landing pages linked</div>
+</div>
+</div>
+<span class="text-xs font-label text-secondary font-semibold">100% SLA</span>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-error-container/40 text-error flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">flag_circle</span>
+</div>
+<div>
+<div class="text-xl font-headline font-bold text-on-surface">Sri Lanka</div>
+<div class="text-xs font-body text-outline">Fallback page routing active</div>
+</div>
+</div>
+<button class="text-xs font-headline font-semibold text-error hover:underline" onclick="openAddAccountFor('LK')">Fix now</button>
+</div>
+</div>
+<!-- MAIN COUNTRY SECTIONS & ACCOUNT CARDS LIST -->
+<div class="space-y-8">
+<!-- 1. PAKISTAN (PK) -->
+<section class="space-y-3">
+<!-- Country Heading Bar -->
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">Pakistan</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">PK</span>
+<span class="text-sm font-body text-outline">2 accounts</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('Pakistan', 'PK')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<!-- Cards Stack -->
+<div class="space-y-3">
+<!-- Pakistan Card 1: Faysal Bank -->
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<!-- Reorder buttons -->
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded opacity-30 cursor-not-allowed" disabled="" title="Move up (Top item)">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer text-on-surface" title="Move down">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<!-- Content Area -->
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">Faysal Bank</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+<span class="material-symbols-outlined text-[13px] mr-1">account_balance</span>
+                  Bank
+                </span>
+<span class="text-xs font-label text-outline">Primary Routing</span>
+</div>
+<!-- Detail Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">Pharmacozyme</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container-low px-2 py-0.5 rounded">
+<span class="text-outline font-sans">IBAN:</span>
+<span class="font-medium text-on-surface">PK00 FAYS 0000 0000 0000 0000</span>
+</div>
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Branch:</span>
+<span class="font-medium text-on-surface">Gulshan, Karachi</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Controls Right -->
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'Faysal Bank', 'Pakistan')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('Faysal Bank', 'bank')" title="Edit account details" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+<!-- Pakistan Card 2: EasyPaisa -->
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<!-- Reorder buttons -->
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer text-on-surface" title="Move up">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded opacity-30 cursor-not-allowed" disabled="" title="Move down (Bottom item)">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<!-- Content Area -->
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">EasyPaisa</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">
+<span class="material-symbols-outlined text-[13px] mr-1">smartphone</span>
+                  Wallet
+                </span>
+<span class="text-xs font-label text-secondary font-medium">Instant Clearance</span>
+</div>
+<!-- Detail Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">PZ Academy Mobile Pay</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container-low px-2 py-0.5 rounded">
+<span class="text-outline font-sans">Mobile:</span>
+<span class="font-medium text-on-surface">0300-1234567</span>
+</div>
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">CNIC:</span>
+<span class="font-medium text-on-surface">35201-1234567-1</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Controls Right -->
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'EasyPaisa', 'Pakistan')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('EasyPaisa', 'wallet')" title="Edit account details" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- 2. UNITED ARAB EMIRATES (AE) -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">United Arab Emirates</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">AE</span>
+<span class="text-sm font-body text-outline">1 account</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('United Arab Emirates', 'AE')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<!-- Reorder buttons (disabled since single) -->
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="" title="Only 1 item">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="" title="Only 1 item">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">Mashreq Bank</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+<span class="material-symbols-outlined text-[13px] mr-1">account_balance</span>
+                Bank
+              </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">PZ Global FZ-LLC</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container-low px-2 py-0.5 rounded">
+<span class="text-outline font-sans">IBAN:</span>
+<span class="font-medium text-on-surface">AE02 0330 0000 0000 0000 000</span>
+</div>
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Swift / BIC:</span>
+<span class="font-medium text-on-surface font-mono">MSHRAEAD</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'Mashreq Bank', 'United Arab Emirates')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('Mashreq Bank', 'bank')" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 3. SAUDI ARABIA (SA) -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">Saudi Arabia</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">SA</span>
+<span class="text-sm font-body text-outline">1 account</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('Saudi Arabia', 'SA')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">Arab National Bank (ANB)</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+<span class="material-symbols-outlined text-[13px] mr-1">account_balance</span>
+                Bank
+              </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">PharmaZyme Education KSA</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container-low px-2 py-0.5 rounded">
+<span class="text-outline font-sans">IBAN:</span>
+<span class="font-medium text-on-surface">SA49 0000 0000 0281 9284 7291</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'Arab National Bank (ANB)', 'Saudi Arabia')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('Arab National Bank', 'bank')" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 4. PHILIPPINES (PH) - WITH SPECIFIED HIDDEN STATE -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">Philippines</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">PH</span>
+<span class="text-sm font-body text-outline">2 accounts (1 hidden)</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('Philippines', 'PH')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<div class="space-y-3">
+<!-- PNB active -->
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded opacity-30 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer text-on-surface">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">Philippine National Bank (PNB)</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+<span class="material-symbols-outlined text-[13px] mr-1">account_balance</span>
+                  Bank
+                </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">PZ Academy Southeast Asia</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container-low px-2 py-0.5 rounded">
+<span class="text-outline font-sans">Account Number:</span>
+<span class="font-medium text-on-surface">1245-8900-3412</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'Philippine National Bank', 'Philippines')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('Philippine National Bank', 'bank')" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+<!-- GCash: Specified Hidden State -->
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-low/70 opacity-60 transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container rounded-lg p-1 text-outline">
+<button class="p-1 rounded hover:bg-surface-container-high hover:text-on-surface transition-colors cursor-pointer text-on-surface">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded opacity-30 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate line-through opacity-80">GCash</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">
+<span class="material-symbols-outlined text-[13px] mr-1">smartphone</span>
+                  Wallet
+                </span>
+<span class="px-2 py-0.5 rounded text-xs font-medium bg-surface-container-high text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility_off</span>
+                  Hidden from students
+                </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">PZ Operations</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container px-2 py-0.5 rounded">
+<span class="text-outline font-sans">GCash Number:</span>
+<span class="font-medium text-on-surface">+63 917 123 4567</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface-variant">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input class="sr-only peer" onchange="handleVisibilityToggle(this, 'GCash', 'Philippines')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('GCash', 'wallet')" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- 5. INDIA (IN) -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">India</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">IN</span>
+<span class="text-sm font-body text-outline">1 account</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('India', 'IN')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">Punjab National Bank (PNB India)</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+<span class="material-symbols-outlined text-[13px] mr-1">account_balance</span>
+                Bank
+              </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Account title:</span>
+<span class="font-medium text-on-surface">PZ Academy Healthcare</span>
+</div>
+<div class="flex items-center gap-1.5 truncate font-mono text-[11px] bg-surface-container-low px-2 py-0.5 rounded">
+<span class="text-outline font-sans">Account No:</span>
+<span class="font-medium text-on-surface">0148-0091823901</span>
+</div>
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">IFSC Code:</span>
+<span class="font-medium text-on-surface font-mono">PUNB0014800</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'Punjab National Bank', 'India')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('Punjab National Bank (PNB India)', 'bank')" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 6. INTERNATIONAL (INT) -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-secondary"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">International / Multi-currency</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">INT</span>
+<span class="text-sm font-body text-outline">1 account</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('International', 'INT')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<div class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 lg:p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all gap-4">
+<div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+<div class="flex flex-col gap-0.5 shrink-0 bg-surface-container-low rounded-lg p-1 text-outline">
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+</button>
+<button class="p-1 rounded opacity-25 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="space-y-2 flex-1 min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<h3 class="text-base font-headline font-bold text-on-surface truncate">PayPal International</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800">
+<span class="material-symbols-outlined text-[13px] mr-1">payments</span>
+                PayPal
+              </span>
+<span class="text-xs font-label text-outline">Global fallback enabled</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-body text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">PayPal Email:</span>
+<span class="font-medium text-on-surface underline decoration-dotted">payments@pharmazyme.org</span>
+</div>
+<div class="flex items-center gap-1.5 truncate">
+<span class="text-outline">Accepted Currencies:</span>
+<span class="font-medium text-on-surface">USD, EUR, GBP, AED</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-0 border-surface-container">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<span class="text-xs font-headline font-medium text-on-surface">Shown to students</span>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" onchange="handleVisibilityToggle(this, 'PayPal International', 'International')" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" onclick="openEditAccountModal('PayPal International', 'paypal')" type="button">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 7. SRI LANKA (LK) - SPECIFIED EMPTY STATE -->
+<section class="space-y-3">
+<div class="flex items-center justify-between px-3 py-1">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-error"></div>
+<h2 class="font-headline font-bold text-lg text-on-surface">Sri Lanka</h2>
+<span class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-container-highest text-on-surface-variant">LK</span>
+<span class="text-sm font-body text-error font-medium">0 accounts configured</span>
+</div>
+<button class="inline-flex items-center gap-1 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors" onclick="openEditCountryModal('Sri Lanka', 'LK')" type="button">
+<span>Edit country</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<!-- Empty Box Highlight -->
+<div class="p-5 lg:p-6 rounded-xl bg-amber-50/50 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 shrink-0">
+<span class="material-symbols-outlined text-[24px]">warning</span>
+</div>
+<div class="space-y-0.5">
+<div class="font-headline font-bold text-sm sm:text-base text-amber-950">
+              No accounts yet: pages use their own list
+            </div>
+<p class="text-xs font-body text-amber-900/80">
+              Sri Lankan students currently see legacy static course coordinates until you add at least one approved local account.
+            </p>
+</div>
+</div>
+<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-headline font-semibold text-xs bg-surface-container-lowest hover:bg-white text-secondary shadow-sm transition-all hover:shadow" onclick="openAddAccountFor('LK')" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">add_circle</span>
+<span>+ Add account</span>
+</button>
+</div>
+</section>
+</div>
+<!-- ======================================================== -->
+<!-- INTERACTIVE MODAL & DIALOG SHOWCASES                     -->
+<!-- ======================================================== -->
+<!-- MODAL 1: EDIT ACCOUNT DIALOG (FRAME 2 SPECIFICATION) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm hidden" id="modal-edit-account">
+<div class="w-full max-w-xl max-h-[942px] overflow-y-auto bg-surface-container-lowest rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6">
+<!-- Modal Header -->
+<div class="flex items-center justify-between pb-4">
+<div>
+<h3 class="font-headline font-extrabold text-2xl text-on-surface">Edit account</h3>
+<p class="text-xs font-body text-outline mt-0.5">Update banking and remittance instructions across all courses</p>
+</div>
+<button class="w-9 h-9 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors" onclick="closeEditAccountModal()" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Account Name with Error Preview State -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+          Account name <span class="text-error">*</span>
+</label>
+<span class="text-xs font-body text-outline block">The primary name delegates will recognize on receipts and portal checkouts.</span>
+<input class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-lowest text-sm font-headline font-semibold text-on-surface shadow-sm focus:outline-none transition-all" id="input-account-name" type="text" value="Faysal Bank"/>
+<!-- Inline error preview state as requested -->
+<p class="hidden text-xs font-body text-error flex items-center gap-1 mt-1" id="error-account-name">
+<span class="material-symbols-outlined text-[14px]">error</span>
+<span>Please give this account a name.</span>
+</p>
+</div>
+<!-- Type Select Dropdown -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+          Account type
+        </label>
+<div class="relative">
+<select class="w-full appearance-none px-3.5 py-2.5 pr-10 rounded-lg bg-surface-container-low text-sm font-headline font-semibold text-on-surface shadow-sm focus:outline-none cursor-pointer" id="select-account-type">
+<option selected="" value="bank">Bank Account (Direct deposit / Wire / IBAN)</option>
+<option value="wallet">Mobile Wallet (EasyPaisa, JazzCash, GCash)</option>
+<option value="paypal">PayPal Merchant Account</option>
+</select>
+<span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">expand_more</span>
+</div>
+</div>
+<!-- Details Students Will See (Repeating Rows) -->
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<label class="text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+            Details students will see
+          </label>
+<span class="text-[11px] font-label text-outline">Rendered in registration invoice emails</span>
+</div>
+<div class="space-y-2.5" id="account-details-container">
+<!-- Row 1: IBAN -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low">
+<div class="w-1/3">
+<input class="w-full px-3 py-1.5 text-xs font-headline font-semibold rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm" type="text" value="IBAN"/>
+</div>
+<div class="flex-1">
+<input class="w-full px-3 py-1.5 text-xs font-mono rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm" type="text" value="PK00 FAYS 0000 0000 0000 0000"/>
+</div>
+<button class="p-1 text-outline hover:text-error transition-colors" onclick="this.parentElement.remove()" title="Remove detail row" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Row 2: Account Title -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low">
+<div class="w-1/3">
+<input class="w-full px-3 py-1.5 text-xs font-headline font-semibold rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm" type="text" value="Account title"/>
+</div>
+<div class="flex-1">
+<input class="w-full px-3 py-1.5 text-xs font-body rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm" type="text" value="Pharmacozyme"/>
+</div>
+<button class="p-1 text-outline hover:text-error transition-colors" onclick="this.parentElement.remove()" title="Remove detail row" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Row 3: Branch -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low">
+<div class="w-1/3">
+<input class="w-full px-3 py-1.5 text-xs font-headline font-semibold rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm" type="text" value="Branch"/>
+</div>
+<div class="flex-1">
+<input class="w-full px-3 py-1.5 text-xs font-body rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm" type="text" value="Gulshan, Karachi"/>
+</div>
+<button class="p-1 text-outline hover:text-error transition-colors" onclick="this.parentElement.remove()" title="Remove detail row" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<!-- Add Detail Text Button -->
+<button class="inline-flex items-center gap-1.5 text-sm font-headline font-semibold text-primary hover:text-on-primary-container transition-colors py-1" onclick="appendDetailRow()" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>+ Add detail</span>
+</button>
+</div>
+<!-- Short Note for Students -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+          Short note for students (optional)
+        </label>
+<textarea class="w-full p-3 rounded-lg bg-surface-container-lowest text-xs font-body text-on-surface shadow-sm focus:outline-none resize-none" rows="3">Please send the exact amount and keep your payment receipt/screenshot for registration upload.</textarea>
+</div>
+<!-- Show this account under (Country Checklist) -->
+<div class="space-y-2">
+<div class="flex items-baseline justify-between">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+            Show this account under
+          </label>
+<span class="text-[11px] font-label text-secondary">PayPal can be shown under more than one country.</span>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<input checked="" class="rounded text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-headline font-semibold text-on-surface">Pakistan</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<input class="rounded text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-headline font-semibold text-on-surface">UAE</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<input class="rounded text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-headline font-semibold text-on-surface">Saudi Arabia</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<input class="rounded text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-headline font-semibold text-on-surface">Philippines</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<input class="rounded text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-headline font-semibold text-on-surface">India</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<input class="rounded text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-headline font-semibold text-on-surface">International</span>
+</label>
+</div>
+</div>
+<!-- Visibility Toggle Inside Modal -->
+<div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low">
+<div>
+<span class="text-xs font-headline font-bold text-on-surface block">Shown to students</span>
+<span class="text-[11px] font-body text-outline">Enable to display this account on checkout screens</span>
+</div>
+<div class="relative inline-block w-11 h-6 shrink-0">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</div>
+<!-- Footer Action Buttons -->
+<div class="flex items-center justify-end gap-3 pt-2">
+<button class="px-4 py-2.5 rounded-lg font-headline font-semibold text-xs text-on-surface-variant hover:bg-surface-container transition-colors" onclick="closeEditAccountModal()" type="button">
+          Cancel
+        </button>
+<button class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-headline font-semibold text-xs bg-primary hover:bg-[#1a5500] text-on-primary shadow-md transition-all" id="btn-save-account" onclick="triggerSaveAccountProcess()" type="button">
+<span class="material-symbols-outlined text-[16px]" id="save-account-icon">save</span>
+<span id="save-account-text">Save account</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MODAL 2: ADD A COUNTRY DIALOG (FRAME 3 SPECIFICATION) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm hidden" id="modal-add-country">
+<div class="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl p-6 sm:p-7 space-y-5">
+<div class="flex items-center justify-between pb-2">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">public</span>
+</div>
+<h3 class="font-headline font-extrabold text-xl text-on-surface" id="modal-country-title">Add a country</h3>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors" onclick="closeAddCountryModal()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Country Name Input -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+          Country name
+        </label>
+<input class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-lowest text-sm font-headline text-on-surface shadow-sm focus:outline-none" id="input-country-name" placeholder="e.g. Sri Lanka" type="text"/>
+</div>
+<!-- Short Code Input & Error Demonstration -->
+<div class="space-y-1.5">
+<label class="block text-xs font-headline font-bold text-on-surface uppercase tracking-wide">
+          Short code
+        </label>
+<input class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-lowest text-sm font-mono font-bold uppercase text-on-surface shadow-sm focus:outline-none" id="input-country-code" maxlength="3" oninput="checkDuplicateCode(this.value)" placeholder="e.g. LK" type="text"/>
+<p class="text-[11px] font-body text-outline leading-tight">
+          A short code with letters only. Pages use it to find this country automatically.
+        </p>
+<!-- Error State Callout Below Code -->
+<div class="hidden p-2.5 rounded-lg bg-error-container/40 text-on-error-container flex items-center gap-2" id="error-country-code-duplicate">
+<span class="material-symbols-outlined text-[18px] text-error">error</span>
+<span class="text-xs font-headline font-semibold text-error">This short code is already used.</span>
+</div>
+</div>
+<!-- Notice Text Line -->
+<div class="p-3 rounded-lg bg-surface-container-low flex items-start gap-2.5">
+<span class="material-symbols-outlined text-outline text-[18px] mt-0.5">info</span>
+<p class="text-xs font-body text-on-surface-variant">
+          You add the accounts after the country is created.
+        </p>
+</div>
+<!-- Footer Buttons -->
+<div class="flex items-center justify-end gap-3 pt-2">
+<button class="px-4 py-2 rounded-lg font-headline font-semibold text-xs text-on-surface-variant hover:bg-surface-container transition-colors" onclick="closeAddCountryModal()" type="button">
+          Cancel
+        </button>
+<button class="inline-flex items-center gap-2 px-5 py-2 rounded-lg font-headline font-semibold text-xs bg-primary hover:bg-[#1a5500] text-on-primary shadow-md transition-all" onclick="handleCountrySubmit()" type="button">
+<span>Add country</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ======================================================== -->
+<!-- FRAME 4: TOAST & CONFIRMATION POPOVER NOTICES           -->
+<!-- ======================================================== -->
+<!-- Toast at bottom (Floating Pill) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transform transition-all duration-300 ease-out translate-y-24 opacity-0 pointer-events-none" id="toast-notification">
+<div class="flex items-center gap-3 px-5 py-3 rounded-full bg-inverse-surface text-inverse-on-surface shadow-2xl">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</div>
+<span class="text-sm font-headline font-semibold" id="toast-message">
+        Saved. Every page now shows this account.
+      </span>
+<button class="text-inverse-on-surface/60 hover:text-inverse-on-surface ml-2" onclick="hideToast()">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+<!-- Confirmation Popover when hiding the only account in a country -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/40 backdrop-blur-sm hidden" id="popover-hide-confirm">
+<div class="w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-2xl p-5 space-y-4">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[24px]">warning</span>
+</div>
+<div class="space-y-1">
+<h4 class="font-headline font-bold text-sm text-on-surface">Confirm visibility switch</h4>
+<p class="text-xs font-body text-on-surface-variant leading-relaxed" id="confirm-country-warning-text">
+            This is the only account in Pakistan. Pages will use their own list instead. Hide it anyway?
+          </p>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2.5 pt-2">
+<button class="px-3.5 py-1.5 rounded-lg text-xs font-headline font-semibold text-on-surface bg-surface-container-low hover:bg-surface-container transition-colors" onclick="cancelHidingAccount()" type="button">
+          Keep showing
+        </button>
+<button class="px-4 py-1.5 rounded-lg text-xs font-headline font-bold bg-error text-on-error shadow-sm hover:bg-[#961212] transition-colors" onclick="confirmHidingAccount()" type="button">
+          Hide it
+        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- SCRIPT: INTERACTION CONTROLLER -->
+<script>
+  let pendingToggleElement = null;
+  const existingCodes = ['PK', 'AE', 'SA', 'PH', 'IN', 'INT', 'LK'];
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast-notification');
+    const msgEl = document.getElementById('toast-message');
+    if (msg) msgEl.innerText = msg;
+    toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    setTimeout(() => {
+      hideToast();
+    }, 4500);
+  }
+
+  function hideToast() {
+    const toast = document.getElementById('toast-notification');
+    toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+    toast.classList.remove('translate-y-0', 'opacity-100');
+  }
+
+  function openEditAccountModal(accountName, type) {
+    const modal = document.getElementById('modal-edit-account');
+    const nameInput = document.getElementById('input-account-name');
+    const typeSelect = document.getElementById('select-account-type');
+    const errorMsg = document.getElementById('error-account-name');
+
+    nameInput.value = accountName || 'Faysal Bank';
+    nameInput.classList.remove('border-error');
+    errorMsg.classList.add('hidden');
+
+    if (type) typeSelect.value = type;
+    modal.classList.remove('hidden');
+  }
+
+  function closeEditAccountModal() {
+    document.getElementById('modal-edit-account').classList.add('hidden');
+  }
+
+  function appendDetailRow() {
+    const container = document.getElementById('account-details-container');
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2 p-2 rounded-lg bg-surface-container-low';
+    div.innerHTML = `
+      <div class="w-1/3">
+        <input type="text" placeholder="Field label" class="w-full px-3 py-1.5 text-xs font-headline font-semibold rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm">
+      </div>
+      <div class="flex-1">
+        <input type="text" placeholder="Detail value" class="w-full px-3 py-1.5 text-xs font-body rounded bg-surface-container-lowest text-on-surface focus:outline-none shadow-sm">
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="p-1 text-outline hover:text-error transition-colors" title="Remove detail row">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    `;
+    container.appendChild(div);
+  }
+
+  function triggerSaveAccountProcess() {
+    const nameInput = document.getElementById('input-account-name');
+    const errorMsg = document.getElementById('error-account-name');
+    const saveBtn = document.getElementById('btn-save-account');
+    const saveIcon = document.getElementById('save-account-icon');
+    const saveText = document.getElementById('save-account-text');
+
+    if (!nameInput.value.trim()) {
+      nameInput.classList.add('border-error');
+      errorMsg.classList.remove('hidden');
+      return;
+    }
+
+    // Spinner state
+    saveBtn.disabled = true;
+    saveIcon.innerText = 'progress_activity';
+    saveIcon.classList.add('animate-spin');
+    saveText.innerText = 'Saving account...';
+
+    setTimeout(() => {
+      saveBtn.disabled = false;
+      saveIcon.innerText = 'save';
+      saveIcon.classList.remove('animate-spin');
+      saveText.innerText = 'Save account';
+      closeEditAccountModal();
+      showToast('Saved. Every page now shows this account.');
+    }, 900);
+  }
+
+  function openAddCountryModal() {
+    document.getElementById('modal-country-title').innerText = 'Add a country';
+    document.getElementById('input-country-name').value = '';
+    document.getElementById('input-country-code').value = '';
+    document.getElementById('error-country-code-duplicate').classList.add('hidden');
+    document.getElementById('modal-add-country').classList.remove('hidden');
+  }
+
+  function openEditCountryModal(name, code) {
+    document.getElementById('modal-country-title').innerText = 'Edit country (' + code + ')';
+    document.getElementById('input-country-name').value = name;
+    document.getElementById('input-country-code').value = code;
+    document.getElementById('error-country-code-duplicate').classList.add('hidden');
+    document.getElementById('modal-add-country').classList.remove('hidden');
+  }
+
+  function closeAddCountryModal() {
+    document.getElementById('modal-add-country').classList.add('hidden');
+  }
+
+  function checkDuplicateCode(val) {
+    const errorEl = document.getElementById('error-country-code-duplicate');
+    const trimmed = val.trim().toUpperCase();
+    if (trimmed.length >= 2 && existingCodes.includes(trimmed)) {
+      errorEl.classList.remove('hidden');
+    } else {
+      errorEl.classList.add('hidden');
+    }
+  }
+
+  function handleCountrySubmit() {
+    const name = document.getElementById('input-country-name').value.trim();
+    if (!name) return;
+    closeAddCountryModal();
+    showToast(`Region "${name}" configured. Pages linked.`);
+  }
+
+  function openAddAccountFor(countryCode) {
+    openEditAccountModal('Local Bank / Remittance', 'bank');
+  }
+
+  function handleVisibilityToggle(checkbox, accountName, countryName) {
+    // If user is trying to turn off the only account, trigger confirmation
+    const isSingleAccountCountry = (countryName === 'United Arab Emirates' || countryName === 'Saudi Arabia' || countryName === 'India' || countryName === 'International');
+    
+    if (!checkbox.checked && isSingleAccountCountry) {
+      pendingToggleElement = checkbox;
+      checkbox.checked = true; // revert temporarily
+      const confirmText = document.getElementById('confirm-country-warning-text');
+      confirmText.innerText = `This is the only account in ${countryName}. Pages will use their own list instead. Hide it anyway?`;
+      document.getElementById('popover-hide-confirm').classList.remove('hidden');
+    } else {
+      showToast(checkbox.checked ? `Showing ${accountName} to students.` : `Hiding ${accountName} from students.`);
+    }
+  }
+
+  function cancelHidingAccount() {
+    pendingToggleElement = null;
+    document.getElementById('popover-hide-confirm').classList.add('hidden');
+  }
+
+  function confirmHidingAccount() {
+    if (pendingToggleElement) {
+      pendingToggleElement.checked = false;
+      pendingToggleElement = null;
+    }
+    document.getElementById('popover-hide-confirm').classList.add('hidden');
+    showToast('Account hidden. Students will see fallback routing.');
+  }
+</script></main></div></body></html>

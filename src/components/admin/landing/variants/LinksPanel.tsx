@@ -9,7 +9,6 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { VariantGridRow } from "@/lib/landing/variant-grid";
 import type { LandingContent, Problem } from "@/lib/landing/content";
 import type { PriceCell, RegionDef } from "@/lib/landing/registration/config";
-import type { PaymentAccountSummary } from "../registration/RegistrationSetup";
 import { copyText } from "../copy-text";
 import { AddCountryDialog } from "./AddCountryDialog";
 import { MAIN_FIRST } from "./LinkPublishSlot";
@@ -36,14 +35,15 @@ function Status({ row, waiting }: { row: VariantGridRow; waiting: boolean }) {
  * off until switched on, with its web address, Publish button and whether it is live.
  */
 export function LinksPanel({
-  slug, grid, content, accounts, mainLive, blockedBy, problems, onSwitch, onPublish, onAddCountry,
+  slug, grid, content, centralRegionKeys, mainLive, blockedBy, problems, onSwitch, onPublish, onAddCountry,
 }: {
   /** Why the live main page can't carry this link yet, or null (see linkMissingFromLive). */
   blockedBy: (row: VariantGridRow) => string | null;
   slug: string;
   grid: VariantGridRow[];
   content: Pick<LandingContent, "registration" | "modules">;
-  accounts: PaymentAccountSummary[];
+  /** Region keys that already have a central payment account list. */
+  centralRegionKeys: string[];
   mainLive: boolean;
   /** The server's not-ready list per link id after a refused publish. */
   problems: Record<string, Problem[]>;
@@ -173,7 +173,7 @@ export function LinksPanel({
         </ul>
       )}
 
-      <AddCountryDialog open={adding} onOpenChange={setAdding} content={content} accounts={accounts} onAdd={onAddCountry} />
+      <AddCountryDialog open={adding} onOpenChange={setAdding} content={content} centralRegionKeys={centralRegionKeys} onAdd={onAddCountry} />
     </section>
   );
 }

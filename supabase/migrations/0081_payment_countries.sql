@@ -1,0 +1,55 @@
+-- 0081_payment_countries.sql
+-- Central payment accounts per country: one list per region key (PK, UAE, SA, PH, IN, INTL)
+-- instead of an account picker on every landing page. A page region keeps its own label,
+-- currency, class time and timezone; only the accounts come from here.
+-- Service role only (RLS on, zero policies), same as landing_meta_events.
+-- The seed mirrors the live page (region keys PK, UAE, SA, PH, IN, INTL), except PayPal is added
+-- to PK and PH on the owner's instruction (PayPal is used in all countries, always listed last).
+-- New pages made from the templates use region key KSA, which has no central country until the
+-- owner adds one on the Payment accounts screen (until then it uses its own list).
+-- The owner pastes this into the Supabase SQL editor. Paste it once: the table creation is
+-- safe to repeat, but re-running re-adds seeded account links the owner removed on the screen.
+
+create table if not exists public.payment_countries (
+  region_key text primary key check (region_key ~ '^[A-Z]{2,6}$'),
+  name       text not null check (char_length(name) between 1 and 80),
+  sort       integer not null default 0,
+  active     boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.payment_country_accounts (
+  region_key  text not null references public.payment_countries(region_key) on update cascade on delete cascade,
+  account_key text not null references public.payment_accounts(key) on update cascade on delete cascade,
+  sort        integer not null default 0,
+  primary key (region_key, account_key)
+);
+
+alter table public.payment_countries enable row level security; -- zero policies = service role only
+alter table public.payment_country_accounts enable row level security;
+
+insert into public.payment_countries (region_key, name, sort) values
+  ('PK',   'Pakistan',             10),
+  ('UAE',  'United Arab Emirates', 20),
+  ('SA',   'Saudi Arabia',         30),
+  ('PH',   'Philippines',          40),
+  ('IN',   'India',                50),
+  ('INTL', 'International',        60)
+on conflict (region_key) do nothing;
+
+insert into public.payment_country_accounts (region_key, account_key, sort) values
+  ('PK',   'faysal',    10),
+  ('PK',   'easypaisa', 20),
+  ('PK',   'paypal',    30),
+  ('UAE',  'mashreq',   10),
+  ('UAE',  'paypal',    20),
+  ('SA',   'anb',       10),
+  ('SA',   'paypal',    20),
+  ('PH',   'gcash',     10),
+  ('PH',   'pnb_ph',    20),
+  ('PH',   'paypal',    30),
+  ('IN',   'pnb_in',    10),
+  ('IN',   'paypal',    20),
+  ('INTL', 'paypal',    10)
+on conflict (region_key, account_key) do nothing;

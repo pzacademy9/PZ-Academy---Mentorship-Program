@@ -3326,6 +3326,66 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_countries: {
+        Row: {
+          active: boolean
+          created_at: string
+          name: string
+          region_key: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          name: string
+          region_key: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          name?: string
+          region_key?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_country_accounts: {
+        Row: {
+          account_key: string
+          region_key: string
+          sort: number
+        }
+        Insert: {
+          account_key: string
+          region_key: string
+          sort?: number
+        }
+        Update: {
+          account_key?: string
+          region_key?: string
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_country_accounts_account_key_fkey"
+            columns: ["account_key"]
+            isOneToOne: false
+            referencedRelation: "payment_accounts"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "payment_country_accounts_region_key_fkey"
+            columns: ["region_key"]
+            isOneToOne: false
+            referencedRelation: "payment_countries"
+            referencedColumns: ["region_key"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -4168,6 +4228,29 @@ export type Database = {
       landing_rollback_variant: {
         Args: { p_user: string; p_variant_id: string; p_version: number }
         Returns: number
+      }
+      landing_agent_link_stats: {
+        Args: { p_agent_id: string }
+        Returns: {
+          page_id: string
+          views: number
+          registered: number
+          paid: number
+        }[]
+      }
+      landing_leaderboard: {
+        Args: { p_from?: string | null }
+        Returns: {
+          agent_id: string
+          name: string
+          registered: number
+          paid: number
+          revenue: Json
+        }[]
+      }
+      landing_set_country_accounts: {
+        Args: { p_account_keys: string[]; p_region_key: string }
+        Returns: undefined
       }
       mentor_review_stats: {
         Args: { p_mentor_ids: string[] }

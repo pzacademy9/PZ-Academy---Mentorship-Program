@@ -8,6 +8,7 @@ import { resolveAgentCode } from "@/lib/data/landing-agent-links";
 import {
   countRecentRegistrations, createRegistration, findOpenRegistration, findRecentRegistration, type OkPromo,
 } from "@/lib/data/landing-registrations";
+import { resolveAccountKeysSafe } from "@/lib/data/landing-payment-countries";
 import { enqueueJobs, runJobsDirect, runJobsFor, type JobType } from "@/lib/data/landing-jobs";
 import { uploadLandingVoucher } from "@/lib/gas/event-sheet-client";
 import { runInBackground } from "@/lib/landing/registration/background";
@@ -114,8 +115,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return fail(e.message, 422, e.field);
   }
   const region = config.regions.find((r) => r.key === quote.regionKey);
-  if (!quote.isFree && !(region?.accountKeys ?? []).includes(payload.paymentMethod)) {
-    return fail("Choose the account you paid into.", 400, "paymentMethod");
+  if (!quote.isFree) {
+    const resolved = region ? await resolveAccountKeysSafe([region]) : {};
+    if (!(resolved[quote.regionKey] ?? []).includes(payload.paymentMethod)) {
+      return fail("Choose the account you paid into.", 400, "paymentMethod");
+    }
   }
   const optionLabel = registrationOptionLabel(config, quote);
 

@@ -21,7 +21,7 @@ const mods = [
 
 function setup(r: RegistrationConfig, extra: { courseModules?: typeof mods | null; saveMessage?: string | null } = { courseModules: mods }) {
   const onChange = vi.fn();
-  render(<RegistrationSetup registration={r} accounts={[]} step="buy" onStep={() => {}} onChange={onChange} {...extra} />);
+  render(<RegistrationSetup registration={r} step="buy" onStep={() => {}} onChange={onChange} {...extra} />);
   return onChange;
 }
 
@@ -56,7 +56,7 @@ describe("Modules this option gives", () => {
   });
   it("shows the server's message on every step, not only the buy step", () => {
     const onChange = vi.fn();
-    render(<RegistrationSetup registration={reg()} accounts={[]} step="groups" onStep={() => {}} onChange={onChange} courseModules={mods} saveMessage="Nope." />);
+    render(<RegistrationSetup registration={reg()} step="groups" onStep={() => {}} onChange={onChange} courseModules={mods} saveMessage="Nope." />);
     expect(screen.getByRole("alert").textContent).toBe("Nope.");
   });
   it("shows the server's message", () => {

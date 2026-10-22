@@ -12,7 +12,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const result = await publishLandingPage(auth.user.id, id);
   if (!result.ok) {
-    if (result.reason === "not-ready") {
+    if (result.reason === "accounts-check-failed") {
+      return NextResponse.json({ error: "We could not check the payment accounts. Please try again." }, { status: 500 });
+    }
+    if (result.reason === "not-ready" || result.reason === "no-accounts") {
       return NextResponse.json({ error: "The page is not ready to publish yet.", problems: result.problems }, { status: 422 });
     }
     if (result.reason === "not-found") return NextResponse.json({ error: "Page not found" }, { status: 404 });

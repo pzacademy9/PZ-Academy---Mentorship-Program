@@ -11,7 +11,7 @@ import type { RegistrationStepKey } from "@/lib/landing/registration/setup-steps
 import { FieldInput } from "./FieldInput";
 import { ModulesEditor, type ModulesEditorProps } from "./ModulesEditor";
 import type { CourseModule } from "@/lib/data/landing-course-modules";
-import { RegistrationSetup, type PaymentAccountSummary } from "./registration/RegistrationSetup";
+import { RegistrationSetup } from "./registration/RegistrationSetup";
 
 const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
 
@@ -54,7 +54,7 @@ function Card({ icon: Icon, title, children }: { icon: typeof Timer; title: stri
 
 export function PageSettingsPanel({
   settings, seo, slug, pageTitle, onSettings, onSeo,
-  registration, accounts, registrationStep, onRegistrationStep, onRegistration, modules, courseModules, saveMessage, children,
+  registration, registrationStep, onRegistrationStep, onRegistration, modules, courseModules, saveMessage, children,
 }: {
   /** The Modules card (course and workshop pages only; omit it elsewhere). */
   modules?: ModulesEditorProps;
@@ -70,7 +70,6 @@ export function PageSettingsPanel({
   onSettings: (patch: Partial<LandingSettings>) => void;
   onSeo: (patch: Partial<LandingSeo>) => void;
   registration?: RegistrationConfig;
-  accounts?: PaymentAccountSummary[];
   registrationStep?: RegistrationStepKey;
   onRegistrationStep?: (s: RegistrationStepKey) => void;
   onRegistration?: (next: RegistrationConfig) => void;
@@ -98,7 +97,6 @@ export function PageSettingsPanel({
           {children}
           <RegistrationSetup
             registration={registration}
-            accounts={accounts ?? []}
             step={registrationStep ?? "buy"}
             onStep={onRegistrationStep}
             onChange={onRegistration}

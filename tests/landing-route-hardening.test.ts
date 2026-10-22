@@ -24,6 +24,7 @@ const extra = vi.hoisted(() => ({
   retryFailedJobs: vi.fn(), drainDueJobs: vi.fn(), makeWaitingJobsDue: vi.fn(), requeueSheetAppendJobs: vi.fn(), runInBackground: vi.fn(),
   listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), getOrCreateAgentLink: vi.fn(),
   getPageJobSummary: vi.fn(),
+  createPaymentAccount: vi.fn(), updatePaymentAccount: vi.fn(), createPaymentCountry: vi.fn(), updatePaymentCountry: vi.fn(), setCountryAccounts: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-event-sheet", () => ({ getPageSheetInfo: extra.getPageSheetInfo, saveEventSheet: extra.saveEventSheet }));
 vi.mock("@/lib/gas/event-sheet-client", () => ({ createEventSheet: extra.createEventSheet }));
@@ -35,6 +36,10 @@ vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: extra
 vi.mock("@/lib/data/landing-ops", () => ({ getPageJobSummary: extra.getPageJobSummary }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({
   listPromoCodes: extra.listPromoCodes, createPromoCode: extra.createPromoCode, updatePromoCode: extra.updatePromoCode, getPromoById: extra.getPromoById,
+}));
+vi.mock("@/lib/data/landing-payment-accounts", () => ({ createPaymentAccount: extra.createPaymentAccount, updatePaymentAccount: extra.updatePaymentAccount }));
+vi.mock("@/lib/data/landing-payment-countries", () => ({
+  createPaymentCountry: extra.createPaymentCountry, updatePaymentCountry: extra.updatePaymentCountry, setCountryAccounts: extra.setCountryAccounts,
 }));
 vi.mock("@/lib/data/landing-agent-links", () => ({
   getOrCreateAgentLink: extra.getOrCreateAgentLink,
@@ -56,6 +61,11 @@ import { GET as listJobs } from "@/app/api/admin/landing-pages/[id]/jobs/route";
 import { GET as listPromos, POST as createPromo } from "@/app/api/admin/landing-promo-codes/route";
 import { PATCH as patchPromo } from "@/app/api/admin/landing-promo-codes/[id]/route";
 import { POST as agentLink } from "@/app/api/admin/landing-agent-links/route";
+import { POST as createPaymentAccountRoute } from "@/app/api/admin/payment-accounts/route";
+import { PATCH as patchPaymentAccountRoute } from "@/app/api/admin/payment-accounts/[key]/route";
+import { POST as createPaymentCountryRoute } from "@/app/api/admin/payment-countries/route";
+import { PATCH as patchPaymentCountryRoute } from "@/app/api/admin/payment-countries/[regionKey]/route";
+import { PUT as putCountryAccountsRoute } from "@/app/api/admin/payment-countries/[regionKey]/accounts/route";
 import { GET as listVariantsRoute, POST as createVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/route";
 import { PATCH as patchVariant, DELETE as deleteVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/route";
 import { POST as publishVariantRoute } from "@/app/api/admin/landing-pages/[id]/variants/[variantId]/publish/route";
@@ -89,6 +99,11 @@ const ROUTES: Record<string, () => Promise<Response>> = {
   "landing-promo-codes/route.ts": () => createPromo(req({ code: "PZ10" })),
   "landing-promo-codes/[id]/route.ts": () => patchPromo(req({ active: false }, "PATCH"), ctx),
   "landing-agent-links/route.ts": () => agentLink(req({ agentId: ID })),
+  "payment-accounts/route.ts": () => createPaymentAccountRoute(req({ label: "Faysal Bank", kind: "bank", rows: [{ label: "IBAN", value: "PK00" }], displayText: "" })),
+  "payment-accounts/[key]/route.ts": () => patchPaymentAccountRoute(req({ active: false }, "PATCH"), { params: Promise.resolve({ key: "faysal_bank" }) }),
+  "payment-countries/route.ts": () => createPaymentCountryRoute(req({ regionKey: "LK", name: "Sri Lanka" })),
+  "payment-countries/[regionKey]/route.ts": () => patchPaymentCountryRoute(req({ active: false }, "PATCH"), { params: Promise.resolve({ regionKey: "PK" }) }),
+  "payment-countries/[regionKey]/accounts/route.ts": () => putCountryAccountsRoute(req({ accountKeys: ["faysal_bank"] }, "PUT"), { params: Promise.resolve({ regionKey: "PK" }) }),
 };
 // A second handler in an already-listed route file (the coverage scan counts files, not handlers).
 const EXTRA_HANDLERS: [string, () => Promise<Response>][] = [
@@ -96,7 +111,7 @@ const EXTRA_HANDLERS: [string, () => Promise<Response>][] = [
   ["landing-pages/[id]/variants/route.ts GET", () => listVariantsRoute(new Request("http://x") as never, ctx)],
   ["landing-pages/[id]/variants/[variantId]/route.ts DELETE", () => deleteVariantRoute(new Request("http://x", { method: "DELETE" }) as never, vctx)],
 ];
-const ADMIN_LANDING_DIRS = ["landing-pages", "landing-promo-codes", "landing-agent-links"];
+const ADMIN_LANDING_DIRS = ["landing-pages", "landing-promo-codes", "landing-agent-links", "payment-accounts", "payment-countries"];
 
 function routeFiles(dir: string): string[] {
   const out: string[] = [];

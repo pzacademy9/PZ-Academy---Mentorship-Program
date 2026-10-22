@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   addOption, removeOption, addRegion, removeRegion, copyPriceRow, setPriceCell, setGroupTotal, removeTier,
-  toggleAccount, localToOffsetIso, offsetIsoToLocal, REGION_PRESETS, TIER_PRESETS, addTier,
+  localToOffsetIso, offsetIsoToLocal, REGION_PRESETS, TIER_PRESETS, addTier,
 } from "@/lib/landing/registration/admin-edit";
 import { REG_STEPS, parseRegistrationTarget, registrationTarget } from "@/lib/landing/registration/setup-steps";
 import { registrationProblems, type RegistrationConfig } from "@/lib/landing/registration/config";
@@ -67,12 +67,6 @@ describe("admin-edit operations", () => {
   it("addTier from a preset ignores an existing key", () => {
     expect(addTier(ppcConfig, TIER_PRESETS[0]).tiers).toHaveLength(2);
   });
-  it("toggleAccount adds and removes one account for one country only", () => {
-    const a = toggleAccount(ppcConfig, "KSA", "mashreq");
-    expect(a.regions.find((r) => r.key === "KSA")!.accountKeys).toEqual(["paypal", "mashreq"]);
-    expect(a.regions.find((r) => r.key === "UAE")!.accountKeys).toEqual(["mashreq", "paypal"]);
-    expect(toggleAccount(a, "KSA", "mashreq").regions.find((r) => r.key === "KSA")!.accountKeys).toEqual(["paypal"]);
-  });
 });
 
 describe("Early Bird time helpers", () => {
@@ -108,7 +102,7 @@ describe("readiness targets", () => {
     ["no countries", (r) => { r.regions = []; r.defaultRegionKey = ""; }, "prices"],
     ["an Early Bird price above the regular price", (r) => { r.prices.full.PK.earlyAmount = 9000; }, "prices"],
     ["an unparseable Early Bird end", (r) => { r.earlyBirdEndsAt = "soon"; }, "earlybird"],
-    ["a country with no payment account", (r) => { r.regions[2] = { ...r.regions[2], accountKeys: [] }; }, "accounts"],
+    ["a country with a malformed payment account code", (r) => { r.regions[2] = { ...r.regions[2], accountKeys: ["Bad Key"] }; }, "accounts"],
     ["a bad WhatsApp group link", (r) => { r.options[1] = { ...r.options[1], waGroupUrl: "https://example.com/x" }; }, "whatsapp"],
     ["a bad reference prefix", (r) => { r.refPrefix = "p p"; }, "details"],
   ];
@@ -123,7 +117,7 @@ describe("readiness targets", () => {
   }
   it("computeReadiness points registration problems at the registration step", () => {
     const r = clone(ppcConfig);
-    r.regions[2] = { ...r.regions[2], accountKeys: [] };
+    r.regions[2] = { ...r.regions[2], accountKeys: ["Bad Key"] };
     const c = updateRegistration(emptyContent("course"), r);
     const { problems } = computeReadiness(c, { title: "PPC", slug: "ppc-b3" });
     expect(problems.some((p) => p.sectionId === "registration:accounts")).toBe(true);

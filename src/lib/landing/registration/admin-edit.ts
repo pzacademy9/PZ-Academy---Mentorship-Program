@@ -145,17 +145,6 @@ export function copyPriceRow(r: RegistrationConfig, from: string, to: string): R
   return { ...r, prices };
 }
 
-export function toggleAccount(r: RegistrationConfig, regionKey: string, accountKey: string): RegistrationConfig {
-  return {
-    ...r,
-    regions: r.regions.map((g) => {
-      if (g.key !== regionKey) return g;
-      const has = g.accountKeys.includes(accountKey);
-      return { ...g, accountKeys: has ? g.accountKeys.filter((k) => k !== accountKey) : [...g.accountKeys, accountKey] };
-    }),
-  };
-}
-
 const LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const OFFSET_RE = /^[+-]\d{2}:\d{2}$/;
 const ISO_RE = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
