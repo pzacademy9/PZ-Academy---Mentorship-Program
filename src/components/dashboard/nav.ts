@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark,
+  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
@@ -20,6 +20,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "My Contacts", shortLabel: "Contacts", href: "/dashboard/sales/contacts", icon: Users, roles: ["sales_agent"] },
   { label: "Registrations", href: "/dashboard/sales/registrations", icon: ClipboardCheck, roles: ["sales_agent"] },
   { label: "Campaigns", href: "/dashboard/sales/campaigns", icon: Megaphone, roles: ["sales_agent"] },
+  { label: "My Links", href: "/dashboard/sales/my-links", icon: Link2, roles: ["sales_agent"] },
   { label: "Add a Lead", shortLabel: "Add lead", href: "/dashboard/sales/add-lead", icon: UserPlus, roles: ["sales_agent"] },
   { label: "Help & Safety", shortLabel: "Help", href: "/dashboard/sales/help", icon: LifeBuoy, roles: ["sales_agent"] },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["student", "mentor", "admin", "super_admin"] },
@@ -44,6 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Media Library", shortLabel: "Media", href: "/dashboard/admin/landing-media", icon: Images, roles: ["admin", "super_admin"] },
   { label: "Promo Codes", shortLabel: "Promos", href: "/dashboard/admin/landing-promo-codes", icon: TicketPercent, roles: ["admin", "super_admin"] },
   { label: "Payment Accounts", shortLabel: "Payments", href: "/dashboard/admin/payment-accounts", icon: Landmark, roles: ["admin", "super_admin"] },
+  { label: "Agent Leaderboard", shortLabel: "Leaders", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, roles: ["admin", "super_admin"] },
   { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "super_admin"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
