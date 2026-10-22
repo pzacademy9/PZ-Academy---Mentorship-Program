@@ -4,6 +4,8 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { CourseCatalogGrid } from "@/components/marketing/CourseCatalogGrid";
 import { getPublishedCourses } from "@/lib/data/lms";
+import { getOpenLiveBatches } from "@/lib/data/landing-website";
+import { attachLiveBatches } from "@/lib/data/live-batch-merge";
 
 const BENEFITS = [
   { icon: Users,    title: "Expert-Led Instruction",   desc: "Learn directly from experienced pharmaceutical educators who break complex concepts into clinically relevant, easy-to-apply methods." },
@@ -15,7 +17,8 @@ const BENEFITS = [
 ];
 
 export default async function WorkshopsPage() {
-  const workshops = await getPublishedCourses("workshop");
+  const [published, openBatches] = await Promise.all([getPublishedCourses("workshop"), getOpenLiveBatches()]);
+  const workshops = attachLiveBatches(published, openBatches);
 
   return (
     <>

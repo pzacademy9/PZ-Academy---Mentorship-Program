@@ -3,6 +3,8 @@ import Image from "next/image";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Quote } from "lucide-react";
 import { getActiveBanners, getFeaturedItems } from "@/lib/data/marketing";
+import { getOpenLiveBatches } from "@/lib/data/landing-website";
+import { OpenBatchStrip } from "@/components/marketing/OpenBatchStrip";
 
 const STATS = [
   { icon: Video,    number: "12+",  label: "Live Webinars",     badge: null },
@@ -38,7 +40,7 @@ const REVIEWS = [
 ];
 
 export default async function HomePage() {
-  const [heroBanners, featuredCards] = await Promise.all([getActiveBanners("hero"), getFeaturedItems()]);
+  const [heroBanners, featuredCards, openBatches] = await Promise.all([getActiveBanners("hero"), getFeaturedItems(), getOpenLiveBatches()]);
   const heroBanner = heroBanners[0] ?? null;
   const featured =
     featuredCards.length > 0
@@ -178,6 +180,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <OpenBatchStrip batches={Array.from(openBatches.values())} />
 
       {/* ─── FEATURED PROGRAMS ────────────────────────────────────────────── */}
       <section className="bg-white py-24 px-6">

@@ -36,6 +36,8 @@ export interface CourseCard {
   mentorAvatarUrl: string | null;
   /** Freely watchable preview/recording video — see the comment on courses.public_video_url. */
   publicVideoUrl: string | null;
+  /** Set by website pages when a live batch is open for this course (not by getPublishedCourses). */
+  liveBatch?: { startsOn: string; href: string };
 }
 
 export interface CourseFaq {

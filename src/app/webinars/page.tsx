@@ -2,10 +2,13 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { WebinarGrid } from "@/components/marketing/WebinarGrid";
 import { getPublishedCourses } from "@/lib/data/lms";
+import { getOpenLiveBatches } from "@/lib/data/landing-website";
+import { attachLiveBatches } from "@/lib/data/live-batch-merge";
 import { Play } from "lucide-react";
 
 export default async function WebinarsPage() {
-  const webinars = await getPublishedCourses("webinar");
+  const [published, openBatches] = await Promise.all([getPublishedCourses("webinar"), getOpenLiveBatches()]);
+  const webinars = attachLiveBatches(published, openBatches);
 
   return (
     <>
