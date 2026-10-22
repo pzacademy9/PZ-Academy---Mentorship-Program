@@ -26,6 +26,15 @@ function parseFilter(value: string | undefined): StatusFilter {
     : "pending";
 }
 
+/** Flags a possible double charge: the student paid via the website and via a landing page. */
+function AlsoPaidBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full bg-pz-gold/15 px-2.5 py-0.5 font-headline text-xs font-semibold text-pz-gold">
+      Also paid on a landing page
+    </span>
+  );
+}
+
 export default async function AdminEnrollmentsPage({
   searchParams,
 }: {
@@ -112,6 +121,7 @@ export default async function AdminEnrollmentsPage({
                 {e.sheetPendingStatus && (
                   <span className="font-body text-[11px] font-semibold text-pz-danger">Sheet: → {e.sheetPendingStatus}</span>
                 )}
+                {e.alsoPaidViaLanding && <AlsoPaidBadge />}
               </span>,
               <div key="actions" className="pt-1">
                 <EnrollmentReviewActions
@@ -231,6 +241,11 @@ export default async function AdminEnrollmentsPage({
                         {enrollment.sheetPendingStatus && (
                           <span className="block mt-1 font-body text-[11px] font-semibold text-pz-danger">
                             Sheet: → {enrollment.sheetPendingStatus}
+                          </span>
+                        )}
+                        {enrollment.alsoPaidViaLanding && (
+                          <span className="mt-1 block">
+                            <AlsoPaidBadge />
                           </span>
                         )}
                       </td>
