@@ -4229,6 +4229,25 @@ export type Database = {
         Args: { p_user: string; p_variant_id: string; p_version: number }
         Returns: number
       }
+      landing_agent_link_stats: {
+        Args: { p_agent_id: string }
+        Returns: {
+          page_id: string
+          views: number
+          registered: number
+          paid: number
+        }[]
+      }
+      landing_leaderboard: {
+        Args: { p_from?: string | null }
+        Returns: {
+          agent_id: string
+          name: string
+          registered: number
+          paid: number
+          revenue: Json
+        }[]
+      }
       landing_set_country_accounts: {
         Args: { p_account_keys: string[]; p_region_key: string }
         Returns: undefined
