@@ -22,6 +22,7 @@ export function OpenBatchStrip({ batches }: { batches: StripBatch[] }) {
               </div>
               <Link
                 href={b.href}
+                aria-label={`Register for live: ${b.title}`}
                 className="inline-flex items-center justify-center rounded-lg bg-pz-primary px-4 py-2 font-headline text-sm font-bold text-pz-on-primary transition-colors hover:bg-pz-on-primary-container"
               >
                 Register for live

@@ -21,7 +21,8 @@ describe("LiveBatchBanner", () => {
     render(<LiveBatchBanner title="PPC" startsOn="30 October 2026" href="/e/ppc?src=website" />);
     expect(screen.getByText("Live batch open")).toBeTruthy();
     expect(screen.getByText("Starts 30 October 2026")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Register for live" }).getAttribute("href")).toBe("/e/ppc?src=website");
+    expect(screen.getByRole("link", { name: "Register for live: PPC" }).getAttribute("href")).toBe("/e/ppc?src=website");
+    expect(screen.getByRole("region", { name: "Live batch" })).toBeTruthy();
   });
   it("omits the date line when startsOn is empty", () => {
     render(<LiveBatchBanner title="PPC" startsOn="" href="/e/ppc?src=website" />);
@@ -64,7 +65,8 @@ describe("OpenBatchStrip", () => {
   });
   it("lists at most 3 batches with title, date and link", () => {
     render(<OpenBatchStrip batches={[1, 2, 3, 4].map((n) => batch(String(n)))} />);
-    expect(screen.getAllByRole("link", { name: "Register for live" })).toHaveLength(3);
+    expect(screen.getAllByRole("link", { name: /^Register for live: Course/ })).toHaveLength(3);
+    expect(screen.getByRole("link", { name: "Register for live: Course 2" })).toBeTruthy();
     expect(screen.getByText("Course 1")).toBeTruthy();
     expect(screen.queryByText("Course 4")).toBeNull();
     expect(screen.getAllByText("Starts 30 October 2026")).toHaveLength(3);
