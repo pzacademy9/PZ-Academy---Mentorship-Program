@@ -46,7 +46,12 @@ function MessageRow({ m }: { m: Message }) {
 }
 
 /** Every email we sent to this person, then the messages the team sent from a campaign. Admin-only. */
-export function RegistrationEmailsCard({ emails, messages = [] }: { emails: RegistrationDetail["emails"]; messages?: RegistrationDetail["messages"] }) {
+export function RegistrationEmailsCard({ emails, messages = [], metaPurchase }: { emails: RegistrationDetail["emails"]; messages?: RegistrationDetail["messages"]; metaPurchase?: RegistrationDetail["metaPurchase"] }) {
+  const metaLine =
+    metaPurchase?.state === "sent" ? `Meta Purchase: Sent on ${metaPurchase.at ? formatDateTimePkt(metaPurchase.at) : "an earlier date"}`
+    : metaPurchase?.state === "waiting" ? "Meta Purchase: Waiting to send"
+    : metaPurchase?.state === "skipped_old" ? "Meta Purchase: Not sent (older than 7 days)"
+    : null;
   return (
     <section className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-6">
       <div className="flex items-center gap-2.5">
@@ -88,6 +93,7 @@ export function RegistrationEmailsCard({ emails, messages = [] }: { emails: Regi
           )}
         </div>
       )}
+      {metaLine && <p className="mt-4 px-1 font-mono text-[10px] text-pz-on-surface-variant">{metaLine}</p>}
     </section>
   );
 }

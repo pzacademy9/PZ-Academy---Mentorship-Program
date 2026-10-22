@@ -28,7 +28,7 @@ function rec(over: Partial<RegistrationRecord> = {}): RegistrationRecord {
 function detail(over: Partial<RegistrationDetail> = {}, lead: Partial<RegistrationRecord> = {}): RegistrationDetail {
   return {
     lead: rec(lead), members: [], page: { id: "p1", title: "PPC Masterclass", slug: "ppc" },
-    agentName: null, events: [], emails: [], messages: [], access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null }, ...over,
+    agentName: null, events: [], emails: [], messages: [], metaPurchase: { state: "none", at: null }, access: { mode: "live", hasAccount: false, enrollmentStatus: null, portalOpen: null, hasCourse: false, modules: null }, ...over,
   };
 }
 const view = (d: RegistrationDetail, showAgent = true) => (
@@ -268,6 +268,22 @@ describe("RegistrationDetailView: emails and course access", () => {
   it("shows the empty state when no email was sent", () => {
     render(view(detail()));
     expect(screen.getByText("No emails sent yet")).toBeTruthy();
+  });
+
+  it("shows the Meta Purchase line for sent, waiting and old, nothing for none", () => {
+    const { rerender } = render(view(detail({ metaPurchase: { state: "sent", at: "2026-10-22T08:00:00Z" } })));
+    expect(screen.getByText(/^Meta Purchase: Sent on /)).toBeTruthy();
+    rerender(view(detail({ metaPurchase: { state: "waiting", at: null } })));
+    expect(screen.getByText("Meta Purchase: Waiting to send")).toBeTruthy();
+    rerender(view(detail({ metaPurchase: { state: "skipped_old", at: null } })));
+    expect(screen.getByText("Meta Purchase: Not sent (older than 7 days)")).toBeTruthy();
+    rerender(view(detail()));
+    expect(screen.queryByText(/Meta Purchase/)).toBeNull();
+  });
+
+  it("agent view never shows the Meta Purchase line", () => {
+    render(view(detail({ metaPurchase: { state: "sent", at: "2026-10-22T08:00:00Z" } }), false));
+    expect(screen.queryByText(/Meta Purchase/)).toBeNull();
   });
 
   it("agent view hides the emails card", () => {
