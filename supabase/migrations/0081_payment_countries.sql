@@ -7,7 +7,8 @@
 -- to PK and PH on the owner's instruction (PayPal is used in all countries, always listed last).
 -- New pages made from the templates use region key KSA, which has no central country until the
 -- owner adds one on the Payment accounts screen (until then it uses its own list).
--- The owner pastes this into the Supabase SQL editor. Safe to run twice.
+-- The owner pastes this into the Supabase SQL editor. Paste it once: the table creation is
+-- safe to repeat, but re-running re-adds seeded account links the owner removed on the screen.
 
 create table if not exists public.payment_countries (
   region_key text primary key check (region_key ~ '^[A-Z]{2,6}$'),

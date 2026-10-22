@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createSupabaseMock, filterValue, type Op } from "./helpers/supabase-mock";
 
 const db = createSupabaseMock();
@@ -84,6 +84,47 @@ describe("centralAccountKeys", () => {
   it("throws any other error", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006", message: "connection failure" } });
     await expect(centralAccountKeys(["PK"])).rejects.toMatchObject({ code: "08006" });
+  });
+});
+
+describe("Saudi Arabia region key aliases (KSA <-> SA)", () => {
+  const saved = { countries: [...countries], links: [...links] };
+  afterEach(() => {
+    countries.splice(0, countries.length, ...saved.countries);
+    links.splice(0, links.length, ...saved.links);
+  });
+  const saudi = { region_key: "SA", account_key: "anb", sort: 10 };
+  const saudi2 = { region_key: "SA", account_key: "paypal", sort: 20 };
+
+  it("a KSA region gets the SA central list", async () => {
+    links.push(saudi, saudi2);
+    accounts = accounts.map((a) => (a.key === "anb" ? { ...a, active: true } : a));
+    await expect(centralAccountKeys(["KSA"])).resolves.toEqual({ KSA: ["anb", "paypal"] });
+  });
+  it("an SA region gets the KSA list when only KSA exists", async () => {
+    countries.splice(countries.findIndex((c) => c.region_key === "SA"), 1);
+    countries.push({ region_key: "KSA", name: "Saudi Arabia", sort: 40, active: true });
+    links.push({ region_key: "KSA", account_key: "paypal", sort: 10 });
+    await expect(centralAccountKeys(["SA"])).resolves.toEqual({ SA: ["paypal"] });
+  });
+  it("an explicit KSA row wins over SA, each key using its own list", async () => {
+    links.push(saudi, saudi2);
+    accounts = accounts.map((a) => (a.key === "anb" ? { ...a, active: true } : a));
+    countries.push({ region_key: "KSA", name: "Saudi Arabia", sort: 50, active: true });
+    links.push({ region_key: "KSA", account_key: "gcash", sort: 10 });
+    await expect(centralAccountKeys(["KSA", "SA"])).resolves.toEqual({ KSA: ["gcash"], SA: ["anb", "paypal"] });
+  });
+  it("a hidden SA country does not leak to KSA", async () => {
+    links.push(saudi2);
+    countries[countries.findIndex((c) => c.region_key === "SA")] = { region_key: "SA", name: "Saudi Arabia", sort: 40, active: false };
+    await expect(centralAccountKeys(["KSA", "SA"])).resolves.toEqual({});
+  });
+  it("the resolver and the publish check (resolveRegionAccountKeys) see the alias, and fall back to own keys when hidden", async () => {
+    links.push(saudi2);
+    await expect(resolveRegionAccountKeys([{ key: "KSA", accountKeys: ["gcash"] }])).resolves.toEqual({ KSA: ["paypal"] });
+    await expect(resolveAccountKeysSafe([{ key: "KSA", accountKeys: ["gcash"] }])).resolves.toEqual({ KSA: ["paypal"] });
+    countries[countries.findIndex((c) => c.region_key === "SA")] = { region_key: "SA", name: "Saudi Arabia", sort: 40, active: false };
+    await expect(resolveRegionAccountKeys([{ key: "KSA", accountKeys: ["gcash"] }])).resolves.toEqual({ KSA: ["gcash"] });
   });
 });
 

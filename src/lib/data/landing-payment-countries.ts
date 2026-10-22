@@ -68,17 +68,34 @@ export async function listPaymentCountries(): Promise<PaymentCountry[]> {
 }
 
 /**
+ * Saudi Arabia has two region keys: the seed and the first live page use SA, new pages and the
+ * templates use KSA. A region key with no country row of its own uses the other one's list.
+ */
+export const REGION_KEY_ALIASES: Readonly<Record<string, string>> = { KSA: "SA", SA: "KSA" };
+
+/**
  * Region key -> ordered ACTIVE account keys of its (active) central country. A region with no
  * country, no visible account, or tables that do not exist yet is absent from the result.
+ * A key with no country row of its own borrows its alias's list (REGION_KEY_ALIASES); an
+ * explicit row for the exact key always wins, and a hidden country is never aliased around.
  */
 export async function centralAccountKeys(regionKeys: string[]): Promise<Record<string, string[]>> {
   const wanted = Array.from(new Set(regionKeys));
   if (wanted.length === 0) return {};
   const admin = createAdminSupabase();
-  const countries = await admin.from("payment_countries").select("region_key").eq("active", true).in("region_key", wanted);
+  const lookup = Array.from(new Set(wanted.flatMap((k) => (REGION_KEY_ALIASES[k] ? [k, REGION_KEY_ALIASES[k]] : [k]))));
+  const countries = await admin.from("payment_countries").select("region_key, active").in("region_key", lookup);
   if (isMissingTable(countries.error)) return {};
   if (countries.error) throw countries.error;
-  const live = (countries.data ?? []).map((c) => c.region_key);
+  const rows = new Map((countries.data ?? []).map((c) => [c.region_key, c.active]));
+  // requested key -> the country row that serves it (exact row first, else the alias's row)
+  const source = new Map<string, string>();
+  for (const k of wanted) {
+    const alias = REGION_KEY_ALIASES[k];
+    const use = rows.has(k) ? k : alias && rows.has(alias) ? alias : null;
+    if (use && rows.get(use) === true) source.set(k, use);
+  }
+  const live = Array.from(new Set(source.values()));
   if (live.length === 0) return {};
   const links = await admin
     .from("payment_country_accounts")
@@ -91,11 +108,15 @@ export async function centralAccountKeys(regionKeys: string[]): Promise<Record<s
   const accounts = await admin.from("payment_accounts").select("key").eq("active", true);
   if (accounts.error) throw accounts.error;
   const active = new Set((accounts.data ?? []).map((a) => a.key));
-  const out: Record<string, string[]> = {};
+  const byCountry: Record<string, string[]> = {};
   for (const l of [...(links.data ?? [])].sort((a, b) => a.sort - b.sort || a.account_key.localeCompare(b.account_key))) {
     if (!active.has(l.account_key)) continue;
-    (out[l.region_key] ??= []).push(l.account_key);
+    (byCountry[l.region_key] ??= []).push(l.account_key);
   }
+  const out: Record<string, string[]> = {};
+  source.forEach((use, k) => {
+    if (byCountry[use]) out[k] = byCountry[use];
+  });
   return out;
 }
 
