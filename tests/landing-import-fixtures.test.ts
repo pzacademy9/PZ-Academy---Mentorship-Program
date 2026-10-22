@@ -75,11 +75,6 @@ describe("dry-run fixtures (final prompts): ppc-batch-3 (course)", () => {
   });
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([
-      "Choose at least one payment account for UAE.",
-      "Choose at least one payment account for Pakistan.",
-      "Choose at least one payment account for Saudi Arabia.",
-      "Choose at least one payment account for Philippines.",
-      "Choose at least one payment account for India.",
       "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
       "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
     ]);
@@ -121,8 +116,6 @@ describe("dry-run fixtures (final prompts): mdc-batch-3 (workshop)", () => {
   });
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([
-      "Choose at least one payment account for Pakistan.",
-      "Choose at least one payment account for UAE.",
       "Early Bird prices are set but no Early Bird end date. Add the end date, or remove the Early Bird prices.",
       "The page has no questions and answers (FAQ).",
     ]);
@@ -163,8 +156,6 @@ describe("dry-run fixtures (final prompts): w20-diabetes (webinar)", () => {
   it("remaining warnings snapshot", () => {
     expect(msgs(b)).toEqual([
       'Add the price of "Pro Plan" for Pakistan.',
-      "Choose at least one payment account for Pakistan.",
-      "Choose at least one payment account for Philippines.",
       "The WhatsApp number for payment screenshots was not given. Add it in the editor.",
       "The page has no questions and answers (FAQ).",
     ]);

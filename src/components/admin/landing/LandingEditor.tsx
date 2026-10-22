@@ -22,7 +22,6 @@ import { SectionForm } from "./SectionForm";
 import { PageSettingsPanel } from "./PageSettingsPanel";
 import { RegistrationOpsCard } from "./registration/RegistrationOpsCard";
 import type { CourseModule } from "@/lib/data/landing-course-modules";
-import type { PaymentAccountSummary } from "./registration/RegistrationSetup";
 import { pruneModuleIds } from "@/lib/landing/registration/admin-edit";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { PreviewFrame } from "./PreviewFrame";
@@ -74,9 +73,10 @@ const SAVE_DOT: Record<SaveState, string> = {
  * full browser reload.
  */
 export function LandingEditor({
-  page, versions, accounts = [], sheetId = null, variants = [], courseModules = null,
+  page, versions, centralRegionKeys = [], sheetId = null, variants = [], courseModules = null,
 }: {
-  page: LandingPage; versions: LandingVersion[]; accounts?: PaymentAccountSummary[]; sheetId?: string | null;
+  page: LandingPage; versions: LandingVersion[]; /** Region keys that already have a central payment account list. */
+  centralRegionKeys?: string[]; sheetId?: string | null;
   /** The page's country / module links. */
   variants?: LandingVariant[];
   /** The page's course modules, in course order. null = the page has no course. */
@@ -101,7 +101,7 @@ export function LandingEditor({
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} accounts={accounts} sheetId={sheetId} variants={variants} courseModules={courseModules} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheetId} variants={variants} courseModules={courseModules} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -129,9 +129,9 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, accounts, sheetId, variants, courseModules, onRevision, onRestored,
+  page, versions, centralRegionKeys, sheetId, variants, courseModules, onRevision, onRestored,
 }: {
-  page: LandingPage; versions: LandingVersion[]; accounts: PaymentAccountSummary[]; sheetId: string | null;
+  page: LandingPage; versions: LandingVersion[]; centralRegionKeys: string[]; sheetId: string | null;
   variants: LandingVariant[]; courseModules: CourseModule[] | null; onRevision: (rev: number) => void; onRestored: () => void;
 }) {
   const router = useRouter();
@@ -613,7 +613,7 @@ function EditorShell({
               slug={page.slug}
               grid={grid}
               content={content}
-              accounts={accounts}
+              centralRegionKeys={centralRegionKeys}
               mainLive={mainLive}
               blockedBy={(row) => blockedBy(row.ref)}
               problems={link.problems}
@@ -636,7 +636,6 @@ function EditorShell({
                   onSeo={() => {}}
                   registration={content.registration}
                   courseModules={courseModules}
-                  accounts={accounts}
                   registrationStep={regStep}
                   onRegistrationStep={setRegStep}
                   onRegistration={() => {}}
@@ -655,7 +654,6 @@ function EditorShell({
               registration={content.registration}
               courseModules={courseModules}
               saveMessage={mainMessage}
-              accounts={accounts}
               registrationStep={regStep}
               onRegistrationStep={setRegStep}
               onRegistration={(next) => apply(updateRegistration(contentRef.current, next))}

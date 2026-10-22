@@ -117,6 +117,21 @@ export async function resolveRegionAccountKeys(
   return out;
 }
 
+/**
+ * resolveRegionAccountKeys that can never break the pay step: on ANY error it logs and falls back
+ * to each region's own accountKeys (the old per-page list).
+ */
+export async function resolveAccountKeysSafe(
+  regions: { key: string; accountKeys: string[] }[],
+): Promise<Record<string, string[]>> {
+  try {
+    return await resolveRegionAccountKeys(regions);
+  } catch (error) {
+    console.error("[payment-accounts] could not resolve the central account lists, using the page's own", error);
+    return Object.fromEntries(regions.map((r) => [r.key, r.accountKeys]));
+  }
+}
+
 // ---------------------------------------------------------------- admin writes
 
 /** Adds a country at the end of the list. `exists` when the region key is taken. Throws on other errors. */

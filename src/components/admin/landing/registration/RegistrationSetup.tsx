@@ -6,19 +6,16 @@ import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CourseModule } from "@/lib/data/landing-course-modules";
-import type { PaymentAccount } from "@/lib/data/landing-payment-accounts";
 import { FIELD_MAX, MAX_CAPACITY, MAX_GROUP_SIZE, registrationProblems, type Mode, type RegistrationConfig } from "@/lib/landing/registration/config";
 import { isValidWaGroupUrl } from "@/lib/landing/registration/wa-groups";
 import { REG_STEPS, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import {
   TIER_PRESETS, TZ_CHOICES, addOption, addTier, localToOffsetIso, offsetIsoToLocal, removeOption, removeTier,
-  toggleAccount, updateOption, updateTier,
+  updateOption, updateTier,
 } from "@/lib/landing/registration/admin-edit";
 import { PricesStep } from "./PricesStep";
 import { WaTestLinkButton } from "./WaTestLinkButton";
 import { CONTROL, HELP, ICON_BTN, LABEL } from "./styles";
-
-export type PaymentAccountSummary = Pick<PaymentAccount, "key" | "label" | "kind" | "displayText">;
 
 const CARD = "space-y-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-low p-4";
 const ERROR = "font-body text-xs font-medium text-pz-danger";
@@ -39,10 +36,9 @@ const lines = (v: string) => v.split("\n").map((s) => s.trim()).filter(Boolean);
 const whole = (v: string, min = 0, max = Number.MAX_SAFE_INTEGER) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : min; };
 
 export function RegistrationSetup({
-  registration: r, accounts, step, onStep, onChange, courseModules, saveMessage,
+  registration: r, step, onStep, onChange, courseModules, saveMessage,
 }: {
   registration: RegistrationConfig;
-  accounts: PaymentAccountSummary[];
   step: RegistrationStepKey;
   onStep: (s: RegistrationStepKey) => void;
   onChange: (next: RegistrationConfig) => void;
@@ -124,7 +120,7 @@ export function RegistrationSetup({
         {current.key === "groups" && <GroupsStep r={r} onChange={onChange} />}
         {current.key === "prices" && <PricesStep r={r} onChange={onChange} />}
         {current.key === "earlybird" && <EarlyBirdStep r={r} onChange={onChange} />}
-        {current.key === "accounts" && <AccountsStep r={r} accounts={accounts} onChange={onChange} />}
+        {current.key === "accounts" && <AccountsStep r={r} />}
         {current.key === "promo" && <PromoStep />}
         {current.key === "whatsapp" && <WhatsAppStep r={r} onChange={onChange} />}
         {current.key === "details" && <DetailsStep r={r} onChange={onChange} />}
@@ -308,28 +304,12 @@ function EarlyBirdStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: R
   );
 }
 
-function AccountsStep({ r, accounts, onChange }: { r: RegistrationConfig; accounts: PaymentAccountSummary[]; onChange: (n: RegistrationConfig) => void }) {
+function AccountsStep({ r }: { r: RegistrationConfig }) {
   return (
     <div className="space-y-3">
-      <p className={HELP}>Accounts are shared by every page. Visitors only see the accounts ticked for their country. To change an account number, ask a developer (the accounts screen comes later).</p>
       {r.regions.length === 0 && <p className={HELP}>Add a country in &quot;Prices by country&quot; first.</p>}
       {r.regions.map((g) => (
-        <fieldset key={g.key} className={CARD} aria-label={g.label}>
-          <legend className={LABEL}>{g.label}</legend>
-          <ul className="space-y-1.5">
-            {accounts.map((a) => (
-              <li key={a.key}>
-                <label className="flex items-start gap-2 font-body text-sm text-pz-on-surface">
-                  <input type="checkbox" className="mt-1" checked={g.accountKeys.includes(a.key)} onChange={() => onChange(toggleAccount(r, g.key, a.key))} />
-                  <span>
-                    <span className="block font-semibold">{a.label}</span>
-                    <span className={HELP}>{a.displayText}</span>
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </fieldset>
+        <p key={g.key} className={HELP}>{`Payment accounts for ${g.label} are managed on the Payment accounts screen.`}</p>
       ))}
     </div>
   );

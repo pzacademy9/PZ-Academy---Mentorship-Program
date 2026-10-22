@@ -24,7 +24,9 @@ const m = vi.hoisted(() => ({
   runJobsDirect: vi.fn(),
   runInBackground: vi.fn(),
   uploadLandingVoucher: vi.fn(),
+  resolveAccountKeysSafe: vi.fn(),
 }));
+vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveAccountKeysSafe: m.resolveAccountKeysSafe }));
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePage: m.getRegistrablePage }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: m.requireAdmin }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: async () => ({ auth: { getUser: m.getUser } }) }));
@@ -75,6 +77,8 @@ beforeEach(() => {
   vi.setSystemTime(PRE_EB);
   m.getRegistrablePage.mockResolvedValue(page());
   m.getUser.mockResolvedValue({ data: { user: null } });
+  m.resolveAccountKeysSafe.mockImplementation(async (regions: { key: string; accountKeys: string[] }[]) =>
+    Object.fromEntries(regions.map((r) => [r.key, r.accountKeys])));
   m.requireAdmin.mockResolvedValue({ ok: false, response: new Response(null, { status: 401 }) });
   m.getPromoByCode.mockResolvedValue(null);
   m.emailUsedPromo.mockResolvedValue(false);
@@ -191,6 +195,21 @@ describe("POST /api/landing/[slug]/register: refusals", () => {
     const res = await submit(ppcPayload({ paymentMethod: "paypal" }));
     expect(res.status).toBe(400);
     expect((await res.json()).field).toBe("paymentMethod");
+    nothingStored();
+  });
+  it("checks the payment account against the central list of the chosen region", async () => {
+    m.resolveAccountKeysSafe.mockResolvedValue({ PK: ["hbl"], UAE: ["mashreq"], KSA: ["paypal"], INTL: ["paypal"] });
+    expect((await submit(ppcPayload({ paymentMethod: "hbl" }))).status).toBe(201);
+    expect(inputOf().payload.paymentMethod).toBe("hbl");
+    expect(m.resolveAccountKeysSafe).toHaveBeenCalledWith([PPC_CONFIG.regions.find((r) => r.key === "PK")]);
+  });
+  it("rejects a hidden account and one from another region (400, paymentMethod)", async () => {
+    m.resolveAccountKeysSafe.mockResolvedValue({ PK: ["hbl"], UAE: ["mashreq"], KSA: ["paypal"], INTL: ["paypal"] });
+    for (const paymentMethod of ["faysal", "mashreq"]) {
+      const res = await submit(ppcPayload({ paymentMethod }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).field).toBe("paymentMethod");
+    }
     nothingStored();
   });
   it("voucher rules: required, size, type, upload failure", async () => {

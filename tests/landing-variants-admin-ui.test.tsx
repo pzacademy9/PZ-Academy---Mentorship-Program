@@ -251,7 +251,6 @@ const region = (key: string, label: string, currency: string, accountKeys: strin
 });
 const PK = region("PK", "Pakistan", "PKR", ["meezan"]);
 const UAE = region("UAE", "UAE", "AED", ["meezan"]);
-const ACCOUNTS = [{ key: "meezan", label: "Meezan Bank", kind: "bank" as const, displayText: "PK00 MEZN 0000" }];
 const big = {
   ...draft,
   registration: {
@@ -303,7 +302,7 @@ describe("Links panel", () => {
   beforeEach(() => { routes = {}; useRoutes(); });
 
   it("shows every possible link (2 countries x 4 modules = 14), all off", () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} />);
     const panel = openLinks();
     const switches = within(panel).getAllByRole("switch");
     expect(switches).toHaveLength(14);
@@ -313,7 +312,7 @@ describe("Links panel", () => {
 
   it("a page with one country and no modules gets a friendly empty state", () => {
     const small = { ...page, draft: { ...big, modules: [], registration: { ...big.registration, regions: [PK] } } };
-    render(<LandingEditor page={small} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={small} versions={[]} variants={[]} />);
     const panel = openLinks();
     expect(within(panel).getByText("Add a country or module to create more links")).toBeTruthy();
     expect(within(panel).queryAllByRole("switch")).toHaveLength(0);
@@ -321,7 +320,7 @@ describe("Links panel", () => {
 
   it("turning on a new link creates it, and it appears in the Editing: switcher", async () => {
     routes[`POST ${LINKS_URL}`] = () => ({ body: { variant: linkVariant({ id: "v9", ref: { regionKey: "UAE", moduleKey: null } }) } });
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} />);
     const panel = openLinks();
     await act(async () => { fireEvent.click(within(row(panel, "UAE")).getByRole("switch")); await vi.advanceTimersByTimeAsync(0); });
     const posts = sent("POST", LINKS_URL);
@@ -334,7 +333,7 @@ describe("Links panel", () => {
 
   it("turning an existing link off and on uses its own switch (PATCH), never a second create", async () => {
     routes[`PATCH ${LINKS_URL}/v1`] = () => ({ body: { ok: true } });
-    render(<LandingEditor page={draftPage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[linkVariant()]} />);
     expect(screen.getByLabelText("Editing:")).toBeTruthy();
     const panel = openLinks();
     const sw = () => within(row(panel, "UAE · Module 2")).getByRole("switch");
@@ -350,7 +349,7 @@ describe("Links panel", () => {
   });
 
   it("Publish is disabled while the main page is not published", () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[linkVariant()]} />);
     const btn = within(row(openLinks(), "UAE · Module 2")).getByRole("button", { name: "Publish" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(btn.getAttribute("title")).toBe("Publish the main page first");
@@ -358,7 +357,7 @@ describe("Links panel", () => {
 
   it("Publish sends the link live, or lists what to fix in plain words", async () => {
     routes[`POST ${LINKS_URL}/v1/publish`] = () => ({ status: 422, body: { error: "x", problems: [{ message: "Nothing is priced for UAE yet." }] } });
-    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} />);
     const panel = openLinks();
     await act(async () => { fireEvent.click(within(row(panel, "UAE · Module 2")).getByRole("button", { name: "Publish" })); await vi.advanceTimersByTimeAsync(0); });
     expect(within(row(panel, "UAE · Module 2")).getByText("Nothing is priced for UAE yet.")).toBeTruthy();
@@ -372,7 +371,7 @@ describe("Links panel", () => {
   it("copy puts the full public web address on the clipboard", async () => {
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} />);
     const r = row(openLinks(), "UAE · Module 2");
     expect(within(r).getByText(`${window.location.origin}/e/w21/uae/module-2`)).toBeTruthy();
     await act(async () => { fireEvent.click(within(r).getByRole("button", { name: /copy/i })); await vi.advanceTimersByTimeAsync(0); });
@@ -392,29 +391,34 @@ describe("Add a country", () => {
     return { panel, dialog };
   }
 
-  it("prefills the currency and time zone, and refuses a country with no payment account", async () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+  it("prefills the currency and time zone, needs no payment account, and points to the Payment accounts screen", async () => {
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} />);
     const { dialog } = await pickSaudi();
     expect((within(dialog).getByLabelText("Currency") as HTMLInputElement).value).toBe("SAR");
     expect((within(dialog).getByLabelText("Time zone name") as HTMLInputElement).value).toBe("Saudi Arabia Time");
+    expect(within(dialog).getByText("Add this country's accounts on the Payment accounts screen.")).toBeTruthy();
+    expect(within(dialog).queryByRole("checkbox", { name: /meezan/i })).toBeNull();
     fireEvent.click(within(dialog).getByRole("button", { name: "Add country" }));
-    expect(within(dialog).getByRole("alert").textContent).toMatch(/payment account/i);
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    // No account error: the next problem is the missing price.
+    expect(within(dialog).getByRole("alert").textContent).not.toMatch(/payment account/i);
+  });
+  it("hides the accounts note when the country already has a central list", async () => {
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} centralRegionKeys={["KSA"]} />);
+    const { dialog } = await pickSaudi();
+    expect(within(dialog).queryByText(/Payment accounts screen/)).toBeNull();
   });
 
   const earlyPage = { ...draftPage, draft: { ...big, registration: { ...big.registration, earlyBirdEndsAt: "2026-12-01T00:00:00+05:00" } } };
   function fillSaudi(dialog: HTMLElement) {
     fireEvent.change(within(dialog).getByLabelText("Class time"), { target: { value: "7 – 8 PM" } });
-    fireEvent.click(within(dialog).getByRole("checkbox", { name: /meezan bank/i }));
     fireEvent.change(within(dialog).getByLabelText("Full course price"), { target: { value: "300" } });
     fireEvent.change(within(dialog).getByLabelText("Module 2 only price"), { target: { value: "120" } });
   }
 
   it("asks a price for every paid option, and Early Bird only when the page has an Early Bird end date", async () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} />);
     const { dialog } = await pickSaudi();
     expect(within(dialog).queryByLabelText("Full course Early Bird price")).toBeNull();
-    fireEvent.click(within(dialog).getByRole("checkbox", { name: /meezan bank/i }));
     fireEvent.change(within(dialog).getByLabelText("Full course price"), { target: { value: "300" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Add country" }));
     expect(within(dialog).getByRole("alert").textContent).toMatch(/Module 2 only/);
@@ -422,7 +426,7 @@ describe("Add a country", () => {
   });
 
   it("refuses an Early Bird price above the regular price", async () => {
-    render(<LandingEditor page={earlyPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={earlyPage} versions={[]} variants={[]} />);
     const { dialog } = await pickSaudi();
     fillSaudi(dialog);
     fireEvent.change(within(dialog).getByLabelText("Full course Early Bird price"), { target: { value: "400" } });
@@ -432,7 +436,7 @@ describe("Add a country", () => {
 
   it("does not ask a price for a free option, and offers it in the new country", async () => {
     const withFree = { ...draftPage, draft: { ...big, registration: { ...big.registration, options: [...big.registration.options, { key: "taster", label: "Free taster", kind: "bundle" as const, free: true, waGroupUrl: "", moduleIds: [] }] } } };
-    render(<LandingEditor page={withFree} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={withFree} versions={[]} variants={[]} />);
     const { dialog } = await pickSaudi();
     expect(within(dialog).queryByLabelText("Free taster price")).toBeNull();
     fillSaudi(dialog);
@@ -442,7 +446,7 @@ describe("Add a country", () => {
   });
 
   it("adds the country with its prices to the main page, and its links appear", async () => {
-    render(<LandingEditor page={earlyPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={earlyPage} versions={[]} variants={[]} />);
     const { panel, dialog } = await pickSaudi();
     fillSaudi(dialog);
     fireEvent.change(within(dialog).getByLabelText("Full course Early Bird price"), { target: { value: "250" } });
@@ -453,14 +457,14 @@ describe("Add a country", () => {
     await flush();
     const saved = bodyOf(calls(PAGE_URL)[0]).content.registration;
     expect(saved.regions.find((g: RegionDef) => g.key === "KSA")).toEqual({
-      key: "KSA", label: "Saudi Arabia", currency: "SAR", classTime: "7 – 8 PM", timezoneLabel: "Saudi Arabia Time", accountKeys: ["meezan"],
+      key: "KSA", label: "Saudi Arabia", currency: "SAR", classTime: "7 – 8 PM", timezoneLabel: "Saudi Arabia Time", accountKeys: [],
     });
     expect(saved.prices.full.KSA).toEqual({ amount: 300, earlyAmount: 250 });
     expect(saved.prices.m2.KSA).toEqual({ amount: 120 });
   });
 
   it("does not offer a country that is already on the page", async () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} />);
     fireEvent.click(within(openLinks()).getByRole("button", { name: /add a country/i }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Search countries"), { target: { value: "pakistan" } });
@@ -472,7 +476,7 @@ describe("Publish and checklist act on the open link", () => {
   beforeEach(() => { routes = {}; useRoutes(); });
 
   it("while the main page is a draft, the top Publish is off for the link", async () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[linkVariant()]} />);
     await choose("UAE · Module 2");
     const btn = screen.getByRole("button", { name: "Publish" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
@@ -481,7 +485,7 @@ describe("Publish and checklist act on the open link", () => {
 
   it("the top Publish publishes the open link, and a refusal fills the checklist", async () => {
     routes[`POST ${LINKS_URL}/v1/publish`] = () => ({ status: 422, body: { problems: [{ message: "Module 2 is not linked to a priced registration option." }] } });
-    render(<LandingEditor page={readyPage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={readyPage} versions={[]} variants={[linkVariant()]} />);
     await choose("UAE · Module 2");
     expect((screen.getByRole("button", { name: "Publish" }) as HTMLButtonElement).disabled).toBe(false);
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Publish" })); await vi.advanceTimersByTimeAsync(0); });
@@ -493,7 +497,7 @@ describe("Publish and checklist act on the open link", () => {
 
   it("shows Unpublished changes for the open link, not the main page", async () => {
     const v = linkVariant({ draft: { sections: { [heroId]: { fields: { headline: "M2" } } } }, published: { sections: {} }, publishedAt: "2026-10-04T00:00:00Z" });
-    render(<LandingEditor page={livePage} versions={[]} variants={[v]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={livePage} versions={[]} variants={[v]} />);
     expect(screen.queryByText("Unpublished changes")).toBeNull();
     await choose("UAE · Module 2");
     expect(screen.getByText("Unpublished changes")).toBeTruthy();
@@ -504,7 +508,7 @@ describe("Publish and checklist act on the open link", () => {
       draft: { sections: { [heroId]: { hidden: true, fields: { headline: "M2" } } } },
       published: { sections: { [heroId]: { fields: { headline: "M2" }, hidden: true } } }, publishedAt: "2026-10-04T00:00:00Z",
     });
-    render(<LandingEditor page={readyPage} versions={[]} variants={[v]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={readyPage} versions={[]} variants={[v]} />);
     await choose("UAE · Module 2");
     expect(screen.queryByText("Unpublished changes")).toBeNull();
     expect((screen.getByRole("button", { name: "Published" }) as HTMLButtonElement).disabled).toBe(true);
@@ -517,13 +521,13 @@ describe("Modules in page settings", () => {
   const openSettings = () => fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
 
   it("is not shown on a webinar page", () => {
-    render(<LandingEditor page={draftPage} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={draftPage} versions={[]} variants={[]} />);
     openSettings();
     expect(screen.queryByRole("region", { name: "Modules" })).toBeNull();
   });
 
   it("adds a module with the next link name and saves its details", async () => {
-    render(<LandingEditor page={course([])} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={course([])} versions={[]} variants={[]} />);
     openSettings();
     const card = screen.getByRole("region", { name: "Modules" });
     fireEvent.click(within(card).getByRole("button", { name: /add module/i }));
@@ -538,7 +542,7 @@ describe("Modules in page settings", () => {
   });
 
   it("refuses a link name a country uses, or one that is not web-address safe", async () => {
-    render(<LandingEditor page={course([{ key: "module-1", title: "A", format: "", days: 1, optionKey: "" }])} versions={[]} variants={[]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={course([{ key: "module-1", title: "A", format: "", days: 1, optionKey: "" }])} versions={[]} variants={[]} />);
     openSettings();
     const card = screen.getByRole("region", { name: "Modules" });
     fireEvent.change(within(card).getByLabelText("Link name"), { target: { value: "uae" } });
@@ -555,7 +559,7 @@ describe("Modules in page settings", () => {
 
   it("a module that already has a link keeps its link name", () => {
     const v = linkVariant({ ref: { regionKey: null, moduleKey: "module-1" } });
-    render(<LandingEditor page={course([{ key: "module-1", title: "A", format: "", days: 1, optionKey: "" }])} versions={[]} variants={[v]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={course([{ key: "module-1", title: "A", format: "", days: 1, optionKey: "" }])} versions={[]} variants={[v]} />);
     openSettings();
     const card = screen.getByRole("region", { name: "Modules" });
     expect((within(card).getByLabelText("Link name") as HTMLInputElement).readOnly).toBe(true);
@@ -571,7 +575,7 @@ describe("Version history of the open link", () => {
     routes[`GET ${LINKS_URL}`] = () => ({
       body: { variants: [linkVariant({ draft: { sections: { [heroId]: { fields: { headline: "Restored" } } } }, revision: 9, published: { sections: {} } })] },
     });
-    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} />);
     await choose("UAE · Module 2");
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Versions" })); await vi.advanceTimersByTimeAsync(0); });
     const sheet = screen.getByRole("dialog", { name: "Version history" });
@@ -590,7 +594,7 @@ describe("Version history of the open link", () => {
     routes[`GET ${LINKS_URL}/v1/versions`] = () => ({ body: { versions: [{ version: 2, createdAt: "2026-10-05T10:00:00Z" }] } });
     routes[`POST ${LINKS_URL}/v1/rollback`] = () => ({ body: { ok: true, version: 3 } });
     routes[`GET ${LINKS_URL}`] = () => ({ body: { variants: [linkVariant({ revision: 9 })] } });
-    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={livePage} versions={[]} variants={[linkVariant()]} />);
     await choose("UAE · Module 2");
     fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "Typed" } });
     await flush(); // the save is now in flight
@@ -611,7 +615,7 @@ describe("Task 11 fixes", () => {
 
   it("a new module never takes the link name of a removed module whose link still exists", () => {
     const old = linkVariant({ ref: { regionKey: null, moduleKey: "module-1" } });
-    render(<LandingEditor page={{ ...page, kind: "course" as const, draft: { ...big, modules: [] } }} versions={[]} variants={[old]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={{ ...page, kind: "course" as const, draft: { ...big, modules: [] } }} versions={[]} variants={[old]} />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
     const card = screen.getByRole("region", { name: "Modules" });
     fireEvent.click(within(card).getByRole("button", { name: /add module/i }));
@@ -624,7 +628,7 @@ describe("Task 11 fixes", () => {
 
   it("a link whose module is not on the live main page yet can't be published until main is published again", async () => {
     const stale = { ...livePage, published: { ...big, modules: big.modules.filter((m) => m.key !== "module-2") } };
-    render(<LandingEditor page={stale} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={stale} versions={[]} variants={[linkVariant()]} />);
     const btn = within(row(openLinks(), "UAE · Module 2")).getByRole("button", { name: "Publish" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(btn.getAttribute("title")).toBe("Publish the main page again so it includes Module 2");
@@ -638,7 +642,7 @@ describe("Task 11 fixes", () => {
   it("edits typed while a publish is on its way stay unpublished", async () => {
     let finish: (r: Reply) => void = () => {};
     routes[`POST ${LINKS_URL}/v1/publish`] = () => new Promise<Reply>((resolve) => { finish = resolve; });
-    render(<LandingEditor page={readyPage} versions={[]} variants={[linkVariant()]} accounts={ACCOUNTS} />);
+    render(<LandingEditor page={readyPage} versions={[]} variants={[linkVariant()]} />);
     await choose("UAE · Module 2");
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Publish" })); await vi.advanceTimersByTimeAsync(0); });
     expect(sent("POST", `${LINKS_URL}/v1/publish`)).toHaveLength(1);

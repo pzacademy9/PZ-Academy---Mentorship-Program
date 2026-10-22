@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getLandingPage, listVersions } from "@/lib/data/landing-pages";
 import { isPageId } from "@/lib/validations/landing";
-import { listPaymentAccounts } from "@/lib/data/landing-payment-accounts";
+import { listPaymentCountries } from "@/lib/data/landing-payment-countries";
 import { getPageSheetInfo } from "@/lib/data/landing-event-sheet";
 import { listVariants } from "@/lib/data/landing-variants";
 import { getPageCourseModules } from "@/lib/data/landing-course-modules";
@@ -17,7 +17,11 @@ export default async function LandingEditorPage({ params }: { params: Promise<{ 
   const page = await getLandingPage(id);
   if (!page) notFound();
   const versions = await listVersions(id);
-  const accounts = (await listPaymentAccounts()).map(({ key, label, kind, displayText }) => ({ key, label, kind, displayText }));
+  // Only used to tell the Add country dialog which countries already have a central account list.
+  // A failed read just shows the "add this country's accounts" note for every country.
+  const centralRegionKeys = await listPaymentCountries()
+    .then((cs) => cs.filter((c) => c.active && c.accounts.some((a) => a.active)).map((c) => c.regionKey))
+    .catch(() => [] as string[]);
   // key={page.id}: switching to another page remounts the editor, so autosave state never leaks across pages.
   // A failed read only hides the sheet link; the create route refuses a second sheet (409) anyway.
   const sheet = await getPageSheetInfo(id).catch(() => null);
@@ -28,5 +32,5 @@ export default async function LandingEditorPage({ params }: { params: Promise<{ 
     console.error("Could not load course modules for page", id, e);
     return null;
   });
-  return <LandingEditor key={page.id} page={page} versions={versions} accounts={accounts} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} />;
+  return <LandingEditor key={page.id} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} />;
 }

@@ -513,7 +513,7 @@ describe("LandingEditor", () => {
     const withReg = { ...page, draft: updateRegistration(page.draft, ppcConfig) };
     autosave.message = "Pick modules from this page's course.";
     try {
-      render(<LandingEditor page={withReg} versions={[]} accounts={[]} />);
+      render(<LandingEditor page={withReg} versions={[]} />);
       fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
       fireEvent.click(screen.getByRole("button", { name: /Group discounts/ }));
       expect(screen.getByText("Pick modules from this page's course.")).toBeTruthy();
@@ -524,7 +524,7 @@ describe("LandingEditor", () => {
     const { updateRegistration } = await import("@/lib/landing/content");
     const reg = { ...ppcConfig, options: ppcConfig.options.map((o, i) => (i === 0 ? { ...o, moduleIds: ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"] } : o)) };
     const withReg = { ...page, draft: updateRegistration(page.draft, reg) };
-    render(<LandingEditor page={withReg} versions={[]} accounts={[]} courseModules={[{ id: "22222222-2222-4222-8222-222222222222", title: "Module A", order_index: 1 }]} />);
+    render(<LandingEditor page={withReg} versions={[]} courseModules={[{ id: "22222222-2222-4222-8222-222222222222", title: "Module A", order_index: 1 }]} />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
     fireEvent.click(screen.getAllByLabelText(/: Module A$/)[0]);
     const sent = autosave.schedule.mock.calls.at(-1)![0];
@@ -533,10 +533,10 @@ describe("LandingEditor", () => {
   it("a registration problem's Fix button opens Page settings at that registration step", async () => {
     const { ppcConfig } = await import("./fixtures/registration-fixtures");
     const { updateRegistration } = await import("@/lib/landing/content");
-    const reg = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: [] } : g)) };
+    const reg = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: ["Bad Key"] } : g)) };
     const withReg = { ...page, draft: updateRegistration(page.draft, reg) };
-    render(<LandingEditor page={withReg} versions={[]} accounts={[]} />);
-    const item = screen.getByText(/choose at least one payment account for saudi arabia/i).closest("li") as HTMLElement;
+    render(<LandingEditor page={withReg} versions={[]} />);
+    const item = screen.getByText(/payment account "bad key" for saudi arabia is not a known account code/i).closest("li") as HTMLElement;
     fireEvent.click(within(item).getByRole("button", { name: /fix/i }));
     expect(screen.getByRole("heading", { name: "Payment accounts" })).toBeTruthy();
   });
@@ -545,7 +545,7 @@ describe("LandingEditor", () => {
     const { updateRegistration } = await import("@/lib/landing/content");
     const reg = updateRegistration(page.draft, ppcConfig);
     const live = { ...page, status: "published" as const, draft: reg, published: reg };
-    render(<LandingEditor page={live} versions={[]} accounts={[]} sheetId="sheet-1" />);
+    render(<LandingEditor page={live} versions={[]} sheetId="sheet-1" />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
     const card = screen.getByRole("region", { name: "Registrations" });
     expect(within(card).getByRole("link", { name: /open sheet/i }).getAttribute("href")).toBe("https://docs.google.com/spreadsheets/d/sheet-1/edit");

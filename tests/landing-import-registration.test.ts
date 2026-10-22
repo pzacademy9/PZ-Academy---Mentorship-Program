@@ -208,7 +208,7 @@ describe("buildRegistration", () => {
     const f = base();
     f.registration.regions[0].accounts = [];
     const r = buildRegistration(f);
-    expect(r.problems).toContainEqual({ level: "warning", message: "Choose at least one payment account for UAE." });
+    expect(r.problems.map((p) => p.message)).not.toContain("Choose at least one payment account for UAE.");
     expect(r.problems.filter((p) => p.level === "error")).toEqual([]);
   });
 });

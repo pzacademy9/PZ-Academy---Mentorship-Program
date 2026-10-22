@@ -10,6 +10,7 @@ import { isPublicSlug, statusQuerySchema } from "@/lib/validations/landing-publi
 const m = vi.hoisted(() => ({
   getRegistrablePage: vi.fn(),
   listPaymentAccounts: vi.fn(),
+  resolveAccountKeysSafe: vi.fn(),
   getPromoByCode: vi.fn(),
   emailUsedPromo: vi.fn(),
   getRegistrationStatus: vi.fn(),
@@ -20,6 +21,7 @@ const m = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePage: m.getRegistrablePage }));
 vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.listPaymentAccounts }));
+vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveAccountKeysSafe: m.resolveAccountKeysSafe }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({ getPromoByCode: m.getPromoByCode, emailUsedPromo: m.emailUsedPromo }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationStatus: m.getRegistrationStatus }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ resolveAgentCode: m.resolveAgentCode }));
@@ -60,6 +62,8 @@ beforeEach(() => {
   vi.setSystemTime(PRE_EB);
   m.getRegistrablePage.mockResolvedValue(page());
   m.listPaymentAccounts.mockResolvedValue([{ key: "faysal", label: "Faysal Bank", kind: "bank", rows: [], displayText: "" }]);
+  m.resolveAccountKeysSafe.mockImplementation(async (regions: { key: string; accountKeys: string[] }[]) =>
+    Object.fromEntries(regions.map((r) => [r.key, r.accountKeys])));
   m.recordFunnelEvent.mockResolvedValue(undefined);
   m.resolveAgentCode.mockResolvedValue(null);
   m.getUser.mockResolvedValue({ data: { user: null } });
@@ -113,6 +117,16 @@ describe("GET /api/landing/[slug]/config", () => {
     expect(body.registration.refPrefix).toBe("");
     expect(m.getRegistrablePage).toHaveBeenCalledWith("ppc-b4");
     expect(m.listPaymentAccounts).toHaveBeenCalledWith(["faysal", "easypaisa", "mashreq", "paypal"]);
+    expect(m.resolveAccountKeysSafe).toHaveBeenCalledWith(PPC_CONFIG.regions);
+  });
+  it("sends each region the central account keys for it, and loads only those accounts", async () => {
+    m.resolveAccountKeysSafe.mockResolvedValue({ PK: ["easypaisa", "faysal"], UAE: ["mashreq"] });
+    const body = await (await config(getReq(), ctx())).json();
+    const keysOf = (k: string) => body.registration.regions.find((r: { key: string }) => r.key === k).accountKeys;
+    expect(keysOf("PK")).toEqual(["easypaisa", "faysal"]);
+    expect(keysOf("UAE")).toEqual(["mashreq"]);
+    expect(m.listPaymentAccounts).toHaveBeenCalledWith(["easypaisa", "faysal", "mashreq"]);
+    expect(m.listPaymentAccounts.mock.calls[0][0]).not.toContain("hidden_bank");
   });
   it("judges Early Bird on the server clock", async () => {
     vi.setSystemTime(AFTER_EB);

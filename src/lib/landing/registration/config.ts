@@ -290,7 +290,6 @@ export function registrationProblems(r: RegistrationConfig): { message: string; 
   const allFree = r.options.length > 0 && r.options.every((o) => o.free);
   if (!allFree) {
     for (const g of r.regions) {
-      if (g.accountKeys.length === 0) add(`Choose at least one payment account for ${name(g.label, g.key)}.`, "accounts");
       for (const k of g.accountKeys) if (BAD_KEYS.has(k)) add(reserved(k), "accounts");
       for (const k of g.accountKeys) if (!ACCOUNT_KEY_RE.test(k)) add(`The payment account "${k}" for ${name(g.label, g.key)} is not a known account code.`, "accounts");
     }

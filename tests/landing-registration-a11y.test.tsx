@@ -17,7 +17,7 @@ import { RegistrationSetup } from "@/components/admin/landing/registration/Regis
 import { initialState, type FormState } from "@/lib/landing/registration/form-state";
 import { computeQuote } from "@/lib/landing/registration/pricing";
 import type { RegisterSuccess } from "@/components/landing/registration/types";
-import { ACCOUNTS, ppcConfig, publicConfig } from "./fixtures/registration-fixtures";
+import { ppcConfig, publicConfig } from "./fixtures/registration-fixtures";
 
 const fetchMock = () => fetch as unknown as ReturnType<typeof vi.fn>;
 beforeEach(() => {
@@ -110,8 +110,8 @@ describe("touch targets", () => {
 
 describe("admin stepper", () => {
   it("a step's problem count is read out in words", () => {
-    const bad = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: [] } : g)) };
-    render(<RegistrationSetup registration={bad} accounts={ACCOUNTS} step="accounts" onStep={() => {}} onChange={() => {}} />);
+    const bad = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: ["Bad Key"] } : g)) };
+    render(<RegistrationSetup registration={bad} step="accounts" onStep={() => {}} onChange={() => {}} />);
     expect(screen.getByRole("button", { name: /^5 payment accounts 1 problem$/i })).toBeTruthy();
   });
 });

@@ -117,10 +117,14 @@ describe("registrationProblems", () => {
     delete w.prices.free;
     expect(msgs(w)).toMatch(/"Free Access" is free but not offered in any country/);
   });
-  it("needs a payment account for each country unless everything is free", () => {
+  it("does not need payment accounts on the page (they are central), but still checks the codes it has", () => {
     const c = ppcConfig();
     c.regions[1].accountKeys = [];
-    expect(msgs(c)).toContain("Choose at least one payment account for International.");
+    expect(msgs(c)).not.toMatch(/payment account/);
+    c.regions[1].accountKeys = ["Bad Key"];
+    expect(msgs(c)).toContain('The payment account "Bad Key" for International is not a known account code.');
+    c.regions[1].accountKeys = ["__proto__"];
+    expect(msgs(c)).toContain('"__proto__" is a reserved word, pick another code.');
     const free = w20Config();
     free.options = [free.options[0]];
     free.prices = { free: { PK: { amount: 0 } } };

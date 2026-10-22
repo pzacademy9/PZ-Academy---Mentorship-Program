@@ -2,17 +2,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { useState } from "react";
-import { RegistrationSetup, type PaymentAccountSummary } from "@/components/admin/landing/registration/RegistrationSetup";
+import { RegistrationSetup } from "@/components/admin/landing/registration/RegistrationSetup";
 import type { RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import type { RegistrationConfig } from "@/lib/landing/registration/config";
-import { ACCOUNTS, ppcConfig } from "./fixtures/registration-fixtures";
-
-const accounts: PaymentAccountSummary[] = ACCOUNTS.map(({ key, label, kind, displayText }) => ({ key, label, kind, displayText }));
+import { ppcConfig } from "./fixtures/registration-fixtures";
 
 function Harness({ initial = ppcConfig, step: s0 = "buy", spy }: { initial?: RegistrationConfig; step?: RegistrationStepKey; spy: (r: RegistrationConfig) => void }) {
   const [r, setR] = useState(initial);
   const [step, setStep] = useState<RegistrationStepKey>(s0);
-  return <RegistrationSetup registration={r} accounts={accounts} step={step} onStep={setStep} onChange={(n) => { spy(n); setR(n); }} />;
+  return <RegistrationSetup registration={r} step={step} onStep={setStep} onChange={(n) => { spy(n); setR(n); }} />;
 }
 const last = (spy: ReturnType<typeof vi.fn>) => spy.mock.calls.at(-1)![0] as RegistrationConfig;
 
@@ -38,7 +36,7 @@ describe("RegistrationSetup", () => {
     expect(screen.getByRole("heading", { name: "Prices by country" })).toBeTruthy();
   });
   it("shows a problem count on a step that has problems", () => {
-    const bad = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: [] } : g)) };
+    const bad = { ...ppcConfig, regions: ppcConfig.regions.map((g) => (g.key === "KSA" ? { ...g, accountKeys: ["Bad Key"] } : g)) };
     render(<Harness initial={bad} spy={vi.fn()} />);
     const btn = screen.getByRole("button", { name: /^5 payment accounts/i });
     expect(within(btn).getByText(/^\d+$/)).toBeTruthy();
@@ -81,12 +79,11 @@ describe("RegistrationSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: /clear early bird/i }));
     expect(last(spy).earlyBirdEndsAt).toBe("");
   });
-  it("ticks a payment account for one country", () => {
-    const spy = vi.fn();
-    render(<Harness step="accounts" spy={spy} />);
-    const ksa = screen.getByRole("group", { name: "Saudi Arabia" });
-    fireEvent.click(within(ksa).getByRole("checkbox", { name: /mashreq bank/i }));
-    expect(last(spy).regions.find((g) => g.key === "KSA")!.accountKeys).toEqual(["paypal", "mashreq"]);
+  it("shows one read-only line per country and no account checkboxes", () => {
+    render(<Harness step="accounts" spy={vi.fn()} />);
+    expect(screen.getByText("Payment accounts for Saudi Arabia are managed on the Payment accounts screen.")).toBeTruthy();
+    expect(screen.getByText("Payment accounts for Pakistan are managed on the Payment accounts screen.")).toBeTruthy();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
   it("validates WhatsApp group links, enables Test link only for a valid one, and reminds about approvals", () => {
     const spy = vi.fn();

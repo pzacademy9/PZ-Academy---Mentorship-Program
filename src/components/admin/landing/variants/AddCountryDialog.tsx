@@ -9,7 +9,6 @@ import { COUNTRIES, type Country } from "@/lib/landing/countries";
 import { regionKeyProblem } from "@/lib/landing/link-names";
 import { CURRENCY_RE, FIELD_MAX, MAX_MONEY, type PriceCell, type RegionDef } from "@/lib/landing/registration/config";
 import type { LandingContent } from "@/lib/landing/content";
-import type { PaymentAccountSummary } from "../registration/RegistrationSetup";
 import { CONTROL, HELP, LABEL } from "../registration/styles";
 
 /** "" -> null; otherwise a whole amount >= 0, or null when it is not a number (same rule as the price table). */
@@ -24,9 +23,9 @@ type Names = Pick<LandingContent, "registration" | "modules">;
 const MAX_COUNTRIES = 12;
 
 function CountryForm({
-  content, accounts, onAdd, onCancel,
+  content, centralRegionKeys, onAdd, onCancel,
 }: {
-  content: Names; accounts: PaymentAccountSummary[];
+  content: Names; centralRegionKeys: string[];
   onAdd: (region: RegionDef, prices: Record<string, PriceCell>) => void; onCancel: () => void;
 }) {
   const ids = useId();
@@ -36,7 +35,6 @@ function CountryForm({
   const [currency, setCurrency] = useState("");
   const [timezone, setTimezone] = useState("");
   const [classTime, setClassTime] = useState("");
-  const [accountKeys, setAccountKeys] = useState<string[]>([]);
   const [regular, setRegular] = useState<Record<string, string>>({});
   const [early, setEarly] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -69,14 +67,6 @@ function CountryForm({
     if (keyProblem) { setError(keyProblem); return; }
     const label = name.trim() || picked.name;
     if (!CURRENCY_RE.test(currency)) { setError("The currency must be a 3-letter code, for example AED."); return; }
-    if (accounts.length === 0) {
-      setError("There are no payment accounts yet, so people in this country would have nowhere to pay. Ask a developer to add one first.");
-      return;
-    }
-    if (accountKeys.length === 0) {
-      setError(`Pick at least one payment account for ${label}, so people there know where to pay.`);
-      return;
-    }
     // Same rules as the publish checklist: every paid option needs a price in every country, and an
     // Early Bird price can't be above the regular one. Free options are offered here too (price 0).
     const prices: Record<string, PriceCell> = {};
@@ -93,7 +83,7 @@ function CountryForm({
       prices[o.key] = cell;
     }
     onAdd({
-      key: picked.regionKey, label, currency, classTime: classTime.trim(), timezoneLabel: timezone.trim(), accountKeys,
+      key: picked.regionKey, label, currency, classTime: classTime.trim(), timezoneLabel: timezone.trim(), accountKeys: [],
     }, prices);
   }
 
@@ -150,24 +140,9 @@ function CountryForm({
             </label>
           </div>
 
-          <fieldset className="space-y-2">
-            <legend className={LABEL}>Payment accounts</legend>
-            <p className={HELP}>People in this country see only the accounts you tick here.</p>
-            {accounts.map((a) => (
-              <label key={a.key} className="flex items-start gap-2 font-body text-sm text-pz-on-surface">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={accountKeys.includes(a.key)}
-                  onChange={() => setAccountKeys((ks) => (ks.includes(a.key) ? ks.filter((k) => k !== a.key) : [...ks, a.key]))}
-                />
-                <span>
-                  <span className="block font-semibold">{a.label}</span>
-                  <span className={HELP}>{a.displayText}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          {!centralRegionKeys.includes(picked.regionKey) && (
+            <p className={HELP}>Add this country&apos;s accounts on the Payment accounts screen.</p>
+          )}
 
           {paid.length > 0 && (
             <fieldset className="space-y-2">
@@ -203,12 +178,12 @@ function CountryForm({
   );
 }
 
-/** Adds a country to the page: its currency, class time, payment accounts and prices. */
+/** Adds a country to the page: its currency, class time and prices. */
 export function AddCountryDialog({
-  open, onOpenChange, content, accounts, onAdd,
+  open, onOpenChange, content, centralRegionKeys, onAdd,
 }: {
   open: boolean; onOpenChange: (open: boolean) => void;
-  content: Names; accounts: PaymentAccountSummary[];
+  content: Names; centralRegionKeys: string[];
   onAdd: (region: RegionDef, prices: Record<string, PriceCell>) => void;
 }) {
   return (
@@ -220,13 +195,13 @@ export function AddCountryDialog({
             Add a country
           </DialogTitle>
           <DialogDescription className="text-pz-on-surface-variant">
-            People in this country see its prices, class time and payment accounts.
+            People in this country see its prices and class time.
           </DialogDescription>
         </DialogHeader>
         {open && (
           <CountryForm
             content={content}
-            accounts={accounts}
+            centralRegionKeys={centralRegionKeys}
             onCancel={() => onOpenChange(false)}
             onAdd={(r, p) => { onAdd(r, p); onOpenChange(false); }}
           />

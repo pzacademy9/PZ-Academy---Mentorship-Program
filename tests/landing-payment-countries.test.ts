@@ -4,7 +4,7 @@ import { createSupabaseMock, filterValue, type Op } from "./helpers/supabase-moc
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { centralAccountKeys, listPaymentCountries, resolveRegionAccountKeys } from "@/lib/data/landing-payment-countries";
+import { centralAccountKeys, listPaymentCountries, resolveAccountKeysSafe, resolveRegionAccountKeys } from "@/lib/data/landing-payment-countries";
 
 type Row = Record<string, unknown>;
 const countries: Row[] = [
@@ -129,5 +129,19 @@ describe("listPaymentCountries", () => {
   it("throws on a read error", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });
     await expect(listPaymentCountries()).rejects.toMatchObject({ code: "08006" });
+  });
+});
+
+describe("resolveAccountKeysSafe", () => {
+  const regions = [{ key: "PK", accountKeys: ["old_a", "old_b"] }, { key: "UAE", accountKeys: ["mashreq"] }];
+  it("returns the resolved keys when the database answers", async () => {
+    await expect(resolveAccountKeysSafe([{ key: "PK", accountKeys: [] }])).resolves.toEqual({ PK: ["faysal", "easypaisa"] });
+  });
+  it("falls back to each region's own accountKeys on ANY error and logs it", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    db.state.handler = () => ({ data: null, error: { code: "XX000", message: "connection reset" } });
+    await expect(resolveAccountKeysSafe(regions)).resolves.toEqual({ PK: ["old_a", "old_b"], UAE: ["mashreq"] });
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
   });
 });
