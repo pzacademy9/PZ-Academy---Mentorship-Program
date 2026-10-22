@@ -33,7 +33,9 @@ export function CourseMainPicker({
       }
       setCourse(nextCourse);
       setMain(nextCourse === "" ? false : nextMain);
-      toast.success("Course saved.");
+      toast.success(
+        main && nextCourse !== course ? "Course saved. Main page turned off for the new course." : "Course saved.",
+      );
       router.refresh();
     } catch {
       toast.error("Couldn't save the course.");

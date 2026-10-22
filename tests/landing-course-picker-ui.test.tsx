@@ -39,6 +39,18 @@ describe("CourseMainPicker", () => {
     expect(toastSuccess).toHaveBeenCalled();
   });
 
+  it("says the main page was turned off when changing the course of a main page", async () => {
+    render(<CourseMainPicker pageId="p1" courses={courses} courseId="c1" isMainPage={true} />);
+    fireEvent.change(screen.getByLabelText("Course"), { target: { value: "c2" } });
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Course saved. Main page turned off for the new course."));
+  });
+
+  it("keeps the plain toast when the course changes on a non-main page", async () => {
+    render(<CourseMainPicker pageId="p1" courses={courses} courseId="c1" isMainPage={false} />);
+    fireEvent.change(screen.getByLabelText("Course"), { target: { value: "c2" } });
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Course saved."));
+  });
+
   it("posts isMain true when the box is ticked", async () => {
     render(<CourseMainPicker pageId="p1" courses={courses} courseId="c1" isMainPage={false} />);
     fireEvent.click(screen.getByLabelText(/Main page for this course/));
