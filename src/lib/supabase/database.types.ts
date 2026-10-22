@@ -3326,6 +3326,66 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_countries: {
+        Row: {
+          active: boolean
+          created_at: string
+          name: string
+          region_key: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          name: string
+          region_key: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          name?: string
+          region_key?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_country_accounts: {
+        Row: {
+          account_key: string
+          region_key: string
+          sort: number
+        }
+        Insert: {
+          account_key: string
+          region_key: string
+          sort?: number
+        }
+        Update: {
+          account_key?: string
+          region_key?: string
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_country_accounts_account_key_fkey"
+            columns: ["account_key"]
+            isOneToOne: false
+            referencedRelation: "payment_accounts"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "payment_country_accounts_region_key_fkey"
+            columns: ["region_key"]
+            isOneToOne: false
+            referencedRelation: "payment_countries"
+            referencedColumns: ["region_key"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
