@@ -44,6 +44,7 @@ export const W20_DIABETES: LandingContent = {
     registerLabel: "Register now",
     whatsappNumber: "923155614490",
     countdownTo: "",
+    batchStartsOn: "",
     countdownLabel: "",
   },
   seo: {

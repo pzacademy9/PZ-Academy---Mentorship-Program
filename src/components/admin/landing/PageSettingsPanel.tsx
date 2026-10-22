@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { MessageCircle, MousePointerClick, Share2, Timer } from "lucide-react";
+import { CalendarDays, MessageCircle, MousePointerClick, Share2, Timer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { LandingSeo, LandingSettings } from "@/lib/landing/content";
@@ -77,6 +77,7 @@ export function PageSettingsPanel({
   children?: React.ReactNode;
 }) {
   const countdownId = useId();
+  const batchStartId = useId();
   const cardTitle = seo.title || pageTitle || "";
   return (
     <div className="space-y-5">
@@ -120,6 +121,20 @@ export function PageSettingsPanel({
             type="datetime-local"
             value={isoToPkt(settings.countdownTo)}
             onChange={(e) => onSettings({ countdownTo: pktToIso(e.target.value) })}
+            className="h-auto w-full rounded-md border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2 font-body text-sm text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11 max-md:text-base"
+          />
+        </div>
+      </Card>
+
+      <Card icon={CalendarDays} title="Batch start date (shown on the website)">
+        <div className="space-y-1.5">
+          <label htmlFor={batchStartId} className="font-body text-sm font-semibold text-pz-on-surface">Batch starts (Pakistan time)</label>
+          <p className="font-body text-xs text-pz-on-surface-variant">Optional. The website shows &quot;starts &lt;date&gt;&quot; for this course while the page is open. Clear it to hide the date.</p>
+          <Input
+            id={batchStartId}
+            type="datetime-local"
+            value={isoToPkt(settings.batchStartsOn)}
+            onChange={(e) => onSettings({ batchStartsOn: pktToIso(e.target.value) })}
             className="h-auto w-full rounded-md border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2 font-body text-sm text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11 max-md:text-base"
           />
         </div>

@@ -22,6 +22,8 @@ export interface LandingSettings {
   whatsappNumber: string;
   countdownTo: string;
   countdownLabel: string;
+  /** ISO instant the batch starts, or "". Shown on the public website as "starts <date>". */
+  batchStartsOn: string;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -50,7 +52,7 @@ export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
 };
 
 const DEFAULT_SETTINGS: LandingSettings = {
-  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "",
+  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "",
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
@@ -72,6 +74,7 @@ export const contentSchema = z
       whatsappNumber: z.string().max(30),
       countdownTo: z.string().max(40),
       countdownLabel: z.string().max(80),
+      batchStartsOn: z.string().max(40).optional(),
     }),
     seo: z.object({
       title: z.string().max(120),
@@ -130,6 +133,7 @@ export function normalizeContent(raw: unknown): LandingContent {
     whatsappNumber: str(s.whatsappNumber, "", 30),
     countdownTo: str(s.countdownTo, "", 40),
     countdownLabel: str(s.countdownLabel, "", 80),
+    batchStartsOn: str(s.batchStartsOn, "", 40),
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),

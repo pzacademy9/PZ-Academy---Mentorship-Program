@@ -166,6 +166,21 @@ describe("contentSchema rejects bad input", () => {
   it("rejects an unsafe register link", () => {
     expect(contentSchema.safeParse(updateSettings(ok(), { registerUrl: "javascript:x" })).success).toBe(false);
   });
+  it("rejects a batchStartsOn over 40 characters", () => {
+    expect(contentSchema.safeParse(updateSettings(ok(), { batchStartsOn: "x".repeat(41) })).success).toBe(false);
+    expect(contentSchema.safeParse(updateSettings(ok(), { batchStartsOn: "2026-10-30T14:30:00.000Z" })).success).toBe(true);
+  });
+});
+
+describe("batchStartsOn setting", () => {
+  it("is kept when valid", () => {
+    const c = normalizeContent({ settings: { batchStartsOn: "2026-10-30T14:30:00.000Z" } });
+    expect(c.settings.batchStartsOn).toBe("2026-10-30T14:30:00.000Z");
+  });
+  it("defaults to empty for old saved pages", () => {
+    expect(normalizeContent({ settings: { registerLabel: "Go" } }).settings.batchStartsOn).toBe("");
+    expect(emptyContent("course").settings.batchStartsOn).toBe("");
+  });
 });
 
 import { clearReview } from "@/lib/landing/content";
