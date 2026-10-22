@@ -36,7 +36,7 @@ const draft = {
 };
 const page = {
   id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-  draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+  draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", courseId: null, isMainPage: false,
 };
 const mkVariant = (overrides: VariantOverrides = { sections: {} }, enabled = true): LandingVariant => ({
   id: "v1", pageId: "p1", ref: { regionKey: null, moduleKey: "module-2" }, enabled,

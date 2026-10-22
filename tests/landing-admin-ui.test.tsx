@@ -15,10 +15,10 @@ import { NewPageDialog } from "@/components/admin/landing/NewPageDialog";
 import { DuplicatePageDialog } from "@/components/admin/landing/DuplicatePageDialog";
 
 const pages = [
-  { id: "a", slug: "ppc-b3", kind: "course" as const, title: "PPC Batch 3", status: "published" as const, revision: 3, publishedAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: true },
-  { id: "b", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const, revision: 1, publishedAt: null, updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: true },
+  { id: "a", slug: "ppc-b3", kind: "course" as const, title: "PPC Batch 3", status: "published" as const, revision: 3, publishedAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: true, courseId: null, isMainPage: false },
+  { id: "b", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const, revision: 1, publishedAt: null, updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: true, courseId: null, isMainPage: false },
 ];
-const closedPage = { id: "c", slug: "mdc-b2", kind: "workshop" as const, title: "MDC Batch 2", status: "closed" as const, revision: 2, publishedAt: "2026-09-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: false };
+const closedPage = { id: "c", slug: "mdc-b2", kind: "workshop" as const, title: "MDC Batch 2", status: "closed" as const, revision: 2, publishedAt: "2026-09-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: false, courseId: null, isMainPage: false };
 
 beforeEach(() => { push.mockReset(); refresh.mockReset(); toastError.mockReset(); confirmFn.mockReset(); confirmFn.mockResolvedValue(true); vi.stubGlobal("fetch", vi.fn()); });
 
@@ -480,7 +480,7 @@ describe("LandingEditor", () => {
   const draft = emptyContent("webinar");
   const page = {
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-    draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+    draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",  courseId: null, isMainPage: false,
   };
   beforeEach(() => { autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); refresh.mockReset(); });
 
@@ -609,7 +609,7 @@ describe("LandingEditor fix round 1", () => {
   const draft = emptyContent("webinar");
   const page = {
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-    draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+    draft, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",  courseId: null, isMainPage: false,
   };
   beforeEach(() => {
     autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); refresh.mockReset();
@@ -797,7 +797,7 @@ describe("LandingEditor publish and versions", () => {
   complete = updateSeoT11(complete, { description: "A one hour webinar." });
   const mk = (over: Partial<Parameters<typeof LandingEditor>[0]["page"]> = {}) => ({
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", courseId: null, isMainPage: false, ...over,
   });
   const publishBtn = () => screen.getByRole("button", { name: /^(publish|published)$/i }) as HTMLButtonElement;
   const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -921,7 +921,7 @@ describe("LandingEditor fix round (closed, remount, conflict)", () => {
   complete = updateSeoT11(complete, { description: "A one hour webinar." });
   const mk = (over: Record<string, unknown> = {}) => ({
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", courseId: null, isMainPage: false, ...over,
   }) as Parameters<typeof LandingEditor>[0]["page"];
   const publishBtn = () => screen.getByRole("button", { name: /^(publish|published)$/i }) as HTMLButtonElement;
   const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -1010,7 +1010,7 @@ describe("Editor polish (L3)", () => {
   complete = updateSeoT11(complete, { description: "A one hour webinar." });
   const mk = (over: Record<string, unknown> = {}) => ({
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+    draft: complete, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", courseId: null, isMainPage: false, ...over,
   }) as Parameters<typeof LandingEditor>[0]["page"];
   const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
   beforeEach(() => {
@@ -1139,7 +1139,7 @@ describe("Template review flags (L5)", () => {
   const flagged = { ...base, needsReview: [`${base.sections[0].id}:dateLine`] };
   const mk = () => ({
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "draft" as const,
-    draft: flagged, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",
+    draft: flagged, published: null, revision: 4, publishedAt: null, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z",  courseId: null, isMainPage: false,
   }) as Parameters<typeof LandingEditor>[0]["page"];
   beforeEach(() => { autosave.state = "saved"; autosave.schedule.mockReset(); autosave.saveNow.mockReset(); });
 
@@ -1180,7 +1180,7 @@ describe("Single-actor repro (L6)", () => {
   const restored = updateSectionData(complete, complete.sections[0].id, { headline: "Restored headline" });
   const mk = (over: Record<string, unknown> = {}) => ({
     id: "p1", slug: "w21", kind: "webinar" as const, title: "Webinar 21", status: "published" as const,
-    draft: complete, published: complete, revision: 4, publishedAt: "2026-10-01T00:00:00Z", createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", ...over,
+    draft: complete, published: complete, revision: 4, publishedAt: "2026-10-01T00:00:00Z", createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-02T00:00:00Z", courseId: null, isMainPage: false, ...over,
   }) as Parameters<typeof LandingEditor>[0]["page"];
   const versions = [{ version: 1, createdAt: "2026-10-01T10:00:00Z" }];
   const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });

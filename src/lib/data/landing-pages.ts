@@ -13,17 +13,19 @@ import {
 // COLUMNS selects only the page columns; the Phase 2 registration columns (0069) are not read here.
 type Row = Omit<
   Database["public"]["Tables"]["landing_pages"]["Row"],
-  "course_id" | "sheet_id" | "drive_folder_id" | "ref_prefix" | "sheet_sync_state" | "sheet_last_scanned_at" | "sheet_sync_waiting" | "is_main_page"
+  "sheet_id" | "drive_folder_id" | "ref_prefix" | "sheet_sync_state" | "sheet_last_scanned_at" | "sheet_sync_waiting"
 >;
 
 export interface LandingPage {
   id: string; slug: string; kind: PageKind; title: string; status: PageStatus;
   draft: LandingContent; published: LandingContent | null; revision: number;
   publishedAt: string | null; createdAt: string; updatedAt: string;
+  courseId: string | null; isMainPage: boolean;
 }
 export interface LandingPageSummary {
   id: string; slug: string; kind: PageKind; title: string; status: PageStatus; revision: number;
   publishedAt: string | null; updatedAt: string; hasUnpublishedChanges: boolean;
+  courseId: string | null; isMainPage: boolean;
 }
 export interface LandingVersion { version: number; createdAt: string }
 
@@ -36,13 +38,14 @@ export type PublishResult =
 export type SimpleResult = { ok: true } | { ok: false; reason: "not-found" | "not-published" | "db-error" };
 
 const UNIQUE_VIOLATION = "23505";
-const COLUMNS = "id, slug, kind, title, status, draft, published, revision, published_at, created_by, created_at, updated_at";
+const COLUMNS = "id, slug, kind, title, status, draft, published, revision, published_at, created_by, created_at, updated_at, course_id, is_main_page";
 
 function mapRow(r: Row): LandingPage {
   return {
     id: r.id, slug: r.slug, kind: r.kind as PageKind, title: r.title, status: r.status as PageStatus,
     draft: normalizeContent(r.draft), published: r.published ? normalizeContent(r.published) : null,
     revision: r.revision, publishedAt: r.published_at, createdAt: r.created_at, updatedAt: r.updated_at,
+    courseId: r.course_id, isMainPage: r.is_main_page,
   };
 }
 
@@ -57,6 +60,7 @@ export async function listLandingPages(): Promise<LandingPageSummary[]> {
       id: p.id, slug: p.slug, kind: p.kind, title: p.title, status: p.status, revision: p.revision,
       publishedAt: p.publishedAt, updatedAt: p.updatedAt,
       hasUnpublishedChanges: hasUnpublishedChanges(p.draft, p.published),
+      courseId: p.courseId, isMainPage: p.isMainPage,
     };
   });
 }
@@ -246,6 +250,42 @@ export async function renameLandingPage(id: string, title: string): Promise<Simp
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
   revalidateLandingSlug(data.slug);
+  revalidatePath("/dashboard/admin/landing-pages");
+  return { ok: true };
+}
+
+export type SetCourseResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "no-course" | "no-live" | "course-missing" | "error" };
+
+/**
+ * Assigns (or clears) a page's course and its main-page flag through landing_set_main_page (0084), which
+ * enforces one main page per course atomically. A concurrent set-main that loses the race raises a unique
+ * violation (23505); it is reported as "error" so the caller can ask the admin to retry.
+ */
+export async function setPageCourse(pageId: string, courseId: string | null, isMain: boolean): Promise<SetCourseResult> {
+  if (isMain && !courseId) return { ok: false, reason: "no-course" };
+  const admin = createAdminSupabase();
+  if (isMain) {
+    const { data, error } = await admin.from("landing_pages").select(COLUMNS).eq("id", pageId).maybeSingle();
+    if (error) return { ok: false, reason: "error" };
+    if (!data) return { ok: false, reason: "not-found" };
+    const p = mapRow(data);
+    const modes = (p.published ?? p.draft).registration.modes;
+    if (!modes.includes("live")) return { ok: false, reason: "no-live" };
+  }
+  if (courseId) {
+    const { data, error } = await admin.from("courses").select("id").eq("id", courseId).maybeSingle();
+    if (error) return { ok: false, reason: "error" };
+    if (!data) return { ok: false, reason: "course-missing" };
+  }
+  const { error } = await admin.rpc("landing_set_main_page", { p_page_id: pageId, p_course_id: courseId, p_main: isMain } as never);
+  if (error) {
+    const m = error.message ?? "";
+    if (m.includes("page_not_found")) return { ok: false, reason: "not-found" };
+    if (m.includes("main_needs_course")) return { ok: false, reason: "no-course" };
+    return { ok: false, reason: "error" };
+  }
   revalidatePath("/dashboard/admin/landing-pages");
   return { ok: true };
 }
