@@ -74,10 +74,12 @@ const SAVE_DOT: Record<SaveState, string> = {
  * full browser reload.
  */
 export function LandingEditor({
-  page, versions, centralRegionKeys = [], sheetId = null, variants = [], courseModules = null, courses = [],
+  page, versions, centralRegionKeys = [], sheetId = null, variants = [], courseModules = null, courseModulesFailed = false, courses = [],
 }: {
   /** Courses a page can be tied to. null = the list failed to load; the picker is hidden. */
   courses?: { id: string; title: string }[] | null;
+  /** The course modules read failed; keep the saved module ids as they are. */
+  courseModulesFailed?: boolean;
   page: LandingPage; versions: LandingVersion[]; /** Region keys that already have a central payment account list. */
   centralRegionKeys?: string[]; sheetId?: string | null;
   /** The page's country / module links. */
@@ -104,7 +106,7 @@ export function LandingEditor({
   return (
     <>
       <PhoneNotice />
-      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheetId} variants={variants} courseModules={courseModules} courses={courses} onRevision={onRevision} onRestored={onRestored} />
+      <EditorShell key={`${page.id}:${epoch}`} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheetId} variants={variants} courseModules={courseModules} courseModulesFailed={courseModulesFailed} courses={courses} onRevision={onRevision} onRestored={onRestored} />
     </>
   );
 }
@@ -132,9 +134,9 @@ function PhoneNotice() {
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function EditorShell({
-  page, versions, centralRegionKeys, sheetId, variants, courseModules, courses, onRevision, onRestored,
+  page, versions, centralRegionKeys, sheetId, variants, courseModules, courseModulesFailed, courses, onRevision, onRestored,
 }: {
-  courses: { id: string; title: string }[] | null;
+  courses: { id: string; title: string }[] | null; courseModulesFailed: boolean;
   page: LandingPage; versions: LandingVersion[]; centralRegionKeys: string[]; sheetId: string | null;
   variants: LandingVariant[]; courseModules: CourseModule[] | null; onRevision: (rev: number) => void; onRestored: () => void;
 }) {
@@ -186,12 +188,12 @@ function EditorShell({
   // are not in the new course; every later save would be refused. Re-prune and save the result.
   const seenModules = useRef(courseModules);
   useEffect(() => {
-    if (seenModules.current === courseModules) return;
+    if (courseModulesFailed || seenModules.current === courseModules) return;
     seenModules.current = courseModules;
     const cur = contentRef.current;
     const registration = pruneModuleIds(cur.registration, courseModules?.map((m) => m.id) ?? []);
     if (registration !== cur.registration) apply({ ...cur, registration });
-  }, [courseModules, apply]);
+  }, [courseModules, courseModulesFailed, apply]);
 
   const stateRef = useRef(state);
   stateRef.current = state;

@@ -545,6 +545,20 @@ describe("LandingEditor", () => {
     rerender(<LandingEditor page={withReg} versions={[]} courseModules={null} />);
     expect(autosave.schedule.mock.calls.at(-1)![0].registration.options[0].moduleIds).toEqual([]);
   });
+  it("does not prune when the course modules read failed, and prunes against the next good read", async () => {
+    const { ppcConfig } = await import("./fixtures/registration-fixtures");
+    const { updateRegistration } = await import("@/lib/landing/content");
+    const A = "11111111-1111-4111-8111-111111111111";
+    const B = "22222222-2222-4222-8222-222222222222";
+    const reg = { ...ppcConfig, options: ppcConfig.options.map((o, i) => (i === 0 ? { ...o, moduleIds: [A, B] } : o)) };
+    const withReg = { ...page, draft: updateRegistration(page.draft, reg) };
+    const mods = (...ids: string[]) => ids.map((id, i) => ({ id, title: `M${id[0]}`, order_index: i + 1 }));
+    const { rerender } = render(<LandingEditor page={withReg} versions={[]} courseModules={mods(A, B)} />);
+    rerender(<LandingEditor page={withReg} versions={[]} courseModules={null} courseModulesFailed />);
+    expect(autosave.schedule).not.toHaveBeenCalled();
+    rerender(<LandingEditor page={withReg} versions={[]} courseModules={mods(B)} />);
+    expect(autosave.schedule.mock.calls.at(-1)![0].registration.options[0].moduleIds).toEqual([B]);
+  });
   it("a registration problem's Fix button opens Page settings at that registration step", async () => {
     const { ppcConfig } = await import("./fixtures/registration-fixtures");
     const { updateRegistration } = await import("@/lib/landing/content");
