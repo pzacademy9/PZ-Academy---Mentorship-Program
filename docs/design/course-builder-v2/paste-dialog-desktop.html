@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Montserrat:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-surface": "#191c1d", "tertiary-fixed-dim": "#a5d0bb", "on-primary-container": "#97f0c4", "on-secondary-fixed": "#00210e", "surface-container": "#edeeef", "tertiary-fixed": "#c1ecd7", "inverse-surface": "#2e3132", "inverse-primary": "#80d8ad", "secondary-container": "#b8f0c5", "on-tertiary-fixed": "#002115", "secondary": "#366847", "on-primary-fixed": "#002114", "on-primary-fixed-variant": "#005237", "on-tertiary-container": "#bde8d3", "surface-container-highest": "#e1e3e4", "on-error": "#ffffff", "on-tertiary": "#ffffff", "surface-tint": "#006c4a", "on-error-container": "#93000a", "tertiary-container": "#436a59", "surface-container-lowest": "#ffffff", "inverse-on-surface": "#f0f1f2", "primary-container": "#04704d", "error": "#ba1a1a", "surface": "#f8f9fa", "primary-fixed-dim": "#80d8ad", "on-tertiary-fixed-variant": "#274e3e", "secondary-fixed-dim": "#9dd3aa", "primary": "#005539", "error-container": "#ffdad6", "on-background": "#191c1d", "surface-container-high": "#e7e8e9", "surface-bright": "#f8f9fa", "surface-container-low": "#f3f4f5", "on-secondary-fixed-variant": "#1d5031", "tertiary": "#2b5242", "background": "#f8f9fa", "on-secondary": "#ffffff", "primary-fixed": "#9cf5c8", "secondary-fixed": "#b8f0c5", "on-surface-variant": "#3f4943", "on-secondary-container": "#3d6f4d", "outline": "#6f7a72", "outline-variant": "#bec9c1", "surface-dim": "#d9dadb", "on-primary": "#ffffff", "surface-variant": "#e1e3e4" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-xl": "2rem", "margin-desktop": "2rem", "gutter": "1rem", "gutter-desktop": "1.5rem", "space-lg": "1.5rem", "margin": "1rem", "space-sm": "0.5rem", "space-md": "1rem", "space-xs": "0.25rem" }, "fontFamily": { "body-lg": ["Inter"], "label-md": ["Inter"], "headline-lg": ["Montserrat"], "body-sm": ["Inter"], "label-lg": ["Inter"], "headline-sm": ["Montserrat"], "headline-md": ["Montserrat"], "body-md": ["Inter"], "headline-lg-mobile": ["Montserrat"], "title-md": ["Montserrat"], "label-sm": ["Inter"] }, "fontSize": { "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}], "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}], "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}], "body-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400"}], "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}], "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "600"}], "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}], "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400"}], "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}], "title-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.005em", "fontWeight": "600"}], "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.03em", "fontWeight": "600"}] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-30 flex flex-col justify-between py-space-lg px-space-md"><div class="flex flex-col gap-space-lg"><div class="flex items-center gap-space-sm px-space-sm"><div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-[20px]">school</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary tracking-tight leading-none">PZ Academy</span><span class="font-label-sm text-label-sm text-on-surface-variant">Admin Console</span></div></div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-secondary-container text-on-secondary-container font-semibold rounded-lg"><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-space-sm transition-colors bg-secondary-container text-on-secondary-container font-semibold rounded-lg" data-path="course-builder" href="#"><span class="material-symbols-outlined text-[20px]">architecture</span><span>Course Builder</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="curriculum-modules" href="#"><span class="material-symbols-outlined text-[20px]">menu_book</span><span>Modules &amp; Units</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="assessment-manager" href="#"><span class="material-symbols-outlined text-[20px]">assignment_turned_in</span><span>Assessments</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="course-settings" href="#"><span class="material-symbols-outlined text-[20px]">tune</span><span>Course Settings</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="publishing-registry" href="#"><span class="material-symbols-outlined text-[20px]">published_with_changes</span><span>Publishing</span></a></nav></div><div class="flex flex-col gap-space-sm px-space-sm"><div class="p-space-sm rounded-xl bg-surface-container flex items-center gap-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex flex-col min-w-0 flex-1"><span class="font-label-md text-label-md text-on-surface truncate">Registrar Office</span><span class="font-label-sm text-label-sm text-on-surface-variant truncate">Curriculum Admin</span></div></div></div></aside><div class="pl-64 flex flex-col min-h-screen"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-20 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm"><span class="material-symbols-outlined text-[16px]">corporate_fare</span><span>Faculty of Clinical Science</span><span class="material-symbols-outlined text-[14px]">chevron_right</span><span class="text-on-surface font-semibold">Course Builder</span></div></div><div class="flex items-center gap-space-md"><button class="w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span></button><button class="w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">help_outline</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="w-full pt-16 bg-surface"><div class="flex flex-col w-full">
+<!-- Interactive Modal Wrapper simulating open state over workspace -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-margin sm:p-space-lg bg-slate-900/45 backdrop-blur-sm" id="paste-questions-modal-backdrop">
+<div class="relative w-full max-w-[840px] max-h-[942px] flex flex-col rounded-xl bg-surface-container-lowest shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_10px_24px_-3px_rgba(4,112,77,0.08)] overflow-hidden transition-all duration-200">
+<!-- 1. Modal Dialog Header -->
+<div class="flex items-start justify-between px-space-lg pt-space-lg pb-space-md bg-surface-container-lowest">
+<div class="flex flex-col gap-space-xs pr-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-tertiary uppercase tracking-wider font-semibold">Assessment Authoring</span>
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="font-label-sm text-label-sm text-secondary flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+              Clinical Parser v2.4
+            </span>
+</div>
+<h2 class="font-headline-md text-headline-md text-primary font-semibold tracking-tight">Paste many questions</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-xl">
+            Paste quiz questions directly from your syllabus, clinical handbook, or lecture notes. Formatting and answer keys are verified immediately.
+          </p>
+</div>
+<button aria-label="Close dialog" class="w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" onclick="document.getElementById('paste-questions-modal-backdrop').classList.add('hidden')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Scrollable Main Content -->
+<div class="flex-1 overflow-y-auto px-space-lg py-space-sm flex flex-col gap-space-lg bg-surface-container-lowest">
+<!-- 2. Upper Section: Text Input Area -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-label-lg text-label-lg text-on-surface flex items-center gap-space-xs" for="bulk-questions-input">
+<span>Paste questions here</span>
+<span class="text-error font-body-sm text-body-sm">*</span>
+</label>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span>Auto-detecting formatting</span>
+</div>
+</div>
+<div class="relative group">
+<textarea class="w-full rounded-xl bg-surface-container-low px-space-md py-space-md font-body-sm text-body-sm text-on-surface focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary shadow-inner resize-y transition-all leading-relaxed font-mono selection:bg-secondary-container" id="bulk-questions-input" placeholder="Paste formatted questions here..." rows="9" spellcheck="false">1. What is the primary mechanism of action of beta-lactam antibiotics?
+A) Inhibition of ribosomal protein synthesis
+B) Inhibition of cell wall synthesis via transpeptidase binding
+C) Disruption of bacterial DNA gyrase
+D) Alteration of cytoplasmic membrane permeability
+Answer: B
+
+2. Which pharmacokinetic parameter determines the time required to reach steady state?
+A) Volume of distribution (Vd)
+B) Clearance (Cl)
+C) Elimination half-life (t1/2)
+D) Bioavailability (F)
+Answer: C
+
+3. In renal impairment, dosage adjustment is most critically required for drugs with:
+A) Narrow therapeutic index and high renal excretion (&gt;60%)
+B) Extensive hepatic CYP metabolism
+C) High plasma protein binding (&gt;95%)
+D) Large volume of distribution (&gt;5 L/kg)
+Answer: A
+
+4. A loading dose is primarily calculated based on which pharmacokinetic parameter?
+A) Target concentration and clearance
+B) Target concentration and volume of distribution
+C) Half-life and area under the curve
+D) Bioavailability and glomerular filtration rate
+Answer: B
+
+5. Which of the following is considered a first-line treatment for uncomplicated acute cystitis?
+A) Nitrofurantoin
+B) Ciprofloxacin
+C) Doxycycline
+D) Amoxicillin monotherapy
+Answer: 
+
+6. Which adverse drug event is most characteristically associated with aminoglycoside toxicity?
+A) Hepatotoxicity and pancreatitis
+B) Ototoxicity and nephrotoxicity
+C) Peripheral neuropathy and tendon rupture
+D) Bone marrow suppression and aplastic anemia
+Answer: B
+
+7. What is the therapeutic international normalized ratio (INR) target range for standard warfarin therapy in DVT?
+A) 1.5 - 2.0
+B) 2.0 - 3.0
+C) 2.5 - 3.5
+D) 3.0 - 4.0
+Answer: B
+
+8. Which enzyme is responsible for the phase I metabolic oxidation of majority of clinical drugs?
+A) Cytochrome P450 (CYP3A4)
+B) UDP-glucuronosyltransferase
+C) Glutathione S-transferase
+D) Monoamine oxidase (MAO)
+Answer: A</textarea>
+</div>
+<!-- Format Guidance Bar -->
+<div class="flex items-start gap-space-xs px-space-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-tertiary shrink-0 mt-0.5">info</span>
+<p class="font-label-sm text-label-sm">
+<strong class="font-semibold text-on-surface">Format rules:</strong> Question prompt on line 1, choices prefixed with A), B), C), D), and key on its own line as <code class="px-1 py-0.5 rounded bg-surface-container text-primary font-mono text-[10px]">Answer: [Letter]</code>. Separate items with a blank line.
+            </p>
+</div>
+</div>
+<!-- 4. Problem Validation Alert Box (Prompt item 4) -->
+<div class="p-space-md rounded-xl bg-error-container text-on-error-container flex flex-col gap-space-xs shadow-sm transition-all" id="validation-alert">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-error font-semibold">
+<span class="material-symbols-outlined text-[20px]">report_problem</span>
+<span class="font-label-lg text-label-lg">1 issue must be fixed before adding questions</span>
+</div>
+<button class="px-2.5 py-1 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error font-label-sm text-label-sm transition-colors flex items-center gap-1 shadow-sm" id="fix-now-btn" onclick="simulateQuickFix()" type="button">
+<span class="material-symbols-outlined text-[14px]">build</span>
+<span>Auto-fix Answer: A</span>
+</button>
+</div>
+<ul class="list-none pl-6 text-on-surface font-body-sm text-body-sm flex flex-col gap-1">
+<li class="flex items-start gap-1.5">
+<span class="text-error font-bold leading-none mt-1">•</span>
+<span>
+<strong class="text-error font-semibold">Question 5:</strong> No correct answer marked. Add <code class="px-1 py-0.5 rounded bg-surface-container-lowest font-mono text-[11px] font-semibold text-on-surface">Answer: A</code>, <code class="px-1 py-0.5 rounded bg-surface-container-lowest font-mono text-[11px] font-semibold text-on-surface">Answer: B</code>, etc. at the end of the question block.
+              </span>
+</li>
+</ul>
+<div class="flex items-center gap-1.5 pt-1 pl-6 font-label-sm text-label-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">sync</span>
+<span>Fix the problem in the text box above and this warning will clear automatically.</span>
+</div>
+</div>
+<!-- 3. Live Preview Section -->
+<div class="flex flex-col gap-space-md">
+<!-- Section Header and Metrics -->
+<div class="flex flex-wrap items-center justify-between gap-space-sm pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<h3 class="font-title-md text-title-md text-on-surface font-semibold flex items-center gap-space-xs">
+<span>Live Preview</span>
+<span class="text-on-surface-variant font-normal text-body-sm">· 8 questions detected</span>
+</h3>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-1" id="badge-valid-count">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span>7 valid</span>
+</span>
+<span class="px-2.5 py-0.5 rounded-full bg-error-container text-error font-label-sm text-label-sm flex items-center gap-1 font-semibold" id="badge-invalid-count">
+<span class="material-symbols-outlined text-[14px]">error</span>
+<span>1 needs attention</span>
+</span>
+</div>
+</div>
+<!-- Cards Grid (2 columns on desktop) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<!-- Question 1 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q1</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: B
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                What is the primary mechanism of action of beta-lactam antibiotics?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">A) Inhibition of ribosomal protein synthesis</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>B) Inhibition of cell wall synthesis via transpeptidase binding</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">C) Disruption of bacterial DNA gyrase</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) Alteration of cytoplasmic membrane permeability</div>
+</div>
+</div>
+<!-- Question 2 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q2</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: C
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                Which pharmacokinetic parameter determines the time required to reach steady state?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">A) Volume of distribution (Vd)</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">B) Clearance (Cl)</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>C) Elimination half-life (t1/2)</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) Bioavailability (F)</div>
+</div>
+</div>
+<!-- Question 3 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q3</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: A
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                In renal impairment, dosage adjustment is most critically required for drugs with:
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>A) Narrow therapeutic index and high renal excretion (&gt;60%)</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">B) Extensive hepatic CYP metabolism</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">C) High plasma protein binding (&gt;95%)</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) Large volume of distribution (&gt;5 L/kg)</div>
+</div>
+</div>
+<!-- Question 4 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q4</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: B
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                A loading dose is primarily calculated based on which pharmacokinetic parameter?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">A) Target concentration and clearance</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>B) Target concentration and volume of distribution</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">C) Half-life and area under the curve</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) Bioavailability and glomerular filtration rate</div>
+</div>
+</div>
+<!-- Question 5 Card: Flagged with Problem (Prompt item 3 & 4) -->
+<div class="p-space-md rounded-xl bg-error-container text-on-error-container flex flex-col gap-space-sm shadow-md transition-all" id="card-q5">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-error text-on-error font-label-sm text-label-sm font-semibold">Q5</span>
+<span class="px-2.5 py-0.5 rounded-full bg-error text-on-error font-label-sm text-label-sm flex items-center gap-1 font-semibold animate-bounce" id="badge-q5-status">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                  Missing correct answer
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-semibold leading-snug">
+                Which of the following is considered a first-line treatment for uncomplicated acute cystitis?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm" id="q5-options">
+<div class="px-2.5 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-between" id="opt-q5-a">
+<span>A) Nitrofurantoin</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Not marked</span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-between">
+<span>B) Ciprofloxacin</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Not marked</span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-between">
+<span>C) Doxycycline</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Not marked</span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-between">
+<span>D) Amoxicillin monotherapy</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Not marked</span>
+</div>
+</div>
+<!-- Problem warning inside card -->
+<div class="mt-1 p-2 rounded-lg bg-surface-container-lowest text-error flex items-center gap-2" id="banner-q5">
+<span class="material-symbols-outlined text-[16px] text-error shrink-0">error_outline</span>
+<span class="font-label-sm text-label-sm">Set the answer letter in the box above to resolve this card.</span>
+</div>
+</div>
+<!-- Question 6 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q6</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: B
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                Which adverse drug event is most characteristically associated with aminoglycoside toxicity?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">A) Hepatotoxicity and pancreatitis</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>B) Ototoxicity and nephrotoxicity</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">C) Peripheral neuropathy and tendon rupture</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) Bone marrow suppression and aplastic anemia</div>
+</div>
+</div>
+<!-- Question 7 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q7</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: B
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                What is the therapeutic international normalized ratio (INR) target range for standard warfarin therapy in DVT?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">A) 1.5 - 2.0</div>
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>B) 2.0 - 3.0</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">C) 2.5 - 3.5</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) 3.0 - 4.0</div>
+</div>
+</div>
+<!-- Question 8 Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container">
+<div class="flex items-start justify-between gap-space-xs">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-semibold">Q8</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done</span> Key: A
+                </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-snug">
+                Which enzyme is responsible for the phase I metabolic oxidation of majority of clinical drugs?
+              </p>
+<div class="flex flex-col gap-1 text-body-sm text-body-sm">
+<div class="px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm">
+<span>A) Cytochrome P450 (CYP3A4)</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Correct
+                  </span>
+</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">B) UDP-glucuronosyltransferase</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">C) Glutathione S-transferase</div>
+<div class="px-2.5 py-1.5 rounded-lg text-on-surface-variant bg-surface-container-lowest">D) Monoamine oxidase (MAO)</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 5. Modal Action Footer -->
+<div class="flex items-center justify-between px-space-lg py-space-md bg-surface-container-low">
+<!-- Status Indicator Left -->
+<div class="flex items-center gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-error" id="footer-status-icon"></div>
+<span class="font-label-lg text-label-lg text-on-surface font-medium" id="footer-summary-text">
+            8 questions found <span class="text-error font-semibold">(1 error)</span>
+</span>
+<span class="hidden sm:inline-block text-outline-variant">|</span>
+<button class="hidden sm:flex items-center gap-1 text-primary hover:underline font-label-sm text-label-sm" onclick="toggleDemoValidation()" type="button">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+<span id="toggle-demo-label">Toggle valid simulation</span>
+</button>
+</div>
+<!-- Buttons Right -->
+<div class="flex items-center gap-space-sm">
+<button class="h-10 px-5 rounded-lg bg-transparent text-primary font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" onclick="document.getElementById('paste-questions-modal-backdrop').classList.add('hidden')" type="button">
+            Cancel
+          </button>
+<!-- Primary Add Button (Disabled State by default due to 1 error) -->
+<div class="relative group">
+<button class="h-10 px-6 rounded-lg bg-primary-container text-on-primary font-label-lg text-label-lg opacity-50 cursor-not-allowed shadow-none flex items-center gap-2 transition-all" disabled="" id="submit-questions-btn" title="Disabled until all errors are resolved" type="button">
+<span class="material-symbols-outlined text-[18px]">playlist_add_check</span>
+<span>Add 8 questions</span>
+</button>
+<div class="absolute bottom-full right-0 mb-2 hidden group-hover:block whitespace-nowrap bg-inverse-surface text-inverse-on-surface text-label-sm font-label-sm py-1 px-3 rounded shadow-md pointer-events-none" id="btn-tooltip">
+              Disabled until all errors are resolved
+            </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+    let isResolved = false;
+
+    function simulateQuickFix() {
+      const textarea = document.getElementById('bulk-questions-input');
+      if (textarea) {
+        textarea.value = textarea.value.replace('Answer: \n\n6.', 'Answer: A\n\n6.');
+      }
+      applyResolvedState();
+    }
+
+    function toggleDemoValidation() {
+      if (isResolved) {
+        applyErrorState();
+      } else {
+        applyResolvedState();
+      }
+    }
+
+    function applyResolvedState() {
+      isResolved = true;
+
+      // Hide validation alert
+      const alertBox = document.getElementById('validation-alert');
+      if (alertBox) {
+        alertBox.classList.add('hidden');
+      }
+
+      // Update badges
+      const validBadge = document.getElementById('badge-valid-count');
+      const invalidBadge = document.getElementById('badge-invalid-count');
+      if (validBadge) validBadge.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span><span>8 valid</span>';
+      if (invalidBadge) invalidBadge.classList.add('hidden');
+
+      // Update Card 5 UI
+      const cardQ5 = document.getElementById('card-q5');
+      if (cardQ5) {
+        cardQ5.className = 'p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-sm transition-all hover:bg-surface-container';
+      }
+      const q5Badge = document.getElementById('badge-q5-status');
+      if (q5Badge) {
+        q5Badge.className = 'px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex items-center gap-0.5';
+        q5Badge.innerHTML = '<span class="material-symbols-outlined text-[13px]">done</span> Key: A';
+      }
+      const optQ5A = document.getElementById('opt-q5-a');
+      if (optQ5A) {
+        optQ5A.className = 'px-2.5 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold flex items-center justify-between shadow-sm';
+        optQ5A.innerHTML = '<span>A) Nitrofurantoin</span><span class="flex items-center gap-1 font-label-sm text-label-sm text-primary shrink-0"><span class="material-symbols-outlined text-[16px]">check_circle</span> Correct</span>';
+      }
+      const bannerQ5 = document.getElementById('banner-q5');
+      if (bannerQ5) bannerQ5.classList.add('hidden');
+
+      // Update footer status
+      const footerDot = document.getElementById('footer-status-icon');
+      const footerSummary = document.getElementById('footer-summary-text');
+      if (footerDot) footerDot.className = 'w-2.5 h-2.5 rounded-full bg-primary';
+      if (footerSummary) footerSummary.innerHTML = '8 questions ready to import <span class="text-secondary font-semibold">(0 errors)</span>';
+
+      // Enable button
+      const submitBtn = document.getElementById('submit-questions-btn');
+      const btnTooltip = document.getElementById('btn-tooltip');
+      if (submitBtn) {
+        submitBtn.removeAttribute('disabled');
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'shadow-none');
+        submitBtn.classList.add('hover:bg-primary', 'shadow-sm', 'cursor-pointer');
+      }
+      if (btnTooltip) btnTooltip.remove();
+
+      const toggleLabel = document.getElementById('toggle-demo-label');
+      if (toggleLabel) toggleLabel.textContent = 'Simulate error state';
+    }
+
+    function applyErrorState() {
+      isResolved = false;
+
+      // Restore validation alert
+      const alertBox = document.getElementById('validation-alert');
+      if (alertBox) alertBox.classList.remove('hidden');
+
+      // Reset badges
+      const validBadge = document.getElementById('badge-valid-count');
+      const invalidBadge = document.getElementById('badge-invalid-count');
+      if (validBadge) validBadge.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span><span>7 valid</span>';
+      if (invalidBadge) invalidBadge.classList.remove('hidden');
+
+      // Reset Card 5 UI
+      const cardQ5 = document.getElementById('card-q5');
+      if (cardQ5) {
+        cardQ5.className = 'p-space-md rounded-xl bg-error-container text-on-error-container flex flex-col gap-space-sm shadow-md transition-all';
+      }
+      const q5Badge = document.getElementById('badge-q5-status');
+      if (q5Badge) {
+        q5Badge.className = 'px-2.5 py-0.5 rounded-full bg-error text-on-error font-label-sm text-label-sm flex items-center gap-1 font-semibold animate-bounce';
+        q5Badge.innerHTML = '<span class="material-symbols-outlined text-[14px]">warning</span> Missing correct answer';
+      }
+      const optQ5A = document.getElementById('opt-q5-a');
+      if (optQ5A) {
+        optQ5A.className = 'px-2.5 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-between';
+        optQ5A.innerHTML = '<span>A) Nitrofurantoin</span><span class="text-on-surface-variant font-label-sm text-label-sm">Not marked</span>';
+      }
+      const bannerQ5 = document.getElementById('banner-q5');
+      if (bannerQ5) bannerQ5.classList.remove('hidden');
+
+      // Reset Footer
+      const footerDot = document.getElementById('footer-status-icon');
+      const footerSummary = document.getElementById('footer-summary-text');
+      if (footerDot) footerDot.className = 'w-2.5 h-2.5 rounded-full bg-error';
+      if (footerSummary) footerSummary.innerHTML = '8 questions found <span class="text-error font-semibold">(1 error)</span>';
+
+      // Disable button
+      const submitBtn = document.getElementById('submit-questions-btn');
+      if (submitBtn) {
+        submitBtn.setAttribute('disabled', 'true');
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'shadow-none');
+        submitBtn.classList.remove('hover:bg-primary', 'shadow-sm', 'cursor-pointer');
+      }
+
+      const toggleLabel = document.getElementById('toggle-demo-label');
+      if (toggleLabel) toggleLabel.textContent = 'Toggle valid simulation';
+    }
+
+    // Auto-listen to textarea edits for real-time response
+    const textareaElem = document.getElementById('bulk-questions-input');
+    if (textareaElem) {
+      textareaElem.addEventListener('input', function(e) {
+        const text = e.target.value;
+        const q5Pattern = /5\.\s*[\s\S]*?Answer:\s*([A-D])/i;
+        if (q5Pattern.test(text)) {
+          if (!isResolved) applyResolvedState();
+        } else {
+          if (isResolved) applyErrorState();
+        }
+      });
+    }
+  </script>
+</div></main></div><div class="fixed inset-0 z-50 flex items-center justify-center p-margin sm:p-space-lg bg-slate-900/45 backdrop-blur-sm" id="course-builder-modal-scrim"><div class="relative w-full max-w-[600px] max-h-[921px] flex flex-col rounded-xl bg-surface-container-lowest shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_10px_24px_-3px_rgba(4,112,77,0.08)] overflow-hidden"><div class="flex items-start justify-between p-space-lg bg-surface-container-lowest"><div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm text-tertiary uppercase tracking-wider">PZ Academy Admin</span><div class="font-headline-md text-headline-md text-primary font-semibold">Configure Module Unit</div><p class="font-body-sm text-body-sm text-on-surface-variant">Define clinical competency guidelines and certification checkpoints.</p></div><button aria-label="Close dialog" class="w-8 h-8 -mr-1 -mt-1 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div class="flex-1 overflow-y-auto px-space-lg py-space-md flex flex-col gap-space-md bg-surface-container-lowest"><div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-xs"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-secondary text-[18px]">verified</span><span class="font-label-md text-label-md text-secondary">Accreditation Blueprint Linked</span></div><p class="font-body-sm text-body-sm text-on-surface-variant">This unit binds automatically to clinical preceptorship board requirements. Changes sync to candidate transcripts.</p></div><div class="flex flex-col gap-space-xs"><label class="font-label-lg text-label-lg text-on-surface">Unit Identification Code</label><div class="h-[42px] px-3 rounded-lg bg-surface-container-lowest flex items-center text-on-surface font-body-md text-body-md shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]">PZA-CLI-402-A</div></div><div class="flex flex-col gap-space-xs"><label class="font-label-lg text-label-lg text-on-surface">Delivery Modality</label><div class="flex items-center gap-space-sm"><span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">Clinical Laboratory</span><span class="px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">Supervised Practicum</span></div></div></div><div class="flex items-center justify-end gap-space-md px-space-lg py-space-md bg-surface-container-low"><button class="h-10 px-5 rounded-lg bg-transparent text-primary font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" type="button">Cancel</button><button class="h-10 px-5 rounded-lg bg-primary-container text-on-primary font-label-lg text-label-lg hover:bg-primary transition-colors shadow-sm" type="button">Save Unit Changes</button></div></div></div></body></html>

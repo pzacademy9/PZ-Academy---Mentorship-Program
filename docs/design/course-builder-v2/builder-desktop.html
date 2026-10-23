@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;family=Fredoka:wght@400;500;600;700&amp;family=Handlee&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "on-background": "#1a1c1c",
+          "on-primary-container": "#1d5d00",
+          "on-error-container": "#93000a",
+          "surface-variant": "#e2e2e2",
+          "on-primary-fixed-variant": "#195200",
+          "surface-bright": "#f9f9f9",
+          "on-tertiary": "#ffffff",
+          "surface-dim": "#dadada",
+          "on-primary": "#ffffff",
+          "surface-container-low": "#f3f3f4",
+          "primary": "#246d00",
+          "on-surface": "#1a1c1c",
+          "inverse-primary": "#81dc5a",
+          "tertiary-fixed-dim": "#a2d2ac",
+          "on-surface-variant": "#404a3a",
+          "on-secondary-fixed": "#261900",
+          "on-tertiary-fixed-variant": "#234f33",
+          "on-error": "#ffffff",
+          "surface-container-lowest": "#ffffff",
+          "on-tertiary-fixed": "#00210e",
+          "on-primary-fixed": "#062100",
+          "error": "#ba1a1a",
+          "inverse-surface": "#2f3131",
+          "secondary-fixed-dim": "#f6be3b",
+          "tertiary-container": "#9fcfa9",
+          "on-secondary-fixed-variant": "#5c4300",
+          "outline-variant": "#bfcab5",
+          "inverse-on-surface": "#f0f1f1",
+          "secondary-container": "#ffc644",
+          "on-tertiary-container": "#2d593c",
+          "outline": "#707a68",
+          "secondary": "#7a5900",
+          "surface-tint": "#246d00",
+          "background": "#f9f9f9",
+          "tertiary": "#3b6849",
+          "error-container": "#ffdad6",
+          "on-secondary": "#ffffff",
+          "surface-container": "#eeeeee",
+          "on-secondary-container": "#715300",
+          "secondary-fixed": "#ffdea1",
+          "primary-fixed-dim": "#81dc5a",
+          "surface-container-high": "#e8e8e8",
+          "tertiary-fixed": "#bdeec7",
+          "surface": "#f9f9f9",
+          "surface-container-highest": "#e2e2e2",
+          "primary-fixed": "#9cf973",
+          "primary-container": "#7ed957"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {},
+        "fontFamily": {
+          "headline": [
+            "Montserrat"
+          ],
+          "display": [
+            "Montserrat"
+          ],
+          "body": [
+            "Fredoka"
+          ],
+          "label": [
+            "Handlee"
+          ]
+        },
+        "fontSize": {}
+      },
+    },
+  }</script></head><body class="bg-surface font-body text-on-surface min-h-screen"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between"><div class="flex flex-col"><div class="h-16 px-6 flex items-center gap-3"><div class="w-9 h-9 rounded-lg bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[22px]">biotech</span></div><div class="flex flex-col"><span class="font-headline font-bold text-base tracking-tight text-on-surface leading-tight">PharmaZyme</span><span class="font-label text-xs text-primary font-semibold leading-tight">Academy Admin</span></div></div><div class="px-4 py-2"><span class="px-3 text-[11px] font-headline font-semibold uppercase tracking-wider text-outline">Management</span></div><nav class="flex flex-col gap-1 px-3" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-lg"><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Dashboard</span></a><a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 transition-all bg-primary-container text-on-primary-container font-semibold rounded-lg" data-path="course-manager" href="#"><span class="material-symbols-outlined text-[20px]">menu_book</span><span>Course Manager</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="registrations" href="#"><span class="material-symbols-outlined text-[20px]">how_to_reg</span><span>Registrations</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="payment-accounts" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span>Payment Accounts</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="promo-codes" href="#"><span class="material-symbols-outlined text-[20px]">local_offer</span><span>Promo Codes</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="settings" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span>Settings</span></a></nav></div><div class="p-4"><div class="bg-surface-container rounded-lg p-3 flex items-center justify-between"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-primary"></div><span class="text-xs font-headline font-semibold text-on-surface">MedNet API Live</span></div><span class="material-symbols-outlined text-[16px] text-tertiary">verified</span></div></div></aside><div class="pl-64 flex flex-col min-h-screen"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-8"><div class="flex items-center gap-3 flex-1 max-w-md"><div class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-lowest shadow-[0_1px_4px_rgba(0,0,0,0.04)] text-on-surface"><span class="material-symbols-outlined text-outline text-[18px]">search</span><input class="w-full bg-transparent text-xs text-on-surface placeholder:text-outline focus:outline-none font-body" placeholder="Search courses, learners, transactions..." type="text"/></div></div><div class="flex items-center gap-4"><button class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span></button><button class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[20px]">help_outline</span></button><div class="flex items-center gap-3 pl-2"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden md:flex flex-col text-left"><span class="text-xs font-headline font-bold text-on-surface leading-tight">Dr. E. Harrison</span><span class="text-[11px] font-label text-secondary leading-tight">Lead Dean / Admin</span></div></div></div></header><main class="flex-1 w-full pt-16 px-8 pb-12 bg-surface"><div class="flex flex-col w-full">
+<!-- Top Command Header -->
+<div class="w-full bg-surface-container-lowest shadow-sm rounded-xl p-6 mb-6">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<!-- Left: Title, Status, Readiness -->
+<div class="flex flex-col gap-3 min-w-0">
+<div class="flex items-center gap-3 flex-wrap">
+<div class="px-2.5 py-1 rounded bg-secondary-fixed/50 text-on-secondary-fixed font-headline font-semibold text-xs tracking-wide uppercase flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+            Draft Mode
+          </div>
+<span class="text-xs font-label text-outline">v2.4 Course Authoring</span>
+</div>
+<h1 class="font-headline font-extrabold text-2xl lg:text-3xl text-on-surface tracking-tight truncate">
+          Practical Pharmacology Course (PPC)
+        </h1>
+<!-- Readiness Meter -->
+<div class="flex items-center gap-4 flex-wrap text-sm">
+<div class="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-lg">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+<span class="font-headline font-semibold text-xs text-on-surface">Curriculum Readiness:</span>
+<span class="font-headline font-bold text-xs text-primary">10 of 12 sessions ready</span>
+</div>
+<div class="w-36 h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
+<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 83.33%;"></div>
+</div>
+<span class="font-body text-xs text-on-surface-variant font-medium">83% complete</span>
+</div>
+</div>
+<!-- Right: Action Suite for Academic Leads -->
+<div class="flex items-center gap-3 flex-wrap self-start lg:self-center">
+<button class="h-11 px-4 rounded-lg bg-surface-container-lowest shadow-sm hover:bg-surface-container transition-all flex items-center gap-2 font-headline text-xs font-bold text-on-surface active:scale-95">
+<span class="material-symbols-outlined text-[18px] text-tertiary">upload_file</span>
+<span>Build from file</span>
+</button>
+<button class="h-11 px-4 rounded-lg bg-surface-container-lowest shadow-sm hover:bg-surface-container transition-all flex items-center gap-2 font-headline text-xs font-bold text-on-surface active:scale-95">
+<span class="material-symbols-outlined text-[18px] text-outline">content_copy</span>
+<span>Copy course</span>
+</button>
+<button class="h-11 px-6 rounded-lg bg-primary hover:bg-on-primary-container text-on-primary shadow-md hover:shadow-lg transition-all flex items-center gap-2 font-headline text-xs font-bold uppercase tracking-wider active:scale-95">
+<span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+<span>Publish Course</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Workspace Grid: 2 Columns Split -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start mb-24">
+<!-- LEFT COLUMN: Course Outline (Module Tree & Navigation) -->
+<div class="xl:col-span-4 flex flex-col gap-5">
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm">
+<!-- Outline Header -->
+<div class="flex items-center justify-between pb-4 mb-3">
+<div>
+<h2 class="font-headline font-bold text-base text-on-surface">Course Outline</h2>
+<p class="font-body text-xs text-on-surface-variant">4 Modules · 12 Clinical Sessions</p>
+</div>
+<span class="font-label text-xs text-primary bg-primary-fixed/40 px-2 py-1 rounded">
+            Drag to reorder
+          </span>
+</div>
+<!-- Modules Accordion Stack -->
+<div class="flex flex-col gap-4">
+<!-- MODULE 1 (ACTIVE MODULE) -->
+<div class="rounded-xl bg-surface-container-low p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-outline text-[18px] cursor-grab">drag_indicator</span>
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  Module 1: Fundamentals of Pharmacokinetics
+                </span>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="text-[11px] font-label px-2 py-0.5 rounded-full bg-surface-container-lowest text-on-surface-variant font-medium">Notes (1)</span>
+<button class="w-7 h-7 rounded hover:bg-surface-container flex items-center justify-center text-outline transition-colors" title="Copy Module">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</div>
+</div>
+<!-- Sessions under Module 1 -->
+<div class="flex flex-col gap-2 pl-4">
+<!-- Session 1: Selected / Active -->
+<div class="p-3 rounded-lg bg-surface-container-lowest shadow-sm flex items-center justify-between gap-2 cursor-pointer transition-all">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-2.5 h-2.5 rounded-full bg-primary shrink-0"></span>
+<div class="flex flex-col min-w-0">
+<span class="font-headline font-bold text-xs text-primary truncate">Day 1: Intro to Clinical Pharmacology</span>
+<span class="font-body text-[11px] text-on-surface-variant">Video · Handout (2) · 10 Qs</span>
+</div>
+</div>
+<span class="text-[10px] font-headline font-bold uppercase tracking-wider text-primary bg-primary-fixed/30 px-2 py-0.5 rounded">
+                  Active
+                </span>
+</div>
+<!-- Session 2: Ready -->
+<div class="p-2.5 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer transition-colors group">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-2.5 h-2.5 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface font-medium truncate group-hover:text-primary">Day 2: Absorption &amp; Distribution</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+<!-- Session 3: Needs Attention -->
+<div class="p-2.5 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer transition-colors group">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-2.5 h-2.5 rounded-full ring-2 ring-secondary bg-surface-container-lowest shrink-0"></div>
+<span class="font-body text-xs text-on-surface font-medium truncate group-hover:text-primary">Day 3: Metabolism &amp; CYP450</span>
+</div>
+<span class="text-[10px] font-headline font-semibold text-secondary-container bg-surface-container-highest px-1.5 py-0.5 rounded">
+                  no video
+                </span>
+</div>
+</div>
+</div>
+<!-- MODULE 2 -->
+<div class="rounded-xl bg-surface-container-low/60 p-3.5 flex flex-col gap-2.5">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-outline text-[18px] cursor-grab">drag_indicator</span>
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  Module 2: Pharmacodynamics &amp; Receptors
+                </span>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="text-[11px] font-label px-2 py-0.5 rounded-full bg-surface-container-lowest text-on-surface-variant font-medium">Notes (0)</span>
+<button class="w-7 h-7 rounded hover:bg-surface-container flex items-center justify-center text-outline" title="Copy Module">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 pl-4">
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 4: Receptor Binding &amp; Efficacy</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 5: Dose-Response Relationships</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<div class="w-2 h-2 rounded-full ring-2 ring-secondary bg-surface-container-lowest shrink-0"></div>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 6: Drug Interaction Matrix</span>
+</div>
+<span class="text-[10px] font-headline font-semibold text-secondary-container bg-surface-container-highest px-1.5 py-0.5 rounded">
+                  no quiz
+                </span>
+</div>
+</div>
+</div>
+<!-- MODULE 3 -->
+<div class="rounded-xl bg-surface-container-low/60 p-3.5 flex flex-col gap-2.5">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-outline text-[18px] cursor-grab">drag_indicator</span>
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  Module 3: Antimicrobial Stewardship
+                </span>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<button class="w-7 h-7 rounded hover:bg-surface-container flex items-center justify-center text-outline" title="Copy Module">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 pl-4">
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 7: Beta-Lactam Resistance</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 8: Antifungal Regimens</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+</div>
+</div>
+<!-- MODULE 4 -->
+<div class="rounded-xl bg-surface-container-low/60 p-3.5 flex flex-col gap-2.5">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-outline text-[18px] cursor-grab">drag_indicator</span>
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  Module 4: Toxicology &amp; Special Populations
+                </span>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<button class="w-7 h-7 rounded hover:bg-surface-container flex items-center justify-center text-outline" title="Copy Module">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 pl-4">
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 9: Renal Clearance Adjustments</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+<div class="p-2 rounded-lg hover:bg-surface-container-lowest flex items-center justify-between gap-2 cursor-pointer">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="font-body text-xs text-on-surface-variant truncate">Day 10: Pediatric Dosing Norms</span>
+</div>
+<span class="text-[10px] font-label text-tertiary">Ready</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Accessible Action Buttons (Add Session / Module) -->
+<div class="grid grid-cols-2 gap-3 mt-6 pt-4 bg-surface-container-low/40 -mx-5 -mb-5 p-5 rounded-b-xl">
+<button class="h-11 px-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container shadow-sm flex items-center justify-center gap-1.5 font-headline text-xs font-bold text-on-surface transition-all active:scale-95">
+<span class="material-symbols-outlined text-primary text-[18px]">add_circle</span>
+<span>+ Add session</span>
+</button>
+<button class="h-11 px-3 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-high flex items-center justify-center gap-1.5 font-headline text-xs font-bold text-on-surface transition-all active:scale-95">
+<span class="material-symbols-outlined text-tertiary text-[18px]">folder_copy</span>
+<span>+ Add module</span>
+</button>
+</div>
+</div>
+<!-- Quick Guidance Pill for Academic Staff -->
+<div class="p-4 rounded-xl bg-tertiary-fixed/30 flex items-start gap-3">
+<span class="material-symbols-outlined text-tertiary text-[20px] shrink-0 mt-0.5">lightbulb</span>
+<div class="flex flex-col gap-1">
+<span class="font-headline font-bold text-xs text-on-tertiary-fixed">Tip for Facilitators</span>
+<p class="font-body text-xs text-on-tertiary-fixed-variant leading-relaxed">
+            Every session with a green dot will auto-synchronize with student mobile portals once you hit "Publish Course".
+          </p>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Active Session Editing Workspace -->
+<div class="xl:col-span-8 flex flex-col gap-6">
+<!-- Workspace Breadcrumb Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center gap-2 text-xs font-headline font-semibold text-outline">
+<span>Module 1</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-bold">Session 1</span>
+</div>
+<h2 class="font-headline font-extrabold text-xl lg:text-2xl text-on-surface">
+            Day 1: Introduction to Clinical Pharmacology
+          </h2>
+</div>
+<div class="flex items-center gap-2.5">
+<span class="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-headline text-xs font-medium flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">schedule</span>
+            Est. 90 mins
+          </span>
+<span class="px-3 py-1 rounded-full bg-primary-fixed/50 text-on-primary-fixed font-headline text-xs font-bold flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+            Session Ready
+          </span>
+</div>
+</div>
+<!-- SECTION 1: VIDEO LECTURE -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-5">
+<div class="flex items-start justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary text-[22px]">videocam</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-on-surface">1. Video lecture</h3>
+<p class="font-body text-xs text-on-surface-variant">Paste a YouTube, Vimeo, or Loom link. Students will watch this directly in their portal.</p>
+</div>
+</div>
+<span class="font-label text-xs text-tertiary bg-tertiary-fixed/40 px-2 py-0.5 rounded shrink-0">Core Asset</span>
+</div>
+<!-- Video Input Container -->
+<div class="flex flex-col gap-3">
+<label class="font-headline text-xs font-semibold text-on-surface">Video URL (Embeddable Source)</label>
+<div class="flex items-center gap-2 bg-surface-container-low px-4 py-3 rounded-lg focus-within:bg-surface-container-lowest focus-within:shadow-md transition-all">
+<span class="material-symbols-outlined text-outline text-[20px]">link</span>
+<input class="w-full bg-transparent text-xs lg:text-sm font-body text-on-surface focus:outline-none" placeholder="Paste link here..." type="text" value="https://www.youtube.com/watch?v=pharm_intro_cpm101"/>
+<button class="text-xs font-headline font-bold text-primary hover:text-on-primary-container shrink-0 px-2">Update</button>
+</div>
+<!-- Video found feedback line -->
+<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-fixed/20 text-on-primary-fixed text-xs font-body">
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+<span class="font-medium">YouTube video found · 42 minutes · HD 1080p · Auto-captions ready</span>
+</div>
+<!-- Video Thumbnail Preview Card -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col md:flex-row items-center gap-4">
+<div class="relative w-full md:w-56 h-32 rounded-lg overflow-hidden bg-on-surface shrink-0 flex items-center justify-center shadow-inner">
+<div class="absolute inset-0 bg-cover bg-center opacity-85" data-alt="A modern medical academy lecture slide preview showing molecular pharmacology structures and receptor kinetics graphs, soft green and white tones, clinical laboratory photography style." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBHCAD0sjfzUBZSNWkl05Kg6RzTBdazUyema6ASB9_X7u6LEa4r3hAQXrxjE92eDT_OjH9ttbsxEYfqh2DYcUwE8ARciUXlKdJw-izt0CnJ9wy79DM_rsDtU_AYD8FxGr1H3PrXJ_tDlkz6TwW-X8jkRR8t1avI9OKuY4VFjS9ErIoGdN1i_PCtUIgKJVtlEcfvQ26hvHhSlG29irlUuiDt32YDBjZR_u3QoH2WqkyRCEAXSLVHwet5')"></div>
+<div class="relative w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-lg">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+<span class="absolute bottom-2 right-2 bg-inverse-surface/85 text-inverse-on-surface text-[10px] font-mono px-1.5 py-0.5 rounded">42:18</span>
+</div>
+<div class="flex flex-col gap-2 min-w-0 w-full">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-headline font-bold bg-surface-container-high text-on-surface-variant">PPC-LEC-01</span>
+<span class="text-xs font-label text-outline">Uploaded via PZ Medical Cloud</span>
+</div>
+<h4 class="font-headline font-bold text-sm text-on-surface leading-snug">
+                Introduction to Clinical Pharmacokinetics &amp; Bioavailability
+              </h4>
+<p class="font-body text-xs text-on-surface-variant line-clamp-2">
+                Key concepts: volume of distribution, hepatic first-pass clearance, clearance rate constants, and therapeutic plasma ranges.
+              </p>
+<div class="flex items-center gap-4 pt-1 text-xs text-outline">
+<span>Presenter: Prof. L. Vance, PharmD</span>
+<span>Subtitles: EN, ES</span>
+</div>
+</div>
+</div>
+<!-- Add Secondary Video Link -->
+<button class="self-start flex items-center gap-1.5 text-xs font-headline font-bold text-primary hover:text-on-primary-container transition-colors mt-1">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>+ Add a second video (e.g., patient case breakdown)</span>
+</button>
+</div>
+</div>
+<!-- SECTION 2: NOTES & HANDOUTS -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary text-[22px]">description</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-on-surface">2. Notes &amp; Handouts for this session</h3>
+<p class="font-body text-xs text-on-surface-variant">Provide downloadable slide decks, reference leaflets, or clinical guidelines.</p>
+</div>
+</div>
+<!-- Attached Resources List -->
+<div class="flex flex-col gap-3">
+<!-- Row 1: PDF Document -->
+<div class="p-3.5 rounded-lg bg-surface-container-low flex items-center justify-between gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded bg-error-container/40 text-error flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  Clinical_Pharmacology_Lecture_Slides_Day1.pdf
+                </span>
+<span class="font-body text-[11px] text-on-surface-variant">14.2 MB · Uploaded Yesterday by Academic Staff</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="px-2.5 py-1 text-xs font-headline font-semibold text-primary hover:bg-surface-container rounded transition-colors">
+                Replace
+              </button>
+<button class="p-1 text-outline hover:text-error rounded hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Row 2: External Reference Link -->
+<div class="p-3.5 rounded-lg bg-surface-container-low flex items-center justify-between gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded bg-secondary-fixed/50 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">open_in_new</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  BNF Reference Guide - Section 2.4 (External Link)
+                </span>
+<span class="font-body text-[11px] text-on-surface-variant">https://bnf.nice.org.uk/treatment-summaries/pharmacokinetics</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="px-2.5 py-1 text-xs font-headline font-semibold text-primary hover:bg-surface-container rounded transition-colors">
+                Edit
+              </button>
+<button class="p-1 text-outline hover:text-error rounded hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Upload Drop Zone -->
+<div class="rounded-xl p-8 bg-surface-container-low/40 flex flex-col items-center justify-center gap-3 text-center hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-12 h-12 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[26px]">cloud_upload</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="font-headline font-bold text-xs text-on-surface">Drop session slides or handouts here</span>
+<span class="font-body text-[11px] text-on-surface-variant">PDF, PPTX, or DOCX up to 50MB</span>
+</div>
+<button class="mt-1 h-9 px-4 rounded-lg bg-surface-container-lowest shadow-sm hover:bg-surface-container font-headline text-xs font-bold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">add</span>
+<span>+ Upload PDF</span>
+</button>
+</div>
+</div>
+<!-- SECTION 3: QUIZ & KNOWLEDGE CHECK -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-6">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary-fixed/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary text-[22px]">quiz</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-on-surface">3. Quiz &amp; Knowledge Check</h3>
+<div class="flex items-center gap-2 mt-0.5">
+<span class="font-label text-xs text-secondary font-semibold">10 questions configured</span>
+<span class="text-outline text-xs">·</span>
+<span class="font-body text-xs text-on-surface-variant">Passing score: 80% (8/10)</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="h-9 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container font-headline text-xs font-bold text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px] text-primary">add</span>
+<span>+ Add question</span>
+</button>
+<button class="h-9 px-3 rounded-lg bg-secondary-fixed/40 hover:bg-secondary-fixed text-on-secondary-fixed font-headline text-xs font-bold flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">auto_fix_high</span>
+<span>+ Paste many questions</span>
+</button>
+</div>
+</div>
+<!-- Question Stack -->
+<div class="flex flex-col gap-4">
+<!-- Question 1: Expanded Card -->
+<div class="p-5 rounded-xl bg-surface-container-low/70 flex flex-col gap-4">
+<div class="flex items-start justify-between gap-3">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary font-headline font-bold text-xs flex items-center justify-center">1</span>
+<span class="font-headline font-bold text-xs text-primary">Multiple Choice Question</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-label text-xs text-outline">1 point</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-[10px] font-headline font-semibold text-on-surface">Required</span>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">more_vert</span></button>
+</div>
+</div>
+<!-- Question Stem -->
+<div class="flex flex-col gap-1.5">
+<label class="font-headline text-xs font-semibold text-on-surface">Question Stem</label>
+<textarea class="w-full bg-surface-container-lowest p-3 rounded-lg text-xs lg:text-sm font-headline font-semibold text-on-surface focus:outline-none shadow-sm resize-none" rows="2">Which pharmacokinetic parameter best reflects total systemic drug exposure over time?</textarea>
+</div>
+<!-- Choices -->
+<div class="flex flex-col gap-2.5">
+<label class="font-headline text-xs font-semibold text-on-surface">Answer Choices &amp; Validation</label>
+<!-- Choice A -->
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-surface-container-lowest shadow-sm">
+<span class="w-6 h-6 rounded bg-surface-container font-headline font-bold text-xs text-on-surface-variant flex items-center justify-center shrink-0">A</span>
+<input class="w-full bg-transparent text-xs font-body text-on-surface focus:outline-none" type="text" value="Peak concentration (Cmax)"/>
+<button class="text-outline hover:text-primary text-xs font-headline font-semibold px-2">Mark Correct</button>
+</div>
+<!-- Choice B: Correct Highlighted -->
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-primary-fixed/30 shadow-sm">
+<span class="w-6 h-6 rounded bg-primary text-on-primary font-headline font-bold text-xs flex items-center justify-center shrink-0">B</span>
+<input class="w-full bg-transparent text-xs font-headline font-bold text-on-primary-fixed focus:outline-none" type="text" value="Area Under the Curve (AUC)"/>
+<span class="px-2 py-0.5 rounded-full bg-primary text-on-primary font-headline text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[12px]">check</span>
+                  Correct answer
+                </span>
+</div>
+<!-- Choice C -->
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-surface-container-lowest shadow-sm">
+<span class="w-6 h-6 rounded bg-surface-container font-headline font-bold text-xs text-on-surface-variant flex items-center justify-center shrink-0">C</span>
+<input class="w-full bg-transparent text-xs font-body text-on-surface focus:outline-none" type="text" value="Volume of distribution (Vd)"/>
+<button class="text-outline hover:text-primary text-xs font-headline font-semibold px-2">Mark Correct</button>
+</div>
+<!-- Choice D -->
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-surface-container-lowest shadow-sm">
+<span class="w-6 h-6 rounded bg-surface-container font-headline font-bold text-xs text-on-surface-variant flex items-center justify-center shrink-0">D</span>
+<input class="w-full bg-transparent text-xs font-body text-on-surface focus:outline-none" type="text" value="Elimination half-life (t1/2)"/>
+<button class="text-outline hover:text-primary text-xs font-headline font-semibold px-2">Mark Correct</button>
+</div>
+</div>
+<!-- Rationale Box for Non-technical Educators -->
+<div class="p-3.5 rounded-lg bg-surface-container-lowest flex flex-col gap-1.5 shadow-sm">
+<div class="flex items-center gap-1.5 text-tertiary">
+<span class="material-symbols-outlined text-[16px]">menu_book</span>
+<span class="font-headline font-bold text-xs">Explanation &amp; Student Feedback (shown upon submission)</span>
+</div>
+<p class="font-body text-xs text-on-surface-variant leading-relaxed">
+                AUC (Area Under the Plasma Drug Concentration-Time Curve) reflects the actual body exposure to drug after administration of a dose of the medicine, integrating bioavailability with systemic clearance.
+              </p>
+</div>
+</div>
+<!-- Question 2: Collapsed Summary Card -->
+<div class="p-4 rounded-xl bg-surface-container-low flex items-center justify-between gap-4 cursor-pointer hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface-variant font-headline font-bold text-xs flex items-center justify-center shrink-0">2</span>
+<div class="flex flex-col min-w-0">
+<span class="font-headline font-bold text-xs text-on-surface truncate">
+                  Question 2: What is the primary role of Cytochrome P450 3A4 in hepatic clearance?
+                </span>
+<span class="font-body text-[11px] text-on-surface-variant">4 choices · Correct: Option C (Phase I Oxidation) · 1 pt</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="w-8 h-8 rounded hover:bg-surface-container-lowest flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded hover:bg-surface-container-lowest flex items-center justify-center text-outline hover:text-error">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 4: EXTRA READING (OPTIONAL ACCORDION) -->
+<div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-outline text-[20px]">library_books</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-sm text-on-surface">4. Extra reading (optional)</h3>
+<p class="font-body text-xs text-on-surface-variant">Add recommended journals, guidelines, or case studies</p>
+</div>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
+</button>
+</div>
+<div class="pt-2 pl-12 flex items-center gap-3">
+<button class="text-xs font-headline font-bold text-primary hover:text-on-primary-container flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">add_link</span>
+<span>+ Add reading link or citation</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- STICKY BOTTOM FOOTER BAR -->
+<div class="fixed bottom-0 left-64 right-0 h-16 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-4px_16px_rgba(0,0,0,0.06)] z-30 px-8 flex items-center justify-between">
+<!-- Save Status Indicator -->
+<div class="flex items-center gap-2 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-[18px]">cloud_done</span>
+<span class="font-body">Saved automatically</span>
+<span class="font-label text-outline">(last saved 12 seconds ago)</span>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-3">
+<button class="h-10 px-4 rounded-lg bg-surface-container-low hover:bg-surface-container font-headline text-xs font-bold text-on-surface flex items-center gap-2 transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span>Preview as student</span>
+</button>
+<button class="h-10 px-6 rounded-lg bg-primary hover:bg-on-primary-container text-on-primary shadow-sm hover:shadow-md font-headline text-xs font-bold flex items-center gap-2 transition-all active:scale-95">
+<span>Save &amp; continue</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div></main></div></body></html>

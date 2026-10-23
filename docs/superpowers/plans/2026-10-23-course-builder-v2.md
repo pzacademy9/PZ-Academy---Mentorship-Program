@@ -12,6 +12,7 @@
 
 ## Global Constraints
 
+- Visual reference (owner-made Stitch screens, saved in `docs/design/course-builder-v2/`: `builder-desktop|mobile`, `paste-dialog-desktop|mobile`, `publish-confirm-desktop|mobile`, each `.html` + `.png`). UI tasks (7, 8) follow their layout, spacing and wording but use the real app's tokens/components, and add no feature the plan does not list (ignore any extra element in the screens that the spec does not cover, and mention it in the task report).
 - Manual editing stays fully available; nothing here removes an existing capability except the visible Text/Video/PDF switch.
 - Never regenerate `src/lib/supabase/database.types.ts`; hand-add `video_url_2` to `lessons` Row/Insert/Update and add a `module_notes` table entry.
 - Supabase MCP is read-only: the migration is `supabase/migrations/0085_course_builder_v2.sql`, pasted by the owner. Student-facing reads of the NEW column/table must tolerate "column/table does not exist" (separate tolerant query, error ignored, empty default) so deploying code before the paste never breaks a live lesson page. Admin-side reads may select the new column directly.
