@@ -1112,3 +1112,261 @@ export async function reorderQuizQuestions(lessonId: string, orderedIds: string[
   if (results.some((r) => r.error)) return { ok: false, reason: "db-error" };
   return { ok: true, id: lessonId };
 }
+
+// ---------------------------------------------------------------------------
+// Copy module / copy course. Copies structure, videos, links and quiz only.
+// Uploaded Drive files (lesson PDFs, lesson documents, module-notes documents)
+// are never duplicated: they are counted so the admin can re-upload them.
+// ---------------------------------------------------------------------------
+
+type AdminClient = ReturnType<typeof createAdminSupabase>;
+type JsonValue = Database["public"]["Tables"]["lessons"]["Insert"]["resource_urls"];
+type QuizOptionsJson = Database["public"]["Tables"]["quiz_questions"]["Insert"]["options"];
+
+const COPY_CHUNK = 500;
+const PAGE_SIZE = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+function listLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/**
+ * Copies every lesson (and quiz question) of the given source modules into the
+ * matching new modules, plus module-notes links. Returns the number of Drive
+ * files that were skipped, or null if any step failed (caller rolls back).
+ */
+async function copyModuleContents(
+  admin: AdminClient,
+  pairs: Array<{ oldId: string; newId: string }>,
+): Promise<number | null> {
+  if (pairs.length === 0) return 0;
+  const newByOld = new Map(pairs.map((p) => [p.oldId, p.newId]));
+  const oldIds = pairs.map((p) => p.oldId);
+  let skipped = 0;
+
+  // Lessons: explicit columns, paged past the 1000-row PostgREST cap.
+  const lessons: Array<{
+    id: string;
+    module_id: string;
+    title: string;
+    content_type: Database["public"]["Enums"]["lesson_content_type"];
+    video_url: string | null;
+    video_url_2: string | null;
+    text_content: string | null;
+    resource_urls: unknown;
+    pdf_file_id: string | null;
+    documents: unknown;
+    order_index: number;
+  }> = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("lessons")
+      .select(
+        "id, module_id, title, content_type, video_url, video_url_2, text_content, resource_urls, pdf_file_id, documents, order_index",
+      )
+      .in("module_id", oldIds)
+      .order("module_id", { ascending: true })
+      .order("order_index", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return null;
+    lessons.push(...(data ?? []));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+
+  for (const l of lessons) {
+    if (l.pdf_file_id) skipped += 1;
+    skipped += listLength(l.documents);
+  }
+
+  const newLessonIdByOld = new Map<string, string>();
+  for (const part of chunk(lessons, COPY_CHUNK)) {
+    const { data, error } = await admin
+      .from("lessons")
+      .insert(
+        part.map((l) => ({
+          module_id: newByOld.get(l.module_id)!,
+          title: l.title,
+          content_type: l.content_type,
+          video_url: l.video_url,
+          video_url_2: l.video_url_2,
+          text_content: l.text_content,
+          resource_urls: (l.resource_urls ?? []) as JsonValue,
+          order_index: l.order_index,
+        })),
+      )
+      .select("id");
+    if (error || !data || data.length !== part.length) return null;
+    part.forEach((l, i) => newLessonIdByOld.set(l.id, data[i].id));
+  }
+
+  // Quiz questions, paged per batch of source lessons.
+  for (const lessonIds of chunk(
+    lessons.map((l) => l.id),
+    100,
+  )) {
+    const questions: Array<{
+      lesson_id: string;
+      question: string;
+      options: unknown;
+      correct_index: number;
+      order_index: number;
+    }> = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await admin
+        .from("quiz_questions")
+        .select("lesson_id, question, options, correct_index, order_index")
+        .in("lesson_id", lessonIds)
+        .order("lesson_id", { ascending: true })
+        .order("order_index", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) return null;
+      questions.push(...(data ?? []));
+      if ((data ?? []).length < PAGE_SIZE) break;
+    }
+    for (const part of chunk(questions, COPY_CHUNK)) {
+      const { error } = await admin.from("quiz_questions").insert(
+        part.map((q) => ({
+          lesson_id: newLessonIdByOld.get(q.lesson_id)!,
+          question: q.question,
+          options: q.options as QuizOptionsJson,
+          correct_index: q.correct_index,
+          order_index: q.order_index,
+        })),
+      );
+      if (error) return null;
+    }
+  }
+
+  // Module notes: links copied, uploaded documents counted and skipped.
+  const { data: notes, error: notesError } = await admin
+    .from("module_notes")
+    .select("module_id, resource_urls, documents")
+    .in("module_id", oldIds);
+  if (notesError) return null;
+  const noteRows = (notes ?? []).map((n) => {
+    skipped += listLength(n.documents);
+    return {
+      module_id: newByOld.get(n.module_id)!,
+      resource_urls: (n.resource_urls ?? []) as JsonValue,
+      documents: [] as JsonValue,
+    };
+  });
+  if (noteRows.length > 0) {
+    const { error } = await admin.from("module_notes").insert(noteRows);
+    if (error) return null;
+  }
+
+  return skipped;
+}
+
+export async function copyModule(moduleId: string): Promise<MutationResult & { filesToReupload?: number }> {
+  const admin = createAdminSupabase();
+
+  const { data: mod } = await admin.from("modules").select("id, course_id, title").eq("id", moduleId).maybeSingle();
+  if (!mod) return { ok: false, reason: "not-found" };
+  const { data: course } = await admin.from("courses").select("type").eq("id", mod.course_id).maybeSingle();
+  if (!course) return { ok: false, reason: "not-found" };
+  if (usesFlatSessions(course.type)) return { ok: false, reason: "flat-type" };
+
+  const orderIndex = await nextModuleOrderIndex(admin, mod.course_id);
+  const { data: created, error } = await admin
+    .from("modules")
+    .insert({ course_id: mod.course_id, title: `${mod.title} (copy)`, order_index: orderIndex })
+    .select("id")
+    .single();
+  if (error || !created) return { ok: false, reason: "db-error" };
+
+  const skipped = await copyModuleContents(admin, [{ oldId: moduleId, newId: created.id }]);
+  if (skipped === null) {
+    await admin.from("modules").delete().eq("id", created.id);
+    return { ok: false, reason: "db-error" };
+  }
+  return { ok: true, id: created.id, filesToReupload: skipped };
+}
+
+export type CopyCourseResult =
+  | { ok: true; id: string; slug: string; filesToReupload: number }
+  | { ok: false; reason: "not-found" | "db-error" };
+
+export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
+  const admin = createAdminSupabase();
+
+  // Marketing text only. Never: images, mentor photo, portal/GAS/sheet links,
+  // public promo video, created_by, counters. Slug/status/is_published are set below.
+  const { data: src } = await admin
+    .from("courses")
+    .select(
+      "slug, title, type, tagline, description, price_pkr, level, duration_text, duration_weeks, timings, features, outcomes, faqs, register_url, mentor_name, mentor_title, mentor_bio",
+    )
+    .eq("id", courseId)
+    .maybeSingle();
+  if (!src) return { ok: false, reason: "not-found" };
+
+  const srcSlug = src.slug;
+  const fields = {
+    type: src.type,
+    tagline: src.tagline,
+    description: src.description,
+    price_pkr: src.price_pkr,
+    level: src.level,
+    duration_text: src.duration_text,
+    duration_weeks: src.duration_weeks,
+    timings: src.timings,
+    features: src.features,
+    outcomes: src.outcomes,
+    faqs: src.faqs,
+    register_url: src.register_url,
+    mentor_name: src.mentor_name,
+    mentor_title: src.mentor_title,
+    mentor_bio: src.mentor_bio,
+  };
+  let created: { id: string; slug: string } | null = null;
+  for (let n = 1; n <= 20 && !created; n++) {
+    const slug = n === 1 ? `${srcSlug}-copy` : `${srcSlug}-copy-${n}`;
+    const { data: taken } = await admin.from("courses").select("id").eq("slug", slug).maybeSingle();
+    if (taken) continue;
+    const { data, error } = await admin
+      .from("courses")
+      .insert({ ...fields, title: `${src.title} (copy)`, slug, status: "draft", is_published: false })
+      .select("id, slug")
+      .single();
+    if (data && !error) created = data;
+    else if ((error as { code?: string } | null)?.code !== "23505") return { ok: false, reason: "db-error" };
+  }
+  if (!created) return { ok: false, reason: "db-error" };
+  const newCourse = created;
+
+  const rollback = async (): Promise<CopyCourseResult> => {
+    await admin.from("courses").delete().eq("id", newCourse.id);
+    return { ok: false, reason: "db-error" };
+  };
+
+  const { data: modules, error: modError } = await admin
+    .from("modules")
+    .select("id, title, order_index")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true });
+  if (modError) return rollback();
+  if (!modules || modules.length === 0) {
+    return { ok: true, id: newCourse.id, slug: newCourse.slug, filesToReupload: 0 };
+  }
+
+  const { data: newModules, error: insError } = await admin
+    .from("modules")
+    .insert(modules.map((m) => ({ course_id: newCourse.id, title: m.title, order_index: m.order_index })))
+    .select("id");
+  if (insError || !newModules || newModules.length !== modules.length) return rollback();
+
+  const skipped = await copyModuleContents(
+    admin,
+    modules.map((m, i) => ({ oldId: m.id, newId: newModules[i].id })),
+  );
+  if (skipped === null) return rollback();
+  return { ok: true, id: newCourse.id, slug: newCourse.slug, filesToReupload: skipped };
+}
