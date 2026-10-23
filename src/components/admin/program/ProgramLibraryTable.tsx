@@ -148,6 +148,12 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
             Export List
           </button>
           <Link
+            href="/dashboard/admin/courses/import"
+            className="flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-lg border border-pz-outline-variant text-sm font-medium text-pz-on-surface-variant hover:bg-pz-surface-container-low transition-colors"
+          >
+            Build from file
+          </Link>
+          <Link
             href="/dashboard/admin/courses/new"
             className="flex items-center gap-2 px-4 py-2 max-md:min-h-11 rounded-lg bg-pz-primary text-pz-on-primary text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
           >
