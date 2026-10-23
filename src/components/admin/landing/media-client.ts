@@ -1,3 +1,5 @@
+import type { MediaFolder } from "@/lib/landing/media";
+
 /** Browser-side helpers for the shared picture library. Nothing here throws. */
 
 export async function readImageSize(file: File): Promise<{ width: number; height: number } | null> {
@@ -28,7 +30,7 @@ export async function readImageSize(file: File): Promise<{ width: number; height
 }
 
 export async function registerUpload(args: {
-  url: string; name: string; width: number | null; height: number | null; sizeBytes: number | null;
+  url: string; name: string; width: number | null; height: number | null; sizeBytes: number | null; folder?: MediaFolder;
 }): Promise<boolean> {
   try {
     const res = await fetch("/api/admin/landing-media", {

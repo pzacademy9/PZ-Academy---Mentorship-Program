@@ -26,7 +26,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
-import { ImageUploadField } from "@/components/admin/program/ImageUploadField";
+import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
 import { BANNER_SLOTS, getBannerStatus, type BannerStatus } from "@/lib/validations/admin-marketing";
 import type { AdminBannerRow } from "@/lib/data/admin-marketing";
 
@@ -288,11 +288,14 @@ export function BannersPanel({ initialBanners }: { initialBanners: AdminBannerRo
 
         <div>
           <label className="text-xs font-bold text-pz-on-surface-variant block mb-1">Banner Image</label>
-          <ImageUploadField
+          <LibraryImageField
             value={form.imageUrl}
             onChange={(url) => set("imageUrl", url)}
             courseSlug="marketing"
             kind="banner"
+            folder="heroes"
+            want="wide"
+            uploadLabel="Upload new"
             shape="square"
             icon={Image}
             inputClassName="w-full border border-pz-outline-variant rounded-lg px-3 py-2 text-sm font-body max-md:text-base max-md:min-h-11"

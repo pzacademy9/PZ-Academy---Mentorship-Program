@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { COURSE_TYPES, COURSE_STATUSES } from "@/lib/validations/admin-lms";
 import type { CourseConfigDetail } from "@/lib/data/admin-lms";
-import { ImageUploadField } from "./ImageUploadField";
+import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
 
 type FormState = {
   title: string;
@@ -267,11 +267,13 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
 
           <div className="sm:col-span-2">
             <label className={labelClass}>Course Thumbnail URL</label>
-            <ImageUploadField
+            <LibraryImageField
               value={form.thumbnailUrl}
               onChange={(url) => set("thumbnailUrl", url)}
               courseSlug={course.slug}
               kind="thumbnail"
+              folder="heroes"
+              uploadLabel="Upload new"
               shape="square"
               icon={Image}
               inputClassName={inputClass}
@@ -280,11 +282,14 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
 
           <div className="sm:col-span-2">
             <label className={labelClass}>Banner Image URL</label>
-            <ImageUploadField
+            <LibraryImageField
               value={form.bannerUrl}
               onChange={(url) => set("bannerUrl", url)}
               courseSlug={course.slug}
               kind="banner"
+              folder="heroes"
+              want="wide"
+              uploadLabel="Upload new"
               shape="square"
               icon={Mountain}
               inputClassName={inputClass}
@@ -334,11 +339,14 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
 
         <div>
           <label className={labelClass}>Mentor Avatar</label>
-          <ImageUploadField
+          <LibraryImageField
             value={form.mentorAvatarUrl}
             onChange={(url) => set("mentorAvatarUrl", url)}
             courseSlug={course.slug}
             kind="mentor-avatar"
+            folder="instructors"
+            shape="circle"
+            uploadLabel="Upload new"
             inputClassName={inputClass}
           />
         </div>
