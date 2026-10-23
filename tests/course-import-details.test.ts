@@ -5,6 +5,8 @@ import { parseCourseFile } from "@/lib/lms/course-import/parse";
 import { analyzeCourseFile, type ImportPlan } from "@/lib/lms/course-import/analyze";
 import { COURSE_DETAIL_FIELDS } from "@/lib/lms/course-import/format";
 import { masterPrompt } from "@/lib/lms/course-import/prompts";
+import { courseConfigSchema } from "@/lib/validations/admin-lms";
+import { readFileSync } from "node:fs";
 
 vi.mock("server-only", () => ({}));
 
@@ -318,5 +320,49 @@ describe("createCourseFromPlan: course details", () => {
     };
     expect(await createCourseFromPlan(workshopPlan(ALL))).toEqual({ ok: false, reason: "db-error" });
     expect(store.courses).toHaveLength(0);
+  });
+});
+
+describe("detail limits and file encoding", () => {
+  const SCHEMA_KEY: Record<string, keyof typeof courseConfigSchema.shape> = {
+    tagline: "tagline",
+    description: "description",
+    level: "level",
+    duration: "durationText",
+    timings: "timings",
+    mentorName: "mentorName",
+    mentorTitle: "mentorTitle",
+    mentorBio: "mentorBio",
+  };
+
+  it("every limit equals the one in courseConfigSchema", () => {
+    for (const f of COURSE_DETAIL_FIELDS) {
+      const schema = courseConfigSchema.shape[SCHEMA_KEY[f.field]];
+      expect(schema.safeParse("a".repeat(f.max)).success).toBe(true);
+      expect(schema.safeParse("a".repeat(f.max + 1)).success).toBe(false);
+    }
+  });
+
+  it("touched source files are valid UTF-8 and the prompt has no replacement character", () => {
+    const files = [
+      "src/lib/lms/course-import/prompts.ts",
+      "src/lib/lms/course-import/format.ts",
+      "src/lib/lms/course-import/parse.ts",
+      "src/lib/lms/course-import/analyze.ts",
+      "src/lib/data/course-import.ts",
+      "src/components/admin/program/CourseImport.tsx",
+    ];
+    for (const f of files) {
+      const bytes = readFileSync(f);
+      expect(() => new TextDecoder("utf-8", { fatal: true }).decode(bytes), f).not.toThrow();
+    }
+    expect(masterPrompt()).not.toContain(String.fromCharCode(0xfffd));
+  });
+
+  it("the prompt asks for one-paragraph details on a single line", () => {
+    const p = masterPrompt();
+    expect(p).toContain("ONE paragraph on a single line");
+    expect(p).toMatch(/never start a line inside them with a word followed by a colon/);
+    expect(p).not.toMatch(/blank line between paragraphs/);
   });
 });

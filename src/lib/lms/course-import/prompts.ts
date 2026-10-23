@@ -26,11 +26,10 @@ format: ${COURSE_IMPORT_FORMAT_ID}
 title: Practical Pharmacology - Batch 2
 type: course
 tagline: Learn how medicines work and how to use them safely
-description: A practical course on how common medicines work, how they are given, and how to avoid mistakes.
-Each day has a recorded lecture, notes and a short quiz.
+description: A practical course on how common medicines work, how they are given, and how to avoid mistakes. Each day has a recorded lecture, notes and a short quiz.
 level: Beginner
 duration: 1 Month
-timings: 6:30 PM – 7:30 PM (UAE Time), live sessions
+timings: 6:30 PM - 7:30 PM (UAE Time), live sessions
 mentor_name: Dr Example Name
 mentor_title: Clinical Pharmacist
 mentor_bio: Dr Example Name has worked as a clinical pharmacist and teaches medicine safety.
@@ -63,7 +62,7 @@ What each line means:
 - format: always exactly ${COURSE_IMPORT_FORMAT_ID}, on the very first line.
 - title: the course name.
 - type: course, workshop or webinar.
-- tagline, description, level, duration, timings, mentor_name, mentor_title, mentor_bio: the course details. They go in the top part of the file, before the first ## line, and every one of them is optional. description and mentor_bio may continue over the next lines (a blank line between paragraphs is fine). Do not put any other text in the top part.
+- tagline, description, level, duration, timings, mentor_name, mentor_title, mentor_bio: the course details. They go in the top part of the file, before the first ## line, and every one of them is optional. Write description and mentor_bio as ONE paragraph on a single line, and never start a line inside them with a word followed by a colon. Do not put any other text in the top part.
 - ## Module: starts a module (courses only).
 - ### Session: starts a session (a lecture or a day).
 - video: the main video link for the session. video2: an optional second video link.
@@ -76,10 +75,10 @@ THE COURSE DETAILS
 
 Fill the course details from the course information files (the database files). If the files do not say, leave that line out completely. Never invent a detail.
 - tagline: one short line about the course (at most ${max("tagline")} characters).
-- description: one to three plain paragraphs about the course, taken from the files, with no hype added (at most ${max("description")} characters).
+- description: one plain paragraph about the course on a single line, taken from the files, with no hype added (at most ${max("description")} characters).
 - level: for example Beginner or Intermediate, only if the files say so (at most ${max("level")} characters).
 - duration: short text such as "1 Month" or "4 Days", only from the files (at most ${max("duration")} characters).
-- timings: short text such as "6:30 PM – 7:30 PM (UAE Time), live sessions", only from the files (at most ${max("timings")} characters).
+- timings: short text such as "6:30 PM - 7:30 PM (UAE Time), live sessions", only from the files (at most ${max("timings")} characters).
 - mentor_name, mentor_title (the designation) and mentor_bio: only from the instructor section of the files. Never invent a mentor, a qualification or a biography (names and designation at most ${max("mentor_name")} characters, bio at most ${max("mentor_bio")} characters).
 
 THE RULES
