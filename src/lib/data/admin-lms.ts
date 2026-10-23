@@ -408,11 +408,19 @@ export async function deleteCourse(id: string): Promise<DeleteCourseResult> {
     lessons = data ?? [];
   }
 
+  // Read before the delete: the FK cascade removes module_notes with the modules.
+  let noteDocuments: Array<{ fileId: string }> = [];
+  if (moduleIds.length > 0) {
+    const { data: notes } = await admin.from("module_notes").select("documents").in("module_id", moduleIds);
+    noteDocuments = (notes ?? []).flatMap((n) => (n.documents as unknown as Array<{ fileId: string }> | null) ?? []);
+  }
+
   const { data, error } = await admin.from("courses").delete().eq("id", id).select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
 
   const fileIdsToTrash = [
+    ...noteDocuments.map((d) => d.fileId),
     ...(course
       ? [course.thumbnail_url, course.banner_url, course.mentor_avatar_url]
           .map((url) => extractDriveFileId(url))
@@ -590,12 +598,13 @@ async function countQuizQuestionsByLesson(
   for (let i = 0; i < lessonIds.length; i += QUIZ_COUNT_LESSON_CHUNK) {
     const chunk = lessonIds.slice(i, i + QUIZ_COUNT_LESSON_CHUNK);
     for (let from = 0; ; from += POSTGREST_PAGE) {
-      const { data } = await admin
+      const { data, error } = await admin
         .from("quiz_questions")
         .select("lesson_id")
         .in("lesson_id", chunk)
         .order("id", { ascending: true })
         .range(from, from + POSTGREST_PAGE - 1);
+      if (error) throw new Error("Could not count quiz questions.");
       const rows = data ?? [];
       for (const r of rows) counts.set(r.lesson_id, (counts.get(r.lesson_id) ?? 0) + 1);
       if (rows.length < POSTGREST_PAGE) break;

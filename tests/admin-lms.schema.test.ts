@@ -165,9 +165,12 @@ describe("lessonUpdateSchema videoUrl2", () => {
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.videoUrl2).toBe("https://youtu.be/abc");
   });
-  it("coerces an empty string to undefined and rejects non-urls", () => {
+  it("keeps an empty string so a video can be cleared, and rejects non-urls", () => {
     const empty = lessonUpdateSchema.safeParse({ videoUrl2: "" });
-    expect(empty.success && empty.data.videoUrl2).toBeUndefined();
+    expect(empty.success && empty.data.videoUrl2).toBe("");
+    const first = lessonUpdateSchema.safeParse({ videoUrl: "" });
+    expect(first.success && first.data.videoUrl).toBe("");
     expect(lessonUpdateSchema.safeParse({ videoUrl2: "nope" }).success).toBe(false);
+    expect(lessonUpdateSchema.safeParse({ videoUrl: "nope" }).success).toBe(false);
   });
 });

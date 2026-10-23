@@ -16,6 +16,7 @@ import {
   getModuleNotes,
   getBuilderState,
   deleteModule,
+  deleteCourse,
 } from "@/lib/data/admin-lms";
 
 let store: Store;
@@ -67,6 +68,38 @@ describe("updateLesson derives content_type", () => {
     store.lessons[0].content_type = "video";
     await updateLesson("l-1", { title: "New" });
     expect(store.lessons[0].content_type).toBe("video");
+  });
+});
+
+describe("updateLesson clearing videos", () => {
+  it("clearing both videos on a pdf lesson recomputes to pdf", async () => {
+    Object.assign(store.lessons[0], { video_url: "https://youtu.be/a", pdf_file_id: "pdf-1", content_type: "video" });
+    await updateLesson("l-1", { videoUrl: "", videoUrl2: "" });
+    expect(store.lessons[0].video_url).toBeNull();
+    expect(store.lessons[0].content_type).toBe("pdf");
+  });
+  it("clearing the video with no pdf recomputes to text", async () => {
+    Object.assign(store.lessons[0], { video_url: "https://youtu.be/a", content_type: "video" });
+    await updateLesson("l-1", { videoUrl: "" });
+    expect(store.lessons[0].content_type).toBe("text");
+  });
+});
+
+describe("deleteCourse notes files", () => {
+  it("trashes module_notes documents of the course", async () => {
+    store.module_notes.push({ module_id: "m-1", resource_urls: [], documents: [{ name: "d", fileId: "note-z" }] });
+    const res = await deleteCourse("c-course");
+    expect(res.ok).toBe(true);
+    expect(trash.mock.calls[0][0]).toContain("note-z");
+  });
+});
+
+describe("getBuilderState quiz count errors", () => {
+  it("rejects when a quiz page errors instead of undercounting", async () => {
+    const base = memoryHandler(store);
+    admin.state.handler = (op) =>
+      op.table === "quiz_questions" ? { data: null, error: { message: "boom" } } : base(op);
+    await expect(getBuilderState("c-course")).rejects.toThrow();
   });
 });
 
