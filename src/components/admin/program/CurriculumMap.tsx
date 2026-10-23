@@ -20,7 +20,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pencil, Trash2, PlusCircle, FolderPlus, Video, FileText, FileType2 } from "lucide-react";
+import { GripVertical, Pencil, Trash2, PlusCircle, FolderPlus, Copy, StickyNote } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,21 +33,39 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
+import type { CourseType } from "@/lib/validations/admin-lms";
+import { sessionReadiness } from "@/lib/lms/lesson-parts";
 
-const CONTENT_ICON = { video: Video, text: FileText, pdf: FileType2 } as const;
+/** Plain wording for what a session is missing, shown next to its status dot. */
+function missingReason(missing: ("video" | "quiz")[]): string {
+  return `no ${missing.join(" or ")}`;
+}
 
 type DeleteTarget = { kind: "module" | "lesson"; id: string; title: string };
 
 interface Props {
   courseId: string;
+  courseType: CourseType;
   flat: boolean;
   modules: BuilderModule[];
   selectedLessonId: string | null;
+  selectedModuleId: string | null;
   onSelectLesson: (lesson: BuilderLesson) => void;
+  onSelectModuleNotes: (moduleId: string) => void;
   onModulesChange: (modules: BuilderModule[]) => void;
 }
 
-export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSelectLesson, onModulesChange }: Props) {
+export function CurriculumMap({
+  courseId,
+  courseType,
+  flat,
+  modules,
+  selectedLessonId,
+  selectedModuleId,
+  onSelectLesson,
+  onSelectModuleNotes,
+  onModulesChange,
+}: Props) {
   const router = useRouter();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -62,6 +80,7 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
   const [editModuleTitle, setEditModuleTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
+  const [copyConfirm, setCopyConfirm] = useState<{ moduleId: string; message: string } | null>(null);
 
   const totalLessons = modules.reduce((n, m) => n + m.lessons.length, 0);
 
@@ -156,6 +175,37 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
     router.refresh();
   });
 
+  const { run: copyModule, pendingKey: copyingModuleId } = useAsyncAction(
+    async (moduleId: string, confirm = false) => {
+      try {
+        const res = await fetch(`/api/admin/modules/${moduleId}/copy`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(confirm ? { confirm: true } : {}),
+        });
+        const payload = (await res.json().catch(() => null)) as
+          | { id?: string; filesToReupload?: number; error?: string; needsConfirmation?: boolean }
+          | null;
+        if (res.status === 409 && payload?.needsConfirmation) {
+          setCopyConfirm({ moduleId, message: payload.error ?? "" });
+          return;
+        }
+        if (!res.ok) {
+          toast.error(payload?.error ?? "Could not copy this module.");
+          return;
+        }
+        toast.success("Module copied");
+        if (payload?.filesToReupload) {
+          toast.info(`${payload.filesToReupload} uploaded files were not copied; upload them again`);
+        }
+        router.refresh();
+      } catch {
+        toast.error("Could not copy this module.");
+      }
+    },
+    { getKey: (...[moduleId]: [string, boolean?]) => moduleId },
+  );
+
   const { run: submitModuleRename } = useAsyncAction(async (moduleId: string) => {
     const title = editModuleTitle.trim();
     if (!title) {
@@ -233,8 +283,13 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
                 key={mod.id}
                 mod={mod}
                 index={index}
+                courseType={courseType}
                 flat={flat}
                 selectedLessonId={selectedLessonId}
+                notesSelected={selectedModuleId === mod.id}
+                onSelectNotes={() => onSelectModuleNotes(mod.id)}
+                onCopyModule={() => void copyModule(mod.id)}
+                copyBusy={copyingModuleId === mod.id}
                 onSelectLesson={onSelectLesson}
                 editing={editingModule === mod.id}
                 editTitle={editModuleTitle}
@@ -354,6 +409,41 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={copyConfirm !== null} onOpenChange={(open) => !open && setCopyConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-pz-on-surface">Copy this module?</DialogTitle>
+            <DialogDescription className="font-body text-pz-on-surface-variant">
+              {copyConfirm?.message}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              onClick={() => setCopyConfirm(null)}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              onClick={() => {
+                const target = copyConfirm;
+                setCopyConfirm(null);
+                if (target) void copyModule(target.moduleId, true);
+              }}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors"
+            >
+              Copy anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -361,8 +451,13 @@ export function CurriculumMap({ courseId, flat, modules, selectedLessonId, onSel
 function ModuleBlock({
   mod,
   index,
+  courseType,
   flat,
   selectedLessonId,
+  notesSelected,
+  onSelectNotes,
+  onCopyModule,
+  copyBusy,
   onSelectLesson,
   editing,
   editTitle,
@@ -384,8 +479,13 @@ function ModuleBlock({
 }: {
   mod: BuilderModule;
   index: number;
+  courseType: CourseType;
   flat: boolean;
   selectedLessonId: string | null;
+  notesSelected: boolean;
+  onSelectNotes: () => void;
+  onCopyModule: () => void;
+  copyBusy: boolean;
   onSelectLesson: (lesson: BuilderLesson) => void;
   editing: boolean;
   editTitle: string;
@@ -440,7 +540,32 @@ function ModuleBlock({
               )}
             </div>
           </div>
-          <div className="flex gap-1 shrink-0">
+          <div className="flex gap-1 shrink-0 items-center flex-wrap justify-end">
+            <button
+              type="button"
+              onClick={onSelectNotes}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold max-md:min-h-11 transition-colors",
+                notesSelected
+                  ? "border-pz-primary bg-pz-primary-container/10 text-pz-primary"
+                  : "border-pz-outline-variant text-pz-on-surface-variant hover:border-pz-primary hover:text-pz-primary",
+              )}
+            >
+              <StickyNote className="w-3.5 h-3.5" />
+              Notes
+              <span className="rounded-full bg-pz-surface-container px-1.5 text-[10px]">{mod.notesCount}</span>
+            </button>
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              loading={copyBusy}
+              onClick={onCopyModule}
+              className="inline-flex items-center gap-1 rounded-full border border-pz-outline-variant px-2.5 py-1 text-xs font-bold text-pz-on-surface-variant hover:border-pz-primary hover:text-pz-primary max-md:min-h-11 transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              Copy module
+            </Button>
             <button onClick={onStartEdit} aria-label="Rename module" className="p-1 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center text-pz-on-surface-variant hover:text-pz-primary">
               <Pencil className="w-4 h-4" />
             </button>
@@ -458,6 +583,7 @@ function ModuleBlock({
               <LessonRow
                 key={lesson.id}
                 lesson={lesson}
+                courseType={courseType}
                 label={flat ? `${lessonIndex + 1}.` : `${index + 1}.${lessonIndex + 1}`}
                 selected={selectedLessonId === lesson.id}
                 onSelect={() => onSelectLesson(lesson)}
@@ -507,12 +633,14 @@ function ModuleBlock({
 
 function LessonRow({
   lesson,
+  courseType,
   label,
   selected,
   onSelect,
   onDelete,
 }: {
   lesson: BuilderLesson;
+  courseType: CourseType;
   label: string;
   selected: boolean;
   onSelect: () => void;
@@ -520,7 +648,9 @@ function LessonRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lesson.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  const Icon = CONTENT_ICON[lesson.contentType];
+  const readiness = sessionReadiness(courseType, lesson);
+  const reason = readiness && !readiness.ready ? missingReason(readiness.missing) : null;
+  const dotLabel = !readiness ? undefined : readiness.ready ? "Ready" : `Missing: ${reason}`;
 
   return (
     <div
@@ -546,10 +676,21 @@ function LessonRow({
         >
           <GripVertical className="w-4 h-4" />
         </span>
-        <Icon className={cn("w-4 h-4 shrink-0", selected ? "text-pz-primary" : "text-pz-primary/70")} />
+        <span
+          role="img"
+          aria-label={dotLabel}
+          title={dotLabel}
+          className={cn(
+            "inline-block w-3 h-3 rounded-full shrink-0",
+            !readiness && "bg-pz-outline-variant",
+            readiness?.ready && "bg-pz-primary",
+            readiness && !readiness.ready && "border-2 border-pz-warning bg-transparent",
+          )}
+        />
         <span className={cn("text-sm truncate", selected ? "font-bold text-pz-on-primary-container dark:text-pz-primary" : "font-medium text-pz-on-surface")}>
           {label} {lesson.title}
         </span>
+        {reason && <span className="text-[11px] font-bold text-pz-warning shrink-0">{reason}</span>}
       </div>
       <div className="flex gap-1 shrink-0">
         <button

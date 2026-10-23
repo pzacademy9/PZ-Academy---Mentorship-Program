@@ -8,6 +8,7 @@ import {
   reorderSchema,
   courseCreateSchema,
   quizQuestionCreateSchema,
+  lessonUpdateSchema,
   COURSE_TYPES,
 } from "@/lib/validations/admin-lms";
 
@@ -155,5 +156,21 @@ describe("quizQuestionCreateSchema", () => {
       quizQuestionCreateSchema.safeParse({ question: "Q", options: ["a", "b"], correctIndex: -1 })
         .success,
     ).toBe(false);
+  });
+});
+
+describe("lessonUpdateSchema videoUrl2", () => {
+  it("accepts a second video url", () => {
+    const r = lessonUpdateSchema.safeParse({ videoUrl2: "https://youtu.be/abc" });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.videoUrl2).toBe("https://youtu.be/abc");
+  });
+  it("keeps an empty string so a video can be cleared, and rejects non-urls", () => {
+    const empty = lessonUpdateSchema.safeParse({ videoUrl2: "" });
+    expect(empty.success && empty.data.videoUrl2).toBe("");
+    const first = lessonUpdateSchema.safeParse({ videoUrl: "" });
+    expect(first.success && first.data.videoUrl).toBe("");
+    expect(lessonUpdateSchema.safeParse({ videoUrl2: "nope" }).success).toBe(false);
+    expect(lessonUpdateSchema.safeParse({ videoUrl: "nope" }).success).toBe(false);
   });
 });

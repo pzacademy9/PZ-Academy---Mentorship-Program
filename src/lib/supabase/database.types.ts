@@ -2563,6 +2563,7 @@ export type Database = {
           text_content: string | null
           title: string
           video_url: string | null
+          video_url_2: string | null
         }
         Insert: {
           content_type?: Database["public"]["Enums"]["lesson_content_type"]
@@ -2577,6 +2578,7 @@ export type Database = {
           text_content?: string | null
           title: string
           video_url?: string | null
+          video_url_2?: string | null
         }
         Update: {
           content_type?: Database["public"]["Enums"]["lesson_content_type"]
@@ -2591,6 +2593,7 @@ export type Database = {
           text_content?: string | null
           title?: string
           video_url?: string | null
+          video_url_2?: string | null
         }
         Relationships: [
           {
@@ -3029,6 +3032,35 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_notes: {
+        Row: {
+          documents: Json
+          module_id: string
+          resource_urls: Json
+          updated_at: string | null
+        }
+        Insert: {
+          documents?: Json
+          module_id: string
+          resource_urls?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          documents?: Json
+          module_id?: string
+          resource_urls?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_notes_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: true
+            referencedRelation: "modules"
             referencedColumns: ["id"]
           },
         ]

@@ -9,6 +9,9 @@ export function toEmbedUrl(url: string): string {
       if (u.pathname.startsWith("/embed/")) return url;
       const v = u.searchParams.get("v");
       if (v) return `https://www.youtube.com/embed/${v}`;
+      if (u.pathname.startsWith("/shorts/")) {
+        return `https://www.youtube.com/embed${u.pathname.replace("/shorts/", "/")}`;
+      }
       // Handles youtube.com/live/<id> URLs (no ?v= param).
       if (u.pathname.startsWith("/live/")) {
         return `https://www.youtube.com/embed${u.pathname.replace("/live/", "/")}`;

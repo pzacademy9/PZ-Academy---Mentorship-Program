@@ -175,6 +175,7 @@ export default async function LessonPage({
           lessonTitle={lesson.title}
           resources={lesson.resources}
           documents={lesson.documents}
+          moduleNotes={lesson.moduleNotes}
           initialNoteHtml={note?.contentHtml ?? ""}
         />
       )}

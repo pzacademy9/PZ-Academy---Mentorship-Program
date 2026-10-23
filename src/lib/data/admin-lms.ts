@@ -21,6 +21,7 @@ import {
   collectLessonFileIds,
 } from "@/lib/validations/drive-cleanup";
 import { trashDriveFiles } from "@/lib/data/drive-cleanup";
+import { deriveContentType } from "@/lib/lms/lesson-parts";
 
 /**
  * Admin data layer for the Program Builder (Phase 3). Mirrors the
@@ -407,11 +408,19 @@ export async function deleteCourse(id: string): Promise<DeleteCourseResult> {
     lessons = data ?? [];
   }
 
+  // Read before the delete: the FK cascade removes module_notes with the modules.
+  let noteDocuments: Array<{ fileId: string }> = [];
+  if (moduleIds.length > 0) {
+    const { data: notes } = await admin.from("module_notes").select("documents").in("module_id", moduleIds);
+    noteDocuments = (notes ?? []).flatMap((n) => (n.documents as unknown as Array<{ fileId: string }> | null) ?? []);
+  }
+
   const { data, error } = await admin.from("courses").delete().eq("id", id).select("id").maybeSingle();
   if (error) return { ok: false, reason: "db-error" };
   if (!data) return { ok: false, reason: "not-found" };
 
   const fileIdsToTrash = [
+    ...noteDocuments.map((d) => d.fileId),
     ...(course
       ? [course.thumbnail_url, course.banner_url, course.mentor_avatar_url]
           .map((url) => extractDriveFileId(url))
@@ -465,12 +474,17 @@ export interface BuilderLesson {
   title: string;
   contentType: LessonContentType;
   orderIndex: number;
+  /** True when video_url or video_url_2 is a non-empty string. */
+  hasVideo: boolean;
+  quizCount: number;
 }
 
 export interface BuilderModule {
   id: string;
   title: string;
   orderIndex: number;
+  /** Resource links plus documents saved in module_notes (0 when no row). */
+  notesCount: number;
   lessons: BuilderLesson[];
 }
 
@@ -502,21 +516,50 @@ export async function getBuilderState(courseId: string): Promise<BuilderState | 
   const { data: lessons } = moduleIds.length
     ? await admin
         .from("lessons")
-        .select("id, title, content_type, order_index, module_id")
+        .select("id, title, content_type, order_index, module_id, video_url, video_url_2")
         .in("module_id", moduleIds)
         .order("order_index", { ascending: true })
     : { data: [] as never[] };
 
-  const lessonsByModule = new Map<string, BuilderLesson[]>();
-  for (const lesson of (lessons ?? []) as {
+  const lessonRows = (lessons ?? []) as {
     id: string;
     title: string;
     content_type: LessonContentType;
     order_index: number;
     module_id: string;
-  }[]) {
+    video_url: string | null;
+    video_url_2: string | null;
+  }[];
+
+  const quizCounts = await countQuizQuestionsByLesson(
+    admin,
+    lessonRows.map((l) => l.id),
+  );
+
+  const notesCounts = new Map<string, number>();
+  if (moduleIds.length) {
+    const { data: notes } = await admin
+      .from("module_notes")
+      .select("module_id, resource_urls, documents")
+      .in("module_id", moduleIds);
+    for (const n of notes ?? []) {
+      const links = Array.isArray(n.resource_urls) ? n.resource_urls.length : 0;
+      const docs = Array.isArray(n.documents) ? n.documents.length : 0;
+      notesCounts.set(n.module_id, links + docs);
+    }
+  }
+
+  const lessonsByModule = new Map<string, BuilderLesson[]>();
+  for (const lesson of lessonRows) {
     const list = lessonsByModule.get(lesson.module_id) ?? [];
-    list.push({ id: lesson.id, title: lesson.title, contentType: lesson.content_type, orderIndex: lesson.order_index });
+    list.push({
+      id: lesson.id,
+      title: lesson.title,
+      contentType: lesson.content_type,
+      orderIndex: lesson.order_index,
+      hasVideo: !!lesson.video_url?.trim() || !!lesson.video_url_2?.trim(),
+      quizCount: quizCounts.get(lesson.id) ?? 0,
+    });
     lessonsByModule.set(lesson.module_id, list);
   }
 
@@ -533,9 +576,41 @@ export async function getBuilderState(courseId: string): Promise<BuilderState | 
       id: m.id,
       title: m.title,
       orderIndex: m.order_index,
+      notesCount: notesCounts.get(m.id) ?? 0,
       lessons: lessonsByModule.get(m.id) ?? [],
     })),
   };
+}
+
+const QUIZ_COUNT_LESSON_CHUNK = 200;
+const POSTGREST_PAGE = 1000;
+
+/**
+ * Quiz question counts per lesson. PostgREST caps a response at 1000 rows, so
+ * lesson ids go in chunks of 200 and each chunk is paged with .range(); only
+ * lesson_id is selected.
+ */
+async function countQuizQuestionsByLesson(
+  admin: ReturnType<typeof createAdminSupabase>,
+  lessonIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  for (let i = 0; i < lessonIds.length; i += QUIZ_COUNT_LESSON_CHUNK) {
+    const chunk = lessonIds.slice(i, i + QUIZ_COUNT_LESSON_CHUNK);
+    for (let from = 0; ; from += POSTGREST_PAGE) {
+      const { data, error } = await admin
+        .from("quiz_questions")
+        .select("lesson_id")
+        .in("lesson_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, from + POSTGREST_PAGE - 1);
+      if (error) throw new Error("Could not count quiz questions.");
+      const rows = data ?? [];
+      for (const r of rows) counts.set(r.lesson_id, (counts.get(r.lesson_id) ?? 0) + 1);
+      if (rows.length < POSTGREST_PAGE) break;
+    }
+  }
+  return counts;
 }
 
 /** Rows in lesson_progress or quiz_attempts for any of the given lessons — the delete-guard signal. */
@@ -563,7 +638,7 @@ async function isPublishedWithActiveEnrollments(courseId: string): Promise<boole
 
 export type MutationResult =
   | { ok: true; id: string; warning?: string | null }
-  | { ok: false; reason: "not-found" | "db-error" | "flat-type" }
+  | { ok: false; reason: "not-found" | "db-error" | "flat-type" | "too-many" }
   | { ok: false; reason: "needs-confirmation" | "blocked-published-active"; recordCount: number };
 
 const REORDER_ACTIVE_ENROLLMENT_WARNING =
@@ -642,16 +717,20 @@ export async function deleteModule(moduleId: string, confirm = false): Promise<M
     if (!confirm) return { ok: false, reason: "needs-confirmation", recordCount };
   }
 
+  // Read before the delete: the FK cascade removes the notes row with the module.
+  const { data: notes } = await admin.from("module_notes").select("documents").eq("module_id", moduleId).maybeSingle();
+
   const { error } = await admin.from("modules").delete().eq("id", moduleId);
   if (error) return { ok: false, reason: "db-error" };
 
   const warning = await trashDriveFiles(
-    collectLessonFileIds(
-      (lessons ?? []).map((l) => ({
+    collectLessonFileIds([
+      ...(lessons ?? []).map((l) => ({
         pdfFileId: l.pdf_file_id,
         documents: (l.documents as unknown as Array<{ fileId: string }>) ?? [],
       })),
-    ),
+      { pdfFileId: null, documents: (notes?.documents as unknown as Array<{ fileId: string }> | null) ?? [] },
+    ]),
   );
 
   return { ok: true, id: moduleId, warning };
@@ -690,6 +769,7 @@ export interface UpdateLessonInput {
   title?: string;
   contentType?: LessonContentType;
   videoUrl?: string;
+  videoUrl2?: string;
   textContent?: string;
   resources?: LessonResourceLink[];
   pdfFileId?: string;
@@ -702,14 +782,14 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput): 
 
   const { data: existing } = await admin
     .from("lessons")
-    .select("pdf_file_id, documents")
+    .select("pdf_file_id, documents, video_url, video_url_2")
     .eq("id", lessonId)
     .maybeSingle();
 
   const patch: Database["public"]["Tables"]["lessons"]["Update"] = {};
   if (input.title !== undefined) patch.title = input.title;
-  if (input.contentType !== undefined) patch.content_type = input.contentType;
   if (input.videoUrl !== undefined) patch.video_url = input.videoUrl || null;
+  if (input.videoUrl2 !== undefined) patch.video_url_2 = input.videoUrl2 || null;
   if (input.textContent !== undefined) patch.text_content = sanitizeLessonHtml(input.textContent);
   if (input.resources !== undefined) {
     patch.resource_urls = input.resources as unknown as Database["public"]["Tables"]["lessons"]["Update"]["resource_urls"];
@@ -717,6 +797,21 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput): 
   if (input.pdfFileId !== undefined) patch.pdf_file_id = input.pdfFileId;
   if (input.documents !== undefined) {
     patch.documents = input.documents as unknown as Database["public"]["Tables"]["lessons"]["Update"]["documents"];
+  }
+
+  // content_type is derived from what the session holds after this patch; a
+  // client-sent contentType is accepted by the schema but not stored.
+  const touchesSource =
+    input.videoUrl !== undefined ||
+    input.videoUrl2 !== undefined ||
+    input.pdfFileId !== undefined ||
+    input.contentType !== undefined;
+  if (touchesSource && existing) {
+    patch.content_type = deriveContentType({
+      videoUrl: input.videoUrl !== undefined ? input.videoUrl : existing.video_url,
+      videoUrl2: input.videoUrl2 !== undefined ? input.videoUrl2 : existing.video_url_2,
+      pdfFileId: input.pdfFileId !== undefined ? input.pdfFileId : existing.pdf_file_id,
+    });
   }
 
   const { data, error } = await admin.from("lessons").update(patch).eq("id", lessonId).select("id").maybeSingle();
@@ -816,6 +911,7 @@ export interface LessonDetail {
   title: string;
   contentType: LessonContentType;
   videoUrl: string;
+  videoUrl2: string;
   textContent: string;
   pdfFileId: string | null;
   resources: LessonResourceLink[];
@@ -830,7 +926,7 @@ export async function getLessonDetail(lessonId: string): Promise<LessonDetail | 
   const [{ data: lesson }, { data: questions }] = await Promise.all([
     admin
       .from("lessons")
-      .select("id, title, content_type, video_url, text_content, pdf_file_id, resource_urls, documents")
+      .select("id, title, content_type, video_url, video_url_2, text_content, pdf_file_id, resource_urls, documents")
       .eq("id", lessonId)
       .maybeSingle(),
     admin
@@ -846,6 +942,7 @@ export async function getLessonDetail(lessonId: string): Promise<LessonDetail | 
     title: lesson.title,
     contentType: lesson.content_type,
     videoUrl: lesson.video_url ?? "",
+    videoUrl2: lesson.video_url_2 ?? "",
     textContent: lesson.text_content ?? "",
     pdfFileId: lesson.pdf_file_id,
     resources: (lesson.resource_urls as unknown as LessonResourceLink[] | null) ?? [],
@@ -895,6 +992,94 @@ export async function createQuizQuestion(lessonId: string, input: QuizQuestionIn
   return { ok: true, id: data.id };
 }
 
+export const MAX_BULK_QUIZ_QUESTIONS = 200;
+
+/** Paste-many append: one insert, order_index continues from max+1, never touches existing rows. */
+export async function appendQuizQuestions(
+  lessonId: string,
+  items: QuizQuestionInput[],
+): Promise<MutationResult & { created?: number }> {
+  if (items.length > MAX_BULK_QUIZ_QUESTIONS) return { ok: false, reason: "too-many" };
+  const admin = createAdminSupabase();
+
+  const { data: lesson } = await admin.from("lessons").select("id").eq("id", lessonId).maybeSingle();
+  if (!lesson) return { ok: false, reason: "not-found" };
+  if (items.length === 0) return { ok: true, id: lessonId, created: 0 };
+
+  const start = await nextQuizQuestionOrderIndex(admin, lessonId);
+  const { error } = await admin.from("quiz_questions").insert(
+    items.map((item, i) => ({
+      lesson_id: lessonId,
+      question: item.question,
+      options: item.options,
+      correct_index: item.correctIndex,
+      order_index: start + i,
+    })),
+  );
+  if (error) return { ok: false, reason: "db-error" };
+  return { ok: true, id: lessonId, created: items.length };
+}
+
+// ---------------------------------------------------------------------------
+// Module notes (course type only): links + private Drive documents per module
+// ---------------------------------------------------------------------------
+
+export interface ModuleNotes {
+  resources: LessonResourceLink[];
+  documents: LessonDocument[];
+}
+
+export async function getModuleNotes(moduleId: string): Promise<ModuleNotes> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("module_notes")
+    .select("resource_urls, documents")
+    .eq("module_id", moduleId)
+    .maybeSingle();
+  return {
+    resources: (data?.resource_urls as unknown as LessonResourceLink[] | null) ?? [],
+    documents: (data?.documents as unknown as LessonDocument[] | null) ?? [],
+  };
+}
+
+export async function updateModuleNotes(moduleId: string, input: Partial<ModuleNotes>): Promise<MutationResult> {
+  const admin = createAdminSupabase();
+
+  const { data: mod } = await admin
+    .from("modules")
+    .select("id, course_id")
+    .eq("id", moduleId)
+    .maybeSingle();
+  if (!mod) return { ok: false, reason: "not-found" };
+  const { data: course } = await admin.from("courses").select("type").eq("id", mod.course_id).maybeSingle();
+  if (!course) return { ok: false, reason: "not-found" };
+  if (usesFlatSessions(course.type)) return { ok: false, reason: "flat-type" };
+
+  const { data: existing } = await admin
+    .from("module_notes")
+    .select("resource_urls, documents")
+    .eq("module_id", moduleId)
+    .maybeSingle();
+  const oldDocuments = (existing?.documents as unknown as LessonDocument[] | null) ?? [];
+  const oldResources = (existing?.resource_urls as unknown as LessonResourceLink[] | null) ?? [];
+
+  const { error } = await admin.from("module_notes").upsert(
+    {
+      module_id: moduleId,
+      resource_urls: (input.resources ?? oldResources) as unknown as Database["public"]["Tables"]["module_notes"]["Insert"]["resource_urls"],
+      documents: (input.documents ?? oldDocuments) as unknown as Database["public"]["Tables"]["module_notes"]["Insert"]["documents"],
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "module_id" },
+  );
+  if (error) return { ok: false, reason: "db-error" };
+
+  const warning = await trashDriveFiles(
+    diffLessonFileIds({ pdfFileId: null, documents: oldDocuments }, { documents: input.documents }),
+  );
+  return { ok: true, id: moduleId, warning };
+}
+
 export async function updateQuizQuestion(id: string, input: Partial<QuizQuestionInput>): Promise<MutationResult> {
   const admin = createAdminSupabase();
   const patch: Database["public"]["Tables"]["quiz_questions"]["Update"] = {};
@@ -926,4 +1111,274 @@ export async function reorderQuizQuestions(lessonId: string, orderedIds: string[
   );
   if (results.some((r) => r.error)) return { ok: false, reason: "db-error" };
   return { ok: true, id: lessonId };
+}
+
+// ---------------------------------------------------------------------------
+// Copy module / copy course. Copies structure, videos, links and quiz only.
+// Uploaded Drive files (lesson PDFs, lesson documents, module-notes documents)
+// are never duplicated: they are counted so the admin can re-upload them.
+// ---------------------------------------------------------------------------
+
+type AdminClient = ReturnType<typeof createAdminSupabase>;
+type JsonValue = Database["public"]["Tables"]["lessons"]["Insert"]["resource_urls"];
+type QuizOptionsJson = Database["public"]["Tables"]["quiz_questions"]["Insert"]["options"];
+
+const COPY_CHUNK = 500;
+const PAGE_SIZE = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+function listLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/**
+ * Copies every lesson (and quiz question) of the given source modules into the
+ * matching new modules, plus module-notes links. Returns the number of Drive
+ * files that were skipped, or null if any step failed (caller rolls back).
+ */
+async function copyModuleContents(
+  admin: AdminClient,
+  pairs: Array<{ oldId: string; newId: string }>,
+): Promise<number | null> {
+  if (pairs.length === 0) return 0;
+  const newByOld = new Map(pairs.map((p) => [p.oldId, p.newId]));
+  const oldIds = pairs.map((p) => p.oldId);
+  let skipped = 0;
+
+  // Lessons: explicit columns, paged past the 1000-row PostgREST cap.
+  const lessons: Array<{
+    id: string;
+    module_id: string;
+    title: string;
+    content_type: Database["public"]["Enums"]["lesson_content_type"];
+    video_url: string | null;
+    video_url_2: string | null;
+    text_content: string | null;
+    resource_urls: unknown;
+    pdf_file_id: string | null;
+    documents: unknown;
+    order_index: number;
+  }> = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("lessons")
+      .select(
+        "id, module_id, title, content_type, video_url, video_url_2, text_content, resource_urls, pdf_file_id, documents, order_index",
+      )
+      .in("module_id", oldIds)
+      .order("module_id", { ascending: true })
+      .order("order_index", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return null;
+    lessons.push(...(data ?? []));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+
+  for (const l of lessons) {
+    if (l.pdf_file_id) skipped += 1;
+    skipped += listLength(l.documents);
+  }
+
+  // Ids are generated here, so the old->new map never depends on response order.
+  const newLessonIdByOld = new Map<string, string>(lessons.map((l) => [l.id, crypto.randomUUID()]));
+  for (const part of chunk(lessons, COPY_CHUNK)) {
+    const { data, error } = await admin
+      .from("lessons")
+      .insert(
+        part.map((l) => ({
+          id: newLessonIdByOld.get(l.id)!,
+          module_id: newByOld.get(l.module_id)!,
+          title: l.title,
+          // The Drive file is never copied, so derive the type without it.
+          content_type: deriveContentType({ videoUrl: l.video_url, videoUrl2: l.video_url_2, pdfFileId: null }),
+          video_url: l.video_url,
+          video_url_2: l.video_url_2,
+          text_content: l.text_content,
+          resource_urls: (l.resource_urls ?? []) as JsonValue,
+          order_index: l.order_index,
+        })),
+      )
+      .select("id");
+    if (error || !data || data.length !== part.length) return null;
+  }
+
+  // Quiz questions, paged per batch of source lessons.
+  for (const lessonIds of chunk(
+    lessons.map((l) => l.id),
+    100,
+  )) {
+    const questions: Array<{
+      lesson_id: string;
+      question: string;
+      options: unknown;
+      correct_index: number;
+      order_index: number;
+    }> = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await admin
+        .from("quiz_questions")
+        .select("lesson_id, question, options, correct_index, order_index")
+        .in("lesson_id", lessonIds)
+        .order("lesson_id", { ascending: true })
+        .order("order_index", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) return null;
+      questions.push(...(data ?? []));
+      if ((data ?? []).length < PAGE_SIZE) break;
+    }
+    for (const part of chunk(questions, COPY_CHUNK)) {
+      const { error } = await admin.from("quiz_questions").insert(
+        part.map((q) => ({
+          lesson_id: newLessonIdByOld.get(q.lesson_id)!,
+          question: q.question,
+          options: q.options as QuizOptionsJson,
+          correct_index: q.correct_index,
+          order_index: q.order_index,
+        })),
+      );
+      if (error) return null;
+    }
+  }
+
+  // Module notes: links copied, uploaded documents counted and skipped.
+  const { data: notes, error: notesError } = await admin
+    .from("module_notes")
+    .select("module_id, resource_urls, documents")
+    .in("module_id", oldIds);
+  if (notesError) return null;
+  const noteRows = (notes ?? []).map((n) => {
+    skipped += listLength(n.documents);
+    return {
+      module_id: newByOld.get(n.module_id)!,
+      resource_urls: (n.resource_urls ?? []) as JsonValue,
+      documents: [] as JsonValue,
+    };
+  });
+  if (noteRows.length > 0) {
+    const { error } = await admin.from("module_notes").insert(noteRows);
+    if (error) return null;
+  }
+
+  return skipped;
+}
+
+export async function copyModule(
+  moduleId: string,
+  confirm = false,
+): Promise<MutationResult & { filesToReupload?: number }> {
+  const admin = createAdminSupabase();
+
+  const { data: mod } = await admin.from("modules").select("id, course_id, title").eq("id", moduleId).maybeSingle();
+  if (!mod) return { ok: false, reason: "not-found" };
+  const { data: course } = await admin.from("courses").select("type").eq("id", mod.course_id).maybeSingle();
+  if (!course) return { ok: false, reason: "not-found" };
+  if (usesFlatSessions(course.type)) return { ok: false, reason: "flat-type" };
+  if (!confirm && (await isPublishedWithActiveEnrollments(mod.course_id))) {
+    return { ok: false, reason: "needs-confirmation", recordCount: 0 };
+  }
+
+  const orderIndex = await nextModuleOrderIndex(admin, mod.course_id);
+  const { data: created, error } = await admin
+    .from("modules")
+    .insert({ course_id: mod.course_id, title: `${mod.title} (copy)`, order_index: orderIndex })
+    .select("id")
+    .single();
+  if (error || !created) return { ok: false, reason: "db-error" };
+
+  const skipped = await copyModuleContents(admin, [{ oldId: moduleId, newId: created.id }]);
+  if (skipped === null) {
+    await admin.from("modules").delete().eq("id", created.id);
+    return { ok: false, reason: "db-error" };
+  }
+  return { ok: true, id: created.id, filesToReupload: skipped };
+}
+
+export type CopyCourseResult =
+  | { ok: true; id: string; slug: string; filesToReupload: number }
+  | { ok: false; reason: "not-found" | "db-error" };
+
+export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
+  const admin = createAdminSupabase();
+
+  // Marketing text only. Never: images, mentor photo, portal/GAS/sheet links,
+  // public promo video, created_by, counters. Slug/status/is_published are set below.
+  const { data: src } = await admin
+    .from("courses")
+    .select(
+      "slug, title, type, tagline, description, price_pkr, level, duration_text, duration_weeks, timings, features, outcomes, faqs, mentor_name, mentor_title, mentor_bio",
+    )
+    .eq("id", courseId)
+    .maybeSingle();
+  if (!src) return { ok: false, reason: "not-found" };
+
+  const srcSlug = src.slug;
+  const fields = {
+    type: src.type,
+    tagline: src.tagline,
+    description: src.description,
+    price_pkr: src.price_pkr,
+    level: src.level,
+    duration_text: src.duration_text,
+    duration_weeks: src.duration_weeks,
+    timings: src.timings,
+    features: src.features,
+    outcomes: src.outcomes,
+    faqs: src.faqs,
+    mentor_name: src.mentor_name,
+    mentor_title: src.mentor_title,
+    mentor_bio: src.mentor_bio,
+  };
+  let created: { id: string; slug: string } | null = null;
+  for (let n = 1; n <= 20 && !created; n++) {
+    const slug = n === 1 ? `${srcSlug}-copy` : `${srcSlug}-copy-${n}`;
+    const { data: taken } = await admin.from("courses").select("id").eq("slug", slug).maybeSingle();
+    if (taken) continue;
+    const { data, error } = await admin
+      .from("courses")
+      .insert({ ...fields, title: `${src.title} (copy)`, slug, status: "draft", is_published: false })
+      .select("id, slug")
+      .single();
+    if (data && !error) created = data;
+    else if ((error as { code?: string } | null)?.code !== "23505") return { ok: false, reason: "db-error" };
+  }
+  if (!created) return { ok: false, reason: "db-error" };
+  const newCourse = created;
+
+  const rollback = async (): Promise<CopyCourseResult> => {
+    await admin.from("courses").delete().eq("id", newCourse.id);
+    return { ok: false, reason: "db-error" };
+  };
+
+  const { data: modules, error: modError } = await admin
+    .from("modules")
+    .select("id, title, order_index")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true });
+  if (modError) return rollback();
+  if (!modules || modules.length === 0) {
+    return { ok: true, id: newCourse.id, slug: newCourse.slug, filesToReupload: 0 };
+  }
+
+  const pairs = modules.map((m) => ({ oldId: m.id, newId: crypto.randomUUID() }));
+  const { data: newModules, error: insError } = await admin
+    .from("modules")
+    .insert(
+      modules.map((m, i) => ({
+        id: pairs[i].newId,
+        course_id: newCourse.id,
+        title: m.title,
+        order_index: m.order_index,
+      })),
+    )
+    .select("id");
+  if (insError || !newModules || newModules.length !== modules.length) return rollback();
+
+  const skipped = await copyModuleContents(admin, pairs);
+  if (skipped === null) return rollback();
+  return { ok: true, id: newCourse.id, slug: newCourse.slug, filesToReupload: skipped };
 }

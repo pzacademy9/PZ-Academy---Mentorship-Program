@@ -110,10 +110,15 @@ export const lessonCreateSchema = z.object({
   contentType: z.enum(LESSON_CONTENT_TYPES).default("text"),
 });
 
+/** Unlike `url`, keeps "" so a PATCH can clear a video; updateLesson maps "" to null. */
+const videoField = z.string().trim().url("Must be a full URL starting with https://").or(z.literal("")).optional();
+
 export const lessonUpdateSchema = z.object({
   title: z.string().trim().min(1, "Session title is required").max(200).optional(),
   contentType: z.enum(LESSON_CONTENT_TYPES).optional(),
-  videoUrl: url,
+  videoUrl: videoField,
+  /** Optional second video (max two per session). */
+  videoUrl2: videoField,
   textContent: z.string().max(200_000).optional(),
   resources: z
     .array(z.object({ label: z.string().trim().min(1).max(150), url: z.string().trim().url() }))
@@ -133,6 +138,9 @@ export const quizQuestionCreateSchema = z.object({
   options: z.array(z.string().trim().min(1)).min(2).max(6),
   correctIndex: z.number().int().nonnegative(),
 });
+
+/** Body of the module notes PATCH: same shapes as the lesson resources/documents fields. */
+export const moduleNotesUpdateSchema = lessonUpdateSchema.pick({ resources: true, documents: true });
 
 export const quizQuestionUpdateSchema = quizQuestionCreateSchema.partial();
 

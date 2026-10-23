@@ -24,6 +24,12 @@ describe("toEmbedUrl", () => {
     );
   });
 
+  it("converts a youtube.com/shorts/<id> URL", () => {
+    expect(toEmbedUrl("https://www.youtube.com/shorts/abc123")).toBe(
+      "https://www.youtube.com/embed/abc123",
+    );
+  });
+
   it("converts a vimeo.com URL", () => {
     expect(toEmbedUrl("https://vimeo.com/12345")).toBe("https://player.vimeo.com/video/12345");
   });
