@@ -12,13 +12,14 @@ Idea: staff give Claude or ChatGPT the course info files, a list of YouTube link
 
 - One extra way to start a course: "Build from file", next to "New course" on the Courses page. Manual building stays fully available.
 - Everything the course *structure* needs comes from the file: course name and type, modules, sessions, one or two videos per session, notes links (per module or per session), one quiz per session.
+- The course's basic settings also come from the file (owner decision 2026-10-23, reversing the first scope): tagline, description, level, duration, timings, mentor name, mentor designation, mentor bio. They are optional top-of-file lines and fill the draft course's settings.
 - A preview that saves nothing and lists every problem in plain words.
 - The file is plain text staff can open and edit; they can also go back to the AI, or create the draft anyway and fix by hand.
 
 ## Non-goals
 
-- Course details (description, tagline, instructor, features, outcomes, FAQs, duration, timings): typed by hand as today. Decided by owner: "only the relevant data".
-- Images, price, publishing: manual.
+- Features, outcomes, FAQs: typed by hand as today. (The basic settings tagline, description, level, duration, timings and mentor name/designation/bio are NOT a non-goal any more; see Goals and "Course details" below.)
+- Images, price, register URL, GAS URL, status/publishing: manual.
 - Several courses in one file: one course per file.
 - Updating an existing course. Upload only ever CREATES a new draft. A live course is edited by hand in the editor. A new draft with nobody enrolled can be deleted and re-imported from a corrected file.
 - Reading inside Drive files: the app cannot. Note links are attached as links.
@@ -47,6 +48,15 @@ AI-written quiz text is full of colons, dashes and quotes, and one bad indent in
 format: pz-course/1
 title: Practical Pharmacology – Batch 2
 type: course
+tagline: Learn how medicines work and how to use them safely
+description: First paragraph, taken from the course files.
+More lines continue the description until the next key.
+level: Beginner
+duration: 1 Month
+timings: 6:30 PM - 7:30 PM (UAE Time), live sessions
+mentor_name: Dr Example Name
+mentor_title: Clinical Pharmacist
+mentor_bio: Taken from the instructor section only.
 
 ## Module: Foundations of Clinical Pharmacology & Safe Prescribing
 notes: Module 1 notes | https://drive.google.com/...
@@ -73,6 +83,10 @@ notes: Extra slides | https://drive.google.com/...
 Rules of the layout: top lines `format`, `title`, `type` (course | workshop | webinar); `## Module: <title>` starts a module (type course only); `### Session: <title>` starts a session (title is the rest of the line, so colons are fine); under a session the keys `video:`, `video2:`, `notes: <label> | <url>` (repeatable; label optional, then just the url), and `quiz:` which swallows every following line up to the next heading (or end) as paste-format text for `parseQuizPaste` (`src/lib/lms/quiz-paste.ts`). `notes:` right under a module (before its first session) is a module note. For `workshop`/`webinar` there are no `## Module` headings: sessions follow the top lines directly (flat types keep one hidden module; `usesFlatSessions`). Module-level notes in a flat file are a warning. Keys are case-insensitive; CRLF and a BOM are tolerated; the whole file may sit inside one markdown code fence (AI chats wrap it), which the parser strips. Unknown lines before the first heading are a warning, not an error.
 
 Quiz questions use exactly the paste format `parseQuizPaste` already reads, so the AI is given `QUIZ_PASTE_EXAMPLE`. Known limit: the parser rejects `Answer: B - because...`; the prompt says no explanations, and the parser error is reported per question.
+
+## Course details (added 2026-10-23)
+
+Optional top-level `key: value` lines in the header block (before the first `##`): `tagline` (300), `description` (5000), `level` (50), `duration` (50, saved as duration text), `timings` (200), `mentor_name` (120), `mentor_title` (120, shown as "Designation"), `mentor_bio` (2000). `description` and `mentor_bio` may continue over following lines. Keys are case-insensitive, bold markers tolerated, a repeated key keeps the first value with a warning. A value over its limit is left out with a plain warning (never cut); empty values are simply absent. The draft course is created, then ONE update on `courses` writes the details inside the same all-or-nothing rollback. The preview shows "Course details found: ..." (or "No course details in the file"). The AI is told to fill them only from the files and never invent mentor details.
 
 ## Rules
 
@@ -125,7 +139,7 @@ File/route names, exact UI layout within the existing admin style, file size and
 - Live course changes are manual only; upload never overwrites.
 - Broken quiz question: draft is created without it, with an alert.
 - One course per file.
-- Only structure data is imported (no course details, images, price).
+- Structure data plus the course's basic settings (tagline, description, level, duration, timings, mentor name/designation/bio) are imported; no images, price, links, features, outcomes or FAQs. (Course settings added 2026-10-23.)
 - YouTube list will carry lecture name or day beside each link.
 
 ## My calls (flagged for the owner)

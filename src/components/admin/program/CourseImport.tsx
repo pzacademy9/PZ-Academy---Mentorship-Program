@@ -194,6 +194,9 @@ export function CourseImport({ prompt }: { prompt: string }) {
           <div className="space-y-1 font-body text-sm text-pz-on-surface">
             <p className="font-semibold">What is left to do</p>
             <ol className="list-decimal pl-5 space-y-1">
+              {summary.detailsFilled.length > 0 && (
+                <li>Check the course details that were filled in: {summary.detailsFilled.join(", ")}.</li>
+              )}
               <li>Add the images.</li>
               <li>Publish the course when you are ready. Students cannot see it until then.</li>
             </ol>
@@ -262,6 +265,11 @@ export function CourseImport({ prompt }: { prompt: string }) {
               {preview.type === "course" ? `${plural(summary.modules, "module")} · ` : ""}
               {plural(summary.sessions, "session")} · {plural(summary.videos, "video link")} ·{" "}
               {plural(summary.questions, "quiz question")}
+            </p>
+            <p className="mt-1 font-body text-sm text-pz-on-surface-variant">
+              {summary.detailsFilled.length > 0
+                ? `Course details found: ${summary.detailsFilled.join(", ")}`
+                : "No course details in the file"}
             </p>
           </div>
 

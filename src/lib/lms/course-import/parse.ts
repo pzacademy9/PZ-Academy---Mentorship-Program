@@ -1,7 +1,10 @@
 import {
+  COURSE_DETAIL_FIELDS,
   COURSE_IMPORT_FORMAT_ID,
   COURSE_IMPORT_LIMITS,
+  type CourseDetailField,
   type ImportCourseType,
+  type RawDetails,
   type RawCourse,
   type RawModule,
   type RawNote,
@@ -23,6 +26,17 @@ const SESSION_RE = /^###\s+session\s*(?:\d+\s*)?[:\-–—]\s*(.*)$/i;
 const UNASSIGNED_RE = /^##\s+unassigned\s+notes(?:\s*:)?$/i;
 const ANY_HEADING_RE = /^#{2,3}\s/;
 const KEY_RE = /^(?:\*\*|__)?(format|title|type|video|video2|notes|quiz)(?:\*\*|__)?\s*:(?:\*\*|__)?\s*(.*)$/i;
+
+// Course detail keys (header block only). The key list comes from the shared table.
+const DETAIL_RE = new RegExp(
+  "^(?:\\*\\*|__)?(" +
+    COURSE_DETAIL_FIELDS.map((f) => f.key).join("|") +
+    ")(?:\\*\\*|__)?\\s*:(?:\\*\\*|__)?(.*)$",
+  "i",
+);
+const DETAIL_BY_KEY = new Map<string, (typeof COURSE_DETAIL_FIELDS)[number]>(
+  COURSE_DETAIL_FIELDS.map((f) => [f.key, f]),
+);
 
 // Removes bold markers anywhere in a title.
 function unbold(s: string): string {
@@ -148,6 +162,12 @@ export function parseCourseFile(text: string): ParseResult {
     modules.push(currentModule);
   }
 
+  const details = Object.fromEntries(COURSE_DETAIL_FIELDS.map((f) => [f.field, ""])) as RawDetails;
+  // The detail key whose value may run over the following header lines, and
+  // how many blank lines have been seen since the last text line.
+  let cont: { field: CourseDetailField; drop: boolean } | null = null;
+  let pendingBlanks = 0;
+
   let sawFormat = false;
   let headingSeen = false;
   for (let i = 0; i < lines.length; i++) {
@@ -157,6 +177,7 @@ export function parseCourseFile(text: string): ParseResult {
 
     if (ANY_HEADING_RE.test(line)) {
       headingSeen = true;
+      cont = null;
       flushQuiz();
       inUnassigned = false;
       let m: RegExpExecArray | null;
@@ -212,7 +233,43 @@ export function parseCourseFile(text: string): ParseResult {
       continue;
     }
 
-    if (line === "") continue;
+    if (line === "") {
+      if (cont) pendingBlanks++;
+      continue;
+    }
+
+    if (!headingSeen) {
+      const d = DETAIL_RE.exec(line);
+      if (d) {
+        const f = DETAIL_BY_KEY.get(d[1].toLowerCase());
+        if (f) {
+          const value = trimBold(d[2].trim());
+          let drop = false;
+          if (details[f.field] !== "" && value !== "") {
+            drop = true;
+            warnings.push(
+              `The ${f.label.toLowerCase()} appears more than once (line ${lineNo}), so only the first was kept.`,
+            );
+          } else if (details[f.field] === "") {
+            details[f.field] = value;
+          } else {
+            drop = true;
+          }
+          cont = f.multiline ? { field: f.field, drop } : null;
+          pendingBlanks = 0;
+          continue;
+        }
+      }
+      if (cont && !KEY_RE.test(line)) {
+        if (!cont.drop) {
+          const cur = details[cont.field];
+          details[cont.field] = cur === "" ? line : cur + "\n".repeat(pendingBlanks + 1) + line;
+        }
+        pendingBlanks = 0;
+        continue;
+      }
+    }
+    cont = null;
 
     const k = KEY_RE.exec(line);
     if (!k) {
@@ -264,5 +321,5 @@ export function parseCourseFile(text: string): ParseResult {
   if (!type) errors.push("The type must be course, workshop or webinar.");
 
   if (errors.length > 0 || !type) return { ok: false, errors };
-  return { ok: true, raw: { title, type, modules, unassignedNotes }, warnings };
+  return { ok: true, raw: { title, type, details, modules, unassignedNotes }, warnings };
 }

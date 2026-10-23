@@ -5,7 +5,13 @@ import type { LessonResourceLink, QuizQuestionInput } from "@/lib/data/admin-lms
 import { parseQuizPaste } from "@/lib/lms/quiz-paste";
 import { checkVideoLink } from "@/lib/video-link";
 import { parseCourseFile } from "./parse";
-import { COURSE_IMPORT_LIMITS, type ImportCourseType, type RawNote } from "./format";
+import {
+  COURSE_DETAIL_FIELDS,
+  COURSE_IMPORT_LIMITS,
+  type ImportCourseType,
+  type ImportDetails,
+  type RawNote,
+} from "./format";
 
 export type ImportSession = {
   title: string;
@@ -24,6 +30,8 @@ export type ImportModule = {
 export type ImportPlan = {
   title: string;
   type: ImportCourseType;
+  // Only the basic settings that were filled in and fit their limits.
+  details: ImportDetails;
   modules: ImportModule[];
 };
 
@@ -34,6 +42,8 @@ export type ImportSummary = {
   questions: number;
   sessionList: { module: string; title: string; videoUrl: string; firstQuestion: string }[];
   unassignedNotes: LessonResourceLink[];
+  // Plain-word labels of the course details that will be filled in.
+  detailsFilled: string[];
 };
 
 export type AnalyzeResult =
@@ -112,7 +122,20 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
   }
 
   const unassigned: LessonResourceLink[] = [];
-  const plan: ImportPlan = { title: raw.title, type: raw.type, modules: [] };
+  const details: ImportDetails = {};
+  const detailsFilled: string[] = [];
+  for (const f of COURSE_DETAIL_FIELDS) {
+    const value = raw.details[f.field].trim();
+    if (!value) continue;
+    if (value.length > f.max) {
+      warnings.push(`The ${f.label.toLowerCase()} is longer than ${f.max} letters, so it was left out.`);
+      continue;
+    }
+    details[f.field] = value;
+    detailsFilled.push(f.label);
+  }
+
+  const plan: ImportPlan = { title: raw.title, type: raw.type, details, modules: [] };
   const summary: ImportSummary = {
     modules: 0,
     sessions: 0,
@@ -120,6 +143,7 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
     questions: 0,
     sessionList: [],
     unassignedNotes: unassigned,
+    detailsFilled,
   };
 
   for (const m of raw.modules) {

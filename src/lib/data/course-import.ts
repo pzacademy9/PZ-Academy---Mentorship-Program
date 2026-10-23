@@ -5,6 +5,7 @@ import { usesFlatSessions, type LessonContentType } from "@/lib/validations/admi
 import type { Json } from "@/lib/supabase/database.types";
 import { deriveContentType } from "@/lib/lms/lesson-parts";
 import type { ImportPlan } from "@/lib/lms/course-import/analyze";
+import { COURSE_DETAIL_FIELDS } from "@/lib/lms/course-import/format";
 
 export type CreateFromPlanResult = { ok: true; id: string; slug: string } | { ok: false; reason: "db-error" };
 
@@ -36,6 +37,17 @@ export async function createCourseFromPlan(plan: ImportPlan): Promise<CreateFrom
   };
 
   try {
+    // Basic settings from the file: one update on the new course row.
+    const detailColumns: Partial<Record<(typeof COURSE_DETAIL_FIELDS)[number]["column"], string>> = {};
+    for (const f of COURSE_DETAIL_FIELDS) {
+      const v = plan.details[f.field];
+      if (v) detailColumns[f.column] = v;
+    }
+    if (Object.keys(detailColumns).length > 0) {
+      const { error } = await admin.from("courses").update(detailColumns).eq("id", created.id);
+      if (error) return await rollback();
+    }
+
     const flat = usesFlatSessions(plan.type);
     const moduleRows: { id: string; course_id: string; title: string; order_index: number }[] = [];
     const noteRows: { module_id: string; resource_urls: Json; updated_at: string }[] = [];

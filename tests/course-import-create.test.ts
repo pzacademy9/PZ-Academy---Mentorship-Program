@@ -24,6 +24,7 @@ function coursePlan(): ImportPlan {
   return {
     title: "Pharma Basics",
     type: "course",
+    details: {},
     modules: [
       {
         title: "Module One",
@@ -104,6 +105,7 @@ describe("createCourseFromPlan", () => {
     const plan: ImportPlan = {
       title: "Live Workshop",
       type: "workshop",
+      details: {},
       modules: [
         {
           title: "",
@@ -151,6 +153,7 @@ describe("createCourseFromPlan", () => {
     const plan: ImportPlan = {
       title: "Big",
       type: "workshop",
+      details: {},
       modules: [
         {
           title: "",
@@ -182,6 +185,7 @@ describe("createCourseFromPlan", () => {
     const plan: ImportPlan = {
       title: "W",
       type: "workshop",
+      details: {},
       modules: [{ title: "", notes: [], sessions: [{ title: "A", videoUrl: "", videoUrl2: "", notes: [], questions: [] }] }],
     };
     expect(await createCourseFromPlan(plan)).toEqual({ ok: false, reason: "db-error" });
