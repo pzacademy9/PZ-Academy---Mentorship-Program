@@ -20,17 +20,31 @@ export function checkVideoLink(url: string): VideoLinkCheck {
     return { status: "invalid", message: INVALID };
   }
   const host = u.hostname.toLowerCase();
-  if (host === "drive.google.com" || host === "docs.google.com" || host.endsWith(".drive.google.com")) {
+  if (
+    host === "drive.google.com" ||
+    host === "docs.google.com" ||
+    host.endsWith(".drive.google.com") ||
+    host === "drive.usercontent.google.com"
+  ) {
     return {
       status: "unsupported",
       message: "Google Drive videos cannot be played here. Use a YouTube or Vimeo link.",
     };
   }
-  if (host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com")) {
-    return { status: "ok", provider: "youtube" };
+  const notSingle: VideoLinkCheck = { status: "invalid", message: "That link doesn't point to a single video." };
+  const path = u.pathname;
+  if (host === "youtu.be") {
+    return /^\/[^/]+/.test(path) ? { status: "ok", provider: "youtube" } : notSingle;
   }
-  if (host === "vimeo.com" || host.endsWith(".vimeo.com")) {
-    return { status: "ok", provider: "vimeo" };
+  if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+    const hasId = !!u.searchParams.get("v") || /^\/(embed|shorts|live)\/[^/]+/.test(path);
+    return hasId ? { status: "ok", provider: "youtube" } : notSingle;
+  }
+  if (host === "vimeo.com" || host === "www.vimeo.com") {
+    return /^\/\d+\/?$/.test(path) ? { status: "ok", provider: "vimeo" } : notSingle;
+  }
+  if (host === "player.vimeo.com") {
+    return /^\/video\/\d+/.test(path) ? { status: "ok", provider: "vimeo" } : notSingle;
   }
   return { status: "unsupported", message: "Only YouTube and Vimeo links can be played here." };
 }

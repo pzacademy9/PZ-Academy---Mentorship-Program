@@ -33,4 +33,33 @@ describe("checkVideoLink", () => {
   it("flags other web hosts as unsupported", () => {
     expect(checkVideoLink("https://example.com/v").status).toBe("unsupported");
   });
+
+  const NOT_SINGLE = { status: "invalid", message: "That link doesn't point to a single video." };
+  it.each([
+    "https://www.youtube.com/watch",
+    "https://www.youtube.com/",
+    "https://www.youtube.com/playlist?list=x",
+    "https://youtu.be/",
+    "https://vimeo.com/",
+    "https://vimeo.com/channels/x/123",
+    "https://vimeo.com/video/123",
+    "https://www.youtube.com/embed/",
+  ])("rejects host-only or non-video path %s", (u) => {
+    expect(checkVideoLink(u)).toEqual(NOT_SINGLE);
+  });
+  it.each([
+    ["https://www.youtube.com/watch?v=abc", "youtube"],
+    ["https://www.youtube.com/embed/abc", "youtube"],
+    ["https://www.youtube.com/shorts/abc", "youtube"],
+    ["https://www.youtube.com/live/abc", "youtube"],
+    ["https://youtu.be/abc", "youtube"],
+    ["https://vimeo.com/123", "vimeo"],
+    ["https://player.vimeo.com/video/123", "vimeo"],
+  ])("accepts %s", (u, provider) => {
+    expect(checkVideoLink(u)).toEqual({ status: "ok", provider });
+  });
+  it("catches drive.usercontent.google.com as Drive", () => {
+    expect(checkVideoLink("https://drive.usercontent.google.com/download?id=x").status).toBe("unsupported");
+    expect(JSON.stringify(checkVideoLink("https://drive.usercontent.google.com/download?id=x"))).toContain("Google Drive");
+  });
 });
