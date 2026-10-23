@@ -229,6 +229,8 @@ describe("analyzeCourseFile", () => {
       expect(e.some((m) => m.includes("200"))).toBe(true);
       const e2 = errs(courseFile(["## Module: M", `### Session: ${long}`]));
       expect(e2.some((m) => m.includes("200"))).toBe(true);
+      const e3 = errs(courseFile([`## Module: ${"M".repeat(151)}`, "### Session: S"]));
+      expect(e3.some((m) => m.includes("150"))).toBe(true);
     });
 
     it("13 modules", () => {

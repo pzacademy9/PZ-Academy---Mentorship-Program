@@ -16,7 +16,7 @@ Your job is to put everything together into ONE file in the exact layout below, 
 
 THE LAYOUT
 
-The first line is the format line. Then the course title and the type (course, workshop or webinar). A course is split into modules, and each module holds sessions. A workshop or webinar has sessions only, with no modules.
+The first line is the format line. Then the course title and the type (course, workshop or webinar). A course is split into modules, and each module holds sessions. A workshop or webinar has sessions only, with no modules. For a workshop or webinar, leave out the ## Module lines and use ### Session lines only.
 
 Each line that holds a value starts with a key and a colon. Headings start with ## (module) or ### (session). Here is a complete small example:
 
@@ -57,7 +57,7 @@ What each line means:
 - ### Session: starts a session (a lecture or a day).
 - video: the main video link for the session. video2: an optional second video link.
 - notes: a notes link, written as the label, then a space, a vertical bar, a space, then the link. Notes placed under a module belong to the module; notes placed under a session belong to that session.
-- quiz: on its own line, followed by the questions for that session. The quiz continues until the next heading. Write every question exactly like this, with a blank line between questions:
+- quiz: on its own line, followed by the questions for that session. The quiz continues until the next heading, so always put quiz: LAST in each session, after the video, video2 and notes lines. Write every question exactly like this, with a blank line between questions:
 
 ${QUIZ_PASTE_EXAMPLE}
 

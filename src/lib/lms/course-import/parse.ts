@@ -17,11 +17,22 @@ const BAD_FORMAT =
   COURSE_IMPORT_FORMAT_ID +
   ".";
 
-const MODULE_RE = /^##\s+Module:\s*(.*)$/i;
-const SESSION_RE = /^###\s+Session:\s*(.*)$/i;
-const UNASSIGNED_RE = /^##\s+Unassigned notes\s*$/i;
+// Headings are matched on the line with bold markers already removed.
+const MODULE_RE = /^##\s+module\s*(?:\d+\s*)?[:\-–—]\s*(.*)$/i;
+const SESSION_RE = /^###\s+session\s*(?:\d+\s*)?[:\-–—]\s*(.*)$/i;
+const UNASSIGNED_RE = /^##\s+unassigned\s+notes\s*:?\s*$/i;
 const ANY_HEADING_RE = /^#{2,3}\s/;
-const KEY_RE = /^(format|title|type|video|video2|notes|quiz)\s*:\s*(.*)$/i;
+const KEY_RE = /^(?:\*\*|__)?(format|title|type|video|video2|notes|quiz)(?:\*\*|__)?\s*:(?:\*\*|__)?\s*(.*)$/i;
+
+// Removes bold markers anywhere in a title.
+function unbold(s: string): string {
+  return s.replace(/\*\*|__/g, "").trim();
+}
+
+// Removes bold markers wrapped around a whole value (safe for links).
+function trimBold(s: string): string {
+  return s.replace(/^(?:\*\*|__)+/, "").replace(/(?:\*\*|__)+$/, "").trim();
+}
 
 // If the text holds fenced blocks, take the first one that contains a format
 // line (chat apps wrap files in code fences and add chat text around them).
@@ -41,7 +52,15 @@ function unfence(lines: string[]): { lines: string[]; offset: number } {
 
 function splitNote(value: string, line: number): RawNote {
   const idx = value.indexOf(" | ");
-  if (idx === -1) return { label: "", url: value.trim(), line };
+  if (idx === -1) {
+    // Also recover "Label - https://x", "Label: https://x" and "Label https://x".
+    const h = value.search(/https?:\/\//i);
+    if (h > 0) {
+      const label = value.slice(0, h).replace(/^[\s|\-–—:]+|[\s|\-–—:]+$/g, "");
+      return { label, url: value.slice(h).trim(), line };
+    }
+    return { label: "", url: value.trim(), line };
+  }
   return { label: value.slice(0, idx).trim(), url: value.slice(idx + 3).trim(), line };
 }
 
@@ -64,7 +83,7 @@ export function parseCourseFile(text: string): ParseResult {
   if (
     !firstKey ||
     firstKey[1].toLowerCase() !== "format" ||
-    firstKey[2].trim() !== COURSE_IMPORT_FORMAT_ID
+    trimBold(firstKey[2]) !== COURSE_IMPORT_FORMAT_ID
   ) {
     return { ok: false, errors: [BAD_FORMAT] };
   }
@@ -81,6 +100,7 @@ export function parseCourseFile(text: string): ParseResult {
   let currentSession: RawSession | null = null;
   let inUnassigned = false;
   let inQuiz = false;
+  let quizFrozen = false;
   let quizLines: string[] = [];
   let quizStart = 0;
 
@@ -97,13 +117,14 @@ export function parseCourseFile(text: string): ParseResult {
     }
     quizLines = [];
     inQuiz = false;
+    quizFrozen = false;
   };
 
   // Type is needed to interpret headings, so read it up front.
   for (const l of lines) {
     const k = KEY_RE.exec(l.trim());
     if (k && k[1].toLowerCase() === "type") {
-      typeValue = k[2].trim();
+      typeValue = trimBold(k[2]);
       break;
     }
     if (ANY_HEADING_RE.test(l)) break;
@@ -130,20 +151,21 @@ export function parseCourseFile(text: string): ParseResult {
       flushQuiz();
       inUnassigned = false;
       let m: RegExpExecArray | null;
-      if ((m = MODULE_RE.exec(line))) {
+      const heading = line.replace(/\*\*|__/g, "");
+      if ((m = MODULE_RE.exec(heading))) {
         if (flat) {
           errors.push("Workshops and webinars have sessions only, no modules.");
           continue;
         }
-        const t = m[1].trim();
+        const t = unbold(m[1]);
         if (!t) errors.push(`The module at line ${lineNo} has no title.`);
         currentModule = { title: t, line: lineNo, notes: [], sessions: [] };
         currentSession = null;
         modules.push(currentModule);
         continue;
       }
-      if ((m = SESSION_RE.exec(line))) {
-        const t = m[1].trim();
+      if ((m = SESSION_RE.exec(heading))) {
+        const t = unbold(m[1]);
         if (!currentModule) {
           errors.push(`A session at line ${lineNo} is not inside a module.`);
           currentSession = null;
@@ -154,17 +176,30 @@ export function parseCourseFile(text: string): ParseResult {
         currentModule.sessions.push(currentSession);
         continue;
       }
-      if (UNASSIGNED_RE.test(line)) {
+      if (UNASSIGNED_RE.test(heading)) {
         inUnassigned = true;
         currentSession = null;
         continue;
       }
+      // An unknown heading ends the session it sits in, so the lines under it
+      // can never be added to the session above.
+      currentSession = null;
+      if (!heading.startsWith("###") && !flat) currentModule = null;
       warnings.push(`Line ${lineNo} was not understood and was ignored.`);
       continue;
     }
 
     if (inQuiz) {
-      quizLines.push(raw);
+      // A second quiz: line in the same session: keep the first quiz only.
+      if (/^(?:\*\*|__)?quiz(?:\*\*|__)?\s*:/i.test(line)) {
+        if (!quizFrozen) {
+          warnings.push(
+            `Session "${currentSession?.title ?? ""}": the quiz appears more than once (line ${lineNo}), so only the first was kept.`,
+          );
+        }
+        quizFrozen = true;
+      }
+      if (!quizFrozen) quizLines.push(raw);
       continue;
     }
 
@@ -176,13 +211,13 @@ export function parseCourseFile(text: string): ParseResult {
       continue;
     }
     const key = k[1].toLowerCase();
-    const value = k[2].trim();
+    const value = trimBold(k[2]);
 
     if (key === "format") {
       if (!sawFormat) sawFormat = true;
       else warnings.push(`Line ${lineNo} was not understood and was ignored.`);
     } else if (key === "title") {
-      if (!headingSeen && !title) title = value;
+      if (!headingSeen && !title) title = unbold(value);
       else warnings.push(`Line ${lineNo} was not understood and was ignored.`);
     } else if (key === "type") {
       // already read up front
@@ -192,8 +227,15 @@ export function parseCourseFile(text: string): ParseResult {
       else if (currentModule) currentModule.notes.push(splitNote(value, lineNo));
       else warnings.push(`Line ${lineNo} was not understood and was ignored.`);
     } else if (key === "video" || key === "video2") {
-      if (currentSession) currentSession[key] = value;
-      else warnings.push(`Line ${lineNo} was not understood and was ignored.`);
+      if (currentSession) {
+        if (currentSession[key] !== "" && value !== "") {
+          warnings.push(
+            `Session "${currentSession.title}": the ${key === "video" ? "video" : "second video"} link appears more than once (line ${lineNo}), so only the first was kept.`,
+          );
+        } else if (currentSession[key] === "") {
+          currentSession[key] = value;
+        }
+      } else warnings.push(`Line ${lineNo} was not understood and was ignored.`);
     } else if (key === "quiz") {
       if (!currentSession) {
         warnings.push(`Line ${lineNo} was not understood and was ignored.`);

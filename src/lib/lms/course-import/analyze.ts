@@ -41,6 +41,8 @@ export type AnalyzeResult =
   | { ok: false; errors: string[] };
 
 const L = COURSE_IMPORT_LIMITS;
+// The course editor allows module titles up to 150 characters (sessions: 200).
+const MAX_MODULE_TITLE = 150;
 
 function siteName(url: string): string {
   return new URL(url).hostname.replace(/^www\./i, "");
@@ -122,8 +124,8 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
 
   for (const m of raw.modules) {
     const modLabel = hasModules ? `Module "${m.title}"` : "The file";
-    if (m.title.length > L.maxTitle) {
-      errors.push(`Module "${m.title.slice(0, 40)}...": the module title is longer than ${L.maxTitle} characters.`);
+    if (m.title.length > MAX_MODULE_TITLE) {
+      errors.push(`Module "${m.title.slice(0, 40)}...": the module title is longer than ${MAX_MODULE_TITLE} characters.`);
     }
 
     let moduleNotes: LessonResourceLink[] = [];
@@ -152,8 +154,17 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
 
       const kept = { video: "", video2: "" };
       for (const key of ["video", "video2"] as const) {
-        const url = s[key].trim();
-        if (!url) continue;
+        const full = s[key].trim();
+        if (!full) continue;
+        // Keep only the link itself; AI files sometimes add "(Lecture 1)" etc.
+        const first = full.split(/\s+/)[0];
+        const token = /^https?:\/\//i.test(first) ? first : full;
+        const url = token.replace(/\/+$/, "");
+        if (token !== full) {
+          warnings.push(
+            `${label}: the ${key === "video" ? "video link" : "second video link"} had extra text after the link, which was dropped.`,
+          );
+        }
         const check = checkVideoLink(url);
         if (check.status === "ok") kept[key] = url;
         else if (check.status === "invalid" || check.status === "unsupported") {
