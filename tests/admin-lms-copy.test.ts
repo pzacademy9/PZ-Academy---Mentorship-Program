@@ -114,6 +114,32 @@ describe("copyCourse", () => {
     expect(res.ok && res.filesToReupload).toBe(0);
   });
 
+  it("derives content_type without the skipped PDF and maps ids even if responses are reversed", async () => {
+    seed();
+    store.lessons[0].video_url = null;
+    store.lessons[0].video_url_2 = null;
+    store.lessons[0].content_type = "pdf";
+    store.lessons.push({ id: "l-3", module_id: "m-1", title: "C", content_type: "video", video_url: "v", video_url_2: null, text_content: null, resource_urls: [], pdf_file_id: null, documents: [], order_index: 2 });
+    store.quiz_questions.push({ id: "q-3", lesson_id: "l-3", question: "Q3", options: ["a", "b"], correct_index: 0, order_index: 0 });
+    const mem = memoryHandler(store);
+    admin.state.handler = (op: Op): Res => {
+      const r = mem(op);
+      if (op.op === "insert" && op.returning && Array.isArray(r.data)) return { ...r, data: [...r.data].reverse() };
+      return r;
+    };
+    const res = await copyCourse("c-1");
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const mod = store.modules.find((m) => m.course_id === res.id)!;
+    const ls = store.lessons.filter((l) => l.module_id === mod.id);
+    const byTitle = (t: string) => ls.find((l) => l.title === t)!;
+    expect(byTitle("A").content_type).toBe("text");
+    expect(byTitle("C").content_type).toBe("video");
+    const qs = store.quiz_questions.filter((q) => ls.some((l) => l.id === q.lesson_id));
+    expect(qs.filter((q) => q.lesson_id === byTitle("A").id).map((q) => q.question)).toEqual(["Q1", "Q2"]);
+    expect(qs.filter((q) => q.lesson_id === byTitle("C").id).map((q) => q.question)).toEqual(["Q3"]);
+  });
+
   it("returns not-found for an unknown course", async () => {
     seed();
     expect(await copyCourse("nope")).toEqual({ ok: false, reason: "not-found" });

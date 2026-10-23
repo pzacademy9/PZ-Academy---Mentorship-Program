@@ -1184,15 +1184,18 @@ async function copyModuleContents(
     skipped += listLength(l.documents);
   }
 
-  const newLessonIdByOld = new Map<string, string>();
+  // Ids are generated here, so the old->new map never depends on response order.
+  const newLessonIdByOld = new Map<string, string>(lessons.map((l) => [l.id, crypto.randomUUID()]));
   for (const part of chunk(lessons, COPY_CHUNK)) {
     const { data, error } = await admin
       .from("lessons")
       .insert(
         part.map((l) => ({
+          id: newLessonIdByOld.get(l.id)!,
           module_id: newByOld.get(l.module_id)!,
           title: l.title,
-          content_type: l.content_type,
+          // The Drive file is never copied, so derive the type without it.
+          content_type: deriveContentType({ videoUrl: l.video_url, videoUrl2: l.video_url_2, pdfFileId: null }),
           video_url: l.video_url,
           video_url_2: l.video_url_2,
           text_content: l.text_content,
@@ -1202,7 +1205,6 @@ async function copyModuleContents(
       )
       .select("id");
     if (error || !data || data.length !== part.length) return null;
-    part.forEach((l, i) => newLessonIdByOld.set(l.id, data[i].id));
   }
 
   // Quiz questions, paged per batch of source lessons.
@@ -1357,16 +1359,21 @@ export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
     return { ok: true, id: newCourse.id, slug: newCourse.slug, filesToReupload: 0 };
   }
 
+  const pairs = modules.map((m) => ({ oldId: m.id, newId: crypto.randomUUID() }));
   const { data: newModules, error: insError } = await admin
     .from("modules")
-    .insert(modules.map((m) => ({ course_id: newCourse.id, title: m.title, order_index: m.order_index })))
+    .insert(
+      modules.map((m, i) => ({
+        id: pairs[i].newId,
+        course_id: newCourse.id,
+        title: m.title,
+        order_index: m.order_index,
+      })),
+    )
     .select("id");
   if (insError || !newModules || newModules.length !== modules.length) return rollback();
 
-  const skipped = await copyModuleContents(
-    admin,
-    modules.map((m, i) => ({ oldId: m.id, newId: newModules[i].id })),
-  );
+  const skipped = await copyModuleContents(admin, pairs);
   if (skipped === null) return rollback();
   return { ok: true, id: newCourse.id, slug: newCourse.slug, filesToReupload: skipped };
 }
