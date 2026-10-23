@@ -108,6 +108,8 @@ export interface LessonView {
   pdfFileId: string | null;
   resources: LessonResource[];
   documents: LessonDocument[];
+  videoUrl2: string | null;
+  moduleNotes: { moduleId: string; resources: LessonResource[]; documents: LessonDocument[] };
   hasQuiz: boolean;
   status: ProgressStatus;
   courseId: string;
@@ -313,9 +315,43 @@ export async function getLessonForStudent(
   // Content columns — gated by RLS on lesson status.
   const { data: lesson } = await supabase
     .from("lessons")
-    .select("id, title, content_type, video_url, text_content, pdf_url, pdf_file_id, resource_urls, documents")
+    .select("id, title, content_type, video_url, text_content, pdf_url, pdf_file_id, resource_urls, documents, module_id")
     .eq("id", lessonId)
     .maybeSingle();
+
+  // Course Builder v2 extras. Both queries are tolerant: before migration 0085 is
+  // applied the column/table do not exist, so any error is swallowed and defaults apply.
+  let videoUrl2: string | null = null;
+  const moduleId = lesson?.module_id ?? "";
+  let moduleNotes: LessonView["moduleNotes"] = { moduleId, resources: [], documents: [] };
+  if (lesson) {
+    try {
+      const { data, error } = await supabase
+        .from("lessons")
+        .select("video_url_2")
+        .eq("id", lessonId)
+        .maybeSingle();
+      const v = (data as { video_url_2?: string | null } | null)?.video_url_2;
+      if (!error && v) videoUrl2 = v;
+    } catch {
+      // migration 0085 not applied yet
+    }
+    if (moduleId) {
+      try {
+        const { data, error } = await supabase
+          .from("module_notes")
+          .select("resource_urls, documents")
+          .eq("module_id", moduleId)
+          .maybeSingle();
+        if (!error && data) {
+          const row = data as unknown as { resource_urls: LessonResource[] | null; documents: LessonDocument[] | null };
+          moduleNotes = { moduleId, resources: row.resource_urls ?? [], documents: row.documents ?? [] };
+        }
+      } catch {
+        // migration 0085 not applied yet
+      }
+    }
+  }
 
   return {
     id: meta.lessonId,
@@ -327,6 +363,8 @@ export async function getLessonForStudent(
     pdfFileId: lesson?.pdf_file_id ?? null,
     resources: (lesson?.resource_urls as unknown as LessonResource[] | null) ?? [],
     documents: (lesson?.documents as unknown as LessonDocument[] | null) ?? [],
+    videoUrl2,
+    moduleNotes,
     hasQuiz: meta.hasQuiz,
     status: meta.status,
     courseId: course.id,

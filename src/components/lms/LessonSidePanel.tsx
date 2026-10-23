@@ -16,7 +16,54 @@ interface LessonSidePanelProps {
   lessonTitle: string;
   resources: LessonResource[];
   documents: LessonDocument[];
+  moduleNotes?: { moduleId: string; resources: LessonResource[]; documents: LessonDocument[] };
   initialNoteHtml: string;
+}
+
+/** Link + document rows, shared by the lesson's own resources and the module notes. */
+function ResourceRows({
+  resources,
+  documents,
+  documentHref,
+}: {
+  resources: LessonResource[];
+  documents: LessonDocument[];
+  documentHref: (fileId: string) => string;
+}) {
+  return (
+    <>
+      {resources.map((r, i) => (
+        <a
+          key={`link-${i}`}
+          href={r.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <FileText className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="font-body text-sm text-pz-on-surface truncate">{r.label}</span>
+          </div>
+          <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
+        </a>
+      ))}
+      {documents.map((doc) => (
+        <a
+          key={doc.fileId}
+          href={documentHref(doc.fileId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <FileType2 className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="font-body text-sm text-pz-on-surface truncate">{doc.name}</span>
+          </div>
+          <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
+        </a>
+      ))}
+    </>
+  );
 }
 
 /** Builds a filename-safe slug, e.g. "Intro to React!" -> "intro-to-react". */
@@ -33,8 +80,11 @@ export function LessonSidePanel({
   lessonTitle,
   resources,
   documents,
+  moduleNotes,
   initialNoteHtml,
 }: LessonSidePanelProps) {
+  const hasModuleNotes =
+    !!moduleNotes && (moduleNotes.resources.length > 0 || moduleNotes.documents.length > 0);
   const [tab, setTab] = useState<"resources" | "notes">("resources");
   const [saved, setSaved] = useState(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -102,42 +152,29 @@ export function LessonSidePanel({
 
       {tab === "resources" ? (
         <div className="p-4 flex-1 overflow-y-auto space-y-3">
-          {resources.length === 0 && documents.length === 0 ? (
+          {resources.length === 0 && documents.length === 0 && !hasModuleNotes ? (
             <p className="text-sm font-body text-pz-on-surface-variant text-center py-8">
               No resources for this lesson yet.
             </p>
           ) : (
             <>
-              {resources.map((r, i) => (
-                <a
-                  key={`link-${i}`}
-                  href={r.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FileText className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
-                    <span className="font-body text-sm text-pz-on-surface truncate">{r.label}</span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
-                </a>
-              ))}
-              {documents.map((doc) => (
-                <a
-                  key={doc.fileId}
-                  href={`/api/lessons/${lessonId}/documents/${doc.fileId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-pz-surface-container-low rounded-xl border border-pz-outline-variant/60 hover:border-pz-primary transition-all group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FileType2 className="w-5 h-5 text-pz-primary shrink-0 group-hover:scale-110 transition-transform" />
-                    <span className="font-body text-sm text-pz-on-surface truncate">{doc.name}</span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-pz-outline shrink-0" />
-                </a>
-              ))}
+              <ResourceRows
+                resources={resources}
+                documents={documents}
+                documentHref={(fileId) => `/api/lessons/${lessonId}/documents/${fileId}`}
+              />
+              {moduleNotes && hasModuleNotes && (
+                <div className="space-y-3 pt-2">
+                  <h3 className="font-label text-xs font-semibold uppercase tracking-wide text-pz-on-surface-variant">
+                    Module notes
+                  </h3>
+                  <ResourceRows
+                    resources={moduleNotes.resources}
+                    documents={moduleNotes.documents}
+                    documentHref={(fileId) => `/api/modules/${moduleNotes.moduleId}/documents/${fileId}`}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>
