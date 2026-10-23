@@ -11,13 +11,14 @@
 1. Open Supabase, project whqdasotjlhvrjmgiffk, then SQL Editor.
 2. Open the file `supabase/migrations/0085_course_builder_v2.sql`, copy all of it, paste it, and press Run.
 3. It needs the earlier update 0075, which is already done. It is safe to run twice.
+   If the site is deployed before you run this, the staff builder will look empty. Nothing is lost. Run the update, then refresh. Do not re-add sessions.
 4. Side effect to expect: the 4 Hypertension lessons (and any other text lesson that has a video link) become Video lessons. Their written text is still shown.
 
 ## 3. Deploy
 Merge the branch `course-builder-v2` and let Vercel deploy it. You decide when.
 
 ## 4. Click-through check (after deploy)
-1. Log in as a student account. Open the Hypertension course. Each lesson should show its video and its text.
+1. Use a student account that is enrolled in Hypertension (check Enrollments first); if none is, enroll your own test account on a draft copy first. Open the Hypertension course. Each lesson should show its video and its text. The 9 Diabetes (draft) video lessons will also show their short outline text under the video.
 2. Open PPC: still 12 videos, 10 questions per day, and notes.
 3. Open MDC: still 4 days and 20 questions.
 4. In the admin Course Builder, make a new 2-day test course.
@@ -33,3 +34,4 @@ Merge the branch `course-builder-v2` and let Vercel deploy it. You decide when.
 - Copying a course does not copy uploaded PDFs. It tells you how many to upload again.
 - Module notes exist only on full courses, not on short ones.
 - Pasting many questions only adds questions. It never changes or removes existing ones.
+- Copy module on a course that already has students shows the copy to them at once; the app asks you to confirm.

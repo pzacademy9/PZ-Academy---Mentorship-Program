@@ -250,4 +250,48 @@ describe("fix round 1", () => {
     fireEvent.blur(input);
     await waitFor(() => expect((input as HTMLInputElement).value).toBe("https://youtu.be/abc"));
   });
+
+  it("a quiz add finishing after a lesson switch does not touch the new lesson", async () => {
+    let resolveAdd: (v: unknown) => void = () => {};
+    const bQ = { id: "bq", question: "B question", options: ["x", "y"], correctIndex: 0, orderIndex: 0 };
+    fetchMock.mockImplementation(async (url: string, init?: { method?: string }) => {
+      if (url === "/api/admin/lessons/l1/quiz-questions" && init?.method === "POST") return new Promise((r) => { resolveAdd = r; });
+      if (init?.method === "PATCH") return { ok: true, json: async () => ({}) };
+      return { ok: true, json: async () => (url === "/api/admin/lessons/l2" ? detail({ id: "l2", quizQuestions: [bQ] }) : detail()) };
+    });
+    const onPatched = vi.fn();
+    const B = { ...LESSON, id: "l2" } as BuilderLesson;
+    const { rerender } = render(<LessonEditorPanel lesson={LESSON} courseSlug="c" onLessonPatched={onPatched} onAdvance={() => {}} />);
+    await screen.findByText("Notes for this session");
+    fireEvent.click(screen.getByRole("button", { name: /Add question/i }));
+    await waitFor(() => expect(fetchMock.mock.calls.some((c) => c[1]?.method === "POST")).toBe(true));
+    rerender(<LessonEditorPanel lesson={B} courseSlug="c" onLessonPatched={onPatched} onAdvance={() => {}} />);
+    await screen.findByDisplayValue("B question");
+    resolveAdd({ ok: true, json: async () => ({ id: "late" }) });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByDisplayValue("New question")).toBeNull();
+    expect(screen.getByDisplayValue("B question")).toBeTruthy();
+    expect(onPatched.mock.calls.some((c) => c[0] === "l2")).toBe(false);
+  });
+
+  it("a failed flush keeps the text pending and Save & Continue retries it", async () => {
+    let fail = true;
+    fetchMock.mockImplementation(async (_u: string, init?: { method?: string }) =>
+      init?.method === "PATCH" ? { ok: !fail, json: async () => ({}) } : { ok: true, json: async () => detail() });
+    const onAdvance = vi.fn();
+    render(<LessonEditorPanel lesson={LESSON} courseSlug="c" onLessonPatched={() => {}} onAdvance={onAdvance} />);
+    await screen.findByText("Notes for this session");
+    fireEvent.click(screen.getByRole("button", { name: /Extra reading/ }));
+    rteChange.current!("<p>typed</p>");
+    fireEvent.click(screen.getByRole("button", { name: /Save & Continue/ }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH")).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onAdvance).not.toHaveBeenCalled();
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: /Save & Continue/ }));
+    await waitFor(() => expect(onAdvance).toHaveBeenCalled());
+    const patches = fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH");
+    expect(patches).toHaveLength(2);
+    expect(JSON.parse(patches[1][1].body)).toEqual({ textContent: "<p>typed</p>" });
+  });
 });
