@@ -29,9 +29,8 @@ create policy "module_notes: read if enrolled or admin"
   );
 -- No write policies: writes go through the service role.
 
--- Backfill: text lessons that only carry a video become video lessons.
+-- Backfill: any text lesson that has a video becomes a video lesson (written text is still shown).
 update public.lessons
    set content_type = 'video'
  where content_type = 'text'
-   and coalesce(video_url, '') <> ''
-   and coalesce(text_content, '') = '';
+   and coalesce(video_url, '') <> '';
