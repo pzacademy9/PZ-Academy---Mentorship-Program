@@ -173,10 +173,10 @@ export function CourseImport({ prompt }: { prompt: string }) {
     }
   }
 
-  function reset() {
+  function reset(keepPasted = false) {
     setStage({ name: "start" });
     setErrors([]);
-    setPasted("");
+    if (!keepPasted) setPasted("");
   }
 
   if (stage.name === "done") {
@@ -235,7 +235,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
             >
               Open course editor
             </Link>
-            <button type="button" onClick={reset} className={LINK_CLASS}>
+            <button type="button" onClick={() => reset()} className={LINK_CLASS}>
               Build another course
             </button>
           </div>
@@ -318,7 +318,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
             <Button type="button" size="lg" disabled={busy} onClick={() => create(text)}>
               {busy ? "Creating..." : "Create draft course"}
             </Button>
-            <button type="button" disabled={busy} onClick={reset} className={SECONDARY_BTN}>
+            <button type="button" disabled={busy} onClick={() => reset(true)} className={SECONDARY_BTN}>
               Choose a different file
             </button>
           </div>
