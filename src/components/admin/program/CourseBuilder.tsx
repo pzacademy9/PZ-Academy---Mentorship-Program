@@ -4,13 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Save, Settings } from "lucide-react";
+import { Copy, Save, Settings } from "lucide-react";
+import { courseReadiness, missingSummary } from "@/lib/lms/lesson-parts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { BuilderState, BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
 import { CurriculumMap } from "./CurriculumMap";
 import { LessonEditorPanel } from "./LessonEditorPanel";
+import { ModuleNotesPanel } from "./ModuleNotesPanel";
+import { PublishConfirmDialog } from "./PublishConfirmDialog";
 
 function firstLesson(modules: BuilderModule[]): BuilderLesson | null {
   for (const mod of modules) {
@@ -32,6 +35,43 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   const [modules, setModules] = useState<BuilderModule[]>(initialState.modules);
   const [isPublished, setIsPublished] = useState(initialState.course.isPublished);
   const [selectedLesson, setSelectedLesson] = useState<BuilderLesson | null>(firstLesson(initialState.modules));
+
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const courseType = initialState.course.type;
+  const allSessions = modules.flatMap((m) => m.lessons);
+  const readiness = courseReadiness(courseType, allSessions);
+  const missingLines = missingSummary(courseType, allSessions);
+  const selectedModule = selectedModuleId ? modules.find((m) => m.id === selectedModuleId) ?? null : null;
+
+  const { run: copyCourse, pending: copying } = useAsyncAction(async () => {
+    try {
+      const res = await fetch(`/api/admin/courses/${initialState.course.id}/copy`, { method: "POST" });
+      const payload = (await res.json().catch(() => null)) as
+        | { id?: string; filesToReupload?: number; error?: string }
+        | null;
+      if (!res.ok || !payload?.id) {
+        toast.error(payload?.error ?? "Could not copy this course.");
+        return;
+      }
+      toast.success("Course copied as a draft");
+      if (payload.filesToReupload) {
+        toast.info(`${payload.filesToReupload} uploaded files were not copied; upload them again`);
+      }
+      router.push(`/dashboard/admin/courses/${payload.id}/builder`);
+    } catch {
+      toast.error("Could not copy this course.");
+    }
+  });
+
+  function handlePublishClick() {
+    if (!isPublished && missingLines.length > 0) {
+      setConfirmOpen(true);
+      return;
+    }
+    void setPublished(!isPublished);
+  }
 
   const { run: setPublished, pending: publishing } = useAsyncAction(async (next: boolean) => {
     try {
@@ -58,7 +98,12 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   });
 
   function selectLesson(lesson: BuilderLesson) {
+    setSelectedModuleId(null);
     setSelectedLesson(lesson);
+  }
+
+  function handleNotesCountChange(moduleId: string, count: number) {
+    setModules((prev) => prev.map((m) => (m.id === moduleId ? { ...m, notesCount: count } : m)));
   }
 
   function handleModulesChange(next: BuilderModule[]) {
@@ -89,6 +134,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
       toast.info("That was the last session in this program.");
       return;
     }
+    setSelectedModuleId(null);
     setSelectedLesson(flat[currentIndex + 1]);
   }
 
@@ -123,6 +169,11 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               Published
             </span>
           </div>
+          {readiness.label && (
+            <span className="rounded-full border border-pz-outline-variant bg-pz-surface-container px-3 py-1 text-xs font-bold text-pz-on-surface-variant">
+              {readiness.label}
+            </span>
+          )}
           <div className="h-8 w-px bg-pz-outline-variant/50 hidden sm:block" />
           <div className="flex flex-wrap items-center gap-3">
             <Link
@@ -132,6 +183,17 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               <Settings className="w-4 h-4" />
               Basics
             </Link>
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              loading={copying}
+              onClick={() => copyCourse()}
+              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
+            >
+              <Copy className="w-4 h-4" />
+              Copy course
+            </Button>
             <button
               onClick={() => {
                 router.refresh();
@@ -146,7 +208,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               variant="bare"
               size="bare"
               loading={publishing || isRefreshing}
-              onClick={() => setPublished(!isPublished)}
+              onClick={handlePublishClick}
               className="bg-pz-primary text-pz-on-primary px-6 py-2 rounded-lg font-bold text-sm shadow-md hover:opacity-90 transition-all max-md:min-h-11"
             >
               {publishing || isRefreshing ? "Working…" : isPublished ? "Unpublish" : "Publish"}
@@ -159,23 +221,46 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
         <section className="lg:col-span-4 lg:border-r border-pz-outline-variant lg:overflow-hidden">
           <CurriculumMap
             courseId={initialState.course.id}
+            courseType={courseType}
             flat={initialState.flat}
             modules={modules}
-            selectedLessonId={selectedLesson?.id ?? null}
+            selectedLessonId={selectedModule ? null : (selectedLesson?.id ?? null)}
+            selectedModuleId={selectedModule?.id ?? null}
             onSelectLesson={selectLesson}
+            onSelectModuleNotes={setSelectedModuleId}
             onModulesChange={handleModulesChange}
           />
         </section>
 
         <section className="lg:col-span-8 bg-pz-surface-container-lowest lg:overflow-y-auto">
-          <LessonEditorPanel
-            lesson={selectedLesson}
-            courseSlug={initialState.course.slug}
-            onLessonPatched={handleLessonPatched}
-            onAdvance={advanceToNextLesson}
-          />
+          {selectedModule ? (
+            <ModuleNotesPanel
+              moduleId={selectedModule.id}
+              moduleTitle={selectedModule.title}
+              courseSlug={initialState.course.slug}
+              onNotesCountChange={handleNotesCountChange}
+            />
+          ) : (
+            <LessonEditorPanel
+              lesson={selectedLesson}
+              courseSlug={initialState.course.slug}
+              onLessonPatched={handleLessonPatched}
+              onAdvance={advanceToNextLesson}
+            />
+          )}
         </section>
       </div>
+
+      <PublishConfirmDialog
+        open={confirmOpen}
+        lines={missingLines}
+        busy={publishing}
+        onGoBack={() => setConfirmOpen(false)}
+        onPublish={async () => {
+          await setPublished(true);
+          setConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }
