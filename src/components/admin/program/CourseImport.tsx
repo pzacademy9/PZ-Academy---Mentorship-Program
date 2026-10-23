@@ -73,10 +73,17 @@ export function CourseImport({ prompt }: { prompt: string }) {
   const [copyFailed, setCopyFailed] = useState(false);
   const [notesCopied, setNotesCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptBox = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      if (notesTimer.current) clearTimeout(notesTimer.current);
+    },
+    [],
+  );
 
   async function copy() {
     if (timer.current) clearTimeout(timer.current);
@@ -97,7 +104,8 @@ export function CourseImport({ prompt }: { prompt: string }) {
     try {
       await navigator.clipboard.writeText(text);
       setNotesCopied(true);
-      setTimeout(() => setNotesCopied(false), 2000);
+      if (notesTimer.current) clearTimeout(notesTimer.current);
+      notesTimer.current = setTimeout(() => setNotesCopied(false), 2000);
     } catch {
       setNotesCopied(false);
     }
@@ -152,13 +160,14 @@ export function CourseImport({ prompt }: { prompt: string }) {
       });
       if (!res.ok) {
         setErrors(await readErrors(res));
-        setStage({ name: "start" });
+        // Only a rejected file sends you back to step 1; a server failure keeps the preview.
+        if (res.status === 400) setStage({ name: "start" });
         return;
       }
       const created = (await res.json()) as Created;
       setStage({ name: "done", created });
     } catch {
-      setErrors(["Could not reach the server. Nothing was saved. Please try again."]);
+      setErrors(["We could not confirm the course was created. Check the course list before trying again."]);
     } finally {
       setBusy(false);
     }
@@ -343,7 +352,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
             {copied ? "Copied" : "Copy instructions"}
           </Button>
           {copyFailed && (
-            <p role="alert" className="font-body text-sm text-pz-error">
+            <p role="alert" className="font-body text-sm text-pz-on-error-container">
               Could not copy. Select the text below and copy it yourself.
             </p>
           )}
@@ -359,7 +368,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
       </section>
 
       <section className={CARD}>
-        <h2 className={STEP_HEAD}>Add the file</h2>
+        <h2 className={STEP_HEAD}>1. Get the file from AI: add the file</h2>
         <div className="space-y-2">
           <label htmlFor="course-file" className="block font-body text-sm font-semibold text-pz-on-surface">
             Choose the file
@@ -392,7 +401,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
 
         {errors.length > 0 && (
           <div role="alert" className="space-y-1 rounded-lg bg-pz-error-container px-3 py-2 text-sm text-pz-on-error-container">
-            <p className="font-semibold">The file could not be used yet:</p>
+            <p className="font-semibold">Please check the file:</p>
             <ul className="list-disc pl-5">
               {errors.map((e, i) => (
                 <li key={i}>{e}</li>
