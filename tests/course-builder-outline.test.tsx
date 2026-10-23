@@ -168,6 +168,32 @@ describe("module header actions", () => {
     expect(toastMock.info).toHaveBeenCalledWith("2 uploaded files were not copied; upload them again");
   });
 
+  it("409 needsConfirmation opens a dialog; Copy anyway re-posts with confirm true", async () => {
+    const msg = "This course has students. The copy will appear to them right away. Confirm to copy anyway.";
+    fetchMock
+      .mockResolvedValueOnce(json({ error: msg, needsConfirmation: true }, 409))
+      .mockResolvedValueOnce(json({ id: "m2", filesToReupload: 0 }, 201));
+    render(<CourseBuilder initialState={state("course")} />);
+    fireEvent.click(screen.getByRole("button", { name: /Copy module/ }));
+    expect(await screen.findByText("Copy this module?")).toBeTruthy();
+    expect(screen.getByText(msg)).toBeTruthy();
+    expect(toastMock.error).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Copy anyway" }));
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ confirm: true });
+    expect(toastMock.success).toHaveBeenCalledWith("Module copied");
+  });
+
+  it("Cancel on the copy dialog does not re-post", async () => {
+    fetchMock.mockResolvedValueOnce(json({ error: "m", needsConfirmation: true }, 409));
+    render(<CourseBuilder initialState={state("course")} />);
+    fireEvent.click(screen.getByRole("button", { name: /Copy module/ }));
+    await screen.findByText("Copy this module?");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Copy this module?")).toBeNull());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("Notes chip shows the count and opens the module notes panel", async () => {
     fetchMock.mockResolvedValue(json({ resources: [], documents: [] }));
     render(<CourseBuilder initialState={state("course")} />);

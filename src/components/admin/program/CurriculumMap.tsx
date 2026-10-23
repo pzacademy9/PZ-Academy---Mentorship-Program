@@ -80,6 +80,7 @@ export function CurriculumMap({
   const [editModuleTitle, setEditModuleTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
+  const [copyConfirm, setCopyConfirm] = useState<{ moduleId: string; message: string } | null>(null);
 
   const totalLessons = modules.reduce((n, m) => n + m.lessons.length, 0);
 
@@ -175,12 +176,20 @@ export function CurriculumMap({
   });
 
   const { run: copyModule, pendingKey: copyingModuleId } = useAsyncAction(
-    async (moduleId: string) => {
+    async (moduleId: string, confirm = false) => {
       try {
-        const res = await fetch(`/api/admin/modules/${moduleId}/copy`, { method: "POST" });
+        const res = await fetch(`/api/admin/modules/${moduleId}/copy`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(confirm ? { confirm: true } : {}),
+        });
         const payload = (await res.json().catch(() => null)) as
-          | { id?: string; filesToReupload?: number; error?: string }
+          | { id?: string; filesToReupload?: number; error?: string; needsConfirmation?: boolean }
           | null;
+        if (res.status === 409 && payload?.needsConfirmation) {
+          setCopyConfirm({ moduleId, message: payload.error ?? "" });
+          return;
+        }
         if (!res.ok) {
           toast.error(payload?.error ?? "Could not copy this module.");
           return;
@@ -194,7 +203,7 @@ export function CurriculumMap({
         toast.error("Could not copy this module.");
       }
     },
-    { getKey: (moduleId: string) => moduleId },
+    { getKey: (...[moduleId]: [string, boolean?]) => moduleId },
   );
 
   const { run: submitModuleRename } = useAsyncAction(async (moduleId: string) => {
@@ -396,6 +405,41 @@ export function CurriculumMap({
               className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors"
             >
               {deleteBusy ? "Deleting…" : deleteWarning ? "Delete anyway" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={copyConfirm !== null} onOpenChange={(open) => !open && setCopyConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-pz-on-surface">Copy this module?</DialogTitle>
+            <DialogDescription className="font-body text-pz-on-surface-variant">
+              {copyConfirm?.message}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              onClick={() => setCopyConfirm(null)}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant transition-colors"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              onClick={() => {
+                const target = copyConfirm;
+                setCopyConfirm(null);
+                if (target) void copyModule(target.moduleId, true);
+              }}
+              className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-solid-danger text-white hover:bg-pz-solid-danger/90 transition-colors"
+            >
+              Copy anyway
             </Button>
           </DialogFooter>
         </DialogContent>

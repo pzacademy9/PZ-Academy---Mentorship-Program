@@ -54,15 +54,27 @@ export function LessonEditorPanel({
   const currentId = useRef<string | null>(lesson?.id ?? null);
 
   /** Send A's unsaved text to A itself (never to whatever lesson is open now). */
-  async function flushPending(): Promise<void> {
+  async function flushPending(): Promise<boolean> {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     const pending = pendingText.current;
     pendingText.current = null;
-    if (pending) await patchLessonById(pending.lessonId, { textContent: pending.html });
+    if (!pending) return true;
+    // On failure put the text back (unless newer text arrived) so the next flush retries it.
+    const restore = () => {
+      if (!pendingText.current) pendingText.current = pending;
+    };
+    try {
+      const ok = await patchLessonById(pending.lessonId, { textContent: pending.html });
+      if (!ok) restore();
+      return ok;
+    } catch (err) {
+      restore();
+      throw err;
+    }
   }
 
   useEffect(() => {
-    void flushPending();
+    void flushPending().catch(() => toast.error("Could not save."));
     currentId.current = lesson?.id ?? null;
     setTitle(lesson?.title ?? "");
     setDetail(null);
@@ -136,8 +148,7 @@ export function LessonEditorPanel({
     pendingText.current = { lessonId, html };
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      pendingText.current = null;
-      void patchLessonById(lessonId, { textContent: html });
+      void flushPending().catch(() => toast.error("Could not save."));
     }, 1200);
   }
 
@@ -194,7 +205,7 @@ export function LessonEditorPanel({
   /** "Save & Continue" — flush any pending debounced rich-text save before moving on, so nothing is silently lost. */
   const { run: saveAndContinue, pending: savingAndContinuing } = useAsyncAction(async () => {
     try {
-      await flushPending();
+      if (!(await flushPending())) return;
     } catch {
       toast.error("Could not save.");
       return;
@@ -274,7 +285,11 @@ export function LessonEditorPanel({
           <QuizEditor
             lessonId={lesson.id}
             questions={detail.quizQuestions}
-            onQuestionsChange={(qs) => setDetail((prev) => (prev ? { ...prev, quizQuestions: qs } : prev))}
+            onQuestionsChange={(qs) => {
+              if (currentId.current === lesson.id) {
+                setDetail((prev) => (prev ? { ...prev, quizQuestions: qs } : prev));
+              }
+            }}
             onCountChange={(n) => onLessonPatched(lesson.id, { quizCount: n })}
           />
 

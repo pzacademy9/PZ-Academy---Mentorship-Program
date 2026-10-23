@@ -49,8 +49,7 @@ export function PublishConfirmDialog({
           ))}
         </ul>
         <p className="text-xs text-pz-on-surface-variant">
-          Students who reach these sessions before you add the materials will see a &ldquo;Content coming soon&rdquo;
-          placeholder.
+          Students who reach these sessions will see only what is there so far.
         </p>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button

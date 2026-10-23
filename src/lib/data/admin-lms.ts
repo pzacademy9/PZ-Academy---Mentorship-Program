@@ -1267,7 +1267,10 @@ async function copyModuleContents(
   return skipped;
 }
 
-export async function copyModule(moduleId: string): Promise<MutationResult & { filesToReupload?: number }> {
+export async function copyModule(
+  moduleId: string,
+  confirm = false,
+): Promise<MutationResult & { filesToReupload?: number }> {
   const admin = createAdminSupabase();
 
   const { data: mod } = await admin.from("modules").select("id, course_id, title").eq("id", moduleId).maybeSingle();
@@ -1275,6 +1278,9 @@ export async function copyModule(moduleId: string): Promise<MutationResult & { f
   const { data: course } = await admin.from("courses").select("type").eq("id", mod.course_id).maybeSingle();
   if (!course) return { ok: false, reason: "not-found" };
   if (usesFlatSessions(course.type)) return { ok: false, reason: "flat-type" };
+  if (!confirm && (await isPublishedWithActiveEnrollments(mod.course_id))) {
+    return { ok: false, reason: "needs-confirmation", recordCount: 0 };
+  }
 
   const orderIndex = await nextModuleOrderIndex(admin, mod.course_id);
   const { data: created, error } = await admin
@@ -1304,7 +1310,7 @@ export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
   const { data: src } = await admin
     .from("courses")
     .select(
-      "slug, title, type, tagline, description, price_pkr, level, duration_text, duration_weeks, timings, features, outcomes, faqs, register_url, mentor_name, mentor_title, mentor_bio",
+      "slug, title, type, tagline, description, price_pkr, level, duration_text, duration_weeks, timings, features, outcomes, faqs, mentor_name, mentor_title, mentor_bio",
     )
     .eq("id", courseId)
     .maybeSingle();
@@ -1323,7 +1329,6 @@ export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
     features: src.features,
     outcomes: src.outcomes,
     faqs: src.faqs,
-    register_url: src.register_url,
     mentor_name: src.mentor_name,
     mentor_title: src.mentor_title,
     mentor_bio: src.mentor_bio,

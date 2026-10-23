@@ -52,10 +52,12 @@ export async function GET(
     return NextResponse.json({ error: json.error ?? "Could not load document" }, { status: 502 });
   }
 
+  const asciiName = doc.name.replace(/[^ -~]/g, "").replace(/["\\]/g, "").trim() || "document";
+
   return new NextResponse(Buffer.from(json.base64, "base64"), {
     headers: {
       "Content-Type": json.mimeType ?? "application/pdf",
-      "Content-Disposition": `inline; filename="${doc.name.replace(/"/g, "")}"`,
+      "Content-Disposition": `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(doc.name)}`,
       "Cache-Control": "private, max-age=300",
     },
   });

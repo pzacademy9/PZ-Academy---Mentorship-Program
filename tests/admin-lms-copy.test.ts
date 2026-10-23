@@ -68,6 +68,28 @@ describe("copyModule", () => {
     expect(notes.documents).toEqual([]);
   });
 
+  it("asks for confirmation on a published course with active enrollments", async () => {
+    seed();
+    store.enrollments = [{ id: "e-1", course_id: "c-1", status: "active" }];
+    expect(await copyModule("m-1")).toEqual({ ok: false, reason: "needs-confirmation", recordCount: 0 });
+    expect(store.modules).toHaveLength(1);
+  });
+
+  it("copies with confirm on a published course with active enrollments", async () => {
+    seed();
+    store.enrollments = [{ id: "e-1", course_id: "c-1", status: "active" }];
+    const res = await copyModule("m-1", true);
+    expect(res.ok).toBe(true);
+    expect(store.modules).toHaveLength(2);
+  });
+
+  it("copies without confirm on a draft course even with enrollments", async () => {
+    seed();
+    store.courses[0].is_published = false;
+    store.enrollments = [{ id: "e-1", course_id: "c-1", status: "active" }];
+    expect((await copyModule("m-1")).ok).toBe(true);
+  });
+
   it("refuses a flat-type course", async () => {
     seed("workshop");
     expect(await copyModule("m-1")).toEqual({ ok: false, reason: "flat-type" });
@@ -89,7 +111,7 @@ describe("copyCourse", () => {
     expect(res.filesToReupload).toBe(3);
     const c = store.courses.find((x) => x.id === res.id)!;
     expect(c).toMatchObject({ title: "Demo (copy)", status: "draft", is_published: false, price_pkr: 5000, tagline: "t" });
-    for (const k of ["thumbnail_url", "banner_url", "mentor_avatar_url", "sheet_id", "gas_webapp_url", "portal_url", "public_video_url"]) {
+    for (const k of ["thumbnail_url", "banner_url", "mentor_avatar_url", "sheet_id", "gas_webapp_url", "portal_url", "public_video_url", "register_url"]) {
       expect(c[k]).toBeUndefined();
     }
     const mods = store.modules.filter((m) => m.course_id === res.id);
