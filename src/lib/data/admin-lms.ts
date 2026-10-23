@@ -21,6 +21,7 @@ import {
   collectLessonFileIds,
 } from "@/lib/validations/drive-cleanup";
 import { trashDriveFiles } from "@/lib/data/drive-cleanup";
+import { deriveContentType } from "@/lib/lms/lesson-parts";
 
 /**
  * Admin data layer for the Program Builder (Phase 3). Mirrors the
@@ -465,12 +466,17 @@ export interface BuilderLesson {
   title: string;
   contentType: LessonContentType;
   orderIndex: number;
+  /** True when video_url or video_url_2 is a non-empty string. */
+  hasVideo: boolean;
+  quizCount: number;
 }
 
 export interface BuilderModule {
   id: string;
   title: string;
   orderIndex: number;
+  /** Resource links plus documents saved in module_notes (0 when no row). */
+  notesCount: number;
   lessons: BuilderLesson[];
 }
 
@@ -502,21 +508,50 @@ export async function getBuilderState(courseId: string): Promise<BuilderState | 
   const { data: lessons } = moduleIds.length
     ? await admin
         .from("lessons")
-        .select("id, title, content_type, order_index, module_id")
+        .select("id, title, content_type, order_index, module_id, video_url, video_url_2")
         .in("module_id", moduleIds)
         .order("order_index", { ascending: true })
     : { data: [] as never[] };
 
-  const lessonsByModule = new Map<string, BuilderLesson[]>();
-  for (const lesson of (lessons ?? []) as {
+  const lessonRows = (lessons ?? []) as {
     id: string;
     title: string;
     content_type: LessonContentType;
     order_index: number;
     module_id: string;
-  }[]) {
+    video_url: string | null;
+    video_url_2: string | null;
+  }[];
+
+  const quizCounts = await countQuizQuestionsByLesson(
+    admin,
+    lessonRows.map((l) => l.id),
+  );
+
+  const notesCounts = new Map<string, number>();
+  if (moduleIds.length) {
+    const { data: notes } = await admin
+      .from("module_notes")
+      .select("module_id, resource_urls, documents")
+      .in("module_id", moduleIds);
+    for (const n of notes ?? []) {
+      const links = Array.isArray(n.resource_urls) ? n.resource_urls.length : 0;
+      const docs = Array.isArray(n.documents) ? n.documents.length : 0;
+      notesCounts.set(n.module_id, links + docs);
+    }
+  }
+
+  const lessonsByModule = new Map<string, BuilderLesson[]>();
+  for (const lesson of lessonRows) {
     const list = lessonsByModule.get(lesson.module_id) ?? [];
-    list.push({ id: lesson.id, title: lesson.title, contentType: lesson.content_type, orderIndex: lesson.order_index });
+    list.push({
+      id: lesson.id,
+      title: lesson.title,
+      contentType: lesson.content_type,
+      orderIndex: lesson.order_index,
+      hasVideo: !!lesson.video_url?.trim() || !!lesson.video_url_2?.trim(),
+      quizCount: quizCounts.get(lesson.id) ?? 0,
+    });
     lessonsByModule.set(lesson.module_id, list);
   }
 
@@ -533,9 +568,40 @@ export async function getBuilderState(courseId: string): Promise<BuilderState | 
       id: m.id,
       title: m.title,
       orderIndex: m.order_index,
+      notesCount: notesCounts.get(m.id) ?? 0,
       lessons: lessonsByModule.get(m.id) ?? [],
     })),
   };
+}
+
+const QUIZ_COUNT_LESSON_CHUNK = 200;
+const POSTGREST_PAGE = 1000;
+
+/**
+ * Quiz question counts per lesson. PostgREST caps a response at 1000 rows, so
+ * lesson ids go in chunks of 200 and each chunk is paged with .range(); only
+ * lesson_id is selected.
+ */
+async function countQuizQuestionsByLesson(
+  admin: ReturnType<typeof createAdminSupabase>,
+  lessonIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  for (let i = 0; i < lessonIds.length; i += QUIZ_COUNT_LESSON_CHUNK) {
+    const chunk = lessonIds.slice(i, i + QUIZ_COUNT_LESSON_CHUNK);
+    for (let from = 0; ; from += POSTGREST_PAGE) {
+      const { data } = await admin
+        .from("quiz_questions")
+        .select("lesson_id")
+        .in("lesson_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, from + POSTGREST_PAGE - 1);
+      const rows = data ?? [];
+      for (const r of rows) counts.set(r.lesson_id, (counts.get(r.lesson_id) ?? 0) + 1);
+      if (rows.length < POSTGREST_PAGE) break;
+    }
+  }
+  return counts;
 }
 
 /** Rows in lesson_progress or quiz_attempts for any of the given lessons — the delete-guard signal. */
@@ -563,7 +629,7 @@ async function isPublishedWithActiveEnrollments(courseId: string): Promise<boole
 
 export type MutationResult =
   | { ok: true; id: string; warning?: string | null }
-  | { ok: false; reason: "not-found" | "db-error" | "flat-type" }
+  | { ok: false; reason: "not-found" | "db-error" | "flat-type" | "too-many" }
   | { ok: false; reason: "needs-confirmation" | "blocked-published-active"; recordCount: number };
 
 const REORDER_ACTIVE_ENROLLMENT_WARNING =
@@ -642,16 +708,20 @@ export async function deleteModule(moduleId: string, confirm = false): Promise<M
     if (!confirm) return { ok: false, reason: "needs-confirmation", recordCount };
   }
 
+  // Read before the delete: the FK cascade removes the notes row with the module.
+  const { data: notes } = await admin.from("module_notes").select("documents").eq("module_id", moduleId).maybeSingle();
+
   const { error } = await admin.from("modules").delete().eq("id", moduleId);
   if (error) return { ok: false, reason: "db-error" };
 
   const warning = await trashDriveFiles(
-    collectLessonFileIds(
-      (lessons ?? []).map((l) => ({
+    collectLessonFileIds([
+      ...(lessons ?? []).map((l) => ({
         pdfFileId: l.pdf_file_id,
         documents: (l.documents as unknown as Array<{ fileId: string }>) ?? [],
       })),
-    ),
+      { pdfFileId: null, documents: (notes?.documents as unknown as Array<{ fileId: string }> | null) ?? [] },
+    ]),
   );
 
   return { ok: true, id: moduleId, warning };
@@ -690,6 +760,7 @@ export interface UpdateLessonInput {
   title?: string;
   contentType?: LessonContentType;
   videoUrl?: string;
+  videoUrl2?: string;
   textContent?: string;
   resources?: LessonResourceLink[];
   pdfFileId?: string;
@@ -702,14 +773,14 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput): 
 
   const { data: existing } = await admin
     .from("lessons")
-    .select("pdf_file_id, documents")
+    .select("pdf_file_id, documents, video_url, video_url_2")
     .eq("id", lessonId)
     .maybeSingle();
 
   const patch: Database["public"]["Tables"]["lessons"]["Update"] = {};
   if (input.title !== undefined) patch.title = input.title;
-  if (input.contentType !== undefined) patch.content_type = input.contentType;
   if (input.videoUrl !== undefined) patch.video_url = input.videoUrl || null;
+  if (input.videoUrl2 !== undefined) patch.video_url_2 = input.videoUrl2 || null;
   if (input.textContent !== undefined) patch.text_content = sanitizeLessonHtml(input.textContent);
   if (input.resources !== undefined) {
     patch.resource_urls = input.resources as unknown as Database["public"]["Tables"]["lessons"]["Update"]["resource_urls"];
@@ -717,6 +788,21 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput): 
   if (input.pdfFileId !== undefined) patch.pdf_file_id = input.pdfFileId;
   if (input.documents !== undefined) {
     patch.documents = input.documents as unknown as Database["public"]["Tables"]["lessons"]["Update"]["documents"];
+  }
+
+  // content_type is derived from what the session holds after this patch; a
+  // client-sent contentType is accepted by the schema but not stored.
+  const touchesSource =
+    input.videoUrl !== undefined ||
+    input.videoUrl2 !== undefined ||
+    input.pdfFileId !== undefined ||
+    input.contentType !== undefined;
+  if (touchesSource && existing) {
+    patch.content_type = deriveContentType({
+      videoUrl: input.videoUrl !== undefined ? input.videoUrl : existing.video_url,
+      videoUrl2: input.videoUrl2 !== undefined ? input.videoUrl2 : existing.video_url_2,
+      pdfFileId: input.pdfFileId !== undefined ? input.pdfFileId : existing.pdf_file_id,
+    });
   }
 
   const { data, error } = await admin.from("lessons").update(patch).eq("id", lessonId).select("id").maybeSingle();
@@ -816,6 +902,7 @@ export interface LessonDetail {
   title: string;
   contentType: LessonContentType;
   videoUrl: string;
+  videoUrl2: string;
   textContent: string;
   pdfFileId: string | null;
   resources: LessonResourceLink[];
@@ -830,7 +917,7 @@ export async function getLessonDetail(lessonId: string): Promise<LessonDetail | 
   const [{ data: lesson }, { data: questions }] = await Promise.all([
     admin
       .from("lessons")
-      .select("id, title, content_type, video_url, text_content, pdf_file_id, resource_urls, documents")
+      .select("id, title, content_type, video_url, video_url_2, text_content, pdf_file_id, resource_urls, documents")
       .eq("id", lessonId)
       .maybeSingle(),
     admin
@@ -846,6 +933,7 @@ export async function getLessonDetail(lessonId: string): Promise<LessonDetail | 
     title: lesson.title,
     contentType: lesson.content_type,
     videoUrl: lesson.video_url ?? "",
+    videoUrl2: lesson.video_url_2 ?? "",
     textContent: lesson.text_content ?? "",
     pdfFileId: lesson.pdf_file_id,
     resources: (lesson.resource_urls as unknown as LessonResourceLink[] | null) ?? [],
@@ -893,6 +981,94 @@ export async function createQuizQuestion(lessonId: string, input: QuizQuestionIn
     .single();
   if (error || !data) return { ok: false, reason: "db-error" };
   return { ok: true, id: data.id };
+}
+
+export const MAX_BULK_QUIZ_QUESTIONS = 200;
+
+/** Paste-many append: one insert, order_index continues from max+1, never touches existing rows. */
+export async function appendQuizQuestions(
+  lessonId: string,
+  items: QuizQuestionInput[],
+): Promise<MutationResult & { created?: number }> {
+  if (items.length > MAX_BULK_QUIZ_QUESTIONS) return { ok: false, reason: "too-many" };
+  const admin = createAdminSupabase();
+
+  const { data: lesson } = await admin.from("lessons").select("id").eq("id", lessonId).maybeSingle();
+  if (!lesson) return { ok: false, reason: "not-found" };
+  if (items.length === 0) return { ok: true, id: lessonId, created: 0 };
+
+  const start = await nextQuizQuestionOrderIndex(admin, lessonId);
+  const { error } = await admin.from("quiz_questions").insert(
+    items.map((item, i) => ({
+      lesson_id: lessonId,
+      question: item.question,
+      options: item.options,
+      correct_index: item.correctIndex,
+      order_index: start + i,
+    })),
+  );
+  if (error) return { ok: false, reason: "db-error" };
+  return { ok: true, id: lessonId, created: items.length };
+}
+
+// ---------------------------------------------------------------------------
+// Module notes (course type only): links + private Drive documents per module
+// ---------------------------------------------------------------------------
+
+export interface ModuleNotes {
+  resources: LessonResourceLink[];
+  documents: LessonDocument[];
+}
+
+export async function getModuleNotes(moduleId: string): Promise<ModuleNotes> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("module_notes")
+    .select("resource_urls, documents")
+    .eq("module_id", moduleId)
+    .maybeSingle();
+  return {
+    resources: (data?.resource_urls as unknown as LessonResourceLink[] | null) ?? [],
+    documents: (data?.documents as unknown as LessonDocument[] | null) ?? [],
+  };
+}
+
+export async function updateModuleNotes(moduleId: string, input: Partial<ModuleNotes>): Promise<MutationResult> {
+  const admin = createAdminSupabase();
+
+  const { data: mod } = await admin
+    .from("modules")
+    .select("id, course_id")
+    .eq("id", moduleId)
+    .maybeSingle();
+  if (!mod) return { ok: false, reason: "not-found" };
+  const { data: course } = await admin.from("courses").select("type").eq("id", mod.course_id).maybeSingle();
+  if (!course) return { ok: false, reason: "not-found" };
+  if (usesFlatSessions(course.type)) return { ok: false, reason: "flat-type" };
+
+  const { data: existing } = await admin
+    .from("module_notes")
+    .select("resource_urls, documents")
+    .eq("module_id", moduleId)
+    .maybeSingle();
+  const oldDocuments = (existing?.documents as unknown as LessonDocument[] | null) ?? [];
+  const oldResources = (existing?.resource_urls as unknown as LessonResourceLink[] | null) ?? [];
+
+  const { error } = await admin.from("module_notes").upsert(
+    {
+      module_id: moduleId,
+      resource_urls: (input.resources ?? oldResources) as unknown as Database["public"]["Tables"]["module_notes"]["Insert"]["resource_urls"],
+      documents: (input.documents ?? oldDocuments) as unknown as Database["public"]["Tables"]["module_notes"]["Insert"]["documents"],
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "module_id" },
+  );
+  if (error) return { ok: false, reason: "db-error" };
+
+  const warning = await trashDriveFiles(
+    diffLessonFileIds({ pdfFileId: null, documents: oldDocuments }, { documents: input.documents }),
+  );
+  return { ok: true, id: moduleId, warning };
 }
 
 export async function updateQuizQuestion(id: string, input: Partial<QuizQuestionInput>): Promise<MutationResult> {
