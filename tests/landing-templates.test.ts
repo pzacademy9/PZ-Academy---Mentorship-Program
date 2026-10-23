@@ -81,4 +81,7 @@ describe("templates", () => {
     expect(text).toMatch(/Practical Pharmacology/i);
     expect(ppc.settings.registerUrl).toMatch(/^https:\/\//);
   });
+  it("ppc-batch-3 ships without a start date (the owner sets it per batch)", () => {
+    expect(buildTemplate("ppc-batch-3", "course")?.settings.batchStartsOn).toBe("");
+  });
 });

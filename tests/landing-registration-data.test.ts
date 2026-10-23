@@ -185,11 +185,14 @@ describe("agent links", () => {
 });
 
 describe("funnel events and UTMs", () => {
-  it("cleanUtm keeps only the five utm keys, trimmed and capped", () => {
+  it("cleanUtm keeps only the five utm keys plus src, trimmed and capped", () => {
     expect(cleanUtm(null)).toEqual({});
     expect(cleanUtm({ utm_source: " fb ", evil: "x", utm_term: "", utm_campaign: "c".repeat(300) })).toEqual({
       utm_source: "fb", utm_campaign: "c".repeat(200),
     });
+  });
+  it("cleanUtm keeps src", () => {
+    expect(cleanUtm({ src: " website ", evil: "x" })).toEqual({ src: "website" });
   });
   it("records an event with cleaned UTMs", async () => {
     db.state.handler = memoryHandler({});

@@ -73,6 +73,7 @@ export const PPC_BATCH_3: LandingContent = {
     registerLabel: "Register now",
     whatsappNumber: "923700199429",
     countdownTo: "",
+    batchStartsOn: "",
     countdownLabel: "",
   },
   seo: {

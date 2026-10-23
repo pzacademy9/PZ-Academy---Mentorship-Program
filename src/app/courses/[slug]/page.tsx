@@ -17,6 +17,8 @@ import { EnrollCta } from "@/components/courses/EnrollCta";
 import { CurriculumAccordion } from "@/components/courses/CurriculumAccordion";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getCourseBySlug, getCurriculum, getEnrollment } from "@/lib/data/lms";
+import { getOpenLiveBatch } from "@/lib/data/landing-website";
+import { LiveBatchBanner } from "@/components/marketing/LiveBatchBanner";
 import { toEmbedUrl } from "@/lib/video-embed";
 import { PROGRAM_COPY } from "@/lib/program-copy";
 
@@ -44,7 +46,7 @@ export default async function CourseDetailPage({
   if (!course || !course.isPublished) notFound();
   const copy = PROGRAM_COPY[course.type];
 
-  const [modules, supabase] = await Promise.all([getCurriculum(course.id), createServerSupabase()]);
+  const [modules, supabase, liveBatch] = await Promise.all([getCurriculum(course.id), createServerSupabase(), getOpenLiveBatch(course.id)]);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -55,6 +57,7 @@ export default async function CourseDetailPage({
       <MarketingNav />
 
       <main className="max-w-[1280px] mx-auto px-6 md:px-16 py-8">
+        {liveBatch && <LiveBatchBanner title={liveBatch.title} startsOn={liveBatch.startsOn} href={liveBatch.href} />}
         {/* Hero */}
         <section className="mb-12">
           <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden mb-8 shadow-xl bg-gradient-to-br from-pz-solid-deep to-pz-solid-forest">

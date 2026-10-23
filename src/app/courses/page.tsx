@@ -4,6 +4,8 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { FaqAccordion } from "@/components/marketing/FaqAccordion";
 import { CourseCatalogGrid } from "@/components/marketing/CourseCatalogGrid";
 import { getPublishedCourses } from "@/lib/data/lms";
+import { getOpenLiveBatches } from "@/lib/data/landing-website";
+import { attachLiveBatches } from "@/lib/data/live-batch-merge";
 
 const BENEFITS = [
   { icon: Users,       title: "Expert-Led Faculty",          desc: "Learn directly from board-certified pharmacists, clinical specialists, and industry veterans with decades of real-world experience." },
@@ -24,7 +26,8 @@ const FAQS = [
 ];
 
 export default async function CoursesPage() {
-  const courses = await getPublishedCourses("course");
+  const [published, openBatches] = await Promise.all([getPublishedCourses("course"), getOpenLiveBatches()]);
+  const courses = attachLiveBatches(published, openBatches);
 
   return (
     <>

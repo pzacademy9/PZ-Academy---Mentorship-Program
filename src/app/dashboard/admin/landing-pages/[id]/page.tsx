@@ -6,6 +6,7 @@ import { listPaymentCountries } from "@/lib/data/landing-payment-countries";
 import { getPageSheetInfo } from "@/lib/data/landing-event-sheet";
 import { listVariants } from "@/lib/data/landing-variants";
 import { getPageCourseModules } from "@/lib/data/landing-course-modules";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { LandingEditor } from "@/components/admin/landing/LandingEditor";
 
 export const metadata = { title: "Edit Landing Page — PZ Academy" };
@@ -28,9 +29,15 @@ export default async function LandingEditorPage({ params }: { params: Promise<{ 
   // Country / module links. A failed read throws (error page) rather than editing as if there were none.
   const variants = await listVariants(id);
   // A failed read only hides the "Modules this option gives" row; the save route still checks every module.
+  let courseModulesFailed = false;
   const courseModules = await getPageCourseModules(id).catch((e) => {
     console.error("Could not load course modules for page", id, e);
+    courseModulesFailed = true;
     return null;
   });
-  return <LandingEditor key={page.id} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} />;
+  // A failed read hides the course picker so a blank list cannot be saved as "No course".
+  const { data: courseRows, error: coursesError } = await createAdminSupabase().from("courses").select("id, title").order("title");
+  if (coursesError) console.error("Could not load courses for page", id, coursesError);
+  const courses = coursesError ? null : ((courseRows ?? []) as { id: string; title: string }[]);
+  return <LandingEditor key={page.id} page={page} versions={versions} centralRegionKeys={centralRegionKeys} sheetId={sheet?.sheetId ?? null} variants={variants} courseModules={courseModules} courseModulesFailed={courseModulesFailed} courses={courses} />;
 }

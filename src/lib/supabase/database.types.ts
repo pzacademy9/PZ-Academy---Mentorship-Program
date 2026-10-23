@@ -1788,6 +1788,7 @@ export type Database = {
           drive_folder_id: string | null
           id: string
           kind: string
+          is_main_page: boolean
           published: Json | null
           published_at: string | null
           ref_prefix: string | null
@@ -1809,6 +1810,7 @@ export type Database = {
           drive_folder_id?: string | null
           id?: string
           kind: string
+          is_main_page?: boolean
           published?: Json | null
           published_at?: string | null
           ref_prefix?: string | null
@@ -1830,6 +1832,7 @@ export type Database = {
           drive_folder_id?: string | null
           id?: string
           kind?: string
+          is_main_page?: boolean
           published?: Json | null
           published_at?: string | null
           ref_prefix?: string | null
@@ -4191,6 +4194,14 @@ export type Database = {
           question: string
           question_id: string
         }[]
+      }
+      landing_set_main_page: {
+        Args: {
+          p_page_id: string
+          p_course_id: string | null
+          p_main: boolean
+        }
+        Returns: undefined
       }
       landing_apply_status: {
         Args: {

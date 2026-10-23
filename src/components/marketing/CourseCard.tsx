@@ -33,6 +33,13 @@ export function CourseCard({ course }: { course: CourseCardData }) {
             {course.type}
           </span>
         </div>
+        {course.liveBatch && (
+          <div className="absolute top-4 right-4">
+            <span className="px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase font-headline bg-pz-primary-container text-pz-on-primary-container">
+              Live batch open
+            </span>
+          </div>
+        )}
       </div>
       <div className="p-6">
         <h3 className="font-headline text-xl font-bold text-pz-on-surface mb-2 group-hover:text-pz-primary transition-colors">

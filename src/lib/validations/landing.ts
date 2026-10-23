@@ -34,6 +34,8 @@ export const saveDraftSchema = z.object({
 export const rollbackSchema = z.object({ version: z.number().int().min(1) });
 export const renameSchema = z.object({ title: z.string().trim().min(1, "Give the page a name.").max(120, "Use 120 characters or fewer.") });
 
+export const courseAssignmentSchema = z.object({ courseId: z.string().uuid().nullable(), isMain: z.boolean() });
+
 export const statusSchema = z.object({ status: z.enum(["closed", "published"]) });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

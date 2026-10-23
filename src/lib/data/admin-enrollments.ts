@@ -25,6 +25,11 @@ export interface EnrollmentReviewRow {
   paymentAmountPkr: number | null;
   /** The URL itself stays on the detail view; the list only needs to know it exists. */
   hasScreenshot: boolean;
+  /**
+   * Website payment (screenshot) AND a paid/free, non-test landing registration for the same
+   * course: the enrollments row merged both purchases, so the owner checks for a double charge.
+   */
+  alsoPaidViaLanding: boolean;
   paymentShortfallPkr: number | null;
   sheetPendingStatus: EnrollmentStatus | null;
   sheetPendingNote: string | null;
@@ -123,6 +128,8 @@ function toRow(row: RawReviewRow, emails: Map<string, string>): EnrollmentReview
     enrolledAt: row.enrolled_at,
     paymentAmountPkr: row.payment_amount_pkr,
     hasScreenshot: Boolean(row.payment_screenshot_url),
+    // Hardcoded here on purpose: only listEnrollmentsForReview computes this flag (it needs the batched landing lookup).
+    alsoPaidViaLanding: false,
     paymentShortfallPkr: row.payment_shortfall_pkr,
     sheetPendingStatus: row.sheet_pending_status,
     sheetPendingNote: row.sheet_pending_note,
@@ -140,6 +147,56 @@ function toRow(row: RawReviewRow, emails: Map<string, string>): EnrollmentReview
       sheetId: row.course?.sheet_id ?? null,
     },
   };
+}
+
+const ID_CHUNK = 100;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Which "student:course" pairs have a paid/free, non-test landing registration.
+ * landing_registrations / landing_pages are service-role only (0067/0069: RLS on, no
+ * policies), hence the admin client. Batched: one registrations query and one pages query
+ * for the whole list (chunked only to keep the URL short for very large lists).
+ */
+async function landingPaidPairs(studentIds: string[]): Promise<Set<string>> {
+  const pairs = new Set<string>();
+  if (studentIds.length === 0) return pairs;
+  const admin = createAdminSupabase();
+
+  const regs: { page_id: string; student_id: string }[] = [];
+  for (const ids of chunk(studentIds, ID_CHUNK)) {
+    const { data, error } = await admin
+      .from("landing_registrations")
+      .select("page_id, student_id")
+      .in("student_id", ids)
+      .in("status", ["paid", "free"])
+      .eq("is_test", false);
+    // The flag is advisory: log a failed read (so a silent blank is diagnosable) but never throw.
+    if (error) console.error("[admin-enrollments] landing registrations read failed", error.message);
+    regs.push(...((data ?? []) as { page_id: string; student_id: string }[]));
+  }
+  if (regs.length === 0) return pairs;
+
+  const pageCourse = new Map<string, string>();
+  const pageIds = Array.from(new Set(regs.map((r) => r.page_id)));
+  for (const ids of chunk(pageIds, ID_CHUNK)) {
+    const { data, error } = await admin.from("landing_pages").select("id, course_id").in("id", ids);
+    if (error) console.error("[admin-enrollments] landing pages read failed", error.message);
+    for (const p of (data ?? []) as { id: string; course_id: string | null }[]) {
+      if (p.course_id) pageCourse.set(p.id, p.course_id);
+    }
+  }
+
+  for (const r of regs) {
+    const courseId = pageCourse.get(r.page_id);
+    if (courseId) pairs.add(`${r.student_id}:${courseId}`);
+  }
+  return pairs;
 }
 
 /** The review queue. Admin RLS (0002) already permits reading every row. */
@@ -161,7 +218,18 @@ export async function listEnrollmentsForReview(
     rows.map((r) => r.student?.id).filter((id): id is string => Boolean(id)),
   );
 
-  return rows.map((row) => toRow(row, emails));
+  const withScreenshot = rows
+    .filter((r) => r.payment_screenshot_url && r.student?.id)
+    .map((r) => r.student!.id);
+  const landingPaid = await landingPaidPairs(Array.from(new Set(withScreenshot)));
+
+  return rows.map((row) => ({
+    ...toRow(row, emails),
+    alsoPaidViaLanding:
+      Boolean(row.payment_screenshot_url) &&
+      Boolean(row.student?.id && row.course?.id) &&
+      landingPaid.has(`${row.student?.id}:${row.course?.id}`),
+  }));
 }
 
 /**

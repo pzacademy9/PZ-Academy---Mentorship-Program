@@ -12,7 +12,7 @@ import { LandingPagesList } from "@/components/admin/landing/LandingPagesList";
 import { ImportPageDialog } from "@/components/admin/landing/ImportPageDialog";
 
 const pages = [
-  { id: "a", slug: "ppc-b3", kind: "course" as const, title: "PPC Batch 3", status: "draft" as const, revision: 1, publishedAt: null, updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: true },
+  { id: "a", slug: "ppc-b3", kind: "course" as const, title: "PPC Batch 3", status: "draft" as const, revision: 1, publishedAt: null, updatedAt: "2026-10-02T00:00:00Z", hasUnpublishedChanges: true, courseId: null, isMainPage: false },
 ];
 
 function reply(status: number, body: unknown) {

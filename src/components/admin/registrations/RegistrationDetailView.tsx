@@ -53,6 +53,7 @@ const UTM_LABELS: Record<string, string> = {
   utm_campaign: "Campaign",
   utm_content: "Ad or link",
   utm_term: "Search term",
+  src: "Came from",
 };
 
 export function RegistrationDetailView({

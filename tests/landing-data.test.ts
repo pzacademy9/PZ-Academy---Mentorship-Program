@@ -13,7 +13,7 @@ const resolveRegionAccountKeys = vi.fn();
 vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveRegionAccountKeys: (...a: unknown[]) => resolveRegionAccountKeys(...a) }));
 
 type Res = { data: unknown; error: unknown };
-interface Op { table: string; op: "select" | "insert" | "update" | "delete"; payload?: Record<string, unknown>; filters: [string, unknown][] }
+interface Op { cols?: string; table: string; op: "select" | "insert" | "update" | "delete"; payload?: Record<string, unknown>; filters: [string, unknown][] }
 let forceReady = false;
 let ops: Op[] = [];
 let handler: (op: Op) => Res = () => ({ data: null, error: null });
@@ -22,7 +22,7 @@ function builder(table: string) {
   const op: Op = { table, op: "select", filters: [] };
   const done = () => { ops.push(op); return Promise.resolve(handler(op)); };
   const b: Record<string, unknown> = {
-    select: () => b,
+    select: (c?: string) => { op.cols = c; return b; },
     insert: (p: Record<string, unknown>) => { op.op = "insert"; op.payload = p; return b; },
     update: (p: Record<string, unknown>) => { op.op = "update"; op.payload = p; return b; },
     delete: () => { op.op = "delete"; return b; },
@@ -216,6 +216,15 @@ describe("getPublishedLandingPage", () => {
     await expect(getLandingPage("p1")).rejects.toBeTruthy();
     handler = () => ({ data: null, error: null });
     expect(await getLandingPage("p1")).toBeNull();
+  });
+  it("reads only public columns, never the 0084 ones (deploy before migration is safe)", async () => {
+    handler = () => ({ data: pageRow(), error: null });
+    ops = [];
+    await getPublishedLandingPage("ppc-b4");
+    const sel = find("landing_pages", "select")[0].cols ?? "";
+    expect(sel).not.toContain("is_main_page");
+    expect(sel).not.toContain("course_id");
+    expect(sel).toContain("published");
   });
   it("returns a published page", async () => {
     handler = () => ({ data: pageRow(), error: null });

@@ -94,6 +94,7 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
       whatsappNumber: text(settings.whatsapp),
       countdownTo: text(settings.countdown_to),
       countdownLabel: text(settings.countdown_label),
+      batchStartsOn: "",
     },
     seo: { title: text(seoIn.title), description: text(seoIn.description), ogImage: "" },
     registration: reg.registration,
