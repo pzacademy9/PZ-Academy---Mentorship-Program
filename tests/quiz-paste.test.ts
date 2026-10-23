@@ -109,3 +109,69 @@ describe("parseQuizPaste", () => {
     expect(r.questions[0].options).toHaveLength(4);
   });
 });
+
+describe("parseQuizPaste fix round 1", () => {
+  it("joins wrapped text on the last option", () => {
+    const r = parseQuizPaste("Q?\nA) x\nB) long text\ncontinued\nAnswer: B");
+    expect(r.errors).toEqual([]);
+    expect(r.questions[0].options).toEqual(["x", "long text continued"]);
+  });
+  it("joins wrapped text on a non-last option and multi-line wraps", () => {
+    const r = parseQuizPaste("Q?\nA) long\ncontinued\nmore\nB) y\nAnswer: B");
+    expect(r.errors).toEqual([]);
+    expect(r.questions[0].options).toEqual(["long continued more", "y"]);
+  });
+  it("keeps multi-line question text before options", () => {
+    const r = parseQuizPaste("line one\nline two\nA) x\nB) y\nAnswer: A");
+    expect(r.questions[0].question).toBe("line one line two");
+  });
+  it.each(["2.5 mg of X is given?", "0.9% saline is?", "10.5 mL of Y?", "12.5% dextrose?"])(
+    "keeps decimal-leading question: %s",
+    (q) => {
+      const r = parseQuizPaste(`${q}\nA) x\nB) y\nAnswer: A`);
+      expect(r.errors).toEqual([]);
+      expect(r.questions[0].question).toBe(q);
+    },
+  );
+  it.each(["12. Hello?", "Q: Hello?", "Q. Hello?", "3) Hello?"])("still strips: %s", (q) => {
+    const r = parseQuizPaste(`${q}\nA) x\nB) y\nAnswer: A`);
+    expect(r.questions[0].question).toBe("Hello?");
+  });
+  it("errors when option letters skip", () => {
+    const r = parseQuizPaste("Fine?\nA) a\nB) b\nAnswer: A\n\nBad?\nA) a\nC) c\nD) d\nAnswer: C");
+    expect(r.questions).toHaveLength(1);
+    expect(r.errors).toEqual([
+      { questionNumber: 2, line: 6, message: "Question 2: options must be A, B, C in order (found C after A)" },
+    ]);
+  });
+  it("errors on duplicate option letters", () => {
+    const r = parseQuizPaste("Bad?\nA) a\nA) b\nAnswer: A");
+    expect(r.questions).toEqual([]);
+    expect(r.errors[0].message).toBe("Question 1: options must be A, B, C in order (found A after A)");
+  });
+  it("ignores Explanation / Rationale / Reason lines and their wraps", () => {
+    const r = parseQuizPaste(
+      "One?\nA) a\nB) b\nAnswer: A\n**Explanation:** because\nof reasons\n\nTwo?\nA) a\nB) b\nAnswer: B\nRationale: x\n\nThree?\nA) a\nB) b\nAnswer: A\nreason: y",
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.questions.map((q) => q.question)).toEqual(["One?", "Two?", "Three?"]);
+  });
+  it.each(["Answer: Option B", "Answer is B", "Correct option: B", "Right answer: B", "Correct answer is B."])(
+    "accepts answer form: %s",
+    (line) => {
+      const r = parseQuizPaste(`Q?\nA) x\nB) y\n${line}`);
+      expect(r.errors).toEqual([]);
+      expect(r.questions[0].correctIndex).toBe(1);
+    },
+  );
+  it("does not treat 'Correct: A drug that...' as an answer line", () => {
+    const r = parseQuizPaste("Correct: A drug that cures?\nA) x\nB) y\nAnswer: B");
+    expect(r.errors).toEqual([]);
+    expect(r.questions[0].question).toBe("Correct: A drug that cures?");
+  });
+  it("treats U+2028, U+2029 and VT as line breaks", () => {
+    const r = parseQuizPaste("1. Q?\u2028A) x\u2029B) y\u000bAnswer: B");
+    expect(r.errors).toEqual([]);
+    expect(r.questions[0]).toEqual({ question: "Q?", options: ["x", "y"], correctIndex: 1 });
+  });
+});

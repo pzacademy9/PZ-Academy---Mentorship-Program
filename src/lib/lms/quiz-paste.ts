@@ -37,10 +37,12 @@ const MAX_QUESTION = 1000;
 const MAX_OPTIONS = 6;
 
 const ANSWER_RE =
-  /^(?:correct\s+answer|correct|answer|ans)\s*(?:[:\-\u2013\u2014]|is\b)\s*\(?([A-Za-z])(?![A-Za-z0-9])/i;
+  /^(?:correct\s+answer|correct\s+option|right\s+answer|correct|answer|ans)\s*(?:[:\-\u2013\u2014]|\bis\b)\s*(?:option\s+)?\(?([A-Za-z])(?=$|[).:]|\s+\))/i;
 const OPTION_RE = /^\(?([A-Za-z])[.):]\s*(\S.*)$/;
+const EXPLAIN_RE = /^(?:explanation|rationale|reason)\s*[:\-\u2013\u2014]/i;
 const BULLET_RE = /^[-*\u2022\u2013\u2014]\s+/;
-const NUMBERING_RE = /^(?:(?:question|q)\s*\d+\s*[.:)\-]?|\d+\s*[.)])\s*/i;
+// Numbering only counts when followed by whitespace or end, so "2.5 mg" and "0.9% saline" stay intact.
+const NUMBERING_RE = /^(?:(?:question|q)\s*\d+\s*[.:)-]?|\d+\s*[.)]|q\s*[:.])(?=\s|$)\s*/i;
 
 function clean(raw: string): string {
   return raw
@@ -52,11 +54,30 @@ function clean(raw: string): string {
     .trim();
 }
 
+type Line =
+  | { kind: "blank" }
+  | { kind: "answer"; letter: string }
+  | { kind: "option"; letter: string; text: string }
+  | { kind: "explain" }
+  | { kind: "plain" };
+
+function classify(line: string): Line {
+  if (!line) return { kind: "blank" };
+  const u = line.replace(BULLET_RE, "");
+  const ans = ANSWER_RE.exec(u);
+  if (ans) return { kind: "answer", letter: ans[1] };
+  const opt = OPTION_RE.exec(u);
+  if (opt) return { kind: "option", letter: opt[1], text: opt[2].trim() };
+  if (EXPLAIN_RE.test(u)) return { kind: "explain" };
+  return { kind: "plain" };
+}
+
 type Block = {
   startLine: number;
   questionLines: string[];
   options: string[];
   answer: string | null;
+  orderError: string | null;
 };
 
 export function parseQuizPaste(text: string): QuizPasteResult {
@@ -64,6 +85,7 @@ export function parseQuizPaste(text: string): QuizPasteResult {
   const errors: QuizPasteError[] = [];
   let count = 0;
   let block: Block | null = null;
+  let skipping = false;
 
   function finish() {
     if (!block) return;
@@ -77,6 +99,7 @@ export function parseQuizPaste(text: string): QuizPasteResult {
     const question = b.questionLines.join(" ").trim();
     if (!question) return fail("missing question text");
     if (question.length > MAX_QUESTION) return fail(`question is longer than ${MAX_QUESTION} characters`);
+    if (b.orderError) return fail(b.orderError);
     if (b.options.length < 2) return fail("needs at least 2 answer options");
     if (b.options.length > MAX_OPTIONS) return fail(`more than ${MAX_OPTIONS} options`);
     if (b.answer === null) return fail("no correct answer marked");
@@ -87,32 +110,66 @@ export function parseQuizPaste(text: string): QuizPasteResult {
     questions.push({ question, options: b.options, correctIndex: idx });
   }
 
-  const lines = text.split(/\r\n|\r|\n/);
-  lines.forEach((rawLine, i) => {
-    const line = clean(rawLine);
-    if (!line) return;
-    const lineNo = i + 1;
-    const unbulleted = line.replace(BULLET_RE, "");
+  const cleaned = text.split(/\r\n|[\r\n\u2028\u2029\u000b]/).map(clean);
+  const kinds = cleaned.map(classify);
 
-    const ans = ANSWER_RE.exec(unbulleted);
-    if (ans) {
-      if (!block) block = { startLine: lineNo, questionLines: [], options: [], answer: null };
-      if (block.answer === null) block.answer = ans[1];
+  // Is the plain line at index i a wrapped continuation of the current option?
+  function continuesOption(i: number, optionCount: number): boolean {
+    let crossedBlank = false;
+    for (let j = i; j < kinds.length; j++) {
+      const k = kinds[j];
+      if (k.kind === "blank") {
+        crossedBlank = true;
+        continue;
+      }
+      if (k.kind === "plain") continue;
+      if (k.kind === "answer") return true;
+      if (k.kind === "option") return k.letter.toUpperCase().charCodeAt(0) - 65 === optionCount;
+      return false;
+    }
+    return !crossedBlank;
+  }
+
+  cleaned.forEach((line, i) => {
+    const k = kinds[i];
+    const lineNo = i + 1;
+    if (k.kind === "blank") {
+      skipping = false;
+      return;
+    }
+    if (skipping) return;
+    if (!block && k.kind === "explain") {
+      skipping = true;
+      return;
+    }
+
+    if (k.kind === "answer") {
+      if (!block) block = { startLine: lineNo, questionLines: [], options: [], answer: null, orderError: null };
+      if (block.answer === null) block.answer = k.letter;
       finish();
       return;
     }
 
-    const opt = OPTION_RE.exec(unbulleted);
     // An option marker only counts once the block has question text ("E. coli ..." can open a question).
-    if (opt && block && block.questionLines.length > 0) {
-      block.options.push(opt[2].trim());
+    if (k.kind === "option" && block && block.questionLines.length > 0) {
+      const found = k.letter.toUpperCase();
+      const expected = String.fromCharCode(65 + block.options.length);
+      if (found !== expected && !block.orderError) {
+        const prev = block.options.length ? ` after ${String.fromCharCode(64 + block.options.length)}` : " first";
+        block.orderError = `options must be A, B, C in order (found ${found}${prev})`;
+      }
+      block.options.push(k.text);
       return;
     }
 
-    // Plain text: continues the question, or starts a new block.
+    // Plain text (or a stray marker/explanation line): wrap of an option, question text, or a new block.
+    if (block && block.options.length > 0 && block.answer === null && continuesOption(i, block.options.length)) {
+      block.options[block.options.length - 1] += " " + line.replace(BULLET_RE, "");
+      return;
+    }
     if (block && block.options.length > 0) finish();
     if (!block) {
-      block = { startLine: lineNo, questionLines: [], options: [], answer: null };
+      block = { startLine: lineNo, questionLines: [], options: [], answer: null, orderError: null };
       const stripped = line.replace(NUMBERING_RE, "").trim();
       block.questionLines.push(stripped || line);
     } else {
