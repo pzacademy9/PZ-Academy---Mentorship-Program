@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -19,11 +20,12 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, PlusCircle, CheckCircle2 } from "lucide-react";
+import { GripVertical, Trash2, PlusCircle, CheckCircle2, ClipboardPaste } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { QuizQuestionRow } from "@/lib/data/admin-lms";
+import { QuizPasteDialog } from "./QuizPasteDialog";
 
 type QuestionPatch = Partial<{ question: string; options: string[]; correctIndex: number }>;
 
@@ -31,12 +33,17 @@ export function QuizEditor({
   lessonId,
   questions,
   onQuestionsChange,
+  onCountChange,
 }: {
   lessonId: string;
   questions: QuizQuestionRow[];
   onQuestionsChange: (questions: QuizQuestionRow[]) => void;
+  /** Called with the new question count after the user adds, deletes or pastes questions. */
+  onCountChange?: (count: number) => void;
 }) {
   const router = useRouter();
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -52,8 +59,34 @@ export function QuizEditor({
       toast.error("Could not add a question.");
       return;
     }
-    router.refresh();
+    const payload = (await res.json().catch(() => null)) as { id?: string } | null;
+    if (!payload?.id) {
+      router.refresh();
+      return;
+    }
+    const added: QuizQuestionRow = {
+      id: payload.id,
+      question: "New question",
+      options: ["Option A", "Option B"],
+      correctIndex: 0,
+      orderIndex: questions.length,
+    };
+    onQuestionsChange([...questions, added]);
+    onCountChange?.(questions.length + 1);
+    setFocusId(added.id);
   });
+
+  /** After a paste the new rows need their ids, so refetch the lesson instead of guessing. */
+  async function handlePasted() {
+    const res = await fetch(`/api/admin/lessons/${lessonId}`);
+    const data = res.ok ? ((await res.json().catch(() => null)) as { quizQuestions?: QuizQuestionRow[] } | null) : null;
+    if (!data?.quizQuestions) {
+      toast.error("Questions were added. Reload the page to see them.");
+      return;
+    }
+    onQuestionsChange(data.quizQuestions);
+    onCountChange?.(data.quizQuestions.length);
+  }
 
   async function saveQuestion(id: string, patch: QuestionPatch) {
     const res = await fetch(`/api/admin/quiz-questions/${id}`, {
@@ -71,6 +104,7 @@ export function QuizEditor({
       return;
     }
     onQuestionsChange(questions.filter((q) => q.id !== id));
+    onCountChange?.(questions.length - 1);
   }, { getKey: (id) => id });
 
   function handleDragEnd(event: DragEndEvent) {
@@ -95,19 +129,34 @@ export function QuizEditor({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between border-b border-pz-outline-variant pb-2">
-        <h4 className="font-headline font-bold text-pz-on-surface">Check for Understanding</h4>
-        <Button
-          type="button"
-          variant="bare"
-          size="bare"
-          loading={adding}
-          onClick={() => addQuestion()}
-          className="text-pz-primary font-bold text-sm gap-1 hover:underline max-md:min-h-11"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Add Question
-        </Button>
+        <h4 className="font-headline font-bold text-pz-on-surface">
+          Quiz <span className="text-pz-on-surface-variant font-medium text-sm">({questions.length} {questions.length === 1 ? "question" : "questions"})</span>
+        </h4>
+        <div className="flex flex-wrap items-center gap-x-4">
+          <Button
+            type="button"
+            variant="bare"
+            size="bare"
+            loading={adding}
+            onClick={() => addQuestion()}
+            className="text-pz-primary font-bold text-sm gap-1 hover:underline max-md:min-h-11"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Add question
+          </Button>
+          <Button
+            type="button"
+            variant="bare"
+            size="bare"
+            onClick={() => setPasteOpen(true)}
+            className="text-pz-primary font-bold text-sm gap-1 hover:underline max-md:min-h-11"
+          >
+            <ClipboardPaste className="w-4 h-4" />
+            Paste many questions
+          </Button>
+        </div>
       </div>
+      <QuizPasteDialog lessonId={lessonId} open={pasteOpen} onOpenChange={setPasteOpen} onAdded={() => void handlePasted()} />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
@@ -121,6 +170,7 @@ export function QuizEditor({
                 onDelete={() => deleteQuestion(q.id)}
                 deleting={deletingId === q.id}
                 deleteDisabled={deleting}
+                autoFocus={focusId === q.id}
                 onLocalChange={(patch) =>
                   onQuestionsChange(questions.map((x) => (x.id === q.id ? { ...x, ...patch } : x)))
                 }
@@ -131,7 +181,7 @@ export function QuizEditor({
       </DndContext>
 
       {questions.length === 0 && (
-        <p className="text-sm text-pz-on-surface-variant italic text-center py-4">No quiz questions yet.</p>
+        <p className="text-sm text-pz-on-surface-variant italic text-center py-4">No questions yet. Add one, or paste many at once.</p>
       )}
     </div>
   );
@@ -144,6 +194,7 @@ function QuestionCard({
   onDelete,
   deleting,
   deleteDisabled,
+  autoFocus,
   onLocalChange,
 }: {
   index: number;
@@ -152,6 +203,7 @@ function QuestionCard({
   onDelete: () => void;
   deleting: boolean;
   deleteDisabled: boolean;
+  autoFocus: boolean;
   onLocalChange: (patch: Partial<QuizQuestionRow>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: question.id });
@@ -200,6 +252,7 @@ function QuestionCard({
       <div className="flex-1 min-w-0 space-y-2">
         <input
           type="text"
+          autoFocus={autoFocus}
           value={question.question}
           onChange={(e) => onLocalChange({ question: e.target.value })}
           onBlur={(e) => onSave({ question: e.target.value })}
