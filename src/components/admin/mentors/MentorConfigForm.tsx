@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
-import { ImageUploadField } from "@/components/admin/program/ImageUploadField";
+import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
 import { StringListRepeater } from "./StringListRepeater";
 import { PackageRepeater } from "./PackageRepeater";
 import { CredentialRepeater } from "./CredentialRepeater";
@@ -363,11 +363,14 @@ export function MentorConfigForm({ mentor }: { mentor: MentorConfigDetail }) {
         </h3>
         <div>
           <label className={labelClass}>Photo</label>
-          <ImageUploadField
+          <LibraryImageField
             value={form.photoUrl}
             onChange={(url) => set("photoUrl", url)}
             courseSlug={mentor.slug}
             kind="mentor-photo"
+            folder="instructors"
+            shape="circle"
+            uploadLabel="Upload new"
             inputClassName={inputClass}
           />
         </div>

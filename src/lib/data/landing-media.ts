@@ -171,6 +171,135 @@ export async function findMediaUsage(driveFileId: string): Promise<MediaPage[]> 
     .map((p) => ({ id: p.id, title: p.title, slug: p.slug }));
 }
 
+const PAGE_SIZE = 1000;
+const INSERT_CHUNK = 200;
+
+/** Reads every row of a table, one 1000-row page at a time (PostgREST caps a single read). */
+async function readAll<T>(table: string, columns: string): Promise<T[]> {
+  const admin = createAdminSupabase();
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await admin
+      .from(table as "courses")
+      .select(columns)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as unknown as T[];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) return out;
+  }
+}
+
+/** Every string anywhere inside a JSON value that looks like a Drive link. */
+function driveLinksIn(value: unknown, out: string[] = []): string[] {
+  if (typeof value === "string") {
+    if (isDrivePicture(value)) out.push(value);
+  } else if (Array.isArray(value)) {
+    for (const v of value) driveLinksIn(v, out);
+  } else if (value && typeof value === "object") {
+    for (const v of Object.values(value)) driveLinksIn(v, out);
+  }
+  return out;
+}
+
+// Counts whole characters (not UTF-16 halves) and drops NUL, which Postgres text rejects.
+const limitName = (raw: string) =>
+  Array.from(raw.split("\u0000").join("").trim()).slice(0, 80).join("").trim();
+const nameFor = (base: string | null | undefined, suffix: string, fallback: string) => {
+  const b = (base ?? "").split("\u0000").join("").trim();
+  return b === "" ? fallback : limitName(`${b} ${suffix}`) || fallback;
+};
+
+const DRIVE_LINK = /^https?:\/\/(?:drive|docs)\.google\.com\/\S+$/;
+const GOOGLE_IMAGE_LINK = /^https?:\/\/lh\d\.googleusercontent\.com\/\S+$/;
+const isDrivePicture = (url: string) => (DRIVE_LINK.test(url) || GOOGLE_IMAGE_LINK.test(url)) && fileIdFromUrl(url) !== null;
+const storedUrl = (fileId: string) => `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+
+/**
+ * Registers every Drive picture already used on the website (courses, mentors, banners,
+ * landing pages and their variants) in the shared library. Safe to run again: pictures
+ * already in the library are left alone. Throws on any read or write error.
+ */
+export async function importExistingMedia(
+  userId: string,
+): Promise<{ added: number; alreadyThere: number; skipped: number }> {
+  type Candidate = { fileId: string; url: string; name: string; folder: MediaFolder };
+  const found = new Map<string, Candidate>();
+  const skippedLinks = new Set<string>();
+
+  const consider = (url: string | null | undefined, name: string, folder: MediaFolder) => {
+    if (!url || url.trim() === "") return;
+    const fileId = isDrivePicture(url) ? fileIdFromUrl(url) : null;
+    if (!fileId) {
+      skippedLinks.add(url);
+      return;
+    }
+    if (!found.has(fileId)) found.set(fileId, { fileId, url: storedUrl(fileId), name, folder });
+  };
+
+  const courses = await readAll<{
+    title: string | null; thumbnail_url: string | null; banner_url: string | null; mentor_avatar_url: string | null;
+  }>("courses", "id, title, thumbnail_url, banner_url, mentor_avatar_url");
+  for (const c of courses) {
+    consider(c.thumbnail_url, nameFor(c.title, "thumbnail", "Course thumbnail"), "heroes");
+    consider(c.banner_url, nameFor(c.title, "banner", "Course banner"), "heroes");
+    consider(c.mentor_avatar_url, nameFor(c.title, "instructor", "Course instructor"), "instructors");
+  }
+
+  const mentors = await readAll<{ name: string | null; photo_url: string | null }>("mentors", "id, name, photo_url");
+  for (const m of mentors) consider(m.photo_url, nameFor(m.name, "photo", "Mentor photo"), "instructors");
+
+  const banners = await readAll<{ slot: string | null; image_url: string | null }>("banners", "id, slot, image_url");
+  for (const b of banners) consider(b.image_url, limitName(`Website banner ${b.slot ?? ""}`) || "Website banner", "heroes");
+
+  const pages = await readAll<{ id: string; title: string | null; draft: unknown; published: unknown }>(
+    "landing_pages", "id, title, draft, published",
+  );
+  const titleOf = new Map<string, string>();
+  for (const p of pages) {
+    titleOf.set(p.id, p.title ?? "");
+    const name = nameFor(p.title, "picture", "Landing page picture");
+    for (const url of [...driveLinksIn(p.draft), ...driveLinksIn(p.published)]) consider(url, name, "misc");
+  }
+  const variants = await readAll<{ page_id: string; draft: unknown; published: unknown }>(
+    "landing_page_variants", "id, page_id, draft, published",
+  );
+  for (const v of variants) {
+    const name = nameFor(titleOf.get(v.page_id), "picture", "Landing page picture");
+    for (const url of [...driveLinksIn(v.draft), ...driveLinksIn(v.published)]) consider(url, name, "misc");
+  }
+
+  const have = new Set(
+    (await readAll<{ drive_file_id: string }>("landing_media", "id, drive_file_id")).map((r) => r.drive_file_id),
+  );
+  const fresh = Array.from(found.values()).filter((c) => !have.has(c.fileId));
+
+  const admin = createAdminSupabase();
+  let added = 0;
+  for (let i = 0; i < fresh.length; i += INSERT_CHUNK) {
+    const rows = fresh.slice(i, i + INSERT_CHUNK).map((c) => ({
+      drive_file_id: c.fileId,
+      url: c.url,
+      name: c.name,
+      folder: c.folder,
+      width: null,
+      height: null,
+      orientation: null,
+      size_bytes: null,
+      created_by: userId,
+    }));
+    const { data, error } = await admin
+      .from("landing_media")
+      .upsert(rows, { onConflict: "drive_file_id", ignoreDuplicates: true })
+      .select("drive_file_id");
+    if (error) throw error;
+    added += (data ?? []).length;
+  }
+  // A picture a concurrent run added a moment ago counts as already there.
+  return { added, alreadyThere: found.size - added, skipped: skippedLinks.size };
+}
+
 export async function deleteMedia(
   id: string,
 ): Promise<

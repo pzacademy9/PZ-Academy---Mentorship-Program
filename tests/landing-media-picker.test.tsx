@@ -117,7 +117,7 @@ describe("LandingImageField", () => {
     render(<Host />);
     const file = new File(["x"], "My Hero.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("file"), { target: { files: [file] } });
-    await screen.findByText("Added to the page, but not saved to the library.");
+    await screen.findByText("Picture added, but not saved to the library.");
     expect(f).toHaveBeenCalledTimes(1);
     const [url, init] = (f.mock.calls as unknown[][])[0] as unknown as [string, { body: string }];
     expect(url).toBe("/api/admin/landing-media");
