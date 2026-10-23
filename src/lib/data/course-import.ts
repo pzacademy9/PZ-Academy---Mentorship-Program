@@ -26,7 +26,12 @@ export async function createCourseFromPlan(plan: ImportPlan): Promise<CreateFrom
 
   const admin = createAdminSupabase();
   const rollback = async (): Promise<CreateFromPlanResult> => {
-    await admin.from("courses").delete().eq("id", created.id);
+    try {
+      const { error } = await admin.from("courses").delete().eq("id", created.id);
+      if (error) console.error("course-import: could not remove draft course", created.id);
+    } catch {
+      console.error("course-import: could not remove draft course", created.id);
+    }
     return { ok: false, reason: "db-error" };
   };
 

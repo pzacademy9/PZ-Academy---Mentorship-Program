@@ -168,13 +168,14 @@ export interface CourseConfigDetail {
 export async function ensureDefaultModule(courseId: string): Promise<string> {
   const admin = createAdminSupabase();
 
-  const { data: existing } = await admin
+  const { data: existing, error: lookupError } = await admin
     .from("modules")
     .select("id")
     .eq("course_id", courseId)
     .order("order_index", { ascending: true })
     .limit(1)
     .maybeSingle();
+  if (lookupError) throw new Error("Could not look up the default module for this program.");
   if (existing) return existing.id;
 
   const { data, error } = await admin
@@ -279,7 +280,12 @@ export async function createCourse(input: { title: string; type: CourseType }): 
   if (error || !data) return { ok: false, reason: "db-error" };
 
   if (usesFlatSessions(input.type)) {
-    await ensureDefaultModule(data.id);
+    try {
+      await ensureDefaultModule(data.id);
+    } catch {
+      await admin.from("courses").delete().eq("id", data.id);
+      return { ok: false, reason: "db-error" };
+    }
   }
 
   return { ok: true, id: data.id, slug: data.slug };

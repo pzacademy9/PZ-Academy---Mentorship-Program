@@ -170,5 +170,47 @@ describe("createCourseFromPlan", () => {
     const inserts = admin.find("quiz_questions", "insert");
     expect(inserts.map((o) => (o.payload as unknown[]).length)).toEqual([500, 500, 200]);
     expect(store.quiz_questions).toHaveLength(1200);
+    const first = store.quiz_questions.filter((x) => x.lesson_id === store.lessons[0].id);
+    expect(first.map((x) => x.order_index)).toEqual(Array.from({ length: 400 }, (_, i) => i));
+    expect(store.quiz_questions.every((x) => (x.order_index as number) < 400)).toBe(true);
+  });
+
+  it("a workshop whose hidden module cannot be created leaves no course behind", async () => {
+    const mem = memoryHandler(store);
+    admin.state.handler = (op: Op): Res =>
+      op.table === "modules" && op.op === "insert" ? { data: null, error: { message: "boom" } } : mem(op);
+    const plan: ImportPlan = {
+      title: "W",
+      type: "workshop",
+      modules: [{ title: "", notes: [], sessions: [{ title: "A", videoUrl: "", videoUrl2: "", notes: [], questions: [] }] }],
+    };
+    expect(await createCourseFromPlan(plan)).toEqual({ ok: false, reason: "db-error" });
+    expect(store.courses).toHaveLength(0);
+  });
+
+  it("a failing module insert leaves no course behind", async () => {
+    const mem = memoryHandler(store);
+    admin.state.handler = (op: Op): Res =>
+      op.table === "modules" && op.op === "insert" ? { data: null, error: { message: "boom" } } : mem(op);
+    expect(await createCourseFromPlan(coursePlan())).toEqual({ ok: false, reason: "db-error" });
+    expect(store.courses).toHaveLength(0);
+  });
+
+  it("a failing module_notes insert leaves no course behind", async () => {
+    const mem = memoryHandler(store);
+    admin.state.handler = (op: Op): Res =>
+      op.table === "module_notes" && op.op === "insert" ? { data: null, error: { message: "boom" } } : mem(op);
+    expect(await createCourseFromPlan(coursePlan())).toEqual({ ok: false, reason: "db-error" });
+    expect(store.courses).toHaveLength(0);
+  });
+
+  it("a thrown error leaves no course behind", async () => {
+    const mem = memoryHandler(store);
+    admin.state.handler = (op: Op): Res => {
+      if (op.table === "lessons" && op.op === "insert") throw new Error("network");
+      return mem(op);
+    };
+    expect(await createCourseFromPlan(coursePlan())).toEqual({ ok: false, reason: "db-error" });
+    expect(store.courses).toHaveLength(0);
   });
 });
