@@ -17,3 +17,9 @@ Green: `node node_modules/vitest/vitest.mjs run tests/landing-media-*.test.ts te
 - Mock hides `.upsert(...).select()` semantics: with ignoreDuplicates PostgREST returns only inserted rows, which `added` relies on. Not run against the live DB.
 - `from(table as "courses")` cast in the paging helper to satisfy the typed client with a dynamic table name.
 - New route file uses LF; sibling files are CRLF.
+
+## Hardening commit (review follow-up)
+- Names: counted by whole characters (emoji safe), NUL stripped, exact fallbacks when title/name blank (Course thumbnail/banner/instructor, Mentor photo, Website banner, Landing page picture).
+- Link detection: only drive.google.com / docs.google.com / lhN.googleusercontent.com, no whitespace, plus a file id; same rule for columns and JSON. Stored url normalised to https://drive.google.com/thumbnail?id=<id>&sz=w1600 (matches enrollments screenshot route).
+- LibraryImageField notice now "Picture added, but not saved to the library." (picker test updated).
+- Result: 8 files, 80 tests pass; tsc 0 errors; eslint clean.

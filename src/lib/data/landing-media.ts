@@ -194,7 +194,7 @@ async function readAll<T>(table: string, columns: string): Promise<T[]> {
 /** Every string anywhere inside a JSON value that looks like a Drive link. */
 function driveLinksIn(value: unknown, out: string[] = []): string[] {
   if (typeof value === "string") {
-    if (/^https?:\/\/[^\s]*google/.test(value) && fileIdFromUrl(value)) out.push(value);
+    if (isDrivePicture(value)) out.push(value);
   } else if (Array.isArray(value)) {
     for (const v of value) driveLinksIn(v, out);
   } else if (value && typeof value === "object") {
@@ -203,7 +203,18 @@ function driveLinksIn(value: unknown, out: string[] = []): string[] {
   return out;
 }
 
-const limitName = (raw: string, fallback: string) => raw.trim().slice(0, 80).trim() || fallback;
+// Counts whole characters (not UTF-16 halves) and drops NUL, which Postgres text rejects.
+const limitName = (raw: string) =>
+  Array.from(raw.split("\u0000").join("").trim()).slice(0, 80).join("").trim();
+const nameFor = (base: string | null | undefined, suffix: string, fallback: string) => {
+  const b = (base ?? "").split("\u0000").join("").trim();
+  return b === "" ? fallback : limitName(`${b} ${suffix}`) || fallback;
+};
+
+const DRIVE_LINK = /^https?:\/\/(?:drive|docs)\.google\.com\/\S+$/;
+const GOOGLE_IMAGE_LINK = /^https?:\/\/lh\d\.googleusercontent\.com\/\S+$/;
+const isDrivePicture = (url: string) => (DRIVE_LINK.test(url) || GOOGLE_IMAGE_LINK.test(url)) && fileIdFromUrl(url) !== null;
+const storedUrl = (fileId: string) => `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
 
 /**
  * Registers every Drive picture already used on the website (courses, mentors, banners,
@@ -219,29 +230,28 @@ export async function importExistingMedia(
 
   const consider = (url: string | null | undefined, name: string, folder: MediaFolder) => {
     if (!url || url.trim() === "") return;
-    const fileId = fileIdFromUrl(url);
+    const fileId = isDrivePicture(url) ? fileIdFromUrl(url) : null;
     if (!fileId) {
       skippedLinks.add(url);
       return;
     }
-    if (!found.has(fileId)) found.set(fileId, { fileId, url, name, folder });
+    if (!found.has(fileId)) found.set(fileId, { fileId, url: storedUrl(fileId), name, folder });
   };
 
   const courses = await readAll<{
     title: string | null; thumbnail_url: string | null; banner_url: string | null; mentor_avatar_url: string | null;
   }>("courses", "id, title, thumbnail_url, banner_url, mentor_avatar_url");
   for (const c of courses) {
-    const t = c.title ?? "";
-    consider(c.thumbnail_url, limitName(`${t} thumbnail`, "Course thumbnail"), "heroes");
-    consider(c.banner_url, limitName(`${t} banner`, "Course banner"), "heroes");
-    consider(c.mentor_avatar_url, limitName(`${t} instructor`, "Course instructor"), "instructors");
+    consider(c.thumbnail_url, nameFor(c.title, "thumbnail", "Course thumbnail"), "heroes");
+    consider(c.banner_url, nameFor(c.title, "banner", "Course banner"), "heroes");
+    consider(c.mentor_avatar_url, nameFor(c.title, "instructor", "Course instructor"), "instructors");
   }
 
   const mentors = await readAll<{ name: string | null; photo_url: string | null }>("mentors", "id, name, photo_url");
-  for (const m of mentors) consider(m.photo_url, limitName(`${m.name ?? ""} photo`, "Instructor photo"), "instructors");
+  for (const m of mentors) consider(m.photo_url, nameFor(m.name, "photo", "Mentor photo"), "instructors");
 
   const banners = await readAll<{ slot: string | null; image_url: string | null }>("banners", "id, slot, image_url");
-  for (const b of banners) consider(b.image_url, limitName(`Website banner ${b.slot ?? ""}`, "Website banner"), "heroes");
+  for (const b of banners) consider(b.image_url, limitName(`Website banner ${b.slot ?? ""}`) || "Website banner", "heroes");
 
   const pages = await readAll<{ id: string; title: string | null; draft: unknown; published: unknown }>(
     "landing_pages", "id, title, draft, published",
@@ -249,14 +259,14 @@ export async function importExistingMedia(
   const titleOf = new Map<string, string>();
   for (const p of pages) {
     titleOf.set(p.id, p.title ?? "");
-    const name = limitName(`${p.title ?? ""} picture`, "Landing page picture");
+    const name = nameFor(p.title, "picture", "Landing page picture");
     for (const url of [...driveLinksIn(p.draft), ...driveLinksIn(p.published)]) consider(url, name, "misc");
   }
   const variants = await readAll<{ page_id: string; draft: unknown; published: unknown }>(
     "landing_page_variants", "id, page_id, draft, published",
   );
   for (const v of variants) {
-    const name = limitName(`${titleOf.get(v.page_id) ?? ""} picture`, "Landing page picture");
+    const name = nameFor(titleOf.get(v.page_id), "picture", "Landing page picture");
     for (const url of [...driveLinksIn(v.draft), ...driveLinksIn(v.published)]) consider(url, name, "misc");
   }
 

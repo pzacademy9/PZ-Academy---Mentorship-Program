@@ -106,7 +106,7 @@ export function LibraryImageField({
           Choose from library
         </button>
         {notSaved && (
-          <p role="status" className="font-body text-xs text-pz-on-surface-variant">Added to the page, but not saved to the library.</p>
+          <p role="status" className="font-body text-xs text-pz-on-surface-variant">Picture added, but not saved to the library.</p>
         )}
       </div>
       <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={(url) => { pending.current = null; setNotSaved(false); latest.current(url); }} want={want} />

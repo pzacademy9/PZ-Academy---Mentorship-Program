@@ -133,7 +133,45 @@ describe("importExistingMedia", () => {
     source.courses = [course(1, { title: "T".repeat(120) }), course(2, { title: "" })];
     await importExistingMedia("u1");
     expect((rowFor(F(1))?.name as string).length).toBe(80);
-    expect((rowFor(F(2))?.name as string).length).toBeGreaterThan(0);
+    expect(rowFor(F(2))?.name).toBe("Course thumbnail");
+  });
+
+  it("uses the exact fallback name when the title or name is blank", async () => {
+    source.courses = [course(1, { title: "  ", banner_url: d(F(2)), mentor_avatar_url: d(F(3)) })];
+    source.mentors = [{ id: "m1", name: null, photo_url: d(F(4)) }];
+    source.banners = [{ id: "b1", slot: null, image_url: d(F(5)) }];
+    source.landing_pages = [{ id: "p1", title: "", draft: { i: d(F(6)) }, published: null }];
+    source.landing_page_variants = [{ id: "v1", page_id: "nope", draft: { i: d(F(7)) }, published: null }];
+    await importExistingMedia("u1");
+    expect([1, 2, 3, 4, 5, 6, 7].map((n) => rowFor(F(n))?.name)).toEqual([
+      "Course thumbnail", "Course banner", "Course instructor", "Mentor photo",
+      "Website banner", "Landing page picture", "Landing page picture",
+    ]);
+  });
+
+  it("never splits an emoji at the 80 boundary and strips NUL", async () => {
+    const title = "a".repeat(70) + "\u0000" + "😀".repeat(20);
+    source.courses = [course(1, { title })];
+    await importExistingMedia("u1");
+    const name = rowFor(F(1))?.name as string;
+    expect(Array.from(name)).toHaveLength(80);
+    expect(name).not.toContain("\u0000");
+    expect(name.endsWith("😀")).toBe(true);
+    expect(name.isWellFormed()).toBe(true);
+  });
+
+  it("only accepts Drive or Google image hosts, with no whitespace, for columns too", async () => {
+    source.courses = [course(1, { thumbnail_url: "https://evil.example.com/x?id=" + F(8), banner_url: `${d(F(9))} extra`, mentor_avatar_url: `https://lh3.googleusercontent.com/d/${F(2)}` })];
+    const r = await importExistingMedia("u1");
+    expect(r).toEqual({ added: 1, alreadyThere: 0, skipped: 2 });
+    expect(rowFor(F(2))).toBeTruthy();
+  });
+
+  it("stores the normalised thumbnail url, also for old uc?export=view and /file/d links", async () => {
+    source.courses = [course(1, { thumbnail_url: `https://drive.google.com/uc?export=view&id=${F(1)}`, banner_url: `https://drive.google.com/file/d/${F(2)}/view` })];
+    await importExistingMedia("u1");
+    expect(rowFor(F(1))?.url).toBe(`https://drive.google.com/thumbnail?id=${F(1)}&sz=w1600`);
+    expect(rowFor(F(2))?.url).toBe(`https://drive.google.com/thumbnail?id=${F(2)}&sz=w1600`);
   });
 
   it("inserts in chunks of 200", async () => {
