@@ -30,6 +30,7 @@ export function MediaLibrary({ initialItems }: { initialItems: Item[] }) {
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const shown = useMemo(() => {
@@ -127,6 +128,40 @@ export function MediaLibrary({ initialItems }: { initialItems: Item[] }) {
     }
   }
 
+  async function importExisting() {
+    setImporting(true);
+    try {
+      const res = await fetch("/api/admin/landing-media/import-existing", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        added?: number; skipped?: number; error?: string;
+      };
+      if (!res.ok || typeof data.added !== "number") {
+        toast.error(data.error ?? "Could not add the existing pictures. Please try again.");
+        return;
+      }
+      const added = data.added;
+      const skipped = data.skipped ?? 0;
+      let message = added === 0 ? "No new pictures found" : `Added ${added} ${added === 1 ? "picture" : "pictures"}`;
+      if (skipped > 0) {
+        message += `. ${skipped} ${skipped === 1 ? "picture is" : "pictures are"} not stored in Google Drive and ${skipped === 1 ? "was" : "were"} left out.`;
+      }
+      try {
+        const list = await fetch("/api/admin/landing-media");
+        if (list.ok) {
+          const body = (await list.json()) as { items?: Item[] };
+          if (Array.isArray(body.items)) setItems(body.items);
+        }
+      } catch {
+        /* the pictures are saved; a failed refresh just leaves the list as it was */
+      }
+      toast.success(message);
+    } catch {
+      toast.error("Could not add the existing pictures. Please try again.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -138,7 +173,13 @@ export function MediaLibrary({ initialItems }: { initialItems: Item[] }) {
           ref={fileRef} type="file" accept="image/*" hidden aria-label="Upload new picture"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }}
         />
-        <Button type="button" loading={uploading} className="max-md:min-h-11 md:ml-auto" onClick={() => fileRef.current?.click()}>
+        <Button
+          type="button" variant="outline" disabled={importing} className="max-md:min-h-11 md:ml-auto"
+          onClick={() => void importExisting()}
+        >
+          {importing ? "Looking..." : "Add pictures already on the website"}
+        </Button>
+        <Button type="button" loading={uploading} className="max-md:min-h-11" onClick={() => fileRef.current?.click()}>
           Upload new
         </Button>
       </div>
