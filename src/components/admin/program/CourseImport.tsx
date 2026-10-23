@@ -187,7 +187,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
     return (
       <div className="space-y-6">
         <section className={CARD}>
-          <h2 className={STEP_HEAD}>3. Done</h2>
+          <h2 className={STEP_HEAD}>4. Done</h2>
           <div role="status" className="rounded-lg bg-pz-primary-container px-3 py-2 font-body text-sm font-semibold text-pz-on-primary-container">
             Draft course created
           </div>
@@ -250,7 +250,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
     return (
       <div className="space-y-6">
         <section className={CARD}>
-          <h2 className={STEP_HEAD}>2. Check before saving</h2>
+          <h2 className={STEP_HEAD}>3. Check before saving</h2>
           <div role="status" className="rounded-lg bg-pz-surface-container px-3 py-2 font-body text-sm font-semibold text-pz-on-surface">
             Nothing saved yet. Look through the list below, then create the draft.
           </div>
@@ -368,7 +368,7 @@ export function CourseImport({ prompt }: { prompt: string }) {
       </section>
 
       <section className={CARD}>
-        <h2 className={STEP_HEAD}>1. Get the file from AI: add the file</h2>
+        <h2 className={STEP_HEAD}>2. Add the file</h2>
         <div className="space-y-2">
           <label htmlFor="course-file" className="block font-body text-sm font-semibold text-pz-on-surface">
             Choose the file
