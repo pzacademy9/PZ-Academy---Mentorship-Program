@@ -107,7 +107,7 @@ describe("analyzeCourseFile", () => {
     const r = ok(courseFile(["## Module: M", "### Session: Day 4", `video: ${YT}`, quiz(10, 6)]));
     expect(r.plan.modules[0].sessions[0].questions).toHaveLength(9);
     expect(r.summary.questions).toBe(9);
-    expect(r.warnings).toContain("Day 4 (M), question 6: left out (Question 6: no correct answer marked).");
+    expect(r.warnings).toContain("Day 4 (M), question 6: left out (no correct answer marked).");
   });
 
   it("session with no quiz warns", () => {

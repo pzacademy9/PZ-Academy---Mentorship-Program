@@ -123,7 +123,7 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
   for (const m of raw.modules) {
     const modLabel = hasModules ? `Module "${m.title}"` : "The file";
     if (m.title.length > L.maxTitle) {
-      errors.push(`${modLabel.slice(0, 40)}: the module title is longer than ${L.maxTitle} characters.`);
+      errors.push(`Module "${m.title.slice(0, 40)}...": the module title is longer than ${L.maxTitle} characters.`);
     }
 
     let moduleNotes: LessonResourceLink[] = [];
@@ -146,7 +146,8 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
     for (const s of m.sessions) {
       const label = hasModules ? `${s.title} (${m.title})` : s.title;
       if (s.title.length > L.maxTitle) {
-        errors.push(`${label.slice(0, 60)}: the session title is longer than ${L.maxTitle} characters.`);
+        const shortTitle = `${s.title.slice(0, 40)}...`;
+        errors.push(`Session "${shortTitle}"${hasModules ? ` (${m.title.slice(0, 40)})` : ""}: the session title is longer than ${L.maxTitle} characters.`);
       }
 
       const kept = { video: "", video2: "" };
@@ -176,7 +177,7 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
           correctIndex: x.correctIndex,
         }));
         for (const e of q.errors) {
-          warnings.push(`${label}, question ${e.questionNumber}: left out (${e.message}).`);
+          warnings.push(`${label}, question ${e.questionNumber}: left out (${e.message.replace(/^Question \d+:\s*/i, "")}).`);
         }
         if (questions.length === 0) warnings.push(`${label}: the quiz has no usable questions.`);
       }
