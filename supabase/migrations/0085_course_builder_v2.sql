@@ -1,6 +1,8 @@
 -- 0085_course_builder_v2.sql
 -- Course Builder v2: second video per lesson + per-module notes/resources.
 -- Run in SQL Editor; safe to re-run.
+-- Read access mirrors lessons (0075): admins, or students who pass can_access_module().
+-- module_notes has no updated_at trigger: the service-role writer must set updated_at itself.
 
 alter table public.lessons add column if not exists video_url_2 text;
 
@@ -18,14 +20,7 @@ create policy "module_notes: read if enrolled or admin"
   on public.module_notes for select
   using (
     get_my_role() in ('admin', 'super_admin')
-    or exists (
-      select 1 from public.modules m
-      join public.courses c on c.id = m.course_id
-      join public.enrollments e on e.course_id = c.id
-      where m.id = module_notes.module_id
-        and e.student_id = auth.uid()
-        and e.status = 'active'
-    )
+    or public.can_access_module(module_notes.module_id)
   );
 -- No write policies: writes go through the service role.
 
