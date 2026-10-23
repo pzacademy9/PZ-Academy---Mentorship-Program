@@ -159,7 +159,9 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
         // Keep only the link itself; AI files sometimes add "(Lecture 1)" etc.
         const first = full.split(/\s+/)[0];
         const token = /^https?:\/\//i.test(first) ? first : full;
-        const url = token.replace(/\/+$/, "");
+        let end = token.length;
+        while (end > 0 && token[end - 1] === "/") end--;
+        const url = token.slice(0, end);
         if (token !== full) {
           warnings.push(
             `${label}: the ${key === "video" ? "video link" : "second video link"} had extra text after the link, which was dropped.`,

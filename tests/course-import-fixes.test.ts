@@ -181,3 +181,29 @@ describe("prompt guidance", () => {
     expect(p).toMatch(/workshop or webinar[^\n]*(leave out|omit)[^\n]*## Module/i);
   });
 });
+
+describe("heading and cleanup patterns", () => {
+  it("still matches the unassigned notes forms", () => {
+    for (const h of ["## Unassigned notes", "## Unassigned Notes:", "## unassigned notes :"]) {
+      const r = parseOk([...head(), "## Module: M", "### Session: S", h, "notes: E | https://x.y/z"]);
+      expect(r.raw.unassignedNotes, h).toHaveLength(1);
+    }
+  });
+
+  it("does not hang on very long tricky lines", () => {
+    const t0 = Date.now();
+    const sp = " ".repeat(100_000);
+    const lines = [
+      ...head(),
+      "## Module: M",
+      "### Session: S",
+      `## Unassigned notes${sp}x`,
+      `notes: **${"*".repeat(50_000)}x`,
+      `notes: L${sp}-${sp}x https://x.y/a`,
+      `video: ${YT}${"/".repeat(100_000)}x`,
+    ];
+    const r = analyzeCourseFile(lines.join("\n"));
+    expect(typeof r.ok).toBe("boolean");
+    expect(Date.now() - t0).toBeLessThan(1500);
+  });
+});

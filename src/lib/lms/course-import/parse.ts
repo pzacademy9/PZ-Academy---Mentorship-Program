@@ -20,7 +20,7 @@ const BAD_FORMAT =
 // Headings are matched on the line with bold markers already removed.
 const MODULE_RE = /^##\s+module\s*(?:\d+\s*)?[:\-–—]\s*(.*)$/i;
 const SESSION_RE = /^###\s+session\s*(?:\d+\s*)?[:\-–—]\s*(.*)$/i;
-const UNASSIGNED_RE = /^##\s+unassigned\s+notes\s*:?\s*$/i;
+const UNASSIGNED_RE = /^##\s+unassigned\s+notes(?:\s*:)?$/i;
 const ANY_HEADING_RE = /^#{2,3}\s/;
 const KEY_RE = /^(?:\*\*|__)?(format|title|type|video|video2|notes|quiz)(?:\*\*|__)?\s*:(?:\*\*|__)?\s*(.*)$/i;
 
@@ -31,7 +31,11 @@ function unbold(s: string): string {
 
 // Removes bold markers wrapped around a whole value (safe for links).
 function trimBold(s: string): string {
-  return s.replace(/^(?:\*\*|__)+/, "").replace(/(?:\*\*|__)+$/, "").trim();
+  let a = 0;
+  let b = s.length;
+  while (b - a >= 2 && (s.startsWith("**", a) || s.startsWith("__", a))) a += 2;
+  while (b - a >= 2 && (s.endsWith("**", b) || s.endsWith("__", b))) b -= 2;
+  return s.slice(a, b).trim();
 }
 
 // If the text holds fenced blocks, take the first one that contains a format
@@ -56,7 +60,12 @@ function splitNote(value: string, line: number): RawNote {
     // Also recover "Label - https://x", "Label: https://x" and "Label https://x".
     const h = value.search(/https?:\/\//i);
     if (h > 0) {
-      const label = value.slice(0, h).replace(/^[\s|\-–—:]+|[\s|\-–—:]+$/g, "");
+      const seps = "|-–—:";
+      let a = 0;
+      let b = h;
+      while (a < b && (/\s/.test(value[a]) || seps.includes(value[a]))) a++;
+      while (b > a && (/\s/.test(value[b - 1]) || seps.includes(value[b - 1]))) b--;
+      const label = value.slice(a, b);
       return { label, url: value.slice(h).trim(), line };
     }
     return { label: "", url: value.trim(), line };
