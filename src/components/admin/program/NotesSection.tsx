@@ -72,7 +72,7 @@ export function NotesSection({
               <button
                 type="button"
                 onClick={() => onDocumentsChange(documents.filter((_, idx) => idx !== i))}
-                aria-label="Remove"
+                aria-label="Remove document"
                 className={removeBtn}
               >
                 <X className="w-4 h-4" />
@@ -122,6 +122,7 @@ export function NotesSection({
               value={resource.label}
               onChange={(e) => updateLink(i, { label: e.target.value })}
               placeholder="Label"
+              aria-label="Link name"
               className="flex-1 min-w-0 bg-transparent outline-none text-sm max-md:text-base max-md:min-h-11 font-medium"
             />
             <input
@@ -129,12 +130,13 @@ export function NotesSection({
               value={resource.url}
               onChange={(e) => updateLink(i, { url: e.target.value })}
               placeholder="https://..."
+              aria-label="Link address"
               className="flex-1 min-w-0 bg-transparent outline-none text-sm max-md:text-base max-md:min-h-11 text-pz-on-surface-variant"
             />
             <button
               type="button"
               onClick={() => onLinksChange(links.filter((_, idx) => idx !== i))}
-              aria-label="Remove"
+              aria-label="Remove link"
               className={removeBtn}
             >
               <X className="w-4 h-4" />

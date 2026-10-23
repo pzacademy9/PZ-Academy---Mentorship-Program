@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { checkVideoLink } from "@/lib/video-link";
 
@@ -19,6 +19,7 @@ export function VideoField({
   onSave: (url: string) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(value);
+  const id = useId();
 
   useEffect(() => {
     setDraft(value);
@@ -28,10 +29,11 @@ export function VideoField({
 
   return (
     <div className="space-y-1">
-      <label className="text-[10px] uppercase font-bold text-pz-on-surface-variant tracking-wider ml-1">
+      <label htmlFor={id} className="text-[10px] uppercase font-bold text-pz-on-surface-variant tracking-wider ml-1">
         {label}
       </label>
       <input
+        id={id}
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -51,7 +53,7 @@ export function VideoField({
         <p
           className={
             "flex items-start gap-1.5 text-xs font-bold ml-1 " +
-            (check.status === "invalid" ? "text-pz-danger" : "text-amber-700")
+            (check.status === "invalid" ? "text-pz-danger" : "text-pz-warning")
           }
         >
           <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />

@@ -7,9 +7,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
-import { parseQuizPaste, QUIZ_PASTE_EXAMPLE } from "@/lib/lms/quiz-paste";
+import { parseQuizPaste, QUIZ_PASTE_EXAMPLE, type ParsedQuestion } from "@/lib/lms/quiz-paste";
 
 const CHUNK = 200;
+
+function serialize(q: ParsedQuestion): string {
+  const options = q.options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join("\n");
+  return `${q.question}\n${options}\nAnswer: ${String.fromCharCode(65 + q.correctIndex)}`;
+}
 
 /**
  * Paste many questions at once. `onAdded(n)` is called once with the total
@@ -28,11 +33,13 @@ export function QuizPasteDialog({
   onAdded: (created: number) => void;
 }) {
   const [text, setText] = useState("");
+  const [note, setNote] = useState<string | null>(null);
   const { questions, errors } = useMemo(() => parseQuizPaste(text), [text]);
   const blocked = errors.length > 0 || questions.length === 0;
 
   const { run: add, pending } = useAsyncAction(async () => {
     let created = 0;
+    let serverMessage: string | null = null;
     let failed = false;
     try {
       for (let i = 0; i < questions.length; i += CHUNK) {
@@ -42,22 +49,33 @@ export function QuizPasteDialog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ questions: chunk }),
         });
-        if (!res.ok) throw new Error("bulk failed");
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          serverMessage = body?.error ?? null;
+          throw new Error("bulk failed");
+        }
         created += chunk.length;
       }
     } catch {
       failed = true;
-      toast.error(
-        created > 0
-          ? `Added ${created} questions, then something went wrong. Check the quiz before adding the rest.`
-          : "Could not add the questions. Nothing was added.",
-      );
     }
     if (created > 0) onAdded(created);
-    if (!failed || created > 0) {
+    if (!failed) {
+      setNote(null);
       onOpenChange(false);
       setText("");
+      return;
     }
+    // Keep the dialog open. Drop what already saved so a retry cannot duplicate it.
+    const left = questions.slice(created);
+    if (created > 0) setText(left.map(serialize).join("\n\n"));
+    const reason = serverMessage ?? "Something went wrong.";
+    setNote(
+      created > 0
+        ? `${created} saved, ${left.length} left to add. ${reason} Press Add again to retry.`
+        : `Nothing was added. ${reason}`,
+    );
+    toast.error(created > 0 ? `Added ${created} questions, but ${left.length} were not saved.` : reason);
   });
 
   return (
@@ -73,12 +91,21 @@ export function QuizPasteDialog({
 
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setNote(null);
+          }}
           placeholder={QUIZ_PASTE_EXAMPLE}
           rows={10}
           aria-label="Paste questions here"
           className="w-full bg-pz-surface border border-pz-outline-variant rounded-lg px-4 py-3 focus:ring-2 focus:ring-pz-primary focus:outline-none font-mono text-sm max-md:text-base"
         />
+
+        {note && (
+          <p role="status" className="rounded-lg border border-pz-warning/40 bg-pz-warning/10 p-3 text-sm font-bold">
+            {note}
+          </p>
+        )}
 
         {errors.length > 0 && (
           <div role="alert" className="rounded-lg border border-pz-danger/40 bg-pz-danger/5 p-3 space-y-1">

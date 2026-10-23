@@ -6,8 +6,12 @@ import { LessonEditorPanel } from "@/components/admin/program/LessonEditorPanel"
 import type { BuilderLesson } from "@/lib/data/admin-lms";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const rteChange = vi.hoisted(() => ({ current: null as ((html: string) => void) | null }));
 vi.mock("@/components/admin/program/RichTextEditor", () => ({
-  RichTextEditor: () => <div data-testid="rte" />,
+  RichTextEditor: ({ onChange }: { onChange: (html: string) => void }) => {
+    rteChange.current = onChange;
+    return <div data-testid="rte" />;
+  },
 }));
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -17,6 +21,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -161,5 +166,88 @@ describe("LessonEditorPanel", () => {
     expect(await screen.findByText("Lesson PDF")).toBeTruthy();
     const link = screen.getAllByRole("link", { name: "View" })[0] as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe("/api/lessons/l1/pdf");
+  });
+});
+
+describe("fix round 1", () => {
+  it("paste failure on the second chunk keeps the dialog open with only the unsaved questions", async () => {
+    let call = 0;
+    fetchMock.mockImplementation(async (_u: string, init: { body: string }) => {
+      call += 1;
+      if (call === 2) return { ok: false, status: 500, json: async () => ({ error: "Server said no" }) };
+      return { ok: true, status: 201, json: async () => ({ created: JSON.parse(init.body).questions.length }) };
+    });
+    const onAdded = vi.fn();
+    const onOpenChange = vi.fn();
+    render(<QuizPasteDialog lessonId="l1" open onOpenChange={onOpenChange} onAdded={onAdded} />);
+    const area = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(area, { target: { value: Array.from({ length: 250 }, (_, i) => QUESTION(i + 1)).join("\n\n") } });
+    fireEvent.click(screen.getByRole("button", { name: "Add 250 questions" }));
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith(200));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add 50 questions" })).toBeTruthy());
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(area.value).toContain("Question number 201?");
+    expect(area.value).not.toContain("Question number 200?");
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(async (_u: string, init: { body: string }) => ({
+      ok: true, status: 201, json: async () => ({ created: JSON.parse(init.body).questions.length }),
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Add 50 questions" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).questions).toHaveLength(50);
+  });
+
+  it("switching lessons flushes A's pending text to A and does not send it for B", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(async (_u: string, init?: { method?: string }) =>
+      init?.method === "PATCH" ? { ok: true, json: async () => ({}) } : { ok: true, json: async () => detail({ textContent: "<p>old</p>" }) });
+    const B = { ...LESSON, id: "l2" } as BuilderLesson;
+    const { rerender } = render(<LessonEditorPanel lesson={LESSON} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}} />);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rteChange.current).toBeTruthy();
+    rteChange.current!("<p>new</p>");
+    rerender(<LessonEditorPanel lesson={B} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}} />);
+    await vi.advanceTimersByTimeAsync(2000);
+    const patches = fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH");
+    expect(patches).toHaveLength(1);
+    expect(patches[0][0]).toBe("/api/admin/lessons/l1");
+    expect(JSON.parse(patches[0][1].body)).toEqual({ textContent: "<p>new</p>" });
+    fireEvent.click(screen.getByRole("button", { name: /Save & Continue/ }));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH")).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it("an upload finishing after a lesson switch does not touch the new lesson", async () => {
+    let resolveUpload: (v: unknown) => void = () => {};
+    fetchMock.mockImplementation(async (url: string, init?: { method?: string }) => {
+      if (url === "/api/admin/uploads/document") return new Promise((r) => { resolveUpload = r; });
+      if (init?.method === "PATCH") return { ok: true, json: async () => ({}) };
+      return { ok: true, json: async () => detail() };
+    });
+    const B = { ...LESSON, id: "l2" } as BuilderLesson;
+    const { rerender, container } = render(<LessonEditorPanel lesson={LESSON} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}} />);
+    await screen.findByText("Notes for this session");
+    const file = new File(["x"], "a.pdf", { type: "application/pdf" });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    await waitFor(() => expect(fetchMock.mock.calls.some((c) => c[0] === "/api/admin/uploads/document")).toBe(true));
+    rerender(<LessonEditorPanel lesson={B} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}} />);
+    await screen.findByText("Notes for this session");
+    resolveUpload({ ok: true, json: async () => ({ fileId: "f9", name: "late.pdf" }) });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("late.pdf")).toBeNull();
+    const patches = fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH");
+    expect(patches.every((c) => c[0] === "/api/admin/lessons/l1")).toBe(true);
+  });
+
+  it("a failed video save reverts the field", async () => {
+    fetchMock.mockImplementation(async (_u: string, init?: { method?: string }) =>
+      init?.method === "PATCH" ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => detail() });
+    render(<LessonEditorPanel lesson={LESSON} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}} />);
+    await screen.findByText("Notes for this session");
+    const input = screen.getAllByRole("textbox").find((el) => (el as HTMLInputElement).value === "https://youtu.be/abc")!;
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("https://youtu.be/abc"));
   });
 });

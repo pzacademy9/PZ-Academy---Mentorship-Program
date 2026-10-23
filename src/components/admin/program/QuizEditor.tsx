@@ -77,11 +77,12 @@ export function QuizEditor({
   });
 
   /** After a paste the new rows need their ids, so refetch the lesson instead of guessing. */
-  async function handlePasted() {
-    const res = await fetch(`/api/admin/lessons/${lessonId}`);
-    const data = res.ok ? ((await res.json().catch(() => null)) as { quizQuestions?: QuizQuestionRow[] } | null) : null;
+  async function handlePasted(created: number) {
+    const res = await fetch(`/api/admin/lessons/${lessonId}`).catch(() => null);
+    const data = res?.ok ? ((await res.json().catch(() => null)) as { quizQuestions?: QuizQuestionRow[] } | null) : null;
     if (!data?.quizQuestions) {
       toast.error("Questions were added. Reload the page to see them.");
+      onCountChange?.(questions.length + created);
       return;
     }
     onQuestionsChange(data.quizQuestions);
@@ -156,7 +157,7 @@ export function QuizEditor({
           </Button>
         </div>
       </div>
-      <QuizPasteDialog lessonId={lessonId} open={pasteOpen} onOpenChange={setPasteOpen} onAdded={() => void handlePasted()} />
+      <QuizPasteDialog lessonId={lessonId} open={pasteOpen} onOpenChange={setPasteOpen} onAdded={(n) => void handlePasted(n)} />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>

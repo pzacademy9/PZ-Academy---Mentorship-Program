@@ -48,14 +48,27 @@ export function LessonEditorPanel({
   const [showSecondVideo, setShowSecondVideo] = useState(false);
   const [readingOpen, setReadingOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Unsaved rich text, tagged with the lesson it belongs to. */
+  const pendingText = useRef<{ lessonId: string; html: string } | null>(null);
+  /** The lesson currently shown; async results for any other lesson are discarded. */
+  const currentId = useRef<string | null>(lesson?.id ?? null);
+
+  /** Send A's unsaved text to A itself (never to whatever lesson is open now). */
+  async function flushPending(): Promise<void> {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const pending = pendingText.current;
+    pendingText.current = null;
+    if (pending) await patchLessonById(pending.lessonId, { textContent: pending.html });
+  }
 
   useEffect(() => {
+    void flushPending();
+    currentId.current = lesson?.id ?? null;
     setTitle(lesson?.title ?? "");
     setDetail(null);
     setLastSaved(null);
     setShowSecondVideo(false);
     setReadingOpen(false);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
     if (!lesson) return;
 
     let cancelled = false;
@@ -89,9 +102,8 @@ export function LessonEditorPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson?.id]);
 
-  async function patchLesson(patch: Record<string, unknown>): Promise<boolean> {
-    if (!lesson) return false;
-    const res = await fetch(`/api/admin/lessons/${lesson.id}`, {
+  async function patchLessonById(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
+    const res = await fetch(`/api/admin/lessons/${lessonId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
@@ -102,8 +114,13 @@ export function LessonEditorPanel({
     }
     const payload = (await res.json().catch(() => null)) as { warning?: string | null } | null;
     if (payload?.warning) toast.warning(payload.warning);
-    setLastSaved(new Date());
+    if (currentId.current === lessonId) setLastSaved(new Date());
     return true;
+  }
+
+  async function patchLesson(patch: Record<string, unknown>): Promise<boolean> {
+    if (!lesson) return false;
+    return patchLessonById(lesson.id, patch);
   }
 
   async function saveTitle() {
@@ -112,29 +129,37 @@ export function LessonEditorPanel({
     if (ok) onLessonPatched(lesson.id, { title: title.trim() });
   }
 
-  const pendingText = useRef<string | null>(null);
-
   function scheduleTextSave(html: string) {
+    if (!lesson) return;
+    const lessonId = lesson.id;
     setDetail((prev) => (prev ? { ...prev, textContent: html } : prev));
-    pendingText.current = html;
+    pendingText.current = { lessonId, html };
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void patchLesson({ textContent: html });
       pendingText.current = null;
+      void patchLessonById(lessonId, { textContent: html });
     }, 1200);
   }
 
   async function saveVideo(which: "videoUrl" | "videoUrl2", url: string) {
     if (!lesson || !detail) return;
+    const lessonId = lesson.id;
+    const previous = detail[which];
     const next = { ...detail, [which]: url };
     setDetail(next);
-    const ok = await patchLesson({ [which]: url });
-    if (ok) onLessonPatched(lesson.id, { hasVideo: !!(next.videoUrl.trim() || next.videoUrl2.trim()) });
+    const ok = await patchLessonById(lessonId, { [which]: url });
+    if (ok) {
+      onLessonPatched(lessonId, { hasVideo: !!(next.videoUrl.trim() || next.videoUrl2.trim()) });
+    } else if (currentId.current === lessonId) {
+      setDetail((prev) => (prev ? { ...prev, [which]: previous } : prev));
+    }
   }
 
   function updateResources(next: LessonResourceLink[]) {
-    setDetail((prev) => (prev ? { ...prev, resources: next } : prev));
-    void patchLesson({ resources: next });
+    if (!lesson) return;
+    const lessonId = lesson.id;
+    if (currentId.current === lessonId) setDetail((prev) => (prev ? { ...prev, resources: next } : prev));
+    void patchLessonById(lessonId, { resources: next });
   }
 
   /** Shared relay to /api/admin/uploads/document (Part F) — a PRIVATE Drive file, never a public URL. */
@@ -160,18 +185,16 @@ export function LessonEditorPanel({
   }
 
   function updateDocuments(next: LessonDocument[]) {
-    setDetail((prev) => (prev ? { ...prev, documents: next } : prev));
-    void patchLesson({ documents: next });
+    if (!lesson) return;
+    const lessonId = lesson.id;
+    if (currentId.current === lessonId) setDetail((prev) => (prev ? { ...prev, documents: next } : prev));
+    void patchLessonById(lessonId, { documents: next });
   }
 
   /** "Save & Continue" — flush any pending debounced rich-text save before moving on, so nothing is silently lost. */
   const { run: saveAndContinue, pending: savingAndContinuing } = useAsyncAction(async () => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
     try {
-      if (pendingText.current !== null) {
-        await patchLesson({ textContent: pendingText.current });
-        pendingText.current = null;
-      }
+      await flushPending();
     } catch {
       toast.error("Could not save.");
       return;
