@@ -108,7 +108,7 @@ export function QuizPasteDialog({
         )}
 
         {errors.length > 0 && (
-          <div role="alert" className="rounded-lg border border-pz-danger/40 bg-pz-danger/5 p-3 space-y-1">
+          <div role="alert" className="rounded-lg border border-pz-solid-danger/40 bg-pz-solid-danger/5 p-3 space-y-1">
             <p className="flex items-center gap-1.5 text-sm font-bold text-pz-danger">
               <AlertTriangle className="w-4 h-4" />
               {errors.length === 1 ? "1 problem to fix before adding" : `${errors.length} problems to fix before adding`}

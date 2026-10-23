@@ -37,6 +37,16 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   const [selectedLesson, setSelectedLesson] = useState<BuilderLesson | null>(firstLesson(initialState.modules));
 
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+
+  // Re-sync from the server payload after router.refresh() (adjust state during render, keyed on identity).
+  const [seenModules, setSeenModules] = useState(initialState.modules);
+  if (seenModules !== initialState.modules) {
+    setSeenModules(initialState.modules);
+    setModules(initialState.modules);
+    const nextFlat = initialState.modules.flatMap((m) => m.lessons);
+    setSelectedLesson((prev) => nextFlat.find((l) => l.id === prev?.id) ?? firstLesson(initialState.modules));
+    setSelectedModuleId((prev) => (prev && initialState.modules.some((m) => m.id === prev) ? prev : null));
+  }
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const courseType = initialState.course.type;
@@ -235,6 +245,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
         <section className="lg:col-span-8 bg-pz-surface-container-lowest lg:overflow-y-auto">
           {selectedModule ? (
             <ModuleNotesPanel
+              key={selectedModule.id}
               moduleId={selectedModule.id}
               moduleTitle={selectedModule.title}
               courseSlug={initialState.course.slug}

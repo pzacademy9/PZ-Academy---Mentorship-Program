@@ -31,7 +31,7 @@ export function PublishConfirmDialog({
         <DialogHeader>
           <DialogTitle className="font-headline text-pz-on-surface flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-pz-warning shrink-0" />
-            {lines.length} sessions are not ready
+            {lines.length === 1 ? "1 session is" : `${lines.length} sessions are`} not ready
           </DialogTitle>
           <DialogDescription className="font-body text-pz-on-surface-variant">
             Publishing now will make this course live to enrolled students, but some sessions are missing required

@@ -103,7 +103,7 @@ describe("publish confirm", () => {
     fetchMock.mockResolvedValue(json({ isPublished: true }));
     render(<CourseBuilder initialState={state("course")} />);
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
-    expect(screen.getByText("1 sessions are not ready")).toBeTruthy();
+    expect(screen.getByText("1 session is not ready")).toBeTruthy();
     expect(screen.getByText("Day 6: no video")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Publish anyway" }));
@@ -190,7 +190,45 @@ describe("Copy course", () => {
   });
 });
 
+describe("CourseBuilder re-sync after refresh", () => {
+  it("shows a new module from a fresh server payload and keeps the selection", () => {
+    const first = state("course");
+    const { rerender } = render(<CourseBuilder initialState={first} />);
+    expect(screen.queryByText("Module B")).toBeNull();
+    const next: BuilderState = {
+      ...first,
+      modules: [
+        ...first.modules,
+        { id: "m2", title: "Module B", orderIndex: 1, notesCount: 0, lessons: [] },
+      ],
+    };
+    rerender(<CourseBuilder initialState={next} />);
+    expect(screen.getByText("Module B")).toBeTruthy();
+    expect(screen.getByText("Module A")).toBeTruthy();
+  });
+
+  it("keeps the module notes view only while the module still exists", async () => {
+    fetchMock.mockResolvedValue(json({ resources: [], documents: [] }));
+    const first = state("course");
+    const { rerender } = render(<CourseBuilder initialState={first} />);
+    fireEvent.click(screen.getByRole("button", { name: /Notes/ }));
+    expect(await screen.findByText(/shown to students on every session/)).toBeTruthy();
+    rerender(<CourseBuilder initialState={{ ...first, modules: [{ ...first.modules[0], title: "Module A2" }] }} />);
+    expect(screen.getByText(/shown to students on every session/)).toBeTruthy();
+    rerender(<CourseBuilder initialState={{ ...first, modules: [{ ...first.modules[0], id: "m9" }] }} />);
+    expect(screen.queryByText(/shown to students on every session/)).toBeNull();
+  });
+});
+
 describe("ModuleNotesPanel", () => {
+  it("toasts when the notes cannot be loaded", async () => {
+    fetchMock.mockResolvedValue(json({ error: "x" }, 500));
+    render(<ModuleNotesPanel moduleId="m1" moduleTitle="A" courseSlug="c" onNotesCountChange={vi.fn()} />);
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith("Could not load the notes for this module."),
+    );
+  });
+
   it("loads notes by module id and PATCHes on change", async () => {
     fetchMock.mockImplementation(async (_url: string, init?: RequestInit) =>
       init?.method === "PATCH"

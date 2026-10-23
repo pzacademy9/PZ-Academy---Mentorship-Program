@@ -39,11 +39,15 @@ export function ModuleNotesPanel({
     fetch(`/api/admin/modules/${moduleId}/notes`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: Notes | null) => {
-        if (cancelled || !data) return;
+        if (cancelled) return;
+        if (!data) {
+          toast.error("Could not load the notes for this module.");
+          return;
+        }
         setNotes({ resources: data.resources ?? [], documents: data.documents ?? [] });
       })
       .catch(() => {
-        if (!cancelled) toast.error("Could not load the module notes.");
+        if (!cancelled) toast.error("Could not load the notes for this module.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
