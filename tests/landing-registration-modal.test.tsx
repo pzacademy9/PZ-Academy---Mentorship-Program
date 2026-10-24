@@ -105,7 +105,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     const file = new File(["%PDF-1.4"], "receipt.pdf", { type: "application/pdf" });
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [file] } });
     await waitFor(() => expect(screen.getByText("receipt.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByTestId("registration-done")).toBeTruthy());
     expect(screen.getByText("PZA-PPC-042")).toBeTruthy();
@@ -183,7 +183,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     toUploadStep();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByText("Use a different email address.")).toBeTruthy());
     expect((screen.getByLabelText("Email") as HTMLInputElement).getAttribute("aria-invalid")).toBe("true");
@@ -201,7 +201,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     toUploadStep();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByText("Choose live sessions or recorded lectures.")).toBeTruthy());
     expect(screen.getByText(/how do you want to learn/i)).toBeTruthy();
@@ -213,7 +213,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     toUploadStep();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByText(/waiting for payment/i)).toBeTruthy());
     expect((screen.getByLabelText("Email") as HTMLInputElement).getAttribute("aria-invalid")).toBe("true");
@@ -225,7 +225,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     toUploadStep();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByLabelText("Promo code")).toBeTruthy());
     expect(screen.getByText("This promo code has been fully used.")).toBeTruthy();
@@ -243,7 +243,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     cont();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     expect(await screen.findByText("This promo code is not valid for this event.")).toBeTruthy();
     expect(screen.queryByText(/off applied/)).toBeNull();
@@ -271,7 +271,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     toUploadStep();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByTestId("registration-form-error").textContent).toMatch(/some details need fixing/i));
     expect(screen.queryByText("Invalid input")).toBeNull();
@@ -288,7 +288,7 @@ describe("RegistrationFlow (paid, guest)", () => {
       toUploadStep();
       fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
       await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-      fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
       fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
       await waitFor(() => expect(screen.getByTestId("registration-form-error").textContent).toMatch(text));
       expect(screen.getByText("r.pdf")).toBeTruthy();
@@ -323,7 +323,7 @@ describe("RegistrationFlow (paid, guest)", () => {
     cont();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(lastRegisterForm).not.toBeNull());
     expect(payload().honeypot).toBe("bot");
@@ -351,7 +351,7 @@ describe("RegistrationFlow (logged in, free, test mode)", () => {
     await waitFor(() => expect(within(screen.getByTestId("registration-step-indicator")).getAllByRole("listitem")).toHaveLength(2));
     cont();
     fillLead();
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByText("PZA-DPT-007")).toBeTruthy());
     expect(payload()).toMatchObject({ optionKeys: ["free"], paymentMethod: "", promoCode: "" });
@@ -364,7 +364,7 @@ describe("RegistrationFlow (logged in, free, test mode)", () => {
     expect(screen.getByTestId("test-mode-banner").textContent).toMatch(/test mode - nothing real is saved/i);
     fireEvent.click(screen.getByRole("radio", { name: /free access/i }));
     cont(); fillLead();
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByTestId("registration-done")).toBeTruthy());
     expect(payload().testMode).toBe(true);
@@ -423,7 +423,7 @@ describe("fix round 1", () => {
     cont();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByTestId("registration-done")).toBeTruthy());
     expect(payload().lead.profession).toBe("Pharmacy owner");
@@ -436,7 +436,7 @@ describe("fix round 1", () => {
     render(<Harness cfg={webinarConfig} />);
     fireEvent.click(screen.getByRole("radio", { name: /free access/i }));
     cont(); fillLead();
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
   }
 
@@ -457,7 +457,7 @@ describe("fix round 1", () => {
     cont();
     fireEvent.change(screen.getByLabelText(/payment screenshot or receipt/i), { target: { files: [new File(["x"], "r.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByText("r.pdf")).toBeTruthy());
-    fireEvent.click(screen.getByRole("checkbox", { name: /i have read and understood/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /i have read the registration details/i }));
     fireEvent.click(screen.getByRole("button", { name: /complete registration/i }));
     await waitFor(() => expect(screen.getByText("Choose a profession.")).toBeTruthy());
     const input = screen.getByLabelText("Profession");

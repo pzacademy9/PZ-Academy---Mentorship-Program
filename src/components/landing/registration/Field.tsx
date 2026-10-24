@@ -51,7 +51,7 @@ export function ConsentField({ checked, onChange, error }: { checked: boolean; o
     <div>
       <label className="flex min-h-12 cursor-pointer items-start gap-3 font-landing-body text-base text-landing-on-surface">
         <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-err` : undefined} className="mt-1 h-5 w-5 shrink-0 accent-landing-primary" />
-        <span>I have read and understood the registration details, payment terms and schedule.</span>
+        <span>I have read the registration details, payment terms and schedule. I agree that PharmaCozyme Academy may keep in touch with me about this course, future courses and updates, by email, WhatsApp and relevant messages.</span>
       </label>
       {error && <span id={`${id}-err`} role="alert" className={R_ERROR}>{error}</span>}
     </div>
