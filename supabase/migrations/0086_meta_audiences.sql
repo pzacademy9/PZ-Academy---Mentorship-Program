@@ -81,6 +81,9 @@ declare
 begin
   set local statement_timeout = '55s';
 
+  -- Serialise overlapping closes of the same page.
+  perform pg_advisory_xact_lock(hashtext('landing:' || p_page_id::text));
+
   -- Find or create the two cohort batches.
   select id into v_paid_batch_id
   from public.import_batches
@@ -126,7 +129,11 @@ begin
     where id = v_interested_batch_id;
   end if;
 
-  for v_row in select * from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb))
+  -- Paid rows first: a contact created from an interested row must not win
+  -- the consent_basis over the same person's paid row in this run.
+  for v_row in
+    select value from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb))
+    order by (value ->> 'bucket') = 'paid' desc
   loop
     v_contact  := v_row -> 'contact';
     v_purchase := v_row -> 'purchase';
@@ -136,14 +143,19 @@ begin
       continue;
     end if;
 
+    v_email := nullif(v_contact ->> 'email', '');
+    v_phone := nullif(v_contact ->> 'phoneE164', '');
+
+    -- No identity at all: nothing to match or create.
+    if v_email is null and v_phone is null then
+      continue;
+    end if;
+
     if v_bucket = 'paid' then
       v_paid_total := v_paid_total + 1;
     else
       v_interested_total := v_interested_total + 1;
     end if;
-
-    v_email := nullif(v_contact ->> 'email', '');
-    v_phone := nullif(v_contact ->> 'phoneE164', '');
 
     v_contact_id := null;
 

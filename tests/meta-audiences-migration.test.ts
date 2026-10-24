@@ -34,6 +34,15 @@ it("defines landing_close_batch with the merge guards", () => {
   expect(sql).toMatch(/revoke all on function public\.landing_close_batch\(uuid, text, uuid, uuid, jsonb\) from public, anon, authenticated/i);
 });
 
+it("processes paid rows first so consent_basis does not depend on row order", () => {
+  expect(sql).toMatch(/order by \(value ->> 'bucket'\) = 'paid' desc/i);
+});
+
+it("serialises per page and skips rows with no identity", () => {
+  expect(sql).toContain("perform pg_advisory_xact_lock(hashtext('landing:' || p_page_id::text))");
+  expect(sql).toMatch(/if v_email is null and v_phone is null then\s+continue;/i);
+});
+
 it("never touches landing_registrations", () => {
   expect(sql).not.toMatch(/landing_registrations/i);
 });
