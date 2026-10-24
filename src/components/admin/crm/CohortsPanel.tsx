@@ -63,13 +63,16 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
           return c.sheetName.toLowerCase().includes(q) || c.tabName.toLowerCase().includes(q);
         });
 
-  // Only ticks on cohorts that are still visible count: deleted or search-hidden rows drop out.
+  // Deleted cohorts drop out of the ticks; search-hidden ones are kept but not downloaded.
+  // The cap counts every live tick (hidden too) so the download can never exceed 20.
+  const allIds = new Set(cohorts.map((c) => c.id));
   const visibleIds = new Set(filtered.map((c) => c.id));
+  const liveCount = ticked.filter((id) => allIds.has(id)).length;
   const selected = ticked.filter((id) => visibleIds.has(id));
-  const atLimit = selected.length >= MAX_SELECTED;
+  const atLimit = liveCount >= MAX_SELECTED;
   const toggle = (id: string) =>
     setTicked((prev) => {
-      const live = prev.filter((x) => visibleIds.has(x));
+      const live = prev.filter((x) => allIds.has(x));
       if (live.includes(id)) return prev.filter((x) => x !== id);
       return live.length >= MAX_SELECTED ? prev : [...prev, id];
     });
@@ -117,7 +120,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
             Upload the downloaded file in Meta Ads Manager: Audiences, Create audience, Custom audience, Customer list.
           </p>
           {atLimit && (
-            <p className="font-body text-xs text-pz-on-surface-variant">You can pick at most 20 cohorts at a time.</p>
+            <p className="font-body text-xs text-pz-on-surface-variant">You can pick at most 20 cohorts at a time{liveCount > selected.length ? ", including ones hidden by your search" : ""}.</p>
           )}
         </div>
       )}

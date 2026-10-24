@@ -89,4 +89,19 @@ describe("cohorts panel: download for Meta", () => {
     const back = within(toolbar()).getByRole("link", { name: /\(2\)/ });
     expect(back.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b");
   });
+
+  it("hidden ticks still count toward the cap of 20", () => {
+    const rows = Array.from({ length: 21 }, (_, i) => cohort({ id: `id${i}`, sheetName: `Sheet ${i}` }));
+    const t = view(rows);
+    for (let i = 0; i < 20; i++) fireEvent.click(t.getByLabelText(`Select Sheet ${i}, Tab A`));
+    const search = screen.getByPlaceholderText(/Search by sheet/);
+    fireEvent.change(search, { target: { value: "Sheet 20" } });
+    const x = t.getByLabelText("Select Sheet 20, Tab A") as HTMLInputElement;
+    fireEvent.click(x);
+    expect(x.checked).toBe(false);
+    expect(screen.getByText(/including ones hidden by your search/)).toBeTruthy();
+    fireEvent.change(search, { target: { value: "" } });
+    const link = within(toolbar()).getByRole("link", { name: /\(20\)/ });
+    expect(link.getAttribute("href")?.split("=")[1].split(",")).toHaveLength(20);
+  });
 });
