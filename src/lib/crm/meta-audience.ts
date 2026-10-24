@@ -27,11 +27,22 @@ function hashOrBlank(value: string): string {
   return value ? sha256Lower(value) : "";
 }
 
-export function buildMetaRows(contacts: AudienceContact[]): {
-  rows: MetaRow[];
+export type PlainRow = MetaRow;
+
+type AudienceItem = {
+  email: string;
+  phoneDigits: string;
+  first: string;
+  last: string;
+  country: string;
+};
+
+// Shared privacy rules and dedupe for the hashed and plain exports.
+function collectAudience(contacts: AudienceContact[]): {
+  items: AudienceItem[];
   dropped: number;
 } {
-  const rows: MetaRow[] = [];
+  const items: AudienceItem[] = [];
   const seen = new Set<string>();
   let dropped = 0;
 
@@ -41,16 +52,16 @@ export function buildMetaRows(contacts: AudienceContact[]): {
       continue;
     }
     const emailReachable = !c.emailUnsubscribedAt && !c.emailSuppressed;
-    const email = emailReachable ? hashOrBlank((c.email ?? "").trim()) : "";
-    const phone = c.whatsappUnsubscribedAt
+    const email = emailReachable ? (c.email ?? "").trim().toLowerCase() : "";
+    const phoneDigits = c.whatsappUnsubscribedAt
       ? ""
-      : hashOrBlank((c.phoneE164 ?? "").replace(/\D/g, ""));
-    if (!email && !phone) {
+      : (c.phoneE164 ?? "").replace(/\D/g, "");
+    if (!email && !phoneDigits) {
       dropped++;
       continue;
     }
 
-    const key = email ? `e:${email}` : `p:${phone}`;
+    const key = email ? `e:${email}` : `p:${phoneDigits}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -60,15 +71,45 @@ export function buildMetaRows(contacts: AudienceContact[]): {
     const last = space === -1 ? "" : name.slice(space + 1).trim();
     const country = c.country?.trim() ?? "";
 
-    rows.push({
+    items.push({
       email,
-      phone,
-      fn: hashOrBlank(first),
-      ln: hashOrBlank(last),
-      country: /^[A-Za-z]{2}$/.test(country) ? sha256Lower(country) : "",
+      phoneDigits,
+      first,
+      last,
+      country: /^[A-Za-z]{2}$/.test(country) ? country : "",
     });
   }
 
+  return { items, dropped };
+}
+
+export function buildMetaRows(contacts: AudienceContact[]): {
+  rows: MetaRow[];
+  dropped: number;
+} {
+  const { items, dropped } = collectAudience(contacts);
+  const rows = items.map((i) => ({
+    email: hashOrBlank(i.email),
+    phone: hashOrBlank(i.phoneDigits),
+    fn: hashOrBlank(i.first),
+    ln: hashOrBlank(i.last),
+    country: hashOrBlank(i.country),
+  }));
+  return { rows, dropped };
+}
+
+export function buildPlainRows(contacts: AudienceContact[]): {
+  rows: PlainRow[];
+  dropped: number;
+} {
+  const { items, dropped } = collectAudience(contacts);
+  const rows = items.map((i) => ({
+    email: i.email,
+    phone: i.phoneDigits ? `+${i.phoneDigits}` : "",
+    fn: i.first.replace(/\s+/g, " "),
+    ln: i.last.replace(/\s+/g, " "),
+    country: i.country.toUpperCase(),
+  }));
   return { rows, dropped };
 }
 
@@ -79,7 +120,33 @@ export function toMetaCsv(rows: MetaRow[]): string {
   return [HEADER, ...lines].join("\n") + "\n";
 }
 
-export function metaCsvFilename(names: string[], date: Date): string {
+// Names come from sheets and can start with spreadsheet-formula characters.
+function safeName(value: string): string {
+  return value.replace(/^[=@+\-\t\r]+/, "");
+}
+
+function csvField(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+export function toPlainCsv(rows: PlainRow[]): string {
+  const lines = rows.map((r) =>
+    [
+      csvField(r.email),
+      csvField(r.phone),
+      csvField(safeName(r.fn)),
+      csvField(safeName(r.ln)),
+      csvField(r.country),
+    ].join(","),
+  );
+  return [HEADER, ...lines].join("\n") + "\n";
+}
+
+export function metaCsvFilename(
+  names: string[],
+  date: Date,
+  variant: "hashed" | "plain" = "hashed",
+): string {
   const slug = names
     .join(" ")
     .toLowerCase()
@@ -88,5 +155,5 @@ export function metaCsvFilename(names: string[], date: Date): string {
     .slice(0, MAX_SLUG)
     .replace(/-+$/g, "");
   const day = date.toISOString().slice(0, 10);
-  return `${slug}-meta-audience-${day}.csv`;
+  return `${slug}${variant === "plain" ? "-plain" : ""}-meta-audience-${day}.csv`;
 }

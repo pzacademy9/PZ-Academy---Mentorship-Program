@@ -61,6 +61,36 @@ describe("cohort export route", () => {
     expect(text.split("\n")[0]).toBe("email,phone,fn,ln,country");
     expect(text).not.toContain("a@x.com");
   });
+  it("format=plain returns an unhashed CSV with the plain filename", async () => {
+    m.loadCohortAudience.mockResolvedValue({
+      names: ["PMH Batch 1 (paid)"],
+      contacts: [{ id: "a", email: "A@x.com", phoneE164: "+923001234567", fullName: "Ann Lee", country: "pk",
+        emailUnsubscribedAt: null, whatsappUnsubscribedAt: null, doNotContactAt: null, emailSuppressed: false }],
+    });
+    const res = await GET(get(`?ids=${U1}&format=plain`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=pmh-batch-1-paid-plain-meta-audience-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(await res.text()).toBe("email,phone,fn,ln,country\na@x.com,+923001234567,Ann,Lee,PK\n");
+  });
+  it("unknown format is 400 and never reaches the loader", async () => {
+    for (const f of ["csv", "", "PLAIN", "hashed"]) {
+      expect((await GET(get(`?ids=${U1}&format=${f}`))).status).toBe(400);
+    }
+    expect(m.loadCohortAudience).not.toHaveBeenCalled();
+  });
+  it("format=plain is still gated", async () => {
+    for (const mode of ["401", "403"] as const) {
+      gate.mode = mode;
+      expect((await GET(get(`?ids=${U1}&format=plain`))).status).toBe(Number(mode));
+    }
+    expect(m.loadCohortAudience).not.toHaveBeenCalled();
+  });
+  it("format=plain 404s when no cohort exists", async () => {
+    m.loadCohortAudience.mockResolvedValue({ contacts: [], names: [] });
+    expect((await GET(get(`?ids=${U1}&format=plain`))).status).toBe(404);
+  });
   it("500 is generic and logs no personal data", async () => {
     m.loadCohortAudience.mockRejectedValue(new Error("boom a@x.com"));
     const res = await GET(get(`?ids=${U1}`));
