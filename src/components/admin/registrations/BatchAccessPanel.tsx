@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpenCheck, CheckCircle2, Clock, FolderX, LockOpen, Send, TriangleAlert, X } from "lucide-react";
+import { BookOpenCheck, CheckCircle2, Clock, DatabaseZap, FolderX, LockOpen, Send, TriangleAlert, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
+import type { CloseBatchPreview, CloseBatchResult } from "@/lib/data/landing-close-batch";
 
 type ModuleRow = { id: string; title: string; finishedAt: string | null; paidLive: number; opened: number };
 type Overview = { courseTitle: string | null; modules: ModuleRow[]; recordedPaid: number };
@@ -22,7 +23,8 @@ type Audience = "live" | "recorded" | "both";
 type Pending =
   | { kind: "module"; moduleId: string; title: string; paid: number; opened: number }
   | { kind: "course" }
-  | { kind: "link" };
+  | { kind: "link" }
+  | { kind: "crm"; pageId: string; preview: CloseBatchPreview };
 
 const ERROR_TEXT = "Something went wrong. Please try again.";
 const AUDIENCES: { key: Audience; label: string }[] = [
@@ -63,6 +65,29 @@ function linkSentence(r: LinkResult): { main: string; rest: string[] } {
   return { main: `Sent to ${r.sent}.`, rest };
 }
 
+function crmConfirmText(p: CloseBatchPreview): string {
+  if (p.paid === 0 && p.interested === 0) return "There is nobody to copy yet.";
+  const parts = [
+    `This copies ${plural(p.paid, "paid person", "paid people")} and ${plural(p.interested, "interested person", "interested people")} into your CRM as new cohorts. Nothing is removed from Registrations.`,
+  ];
+  if (p.alreadyClosed) {
+    parts.push(`This batch was saved before. Only ${plural(p.newPaid, "new paid person", "new paid people")} will be added; the interested list is refreshed.`);
+  }
+  if (p.skipped > 0) {
+    parts.push(`${plural(p.skipped, "person", "people")} can't be copied (no contact details, test entries, or no permission to contact).`);
+  }
+  return parts.join(" ");
+}
+
+function crmSentence(r: CloseBatchResult): string {
+  const parts = [
+    `Saved to your CRM: ${r.paidAdded} paid and ${r.interestedAdded} interested.`,
+    `${r.contactsMerged} ${r.contactsMerged === 1 ? "was" : "were"} already in the CRM.`,
+  ];
+  if (r.skipped > 0) parts.push(`${r.skipped} skipped.`);
+  return parts.join(" ");
+}
+
 function formatDay(iso: string): string {
   const d = new Date(iso);
   return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
@@ -81,6 +106,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
   const [batchStrip, setBatchStrip] = useState<{ label: string; text: string } | null>(null);
   const [linkStrip, setLinkStrip] = useState<{ main: string; rest: string[] } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [crmStrip, setCrmStrip] = useState<string | null>(null);
+  const [crmError, setCrmError] = useState<string | null>(null);
   const latest = useRef(0);
 
   const load = useCallback(async (id: string, showSpinner: boolean) => {
@@ -107,7 +134,37 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
     if (pageId) void load(pageId, true);
   }, [pageId, load]);
 
+  const { run: runPreview, pending: previewing } = useAsyncAction(async () => {
+    setCrmError(null);
+    setCrmStrip(null);
+    try {
+      const res = await fetch(`/api/admin/landing/close-batch?pageId=${encodeURIComponent(pageId)}`, { credentials: "same-origin" });
+      if (!res.ok) throw new Error("preview failed");
+      const preview = (await res.json()) as CloseBatchPreview;
+      setPending({ kind: "crm", pageId, preview });
+    } catch {
+      setCrmError(ERROR_TEXT);
+    }
+  });
+
   const { run, pending: running } = useAsyncAction(async (action: Pending) => {
+    if (action.kind === "crm") {
+      setCrmError(null);
+      setCrmStrip(null);
+      try {
+        const res = await fetch("/api/admin/landing/close-batch", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageId: action.pageId }),
+        });
+        if (!res.ok) throw new Error("request failed");
+        setCrmStrip(crmSentence((await res.json()) as CloseBatchResult));
+      } catch {
+        setCrmError(ERROR_TEXT);
+      }
+      return;
+    }
     setActionError(null);
     setBatchStrip(null);
     setLinkStrip(null);
@@ -149,6 +206,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
     void run(action);
   }
 
+  const busy = running || previewing;
+  const nothingToCopy = pending?.kind === "crm" && pending.preview.paid === 0 && pending.preview.interested === 0;
   const noCourse = !!overview && overview.courseTitle === null;
   const empty = !!overview && (noCourse || overview.modules.length === 0);
 
@@ -167,6 +226,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
             setBatchStrip(null);
             setLinkStrip(null);
             setActionError(null);
+            setCrmStrip(null);
+            setCrmError(null);
           }}
           className="w-full max-w-xl rounded-lg bg-pz-surface-container-low px-3.5 py-2.5 font-headline font-bold text-sm max-md:text-base text-pz-on-surface focus:outline-none focus:ring-2 focus:ring-pz-primary/40 disabled:opacity-60"
         >
@@ -191,6 +252,34 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
         <p role="status" className="font-body text-sm text-pz-on-surface-variant">
           Loading…
         </p>
+      )}
+
+      {pageId && (
+        <section className="rounded-xl bg-pz-surface-container-lowest border border-pz-outline-variant/40 p-6 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div>
+              <h3 className="font-headline font-black text-lg text-pz-on-surface">Save batch to your CRM</h3>
+              <p className="font-body text-sm text-pz-on-surface-variant mt-1 max-w-2xl">
+                Copy this batch&apos;s paid and interested people into your CRM as new cohorts. Nothing is removed from Registrations.
+              </p>
+            </div>
+            <button type="button" disabled={busy} onClick={() => void runPreview()} className={primaryBtn}>
+              <DatabaseZap className="w-4 h-4" aria-hidden="true" />
+              Save batch to CRM
+            </button>
+          </div>
+          {crmError && (
+            <p role="alert" className="font-body text-sm text-pz-danger">
+              {crmError}
+            </p>
+          )}
+          {crmStrip && (
+            <p role="status" className="flex items-start gap-2.5 rounded-lg bg-pz-surface-container-low p-3.5 font-body text-sm text-pz-on-surface">
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-pz-primary" aria-hidden="true" />
+              <span>{crmStrip}</span>
+            </p>
+          )}
+        </section>
       )}
 
       {loadError && !loading && (
@@ -386,7 +475,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-pz-on-surface">
-              {pending?.kind === "link" ? "Confirm email" : "Confirm batch finished"}
+              {pending?.kind === "link" ? "Confirm email" : pending?.kind === "crm" ? "Save batch to CRM" : "Confirm batch finished"}
             </DialogTitle>
             <DialogDescription className="font-body text-pz-on-surface-variant">
               {pending?.kind === "module" &&
@@ -395,6 +484,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
                 "Opens every module of this course for Live students who paid and emails the portal link to those who have signed up. Students who already have a module open are not emailed again for it. Continue?"}
               {pending?.kind === "link" &&
                 `This emails the portal link to ${AUDIENCE_CONFIRM[audience]}. Continue?`}
+              {pending?.kind === "crm" && crmConfirmText(pending.preview)}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
@@ -405,8 +495,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
             >
               Cancel
             </button>
-            <button type="button" onClick={confirm} className={primaryBtn}>
-              {pending?.kind === "link" ? "Yes, send it" : "Yes, open it"}
+            <button type="button" onClick={confirm} disabled={nothingToCopy} className={primaryBtn}>
+              {pending?.kind === "link" ? "Yes, send it" : pending?.kind === "crm" ? "Yes, save it" : "Yes, open it"}
             </button>
           </DialogFooter>
         </DialogContent>
