@@ -62,7 +62,7 @@ describe("cohorts panel: download for Meta", () => {
     const last = t.getByLabelText("Select Sheet 20, Tab A") as HTMLInputElement;
     expect(last.disabled).toBe(true);
     fireEvent.click(last);
-    expect(within(toolbar()).getByRole("link", { name: /\(20\)/ })).toBeTruthy();
+    expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(20\)/ })).toBeTruthy();
     expect(screen.getByText(/most 20/)).toBeTruthy();
   });
 
@@ -72,8 +72,8 @@ describe("cohorts panel: download for Meta", () => {
     fireEvent.click(t.getByLabelText("Select One, Tab A"));
     fireEvent.click(t.getByLabelText("Select Two, Tab A"));
     fireEvent.click(t.getAllByRole("button", { name: "delete" })[0]);
-    await waitFor(() => expect(within(toolbar()).getByRole("link", { name: /\(1\)/ })).toBeTruthy());
-    expect(within(toolbar()).getByRole("link", { name: /\(1\)/ }).getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=b");
+    await waitFor(() => expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ })).toBeTruthy());
+    expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ }).getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=b");
     vi.unstubAllGlobals();
   });
 
@@ -83,10 +83,10 @@ describe("cohorts panel: download for Meta", () => {
     fireEvent.click(t.getByLabelText("Select Beta, Tab A"));
     const search = screen.getByPlaceholderText(/Search by sheet/);
     fireEvent.change(search, { target: { value: "alpha" } });
-    const link = within(toolbar()).getByRole("link", { name: /\(1\)/ });
+    const link = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ });
     expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a");
     fireEvent.change(search, { target: { value: "" } });
-    const back = within(toolbar()).getByRole("link", { name: /\(2\)/ });
+    const back = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(2\)/ });
     expect(back.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b");
   });
 
@@ -101,7 +101,47 @@ describe("cohorts panel: download for Meta", () => {
     expect(x.checked).toBe(false);
     expect(screen.getByText(/including ones hidden by your search/)).toBeTruthy();
     fireEvent.change(search, { target: { value: "" } });
-    const link = within(toolbar()).getByRole("link", { name: /\(20\)/ });
+    const link = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(20\)/ });
     expect(link.getAttribute("href")?.split("=")[1].split(",")).toHaveLength(20);
+  });
+});
+
+describe("cohorts panel: plain download", () => {
+  it("each table row has a plain link with format=plain and download", () => {
+    const t = view([cohort({ id: "a" }), cohort({ id: "b", sheetName: "Other" })]);
+    const links = t.getAllByRole("link", { name: /Download plain version/ });
+    expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "/api/admin/crm/cohorts/export?ids=a&format=plain",
+      "/api/admin/crm/cohorts/export?ids=b&format=plain",
+    ]);
+    expect(links[0].hasAttribute("download")).toBe(true);
+  });
+
+  it("the mobile list also has the plain link", () => {
+    render(<CohortsPanel initialCohorts={[cohort({ id: "m" })]} />);
+    const links = screen.getAllByRole("link", { name: /Download plain version/, hidden: true });
+    expect(links.length).toBeGreaterThanOrEqual(2);
+    for (const l of links) {
+      expect(l.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=m&format=plain");
+      expect(l.hasAttribute("download")).toBe(true);
+    }
+  });
+
+  it("toolbar plain button is disabled with nothing ticked and the helper shows", () => {
+    view([cohort()]);
+    const btn = within(toolbar()).getByRole("button", { name: /Download selected, plain \(0\)/ }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(
+      screen.getByText("The plain file has real emails and phone numbers. Meta scrambles it for you when you upload. Keep it private and delete it after uploading."),
+    ).toBeTruthy();
+  });
+
+  it("ticking two rows enables the plain selected link carrying both ids", () => {
+    const t = view([cohort({ id: "a", sheetName: "One" }), cohort({ id: "b", sheetName: "Two" })]);
+    fireEvent.click(t.getByLabelText("Select One, Tab A"));
+    fireEvent.click(t.getByLabelText("Select Two, Tab A"));
+    const link = within(toolbar()).getByRole("link", { name: /Download selected, plain \(2\)/ });
+    expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b&format=plain");
+    expect(link.hasAttribute("download")).toBe(true);
   });
 });
