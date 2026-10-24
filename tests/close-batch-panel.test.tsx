@@ -84,10 +84,51 @@ describe("Save batch to CRM", () => {
     fireEvent.click(yes);
     await waitFor(() => expect(closePosts()).toHaveLength(1));
     expect(JSON.parse((closePosts()[0][1] as RequestInit).body as string)).toEqual({ pageId: "p1" });
-    expect((screen.getByRole("button", { name: "Save batch to CRM" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Saving…" }) as HTMLButtonElement).disabled).toBe(true);
     release(json(RESULT));
     await screen.findByText("Saved to your CRM: 12 paid and 30 interested. 7 were already in the CRM. 2 skipped.");
     expect(closePosts()).toHaveLength(1);
+  });
+
+  it("on a re-run the result uses the preview's new paid count, never 'already in the CRM'", async () => {
+    preview = { ...PREVIEW, alreadyClosed: true, newPaid: 3 };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url.includes("close-batch")
+        ? init?.method === "POST"
+          ? json({ ...RESULT, paidAdded: 50, contactsMerged: 50, interestedAdded: 30, skipped: 2 })
+          : json(preview)
+        : json(OVERVIEW),
+    );
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, save it" }));
+    const strip = await screen.findByText(/Saved to your CRM again\./);
+    expect(strip.textContent).toBe("Saved to your CRM again. 3 new paid people added; the interested list was refreshed (30 people). 2 skipped.");
+    expect(screen.queryByText(/already in the CRM/)).toBeNull();
+  });
+
+  it("on a re-run with one new paid person and nothing skipped", async () => {
+    preview = { ...PREVIEW, alreadyClosed: true, newPaid: 1 };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url.includes("close-batch") ? (init?.method === "POST" ? json({ ...RESULT, skipped: 0 }) : json(preview)) : json(OVERVIEW),
+    );
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, save it" }));
+    const strip = await screen.findByText(/Saved to your CRM again\./);
+    expect(strip.textContent).toBe("Saved to your CRM again. 1 new paid person added; the interested list was refreshed (30 people).");
+  });
+
+  it("shows Saving… on the button while the save runs and locks the page select while previewing", async () => {
+    let release: (r: Response) => void = () => {};
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("close-batch")) return init?.method === "POST" ? new Promise<Response>((r) => (release = r)) : Promise.resolve(json(PREVIEW));
+      return Promise.resolve(json(OVERVIEW));
+    });
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, save it" }));
+    await screen.findByRole("button", { name: "Saving…" });
+    expect((screen.getByLabelText("Landing page") as HTMLSelectElement).disabled).toBe(true);
+    release(json(RESULT));
+    await screen.findByText(/Saved to your CRM:/);
   });
 
   it("leaves out the skipped sentence when nothing was skipped", async () => {

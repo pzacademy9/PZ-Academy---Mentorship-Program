@@ -79,7 +79,11 @@ function crmConfirmText(p: CloseBatchPreview): string {
   return parts.join(" ");
 }
 
-function crmSentence(r: CloseBatchResult): string {
+function crmSentence(r: CloseBatchResult, preview: CloseBatchPreview): string {
+  if (preview.alreadyClosed) {
+    const again = `Saved to your CRM again. ${plural(preview.newPaid, "new paid person", "new paid people")} added; the interested list was refreshed (${plural(r.interestedAdded, "person", "people")}).`;
+    return r.skipped > 0 ? `${again} ${r.skipped} skipped.` : again;
+  }
   const parts = [
     `Saved to your CRM: ${r.paidAdded} paid and ${r.interestedAdded} interested.`,
     `${r.contactsMerged} ${r.contactsMerged === 1 ? "was" : "were"} already in the CRM.`,
@@ -108,6 +112,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
   const [actionError, setActionError] = useState<string | null>(null);
   const [crmStrip, setCrmStrip] = useState<string | null>(null);
   const [crmError, setCrmError] = useState<string | null>(null);
+  const [crmSaving, setCrmSaving] = useState(false);
   const latest = useRef(0);
 
   const load = useCallback(async (id: string, showSpinner: boolean) => {
@@ -151,6 +156,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
     if (action.kind === "crm") {
       setCrmError(null);
       setCrmStrip(null);
+      setCrmSaving(true);
       try {
         const res = await fetch("/api/admin/landing/close-batch", {
           method: "POST",
@@ -159,9 +165,11 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
           body: JSON.stringify({ pageId: action.pageId }),
         });
         if (!res.ok) throw new Error("request failed");
-        setCrmStrip(crmSentence((await res.json()) as CloseBatchResult));
+        setCrmStrip(crmSentence((await res.json()) as CloseBatchResult, action.preview));
       } catch {
         setCrmError(ERROR_TEXT);
+      } finally {
+        setCrmSaving(false);
       }
       return;
     }
@@ -220,7 +228,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
         <select
           id="batch-page"
           value={pageId}
-          disabled={running}
+          disabled={running || previewing}
           onChange={(e) => {
             setPageId(e.target.value);
             setBatchStrip(null);
@@ -265,7 +273,7 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
             </div>
             <button type="button" disabled={busy} onClick={() => void runPreview()} className={primaryBtn}>
               <DatabaseZap className="w-4 h-4" aria-hidden="true" />
-              Save batch to CRM
+              {crmSaving ? "Saving…" : "Save batch to CRM"}
             </button>
           </div>
           {crmError && (
