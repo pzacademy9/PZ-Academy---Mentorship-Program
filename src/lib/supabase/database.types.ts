@@ -1385,6 +1385,36 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batch_contacts: {
+        Row: {
+          contact_id: string
+          import_batch_id: string
+        }
+        Insert: {
+          contact_id: string
+          import_batch_id: string
+        }
+        Update: {
+          contact_id?: string
+          import_batch_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batch_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_batch_contacts_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           column_mapping: Json
@@ -1394,11 +1424,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          kind: "imported" | "closed_paid" | "closed_interested"
           rows_imported: number
           rows_skipped: number
           rows_total: number
           sheet_id: string
           sheet_name: string
+          source_page_id: string | null
           status: Database["public"]["Enums"]["crm_import_status"]
           tab_name: string
         }
@@ -1410,11 +1442,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: "imported" | "closed_paid" | "closed_interested"
           rows_imported?: number
           rows_skipped?: number
           rows_total?: number
           sheet_id: string
           sheet_name?: string
+          source_page_id?: string | null
           status?: Database["public"]["Enums"]["crm_import_status"]
           tab_name: string
         }
@@ -1426,11 +1460,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: "imported" | "closed_paid" | "closed_interested"
           rows_imported?: number
           rows_skipped?: number
           rows_total?: number
           sheet_id?: string
           sheet_name?: string
+          source_page_id?: string | null
           status?: Database["public"]["Enums"]["crm_import_status"]
           tab_name?: string
         }
@@ -1447,6 +1483,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_batches_source_page_id_fkey"
+            columns: ["source_page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
             referencedColumns: ["id"]
           },
         ]
@@ -4196,6 +4239,16 @@ export type Database = {
           p_sheet_name: string
           p_tab_name: string
           p_column_mapping: Json
+          p_course_id: string | null
+          p_created_by: string | null
+          p_rows: Json
+        }
+        Returns: Json
+      }
+      landing_close_batch: {
+        Args: {
+          p_page_id: string
+          p_page_title: string
           p_course_id: string | null
           p_created_by: string | null
           p_rows: Json

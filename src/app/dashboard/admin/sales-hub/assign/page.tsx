@@ -23,7 +23,7 @@ export default async function AdminAssignListsPage() {
         </p>
       </div>
       <AssignListsPanel
-        cohorts={cohorts.map((c) => ({ id: c.id, sheetName: c.sheetName, tabName: c.tabName, purchaseCount: c.purchaseCount }))}
+        cohorts={cohorts.filter((c) => c.kind !== "closed_interested").map((c) => ({ id: c.id, sheetName: c.sheetName, tabName: c.tabName, purchaseCount: c.purchaseCount }))}
         agents={agents.map((a) => ({ id: a.id, fullName: a.fullName }))}
         counts={counts}
       />
