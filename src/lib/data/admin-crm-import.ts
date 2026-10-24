@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { listSheetTabs, readAllSheetRows, extractSheetId, type SheetTabsResult } from "@/lib/gas/sheets-read-client";
 import { guessColumnMapping, parseSheetRow, type ColumnMapping, type ParsedRow } from "@/lib/crm/import-mapping";
+import { pageAll } from "@/lib/data/cohort-export";
 import type { ImportPreviewInput, ImportCommitInput } from "@/lib/validations/crm";
 
 /**
@@ -70,6 +71,9 @@ export type CohortRow = {
   courseId: string | null;
   courseTitle: string | null;
   purchaseCount: number;
+  kind: "imported" | "closed_paid" | "closed_interested";
+  /** closed_interested: import_batch_contacts members; otherwise equals purchaseCount. */
+  contactCount: number;
 };
 
 /**
@@ -80,18 +84,32 @@ export type CohortRow = {
  */
 export async function listCohorts(): Promise<CohortRow[]> {
   const admin = createAdminSupabase();
-  const [{ data: batches }, { data: purchases }] = await Promise.all([
+  // PostgREST caps a read at 1000 rows, so both count reads are paged on a
+  // stable order; an unpaged select would silently undercount big cohorts.
+  const [{ data: batches }, purchases, members] = await Promise.all([
     admin
       .from("import_batches")
-      .select("id, sheet_name, tab_name, rows_imported, created_at, course_id, courses(title)")
+      .select("id, sheet_name, tab_name, rows_imported, created_at, course_id, kind, courses(title)")
       .order("created_at", { ascending: false }),
-    admin.from("contact_purchases").select("import_batch_id"),
+    pageAll<{ import_batch_id: string | null }>("contact_purchases", (from, to) =>
+      admin.from("contact_purchases").select("import_batch_id").order("id", { ascending: true }).range(from, to),
+    ),
+    pageAll<{ import_batch_id: string }>("import_batch_contacts", (from, to) =>
+      admin
+        .from("import_batch_contacts")
+        .select("import_batch_id")
+        .order("import_batch_id", { ascending: true })
+        .order("contact_id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   const counts = new Map<string, number>();
-  for (const p of purchases ?? []) {
+  for (const p of purchases) {
     if (p.import_batch_id) counts.set(p.import_batch_id, (counts.get(p.import_batch_id) ?? 0) + 1);
   }
+  const memberCounts = new Map<string, number>();
+  for (const m of members) memberCounts.set(m.import_batch_id, (memberCounts.get(m.import_batch_id) ?? 0) + 1);
 
   return (batches ?? []).map((b) => ({
     id: b.id,
@@ -102,6 +120,8 @@ export async function listCohorts(): Promise<CohortRow[]> {
     courseId: b.course_id,
     courseTitle: (b.courses as { title: string } | null)?.title ?? null,
     purchaseCount: counts.get(b.id) ?? 0,
+    kind: b.kind as CohortRow["kind"],
+    contactCount: b.kind === "closed_interested" ? (memberCounts.get(b.id) ?? 0) : (counts.get(b.id) ?? 0),
   }));
 }
 
@@ -120,27 +140,58 @@ export async function getCohortDetail(id: string): Promise<CohortDetail | null> 
   const admin = createAdminSupabase();
   const { data: batch } = await admin
     .from("import_batches")
-    .select("id, sheet_name, tab_name, rows_imported, created_at, course_id, courses(title)")
+    .select("id, sheet_name, tab_name, rows_imported, created_at, course_id, kind, courses(title)")
     .eq("id", id)
     .maybeSingle();
   if (!batch) return null;
 
-  const { data: purchases } = await admin
-    .from("contact_purchases")
-    .select("contact_id, product_label, contacts(full_name, email, phone_e164)")
-    .eq("import_batch_id", id);
+  type Joined = { full_name: string; email: string | null; phone_e164: string | null } | null;
+  let contacts: CohortContactRow[];
+  let purchaseCount = 0;
 
-  const rows = purchases ?? [];
-  const contacts: CohortContactRow[] = rows.map((p) => {
-    const contact = p.contacts as { full_name: string; email: string | null; phone_e164: string | null } | null;
-    return {
-      contactId: p.contact_id,
-      fullName: contact?.full_name ?? "",
-      email: contact?.email ?? null,
-      phoneE164: contact?.phone_e164 ?? null,
-      productLabel: p.product_label,
-    };
-  });
+  if (batch.kind === "closed_interested") {
+    // Interested cohorts have no purchases: membership lives in import_batch_contacts.
+    const members = await pageAll<{ contact_id: string; contacts: unknown }>("import_batch_contacts", (from, to) =>
+      admin
+        .from("import_batch_contacts")
+        .select("contact_id, contacts(full_name, email, phone_e164)")
+        .eq("import_batch_id", id)
+        .order("contact_id", { ascending: true })
+        .range(from, to),
+    );
+    contacts = members.map((m) => {
+      const contact = m.contacts as Joined;
+      return {
+        contactId: m.contact_id,
+        fullName: contact?.full_name ?? "",
+        email: contact?.email ?? null,
+        phoneE164: contact?.phone_e164 ?? null,
+        productLabel: "",
+      };
+    });
+  } else {
+    const rows = await pageAll<{ contact_id: string; product_label: string; contacts: unknown }>(
+      "contact_purchases",
+      (from, to) =>
+        admin
+          .from("contact_purchases")
+          .select("contact_id, product_label, contacts(full_name, email, phone_e164)")
+          .eq("import_batch_id", id)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
+    purchaseCount = rows.length;
+    contacts = rows.map((p) => {
+      const contact = p.contacts as Joined;
+      return {
+        contactId: p.contact_id,
+        fullName: contact?.full_name ?? "",
+        email: contact?.email ?? null,
+        phoneE164: contact?.phone_e164 ?? null,
+        productLabel: p.product_label,
+      };
+    });
+  }
 
   return {
     id: batch.id,
@@ -150,7 +201,9 @@ export async function getCohortDetail(id: string): Promise<CohortDetail | null> 
     createdAt: batch.created_at,
     courseId: batch.course_id,
     courseTitle: (batch.courses as { title: string } | null)?.title ?? null,
-    purchaseCount: rows.length,
+    purchaseCount,
+    kind: batch.kind as CohortRow["kind"],
+    contactCount: contacts.length,
     contacts,
   };
 }
