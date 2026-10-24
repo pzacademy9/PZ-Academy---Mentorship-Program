@@ -27,6 +27,7 @@ type Cohort = {
 
 const MAX_SELECTED = 20;
 const exportHref = (ids: string[]) => `/api/admin/crm/cohorts/export?ids=${ids.join(",")}`;
+const plainHref = (ids: string[]) => `${exportHref(ids)}&format=plain`;
 const KIND_BADGE: Record<Cohort["kind"], string | null> = {
   imported: null,
   closed_paid: "Closed batch: paid",
@@ -116,8 +117,18 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
               <a href={exportHref(selected)} download>Download selected for Meta ({selected.length})</a>
             </Button>
           )}
+          {selected.length === 0 ? (
+            <Button variant="outline" size="sm" disabled className="ml-2">Download selected, plain (0)</Button>
+          ) : (
+            <Button asChild variant="outline" size="sm" className="ml-2">
+              <a href={plainHref(selected)} download>Download selected, plain ({selected.length})</a>
+            </Button>
+          )}
           <p className="font-body text-xs text-pz-on-surface-variant">
             Upload the downloaded file in Meta Ads Manager: Audiences, Create audience, Custom audience, Customer list.
+          </p>
+          <p className="font-body text-xs text-pz-on-surface-variant">
+            The plain file has real emails and phone numbers. Meta scrambles it for you when you upload. Keep it private and delete it after uploading.
           </p>
           {atLimit && (
             <p className="font-body text-xs text-pz-on-surface-variant">You can pick at most 20 cohorts at a time{liveCount > selected.length ? ", including ones hidden by your search" : ""}.</p>
@@ -153,6 +164,9 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
               `${peopleText(c)}${showImportedNote(c) ? ` (of ${c.rowsImported} imported)` : ""} · ${formatDate(c.createdAt)}`,
               <a key="download" href={exportHref([c.id])} download className="inline-flex min-h-11 items-center underline">
                 Download for Meta
+              </a>,
+              <a key="download-plain" href={plainHref([c.id])} download className="inline-flex min-h-11 items-center underline">
+                Download plain version
               </a>,
               <Button
                 key="delete"
@@ -210,6 +224,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
                       <td>{formatDate(c.createdAt)}</td>
                       <td>
                         <a href={exportHref([c.id])} download className="mr-3 underline">Download for Meta</a>
+                        <a href={plainHref([c.id])} download className="mr-3 underline">Download plain version</a>
                         <Button
                           variant="bare"
                           size="bare"

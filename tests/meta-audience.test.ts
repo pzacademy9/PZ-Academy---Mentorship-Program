@@ -4,6 +4,8 @@ import {
   buildMetaRows,
   toMetaCsv,
   metaCsvFilename,
+  buildPlainRows,
+  toPlainCsv,
   type AudienceContact,
 } from "@/lib/crm/meta-audience";
 
@@ -127,5 +129,158 @@ describe("metaCsvFilename", () => {
       new Date("2026-10-24T10:00:00Z"),
     );
     expect(name.replace("-meta-audience-2026-10-24.csv", "").length).toBe(80);
+  });
+
+  it("plain variant adds -plain- before meta-audience; hashed unchanged", () => {
+    const d = new Date("2026-10-24T10:00:00Z");
+    expect(metaCsvFilename(["DIT Batch 1 (paid)"], d, "plain")).toBe(
+      "dit-batch-1-paid-plain-meta-audience-2026-10-24.csv",
+    );
+    expect(metaCsvFilename(["DIT Batch 1 (paid)"], d, "hashed")).toBe(
+      "dit-batch-1-paid-meta-audience-2026-10-24.csv",
+    );
+  });
+});
+
+describe("buildPlainRows", () => {
+  it("returns plain lowercased email, +E.164 phone, split name and uppercase country", () => {
+    const { rows } = buildPlainRows([contact({ email: " Ali@Example.COM " })]);
+    expect(rows[0]).toEqual({
+      email: "ali@example.com",
+      phone: "+923001234567",
+      fn: "Ali",
+      ln: "Raza Khan",
+      country: "PK",
+    });
+  });
+
+  it("collapses whitespace in names and handles single names", () => {
+    expect(
+      buildPlainRows([contact({ fullName: "  Ali   Raza    Khan " })]).rows[0].ln,
+    ).toBe("Raza Khan");
+    const single = buildPlainRows([contact({ fullName: "Madonna" })]).rows[0];
+    expect(single.fn).toBe("Madonna");
+    expect(single.ln).toBe("");
+  });
+
+  it("uppercases a two-letter country and blanks others", () => {
+    expect(buildPlainRows([contact({ country: "pk" })]).rows[0].country).toBe("PK");
+    expect(buildPlainRows([contact({ country: "Pakistan" })]).rows[0].country).toBe("");
+    expect(buildPlainRows([contact({ country: null })]).rows[0].country).toBe("");
+  });
+
+  it("blank phone when there is none", () => {
+    expect(buildPlainRows([contact({ phoneE164: null })]).rows[0].phone).toBe("");
+  });
+
+  it("blanks email when unsubscribed or suppressed", () => {
+    expect(
+      buildPlainRows([contact({ emailUnsubscribedAt: "2026-01-01T00:00:00Z" })]).rows[0].email,
+    ).toBe("");
+    expect(buildPlainRows([contact({ emailSuppressed: true })]).rows[0].email).toBe("");
+  });
+
+  it("blanks phone but keeps email when whatsapp is unsubscribed", () => {
+    const { rows } = buildPlainRows([
+      contact({ whatsappUnsubscribedAt: "2026-01-01T00:00:00Z" }),
+    ]);
+    expect(rows[0].phone).toBe("");
+    expect(rows[0].email).toBe("ali@example.com");
+  });
+
+  it("drops do-not-contact and empty rows, counting them", () => {
+    const { rows, dropped } = buildPlainRows([
+      contact({ doNotContactAt: "2026-01-01T00:00:00Z" }),
+      contact({ id: "c2", email: null, phoneE164: null }),
+      contact({
+        id: "c3",
+        emailUnsubscribedAt: "2026-01-01T00:00:00Z",
+        whatsappUnsubscribedAt: "2026-01-01T00:00:00Z",
+      }),
+    ]);
+    expect(rows).toHaveLength(0);
+    expect(dropped).toBe(3);
+  });
+
+  it("dedupes by email, else by phone", () => {
+    expect(
+      buildPlainRows([
+        contact(),
+        contact({ id: "c2", email: " ALI@example.com ", phoneE164: null }),
+      ]).rows,
+    ).toHaveLength(1);
+    expect(
+      buildPlainRows([contact({ email: null }), contact({ id: "c2", email: null })]).rows,
+    ).toHaveLength(1);
+  });
+
+  it("matches the hashed builder on row count and dropped count", () => {
+    const input = [
+      contact(),
+      contact({ id: "c2", email: "ALI@example.com" }),
+      contact({ id: "c3", doNotContactAt: "2026-01-01T00:00:00Z" }),
+      contact({ id: "c4", email: null, phoneE164: null }),
+      contact({ id: "c5", email: "b@x.com", phoneE164: null, emailSuppressed: true }),
+      contact({ id: "c6", email: null, whatsappUnsubscribedAt: "2026-01-01T00:00:00Z" }),
+    ];
+    const h = buildMetaRows(input);
+    const p = buildPlainRows(input);
+    expect(p.rows).toHaveLength(h.rows.length);
+    expect(p.dropped).toBe(h.dropped);
+  });
+});
+
+describe("toPlainCsv", () => {
+  const row = (over: Partial<ReturnType<typeof buildPlainRows>["rows"][number]> = {}) => ({
+    email: "a@x.com",
+    phone: "+923001234567",
+    fn: "Ali",
+    ln: "Khan",
+    country: "PK",
+    ...over,
+  });
+
+  it("uses the exact header, newline endings and a trailing newline", () => {
+    const csv = toPlainCsv([row()]);
+    expect(csv).toBe("email,phone,fn,ln,country\na@x.com,+923001234567,Ali,Khan,PK\n");
+    expect(csv).not.toContain("\r");
+  });
+
+  it("quotes values containing comma, quote or newline and doubles quotes", () => {
+    const csv = toPlainCsv([row({ ln: 'Khan, "Jr"' }), row({ fn: "A\nB" })]);
+    expect(csv).toContain('"Khan, ""Jr"""');
+    expect(csv).toContain('"A\nB"');
+  });
+
+  it("strips formula-injection leading characters from names", () => {
+    const csv = toPlainCsv([row({ fn: "=cmd", ln: "@SUM(1)" }), row({ fn: "\tx", ln: "\rY" })]);
+    const lines = csv.split("\n");
+    expect(lines[1]).toBe("a@x.com,+923001234567,cmd,SUM(1),PK");
+    expect(lines[2]).toBe("a@x.com,+923001234567,x,Y,PK");
+    expect(csv).not.toMatch(/,[=@]/);
+  });
+
+  it("blanks emails that start with a formula character, keeps normal ones", () => {
+    const csv = toPlainCsv([
+      row({ email: '=HYPERLINK("http://e.x","x")@a.co' }),
+      row({ email: "+x@a.co" }),
+      row({ email: "-x@a.co" }),
+      row({ email: "@x@a.co" }),
+      row({ email: "ok@a.co" }),
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[1]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[2]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[3]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[4]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[5]).toBe("ok@a.co,+923001234567,Ali,Khan,PK");
+  });
+
+  it("never touches the leading plus of a phone", () => {
+    expect(toPlainCsv([row()])).toContain(",+923001234567,");
+  });
+
+  it("header only for no rows", () => {
+    expect(toPlainCsv([])).toBe("email,phone,fn,ln,country\n");
   });
 });
