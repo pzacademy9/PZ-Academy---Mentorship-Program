@@ -127,8 +127,11 @@ export async function loadCohortAudience(
   // so fetch with case-insensitive ilike (a superset: "_" is a wildcard) and
   // then compare lowercased values exactly. Smaller chunks: ilike terms are long.
   const suppressed = new Set<string>();
+  // Emails with a double quote or backslash cannot go in the or() filter
+  // safely, so they fail closed: treated as suppressed.
+  const unsafe = (e: string) => /["\\]/.test(e);
   const emails = Array.from(
-    new Set(rows.map((r) => r.email?.trim().toLowerCase()).filter((e): e is string => !!e && !/["\\]/.test(e))),
+    new Set(rows.map((r) => r.email?.trim().toLowerCase()).filter((e): e is string => !!e && !unsafe(e))),
   );
   for (const part of chunk(emails, 100)) {
     const orExpr = part.map((e) => `user_email.ilike."${e}"`).join(",");
@@ -143,7 +146,7 @@ export async function loadCohortAudience(
     );
     const wanted = new Set(part);
     for (const e of events) {
-      const lower = e.user_email.toLowerCase();
+      const lower = e.user_email.trim().toLowerCase();
       if (wanted.has(lower)) suppressed.add(lower);
     }
   }
@@ -157,7 +160,8 @@ export async function loadCohortAudience(
     emailUnsubscribedAt: r.email_unsubscribed_at,
     whatsappUnsubscribedAt: r.whatsapp_unsubscribed_at,
     doNotContactAt: r.do_not_contact_at,
-    emailSuppressed: !!r.email && suppressed.has(r.email.trim().toLowerCase()),
+    emailSuppressed:
+      !!r.email && (unsafe(r.email.trim().toLowerCase()) || suppressed.has(r.email.trim().toLowerCase())),
   }));
 
   return { contacts, names };

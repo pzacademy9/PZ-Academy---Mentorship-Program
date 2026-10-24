@@ -5,6 +5,7 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 vi.mock("server-only", () => ({}));
 
+import { buildMetaRows } from "@/lib/crm/meta-audience";
 import { loadCohortAudience } from "@/lib/data/cohort-export";
 import { listCohorts, getCohortDetail } from "@/lib/data/admin-crm-import";
 
@@ -19,9 +20,18 @@ const batch = (id: string, kind: string, o: Record<string, unknown> = {}) => ({
 });
 
 let store: Store;
+// Like PostgREST: a select with no .range() returns at most 1000 rows, so code
+// that forgets to page silently loses rows and the paging tests catch it.
 function setup(s: Partial<Store>) {
   store = { import_batches: [], contact_purchases: [], import_batch_contacts: [], contacts: [], email_metrics: [], ...s };
-  db.state.handler = memoryHandler(store);
+  const inner = memoryHandler(store);
+  db.state.handler = (op) => {
+    const res = inner(op);
+    if (op.op === "select" && !op.range && !op.single && !op.head && Array.isArray(res.data) && res.data.length > 1000) {
+      return { ...res, data: res.data.slice(0, 1000) };
+    }
+    return res;
+  };
 }
 beforeEach(() => db.reset());
 
@@ -37,6 +47,7 @@ describe("loadCohortAudience", () => {
     expect(contacts).toHaveLength(1300);
     expect(new Set(contacts.map((c) => c.id)).size).toBe(1300);
     expect(names).toHaveLength(1);
+    expect(db.find("contact_purchases", "select").every((o) => o.range)).toBe(true);
     for (const op of db.state.ops.filter((o) => o.op === "select")) {
       for (const [k, , v] of op.filters) if (k === "in") expect((v as unknown[]).length).toBeLessThanOrEqual(200);
     }
@@ -91,6 +102,46 @@ describe("loadCohortAudience", () => {
     expect(a).toMatchObject({ phoneE164: "+923001", fullName: "Name a", country: "PK", doNotContactAt: "2026-02-01" });
     expect(a.emailSuppressed).toBe(true);
     expect(b.emailSuppressed).toBe(false);
+  });
+
+  it("emails with a double quote or backslash are treated as suppressed (blank email, phone kept)", async () => {
+    setup({
+      import_batches: [batch("b1", "imported")],
+      contacts: [
+        contact("a", { email: 'a"b@x.com', phone_e164: "+923001" }),
+        contact("b", { email: "c\\d@x.com", phone_e164: "+923002" }),
+        contact("c"),
+      ],
+      contact_purchases: ["a", "b", "c"].map((id, i) => ({ id: `p${i}`, contact_id: id, import_batch_id: "b1" })),
+    });
+    const { contacts } = await loadCohortAudience(["b1"]);
+    expect(contacts.find((c) => c.id === "a")!.emailSuppressed).toBe(true);
+    expect(contacts.find((c) => c.id === "b")!.emailSuppressed).toBe(true);
+    expect(contacts.find((c) => c.id === "c")!.emailSuppressed).toBe(false);
+    const { rows } = buildMetaRows(contacts.filter((c) => c.id !== "c"));
+    expect(rows).toHaveLength(2);
+    for (const r of rows) {
+      expect(r.email).toBe("");
+      expect(r.phone).not.toBe("");
+    }
+  });
+
+  it("looks up suppression with comma-joined ilike terms and compares trimmed, lowercased stored emails", async () => {
+    setup({
+      import_batches: [batch("b1", "imported")],
+      contacts: [contact("a", { email: "a@x.com" }), contact("b", { email: "b@x.com" })],
+      contact_purchases: [
+        { id: "p1", contact_id: "a", import_batch_id: "b1" },
+        { id: "p2", contact_id: "b", import_batch_id: "b1" },
+      ],
+      email_metrics: [{ user_email: "  A@X.com ", event_type: "hard_bounce" }],
+    });
+    const { contacts } = await loadCohortAudience(["b1"]);
+    const orOp = db.state.ops.find((o) => o.table === "email_metrics")!;
+    const expr = orOp.filters.find(([k]) => k === "or")![2];
+    expect(expr).toBe('user_email.ilike."a@x.com",user_email.ilike."b@x.com"');
+    expect(contacts.find((c) => c.id === "a")!.emailSuppressed).toBe(true);
+    expect(contacts.find((c) => c.id === "b")!.emailSuppressed).toBe(false);
   });
 
   it("returns no names when none of the ids exist", async () => {
