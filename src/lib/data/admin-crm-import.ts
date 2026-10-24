@@ -51,6 +51,7 @@ export async function listImportBatches(): Promise<ImportBatchOption[]> {
   const { data } = await admin
     .from("import_batches")
     .select("id, sheet_name, tab_name, rows_imported, created_at")
+    .neq("kind", "closed_interested")
     .order("created_at", { ascending: false });
 
   return (data ?? []).map((b) => ({
