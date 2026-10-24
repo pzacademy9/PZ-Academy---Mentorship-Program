@@ -132,7 +132,8 @@ function csvField(value: string): string {
 export function toPlainCsv(rows: PlainRow[]): string {
   const lines = rows.map((r) =>
     [
-      csvField(r.email),
+      // A changed address would never match in Meta, so blank it instead of stripping.
+      csvField(/^[=@+\-\t\r]/.test(r.email) ? "" : r.email),
       csvField(r.phone),
       csvField(safeName(r.fn)),
       csvField(safeName(r.ln)),

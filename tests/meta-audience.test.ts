@@ -260,6 +260,22 @@ describe("toPlainCsv", () => {
     expect(csv).not.toMatch(/,[=@]/);
   });
 
+  it("blanks emails that start with a formula character, keeps normal ones", () => {
+    const csv = toPlainCsv([
+      row({ email: '=HYPERLINK("http://e.x","x")@a.co' }),
+      row({ email: "+x@a.co" }),
+      row({ email: "-x@a.co" }),
+      row({ email: "@x@a.co" }),
+      row({ email: "ok@a.co" }),
+    ]);
+    const lines = csv.split("\n");
+    expect(lines[1]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[2]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[3]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[4]).toBe(",+923001234567,Ali,Khan,PK");
+    expect(lines[5]).toBe("ok@a.co,+923001234567,Ali,Khan,PK");
+  });
+
   it("never touches the leading plus of a phone", () => {
     expect(toPlainCsv([row()])).toContain(",+923001234567,");
   });
