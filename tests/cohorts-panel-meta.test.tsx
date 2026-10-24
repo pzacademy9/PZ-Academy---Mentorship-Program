@@ -1,12 +1,12 @@
 // tests/cohorts-panel-meta.test.tsx
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { CohortsPanel } from "@/components/admin/crm/CohortsPanel";
 import type { CohortRow } from "@/lib/data/admin-crm-import";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn() }));
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => async () => true }));
 
 const cohort = (over: Partial<CohortRow> = {}): CohortRow => ({
   id: "c1", sheetName: "DIT Batch 1", tabName: "Tab A", rowsImported: 10, createdAt: "2026-10-01T10:00:00Z",
@@ -64,5 +64,29 @@ describe("cohorts panel: download for Meta", () => {
     fireEvent.click(last);
     expect(within(toolbar()).getByRole("link", { name: /\(20\)/ })).toBeTruthy();
     expect(screen.getByText(/most 20/)).toBeTruthy();
+  });
+
+  it("deleting a ticked cohort drops it from the selection", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+    const t = view([cohort({ id: "a", sheetName: "One" }), cohort({ id: "b", sheetName: "Two" })]);
+    fireEvent.click(t.getByLabelText("Select One, Tab A"));
+    fireEvent.click(t.getByLabelText("Select Two, Tab A"));
+    fireEvent.click(t.getAllByRole("button", { name: "delete" })[0]);
+    await waitFor(() => expect(within(toolbar()).getByRole("link", { name: /\(1\)/ })).toBeTruthy());
+    expect(within(toolbar()).getByRole("link", { name: /\(1\)/ }).getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=b");
+    vi.unstubAllGlobals();
+  });
+
+  it("hidden-by-search ticks are not counted, and return when search clears", () => {
+    const t = view([cohort({ id: "a", sheetName: "Alpha" }), cohort({ id: "b", sheetName: "Beta" })]);
+    fireEvent.click(t.getByLabelText("Select Alpha, Tab A"));
+    fireEvent.click(t.getByLabelText("Select Beta, Tab A"));
+    const search = screen.getByPlaceholderText(/Search by sheet/);
+    fireEvent.change(search, { target: { value: "alpha" } });
+    const link = within(toolbar()).getByRole("link", { name: /\(1\)/ });
+    expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a");
+    fireEvent.change(search, { target: { value: "" } });
+    const back = within(toolbar()).getByRole("link", { name: /\(2\)/ });
+    expect(back.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b");
   });
 });

@@ -53,10 +53,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
   const [cohorts, setCohorts] = useState(initialCohorts);
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const atLimit = selected.length >= MAX_SELECTED;
-  const toggle = (id: string) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= MAX_SELECTED ? prev : [...prev, id]));
+  const [ticked, setTicked] = useState<string[]>([]);
   const checkLabel = (c: Cohort) => `Select ${c.sheetName}, ${c.tabName}`;
   const filtered =
     search.trim() === ""
@@ -65,6 +62,17 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
           const q = search.trim().toLowerCase();
           return c.sheetName.toLowerCase().includes(q) || c.tabName.toLowerCase().includes(q);
         });
+
+  // Only ticks on cohorts that are still visible count: deleted or search-hidden rows drop out.
+  const visibleIds = new Set(filtered.map((c) => c.id));
+  const selected = ticked.filter((id) => visibleIds.has(id));
+  const atLimit = selected.length >= MAX_SELECTED;
+  const toggle = (id: string) =>
+    setTicked((prev) => {
+      const live = prev.filter((x) => visibleIds.has(x));
+      if (live.includes(id)) return prev.filter((x) => x !== id);
+      return live.length >= MAX_SELECTED ? prev : [...prev, id];
+    });
 
   const { run: remove, pending: removing, pendingKey: busyId } = useAsyncAction(async (c: Cohort) => {
     const warning = c.purchaseCount > 0
