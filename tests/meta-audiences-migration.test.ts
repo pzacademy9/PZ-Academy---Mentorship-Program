@@ -38,6 +38,12 @@ it("processes paid rows first so consent_basis does not depend on row order", ()
   expect(sql).toMatch(/order by \(value ->> 'bucket'\) = 'paid' desc/i);
 });
 
+it("upgrades (never downgrades) consent_basis when a paid row merges into an existing contact", () => {
+  expect(sql).toContain(
+    "consent_basis = case when v_bucket = 'paid' then 'purchase'::public.crm_consent_basis else consent_basis end",
+  );
+});
+
 it("serialises per page and skips rows with no identity", () => {
   expect(sql).toContain("perform pg_advisory_xact_lock(hashtext('landing:' || p_page_id::text))");
   expect(sql).toMatch(/if v_email is null and v_phone is null then\s+continue;/i);

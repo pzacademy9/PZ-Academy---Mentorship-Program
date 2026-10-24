@@ -204,7 +204,10 @@ begin
                                when discovery_source = 'unknown'
                                then coalesce((v_contact ->> 'discoverySource')::public.crm_discovery_source, 'unknown')
                                else discovery_source
-                             end
+                             end,
+          -- Upgrade only: an enquiry who later pays becomes 'purchase' (so email
+          -- broadcasts stay sendable); never downgrade an existing basis.
+          consent_basis = case when v_bucket = 'paid' then 'purchase'::public.crm_consent_basis else consent_basis end
         where id = v_contact_id;
       exception when unique_violation then
         -- Split-identity duplicate (see migration 0053): leave the matched
