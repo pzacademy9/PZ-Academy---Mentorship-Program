@@ -10,7 +10,9 @@ export default async function CertificatesPage() {
   return (
     <div className="space-y-6">
       <h1 className="font-montserrat font-bold text-2xl text-pz-forest">Certificates</h1>
-      {result.state === "unavailable" ? (
+      {result.state === "unverified" ? (
+        <p className="text-pz-muted text-sm">Confirm your email address to see your certificates.</p>
+      ) : result.state === "unavailable" ? (
         <ErrorState message="We could not load your certificates. Try again in a minute." />
       ) : (
         <CertificateGroups
