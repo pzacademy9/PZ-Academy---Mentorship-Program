@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { CertSourceError, getCertsByEmail } from "@/lib/certs/cert-source";
 import { isIssuedForStudent, normEmail, type CertRecord } from "@/lib/certs/cert-model";
 import { countFinishedCourses } from "@/lib/students/student-metrics";
@@ -69,8 +70,12 @@ export async function getMyCertificates(): Promise<MyCertificates> {
 
   let finished = 0;
   if (courseIds.length > 0) {
+    // Course structure is read with the admin client: RLS only shows a Live student the lessons
+    // opened so far, which would make a part-finished course look finished. Server-only module;
+    // enrollments and progress stay scoped to the signed-in user.
+    const admin = createAdminSupabase();
     const modules = await fetchAll<{ id: string; course_id: string }>((from, to) =>
-      supabase.from("modules").select("id, course_id").in("course_id", courseIds).order("id").range(from, to),
+      admin.from("modules").select("id, course_id").in("course_id", courseIds).order("id").range(from, to),
     );
     if (!modules) return { state: "unavailable" };
     const moduleCourse = new Map(modules.map((m) => [m.id, m.course_id]));
@@ -79,7 +84,7 @@ export async function getMyCertificates(): Promise<MyCertificates> {
     const lessons: { id: string; module_id: string }[] = [];
     for (const ids of chunk(moduleIds, CHUNK)) {
       const part = await fetchAll<{ id: string; module_id: string }>((from, to) =>
-        supabase.from("lessons").select("id, module_id").in("module_id", ids).order("id").range(from, to),
+        admin.from("lessons").select("id, module_id").in("module_id", ids).order("id").range(from, to),
       );
       if (!part) return { state: "unavailable" };
       lessons.push(...part);

@@ -176,6 +176,22 @@ describe("listStudents", () => {
     expect(b.certificate).toBe("none");
   });
 
+  it("filters payment-pending to include reserved enrollments", async () => {
+    h.tables.enrollments.push(enr("e7", M_ID, "c1", "reserved"));
+    const r = await listStudents({ filter: "payment-pending" });
+    expect(r.rows.map((x) => x.id).sort()).toEqual([B_ID, M_ID]);
+  });
+
+  it("chip counts issued General certs only; Official-only without finished courses is none", async () => {
+    h.certs = [cert("o1", "bilal@x.com", "sent", "Official")];
+    const b = (await listStudents({})).rows.find((x) => x.id === B_ID)!;
+    expect(b.certificate).toBe("none");
+    // Ayesha finished 1 course, has only an Official cert: still pending.
+    h.certs = [cert("o2", "ayesha@x.com", "sent", "Official")];
+    const a = (await listStudents({})).rows.find((x) => x.id === A_ID)!;
+    expect(a.certificate).toBe("pending");
+  });
+
   it("clamps the page", async () => {
     const r = await listStudents({ page: 99 });
     expect(r.page).toBe(1);
@@ -305,13 +321,20 @@ describe("getStudentRecord", () => {
     await expect(getStudentRecord(A_ID)).rejects.toThrow("Could not load this student. Please try again.");
   });
 
-  it("marks certs unavailable when the student has no resolved email", async () => {
+  it("marks certs no-email (not unavailable) when the student has no resolved email", async () => {
     h.emails = { ...h.emails, [A_ID]: "" };
     h.certs = [cert("k1", "")];
     const r = (await getStudentRecord(A_ID))!;
     expect(r.profile.email).toBeNull();
-    expect(r.certs).toEqual({ state: "unavailable" });
+    expect(r.certs).toEqual({ state: "no-email" });
     expect(r.tiles.certificate).toBe("unknown");
+    expect(r.attention.find((x) => x.key === "certs-pending")).toBeUndefined();
+  });
+
+  it("keys payment attention by enrollment id and includes reserved", async () => {
+    h.tables.enrollments.push(enr("e8", B_ID, "c1", "reserved"));
+    const r = (await getStudentRecord(B_ID))!;
+    expect(r.attention.map((x) => x.key).sort()).toEqual(["pending:e2", "pending:e8"]);
   });
 
   it("reports certs unavailable while the rest is populated", async () => {

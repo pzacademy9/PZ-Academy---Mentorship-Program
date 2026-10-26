@@ -34,21 +34,21 @@ export function averageRating(stars: (number | null)[]): number | null {
 export type AttentionItem = { key: string; title: string; detail: string };
 
 export function needsAttention(input: {
-  enrollments: { courseTitle: string; status: string }[];
+  enrollments: { id?: string; courseTitle: string; status: string }[];
   finishedCourses: number;
   issuedGeneralCerts: number;
 }): AttentionItem[] {
   const items: AttentionItem[] = [];
   for (const e of input.enrollments) {
-    if (e.status === "pending") {
+    if (e.status === "pending" || e.status === "reserved") {
       items.push({
-        key: `pending:${e.courseTitle}`,
+        key: `pending:${e.id ?? e.courseTitle}`,
         title: `Payment pending for ${e.courseTitle}`,
         detail: "Waiting for the payment to be checked.",
       });
     } else if (e.status === "rejected") {
       items.push({
-        key: `rejected:${e.courseTitle}`,
+        key: `rejected:${e.id ?? e.courseTitle}`,
         title: `Payment rejected for ${e.courseTitle}`,
         detail: "The payment was not accepted.",
       });

@@ -98,7 +98,10 @@ export type StudentRecordData = {
   attendance: StudentAttendanceRow[];
   feedback: StudentFeedbackRow[];
   mentorship: StudentMentorshipRow[];
-  certs: { state: "ok"; certs: CertRecord[]; pendingCount: number } | { state: "unavailable" };
+  certs:
+    | { state: "ok"; certs: CertRecord[]; pendingCount: number }
+    | { state: "unavailable" }
+    | { state: "no-email" };
   recentActivity: StudentActivityItem[];
   attention: AttentionItem[];
 };
@@ -316,7 +319,8 @@ async function loadCertIndex(): Promise<CertIndex> {
 function certInfo(certs: CertRecord[], finished: number) {
   const issued = certs.filter(isIssuedForStudent);
   const issuedGeneral = issued.filter((c) => c.category === "General").length;
-  const chip: CertChip = issued.length > 0 ? "issued" : finished > issuedGeneral ? "pending" : "none";
+  // Only General certificates answer for finished courses; Official ones never count here.
+  const chip: CertChip = finished > issuedGeneral ? "pending" : issuedGeneral > 0 ? "issued" : "none";
   return { issued, issuedGeneral, chip, pendingCount: Math.max(0, finished - issuedGeneral) };
 }
 
@@ -374,7 +378,7 @@ async function loadStudents(q: {
   if (filter === "active") {
     matched = matched.filter((p) => (enrollByStudent.get(p.id) ?? []).some((e) => e.status === "active"));
   } else if (filter === "payment-pending") {
-    matched = matched.filter((p) => (enrollByStudent.get(p.id) ?? []).some((e) => e.status === "pending"));
+    matched = matched.filter((p) => (enrollByStudent.get(p.id) ?? []).some((e) => e.status === "pending" || e.status === "reserved"));
   }
 
   let progress = new Map<string, Progress>();
@@ -554,7 +558,7 @@ async function loadRecord(id: string): Promise<StudentRecordData | null> {
 
   // Certificates: admins see every status; unavailable when the source is down.
   const certIndex = await loadCertIndex();
-  let certs: StudentRecordData["certs"] = { state: "unavailable" };
+  let certs: StudentRecordData["certs"] = email ? { state: "unavailable" } : { state: "no-email" };
   let chip: CertChip = "unknown";
   let issuedGeneral = prog.finished; // when unknown, assume none pending so no false alert
   let issued: CertRecord[] = [];
@@ -621,7 +625,7 @@ async function loadRecord(id: string): Promise<StudentRecordData | null> {
     certs,
     recentActivity: activity.slice(0, 8).map(({ at, text }) => ({ at, text })),
     attention: needsAttention({
-      enrollments: enrollments.map((e) => ({ courseTitle: e.courseTitle, status: e.status })),
+      enrollments: enrollments.map((e) => ({ id: e.id, courseTitle: e.courseTitle, status: e.status })),
       finishedCourses: prog.finished,
       issuedGeneralCerts: issuedGeneral,
     }),

@@ -154,6 +154,15 @@ describe("StudentRecord", () => {
     expect(screen.getByText("No certificates found for this email.")).toBeTruthy();
   });
 
+  it("no-email certs: distinct message in the certificates tab", () => {
+    const d = data({ certs: { state: "no-email" }, tiles: { ...data().tiles, certificate: "unknown" } });
+    show(d, "certificates");
+    expect(
+      screen.getByText("This student has no email address on their account, so certificates cannot be matched."),
+    ).toBeTruthy();
+    expect(screen.queryByText("We could not reach the Certificates app. Try again in a minute.")).toBeNull();
+  });
+
   it("unavailable certs: error only in certificates tab, overview still renders", () => {
     const d = data({ certs: { state: "unavailable" }, tiles: { ...data().tiles, certificate: "unknown" } });
     const { unmount } = show(d, "certificates");

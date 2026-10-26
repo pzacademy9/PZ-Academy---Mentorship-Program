@@ -4,6 +4,8 @@ vi.mock("server-only", () => ({}));
 
 type Row = Record<string, unknown>;
 const h = vi.hoisted(() => ({
+  adminTables: null as Record<string, Record<string, unknown>[]> | null,
+  adminCalls: [] as string[],
   user: null as { id: string; email: string | null; email_confirmed_at: string | null } | null,
   tables: {} as Record<string, Record<string, unknown>[]>,
   errors: {} as Record<string, boolean>,
@@ -13,7 +15,7 @@ const h = vi.hoisted(() => ({
   certCalls: 0,
 }));
 
-function chain(table: string) {
+function chain(table: string, source: "user" | "admin" = "user") {
   const f: { col: string; val: unknown; op: string }[] = [];
   let range: [number, number] = [0, 999];
   const c: Record<string, unknown> = {};
@@ -34,8 +36,10 @@ function chain(table: string) {
     return c;
   };
   c.then = (res: (v: unknown) => unknown) => {
+    if (source === "admin") h.adminCalls.push(table);
+    const store = source === "admin" && h.adminTables ? h.adminTables : h.tables;
     if (h.errors[table]) return res({ data: null, error: { message: "x" } });
-    const rows = (h.tables[table] ?? []).filter((r: Row) =>
+    const rows = (store[table] ?? []).filter((r: Row) =>
       f.every((x) => (x.op === "eq" ? r[x.col] === x.val : (x.val as unknown[]).includes(r[x.col]))),
     );
     return res({ data: rows.slice(range[0], range[1] + 1), error: null });
@@ -47,6 +51,9 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: { getUser: async () => ({ data: { user: h.user } }) },
     from: (t: string) => chain(t),
   }),
+}));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminSupabase: () => ({ from: (t: string) => chain(t, "admin") }),
 }));
 vi.mock("@/lib/certs/cert-source", async () => {
   class CertSourceError extends Error {}
@@ -75,6 +82,8 @@ beforeEach(() => {
   h.user = { id: "stu-1", email: "Stu@Example.com", email_confirmed_at: "2026-01-01T00:00:00Z" };
   h.errors = {};
   h.calls = [];
+  h.adminTables = null;
+  h.adminCalls = [];
   h.certCalls = 0;
   h.certError = false;
   h.certs = [];
@@ -167,6 +176,24 @@ describe("getMyCertificates", () => {
   it.each(["enrollments", "modules", "lessons", "lesson_progress"])("%s query error => unavailable", async (t) => {
     h.errors[t] = true;
     expect(await getMyCertificates()).toEqual({ state: "unavailable" });
+  });
+
+  it("reads modules and lessons with the admin client so RLS-hidden lessons still count", async () => {
+    h.tables.enrollments = [{ id: "e1", course_id: "c1", student_id: "stu-1", status: "active" }];
+    // The user-scoped client only sees the one unlocked lesson (RLS); the admin client sees both.
+    h.tables.modules = [{ id: "m1", course_id: "c1" }];
+    h.tables.lessons = [{ id: "l1", module_id: "m1" }];
+    h.adminTables = {
+      modules: [{ id: "m1", course_id: "c1" }, { id: "m2", course_id: "c1" }],
+      lessons: [{ id: "l1", module_id: "m1" }, { id: "l2", module_id: "m2" }],
+    };
+    h.tables.lesson_progress = [{ id: "p1", lesson_id: "l1", student_id: "stu-1", status: "completed" }];
+    expect(await getMyCertificates()).toMatchObject({ state: "ok", pendingCount: 0 });
+    expect(h.adminCalls).toEqual(expect.arrayContaining(["modules", "lessons"]));
+    expect(h.adminCalls).not.toContain("enrollments");
+    expect(h.adminCalls).not.toContain("lesson_progress");
+    h.tables.lesson_progress.push({ id: "p2", lesson_id: "l2", student_id: "stu-1", status: "completed" });
+    expect(await getMyCertificates()).toMatchObject({ pendingCount: 1 });
   });
 
   it("pages past 1000 rows without truncating", async () => {

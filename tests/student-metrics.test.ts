@@ -62,6 +62,27 @@ describe("needsAttention", () => {
       needsAttention({ enrollments: [{ courseTitle: "X", status: "paid" }], finishedCourses: 1, issuedGeneralCerts: 2 }),
     ).toEqual([]);
   });
+  it("treats reserved like pending", () => {
+    const items = needsAttention({
+      enrollments: [{ courseTitle: "DIT", status: "reserved" }],
+      finishedCourses: 0,
+      issuedGeneralCerts: 0,
+    });
+    expect(items.map((i) => i.key)).toEqual(["pending:DIT"]);
+    expect(items[0].title).toBe("Payment pending for DIT");
+  });
+  it("keys by enrollment id when given, so duplicate titles do not collide", () => {
+    const items = needsAttention({
+      enrollments: [
+        { id: "e1", courseTitle: "DIT", status: "pending" },
+        { id: "e2", courseTitle: "DIT", status: "reserved" },
+        { id: "e3", courseTitle: "DIT", status: "rejected" },
+      ],
+      finishedCourses: 0,
+      issuedGeneralCerts: 0,
+    });
+    expect(items.map((i) => i.key)).toEqual(["pending:e1", "pending:e2", "rejected:e3"]);
+  });
   it("flags pending, rejected and missing certificates", () => {
     const items = needsAttention({
       enrollments: [

@@ -51,8 +51,18 @@ function httpsUrl(v: unknown): string {
 }
 
 function toCategory(v: unknown): CertCategory | "Other" {
+  const s = str(v).toLowerCase();
+  if (s === "general") return "General";
+  if (s === "official") return "Official";
+  return "Other";
+}
+
+// Match a stored sub-category to its canonical spelling, ignoring case; unknown text is kept as is.
+function toSubCategory(category: CertCategory | "Other", v: unknown): string {
   const s = str(v);
-  return s === "General" || s === "Official" ? s : "Other";
+  if (category === "Other") return s;
+  const hit = CATEGORY_SUBCATS[category].find((k) => k.toLowerCase() === s.toLowerCase());
+  return hit ?? s;
 }
 
 export function normEmail(v: string | null | undefined): string {
@@ -68,18 +78,19 @@ export function mapCert(
   const batchId = str(raw.databaseId);
   const batch = batches.get(batchId);
   const topic = str(raw.topic);
-  const rawStatus = str(raw.status);
+  const rawStatus = str(raw.status).toLowerCase();
   const status = (STATUSES as readonly string[]).includes(rawStatus)
     ? (rawStatus as CertStatus)
     : "pending";
+  const category = toCategory(raw.category);
   const issue = raw.issueDate;
   return {
     id,
     certId,
     name: str(raw.recipientName),
     email: str(raw.recipientEmail),
-    category: toCategory(raw.category),
-    subCategory: str(raw.subCategory),
+    category,
+    subCategory: toSubCategory(category, raw.subCategory),
     topic,
     batchId,
     batchName: batch?.name || topic,

@@ -92,6 +92,23 @@ describe("mapCert", () => {
   });
 });
 
+describe("mapCert case-insensitive normalisation", () => {
+  it("canonicalises category, status and sub-category case", () => {
+    const c = mapCert("d1", raw({ category: " general ", status: "Sent", subCategory: "workshops" }), batches);
+    expect(c.category).toBe("General");
+    expect(c.status).toBe("sent");
+    expect(c.subCategory).toBe("Workshops");
+    const o = mapCert("d2", raw({ category: "OFFICIAL", status: "REVOKED", subCategory: "central team" }), batches);
+    expect(o.category).toBe("Official");
+    expect(o.status).toBe("revoked");
+    expect(o.subCategory).toBe("Central Team");
+  });
+  it("keeps an unknown sub-category as written", () => {
+    const c = mapCert("d1", raw({ category: "general", subCategory: "Seminars" }), batches);
+    expect(c.subCategory).toBe("Seminars");
+  });
+});
+
 describe("normEmail", () => {
   it("trims and lowercases", () => {
     expect(normEmail("  Ayesha@X.COM ")).toBe("ayesha@x.com");

@@ -2,7 +2,7 @@
 
 This lets the PZ Academy site show certificates from the Certificates app (cert.pharmacozyme.com). You do this once. It takes about 15 minutes.
 
-You will make a new, read-only key. It can only look at certificates. It cannot change anything.
+You will make a new, read-only key. It can read the Certificates app's database. It cannot change anything.
 
 > **Warning.** Never use the full-power key in the "Firebase Service key" folder for this. Never paste any key into a chat, an email, a document, or GitHub. Never commit it. Only the steps below are safe.
 
@@ -25,6 +25,8 @@ You will make a new, read-only key. It can only look at certificates. It cannot 
    ```
    CERT_FIREBASE_SERVICE_ACCOUNT_JSON=paste-the-long-text-here
    ```
+
+   After you save the file, restart the local site so it picks up the change.
 8. Add it to the live site. In Vercel, open the project, go to **Settings**, then **Environment Variables**. Add a variable named `CERT_FIREBASE_SERVICE_ACCOUNT_JSON` with the same long text. Tick **Production** and **Preview**. Save.
 9. Redeploy so it takes effect. In Vercel, go to **Deployments**, open the latest one, and choose **Redeploy**.
 10. Delete the downloaded JSON file from your computer, and empty the Recycle Bin. You no longer need it.
@@ -39,12 +41,14 @@ If it is not connected, you will see this message instead:
 
 `We could not reach the Certificates app. Try again in a minute.`
 
-If you see it, check that the variable name is spelled exactly right, that you redeployed after adding it, and that the pasted text is one unbroken line.
+If Google will not let you create a key in step 5, an organisation policy is blocking key creation. Ask whoever manages the Google organisation to allow it for this project.
+
+If you see the message above, check that the variable name is spelled exactly right, that you redeployed after adding it, and that the pasted text is one unbroken line.
 
 Students see their certificates only after they have confirmed their email.
 
 ## What this connection can and cannot do
 
-- It is **read-only**. It can look at certificates.
+- It is **read-only**. It can read the Certificates app's database.
 - It **cannot change or delete** certificates.
 - Certificates are still made only in the Certificates app, as before.

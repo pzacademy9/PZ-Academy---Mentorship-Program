@@ -12,6 +12,16 @@ export function Certificates({ certs }: { certs: StudentRecordData["certs"] }) {
       </div>
     );
   }
+  if (certs.state === "no-email") {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 font-body text-sm text-pz-on-surface"
+      >
+        This student has no email address on their account, so certificates cannot be matched.
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <h2 className="font-headline text-xl font-bold text-pz-on-surface">Certificates</h2>
