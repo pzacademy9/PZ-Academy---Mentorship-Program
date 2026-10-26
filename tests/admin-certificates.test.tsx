@@ -155,6 +155,11 @@ describe("AdminCertificates", () => {
     expect(screen.getByText("No certificates found.")).toBeTruthy();
   });
 
+  it("an unknown batch shows No certificates found. without throwing", () => {
+    render(<AdminCertificates {...base({ rows: [], total: 0, pageCount: 1, batch: "gone", q: undefined })} />);
+    expect(screen.getByText("No certificates found.")).toBeTruthy();
+  });
+
   it("shows the unavailable state with a Try again link", () => {
     render(<AdminCertificates {...base({ unavailable: true })} />);
     expect(screen.getByText("We could not reach the Certificates app. Try again in a minute.")).toBeTruthy();

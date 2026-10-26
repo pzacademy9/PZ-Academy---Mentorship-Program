@@ -47,7 +47,7 @@ function ms(s: string): number {
   return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
 }
 
-// "<Sub-category> • <topic>", leaving out whichever part is missing.
+// "<Sub-category> - <topic>", leaving out whichever part is missing.
 export function certMetaLine(c: { subCategory: string; topic: string }): string {
   return [c.subCategory, c.topic].filter(Boolean).join(" â€¢ ");
 }
@@ -67,7 +67,7 @@ export function CertificateGroups({
   const list = [...certs].sort((a, b) => {
     const da = ms(a.issueDate);
     const db = ms(b.issueDate);
-    return da === db ? 0 : da > db ? -1 : 1;
+    return da === db ? a.certId.localeCompare(b.certId) : da > db ? -1 : 1;
   });
 
   return (

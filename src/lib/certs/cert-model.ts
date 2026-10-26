@@ -122,40 +122,14 @@ function dateMs(s: string): number {
 function byNewest(a: CertRecord, b: CertRecord): number {
   const da = dateMs(a.issueDate);
   const db = dateMs(b.issueDate);
-  if (da === db) return 0;
-  return da > db ? -1 : 1;
-}
-
-export function groupCerts(
-  certs: CertRecord[],
-): { category: CertCategory | "Other"; groups: { subCategory: string; certs: CertRecord[] }[] }[] {
-  const order: (CertCategory | "Other")[] = ["General", "Official", "Other"];
-  const out: {
-    category: CertCategory | "Other";
-    groups: { subCategory: string; certs: CertRecord[] }[];
-  }[] = [];
-  for (const category of order) {
-    const inCat = certs.filter((c) => c.category === category);
-    if (inCat.length === 0) continue;
-    const known: readonly string[] = category === "Other" ? [] : CATEGORY_SUBCATS[category];
-    const subs = [...known];
-    for (const c of inCat) if (!subs.includes(c.subCategory)) subs.push(c.subCategory);
-    const groups = subs
-      .map((subCategory) => ({
-        subCategory,
-        certs: inCat.filter((c) => c.subCategory === subCategory).sort(byNewest),
-      }))
-      .filter((g) => g.certs.length > 0);
-    out.push({ category, groups });
-  }
-  return out;
+  if (da !== db) return da > db ? -1 : 1;
+  return a.certId.localeCompare(b.certId);
 }
 
 export type CertQuery = {
   category?: CertCategory;
   subCategory?: string;
   batchId?: string;
-  status?: CertStatus;
   search?: string;
   page?: number;
   pageSize?: number;
@@ -172,35 +146,31 @@ export function queryCerts(
   counts: {
     byCategory: Record<string, number>;
     bySubCategory: Record<string, number>;
-    byStatus: Record<string, number>;
   };
 } {
   const needle = (q.search ?? "").trim().toLowerCase();
-  const matches = (c: CertRecord, skip?: "category" | "subCategory" | "status"): boolean => {
-    if (skip !== "category" && q.category && c.category !== q.category) return false;
-    if (skip !== "subCategory" && q.subCategory && c.subCategory !== q.subCategory) return false;
+  const matches = (c: CertRecord): boolean => {
+    if (q.category && c.category !== q.category) return false;
+    if (q.subCategory && c.subCategory !== q.subCategory) return false;
     if (q.batchId && c.batchId !== q.batchId) return false;
-    if (skip !== "status" && q.status && c.status !== q.status) return false;
     if (needle) {
-      const hay = `${c.name}\n${c.email}\n${c.certId}`.toLowerCase();
+      const hay = `${c.name}
+${c.email}
+${c.certId}`.toLowerCase();
       if (!hay.includes(needle)) return false;
     }
     return true;
   };
 
-  const tally = (key: (c: CertRecord) => string, skip: "category" | "subCategory" | "status") => {
-    const out: Record<string, number> = {};
-    for (const c of all) {
-      if (!matches(c, skip)) continue;
-      const k = key(c);
-      out[k] = (out[k] ?? 0) + 1;
+  // Counts describe what each tab and chip holds, so they ignore the open batch, the search and the sub-category.
+  const byCategory: Record<string, number> = { General: 0, Official: 0 };
+  const bySubCategory: Record<string, number> = {};
+  for (const c of all) {
+    byCategory[c.category] = (byCategory[c.category] ?? 0) + 1;
+    if (!q.category || c.category === q.category) {
+      bySubCategory[c.subCategory] = (bySubCategory[c.subCategory] ?? 0) + 1;
     }
-    return out;
-  };
-
-  const byCategory = tally((c) => c.category, "category");
-  // Always show both real categories, even at zero.
-  for (const k of ["General", "Official"]) byCategory[k] ??= 0;
+  }
 
   const filtered = all.filter((c) => matches(c)).sort(byNewest);
   const total = filtered.length;
@@ -216,8 +186,7 @@ export function queryCerts(
     pageCount,
     counts: {
       byCategory,
-      bySubCategory: tally((c) => c.subCategory, "subCategory"),
-      byStatus: tally((c) => c.status, "status"),
+      bySubCategory,
     },
   };
 }

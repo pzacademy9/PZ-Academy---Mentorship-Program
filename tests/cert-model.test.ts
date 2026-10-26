@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   batchesFor,
-  groupCerts,
   isIssuedForStudent,
   mapCert,
   normEmail,
@@ -149,24 +148,6 @@ describe("isIssuedForStudent", () => {
   });
 });
 
-describe("groupCerts", () => {
-  it("orders categories and sub-categories, omits empties, newest first", () => {
-    const certs = [
-      rec({ id: "1", category: "Other", subCategory: "Misc" }),
-      rec({ id: "2", category: "Official", subCategory: "Mentors" }),
-      rec({ id: "3", category: "General", subCategory: "Webinars", issueDate: "2026-01-01" }),
-      rec({ id: "4", category: "General", subCategory: "Courses", issueDate: "2026-01-01" }),
-      rec({ id: "5", category: "General", subCategory: "Courses", issueDate: "2026-05-01" }),
-      rec({ id: "6", category: "General", subCategory: "Zzz Unknown" }),
-    ];
-    const g = groupCerts(certs);
-    expect(g.map((x) => x.category)).toEqual(["General", "Official", "Other"]);
-    expect(g[0].groups.map((x) => x.subCategory)).toEqual(["Courses", "Webinars", "Zzz Unknown"]);
-    expect(g[0].groups[0].certs.map((c) => c.id)).toEqual(["5", "4"]);
-    expect(groupCerts([])).toEqual([]);
-  });
-});
-
 describe("queryCerts", () => {
   const all = [
     rec({ id: "1", name: "Fatima Noor", email: "fatima@gmail.com", certId: "PZ-2026-F001", status: "generated" }),
@@ -174,10 +155,6 @@ describe("queryCerts", () => {
     rec({ id: "3", name: "Sara", email: "sara@x.com", certId: "PZ-2026-S003", status: "sent", issueDate: "not a date" }),
   ];
 
-  it("filters by status", () => {
-    const r = queryCerts(all, { status: "pending" });
-    expect(r.rows.map((c) => c.id)).toEqual(["2"]);
-  });
   it("searches name, partial email and certId", () => {
     expect(queryCerts(all, { search: "fatima" }).rows.map((c) => c.id)).toEqual(["1"]);
     expect(queryCerts(all, { search: "@gmail" }).rows.map((c) => c.id)).toEqual(["1"]);
@@ -207,12 +184,22 @@ describe("queryCerts", () => {
     expect(r.page).toBe(1);
     expect(r.rows).toEqual([]);
   });
-  it("computes counts ignoring the filter they describe", () => {
-    const r = queryCerts(all, { category: "Official", status: "pending" });
-    expect(r.counts.byCategory).toEqual({ General: 0, Official: 1 });
-    expect(r.counts.byStatus.generated).toBeUndefined();
-    expect(r.counts.byStatus.pending).toBe(1);
-    expect(r.counts.bySubCategory.Mentors).toBe(1);
+  it("keeps tab and chip counts real while a batch, search or sub-category is open", () => {
+    const r = queryCerts(all, { category: "General", subCategory: "Courses", batchId: "b1", search: "fatima" });
+    expect(r.rows.map((c) => c.id)).toEqual(["1"]);
+    expect(r.counts.byCategory).toEqual({ General: 2, Official: 1 });
+    expect(r.counts.bySubCategory).toEqual({ Courses: 2 });
+    const off = queryCerts(all, { category: "Official", batchId: "nope" });
+    expect(off.total).toBe(0);
+    expect(off.counts.byCategory).toEqual({ General: 2, Official: 1 });
+    expect(off.counts.bySubCategory).toEqual({ Mentors: 1 });
+  });
+  it("breaks date ties by certificate number", () => {
+    const r = queryCerts(
+      [rec({ id: "b", certId: "B", issueDate: "x" }), rec({ id: "a", certId: "A", issueDate: "y" })],
+      {},
+    );
+    expect(r.rows.map((c) => c.id)).toEqual(["a", "b"]);
   });
 });
 
