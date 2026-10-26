@@ -75,7 +75,7 @@ const DETAIL_SELECT = `
  * past a few thousand, replace this with a security-definer SQL function that
  * selects id/email from auth.users for a given uuid[].
  */
-async function resolveEmails(userIds: string[]): Promise<Map<string, string>> {
+export async function resolveEmails(userIds: string[]): Promise<Map<string, string>> {
   const wanted = new Set(userIds);
   const emails = new Map<string, string>();
   if (wanted.size === 0) return emails;
