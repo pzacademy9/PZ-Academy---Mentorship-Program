@@ -19,6 +19,8 @@ const PAGE = 1000;
 const CHUNK = 200;
 const PAGE_SIZE = 25;
 const LOAD_ERROR = "Could not load students. Please try again.";
+const RECORD_ERROR = "Could not load this student. Please try again.";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type StudentFilter = "all" | "active" | "payment-pending" | "finished";
 export type CertChip = "issued" | "pending" | "none" | "unknown";
@@ -317,6 +319,19 @@ export async function listStudents(q: {
   filter?: StudentFilter;
   page?: number;
 }): Promise<{ rows: StudentListRow[]; total: number; page: number; pageCount: number }> {
+  try {
+    return await loadStudents(q);
+  } catch {
+    // Any failure (query or strict email lookup) is the same plain message; never a wrong list.
+    throw new Error(LOAD_ERROR);
+  }
+}
+
+async function loadStudents(q: {
+  search?: string;
+  filter?: StudentFilter;
+  page?: number;
+}): Promise<{ rows: StudentListRow[]; total: number; page: number; pageCount: number }> {
   const admin = createAdminSupabase();
   const filter = q.filter ?? "all";
 
@@ -333,7 +348,7 @@ export async function listStudents(q: {
     .filter((p) => p.role === "student" || enrolledIds.has(p.id))
     .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
 
-  const emails = await resolveEmails(candidates.map((p) => p.id));
+  const emails = await resolveEmails(candidates.map((p) => p.id), { strict: true });
   const enrollByStudent = new Map<string, EnrollRaw[]>();
   for (const e of enrollments) {
     const list = enrollByStudent.get(e.student_id) ?? [];
@@ -374,16 +389,17 @@ export async function listStudents(q: {
   const visibleEnrollments = ids.flatMap((id) => enrollByStudent.get(id) ?? []);
   const titles = await fetchCourseTitles(admin, visibleEnrollments.map((e) => e.course_id));
   const attendance = await fetchAttendance(admin, ids);
-  const activeCourses = visibleEnrollments.filter((e) => e.status === "active").map((e) => e.course_id);
-  const held = await fetchHeld(admin, activeCourses);
+  // One course set for both numbers: every course the student has an enrollment row for.
+  const held = await fetchHeld(admin, visibleEnrollments.map((e) => e.course_id));
   const certIndex = await loadCertIndex();
 
   const rows: StudentListRow[] = visible.map((p) => {
     const mine = enrollByStudent.get(p.id) ?? [];
     const prog = progress.get(p.id);
     const email = emails.get(p.id) ?? null;
-    const attended = attendance.filter((a) => a.student_id === p.id).length;
-    const myActive = mine.filter((e) => e.status === "active").map((e) => e.course_id);
+    const myCourses = mine.map((e) => e.course_id);
+    const mySet = new Set(myCourses);
+    const attended = attendance.filter((a) => a.student_id === p.id && mySet.has(a.course_id)).length;
     const finished = prog?.finished ?? 0;
     return {
       id: p.id,
@@ -393,8 +409,8 @@ export async function listStudents(q: {
       joinedAt: p.created_at,
       courses: mine.map((e) => ({ title: titles.get(e.course_id) ?? "Course", status: e.status })),
       progress: progressPercent(prog?.total ?? 0, prog?.completed ?? 0),
-      attended: sessionsAttended(attended, heldCount(held, myActive)).label,
-      certificate: certIndex
+      attended: sessionsAttended(attended, heldCount(held, myCourses)).label,
+      certificate: certIndex && email
         ? certInfo(certIndex.get(normEmail(email)) ?? [], finished).chip
         : "unknown",
     };
@@ -405,17 +421,22 @@ export async function listStudents(q: {
 
 // ---------- record ----------
 
-function isFinite(n: number): boolean {
-  return Number.isFinite(n);
-}
-
 function fmtDate(s: string): string {
   const t = Date.parse(s);
-  if (!isFinite(t)) return s;
+  if (!Number.isFinite(t)) return s;
   return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
 export async function getStudentRecord(id: string): Promise<StudentRecordData | null> {
+  if (!UUID_RE.test(id)) return null;
+  try {
+    return await loadRecord(id);
+  } catch {
+    throw new Error(RECORD_ERROR);
+  }
+}
+
+async function loadRecord(id: string): Promise<StudentRecordData | null> {
   const admin = createAdminSupabase();
 
   const profiles = await fetchAll<{
@@ -440,17 +461,20 @@ export async function getStudentRecord(id: string): Promise<StudentRecordData | 
   const enrollRaw = await fetchEnrollments(admin, [id]);
   if (prof.role !== "student" && enrollRaw.length === 0) return null;
 
-  const emails = await resolveEmails([id]);
+  const emails = await resolveEmails([id], { strict: true });
   const email = emails.get(id) ?? null;
 
   const titles = await fetchCourseTitles(admin, enrollRaw.map((e) => e.course_id));
   const progressMap = await loadProgress(admin, [id], enrollRaw, titles);
   const prog = progressMap.get(id) ?? { total: 0, completed: 0, finished: 0, byCourse: [] };
-  const attendanceRaw = (await fetchAttendance(admin, [id])).sort((a, b) =>
+  const enrolledCourses = Array.from(new Set(enrollRaw.map((e) => e.course_id)));
+  const enrolledSet = new Set(enrolledCourses);
+  const attendanceRaw = (await fetchAttendance(admin, [id]))
+    .filter((a) => enrolledSet.has(a.course_id))
+    .sort((a, b) =>
     a.session_date < b.session_date ? 1 : a.session_date > b.session_date ? -1 : 0,
   );
-  const activeCourses = enrollRaw.filter((e) => e.status === "active").map((e) => e.course_id);
-  const held = await fetchHeld(admin, activeCourses);
+  const held = await fetchHeld(admin, enrolledCourses);
 
   // Feedback: by profile id, plus responses left under the student's email.
   type RespRaw = { id: string; submitted_at: string; comments: string };
@@ -462,9 +486,9 @@ export async function getStudentRecord(id: string): Promise<StudentRecordData | 
     responses.set(r.id, r);
   }
   if (email) {
-    const variants = Array.from(new Set([email, normEmail(email)]));
+    const pattern = normEmail(email).replace(/[\\%_]/g, (ch) => "\\" + ch);
     for (const r of await fetchAll<RespRaw>((from, to) =>
-      admin.from("feedback_responses").select(respCols).in("participant_email", variants).order("id").range(from, to),
+      admin.from("feedback_responses").select(respCols).ilike("participant_email", pattern).order("id").range(from, to),
     )) {
       responses.set(r.id, r);
     }
@@ -525,7 +549,7 @@ export async function getStudentRecord(id: string): Promise<StudentRecordData | 
   let chip: CertChip = "unknown";
   let issuedGeneral = prog.finished; // when unknown, assume none pending so no false alert
   let issued: CertRecord[] = [];
-  if (certIndex) {
+  if (certIndex && email) {
     const mine = certIndex.get(normEmail(email)) ?? [];
     const info = certInfo(mine, prog.finished);
     certs = { state: "ok", certs: mine, pendingCount: info.pendingCount };
@@ -554,7 +578,7 @@ export async function getStudentRecord(id: string): Promise<StudentRecordData | 
   const activity: { ms: number; at: string; text: string }[] = [];
   const push = (at: string, text: string) => {
     const ms = Date.parse(at);
-    if (isFinite(ms)) activity.push({ ms, at, text });
+    if (Number.isFinite(ms)) activity.push({ ms, at, text });
   };
   for (const e of enrollments) push(e.enrolledAt, `Enrolled in ${e.courseTitle}`);
   for (const a of attendance) push(a.markedAt || a.sessionDate, `Attended a session on ${fmtDate(a.sessionDate)}`);
@@ -575,7 +599,7 @@ export async function getStudentRecord(id: string): Promise<StudentRecordData | 
     tiles: {
       courses: enrollments.filter((e) => e.status === "active").length,
       progress: progressPercent(prog.total, prog.completed),
-      attended: sessionsAttended(attendance.length, heldCount(held, activeCourses)).label,
+      attended: sessionsAttended(attendance.length, heldCount(held, enrolledCourses)).label,
       averageFeedback,
       certificate: chip,
     },

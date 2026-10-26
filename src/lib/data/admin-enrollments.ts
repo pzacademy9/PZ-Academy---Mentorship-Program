@@ -75,24 +75,36 @@ const DETAIL_SELECT = `
  * past a few thousand, replace this with a security-definer SQL function that
  * selects id/email from auth.users for a given uuid[].
  */
-export async function resolveEmails(userIds: string[]): Promise<Map<string, string>> {
+export async function resolveEmails(
+  userIds: string[],
+  opts: { strict?: boolean } = {},
+): Promise<Map<string, string>> {
   const wanted = new Set(userIds);
   const emails = new Map<string, string>();
   if (wanted.size === 0) return emails;
 
   const admin = createAdminSupabase();
   const perPage = 1000;
+  let complete = false;
 
   for (let page = 1; page <= 10; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-    if (error || !data) break;
+    if (error || !data) {
+      if (opts.strict) throw new Error("Could not look up student emails.");
+      break;
+    }
 
     for (const user of data.users) {
       if (wanted.has(user.id) && user.email) emails.set(user.id, user.email);
     }
-    if (emails.size === wanted.size) break;
-    if (data.users.length < perPage) break;
+    if (emails.size === wanted.size || data.users.length < perPage) {
+      complete = true;
+      break;
+    }
   }
+
+  // Strict callers must never act on a sweep cut short by the 10-page cap.
+  if (opts.strict && !complete) throw new Error("Could not look up student emails.");
 
   return emails;
 }
