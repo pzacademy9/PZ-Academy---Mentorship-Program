@@ -472,13 +472,13 @@ async function loadRecord(id: string): Promise<StudentRecordData | null> {
   const attendanceRaw = (await fetchAttendance(admin, [id]))
     .filter((a) => enrolledSet.has(a.course_id))
     .sort((a, b) =>
-    a.session_date < b.session_date ? 1 : a.session_date > b.session_date ? -1 : 0,
+      a.session_date < b.session_date ? 1 : a.session_date > b.session_date ? -1 : 0,
   );
   const held = await fetchHeld(admin, enrolledCourses);
 
   // Feedback: by profile id, plus responses left under the student's email.
-  type RespRaw = { id: string; submitted_at: string; comments: string };
-  const respCols = "id, submitted_at, comments";
+  type RespRaw = { id: string; submitted_at: string; comments: string; participant_email: string | null };
+  const respCols = "id, submitted_at, comments, participant_email";
   const responses = new Map<string, RespRaw>();
   for (const r of await fetchAll<RespRaw>((from, to) =>
     admin.from("feedback_responses").select(respCols).eq("participant_profile_id", id).order("id").range(from, to),
@@ -486,11 +486,12 @@ async function loadRecord(id: string): Promise<StudentRecordData | null> {
     responses.set(r.id, r);
   }
   if (email) {
-    const pattern = normEmail(email).replace(/[\\%_]/g, (ch) => "\\" + ch);
+    const pattern = normEmail(email).replace(/[\\%_*]/g, (ch) => "\\" + ch);
     for (const r of await fetchAll<RespRaw>((from, to) =>
       admin.from("feedback_responses").select(respCols).ilike("participant_email", pattern).order("id").range(from, to),
     )) {
-      responses.set(r.id, r);
+      // Defence in depth: the pattern match is only a prefilter; keep exact matches only.
+      if (normEmail(r.participant_email) === normEmail(email)) responses.set(r.id, r);
     }
   }
   const starsByResponse = new Map<string, (number | null)[]>();

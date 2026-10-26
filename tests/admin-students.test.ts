@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   calls: [] as { table: string; op: string; col: string; val: unknown }[],
   emails: {} as Record<string, string>,
   emailsError: false,
+  overMatch: false,
+  ilikeVals: [] as string[],
   certs: [] as unknown[],
   certError: false,
 }));
@@ -35,6 +37,7 @@ function chain(table: string) {
     return c;
   };
   c.ilike = (col: string, val: string) => {
+    h.ilikeVals.push(val);
     f.push({ col, val, op: "ilike" });
     return c;
   };
@@ -49,7 +52,9 @@ function chain(table: string) {
         x.op === "eq"
           ? r[x.col] === x.val
           : x.op === "ilike"
-            ? String(r[x.col] ?? "").toLowerCase() === String(x.val).replace(/\\(.)/g, "$1").toLowerCase()
+            ? h.overMatch
+              ? true
+              : String(r[x.col] ?? "").toLowerCase() === String(x.val).replace(/\\(.)/g, "$1").toLowerCase()
             : (x.val as unknown[]).includes(r[x.col]),
       ),
     );
@@ -96,6 +101,8 @@ beforeEach(() => {
   h.calls = [];
   h.certError = false;
   h.emailsError = false;
+  h.overMatch = false;
+  h.ilikeVals = [];
   h.certs = [];
   h.emails = { [A_ID]: "ayesha@x.com", [B_ID]: "bilal@x.com", [M_ID]: "mentor@x.com", [P_ID]: "plain@x.com" };
   h.tables = {
@@ -271,6 +278,20 @@ describe("getStudentRecord", () => {
     h.tables.feedback_answers = [{ id: "z8", response_id: "f8", question_id: "q", star_value: 2 }];
     const r = (await getStudentRecord(A_ID))!;
     expect(r.feedback).toHaveLength(1);
+  });
+
+  it.each(["a*@x.com", "a%b@x.com", "a_b@x.com"])("never matches other people's feedback for %s", async (addr) => {
+    h.emails = { ...h.emails, [A_ID]: addr };
+    h.overMatch = true; // stub over-matches like a wildcard would
+    h.tables.feedback_responses = [
+      { id: "mine", participant_profile_id: null, participant_email: addr.toUpperCase(), submitted_at: "2026-05-02T00:00:00Z", comments: "" },
+      { id: "other", participant_profile_id: null, participant_email: "azzz@x.com", submitted_at: "2026-05-03T00:00:00Z", comments: "" },
+      { id: "nomail", participant_profile_id: null, participant_email: null, submitted_at: "2026-05-04T00:00:00Z", comments: "" },
+    ];
+    h.tables.feedback_answers = [];
+    const r = (await getStudentRecord(A_ID))!;
+    expect(r.feedback.map((f) => f.id)).toEqual(["mine"]);
+    expect(h.ilikeVals[0]).not.toMatch(/(^|[^\\])[*%_]/);
   });
 
   it("throws a plain error when the strict email lookup fails", async () => {
