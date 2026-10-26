@@ -20,8 +20,8 @@ const batches = new Map<string, CertBatch>([
 function raw(extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     uniqueCertId: "PZ-2026-AAAA1111",
-    name: "Ayesha Khan",
-    email: "ayesha@x.com",
+    recipientName: "Ayesha Khan",
+    recipientEmail: "ayesha@x.com",
     category: "General",
     subCategory: "Courses",
     topic: "Pharmacology",
@@ -66,6 +66,14 @@ describe("mapCert", () => {
   it("uses own topic as batchName when the batch is missing", () => {
     const c = mapCert("d1", raw({ databaseId: "nope" }), batches);
     expect(c.batchName).toBe("Pharmacology");
+  });
+  it("reads name and email from recipientName/recipientEmail", () => {
+    const c = mapCert("d9", { recipientName: "Zed", recipientEmail: "z@x.com" }, batches);
+    expect(c.name).toBe("Zed");
+    expect(c.email).toBe("z@x.com");
+    const full = mapCert("d1", raw(), batches);
+    expect(full.name).toBe("Ayesha Khan");
+    expect(full.email).toBe("ayesha@x.com");
   });
   it("maps unknown category to Other and missing status to pending", () => {
     const c = mapCert("d1", raw({ category: "Weird", status: undefined }), batches);

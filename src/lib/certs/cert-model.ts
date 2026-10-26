@@ -54,7 +54,7 @@ export function mapCert(
   raw: Record<string, unknown>,
   batches: Map<string, CertBatch>,
 ): CertRecord {
-  const certId = str(raw.uniqueCertId) || str(raw.certId) || id;
+  const certId = str(raw.uniqueCertId) || id;
   const batchId = str(raw.databaseId);
   const batch = batches.get(batchId);
   const topic = str(raw.topic);
@@ -66,8 +66,8 @@ export function mapCert(
   return {
     id,
     certId,
-    name: str(raw.name) || str(raw.studentName) || str(raw.recipientName),
-    email: str(raw.email) || str(raw.studentEmail),
+    name: str(raw.recipientName),
+    email: str(raw.recipientEmail),
     category: toCategory(raw.category),
     subCategory: str(raw.subCategory),
     topic,
