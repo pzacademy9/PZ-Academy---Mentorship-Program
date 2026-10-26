@@ -51,6 +51,7 @@ export type StudentEnrollmentRow = {
   courseTitle: string;
   status: string;
   enrolledAt: string;
+  paymentAmountPkr: number | null;
 };
 export type StudentProgressRow = {
   courseId: string;
@@ -124,10 +125,17 @@ async function fetchAll<T>(build: (from: number, to: number) => Page<T>): Promis
   }
 }
 
-type EnrollRaw = { id: string; student_id: string; course_id: string; status: string; enrolled_at: string };
+type EnrollRaw = {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: string;
+  enrolled_at: string;
+  payment_amount_pkr?: number | null;
+};
 
 async function fetchEnrollments(admin: Admin, studentIds?: string[]): Promise<EnrollRaw[]> {
-  const cols = "id, student_id, course_id, status, enrolled_at";
+  const cols = "id, student_id, course_id, status, enrolled_at, payment_amount_pkr";
   if (!studentIds) {
     return fetchAll<EnrollRaw>((from, to) => admin.from("enrollments").select(cols).order("id").range(from, to));
   }
@@ -566,6 +574,7 @@ async function loadRecord(id: string): Promise<StudentRecordData | null> {
       courseTitle: titles.get(e.course_id) ?? "Course",
       status: e.status,
       enrolledAt: e.enrolled_at,
+      paymentAmountPkr: e.payment_amount_pkr ?? null,
     }))
     .sort((a, b) => (a.enrolledAt < b.enrolledAt ? 1 : a.enrolledAt > b.enrolledAt ? -1 : 0));
 

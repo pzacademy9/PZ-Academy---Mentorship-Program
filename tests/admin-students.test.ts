@@ -89,8 +89,8 @@ import { listStudents, getStudentRecord } from "@/lib/data/admin-students";
 function profile(id: string, name: string, role = "student", created = "2026-01-01T00:00:00Z", phone: string | null = null) {
   return { id, full_name: name, phone, role, created_at: created, city: null, profession: null };
 }
-function enr(id: string, student: string, course: string, status = "active") {
-  return { id, student_id: student, course_id: course, status, enrolled_at: "2026-02-01T00:00:00Z" };
+function enr(id: string, student: string, course: string, status = "active", amount: number | null = null) {
+  return { id, student_id: student, course_id: course, status, enrolled_at: "2026-02-01T00:00:00Z", payment_amount_pkr: amount };
 }
 function cert(id: string, email: string, status = "generated", category = "General") {
   return { id, certId: id, name: "S", email, category, subCategory: "Courses", topic: "Pharma", batchId: B_ID, batchName: "B", issueDate: "2026-10-01", status, viewUrl: "" };
@@ -113,7 +113,7 @@ beforeEach(() => {
       profile(P_ID, "Plain Mentor", "mentor", "2026-01-10T00:00:00Z"),
     ],
     courses: [{ id: "c1", title: "Course One" }, { id: "c2", title: "Course Two" }],
-    enrollments: [enr("e1", A_ID, "c1"), enr("e2", B_ID, "c1", "pending"), enr("e3", M_ID, "c2")],
+    enrollments: [enr("e1", A_ID, "c1", "active", 5000), enr("e2", B_ID, "c1", "pending"), enr("e3", M_ID, "c2")],
     modules: [{ id: "m1", course_id: "c1" }, { id: "m2", course_id: "c2" }],
     lessons: [{ id: "l1", module_id: "m1" }, { id: "l2", module_id: "m1" }, { id: "l3", module_id: "m2" }],
     lesson_progress: [
@@ -247,6 +247,7 @@ describe("getStudentRecord", () => {
     expect(r.profile.email).toBe("ayesha@x.com");
     expect(r.tiles).toEqual({ courses: 1, progress: 100, attended: "1 of 2", averageFeedback: 4.5, certificate: "issued" });
     expect(r.enrollments).toHaveLength(1);
+    expect(r.enrollments[0].paymentAmountPkr).toBe(5000);
     expect(r.progressByCourse[0]).toMatchObject({ courseTitle: "Course One", totalLessons: 2, completedLessons: 2, percent: 100 });
     expect(r.attendance).toHaveLength(1);
     expect(r.feedback).toHaveLength(1);
@@ -255,6 +256,11 @@ describe("getStudentRecord", () => {
     if (r.certs.state === "ok") expect(r.certs.certs).toHaveLength(2);
     expect(r.recentActivity.length).toBeGreaterThan(0);
     expect(r.recentActivity.length).toBeLessThanOrEqual(8);
+  });
+
+  it("carries a null payment amount through", async () => {
+    const r = (await getStudentRecord(M_ID))!;
+    expect(r.enrollments[0].paymentAmountPkr).toBeNull();
   });
 
   it("falls back to participant email for feedback", async () => {

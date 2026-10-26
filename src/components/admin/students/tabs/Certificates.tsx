@@ -12,5 +12,10 @@ export function Certificates({ certs }: { certs: StudentRecordData["certs"] }) {
       </div>
     );
   }
-  return <CertificateGroups certs={certs.certs} variant="admin" emptyText="No certificates found for this email." />;
+  return (
+    <div className="space-y-4">
+      <h2 className="font-headline text-xl font-bold text-pz-on-surface">Certificates</h2>
+      <CertificateGroups certs={certs.certs} variant="admin" emptyText="No certificates found for this email." />
+    </div>
+  );
 }

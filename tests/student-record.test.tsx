@@ -30,10 +30,10 @@ const data = (over: Partial<StudentRecordData> = {}): StudentRecordData => ({
   },
   tiles: { courses: 2, progress: 40, attended: "3 of 5", averageFeedback: 4.5, certificate: "issued" },
   enrollments: [
-    { id: "e1", courseId: "c1", courseTitle: "Clinical Research", status: "active", enrolledAt: "2026-09-02T10:00:00Z" },
-    { id: "e2", courseId: "c2", courseTitle: "Pharmacovigilance", status: "pending", enrolledAt: "2026-09-03T10:00:00Z" },
-    { id: "e3", courseId: "c3", courseTitle: "Regulatory Affairs", status: "rejected", enrolledAt: "2026-09-04T10:00:00Z" },
-    { id: "e4", courseId: "c4", courseTitle: "Old Course", status: "expired", enrolledAt: "2026-09-05T10:00:00Z" },
+    { id: "e1", courseId: "c1", courseTitle: "Clinical Research", status: "active", enrolledAt: "2026-09-02T10:00:00Z", paymentAmountPkr: 25000 },
+    { id: "e2", courseId: "c2", courseTitle: "Pharmacovigilance", status: "pending", enrolledAt: "2026-09-03T10:00:00Z", paymentAmountPkr: null },
+    { id: "e3", courseId: "c3", courseTitle: "Regulatory Affairs", status: "rejected", enrolledAt: "2026-09-04T10:00:00Z", paymentAmountPkr: null },
+    { id: "e4", courseId: "c4", courseTitle: "Old Course", status: "expired", enrolledAt: "2026-09-05T10:00:00Z", paymentAmountPkr: null },
   ],
   progressByCourse: [
     { courseId: "c1", courseTitle: "Clinical Research", totalLessons: 10, completedLessons: 4, percent: 40 },
@@ -142,6 +142,7 @@ describe("StudentRecord", () => {
 
   it("certificates tab shows grouped certificates", () => {
     show(data(), "certificates");
+    expect(screen.getByRole("heading", { name: "Certificates" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "General" })).toBeTruthy();
     expect(screen.getByText("Clinical Research")).toBeTruthy();
     expect(screen.getByText("View certificate")).toBeTruthy();
@@ -173,17 +174,30 @@ describe("StudentRecord", () => {
     expect(within(row("Old Course")).getByText("Expired")).toBeTruthy();
     const link = within(row("Clinical Research")).getByRole("link", { name: "Open enrollment" });
     expect(link.getAttribute("href")).toBe("/dashboard/admin/enrollments/e1");
-    expect(screen.queryByText(/PKR|Rs/)).toBeNull();
+    expect(within(row("Clinical Research")).getByText(/PKR 25,000/)).toBeTruthy();
+    expect(within(row("Pharmacovigilance")).getByText(/—/)).toBeTruthy();
   });
 
   it("reserved enrollment maps to Pending", () => {
     show(
       data({
-        enrollments: [{ id: "e9", courseId: "c9", courseTitle: "Reserved One", status: "reserved", enrolledAt: "2026-09-02T10:00:00Z" }],
+        enrollments: [{ id: "e9", courseId: "c9", courseTitle: "Reserved One", status: "reserved", enrolledAt: "2026-09-02T10:00:00Z", paymentAmountPkr: null }],
       }),
       "courses",
     );
     expect(within(screen.getByText("Reserved One").closest("li") as HTMLElement).getByText("Pending")).toBeTruthy();
+  });
+
+  it("unrecognised statuses show a capitalised value, never a prototype member", () => {
+    const mk = (id: string, status: string) => ({ id, courseId: id, courseTitle: `C ${id}`, status, enrolledAt: "2026-09-02T10:00:00Z", paymentAmountPkr: null });
+    show(data({ enrollments: [mk("x1", "constructor"), mk("x2", "")] }), "courses");
+    expect(within(screen.getByText("C x1").closest("li") as HTMLElement).getByText("Constructor")).toBeTruthy();
+    expect(within(screen.getByText("C x2").closest("li") as HTMLElement).getByText("Unknown")).toBeTruthy();
+  });
+
+  it("mentorship session count is pluralised", () => {
+    show(data({ mentorship: [{ id: "m2", mentorName: "M", packageName: "P", status: "done", sessionsTotal: 1, createdAt: "2026-09-15T10:00:00Z" }] }), "mentorship");
+    expect(screen.getByText("1 session")).toBeTruthy();
   });
 
   it("progress tab: bars labelled by course", () => {
@@ -212,7 +226,7 @@ describe("StudentRecord", () => {
     show(data(), "mentorship");
     expect(screen.getByText("Dr Sana")).toBeTruthy();
     expect(screen.getByText("Career Pack")).toBeTruthy();
-    expect(screen.getByText("active")).toBeTruthy();
+    expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByText(/4 sessions/)).toBeTruthy();
   });
 

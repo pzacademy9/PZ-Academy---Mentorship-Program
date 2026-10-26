@@ -18,9 +18,9 @@ export function Mentorship({ rows }: { rows: StudentMentorshipRow[] }) {
           </div>
           <div className="flex flex-wrap items-center gap-3 font-body text-sm text-pz-on-surface-variant">
             <span className="rounded-full bg-pz-surface-container-high px-2.5 py-0.5 text-xs font-bold text-pz-on-surface">
-              {m.status}
+              {m.status ? m.status.charAt(0).toUpperCase() + m.status.slice(1) : "Unknown"}
             </span>
-            <span>{m.sessionsTotal === null ? "Sessions not set" : `${m.sessionsTotal} sessions`}</span>
+            <span>{m.sessionsTotal === null ? "Sessions not set" : `${m.sessionsTotal} ${m.sessionsTotal === 1 ? "session" : "sessions"}`}</span>
             <span>{formatDate(m.createdAt)}</span>
           </div>
         </li>

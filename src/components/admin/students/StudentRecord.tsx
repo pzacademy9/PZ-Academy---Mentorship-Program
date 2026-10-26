@@ -73,7 +73,7 @@ export function StudentRecord({ data, tab }: { data: StudentRecordData; tab: Tab
 
       <div className="flex flex-wrap gap-3">
         <Tile id="courses" label="Courses">{tiles.courses}</Tile>
-        <Tile id="progress" label="Progress">{tiles.progress}%</Tile>
+        <Tile id="progress" label="Progress">{Math.round(tiles.progress)}%</Tile>
         <Tile id="sessions" label="Sessions attended">{tiles.attended}</Tile>
         <Tile id="average" label="Average feedback">
           {tiles.averageFeedback === null ? "—" : Math.round(tiles.averageFeedback * 10) / 10}
