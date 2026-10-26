@@ -13,7 +13,7 @@ import {
 const batches = new Map<string, CertBatch>([
   [
     "b1",
-    { id: "b1", name: "Batch One", category: "General", subCategory: "Courses", topic: "Pharmacology" },
+    { id: "b1", name: "Batch One", category: "General", subCategory: "Courses", topic: "Pharmacology", createdAt: "2026-02-01T00:00:00.000Z" },
   ],
 ]);
 
@@ -45,6 +45,7 @@ function rec(extra: Partial<CertRecord> = {}): CertRecord {
     topic: "T",
     batchId: "b1",
     batchName: "Batch One",
+    batchCreatedAt: "2026-02-01T00:00:00.000Z",
     issueDate: "2026-01-01",
     status: "generated",
     viewUrl: "https://cert.pharmacozyme.com/verify?certId=PZ-2026-0001",
@@ -86,7 +87,7 @@ describe("mapCert", () => {
     expect(full.email).toBe("ayesha@x.com");
   });
   it("maps unknown category to Other and missing status to pending", () => {
-    const c = mapCert("d1", raw({ category: "Weird", status: undefined }), batches);
+    const c = mapCert("d1", raw({ databaseId: "none", category: "Weird", status: undefined }), batches);
     expect(c.category).toBe("Other");
     expect(c.status).toBe("pending");
   });
@@ -94,18 +95,40 @@ describe("mapCert", () => {
 
 describe("mapCert case-insensitive normalisation", () => {
   it("canonicalises category, status and sub-category case", () => {
-    const c = mapCert("d1", raw({ category: " general ", status: "Sent", subCategory: "workshops" }), batches);
+    const c = mapCert("d1", raw({ databaseId: "none", category: " general ", status: "Sent", subCategory: "workshops" }), batches);
     expect(c.category).toBe("General");
     expect(c.status).toBe("sent");
     expect(c.subCategory).toBe("Workshops");
-    const o = mapCert("d2", raw({ category: "OFFICIAL", status: "REVOKED", subCategory: "central team" }), batches);
+    const o = mapCert("d2", raw({ databaseId: "none", category: "OFFICIAL", status: "REVOKED", subCategory: "central team" }), batches);
     expect(o.category).toBe("Official");
     expect(o.status).toBe("revoked");
     expect(o.subCategory).toBe("Central Team");
   });
   it("keeps an unknown sub-category as written", () => {
-    const c = mapCert("d1", raw({ category: "general", subCategory: "Seminars" }), batches);
+    const c = mapCert("d1", raw({ databaseId: "none", category: "general", subCategory: "Seminars" }), batches);
     expect(c.subCategory).toBe("Seminars");
+  });
+});
+
+describe("mapCert database wins", () => {
+  it("takes category, sub-category and topic from the database doc", () => {
+    const b = new Map<string, CertBatch>([
+      ["b9", { id: "b9", name: "AMS Programme", category: "Official", subCategory: "mentors", topic: "AMS", createdAt: "2026-05-05" }],
+    ]);
+    const c = mapCert("d1", raw({ databaseId: "b9", category: "General", subCategory: "Courses", topic: "Old" }), b);
+    expect(c.category).toBe("Official");
+    expect(c.subCategory).toBe("Mentors");
+    expect(c.topic).toBe("AMS");
+    expect(c.batchCreatedAt).toBe("2026-05-05");
+  });
+  it("falls back to the cert's own fields when the database has none", () => {
+    const b = new Map<string, CertBatch>([
+      ["b9", { id: "b9", name: "X", category: "Other", subCategory: "", topic: "", createdAt: "" }],
+    ]);
+    const c = mapCert("d1", raw({ databaseId: "b9" }), b);
+    expect(c.category).toBe("General");
+    expect(c.subCategory).toBe("Courses");
+    expect(c.topic).toBe("Pharmacology");
   });
 });
 
@@ -196,17 +219,17 @@ describe("queryCerts", () => {
 describe("batchesFor", () => {
   it("returns batches with counts", () => {
     const all = [
-      rec({ id: "1", batchId: "b1", batchName: "Batch One", topic: "A" }),
-      rec({ id: "2", batchId: "b1", batchName: "Batch One", topic: "A" }),
-      rec({ id: "3", batchId: "b2", batchName: "Batch Two", topic: "B", subCategory: "Webinars" }),
+      rec({ id: "1", batchId: "b1", batchName: "Batch One", topic: "A", batchCreatedAt: "2026-01-01" }),
+      rec({ id: "2", batchId: "b1", batchName: "Batch One", topic: "A", batchCreatedAt: "2026-01-01" }),
+      rec({ id: "3", batchId: "b2", batchName: "Batch Two", topic: "B", subCategory: "Webinars", batchCreatedAt: "2026-06-01" }),
       rec({ id: "4", batchId: "b3", batchName: "Off", category: "Official", subCategory: "Mentors" }),
     ];
     expect(batchesFor(all, "General")).toEqual([
-      { id: "b1", name: "Batch One", topic: "A", count: 2 },
-      { id: "b2", name: "Batch Two", topic: "B", count: 1 },
+      { id: "b2", name: "Batch Two", topic: "B", subCategory: "Webinars", createdAt: "2026-06-01", count: 1 },
+      { id: "b1", name: "Batch One", topic: "A", subCategory: "Courses", createdAt: "2026-01-01", count: 2 },
     ]);
     expect(batchesFor(all, "General", "Webinars")).toEqual([
-      { id: "b2", name: "Batch Two", topic: "B", count: 1 },
+      { id: "b2", name: "Batch Two", topic: "B", subCategory: "Webinars", createdAt: "2026-06-01", count: 1 },
     ]);
   });
 });

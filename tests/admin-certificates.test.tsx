@@ -6,7 +6,7 @@ import type { CertRecord } from "@/lib/certs/cert-model";
 const cert = (over: Partial<CertRecord> = {}): CertRecord => ({
   id: "d1", certId: "PZ-2026-AAAA1111", name: "Ayesha Khan", email: "ayesha@x.com",
   category: "General", subCategory: "Courses", topic: "Clinical Research", batchId: "b1",
-  batchName: "CR Batch 1", issueDate: "2026-10-01", status: "sent",
+  batchName: "CR Batch 1", batchCreatedAt: "2026-08-08T00:00:00.000Z", issueDate: "2026-10-01", status: "sent",
   viewUrl: "https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111", ...over,
 });
 
@@ -15,10 +15,12 @@ const base = (over: Partial<AdminCertificatesProps> = {}): AdminCertificatesProp
   counts: {
     byCategory: { General: 30, Official: 10 },
     bySubCategory: { Courses: 20, Workshops: 10 },
-    byStatus: { sent: 5, generated: 3, pending: 2, revoked: 1 },
   },
-  tab: "general", group: "Courses", batch: "b1", status: "sent", q: "aye",
-  batches: [{ id: "b1", name: "CR Batch 1", topic: "Clinical Research", count: 12 }],
+  tab: "general", group: "Courses", batch: "b1", q: "aye",
+  batches: [
+    { id: "b1", name: "CR Batch 1", topic: "Clinical Research", subCategory: "Courses", createdAt: "2026-08-08T00:00:00.000Z", count: 12 },
+    { id: "b0", name: "Old Batch", topic: "Pharmacology", subCategory: "Courses", createdAt: "2025-01-02T00:00:00.000Z", count: 1 },
+  ],
   unavailable: false, ...over,
 });
 
@@ -43,37 +45,59 @@ describe("AdminCertificates", () => {
     expect(p.get("batch")).toBeNull();
   });
 
+  it("shows all sub-category chips with counts for each tab", () => {
+    const { unmount } = render(<AdminCertificates {...base()} />);
+    const chips = within(screen.getByTestId("group-chips"));
+    for (const g of ["Courses", "Workshops", "Webinars", "MED-Q"]) expect(chips.getByRole("link", { name: new RegExp(`^${g}`) })).toBeTruthy();
+    expect(chips.getByRole("link", { name: /^Courses/ }).textContent).toContain("20");
+    expect(chips.getByRole("link", { name: /^Webinars/ }).textContent).toContain("0");
+    unmount();
+    render(<AdminCertificates {...base({ tab: "official", group: undefined, batch: undefined, q: undefined })} />);
+    const off = within(screen.getByTestId("group-chips"));
+    for (const g of ["Central Team", "Sub Team", "Ambassadors", "Affiliates", "Mentors"]) expect(off.getByRole("link", { name: new RegExp(`^${g}`) })).toBeTruthy();
+  });
+
   it("group chips keep other params and reset page", () => {
     render(<AdminCertificates {...base({ page: 2 })} />);
     const p = params(hrefOf(/^Workshops/));
     expect(p.get("group")).toBe("Workshops");
-    expect(p.get("status")).toBe("sent");
     expect(p.get("q")).toBe("aye");
     expect(p.get("tab")).toBe("general");
     expect(p.get("page")).toBeNull();
     expect(p.get("batch")).toBeNull();
   });
 
-  it("status chips keep other params, reset page, and All clears status", () => {
-    render(<AdminCertificates {...base({ page: 2 })} />);
-    const p = params(hrefOf(/^Pending/));
-    expect(p.get("status")).toBe("pending");
-    expect(p.get("group")).toBe("Courses");
-    expect(p.get("batch")).toBe("b1");
-    expect(p.get("page")).toBeNull();
-    const all = screen.getByTestId("status-chips");
-    expect(params(within(all).getByRole("link", { name: /^All/ }).getAttribute("href")!).get("status")).toBeNull();
+  it("has no status chips row", () => {
+    render(<AdminCertificates {...base()} />);
+    expect(screen.queryByTestId("status-chips")).toBeNull();
   });
 
-  it("batch cards set batch; All batches clears it", () => {
+  it("database cards show name, sub-category and topic, count and date in the given order", () => {
     render(<AdminCertificates {...base()} />);
-    const cards = screen.getByTestId("batch-cards");
-    const card = within(cards).getByRole("link", { name: /CR Batch 1/ });
+    const cards = within(screen.getByTestId("batch-cards"));
+    const card = cards.getByRole("link", { name: /CR Batch 1/ });
     expect(params(card.getAttribute("href")!).get("batch")).toBe("b1");
+    expect(within(card).getByText("Courses • Clinical Research")).toBeTruthy();
     expect(within(card).getByText("12 certificates")).toBeTruthy();
-    const all = within(cards).getByRole("link", { name: /All batches/ });
+    expect(within(card).getByText("8 Aug 2026")).toBeTruthy();
+    expect(within(cards.getByRole("link", { name: /Old Batch/ })).getByText("1 certificate")).toBeTruthy();
+    const names = cards.getAllByRole("link").map((a) => a.textContent ?? "");
+    expect(names.findIndex((t) => t.includes("CR Batch 1"))).toBeLessThan(names.findIndex((t) => t.includes("Old Batch")));
+    const all = cards.getByRole("link", { name: /All batches/ });
     expect(params(all.getAttribute("href")!).get("batch")).toBeNull();
     expect(params(all.getAttribute("href")!).get("group")).toBe("Courses");
+  });
+
+  it("shows only the cards (no table, no paging) when no batch is picked and no search", () => {
+    render(<AdminCertificates {...base({ batch: undefined, q: undefined })} />);
+    expect(screen.getByRole("link", { name: /CR Batch 1/ })).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByText(/Showing/)).toBeNull();
+  });
+
+  it("shows the table when only a search is active", () => {
+    render(<AdminCertificates {...base({ batch: undefined })} />);
+    expect(screen.getByRole("table")).toBeTruthy();
   });
 
   it("search form is GET with other params as hidden inputs, without page or q", () => {
@@ -84,21 +108,39 @@ describe("AdminCertificates", () => {
     expect(input.name).toBe("q");
     expect(input.defaultValue).toBe("aye");
     const hidden = Array.from(form.querySelectorAll("input[type=hidden]")).map((i) => [(i as HTMLInputElement).name, (i as HTMLInputElement).value]);
-    expect(Object.fromEntries(hidden)).toEqual({ tab: "general", group: "Courses", batch: "b1", status: "sent" });
+    expect(Object.fromEntries(hidden)).toEqual({ tab: "general", group: "Courses", batch: "b1" });
   });
 
-  it("table shows every column and the View certificate href", () => {
+  it("table shows only the four columns, no status chip for normal rows, and the View certificate href", () => {
     render(<AdminCertificates {...base()} />);
     const t = within(screen.getByRole("table"));
-    for (const h of ["Name", "Email", "Group", "Batch", "Topic", "Certificate number", "Issue date", "Status"]) {
-      expect(t.getByText(h)).toBeTruthy();
-    }
-    for (const v of ["Ayesha Khan", "ayesha@x.com", "Courses", "CR Batch 1", "Clinical Research", "PZ-2026-AAAA1111", "2026-10-01", "Sent"]) {
+    for (const h of ["Name", "Email", "Certificate number", "Issue date"]) expect(t.getByText(h)).toBeTruthy();
+    for (const h of ["Group", "Batch", "Topic", "Status"]) expect(t.queryByText(h)).toBeNull();
+    for (const v of ["Ayesha Khan", "ayesha@x.com", "PZ-2026-AAAA1111", "2026-10-01"]) {
       expect(t.getAllByText(v).length).toBeGreaterThan(0);
     }
+    expect(t.queryByText("Sent")).toBeNull();
     const view = t.getByRole("link", { name: "View certificate" });
     expect(view.getAttribute("href")).toBe("https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111");
     expect(view.getAttribute("target")).toBe("_blank");
+  });
+
+  it("shows a chip only for pending and revoked rows", () => {
+    render(
+      <AdminCertificates
+        {...base({
+          rows: [
+            cert({ id: "1", status: "generated" }),
+            cert({ id: "2", status: "pending" }),
+            cert({ id: "3", status: "revoked" }),
+          ],
+        })}
+      />,
+    );
+    const t = within(screen.getByRole("table"));
+    expect(t.getByText("Pending")).toBeTruthy();
+    expect(t.getByText("Revoked")).toBeTruthy();
+    expect(t.queryByText("Generated")).toBeNull();
   });
 
   it("shows paging text and Previous/Next links", () => {

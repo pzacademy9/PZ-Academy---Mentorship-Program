@@ -53,7 +53,7 @@ function seed() {
     ]),
   );
   gets.databases.mockResolvedValue(
-    snap([{ id: "db1", data: { name: "Batch One", category: "General" } }]),
+    snap([{ id: "db1", data: { name: "Batch One", category: "General", isLive: true } }]),
   );
 }
 
@@ -131,6 +131,27 @@ describe("cert-source", () => {
     await expect(getAllCerts()).rejects.toBeInstanceOf(CertSourceError);
     const certs = await getAllCerts();
     expect(certs).toHaveLength(1);
+  });
+
+  it("drops orphan certificates and certificates in non-live databases, keeps live ones", async () => {
+    const c = (id: string, databaseId?: string) => ({
+      id,
+      data: { ...(databaseId ? { databaseId } : {}), uniqueCertId: id, recipientEmail: "a@x.com" },
+    });
+    gets.certificates.mockResolvedValue(
+      snap([c("live", "db1"), c("orphan", "gone"), c("nodb"), c("dead", "db2"), c("flag", "db3")]),
+    );
+    gets.databases.mockResolvedValue(
+      snap([
+        { id: "db1", data: { name: "Live", isLive: true, createdAt: "2026-08-08" } },
+        { id: "db2", data: { name: "Hidden", isLive: false } },
+        { id: "db3", data: { name: "No flag" } },
+      ]),
+    );
+    const certs = await getAllCerts();
+    expect(certs.map((x) => x.id)).toEqual(["live"]);
+    expect(certs[0].batchCreatedAt).toBe("2026-08-08");
+    expect(await getCertsByEmail("a@x.com")).toHaveLength(1);
   });
 
   it("contains no Firestore write calls", () => {

@@ -1,7 +1,7 @@
 import { Award } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { groupCerts, type CertRecord, type CertStatus } from "@/lib/certs/cert-model";
+import type { CertRecord, CertStatus } from "@/lib/certs/cert-model";
 
 const CHIP_LABEL: Record<CertStatus, string> = {
   sent: "Sent",
@@ -42,6 +42,16 @@ function pendingText(n: number): string {
     : `${n} certificates are being prepared. We will tell you here when they are ready.`;
 }
 
+function ms(s: string): number {
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+}
+
+// "<Sub-category> • <topic>", leaving out whichever part is missing.
+export function certMetaLine(c: { subCategory: string; topic: string }): string {
+  return [c.subCategory, c.topic].filter(Boolean).join(" â€¢ ");
+}
+
 export function CertificateGroups({
   certs,
   variant,
@@ -54,10 +64,14 @@ export function CertificateGroups({
   emptyText: string;
 }) {
   const showPending = variant === "student" && pendingCount > 0;
-  const sections = groupCerts(certs);
+  const list = [...certs].sort((a, b) => {
+    const da = ms(a.issueDate);
+    const db = ms(b.issueDate);
+    return da === db ? 0 : da > db ? -1 : 1;
+  });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {showPending && (
         <div
           role="status"
@@ -67,57 +81,46 @@ export function CertificateGroups({
         </div>
       )}
 
-      {sections.length === 0 && !showPending && (
-        <EmptyState icon={Award} title={emptyText} />
-      )}
+      {list.length === 0 && !showPending && <EmptyState icon={Award} title={emptyText} />}
 
-      {sections.map((section) => (
-        <section key={section.category} className="space-y-4">
-          <h2 className="font-headline text-xl font-bold text-pz-on-surface">{section.category}</h2>
-          {section.groups.map((group) => (
-            <div key={group.subCategory} className="space-y-2">
-              <h3 className="font-body text-xs font-bold uppercase text-pz-on-surface-variant">
-                {group.subCategory}
-              </h3>
-              <ul className="space-y-2">
-                {group.certs.map((c) => (
-                  <li
-                    key={c.id}
-                    data-testid={`cert-row-${c.id}`}
-                    className={cn(
-                      "flex flex-col gap-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 sm:flex-row sm:items-center sm:justify-between",
-                      c.status === "revoked" && "opacity-60",
-                    )}
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <p className="break-words font-headline text-base font-bold text-pz-on-surface">{c.topic}</p>
-                      <p className="break-words font-body text-sm text-pz-on-surface-variant">{c.batchName}</p>
-                      <p className="break-all font-body text-xs text-pz-on-surface-variant">{c.certId}</p>
-                      {c.issueDate && (
-                        <p className="font-body text-xs text-pz-on-surface-variant">{c.issueDate}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      <CertStatusChip
-                        status={c.status}
-                        label={variant === "student" ? "Issued" : undefined}
-                      />
-                      <a
-                        href={safeHref(c)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex min-h-11 items-center font-body text-sm font-bold text-pz-primary hover:underline"
-                      >
-                        View certificate
-                      </a>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {list.length > 0 && (
+        <ul className="space-y-2">
+          {list.map((c) => (
+            <li
+              key={c.id}
+              data-testid={`cert-row-${c.id}`}
+              className={cn(
+                "flex flex-col gap-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 sm:flex-row sm:items-center sm:justify-between",
+                c.status === "revoked" && "opacity-60",
+              )}
+            >
+              <div className="min-w-0 space-y-1">
+                <p className="break-words font-headline text-base font-bold text-pz-on-surface">{c.batchName}</p>
+                {certMetaLine(c) && (
+                  <p className="break-words font-body text-sm text-pz-on-surface-variant">{certMetaLine(c)}</p>
+                )}
+                <p className="break-all font-body text-xs text-pz-on-surface-variant">{c.certId}</p>
+                {c.issueDate && <p className="font-body text-xs text-pz-on-surface-variant">{c.issueDate}</p>}
+              </div>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                {variant === "student" ? (
+                  <CertStatusChip status={c.status} label="Issued" />
+                ) : (
+                  (c.status === "pending" || c.status === "revoked") && <CertStatusChip status={c.status} />
+                )}
+                <a
+                  href={safeHref(c)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center font-body text-sm font-bold text-pz-primary hover:underline"
+                >
+                  View certificate
+                </a>
+              </div>
+            </li>
           ))}
-        </section>
-      ))}
+        </ul>
+      )}
     </div>
   );
 }

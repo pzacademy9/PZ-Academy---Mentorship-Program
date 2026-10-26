@@ -20,6 +20,7 @@ export type CertRecord = {
   topic: string;
   batchId: string;
   batchName: string;
+  batchCreatedAt: string;
   issueDate: string;
   status: CertStatus;
   viewUrl: string;
@@ -31,6 +32,7 @@ export type CertBatch = {
   category: CertCategory | "Other";
   subCategory: string;
   topic: string;
+  createdAt: string;
 };
 
 const STATUSES: readonly CertStatus[] = ["pending", "generated", "sent", "revoked"];
@@ -77,12 +79,18 @@ export function mapCert(
   const certId = str(raw.uniqueCertId) || id;
   const batchId = str(raw.databaseId);
   const batch = batches.get(batchId);
-  const topic = str(raw.topic);
+  const topic = str(batch?.topic) || str(raw.topic);
   const rawStatus = str(raw.status).toLowerCase();
   const status = (STATUSES as readonly string[]).includes(rawStatus)
     ? (rawStatus as CertStatus)
     : "pending";
-  const category = toCategory(raw.category);
+  // The database is what the certificate app organises by, so its category wins when it has one.
+  const category =
+    batch && batch.category !== "Other" ? batch.category : toCategory(raw.category);
+  const subCategory = toSubCategory(
+    category,
+    batch && batch.category !== "Other" && batch.subCategory ? batch.subCategory : raw.subCategory,
+  );
   const issue = raw.issueDate;
   return {
     id,
@@ -90,10 +98,11 @@ export function mapCert(
     name: str(raw.recipientName),
     email: str(raw.recipientEmail),
     category,
-    subCategory: toSubCategory(category, raw.subCategory),
+    subCategory,
     topic,
     batchId,
     batchName: batch?.name || topic,
+    batchCreatedAt: batch?.createdAt ?? "",
     issueDate: typeof issue === "string" ? issue.trim() : "",
     status,
     viewUrl: httpsUrl(raw.verificationUrl) || VERIFY_BASE + encodeURIComponent(certId),
@@ -217,14 +226,37 @@ export function batchesFor(
   all: CertRecord[],
   category: CertCategory,
   subCategory?: string,
-): { id: string; name: string; topic: string; count: number }[] {
-  const map = new Map<string, { id: string; name: string; topic: string; count: number }>();
+): CertBatchCard[] {
+  const map = new Map<string, CertBatchCard>();
   for (const c of all) {
     if (c.category !== category) continue;
     if (subCategory && c.subCategory !== subCategory) continue;
     const cur = map.get(c.batchId);
     if (cur) cur.count += 1;
-    else map.set(c.batchId, { id: c.batchId, name: c.batchName, topic: c.topic, count: 1 });
+    else
+      map.set(c.batchId, {
+        id: c.batchId,
+        name: c.batchName,
+        topic: c.topic,
+        subCategory: c.subCategory,
+        createdAt: c.batchCreatedAt,
+        count: 1,
+      });
   }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  // Newest database first; undated ones last, then by name.
+  return Array.from(map.values()).sort((a, b) => {
+    const da = dateMs(a.createdAt);
+    const db = dateMs(b.createdAt);
+    if (da !== db) return da > db ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 }
+
+export type CertBatchCard = {
+  id: string;
+  name: string;
+  topic: string;
+  subCategory: string;
+  createdAt: string;
+  count: number;
+};
