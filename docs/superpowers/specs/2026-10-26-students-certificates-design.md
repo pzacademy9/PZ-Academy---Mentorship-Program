@@ -50,8 +50,27 @@ Strip: "Certificates are made in the Certificates app. This page shows them here
 ### Certificates, student (`/dashboard/certificates`)
 One card per certificate for the signed-in student, matched by their sign-in email: course, issue date, certificate number, "Issued" chip, "View certificate" button. Finished course with no certificate: amber "Pending" card. Empty state "You do not have any certificates yet. Finish a course to earn one." Revoked certificates are not shown to the student.
 
+## Mirror the cert app's own organisation (owner asked for this)
+
+The cert app organises everything in one hierarchy, and these pages must use the same words and order (source: `lib/category.ts`, `lib/types.ts` in the cert repo):
+
+- **Category** (2): General, Official.
+- **Sub-category**: General has Courses, Workshops, Webinars, MED-Q. Official has Central Team, Sub Team, Ambassadors, Affiliates, Mentors.
+- **Topic**: free text on the database (e.g. a course subject).
+- **Database** = one batch or cohort (name, topic, category, sub-category, participant and certificate counts, live flag, created date). Each certificate belongs to exactly one database through `databaseId`, and also carries `category`, `subCategory`, `topic` itself.
+- **Certificate**: as listed below.
+
+Consequences for the design:
+
+1. **Admin Certificates page** browses like the cert app: two tabs General / Official, then sub-category chips for that tab (with counts), then a batch picker (the databases under that sub-category, each with name, topic and certificate count), then the table. Search and the status chips apply inside the current view. A top "All" view is allowed. Database names come from reading the `databases` collection (small) alongside certificates, joined by `databaseId`; fall back to the certificate's own `topic` if a database is missing. Table gains Category/Sub-category and Batch columns (batch name replaces the loose "course" column).
+2. **Student record, Certificates tab** and the **student Certificates page** group certificates the same way: heading General / Official, then sub-category (Courses, Workshops, Webinars, MED-Q, or the team roles), each card showing topic, batch name, certificate number, issue date, status.
+3. **Official certificates belong to team members** (ambassadors, mentors, affiliates), not course students. A person can match both: a student who is also a mentor sees both groups. Students see their Official certificates too, labelled by role.
+4. **Batch name versus our courses:** the cert app's batch/topic names do not map to our course list by any key, so still no per-course matching. Show the cert app's batch and topic names as the label.
+5. The pending count on the student page applies to General certificates only (Official ones are not tied to course completion).
+
 ## How certificates are read (decided with the owner)
 
+- It also reads the cert app's `databases` collection (batch names, category, sub-category, topic, counts) to label and group certificates.
 - The cert app's `certificates` collection (Firestore) holds one doc per certificate: `uniqueCertId` (like `PZ-2026-A1B2C3D4`), `recipientName`, `recipientEmail`, `category`, `subCategory`, `topic`, `certType`, `issueDate`, `status` (`pending|generated|sent|revoked`), `verificationUrl`, `pdfUrl`, `driveLink`, `createdAt`.
 - Our server reads it directly with the Firebase Admin SDK using a new read-only service account (Cloud Datastore Viewer role). The owner creates it. The full-power key in the owner's "Firebase Service key" folder is not reused. The key is passed as a server-only environment variable (name to be chosen by the builder, e.g. `CERT_FIREBASE_SERVICE_ACCOUNT_JSON`, base64), never exposed to the browser.
 - Matching a certificate to a student: by email, case-insensitive. A student whose cert email differs from their account email will not match (known limitation, accepted).

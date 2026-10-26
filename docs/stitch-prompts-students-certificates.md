@@ -17,3 +17,17 @@ Admin page "Certificates". Top note in a soft strip: "Certificates are made in t
 ## S4. My certificates (student)
 
 Student page "Certificates", in the same family as "My Courses". A card per certificate: course name, issue date, certificate number, a green chip "Issued", and a button "View certificate". For a course that is finished but has no certificate yet, a calm card with an amber chip "Pending" and the line "Your certificate is being prepared. We will tell you here when it is ready." Empty state: "You do not have any certificates yet. Finish a course to earn one." Light and dark, laptop and phone.
+
+## Revision after studying the Certificates app (replace S3, add S5 and S6)
+
+## S3 (revised). Certificates (admin), organised like the Certificates app
+
+Same page as before, same top strip ("Certificates are made in the Certificates app. This page shows them here." and the button "Open Certificates app"). Under it, two large tabs: "General" and "Official", each with a count. Under the tabs, small chips for the groups inside the open tab, each with a count. For General: "All", "Courses", "Workshops", "Webinars", "MED-Q". For Official: "All", "Central Team", "Sub Team", "Ambassadors", "Affiliates", "Mentors". Under the chips, a row of batch cards you can scroll sideways: each card shows the batch name (for example "DIT Batch 3"), its topic, "86 certificates", and a small "Open" state when picked; the first card is "All batches". Under that, a search box ("Search by name, email or certificate number") and status chips: All, Sent, Generated, Pending, Revoked. Then the table: name, email, group (small chip, for example "Courses"), batch, topic, certificate number, issue date, status chip, link "View certificate". Revoked rows are muted. Keep empty state ("No certificates found.") and error state ("We could not reach the Certificates app. Try again in a minute." with Try again). Show the General tab with Courses open, light and dark, laptop and phone.
+
+## S5. Certificates tab on the Student record (admin)
+
+The "Certificates" tab open on the student screen. Headings "General" and "Official". Under General, a small group label per kind ("Courses", "Workshops", "Webinars", "MED-Q") with a row per certificate: topic, batch name, certificate number, issue date, status chip, link "View certificate". Under Official, the same by role ("Mentors", "Ambassadors" and so on). Empty state: "No certificates found for this email." Show a student who has two course certificates, one workshop certificate and one Mentors certificate. Light and dark, laptop and phone.
+
+## S6. My certificates (student), grouped
+
+Same page as S4 but grouped: heading "General" with small labels "Courses", "Workshops", "Webinars", "MED-Q", each with certificate cards (topic, batch name, issue date, certificate number, green chip "Issued", button "View certificate"). Heading "Official" appears only when the student has one, with the role as the label (for example "Mentors"). Keep the amber "Pending" card ("2 certificates are being prepared. We will tell you here when they are ready.") and the empty state. Light and dark, laptop and phone.
