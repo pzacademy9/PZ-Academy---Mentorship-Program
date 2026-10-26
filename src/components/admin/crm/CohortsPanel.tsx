@@ -162,12 +162,16 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
               c.tabName,
               <span key="course" className={c.courseTitle ? "" : "text-pz-danger"}>{c.courseTitle ?? "untagged"}</span>,
               `${peopleText(c)}${showImportedNote(c) ? ` (of ${c.rowsImported} imported)` : ""} · ${formatDate(c.createdAt)}`,
-              <a key="download" href={exportHref([c.id])} download className="inline-flex min-h-11 items-center underline">
-                Download for Meta
-              </a>,
-              <a key="download-plain" href={plainHref([c.id])} download className="inline-flex min-h-11 items-center underline">
-                Download plain version
-              </a>,
+              ...(c.contactCount === 0
+                ? [<span key="no-download">No people to download</span>]
+                : [
+                    <a key="download" href={exportHref([c.id])} download className="inline-flex min-h-11 items-center underline">
+                      Download for Meta
+                    </a>,
+                    <a key="download-plain" href={plainHref([c.id])} download className="inline-flex min-h-11 items-center underline">
+                      Download plain version
+                    </a>,
+                  ]),
               <Button
                 key="delete"
                 variant="bare"
@@ -223,8 +227,14 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
                       </td>
                       <td>{formatDate(c.createdAt)}</td>
                       <td>
-                        <a href={exportHref([c.id])} download className="mr-3 underline">Download for Meta</a>
-                        <a href={plainHref([c.id])} download className="mr-3 underline">Download plain version</a>
+                        {c.contactCount === 0 ? (
+                          <span className="mr-3 text-pz-on-surface-variant">No people to download</span>
+                        ) : (
+                          <>
+                            <a href={exportHref([c.id])} download className="mr-3 underline">Download for Meta</a>
+                            <a href={plainHref([c.id])} download className="mr-3 underline">Download plain version</a>
+                          </>
+                        )}
                         <Button
                           variant="bare"
                           size="bare"
