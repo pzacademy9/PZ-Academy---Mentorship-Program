@@ -11,7 +11,9 @@
  * ("+63 ..." or "0063 ..."), validated with libphonenumber-js. Pakistan
  * (+92), UAE (+971) and Saudi Arabia (+966) additionally accept local and
  * bare-prefixed formats. Digits without a "+" or "00" that match none of
- * those rules stay ambiguous: no country is ever guessed.
+ * those rules stay ambiguous: no country is ever guessed. The one exception
+ * is long bare digits (11+, no leading 0) that libphonenumber validates with
+ * the digits' own leading country code, e.g. "996779631963".
  */
 
 import { parsePhoneNumberFromString } from "libphonenumber-js";
@@ -62,7 +64,11 @@ export function normalizePhone(raw: string | null | undefined): PhoneResult {
 
   // Any other country: only when the number explicitly carries its country
   // code ("+" or "00"), and only if libphonenumber confirms it is valid.
-  if (trimmed.startsWith("+") || hadDoubleZero) {
+  // Bare digits count too when they are long (11+) and do not start with 0:
+  // a leading 0 is a local trunk prefix, and shorter numbers are too easily
+  // another country's local format. libphonenumber must still confirm them.
+  const looksInternational = digits.length >= 11 && !digits.startsWith("0");
+  if (trimmed.startsWith("+") || hadDoubleZero || looksInternational) {
     const parsed = parsePhoneNumberFromString(`+${digits}`);
     if (parsed && parsed.isValid() && parsed.country) {
       return { ok: true, e164: parsed.number, country: parsed.country };

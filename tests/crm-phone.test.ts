@@ -71,6 +71,17 @@ describe("normalizePhone", () => {
       expect(normalizePhone("4234567890")).toEqual({ ok: false, reason: "ambiguous" });
     });
 
+    it("reads long bare digits as international when libphonenumber confirms them", () => {
+      expect(normalizePhone("996779631963")).toEqual({ ok: true, e164: "+996779631963", country: "KG" });
+      expect(normalizePhone("63 917 591 8807")).toEqual({ ok: true, e164: "+639175918807", country: "PH" });
+    });
+
+    it("keeps bare digits ambiguous when short, invalid, or starting with 0", () => {
+      expect(normalizePhone("99677963196")).toEqual({ ok: false, reason: "ambiguous" });
+      expect(normalizePhone("123456789012")).toEqual({ ok: false, reason: "ambiguous" });
+      expect(normalizePhone("09175918807")).toEqual({ ok: false, reason: "ambiguous" });
+    });
+
     it("flags two international numbers in one cell as ambiguous", () => {
       expect(normalizePhone("+63 9175918807 / +1 415 555 2671")).toEqual({ ok: false, reason: "ambiguous" });
     });
