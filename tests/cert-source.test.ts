@@ -13,7 +13,10 @@ const getApps = vi.hoisted(() => vi.fn(() => [] as { name: string }[]));
 const cert = vi.hoisted(() => vi.fn((sa: unknown) => sa));
 const getFirestore = vi.hoisted(() =>
   vi.fn(() => ({
-    collection: (name: "certificates" | "databases") => ({ get: gets[name] }),
+    collection: (name: "certificates" | "databases") => ({
+      get: gets[name],
+      where: (_f: string, _op: string, ids: string[]) => ({ get: () => gets.certificates(ids) }),
+    }),
   })),
 );
 
@@ -83,14 +86,44 @@ describe("cert-source", () => {
     expect(initializeApp.mock.calls[0][1]).toBe("cert-readonly");
   });
 
-  it("caches for 60 seconds", async () => {
+  it("caches for 6 hours", async () => {
     await getAllCerts();
-    vi.advanceTimersByTime(59_000);
+    vi.advanceTimersByTime(6 * 60 * 60_000 - 1_000);
     await getAllCerts();
     expect(gets.certificates).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(2_000);
     await getAllCerts();
     expect(gets.certificates).toHaveBeenCalledTimes(2);
+    expect(gets.databases).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks only for certificates of live databases, 30 at a time", async () => {
+    const dbs = Array.from({ length: 65 }, (_, i) => ({
+      id: `d${i}`,
+      data: { name: `B${i}`, isLive: i !== 64 },
+    }));
+    gets.databases.mockResolvedValue(snap(dbs));
+    gets.certificates.mockResolvedValue(snap([]));
+    await getAllCerts();
+    const asked = gets.certificates.mock.calls.map((c) => (c[0] as string[]).length);
+    expect(asked).toEqual([30, 30, 4]);
+  });
+
+  it("keeps serving old data when a refresh fails", async () => {
+    await getAllCerts();
+    vi.advanceTimersByTime(7 * 60 * 60_000);
+    gets.databases.mockRejectedValue(new Error("boom"));
+    expect(await getAllCerts()).toHaveLength(1);
+  });
+
+  it("stops asking for 30 minutes after a quota error", async () => {
+    gets.databases.mockRejectedValue(Object.assign(new Error("Quota exceeded"), { code: 8 }));
+    await expect(getAllCerts()).rejects.toBeInstanceOf(CertSourceError);
+    await expect(getAllCerts()).rejects.toBeInstanceOf(CertSourceError);
+    expect(gets.databases).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(31 * 60_000);
+    gets.databases.mockResolvedValue(snap([{ id: "db1", data: { name: "Batch One", isLive: true } }]));
+    await getAllCerts();
     expect(gets.databases).toHaveBeenCalledTimes(2);
   });
 
