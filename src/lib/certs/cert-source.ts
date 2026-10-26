@@ -110,7 +110,10 @@ async function load(): Promise<CertRecord[]> {
         return typeof id === "string" && batches.has(id.trim());
       })
       .map((d) => mapCert(d.id, d.data() as Record<string, unknown>, batches));
-  } catch {
+  } catch (err) {
+    // Log only the error code and message, never the credentials.
+    const e = err as { code?: unknown; message?: unknown };
+    console.error("[cert-source] load failed", String(e.code ?? ""), String(e.message ?? "").slice(0, 300));
     throw new CertSourceError(UNREACHABLE);
   }
 }
