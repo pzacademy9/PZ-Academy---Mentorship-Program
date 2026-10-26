@@ -29,7 +29,10 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
         </h1>
         <p className="font-body text-sm text-pz-on-surface-variant mt-1">
           {cohort.courseTitle ? <span>{cohort.courseTitle}</span> : <span className="text-pz-danger">untagged</span>}
-          {" · "}Imported {formatDate(cohort.createdAt)} · {cohort.purchaseCount} of {cohort.rowsImported} rows still attached
+          {" · "}Imported {formatDate(cohort.createdAt)} ·{" "}
+          {cohort.kind === "closed_interested"
+            ? `${cohort.contactCount} ${cohort.contactCount === 1 ? "person" : "people"}`
+            : `${cohort.purchaseCount} of ${cohort.rowsImported} rows still attached`}
         </p>
       </div>
 

@@ -44,6 +44,18 @@ describe("cohorts panel: download for Meta", () => {
     expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b");
   });
 
+  it("a cohort with nobody in it has no download links, only a short note", () => {
+    const t = view([
+      cohort({ id: "e", sheetName: "Empty", kind: "closed_interested", contactCount: 0, purchaseCount: 0, rowsImported: 0 }),
+      cohort({ id: "f", sheetName: "Full" }),
+    ]);
+    expect(t.getAllByRole("link", { name: /Download for Meta/ }).map((l) => l.getAttribute("href"))).toEqual([
+      "/api/admin/crm/cohorts/export?ids=f",
+    ]);
+    expect(t.getAllByRole("link", { name: /Download plain version/ })).toHaveLength(1);
+    expect(t.getByText("No people to download")).toBeTruthy();
+  });
+
   it("interested cohort shows its badge and people count", () => {
     const t = view([cohort({ id: "i", kind: "closed_interested", contactCount: 42, purchaseCount: 0, rowsImported: 42 })]);
     expect(t.getByText("Interested, not paid")).toBeTruthy();
