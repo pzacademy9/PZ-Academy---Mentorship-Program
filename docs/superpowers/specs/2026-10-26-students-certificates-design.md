@@ -33,7 +33,7 @@ Certificates are issued and stored in a separate app (cert.pharmacozyme.com: Nex
 ## Design source
 
 Stitch project "PZ Academy Platform 2" (id 4651274386787527431), screens created 2026-10-26:
-Students Directory (desktop + mobile), Student Detail (desktop + mobile), Certificates admin (desktop + mobile), Certificates Student Portal (mobile and light/dark laptop/phone). Prompts: `docs/stitch-prompts-students-certificates.md`. Match the screens; where a screen shows an out-of-scope action (see Non-goals), omit it.
+Students Directory (desktop + mobile), Student Detail (desktop + mobile), Certificates admin (desktop + mobile), Certificates Student Portal (mobile and light/dark laptop/phone). Prompts: `docs/stitch-prompts-students-certificates.md`. Second round (same day, after the cert-app study): "Enhanced Certificates Admin" (General & Official, batch cards, light/dark, mobile), "Student Certificates - Dr. Fatima Ali (Mobile)", "Grouped Certificates - PZ Academy Student Portal" (laptop/phone, light/dark), "Student Certificates - Grouped General & Official". These supersede the first-round Certificates screens. Match the screens; where a screen shows an out-of-scope action (see Non-goals), omit it. Ignore design-sheet chrome that is not part of a page ("Viewport mode", "Simulate state", theme labels, the global "Search records, hashes, students" bar, side-by-side light/dark framing). Per-student and per-batch extras that Stitch invented (for example "Compliance Verified", "Academic License" cards) are omitted.
 
 ## Pages
 
