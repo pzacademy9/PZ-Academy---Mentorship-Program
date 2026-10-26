@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Award, ExternalLink, Search } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
-import { CertStatusChip } from "@/components/certs/CertificateGroups";
+import { CertStatusChip, certMetaLine } from "@/components/certs/CertificateGroups";
 import { cn } from "@/lib/utils";
-import { CATEGORY_SUBCATS, type CertRecord, type CertStatus } from "@/lib/certs/cert-model";
+import { formatDate } from "@/lib/format";
+import { CATEGORY_SUBCATS, type CertBatchCard, type CertRecord } from "@/lib/certs/cert-model";
 
 export type AdminCertificatesProps = {
   rows: CertRecord[];
@@ -15,27 +16,19 @@ export type AdminCertificatesProps = {
   counts: {
     byCategory: Record<string, number>;
     bySubCategory: Record<string, number>;
-    byStatus: Record<string, number>;
   };
   tab: "general" | "official";
   group?: string;
   batch?: string;
-  status?: CertStatus;
   q?: string;
-  batches: { id: string; name: string; topic: string; count: number }[];
+  batches: CertBatchCard[];
   unavailable: boolean;
 };
 
 const BASE = "/dashboard/admin/certificates";
 const APP_URL = "https://cert.pharmacozyme.com";
-const STATUSES: { key: CertStatus; label: string }[] = [
-  { key: "sent", label: "Sent" },
-  { key: "generated", label: "Generated" },
-  { key: "pending", label: "Pending" },
-  { key: "revoked", label: "Revoked" },
-];
 
-type Params = Pick<AdminCertificatesProps, "tab" | "group" | "batch" | "status" | "q">;
+type Params = Pick<AdminCertificatesProps, "tab" | "group" | "batch" | "q">;
 
 // Builds a link that keeps the current filters except the ones overridden. `page` is only set when given.
 function href(cur: Params, over: Partial<Params> & { page?: number } = {}): string {
@@ -44,10 +37,14 @@ function href(cur: Params, over: Partial<Params> & { page?: number } = {}): stri
   sp.set("tab", m.tab);
   if (m.group) sp.set("group", m.group);
   if (m.batch) sp.set("batch", m.batch);
-  if (m.status) sp.set("status", m.status);
   if (m.q) sp.set("q", m.q);
   if (over.page && over.page > 1) sp.set("page", String(over.page));
   return `${BASE}?${sp.toString()}`;
+}
+
+// A date that cannot be read is shown as written.
+function niceDate(s: string): string {
+  return s && !Number.isNaN(Date.parse(s)) ? formatDate(s) : s;
 }
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((n, v) => n + v, 0);
@@ -69,11 +66,15 @@ function Chip({ to, active, children }: { to: string; active: boolean; children:
   );
 }
 
+const needsChip = (c: CertRecord) => c.status === "pending" || c.status === "revoked";
+
 export function AdminCertificates(props: AdminCertificatesProps) {
-  const { rows, total, page, pageCount, counts, tab, group, batch, status, q, batches, unavailable } = props;
+  const { rows, total, page, pageCount, counts, tab, group, batch, q, batches, unavailable } = props;
   const pageSize = props.pageSize ?? 25;
-  const cur: Params = { tab, group, batch, status, q };
+  const cur: Params = { tab, group, batch, q };
   const category = tab === "official" ? "Official" : "General";
+  // Cards alone keep the page light; the table appears once a batch is picked or a search is typed.
+  const showTable = Boolean(batch || q);
 
   return (
     <div className="space-y-6">
@@ -141,36 +142,41 @@ export function AdminCertificates(props: AdminCertificatesProps) {
             ))}
           </div>
 
-          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" data-testid="batch-cards">
-            <div className="flex gap-3 pb-2">
-              <Link
-                href={href(cur, { batch: undefined })}
-                aria-current={!batch ? "true" : undefined}
-                className={cn(
-                  "min-w-40 shrink-0 rounded-xl border p-3",
-                  !batch
-                    ? "border-pz-primary bg-pz-primary-container text-pz-on-primary-container"
-                    : "border-pz-outline-variant bg-pz-surface-container-lowest text-pz-on-surface",
-                )}
-              >
-                <span className="block font-headline text-sm font-bold">All batches</span>
-              </Link>
+          <div data-testid="batch-cards" className="space-y-3">
+            <Link
+              href={href(cur, { batch: undefined })}
+              aria-current={!batch ? "true" : undefined}
+              className={cn(
+                "inline-flex min-h-11 items-center rounded-full border px-4 font-body text-sm font-semibold",
+                !batch
+                  ? "border-pz-primary bg-pz-primary-container text-pz-on-primary-container"
+                  : "border-pz-outline-variant bg-pz-surface-container-lowest text-pz-on-surface",
+              )}
+            >
+              All batches
+            </Link>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {batches.map((b) => (
                 <Link
                   key={b.id}
                   href={href(cur, { batch: b.id })}
                   aria-current={batch === b.id ? "true" : undefined}
                   className={cn(
-                    "min-w-48 shrink-0 rounded-xl border p-3",
+                    "block rounded-xl border p-4",
                     batch === b.id
                       ? "border-pz-primary bg-pz-primary-container text-pz-on-primary-container"
-                      : "border-pz-outline-variant bg-pz-surface-container-lowest text-pz-on-surface",
+                      : "border-pz-outline-variant bg-pz-surface-container-lowest text-pz-on-surface hover:bg-pz-surface-container-low",
                   )}
                 >
-                  <span className="block font-headline text-sm font-bold">{b.name}</span>
-                  <span className="block font-body text-xs opacity-80">{b.topic}</span>
-                  <span className="mt-1 block font-body text-xs font-semibold">
-                    {b.count} {b.count === 1 ? "certificate" : "certificates"}
+                  <span className="block break-words font-headline text-base font-bold">{b.name}</span>
+                  {certMetaLine(b) && (
+                    <span className="block break-words font-body text-sm opacity-80">{certMetaLine(b)}</span>
+                  )}
+                  <span className="mt-2 flex items-center justify-between gap-2 font-body text-xs font-semibold">
+                    <span>
+                      {b.count} {b.count === 1 ? "certificate" : "certificates"}
+                    </span>
+                    {b.createdAt && <span className="opacity-80">{niceDate(b.createdAt)}</span>}
                   </span>
                 </Link>
               ))}
@@ -181,7 +187,6 @@ export function AdminCertificates(props: AdminCertificatesProps) {
             <input type="hidden" name="tab" value={tab} />
             {group && <input type="hidden" name="group" value={group} />}
             {batch && <input type="hidden" name="batch" value={batch} />}
-            {status && <input type="hidden" name="status" value={status} />}
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pz-on-surface-variant" aria-hidden />
             <input
               type="search"
@@ -193,71 +198,61 @@ export function AdminCertificates(props: AdminCertificatesProps) {
             />
           </form>
 
-          <div className="flex flex-wrap gap-2" data-testid="status-chips">
-            <Chip to={href(cur, { status: undefined })} active={!status}>
-              All <span className="opacity-70">{sum(counts.byStatus)}</span>
-            </Chip>
-            {STATUSES.map((s) => (
-              <Chip key={s.key} to={href(cur, { status: s.key })} active={status === s.key}>
-                {s.label} <span className="opacity-70">{counts.byStatus[s.key] ?? 0}</span>
-              </Chip>
-            ))}
-          </div>
+          {!showTable && batches.length === 0 && <EmptyState icon={Award} title="No certificates found." />}
 
-          <ResponsiveList
-            rows={rows}
-            getKey={(c) => c.id}
-            empty={<EmptyState icon={Award} title="No certificates found." />}
-            mobile={{
-              title: (c) => c.name || c.email,
-              meta: (c) => [c.email, `${c.subCategory} · ${c.batchName}`, `${c.certId} · ${c.issueDate}`],
-              footer: (c) => (
-                <div className="flex items-center justify-between gap-3 border-t border-pz-outline-variant px-3 py-1">
-                  <CertStatusChip status={c.status} />
-                  <a href={c.viewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-body text-sm font-bold text-pz-primary hover:underline">
-                    View certificate
-                  </a>
-                </div>
-              ),
-            }}
-            table={
-              <div className="overflow-x-auto rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest">
-                <table className="w-full text-left font-body text-sm">
-                  <thead className="bg-pz-surface-container-low text-xs font-bold uppercase text-pz-on-surface-variant">
-                    <tr>
-                      {["Name", "Email", "Group", "Batch", "Topic", "Certificate number", "Issue date", "Status"].map((h) => (
-                        <th key={h} scope="col" className="px-3 py-2">{h}</th>
-                      ))}
-                      <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-pz-outline-variant text-pz-on-surface">
-                    {rows.map((c) => (
-                      <tr key={c.id} className={cn(c.status === "revoked" && "opacity-60")}>
-                        <td className="px-3 py-2 font-semibold">{c.name}</td>
-                        <td className="break-all px-3 py-2">{c.email}</td>
-                        <td className="px-3 py-2">
-                          <span className="rounded-full bg-pz-surface-container-high px-2.5 py-0.5 text-xs font-bold">{c.subCategory}</span>
-                        </td>
-                        <td className="px-3 py-2">{c.batchName}</td>
-                        <td className="px-3 py-2">{c.topic}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{c.certId}</td>
-                        <td className="whitespace-nowrap px-3 py-2">{c.issueDate}</td>
-                        <td className="px-3 py-2"><CertStatusChip status={c.status} /></td>
-                        <td className="px-3 py-2">
-                          <a href={c.viewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center whitespace-nowrap font-bold text-pz-primary hover:underline">
-                            View certificate
-                          </a>
-                        </td>
+          {showTable && (
+            <ResponsiveList
+              rows={rows}
+              getKey={(c) => c.id}
+              empty={<EmptyState icon={Award} title="No certificates found." />}
+              mobile={{
+                title: (c) => c.name || c.email,
+                meta: (c) => [c.email, `${c.certId} · ${c.issueDate}`],
+                footer: (c) => (
+                  <div className="flex items-center justify-between gap-3 border-t border-pz-outline-variant px-3 py-1">
+                    {needsChip(c) ? <CertStatusChip status={c.status} /> : <span />}
+                    <a href={c.viewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-body text-sm font-bold text-pz-primary hover:underline">
+                      View certificate
+                    </a>
+                  </div>
+                ),
+              }}
+              table={
+                <div className="overflow-x-auto rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest">
+                  <table className="w-full text-left font-body text-sm">
+                    <thead className="bg-pz-surface-container-low text-xs font-bold uppercase text-pz-on-surface-variant">
+                      <tr>
+                        {["Name", "Email", "Certificate number", "Issue date"].map((h) => (
+                          <th key={h} scope="col" className="px-3 py-2">{h}</th>
+                        ))}
+                        <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            }
-          />
+                    </thead>
+                    <tbody className="divide-y divide-pz-outline-variant text-pz-on-surface">
+                      {rows.map((c) => (
+                        <tr key={c.id} className={cn(c.status === "revoked" && "opacity-60")}>
+                          <td className="px-3 py-2 font-semibold">{c.name}</td>
+                          <td className="break-all px-3 py-2">{c.email}</td>
+                          <td className="whitespace-nowrap px-3 py-2">{c.certId}</td>
+                          <td className="whitespace-nowrap px-3 py-2">{c.issueDate}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              {needsChip(c) && <CertStatusChip status={c.status} />}
+                              <a href={c.viewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center whitespace-nowrap font-bold text-pz-primary hover:underline">
+                                View certificate
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              }
+            />
+          )}
 
-          {total > 0 && (
+          {showTable && total > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="font-body text-sm text-pz-on-surface-variant">
                 Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total}

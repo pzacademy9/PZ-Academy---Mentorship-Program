@@ -14,6 +14,7 @@ const cert = (over: Partial<CertRecord> = {}): CertRecord => ({
   topic: "Clinical Research",
   batchId: "b1",
   batchName: "Batch 1",
+  batchCreatedAt: "2026-08-01",
   issueDate: "2026-09-10",
   status: "sent",
   viewUrl: "https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111",
@@ -143,8 +144,9 @@ describe("StudentRecord", () => {
   it("certificates tab shows grouped certificates", () => {
     show(data(), "certificates");
     expect(screen.getByRole("heading", { name: "Certificates" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "General" })).toBeTruthy();
-    expect(screen.getByText("Clinical Research")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "General" })).toBeNull();
+    expect(screen.getByText("Batch 1")).toBeTruthy();
+    expect(screen.getByText("Courses \u2022 Clinical Research")).toBeTruthy();
     expect(screen.getByText("View certificate")).toBeTruthy();
     expect(screen.queryByText("Recent activity")).toBeNull();
   });

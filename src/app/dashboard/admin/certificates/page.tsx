@@ -6,16 +6,14 @@ import {
   queryCerts,
   type CertCategory,
   type CertRecord,
-  type CertStatus,
 } from "@/lib/certs/cert-model";
 import { AdminCertificates } from "@/components/admin/certs/AdminCertificates";
 
 export const metadata = { title: "Certificates — PZ Academy" };
 export const dynamic = "force-dynamic";
 
-type SP = { tab?: string; group?: string; batch?: string; status?: string; q?: string; page?: string };
+type SP = { tab?: string; group?: string; batch?: string; q?: string; page?: string };
 
-const STATUSES: readonly CertStatus[] = ["pending", "generated", "sent", "revoked"];
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function AdminCertificatesPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -26,11 +24,9 @@ export default async function AdminCertificatesPage({ searchParams }: { searchPa
   const g = first(sp.group);
   const group = g && CATEGORY_SUBCATS[category].includes(g) ? g : undefined;
   const batch = first(sp.batch)?.trim() || undefined;
-  const s = first(sp.status);
-  const status = s && (STATUSES as readonly string[]).includes(s) ? (s as CertStatus) : undefined;
   const q = first(sp.q)?.trim() || undefined;
   const pageNum = Number.parseInt(first(sp.page) ?? "1", 10);
-  const view = { tab, group, batch, status, q } as const;
+  const view = { tab, group, batch, q } as const;
 
   let all: CertRecord[];
   try {
@@ -44,7 +40,7 @@ export default async function AdminCertificatesPage({ searchParams }: { searchPa
         total={0}
         page={1}
         pageCount={1}
-        counts={{ byCategory: {}, bySubCategory: {}, byStatus: {} }}
+        counts={{ byCategory: {}, bySubCategory: {} }}
         batches={[]}
         unavailable
       />
@@ -55,7 +51,6 @@ export default async function AdminCertificatesPage({ searchParams }: { searchPa
     category,
     subCategory: group,
     batchId: batch,
-    status,
     search: q,
     page: Number.isFinite(pageNum) ? pageNum : 1,
   });
@@ -66,7 +61,7 @@ export default async function AdminCertificatesPage({ searchParams }: { searchPa
       total={result.total}
       page={result.page}
       pageCount={result.pageCount}
-      counts={result.counts}
+      counts={{ byCategory: result.counts.byCategory, bySubCategory: result.counts.bySubCategory }}
       batches={batchesFor(all, category, group)}
       unavailable={false}
     />

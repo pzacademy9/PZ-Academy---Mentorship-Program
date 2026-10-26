@@ -6,37 +6,26 @@ import type { CertRecord } from "@/lib/certs/cert-model";
 const cert = (over: Partial<CertRecord> = {}): CertRecord => ({
   id: "d1", certId: "PZ-2026-AAAA1111", name: "Ayesha", email: "a@x.com",
   category: "General", subCategory: "Courses", topic: "DIT", batchId: "b1",
-  batchName: "DIT Batch 1", issueDate: "2026-09-01", status: "sent",
+  batchName: "DIT Batch 1", batchCreatedAt: "2026-08-01", issueDate: "2026-09-01", status: "sent",
   viewUrl: "https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111", ...over,
 });
 
 describe("CertificateGroups", () => {
-  it("renders General before Official with sub-group labels and cert details", () => {
+  it("renders a plain list, newest first, with no group headings", () => {
     render(
       <CertificateGroups variant="admin" emptyText="none" certs={[
-        cert({ id: "o", category: "Official", subCategory: "Mentors", certId: "PZ-O" }),
-        cert(),
+        cert({ id: "old", certId: "PZ-OLD", issueDate: "2026-01-01" }),
+        cert({ id: "new", category: "Official", subCategory: "Mentors", certId: "PZ-NEW", issueDate: "2026-09-01", batchName: "Mentor Batch", topic: "Mentoring" }),
       ]} />,
     );
-    const g = screen.getByRole("heading", { name: "General" });
-    const o = screen.getByRole("heading", { name: "Official" });
-    expect(g.compareDocumentPosition(o) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText("Courses")).toBeTruthy();
-    expect(screen.getByText("Mentors")).toBeTruthy();
-    expect(screen.getAllByText("DIT")).toHaveLength(2);
-    expect(screen.getAllByText("DIT Batch 1")).toHaveLength(2);
-    expect(screen.getByText("PZ-2026-AAAA1111")).toBeTruthy();
-    expect(screen.getAllByText("2026-09-01")).toHaveLength(2);
-  });
-
-  it("omits Official heading when there are none", () => {
-    render(<CertificateGroups variant="admin" emptyText="none" certs={[cert()]} />);
-    expect(screen.queryByRole("heading", { name: "Official" })).toBeNull();
-  });
-
-  it("shows Other only when present", () => {
-    render(<CertificateGroups variant="admin" emptyText="none" certs={[cert({ category: "Other", subCategory: "X" })]} />);
-    expect(screen.getByRole("heading", { name: "Other" })).toBeTruthy();
+    expect(screen.queryByRole("heading")).toBeNull();
+    const rows = screen.getAllByTestId(/cert-row-/);
+    expect(rows.map((r) => r.getAttribute("data-testid"))).toEqual(["cert-row-new", "cert-row-old"]);
+    expect(screen.getByText("Mentor Batch")).toBeTruthy();
+    expect(screen.getByText("Mentors \u2022 Mentoring")).toBeTruthy();
+    expect(screen.getByText("Courses \u2022 DIT")).toBeTruthy();
+    expect(screen.getByText("PZ-NEW")).toBeTruthy();
+    expect(screen.getByText("2026-09-01")).toBeTruthy();
   });
 
   it("link opens viewUrl safely", () => {
@@ -75,7 +64,7 @@ describe("CertificateGroups", () => {
     expect(screen.queryByText(/being prepared/)).toBeNull();
   });
 
-  it("admin variant shows each status chip and mutes revoked", () => {
+  it("admin variant shows a chip only for Pending and Revoked, and mutes revoked", () => {
     render(
       <CertificateGroups variant="admin" emptyText="none" certs={[
         cert({ id: "1", certId: "C1", status: "sent" }),
@@ -84,7 +73,10 @@ describe("CertificateGroups", () => {
         cert({ id: "4", certId: "C4", status: "revoked" }),
       ]} />,
     );
-    for (const t of ["Sent", "Generated", "Pending", "Revoked"]) expect(screen.getByText(t)).toBeTruthy();
+    expect(screen.getByText("Pending")).toBeTruthy();
+    expect(screen.getByText("Revoked")).toBeTruthy();
+    expect(screen.queryByText("Sent")).toBeNull();
+    expect(screen.queryByText("Generated")).toBeNull();
     expect(screen.getByTestId("cert-row-4").className).toContain("opacity-60");
     expect(screen.getByTestId("cert-row-1").className).not.toContain("opacity-60");
   });

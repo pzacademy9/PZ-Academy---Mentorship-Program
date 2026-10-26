@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   batchesFor,
-  groupCerts,
   isIssuedForStudent,
   mapCert,
   normEmail,
@@ -13,7 +12,7 @@ import {
 const batches = new Map<string, CertBatch>([
   [
     "b1",
-    { id: "b1", name: "Batch One", category: "General", subCategory: "Courses", topic: "Pharmacology" },
+    { id: "b1", name: "Batch One", category: "General", subCategory: "Courses", topic: "Pharmacology", createdAt: "2026-02-01T00:00:00.000Z" },
   ],
 ]);
 
@@ -45,6 +44,7 @@ function rec(extra: Partial<CertRecord> = {}): CertRecord {
     topic: "T",
     batchId: "b1",
     batchName: "Batch One",
+    batchCreatedAt: "2026-02-01T00:00:00.000Z",
     issueDate: "2026-01-01",
     status: "generated",
     viewUrl: "https://cert.pharmacozyme.com/verify?certId=PZ-2026-0001",
@@ -86,7 +86,7 @@ describe("mapCert", () => {
     expect(full.email).toBe("ayesha@x.com");
   });
   it("maps unknown category to Other and missing status to pending", () => {
-    const c = mapCert("d1", raw({ category: "Weird", status: undefined }), batches);
+    const c = mapCert("d1", raw({ databaseId: "none", category: "Weird", status: undefined }), batches);
     expect(c.category).toBe("Other");
     expect(c.status).toBe("pending");
   });
@@ -94,18 +94,40 @@ describe("mapCert", () => {
 
 describe("mapCert case-insensitive normalisation", () => {
   it("canonicalises category, status and sub-category case", () => {
-    const c = mapCert("d1", raw({ category: " general ", status: "Sent", subCategory: "workshops" }), batches);
+    const c = mapCert("d1", raw({ databaseId: "none", category: " general ", status: "Sent", subCategory: "workshops" }), batches);
     expect(c.category).toBe("General");
     expect(c.status).toBe("sent");
     expect(c.subCategory).toBe("Workshops");
-    const o = mapCert("d2", raw({ category: "OFFICIAL", status: "REVOKED", subCategory: "central team" }), batches);
+    const o = mapCert("d2", raw({ databaseId: "none", category: "OFFICIAL", status: "REVOKED", subCategory: "central team" }), batches);
     expect(o.category).toBe("Official");
     expect(o.status).toBe("revoked");
     expect(o.subCategory).toBe("Central Team");
   });
   it("keeps an unknown sub-category as written", () => {
-    const c = mapCert("d1", raw({ category: "general", subCategory: "Seminars" }), batches);
+    const c = mapCert("d1", raw({ databaseId: "none", category: "general", subCategory: "Seminars" }), batches);
     expect(c.subCategory).toBe("Seminars");
+  });
+});
+
+describe("mapCert database wins", () => {
+  it("takes category, sub-category and topic from the database doc", () => {
+    const b = new Map<string, CertBatch>([
+      ["b9", { id: "b9", name: "AMS Programme", category: "Official", subCategory: "mentors", topic: "AMS", createdAt: "2026-05-05" }],
+    ]);
+    const c = mapCert("d1", raw({ databaseId: "b9", category: "General", subCategory: "Courses", topic: "Old" }), b);
+    expect(c.category).toBe("Official");
+    expect(c.subCategory).toBe("Mentors");
+    expect(c.topic).toBe("AMS");
+    expect(c.batchCreatedAt).toBe("2026-05-05");
+  });
+  it("falls back to the cert's own fields when the database has none", () => {
+    const b = new Map<string, CertBatch>([
+      ["b9", { id: "b9", name: "X", category: "Other", subCategory: "", topic: "", createdAt: "" }],
+    ]);
+    const c = mapCert("d1", raw({ databaseId: "b9" }), b);
+    expect(c.category).toBe("General");
+    expect(c.subCategory).toBe("Courses");
+    expect(c.topic).toBe("Pharmacology");
   });
 });
 
@@ -126,24 +148,6 @@ describe("isIssuedForStudent", () => {
   });
 });
 
-describe("groupCerts", () => {
-  it("orders categories and sub-categories, omits empties, newest first", () => {
-    const certs = [
-      rec({ id: "1", category: "Other", subCategory: "Misc" }),
-      rec({ id: "2", category: "Official", subCategory: "Mentors" }),
-      rec({ id: "3", category: "General", subCategory: "Webinars", issueDate: "2026-01-01" }),
-      rec({ id: "4", category: "General", subCategory: "Courses", issueDate: "2026-01-01" }),
-      rec({ id: "5", category: "General", subCategory: "Courses", issueDate: "2026-05-01" }),
-      rec({ id: "6", category: "General", subCategory: "Zzz Unknown" }),
-    ];
-    const g = groupCerts(certs);
-    expect(g.map((x) => x.category)).toEqual(["General", "Official", "Other"]);
-    expect(g[0].groups.map((x) => x.subCategory)).toEqual(["Courses", "Webinars", "Zzz Unknown"]);
-    expect(g[0].groups[0].certs.map((c) => c.id)).toEqual(["5", "4"]);
-    expect(groupCerts([])).toEqual([]);
-  });
-});
-
 describe("queryCerts", () => {
   const all = [
     rec({ id: "1", name: "Fatima Noor", email: "fatima@gmail.com", certId: "PZ-2026-F001", status: "generated" }),
@@ -151,10 +155,6 @@ describe("queryCerts", () => {
     rec({ id: "3", name: "Sara", email: "sara@x.com", certId: "PZ-2026-S003", status: "sent", issueDate: "not a date" }),
   ];
 
-  it("filters by status", () => {
-    const r = queryCerts(all, { status: "pending" });
-    expect(r.rows.map((c) => c.id)).toEqual(["2"]);
-  });
   it("searches name, partial email and certId", () => {
     expect(queryCerts(all, { search: "fatima" }).rows.map((c) => c.id)).toEqual(["1"]);
     expect(queryCerts(all, { search: "@gmail" }).rows.map((c) => c.id)).toEqual(["1"]);
@@ -184,29 +184,39 @@ describe("queryCerts", () => {
     expect(r.page).toBe(1);
     expect(r.rows).toEqual([]);
   });
-  it("computes counts ignoring the filter they describe", () => {
-    const r = queryCerts(all, { category: "Official", status: "pending" });
-    expect(r.counts.byCategory).toEqual({ General: 0, Official: 1 });
-    expect(r.counts.byStatus.generated).toBeUndefined();
-    expect(r.counts.byStatus.pending).toBe(1);
-    expect(r.counts.bySubCategory.Mentors).toBe(1);
+  it("keeps tab and chip counts real while a batch, search or sub-category is open", () => {
+    const r = queryCerts(all, { category: "General", subCategory: "Courses", batchId: "b1", search: "fatima" });
+    expect(r.rows.map((c) => c.id)).toEqual(["1"]);
+    expect(r.counts.byCategory).toEqual({ General: 2, Official: 1 });
+    expect(r.counts.bySubCategory).toEqual({ Courses: 2 });
+    const off = queryCerts(all, { category: "Official", batchId: "nope" });
+    expect(off.total).toBe(0);
+    expect(off.counts.byCategory).toEqual({ General: 2, Official: 1 });
+    expect(off.counts.bySubCategory).toEqual({ Mentors: 1 });
+  });
+  it("breaks date ties by certificate number", () => {
+    const r = queryCerts(
+      [rec({ id: "b", certId: "B", issueDate: "x" }), rec({ id: "a", certId: "A", issueDate: "y" })],
+      {},
+    );
+    expect(r.rows.map((c) => c.id)).toEqual(["a", "b"]);
   });
 });
 
 describe("batchesFor", () => {
   it("returns batches with counts", () => {
     const all = [
-      rec({ id: "1", batchId: "b1", batchName: "Batch One", topic: "A" }),
-      rec({ id: "2", batchId: "b1", batchName: "Batch One", topic: "A" }),
-      rec({ id: "3", batchId: "b2", batchName: "Batch Two", topic: "B", subCategory: "Webinars" }),
+      rec({ id: "1", batchId: "b1", batchName: "Batch One", topic: "A", batchCreatedAt: "2026-01-01" }),
+      rec({ id: "2", batchId: "b1", batchName: "Batch One", topic: "A", batchCreatedAt: "2026-01-01" }),
+      rec({ id: "3", batchId: "b2", batchName: "Batch Two", topic: "B", subCategory: "Webinars", batchCreatedAt: "2026-06-01" }),
       rec({ id: "4", batchId: "b3", batchName: "Off", category: "Official", subCategory: "Mentors" }),
     ];
     expect(batchesFor(all, "General")).toEqual([
-      { id: "b1", name: "Batch One", topic: "A", count: 2 },
-      { id: "b2", name: "Batch Two", topic: "B", count: 1 },
+      { id: "b2", name: "Batch Two", topic: "B", subCategory: "Webinars", createdAt: "2026-06-01", count: 1 },
+      { id: "b1", name: "Batch One", topic: "A", subCategory: "Courses", createdAt: "2026-01-01", count: 2 },
     ]);
     expect(batchesFor(all, "General", "Webinars")).toEqual([
-      { id: "b2", name: "Batch Two", topic: "B", count: 1 },
+      { id: "b2", name: "Batch Two", topic: "B", subCategory: "Webinars", createdAt: "2026-06-01", count: 1 },
     ]);
   });
 });

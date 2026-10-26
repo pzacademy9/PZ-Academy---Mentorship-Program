@@ -70,7 +70,24 @@ function toBatch(id: string, d: Record<string, unknown>): CertBatch {
     category: cat === "General" || cat === "Official" ? (cat as CertCategory) : "Other",
     subCategory: s(d.subCategory),
     topic: s(d.topic),
+    createdAt: toIso(d.createdAt),
   };
+}
+
+// createdAt may be a string or a Firestore Timestamp; keep it as an ISO/plain string.
+function toIso(v: unknown): string {
+  if (typeof v === "string") return v.trim();
+  if (v && typeof v === "object") {
+    const o = v as { toDate?: () => Date; seconds?: number; _seconds?: number };
+    try {
+      if (typeof o.toDate === "function") return o.toDate().toISOString();
+    } catch {
+      return "";
+    }
+    const secs = typeof o.seconds === "number" ? o.seconds : o._seconds;
+    if (typeof secs === "number") return new Date(secs * 1000).toISOString();
+  }
+  return "";
 }
 
 async function load(): Promise<CertRecord[]> {
@@ -81,10 +98,18 @@ async function load(): Promise<CertRecord[]> {
       db.collection("certificates").get(),
       db.collection("databases").get(),
     ]);
+    // Only live databases count, like the certificate app's own public pages.
     const batches = new Map<string, CertBatch>(
-      dbSnap.docs.map((d) => [d.id, toBatch(d.id, d.data() as Record<string, unknown>)] as const),
+      dbSnap.docs
+        .filter((d) => (d.data() as Record<string, unknown>).isLive === true)
+        .map((d) => [d.id, toBatch(d.id, d.data() as Record<string, unknown>)] as const),
     );
-    return certSnap.docs.map((d) => mapCert(d.id, d.data() as Record<string, unknown>, batches));
+    return certSnap.docs
+      .filter((d) => {
+        const id = (d.data() as Record<string, unknown>).databaseId;
+        return typeof id === "string" && batches.has(id.trim());
+      })
+      .map((d) => mapCert(d.id, d.data() as Record<string, unknown>, batches));
   } catch {
     throw new CertSourceError(UNREACHABLE);
   }

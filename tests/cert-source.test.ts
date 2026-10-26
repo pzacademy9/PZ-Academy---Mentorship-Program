@@ -20,6 +20,7 @@ const getFirestore = vi.hoisted(() =>
 vi.mock("firebase-admin/app", () => ({ initializeApp, getApps, cert }));
 vi.mock("firebase-admin/firestore", () => ({ getFirestore }));
 
+import { batchesFor } from "@/lib/certs/cert-model";
 import {
   CertSourceError,
   getAllCerts,
@@ -53,7 +54,7 @@ function seed() {
     ]),
   );
   gets.databases.mockResolvedValue(
-    snap([{ id: "db1", data: { name: "Batch One", category: "General" } }]),
+    snap([{ id: "db1", data: { name: "Batch One", category: "General", isLive: true } }]),
   );
 }
 
@@ -131,6 +132,50 @@ describe("cert-source", () => {
     await expect(getAllCerts()).rejects.toBeInstanceOf(CertSourceError);
     const certs = await getAllCerts();
     expect(certs).toHaveLength(1);
+  });
+
+  it("drops orphan certificates and certificates in non-live databases, keeps live ones", async () => {
+    const c = (id: string, databaseId?: string) => ({
+      id,
+      data: { ...(databaseId ? { databaseId } : {}), uniqueCertId: id, recipientEmail: "a@x.com" },
+    });
+    gets.certificates.mockResolvedValue(
+      snap([c("live", "db1"), c("orphan", "gone"), c("nodb"), c("dead", "db2"), c("flag", "db3")]),
+    );
+    gets.databases.mockResolvedValue(
+      snap([
+        { id: "db1", data: { name: "Live", isLive: true, createdAt: "2026-08-08" } },
+        { id: "db2", data: { name: "Hidden", isLive: false } },
+        { id: "db3", data: { name: "No flag" } },
+      ]),
+    );
+    const certs = await getAllCerts();
+    expect(certs.map((x) => x.id)).toEqual(["live"]);
+    expect(certs[0].batchCreatedAt).toBe("2026-08-08");
+    expect(await getCertsByEmail("a@x.com")).toHaveLength(1);
+  });
+
+  it("maps Timestamp-like createdAt values to ISO strings and sorts cards newest first", async () => {
+    const c = (id: string, databaseId: string) => ({
+      id,
+      data: { databaseId, uniqueCertId: id, category: "General", subCategory: "Courses" },
+    });
+    gets.certificates.mockResolvedValue(snap([c("c1", "d1"), c("c2", "d2"), c("c3", "d3"), c("c4", "d4")]));
+    gets.databases.mockResolvedValue(
+      snap([
+        { id: "d1", data: { name: "A", isLive: true, category: "General", createdAt: { _seconds: 1_700_000_000 } } },
+        { id: "d2", data: { name: "B", isLive: true, category: "General", createdAt: { seconds: 1_800_000_000 } } },
+        { id: "d3", data: { name: "C", isLive: true, category: "General", createdAt: { toDate: () => new Date("2027-06-01T00:00:00Z") } } },
+        { id: "d4", data: { name: "D", isLive: true, category: "General" } },
+      ]),
+    );
+    const certs = await getAllCerts();
+    const by = Object.fromEntries(certs.map((x) => [x.id, x.batchCreatedAt]));
+    expect(by.c1).toBe(new Date(1_700_000_000_000).toISOString());
+    expect(by.c2).toBe(new Date(1_800_000_000_000).toISOString());
+    expect(by.c3).toBe("2027-06-01T00:00:00.000Z");
+    expect(by.c4).toBe("");
+    expect(batchesFor(certs, "General").map((b) => b.name)).toEqual(["C", "B", "A", "D"]);
   });
 
   it("contains no Firestore write calls", () => {
