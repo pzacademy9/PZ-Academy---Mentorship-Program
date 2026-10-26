@@ -37,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Availability", href: "/dashboard/mentor/availability", icon: Clock, roles: ["mentor"] },
   { label: "Feedback", href: "/dashboard/mentor/feedback", icon: Star, roles: ["mentor"] },
   { label: "Students", href: "/dashboard/admin/students", icon: Users, roles: ["admin", "super_admin"] },
+  { label: "Certificates", href: "/dashboard/admin/certificates", icon: Award, roles: ["admin", "super_admin"] },
   { label: "Enrollments", href: "/dashboard/admin/enrollments", icon: CreditCard, roles: ["admin", "super_admin"] },
   { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "super_admin"] },
   { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "super_admin"] },
