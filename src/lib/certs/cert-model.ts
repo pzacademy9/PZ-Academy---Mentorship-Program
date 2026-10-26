@@ -40,6 +40,16 @@ function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+// Only https links are trusted; anything else (javascript:, data:, http:, garbage) is dropped.
+function httpsUrl(v: unknown): string {
+  const s = str(v);
+  try {
+    return new URL(s).protocol === "https:" ? s : "";
+  } catch {
+    return "";
+  }
+}
+
 function toCategory(v: unknown): CertCategory | "Other" {
   const s = str(v);
   return s === "General" || s === "Official" ? s : "Other";
@@ -75,7 +85,7 @@ export function mapCert(
     batchName: batch?.name || topic,
     issueDate: typeof issue === "string" ? issue.trim() : "",
     status,
-    viewUrl: str(raw.verificationUrl) || VERIFY_BASE + encodeURIComponent(certId),
+    viewUrl: httpsUrl(raw.verificationUrl) || VERIFY_BASE + encodeURIComponent(certId),
   };
 }
 

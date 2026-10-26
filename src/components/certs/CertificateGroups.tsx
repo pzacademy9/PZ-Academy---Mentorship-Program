@@ -30,6 +30,12 @@ export function CertStatusChip({ status, label }: { status: CertStatus; label?: 
   );
 }
 
+function safeHref(c: CertRecord): string {
+  return c.viewUrl.startsWith("https://")
+    ? c.viewUrl
+    : `https://cert.pharmacozyme.com/verify?certId=${encodeURIComponent(c.certId)}`;
+}
+
 function pendingText(n: number): string {
   return n === 1
     ? "1 certificate is being prepared. We will tell you here when it is ready."
@@ -97,7 +103,7 @@ export function CertificateGroups({
                         label={variant === "student" ? "Issued" : undefined}
                       />
                       <a
-                        href={c.viewUrl}
+                        href={safeHref(c)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex min-h-11 items-center font-body text-sm font-bold text-pz-primary hover:underline"

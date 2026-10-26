@@ -47,6 +47,12 @@ describe("CertificateGroups", () => {
     expect(a.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
+  it("never renders an unsafe viewUrl into an href", () => {
+    render(<CertificateGroups variant="admin" emptyText="none" certs={[cert({ viewUrl: "javascript:alert(1)" })]} />);
+    const a = screen.getByRole("link", { name: /View certificate/ });
+    expect(a.getAttribute("href")).toBe("https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111");
+  });
+
   it("student variant always shows Issued", () => {
     render(<CertificateGroups variant="student" emptyText="none" certs={[cert({ status: "generated" }), cert({ id: "z", status: "sent" })]} />);
     expect(screen.getAllByText("Issued")).toHaveLength(2);

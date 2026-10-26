@@ -57,6 +57,16 @@ describe("mapCert", () => {
     const c = mapCert("d1", raw({ verificationUrl: "https://v.example/x" }), batches);
     expect(c.viewUrl).toBe("https://v.example/x");
   });
+  it("rejects non-https verificationUrl values and uses the fallback", () => {
+    for (const bad of ["javascript:alert(1)", "data:text/html,x", "http://x.com/a", "not a url", "/relative/path"]) {
+      const c = mapCert("d1", raw({ verificationUrl: bad }), batches);
+      expect(c.viewUrl).toBe("https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111");
+    }
+  });
+  it("keeps a normal https verificationUrl", () => {
+    const u = "https://cert.pharmacozyme.com/verify?certId=X";
+    expect(mapCert("d1", raw({ verificationUrl: u }), batches).viewUrl).toBe(u);
+  });
   it("falls back to the verify url and ignores pdfUrl/driveLink", () => {
     const c = mapCert("d1", raw(), batches);
     expect(c.viewUrl).toBe("https://cert.pharmacozyme.com/verify?certId=PZ-2026-AAAA1111");
