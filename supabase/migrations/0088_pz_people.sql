@@ -44,8 +44,8 @@ create index if not exists landing_registrations_person_idx
 create or replace function public.pz_first_name(p_name text)
 returns text
 language plpgsql
-immutable
-set search_path = public
+stable
+set search_path = public, pg_temp
 as $$
 declare
   v_rest text;
@@ -68,7 +68,7 @@ create or replace function public.pz_ensure_person(p_email text, p_name text)
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_email  text := lower(btrim(coalesce(p_email, '')));
@@ -110,7 +110,7 @@ create or replace function public.pz_merge_people(p_keep uuid, p_drop uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   if p_keep is null or p_drop is null then
@@ -143,11 +143,16 @@ create or replace function public.landing_registrations_set_person()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
+declare
+  v_person uuid;
 begin
   if new.status in ('paid','free') and not new.is_test then
-    new.person_id := public.pz_ensure_person(new.email, new.name);
+    v_person := public.pz_ensure_person(new.email, new.name);
+    if v_person is not null then
+      new.person_id := v_person;
+    end if;
   end if;
   return new;
 end;
@@ -157,7 +162,7 @@ revoke all on function public.landing_registrations_set_person() from public, an
 
 drop trigger if exists landing_registrations_person on public.landing_registrations;
 create trigger landing_registrations_person
-  before insert or update of status, email, name on public.landing_registrations
+  before insert or update of status, email, name, is_test on public.landing_registrations
   for each row execute function public.landing_registrations_set_person();
 
 -- ------------------------------------------------------------ backfill

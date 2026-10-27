@@ -43,3 +43,33 @@ it("hand-adds the tables and person_id to the generated types", () => {
   for (const t of TABLES) expect(types).toContain(`      ${t}: {`);
   expect(types).toContain("person_id");
 });
+
+it("never overwrites an existing person_id with null in the trigger", () => {
+  const fn = sql.slice(sql.indexOf("function public.landing_registrations_set_person"));
+  expect(fn).toMatch(/v_person\s+uuid/i);
+  expect(fn).toMatch(/if v_person is not null then/i);
+  expect(fn).not.toMatch(/new\.person_id := public\.pz_ensure_person/i);
+});
+
+it("fires the trigger when status, email, name or is_test change", () => {
+  expect(sql).toMatch(/before insert or update of status, email, name, is_test on public\.landing_registrations/i);
+});
+
+it("pins search_path with pg_temp on every security definer function", () => {
+  expect(sql).not.toMatch(/set search_path = public\s*$/im);
+  const count = (sql.match(/set search_path = public, pg_temp/g) ?? []).length;
+  expect(count).toBe(4);
+});
+
+it("marks pz_first_name stable, not immutable", () => {
+  expect(sql).not.toMatch(/\bimmutable\b/i);
+  const fn = sql.slice(sql.indexOf("function public.pz_first_name"), sql.indexOf("function public.pz_ensure_person"));
+  expect(fn).toMatch(/\bstable\b/i);
+});
+
+it("types person_id as nullable on the landing_registrations Row", () => {
+  const start = types.indexOf("      landing_registrations: {");
+  const row = types.slice(start, types.indexOf("Insert:", start));
+  expect(row).toMatch(/person_id: string \| null/);
+  expect(row).not.toMatch(/person_id\?/);
+});

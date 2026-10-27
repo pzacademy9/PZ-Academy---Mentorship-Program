@@ -2055,7 +2055,7 @@ export type Database = {
           option_label: string
           page_id: string
           payment_method: string
-          person_id?: string | null
+          person_id: string | null
           profession: string
           promo_code_id: string | null
           promo_code_text: string
