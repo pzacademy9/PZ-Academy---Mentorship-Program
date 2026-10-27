@@ -1,6 +1,8 @@
 import { firstNameOf } from "@/lib/crm/whatsapp-link";
 
-export type TagContext = { name: string; refId: string; portalUrl: string | null; pzId: string };
+/** Live-session details for session emails. Without it the session tags stay verbatim. */
+export type SessionTagContext = { zoomUrl: string; kahootUrl: string; timeText: string; attendanceUrl: string };
+export type TagContext = { name: string; refId: string; portalUrl: string | null; pzId: string; session?: SessionTagContext };
 
 export const PARTICIPANT_TAGS: readonly string[] = ["first_name", "full_name", "ref_id", "portal_link", "pz_id"];
 
@@ -25,6 +27,12 @@ export function renderParticipantTags(template: string, ctx: TagContext, mode: "
     portal_link: ctx.portalUrl ?? "",
     pz_id: ctx.pzId,
   };
+  if (ctx.session) {
+    values.zoom_link = ctx.session.zoomUrl;
+    values.kahoot_link = ctx.session.kahootUrl;
+    values.session_time = ctx.session.timeText;
+    values.attendance_link = ctx.session.attendanceUrl;
+  }
   return template.replace(TAG_RE, (match, key: string) => {
     const value = values[key];
     if (value === undefined) return match;

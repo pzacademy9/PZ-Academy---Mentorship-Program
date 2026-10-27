@@ -5,10 +5,10 @@ const MAX_REQUESTS = 10;
 // not share it, so a determined caller can get more than the limit. It only slows casual abuse.
 const hits = new Map<string, number[]>();
 
-/** At most 10 requests per key per minute. Returns false when the key is over the limit. */
-export function allowRequest(key: string, now: number = Date.now()): boolean {
+/** At most `max` (default 10) requests per key per minute. Returns false when the key is over the limit. */
+export function allowRequest(key: string, now: number = Date.now(), max: number = MAX_REQUESTS): boolean {
   const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_REQUESTS) {
+  if (recent.length >= max) {
     hits.set(key, recent);
     return false;
   }

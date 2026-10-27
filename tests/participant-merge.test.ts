@@ -41,3 +41,15 @@ describe("renderParticipantTags", () => {
     expect(usesPortalLink("x {{ ref_id }}")).toBe(false);
   });
 });
+
+describe("renderParticipantTags session tags", () => {
+  const session = { zoomUrl: "https://zoom.test/j/1", kahootUrl: "", timeText: "Sat 14 Nov, 8:00 pm PKT", attendanceUrl: "https://x.test/attend/abc?t=1" };
+  it("fills zoom_link, kahoot_link, session_time and attendance_link; an omitted link is empty", () => {
+    expect(renderParticipantTags("{{zoom_link}}|{{kahoot_link}}|{{session_time}}|{{attendance_link}}", { ...ctx, session }, "text")).toBe(
+      "https://zoom.test/j/1||Sat 14 Nov, 8:00 pm PKT|https://x.test/attend/abc?t=1",
+    );
+  });
+  it("leaves them verbatim when there is no session", () => {
+    expect(renderParticipantTags("{{zoom_link}} {{ attendance_link }}", ctx, "text")).toBe("{{zoom_link}} {{ attendance_link }}");
+  });
+});

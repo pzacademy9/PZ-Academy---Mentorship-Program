@@ -1,5 +1,6 @@
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listStudents, type StudentFilter } from "@/lib/data/admin-students";
+import { StudentsTabs } from "@/components/admin/students/StudentsTabs";
 import { StudentsList } from "@/components/admin/students/StudentsList";
 
 export const metadata = { title: "Students — PZ Academy" };
@@ -22,13 +23,16 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
   // A failed load throws a plain Error; the route's error boundary shows it.
   const result = await listStudents({ search: q, filter, page });
   return (
-    <StudentsList
-      rows={result.rows}
-      total={result.total}
-      page={result.page}
-      pageCount={result.pageCount}
-      q={q}
-      filter={filter}
-    />
+    <div className="space-y-6">
+      <StudentsTabs active="all" />
+      <StudentsList
+        rows={result.rows}
+        total={result.total}
+        page={result.page}
+        pageCount={result.pageCount}
+        q={q}
+        filter={filter}
+      />
+    </div>
   );
 }

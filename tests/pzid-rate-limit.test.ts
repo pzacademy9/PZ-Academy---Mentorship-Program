@@ -15,6 +15,12 @@ describe("allowRequest", () => {
     expect(allowRequest("ip-c", t)).toBe(true);
   });
 
+  it("honours a higher cap passed by the caller", () => {
+    const t = 4_000_000;
+    for (let i = 0; i < 60; i++) expect(allowRequest("ip-e", t, 60)).toBe(true);
+    expect(allowRequest("ip-e", t, 60)).toBe(false);
+  });
+
   it("allows the key again after 61 seconds", () => {
     const t = 3_000_000;
     for (let i = 0; i < 11; i++) allowRequest("ip-d", t);
