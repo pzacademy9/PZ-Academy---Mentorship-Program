@@ -2055,6 +2055,7 @@ export type Database = {
           option_label: string
           page_id: string
           payment_method: string
+          person_id?: string | null
           profession: string
           promo_code_id: string | null
           promo_code_text: string
@@ -2098,6 +2099,7 @@ export type Database = {
           option_label?: string
           page_id: string
           payment_method?: string
+          person_id?: string | null
           profession?: string
           promo_code_id?: string | null
           promo_code_text?: string
@@ -2141,6 +2143,7 @@ export type Database = {
           option_label?: string
           page_id?: string
           payment_method?: string
+          person_id?: string | null
           profession?: string
           promo_code_id?: string | null
           promo_code_text?: string
@@ -2180,6 +2183,13 @@ export type Database = {
             columns: ["page_id"]
             isOneToOne: false
             referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_registrations_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
             referencedColumns: ["id"]
           },
           {
@@ -3502,6 +3512,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pz_id_aliases: {
+        Row: {
+          alias_norm: string
+          created_at: string
+          person_id: string
+          source: string
+        }
+        Insert: {
+          alias_norm: string
+          created_at?: string
+          person_id: string
+          source: string
+        }
+        Update: {
+          alias_norm?: string
+          created_at?: string
+          person_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pz_id_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pz_people: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          pz_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          pz_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          pz_id?: string
+        }
+        Relationships: [
+        ]
+      }
+      pz_person_emails: {
+        Row: {
+          email: string
+          person_id: string
+        }
+        Insert: {
+          email: string
+          person_id: string
+        }
+        Update: {
+          email?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pz_person_emails_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_attempts: {
         Row: {
