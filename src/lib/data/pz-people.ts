@@ -111,3 +111,16 @@ export async function listBatchIdsForAdmin(
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/** Title of a published or closed landing page, for the public find-your-ID heading. */
+export async function getBatchTitle(slug: string): Promise<string | null> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from("landing_pages")
+    .select("title, status")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) throw new Error("Could not load this page. Please try again.");
+  if (!data || (data.status !== "published" && data.status !== "closed")) return null;
+  return data.title as string;
+}

@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { searchBatchIds, listBatchIdsForAdmin } from "@/lib/data/pz-people";
+import { searchBatchIds, listBatchIdsForAdmin, getBatchTitle } from "@/lib/data/pz-people";
 
 let store: Store;
 let failTable: string | null = null;
@@ -133,5 +133,18 @@ describe("listBatchIdsForAdmin", () => {
   it("throws the plain error when the people query fails", async () => {
     failTable = "pz_people";
     await expect(listBatchIdsForAdmin("p1")).rejects.toThrow("Could not load IDs. Please try again.");
+  });
+});
+
+describe("getBatchTitle", () => {
+  it("returns the title of a published page", async () => {
+    store.landing_pages = [{ id: "p1", slug: "batch-1", status: "published", title: "TMC Batch 1" }];
+    expect(await getBatchTitle("batch-1")).toBe("TMC Batch 1");
+  });
+
+  it("returns null for a draft or unknown page", async () => {
+    store.landing_pages = [{ id: "p2", slug: "draft-one", status: "draft", title: "Secret" }];
+    expect(await getBatchTitle("draft-one")).toBeNull();
+    expect(await getBatchTitle("nope")).toBeNull();
   });
 });
