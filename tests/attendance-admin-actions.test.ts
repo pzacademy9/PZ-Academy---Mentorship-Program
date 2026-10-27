@@ -211,3 +211,56 @@ describe("email buttons", () => {
     expect(h.runEmailSend).not.toHaveBeenCalled();
   });
 });
+
+describe("send result messages", () => {
+  it("says how many got the email when all went out", async () => {
+    expect(await sendReminderNow(SESS)).toEqual({ ok: true, message: "Email sent to 5 people" });
+  });
+  it("reports partial failure and still counts as ok", async () => {
+    h.runEmailSend.mockResolvedValue({ sent: 3, failed: 2, pending: 0 });
+    expect(await sendReminderNow(SESS)).toEqual({ ok: true, message: "Sent to 3 people, 2 could not be sent. Open Messages sent to retry." });
+  });
+  it("is not ok when nothing could be sent", async () => {
+    h.runEmailSend.mockResolvedValue({ sent: 0, failed: 4, pending: 0 });
+    const r = await emailUpdatedTime(SESS);
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain("0 people, 4 could not be sent");
+  });
+  it("says the rest will follow when some are still pending", async () => {
+    h.runEmailSend.mockResolvedValue({ sent: 40, failed: 0, pending: 60 });
+    expect(await sendReminderNow(SESS)).toEqual({ ok: true, message: "Sent to 40 people so far. The rest will go out within a few minutes." });
+  });
+  it("does not claim success when sending throws", async () => {
+    h.runEmailSend.mockRejectedValue(new Error("boom"));
+    expect(await sendReminderNow(SESS)).toEqual({
+      ok: false,
+      message: "The email was started but may not have gone out. Check Messages sent before trying again.",
+    });
+  });
+});
+
+describe("id checks", () => {
+  it("refuse malformed ids without touching the database", async () => {
+    const results = await Promise.all([
+      addSession("nope", form()),
+      saveSession("nope", form()),
+      removeSession("nope"),
+      setOverride("nope", "open"),
+      toggleMark("nope", PERSON, true),
+      toggleMark(SESS, "nope", true),
+      markEveryonePresent("nope"),
+      saveMinPct("nope", 80),
+      sendReminderNow("nope"),
+      emailUpdatedTime("nope"),
+    ]);
+    for (const r of results) expect(r.ok).toBe(false);
+    for (const fn of [h.getSessionById, h.createSession, h.updateSession, h.deleteSession, h.markPresent, h.unmarkPresent, h.markAllPresent, h.setMinPct, h.createSessionSend, h.isLiveEnrolled]) {
+      expect(fn).not.toHaveBeenCalled();
+    }
+  });
+  it("removeSession on a missing session is not ok", async () => {
+    h.getSessionById.mockResolvedValue(null);
+    expect((await removeSession(SESS)).ok).toBe(false);
+    expect(h.deleteSession).not.toHaveBeenCalled();
+  });
+});

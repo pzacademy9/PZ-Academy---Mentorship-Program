@@ -22,6 +22,10 @@ export type ActionResult = { ok: boolean; message?: string; staleReminder?: bool
 
 const NOT_ALLOWED = "You do not have permission to do this.";
 const SAVE_FAILED = "Something went wrong. Please try again.";
+const NO_SESSION = "That session was not found";
+const NO_PAGE = "That batch was not found";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const BAD_TIME = "Please enter a valid date and time";
 const SEND_MESSAGES: Record<string, string> = {
   no_zoom: "No Zoom link on this session",
@@ -72,6 +76,7 @@ function parseForm(f: SessionForm): { ok: true; input: SessionInput } | { ok: fa
 export async function addSession(pageId: string, form: SessionForm): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const parsed = parseForm(form);
   if (!parsed.ok) return parsed;
   try {
@@ -87,6 +92,7 @@ export async function addSession(pageId: string, form: SessionForm): Promise<Act
 export async function saveSession(sessionId: string, form: SessionForm): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   const parsed = parseForm(form);
   if (!parsed.ok) return parsed;
   try {
@@ -106,10 +112,12 @@ export async function saveSession(sessionId: string, form: SessionForm): Promise
 export async function removeSession(sessionId: string): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
     const s = await getSessionById(sessionId);
+    if (!s) return { ok: false, message: NO_SESSION };
     await deleteSession(sessionId);
-    if (s) refresh(s.page_id);
+    refresh(s.page_id);
     return { ok: true, message: "Session deleted" };
   } catch {
     return { ok: false, message: SAVE_FAILED };
@@ -119,6 +127,7 @@ export async function removeSession(sessionId: string): Promise<ActionResult> {
 export async function setOverride(sessionId: string, value: WindowOverride): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   if (!OVERRIDES.includes(value)) return { ok: false, message: SAVE_FAILED };
   try {
     const res = await updateSession(sessionId, { windowOverride: value });
@@ -135,6 +144,8 @@ export async function setOverride(sessionId: string, value: WindowOverride): Pro
 export async function toggleMark(sessionId: string, personId: string, present: boolean): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
+  if (!isUuid(personId)) return { ok: false, message: "That student was not found" };
   try {
     const s = await getSessionById(sessionId);
     if (!s) return { ok: false, message: "That session no longer exists" };
@@ -156,6 +167,7 @@ export async function toggleMark(sessionId: string, personId: string, present: b
 export async function markEveryonePresent(sessionId: string): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
     const s = await getSessionById(sessionId);
     if (!s) return { ok: false, message: "That session no longer exists" };
@@ -170,6 +182,7 @@ export async function markEveryonePresent(sessionId: string): Promise<ActionResu
 export async function saveMinPct(pageId: string, pct: number): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   try {
     const res = await setMinPct(pageId, pct);
     if (!res.ok) return { ok: false, message: "Enter a whole number from 0 to 100" };
@@ -183,17 +196,35 @@ export async function saveMinPct(pageId: string, pct: number): Promise<ActionRes
 async function sendNow(sessionId: string, kind: "reminder" | "update"): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
     const res = await createSessionSend(sessionId, kind);
     if (!res.ok) return { ok: false, message: SEND_MESSAGES[res.reason] ?? SAVE_FAILED };
     // One batch of 40 now; the rest is picked up by the timer that runs the sends.
-    await runEmailSend(res.sendId, 40);
+    let out: { sent: number; failed: number; pending: number };
+    try {
+      out = await runEmailSend(res.sendId, 40);
+    } catch {
+      return { ok: false, message: "The email was started but may not have gone out. Check Messages sent before trying again." };
+    }
     const s = await getSessionById(sessionId);
     if (s) refresh(s.page_id);
-    return { ok: true, message: `Email on its way to ${res.count} ${res.count === 1 ? "person" : "people"}` };
+    return sendMessage(out);
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }
+}
+
+const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
+
+function sendMessage(out: { sent: number; failed: number; pending: number }): ActionResult {
+  if (out.failed > 0) {
+    return { ok: out.sent > 0, message: `Sent to ${people(out.sent)}, ${out.failed} could not be sent. Open Messages sent to retry.` };
+  }
+  if (out.pending > 0) {
+    return { ok: true, message: `Sent to ${people(out.sent)} so far. The rest will go out within a few minutes.` };
+  }
+  return { ok: true, message: `Email sent to ${people(out.sent)}` };
 }
 
 export async function sendReminderNow(sessionId: string): Promise<ActionResult> {
