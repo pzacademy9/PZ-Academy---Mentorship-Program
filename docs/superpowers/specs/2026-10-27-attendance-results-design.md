@@ -71,6 +71,12 @@ person across courses, so there is no way to find "the best student over six mon
   students still get a permanent ID and a certificate, and their quiz tracking stays
   on (it shows in their own totals), but they are excluded from the live competition
   and leaderboards. The app already has `landing_registrations.mode in ('live','recorded')`.
+- **Past scores and past attendance must be imported, carefully.** Old quiz results
+  and old attendance from the legacy sheets are part of the project (see part 5), not
+  an optional extra. They feed the permanent record, "my totals", the public pages
+  and the six-month ranking.
+- **Attendance is visible** to the student on their own page and on the public page,
+  looked up by ID, the same way results are. (Owner decision 2026-10-27.)
 - **Old students** get permanent IDs too. Their old IDs (like `Hamid-Dr28`) are kept as
   aliases so old results still match.
 
@@ -108,7 +114,7 @@ person across courses, so there is no way to find "the best student over six mon
   `_checkinHandler` and the Kahoot-matching logic in `Code.gs`. It is a behaviour
   reference, not code to keep.
 
-## The four parts
+## The five parts
 
 1. **Identity, ID pages, session emails.** Permanent ID per email, created at first
    registration, including a one-off backfill for existing students; aliases table; the
@@ -123,7 +129,21 @@ person across courses, so there is no way to find "the best student over six mon
 4. **Public pages.** Home-page cards for Attendance, Results and Certificates; public
    leaderboards per course; "my totals" by ID.
 
-Suggested build order: 1, 2, 3, 4. Each part ends in something the owner can use.
+5. **Careful import of history.** Bring in old courses, webinars and workshops from
+   the legacy Google Sheets. Sources: the event list and sheet ids in the legacy
+   Script Properties (`EVENTS_JSON`), each event's attendance sheet (rows carry
+   timestamp, name, email, session number) and each portfolio sheet (a Participants IDs
+   tab mapping email to the old ID, plus one tab per quiz day and a Combined Master).
+   Rules: run per event; show a dry-run report first (counts, unmatched old IDs,
+   duplicate entries, people with several emails) before anything is saved; never
+   guess silently, send every doubtful row to the same review screen as part 3;
+   idempotent, so running it twice never doubles a score or an attendance row; the
+   sheets are only read, never changed or deleted; every imported old ID becomes an
+   alias of the person; compare totals against each sheet's own Combined Master as a
+   check. Results shown from imported data are marked as imported.
+
+Suggested build order: 1, 2, 3, 4, then 5 (it needs the review screen from part 3 and
+the aliases from part 1). Each part ends in something the owner can use.
 
 ## Further calls (made after the builder check; all mine, not confirmed by the owner)
 
@@ -146,8 +166,7 @@ Suggested build order: 1, 2, 3, 4. Each part ends in something the owner can use
   person can be in several batches.
 - **Who can use admin screens:** admins only for now. Mentors are out of scope.
 - **Public safety:** no opt-out. The "find your ID" search needs at least 3 characters
-  and is rate limited. Results are public by decision. Attendance visibility is
-  pending the owner (see open questions).
+  and is rate limited. Results and attendance are public by decision.
 - **Quiz maximum for the percentage:** an admin-entered maximum score per session,
   defaulting to the highest score in the uploaded file.
 - **Re-uploads:** saving a session's results replaces that session's earlier results.
@@ -166,4 +185,4 @@ Suggested build order: 1, 2, 3, 4. Each part ends in something the owner can use
 - How the Kahoot report is parsed (it can contain blank or oddly named columns, as the
   sample sheet does).
 - Wording and layout of the public pages, within the app's existing design system.
-- Whether and how to import old history from the sheets.
+- The exact mechanics of the history import (part 5), within the rules above.
