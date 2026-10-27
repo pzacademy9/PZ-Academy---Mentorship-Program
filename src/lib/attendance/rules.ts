@@ -76,7 +76,8 @@ export function generateSessionCode(): string {
   const buf = new Uint8Array(16);
   while (out.length < 8) {
     globalThis.crypto.getRandomValues(buf);
-    for (const b of buf) {
+    for (let i = 0; i < buf.length; i++) {
+      const b = buf[i];
       if (b >= 252) continue;
       out += CODE_CHARS[b % 36];
       if (out.length === 8) break;
