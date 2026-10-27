@@ -238,6 +238,102 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_quiz_decisions: {
+        Row: {
+          choice: string
+          created_at: string
+          id: string
+          key: string
+          kind: string
+          person_id: string | null
+          session_id: string
+        }
+        Insert: {
+          choice?: string
+          created_at?: string
+          id?: string
+          key: string
+          kind: string
+          person_id?: string | null
+          session_id: string
+        }
+        Update: {
+          choice?: string
+          created_at?: string
+          id?: string
+          key?: string
+          kind?: string
+          person_id?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_quiz_decisions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_quiz_decisions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "batch_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batch_quiz_results: {
+        Row: {
+          correct: number
+          created_at: string
+          id: string
+          imported: boolean
+          incorrect: number
+          person_id: string
+          player: string
+          score: number
+          session_id: string
+        }
+        Insert: {
+          correct?: number
+          created_at?: string
+          id?: string
+          imported?: boolean
+          incorrect?: number
+          person_id: string
+          player?: string
+          score: number
+          session_id: string
+        }
+        Update: {
+          correct?: number
+          created_at?: string
+          id?: string
+          imported?: boolean
+          incorrect?: number
+          person_id?: string
+          player?: string
+          score?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_quiz_results_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_quiz_results_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "batch_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batch_session_marks: {
         Row: {
           id: string
@@ -299,6 +395,9 @@ export type Database = {
           number: number
           page_id: string
           public_code: string
+          quiz_file_name: string | null
+          quiz_max_score: number | null
+          quiz_saved_at: string | null
           starts_at: string
           title: string
           window_override: string
@@ -315,6 +414,9 @@ export type Database = {
           number: number
           page_id: string
           public_code: string
+          quiz_file_name?: string | null
+          quiz_max_score?: number | null
+          quiz_saved_at?: string | null
           starts_at: string
           title?: string
           window_override?: string
@@ -331,6 +433,9 @@ export type Database = {
           number?: number
           page_id?: string
           public_code?: string
+          quiz_file_name?: string | null
+          quiz_max_score?: number | null
+          quiz_saved_at?: string | null
           starts_at?: string
           title?: string
           window_override?: string
@@ -4577,6 +4682,10 @@ export type Database = {
           review_count: number
           session_count: number
         }[]
+      }
+      batch_quiz_save: {
+        Args: { p_file: string; p_max: number; p_rows: Json; p_session: string }
+        Returns: number
       }
       pz_merge_people: {
         Args: { p_keep: string; p_drop: string }
