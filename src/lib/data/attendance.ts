@@ -207,6 +207,18 @@ export async function isLiveEnrolled(pageId: string, personId: string): Promise<
   return (await enrolledRegs(pageId, personId)).some((r) => r.mode === "live");
 }
 
+/** First name of a person, or null if they no longer exist (for example after a merge). */
+export async function personFirstName(personId: string): Promise<string | null> {
+  const { data, error } = await createAdminSupabase()
+    .from("pz_people")
+    .select("display_name")
+    .eq("id", personId)
+    .maybeSingle();
+  check("person read", error);
+  if (!data) return null;
+  return ((data as { display_name: string }).display_name ?? "").trim().split(/\s+/)[0] ?? "";
+}
+
 /** Idempotent: the unique (session_id, person_id) key ignores a repeat, and only a new row is returned. */
 export async function markPresent(
   sessionId: string,

@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 
 import {
   createSession, updateSession, deleteSession, getSessionByCode, eligiblePersonForEmail,
-  markPresent, unmarkPresent, markAllPresent, isLiveEnrolled, getBatchGrid, setMinPct, listSessions,
+  markPresent, unmarkPresent, markAllPresent, isLiveEnrolled, personFirstName, getBatchGrid, setMinPct, listSessions,
 } from "@/lib/data/attendance";
 
 const NOW = new Date("2026-11-10T12:00:00Z");
@@ -143,6 +143,13 @@ describe("isLiveEnrolled", () => {
     expect(await isLiveEnrolled("pg1", "p1")).toBe(true);
     expect(await isLiveEnrolled("pg1", "p3")).toBe(false);
     expect(await isLiveEnrolled("pg1", "p4")).toBe(false);
+  });
+});
+
+describe("personFirstName", () => {
+  it("returns the first name, or null when the person no longer exists", async () => {
+    expect(await personFirstName("p1")).toBe("Ayesha");
+    expect(await personFirstName("gone")).toBeNull();
   });
 });
 
