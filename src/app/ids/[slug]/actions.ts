@@ -11,6 +11,9 @@ export type FindMyIdResult =
   | { status: "rate_limited" }
   | { status: "error"; message: string };
 
+// The only message from searchBatchIds that is safe to show. Anything else stays on the server.
+const KNOWN_ERROR = "Could not search IDs. Please try again.";
+
 export async function findMyId(slug: string, query: string): Promise<FindMyIdResult> {
   const h = await headers();
   const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
@@ -25,7 +28,10 @@ export async function findMyId(slug: string, query: string): Promise<FindMyIdRes
   } catch (e) {
     return {
       status: "error",
-      message: e instanceof Error ? e.message : "Could not search IDs. Please try again.",
+      message:
+        e instanceof Error && e.message === KNOWN_ERROR
+          ? KNOWN_ERROR
+          : "Something went wrong. Please try again in a minute.",
     };
   }
 }

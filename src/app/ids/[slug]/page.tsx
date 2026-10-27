@@ -8,9 +8,22 @@ export const metadata: Metadata = { title: "Find your PZ ID", robots: { index: f
 
 export default async function FindIdPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const known = await searchBatchIds(slug, "");
+  let known: Awaited<ReturnType<typeof searchBatchIds>>;
+  let title: string | null;
+  try {
+    known = await searchBatchIds(slug, "");
+    title = known ? await getBatchTitle(slug) : null;
+  } catch {
+    return (
+      <main className="min-h-screen bg-pz-offwhite px-4 py-12">
+        <div className="mx-auto max-w-xl">
+          <p className="text-sm font-semibold text-pz-mid">PZ Academy</p>
+          <p className="mt-4 text-pz-mid">We could not load this page. Please try again in a minute.</p>
+        </div>
+      </main>
+    );
+  }
   if (!known) notFound();
-  const title = await getBatchTitle(slug);
 
   return (
     <main className="min-h-screen bg-pz-offwhite px-4 py-12">

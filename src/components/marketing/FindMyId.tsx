@@ -12,6 +12,7 @@ export function FindMyId({ slug, search }: Props) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<FindMyIdResult | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [copyFailed, setCopyFailed] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
@@ -33,8 +34,10 @@ export function FindMyId({ slug, search }: Props) {
     try {
       await navigator.clipboard.writeText(id);
       setCopied(id);
+      setCopyFailed(null);
     } catch {
       setCopied(null);
+      setCopyFailed(id);
     }
   }
 
@@ -85,6 +88,9 @@ export function FindMyId({ slug, search }: Props) {
                     {copied === r.pzId ? "Copied" : "Copy"}
                   </button>
                 </div>
+                {copyFailed === r.pzId && (
+                  <p className="mt-2 text-sm text-red-700">Copy did not work. Select the ID and copy it by hand.</p>
+                )}
                 <p className="mt-2 text-sm text-pz-mid">{r.emailMasked}</p>
               </li>
             ))}

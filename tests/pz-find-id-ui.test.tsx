@@ -61,4 +61,19 @@ describe("FindMyId", () => {
     submit();
     await waitFor(() => expect(screen.getByText("Could not search IDs. Please try again.")).toBeTruthy());
   });
+
+  it("shows a hint when the clipboard is unavailable", async () => {
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    const { input } = setup({
+      status: "ok",
+      rows: [{ name: "Ali Khan", pzId: "Ali-1111", emailMasked: "al***@gmail.com" }],
+    });
+    fireEvent.change(input, { target: { value: "Ali" } });
+    submit();
+    await waitFor(() => expect(screen.getByText("Ali-1111")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    await waitFor(() =>
+      expect(screen.getByText("Copy did not work. Select the ID and copy it by hand.")).toBeTruthy(),
+    );
+  });
 });
