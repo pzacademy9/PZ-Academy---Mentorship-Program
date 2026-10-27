@@ -8,15 +8,11 @@ Plain steps. Nothing here changes the live site until you do step 1.
 2. Open the file `supabase/migrations/0090_quiz_results.sql` from this branch, copy all of it, paste it, press Run.
 3. It is safe to run twice.
 
-## Step 2: wait for the screen
+## Step 2: try the screen
 
-The behind-the-scenes parts are done and tested: reading the Kahoot file, matching IDs (including the `n` rejoin), the review rules, saving, and the live ranking. The admin screen is not built yet. It needs a design first (see below). Until then there is nothing to click.
+Built straight from the look of the Sessions screen (no separate Stitch design, at your request). If you want it restyled later, tell me.
 
-## Step 3: get the design made (one copy and paste)
-
-Open the Stitch project "PZ Academy website" and paste the prompt from `docs/superpowers/plans/2026-10-27-quiz-results-stitch-prompt.md`. Tell me when the screen exists and I build it exactly like the design.
-
-## When the screen is built: your first real try
+## Your first real try
 
 1. Open a batch, then "Sessions and attendance", then "Quiz results" on one session.
 2. Upload the Kahoot file.
