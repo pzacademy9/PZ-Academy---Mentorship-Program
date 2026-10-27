@@ -137,6 +137,8 @@ The owner sent a real report: "Anti mycobacterial Drugs" (26 Jul 2025, 54 player
 - [ ] **Step 4: Run, expect PASS.**
 - [ ] **Step 5: Commit** `feat: quiz review model with duplicates, unknown IDs and suggestions`.
 
+> **Design note (built in Task 4):** the review is split in two so the screen can recompute after every click without a server round trip: `buildBase(...)` (server, once per upload) returns a serializable `ReviewBase` (matches, people, suggestions, remembered choices); the screen keeps only `Choices` and calls `computeReview(base, choices)`; `resolveReview(base, choices)` and `decisionsFromChoices(base, choices)` run again on the server at save time. So `saveReview` in Task 6 takes `{ base, choices, maxScore, fileName }`, not a finished review.
+
 ### Task 5: Quiz data layer
 
 **Files:**
