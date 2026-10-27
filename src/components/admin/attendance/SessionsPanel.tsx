@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -279,6 +280,12 @@ function SessionCard({
         <button type="button" className={quietBtn} disabled={busy} onClick={onMarkAll}>
           Mark everyone present
         </button>
+        <Link
+          href={`/dashboard/admin/enrollments/registrations/campaign/${s.page_id}/sessions/${s.id}/quiz`}
+          className={quietBtn}
+        >
+          Quiz results
+        </Link>
         <button type="button" className={cn(quietBtn, "text-red-700 dark:text-red-300")} disabled={busy} onClick={onDelete}>
           Delete
         </button>

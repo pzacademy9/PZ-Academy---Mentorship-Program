@@ -74,15 +74,7 @@ Kahoot nickname). Design (approved, five parts):
   admin screen under a batch's "Sessions and attendance", timer route
   `/api/cron/session-emails` called every 5 min by the Supabase job. The owner has not yet
   clicked through a real session end to end.
-- NEXT, plan 3: quiz results. Admin uploads the Kahoot report file (main tab: Rank, Player, Total
-  Score, Correct, Incorrect), review screen (duplicates: merge scores or keep one; unknown IDs get
-  suggestions; recorded students tagged), save per session, live combined ranking per batch.
-  Rejoin rule: a student who re-enters the ID with `n`/`nn` added is the same student; an exact
-  match on an ID or alias always wins, only then strip trailing `n`s. Also the flag "took quiz,
-  no check-in": one admin click marks present via `markPresent(sessionId, personId, 'admin')` in
-  `src/lib/data/attendance.ts` (that function does NOT check live enrolment: callers must).
-  Live students only count in leaderboards; recorded students keep an ID, certificate and quiz
-  tracking but are excluded from live competition.
+- Plan 3 quiz results: DONE on branch `quiz-results-plan`, awaiting owner paste of migration 0090 and a real click-through (plan `docs/superpowers/plans/2026-10-27-quiz-results.md`, owner steps beside it). Code: `src/lib/quiz/` (parser, rejoin match, review model), `src/lib/data/quiz-results.ts`, `sessions/quiz-actions.ts`, screen `sessions/[sessionId]/quiz` (`src/components/admin/quiz/`), linked from each session card as "Quiz results". The owner chose to build the screen without a Stitch design (2026-10-27). Quiz maximum defaults to questions x 1000. Next free migration: 0091.
 - Then plan 4 (public home-page cards Attendance / Results / Certificates and "my totals" by ID),
   plan 5 (careful, idempotent history import from the old sheets; see spec part 5).
 - Open items: admin cannot yet correct a wrong name or reissue an ID; batch PDF uses Helvetica
