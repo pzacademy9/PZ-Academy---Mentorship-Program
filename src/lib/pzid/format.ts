@@ -10,7 +10,8 @@ export function normalizePzId(input: string): string {
  * Masks an email for display: keeps up to 2 characters of the local part,
  * then *** and the domain. "" stays "", and input without "@" becomes "***".
  */
-export function maskEmail(email: string): string {
+export function maskEmail(raw: string): string {
+  const email = raw.trim();
   if (email === "") return "";
   const at = email.indexOf("@");
   if (at < 0) return "***";
