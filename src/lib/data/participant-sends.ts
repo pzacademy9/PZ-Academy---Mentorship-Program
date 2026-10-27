@@ -44,6 +44,8 @@ const MESSAGES: Record<CreateSendFailureCode, string> = {
 const DUPLICATE_WINDOW_MS = 60 * 1000;
 const MAY_HAVE_BEEN_SENT = "May have been sent. Check before sending again.";
 const NO_PORTAL_LINK = "No portal link available";
+const NO_PZ_ID = "No PZ ID yet";
+const SESSION_DELETED = "Session was deleted";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Reads every row of a query by paging with range() until a short page. `build` must give a stable total order. */
@@ -262,13 +264,24 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
   check("pending read", pendErr);
   const pendingRows = (pendingData ?? []) as SendRecipientRow[];
 
+  // A session send whose session was deleted since (session_id set null by the FK) would show raw session tags: skip it all.
+  const isSessionSend = !!send.session_id || !!send.session_kind;
+  const session = send.session_id ? await getSessionById(send.session_id) : null;
+  if (isSessionSend && !session) {
+    if (pendingRows.length > 0) {
+      const { error: skipErr } = await admin.from("participant_send_recipients")
+        .update({ state: "skipped", reason: SESSION_DELETED }).eq("send_id", sendId).eq("state", "pending");
+      check("session deleted skip", skipErr);
+    }
+    return { sent: 0, failed: 0, pending: 0 };
+  }
+
   const portalUrl = await portalUrlFor(await pageCourseId(send.page_id));
   const optedOut = await listUnsubscribed(pendingRows.map((r) => r.email).filter((e) => e.trim() !== ""));
   const refIds = await refIdsFor(pendingRows.map((r) => r.registration_id));
   const pzIds = await pzIdsFor(pendingRows.map((r) => r.registration_id));
 
   // Session sends: the session is read once per run; each person gets their own signed attendance link.
-  const session = send.session_id ? await getSessionById(send.session_id) : null;
   const secret = session ? checkinSecret() : null;
   const personIds = session ? await personIdsFor(pendingRows.map((r) => r.registration_id)) : new Map<string, string>();
   const sessionCtxFor = (registrationId: string): SessionTagContext | undefined => {
@@ -304,6 +317,11 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
       if ((usesPortalLink(send.body) || usesPortalLink(send.subject)) && portalUrl === null) {
         failed += 1;
         await finish({ state: "failed", reason: NO_PORTAL_LINK });
+        return;
+      }
+      if (session && !pzIds.get(r.registration_id)) {
+        failed += 1;
+        await finish({ state: "failed", reason: NO_PZ_ID });
         return;
       }
       let result: { ok: true } | { ok: false; error: string };

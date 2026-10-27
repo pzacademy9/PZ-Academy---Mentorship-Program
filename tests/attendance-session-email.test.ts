@@ -187,17 +187,25 @@ describe("createSessionSend", () => {
 
 describe("runEmailSend with a session", () => {
   const htmlTo = (to: string) => String(h.send.mock.calls.map((c) => c[0]).find((c) => c.to === to).htmlContent);
-  it("renders per-person attendance links, the shared link for a person-less recipient, and the PKT time", async () => {
+  it("renders the per-person attendance link and PKT time, and fails a recipient with no PZ ID instead of emailing a blank one", async () => {
     await createSessionSend("s1");
     const out = await runEmailSend(store.participant_sends[0].id as string);
-    expect(out).toMatchObject({ sent: 2, failed: 0 });
+    expect(out).toMatchObject({ sent: 1, failed: 1 });
     const token = signCheckinToken("s1", PERSON, checkinSecret()!);
     expect(htmlTo("a@x.com")).toContain(`https://app.test/attend/code0001?t=${token}`);
     expect(htmlTo("a@x.com")).toContain("https://zoom.test/j/1");
     expect(htmlTo("a@x.com")).toContain("Zed-1");
     expect(htmlTo("a@x.com")).toContain("PKT");
-    expect(htmlTo("b@x.com")).toContain("https://app.test/attend/code0001");
-    expect(htmlTo("b@x.com")).not.toContain("code0001?t=");
+    expect(h.send.mock.calls.some((c) => c[0].to === "b@x.com")).toBe(false);
+    expect(store.participant_send_recipients.find((x) => x.registration_id === "b")).toMatchObject({ state: "failed", reason: "No PZ ID yet" });
+  });
+  it("skips every pending recipient when the session was deleted after the send was created", async () => {
+    await createSessionSend("s1");
+    store.participant_sends[0].session_id = null; // FK on delete set null; session_kind stays
+    const out = await runEmailSend(store.participant_sends[0].id as string);
+    expect(out).toEqual({ sent: 0, failed: 0, pending: 0 });
+    expect(h.send).not.toHaveBeenCalled();
+    expect(store.participant_send_recipients.map((x) => `${x.state}:${x.reason}`)).toEqual(["skipped:Session was deleted", "skipped:Session was deleted"]);
   });
   it("fails closed to the shared link when there is no signing secret", async () => {
     await createSessionSend("s1");
