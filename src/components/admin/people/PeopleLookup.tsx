@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import type { PersonResult } from "@/lib/data/pz-people-admin";
 
-type SearchResult = { ok: true; people: PersonResult[] } | { ok: false; message: string };
+type SearchResult = { ok: true; people: PersonResult[]; truncated?: boolean } | { ok: false; message: string };
 type MergeResult = { ok: true } | { ok: false; message: string };
 
 interface Props {
@@ -14,20 +14,24 @@ interface Props {
 export function PeopleLookup({ search, merge }: Props) {
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<PersonResult[] | null>(null);
+  const [truncated, setTruncated] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [keepId, setKeepId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function runSearch(q: string) {
+  /** Resolves true when the list was refreshed, false when the search itself failed. */
+  function runSearch(q: string): Promise<boolean> {
     return search(q).then((res) => {
       if (res.ok) {
         setPeople(res.people);
+        setTruncated(res.truncated === true);
         setError(null);
-      } else {
-        setError(res.message);
+        return true;
       }
+      setError(res.message);
+      return false;
     });
   }
 
@@ -72,7 +76,18 @@ export function PeopleLookup({ search, merge }: Props) {
         setError(null);
         setSelected([]);
         setKeepId(null);
-        await runSearch(keep.pzId);
+        let refreshed = false;
+        try {
+          refreshed = await runSearch(keep.pzId);
+        } catch {
+          refreshed = false;
+        }
+        if (!refreshed) {
+          setNotice("Merged. The list could not refresh, search again.");
+          setError(null);
+          setPeople(null);
+          setTruncated(false);
+        }
       } catch {
         setError("Something went wrong. Nothing was changed. Please try again.");
       }
@@ -118,6 +133,11 @@ export function PeopleLookup({ search, merge }: Props) {
               ? "Two people selected. Choose which one should stay."
               : "To combine two IDs of the same student, tick both of them."}
           </p>
+          {truncated && (
+            <p className="text-sm text-pz-on-surface-variant">
+              Showing the first 20 matches. Type more of the name to narrow it down.
+            </p>
+          )}
           <ul className="grid gap-3 md:grid-cols-2">
             {people.map((p) => {
               const isSel = selected.includes(p.id);

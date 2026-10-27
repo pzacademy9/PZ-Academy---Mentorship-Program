@@ -62,23 +62,23 @@ beforeEach(() => {
 
 describe("findPeople", () => {
   it("finds a person by PZ ID, ignoring case and spaces", async () => {
-    const res = await findPeople("HAMID - 1002");
+    const { people: res } = await findPeople("HAMID - 1002");
     expect(res).toEqual([{ id: A, pzId: "Hamid-1002", name: "Hamid Ali", emails: ["hamid@gmail.com"], batches: 2 }]);
   });
 
   it("finds a person by email", async () => {
-    const res = await findPeople("h.ali@yahoo");
+    const { people: res } = await findPeople("h.ali@yahoo");
     expect(res.map((p) => p.id)).toEqual([B]);
     expect(res[0].batches).toBe(1);
   });
 
   it("finds people by name", async () => {
-    const res = await findPeople("hamid");
+    const { people: res } = await findPeople("hamid");
     expect(res.map((p) => p.id).sort()).toEqual([A, B].sort());
   });
 
   it("returns nothing and does not query for a short query", async () => {
-    expect(await findPeople("  ab ")).toEqual([]);
+    expect(await findPeople("  ab ")).toEqual({ people: [], truncated: false });
     expect(db.state.ops).toHaveLength(0);
   });
 
@@ -94,8 +94,30 @@ describe("findPeople", () => {
       const id = `00000000-0000-4000-8000-0000000000${String(i).padStart(2, "0")}`;
       store.pz_people.push({ id, pz_id: `Zed-${2000 + i}`, display_name: "Zed Person" });
     }
-    const res = await findPeople("zed");
+    const { people: res, truncated } = await findPeople("zed");
     expect(res.length).toBeLessThanOrEqual(20);
+    expect(truncated).toBe(true);
+  });
+
+  it("puts an exact PZ ID or alias match first, then sorts by name, then slices to 20", async () => {
+    const X = "99999999-9999-4999-8999-999999999999";
+    store.pz_people.push({ id: X, pz_id: "Zed-9999", display_name: "Zed Zebra" });
+    store.pz_id_aliases.push({ alias_norm: "ali", person_id: X, source: "legacy" });
+    for (let i = 0; i < 25; i++) {
+      const id = `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`;
+      store.pz_people.push({ id, pz_id: `Ali-${3000 + i}`, display_name: `Ali Person ${String(i).padStart(2, "0")}` });
+    }
+    const { people, truncated } = await findPeople("ali");
+    expect(people).toHaveLength(20);
+    expect(people[0].id).toBe(X);
+    expect(people[1].name).toBe("Ali Person 00");
+    expect(truncated).toBe(true);
+  });
+
+  it("is not truncated when 20 or fewer people match", async () => {
+    const { people, truncated } = await findPeople("hamid");
+    expect(people).toHaveLength(2);
+    expect(truncated).toBe(false);
   });
 
   it("throws a plain message when the database fails", async () => {
@@ -122,7 +144,7 @@ describe("mergePeople", () => {
     const call = db.state.ops.find((o) => o.op === "rpc");
     expect(call?.table).toBe("pz_merge_people");
     expect(call?.payload).toEqual({ p_keep: A, p_drop: B });
-    const res = await findPeople("hamid-4821");
+    const { people: res } = await findPeople("hamid-4821");
     expect(res.map((p) => p.id)).toEqual([A]);
     expect(res[0].batches).toBe(3);
   });

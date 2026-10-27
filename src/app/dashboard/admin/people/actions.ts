@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { findPeople, mergePeople, type PersonResult } from "@/lib/data/pz-people-admin";
 
 export type FindPeopleResult =
-  | { ok: true; people: PersonResult[] }
+  | { ok: true; people: PersonResult[]; truncated: boolean }
   | { ok: false; message: string };
 
 const NO_PERMISSION = "You do not have permission to do this.";
@@ -14,7 +14,8 @@ export async function findPeopleAction(query: string): Promise<FindPeopleResult>
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NO_PERMISSION };
   try {
-    return { ok: true, people: await findPeople(String(query ?? "")) };
+    const { people, truncated } = await findPeople(String(query ?? ""));
+    return { ok: true, people, truncated };
   } catch {
     return { ok: false, message: "Could not search people. Please try again." };
   }
