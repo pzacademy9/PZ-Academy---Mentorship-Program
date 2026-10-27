@@ -238,6 +238,114 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_session_marks: {
+        Row: {
+          id: string
+          marked_at: string
+          marked_by: string | null
+          person_id: string
+          session_id: string
+          source: string
+        }
+        Insert: {
+          id?: string
+          marked_at?: string
+          marked_by?: string | null
+          person_id: string
+          session_id: string
+          source: string
+        }
+        Update: {
+          id?: string
+          marked_at?: string
+          marked_by?: string | null
+          person_id?: string
+          session_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_session_marks_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_session_marks_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_session_marks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "batch_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batch_sessions: {
+        Row: {
+          created_at: string | null
+          email_enabled: boolean
+          email_lead_minutes: number
+          id: string
+          include_attendance_link: boolean
+          include_kahoot: boolean
+          kahoot_url: string
+          number: number
+          page_id: string
+          public_code: string
+          starts_at: string
+          title: string
+          window_override: string
+          zoom_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          email_enabled?: boolean
+          email_lead_minutes?: number
+          id?: string
+          include_attendance_link?: boolean
+          include_kahoot?: boolean
+          kahoot_url?: string
+          number: number
+          page_id: string
+          public_code: string
+          starts_at: string
+          title?: string
+          window_override?: string
+          zoom_url?: string
+        }
+        Update: {
+          created_at?: string | null
+          email_enabled?: boolean
+          email_lead_minutes?: number
+          id?: string
+          include_attendance_link?: boolean
+          include_kahoot?: boolean
+          kahoot_url?: string
+          number?: number
+          page_id?: string
+          public_code?: string
+          starts_at?: string
+          title?: string
+          window_override?: string
+          zoom_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_sessions_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banners: {
         Row: {
           active_from: string | null
@@ -1824,6 +1932,7 @@ export type Database = {
       }
       landing_pages: {
         Row: {
+          attendance_min_pct: number
           course_id: string | null
           created_at: string
           created_by: string | null
@@ -1846,6 +1955,7 @@ export type Database = {
           sheet_sync_waiting: number
         }
         Insert: {
+          attendance_min_pct?: number
           course_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1868,6 +1978,7 @@ export type Database = {
           sheet_sync_waiting?: number
         }
         Update: {
+          attendance_min_pct?: number
           course_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -3284,6 +3395,8 @@ export type Database = {
           not_paid_count: number
           page_id: string
           recipient_count: number
+          session_id: string | null
+          session_kind: string | null
           subject: string
           template_id: string | null
         }
@@ -3297,6 +3410,8 @@ export type Database = {
           not_paid_count?: number
           page_id: string
           recipient_count: number
+          session_id?: string | null
+          session_kind?: string | null
           subject?: string
           template_id?: string | null
         }
@@ -3310,6 +3425,8 @@ export type Database = {
           not_paid_count?: number
           page_id?: string
           recipient_count?: number
+          session_id?: string | null
+          session_kind?: string | null
           subject?: string
           template_id?: string | null
         }
@@ -3326,6 +3443,13 @@ export type Database = {
             columns: ["page_id"]
             isOneToOne: false
             referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_sends_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "batch_sessions"
             referencedColumns: ["id"]
           },
           {
