@@ -24,7 +24,7 @@ type Recipient = {
   sent_at: string | null;
   status_at_send: string;
 };
-type Detail = { body: string; recipients: Recipient[]; refIds: Record<string, string>; portalUrl: string | null };
+type Detail = { body: string; recipients: Recipient[]; refIds: Record<string, string>; pzIds: Record<string, string>; portalUrl: string | null };
 type Filter = "all" | "todo" | "done" | "missing";
 
 const SKIP_WORDS: Record<string, string> = {
@@ -99,6 +99,7 @@ export function WhatsAppSendList({ sendId, onClose }: WhatsAppSendListProps) {
       body: send.body,
       recipients: data.recipients as Recipient[],
       refIds: (typeof data.refIds === "object" && data.refIds !== null ? data.refIds : {}) as Record<string, string>,
+      pzIds: (typeof data.pzIds === "object" && data.pzIds !== null ? data.pzIds : {}) as Record<string, string>,
       portalUrl: typeof data.portalUrl === "string" ? data.portalUrl : null,
     });
   }, [sendId]);
@@ -283,7 +284,7 @@ export function WhatsAppSendList({ sendId, onClose }: WhatsAppSendListProps) {
             );
           }
 
-          const text = renderParticipantTags(detail.body, { name: r.name, refId: detail.refIds[r.registration_id] ?? "", portalUrl: detail.portalUrl }, "text");
+          const text = renderParticipantTags(detail.body, { name: r.name, refId: detail.refIds[r.registration_id] ?? "", pzId: detail.pzIds[r.registration_id] ?? "", portalUrl: detail.portalUrl }, "text");
           const href = linkForMode(buildWhatsAppLink(e164, text, ""), mode);
           const isNext = r.id === nextId;
           return (

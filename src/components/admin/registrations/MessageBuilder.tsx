@@ -23,6 +23,7 @@ const TAG_LABEL: Record<string, string> = {
   full_name: "Full name",
   ref_id: "Reference number",
   portal_link: "Portal link",
+  pz_id: "PZ ID",
 };
 
 const CHANNEL_WORD: Record<BuilderChannel, string> = { email: "email", whatsapp: "WhatsApp message" };
@@ -608,5 +609,5 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
 
 /** Fills the tags with an example person so the preview reads like a real message. */
 function renderExample(text: string): string {
-  return renderParticipantTags(text, { name: "Sana Ahmed", refId: "REF-0001", portalUrl: "https://example.com/portal/your-course" }, "text");
+  return renderParticipantTags(text, { name: "Sana Ahmed", refId: "REF-0001", portalUrl: "https://example.com/portal/your-course", pzId: "Hamid-4821" }, "text");
 }

@@ -1,8 +1,8 @@
 import { firstNameOf } from "@/lib/crm/whatsapp-link";
 
-export type TagContext = { name: string; refId: string; portalUrl: string | null };
+export type TagContext = { name: string; refId: string; portalUrl: string | null; pzId: string };
 
-export const PARTICIPANT_TAGS: readonly string[] = ["first_name", "full_name", "ref_id", "portal_link"];
+export const PARTICIPANT_TAGS: readonly string[] = ["first_name", "full_name", "ref_id", "portal_link", "pz_id"];
 
 const TAG_RE = /\{\{\s*(\w+)\s*\}\}/g;
 
@@ -23,6 +23,7 @@ export function renderParticipantTags(template: string, ctx: TagContext, mode: "
     full_name: full,
     ref_id: ctx.refId,
     portal_link: ctx.portalUrl ?? "",
+    pz_id: ctx.pzId,
   };
   return template.replace(TAG_RE, (match, key: string) => {
     const value = values[key];
