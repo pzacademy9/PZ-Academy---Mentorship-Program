@@ -215,3 +215,20 @@ describe("runEmailSend with a session", () => {
     expect(htmlTo("a@x.com")).not.toContain("?t=");
   });
 });
+
+describe("listSessionSendState", () => {
+  it("returns when the reminder and the latest update went out, per session", async () => {
+    const { listSessionSendState } = await import("@/lib/data/session-emails");
+    store.participant_sends.push(
+      { id: "x1", session_id: "s1", session_kind: "reminder", created_at: "2026-10-30T10:00:00Z" },
+      { id: "x2", session_id: "s1", session_kind: "update", created_at: "2026-10-31T10:00:00Z" },
+      { id: "x3", session_id: "s1", session_kind: "update", created_at: "2026-11-01T10:00:00Z" },
+      { id: "x4", session_id: "other", session_kind: "reminder", created_at: "2026-10-30T10:00:00Z" },
+      { id: "x5", session_id: null, session_kind: null, created_at: "2026-10-30T10:00:00Z" },
+    );
+    expect(await listSessionSendState(["s1", "s2"])).toEqual({
+      s1: { reminderAt: "2026-10-30T10:00:00Z", updateAt: "2026-11-01T10:00:00Z" },
+    });
+    expect(await listSessionSendState([])).toEqual({});
+  });
+});

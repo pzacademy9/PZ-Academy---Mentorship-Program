@@ -14,6 +14,7 @@ import { buildParticipantHtml } from "@/lib/landing/participants/email-html";
 import type { Candidate, Channel, Summary } from "@/lib/landing/participants/types";
 import { checkinSecret, signCheckinToken } from "@/lib/attendance/link-token";
 import { formatPkt } from "@/lib/attendance/rules";
+import { attendanceBase } from "@/lib/attendance/links";
 import { getSessionById } from "@/lib/data/attendance";
 
 export type SendRow = Tables<"participant_sends">;
@@ -30,8 +31,6 @@ const INSERT_CHUNK = 500;
 const ID_CHUNK = 100;
 const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "https://pharmacozyme.com";
 
-/** Base of attendance links: same rule as the Sales "my links" page. */
-const attendanceBase = () => (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
 
 const MESSAGES: Record<CreateSendFailureCode, string> = {
   count_changed: "The list changed. Review it again.",

@@ -13,6 +13,24 @@ export type SessionSendResult =
 
 const TOO_SOON_MS = 60 * 1000;
 
+export type SessionSendState = { reminderAt: string | null; updateAt: string | null };
+
+/** When the reminder and the latest time-change email went out, per session (missing key = nothing sent). */
+export async function listSessionSendState(sessionIds: string[]): Promise<Record<string, SessionSendState>> {
+  const out: Record<string, SessionSendState> = {};
+  if (sessionIds.length === 0) return out;
+  const { data, error } = await createAdminSupabase().from("participant_sends")
+    .select("session_id, session_kind, created_at").in("session_id", sessionIds);
+  if (error) throw new Error(`session sends read failed: ${error.message}`);
+  for (const r of (data ?? []) as { session_id: string | null; session_kind: string | null; created_at: string }[]) {
+    if (!r.session_id) continue;
+    const s = (out[r.session_id] ??= { reminderAt: null, updateAt: null });
+    if (r.session_kind === "reminder") s.reminderAt = r.created_at;
+    if (r.session_kind === "update" && (s.updateAt === null || r.created_at > s.updateAt)) s.updateAt = r.created_at;
+  }
+  return out;
+}
+
 /**
  * Enrolled (paid or free) live registrations only: heads and their members. Recorded heads are filtered
  * out by the resolver (mode = live) and their members come only through their lead, so they are out too.
