@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
-import { listRegistrations, listRegistrationPageOptions, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
+import { getRegistrationPageSlug, listRegistrations, listRegistrationPageOptions, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
 import { listCampaignFilterOptions } from "@/lib/data/participant-campaigns";
 import { listSendSummaries } from "@/lib/data/participant-sends";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
@@ -48,10 +48,11 @@ export default async function AdminCampaignRegistrationsPage({
     page: Number.isFinite(p) && p > 1 ? p : 1,
   };
 
-  const [list, filterOptions, sends] = await Promise.all([
+  const [list, filterOptions, sends, publicSlug] = await Promise.all([
     listRegistrations({ kind: "all" }, filters),
     listCampaignFilterOptions(pageId),
     listSendSummaries(pageId),
+    getRegistrationPageSlug(pageId),
   ]);
 
   const query = {
@@ -82,6 +83,7 @@ export default async function AdminCampaignRegistrationsPage({
         key={JSON.stringify(query)}
         pageId={pageId}
         pageTitle={campaign.title}
+        publicSlug={publicSlug}
         rows={list.rows}
         total={list.total}
         pageSize={list.pageSize}

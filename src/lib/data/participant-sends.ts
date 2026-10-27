@@ -159,8 +159,8 @@ export async function createSend(input: {
   return { ok: true, sendId, count: planned.send.length };
 }
 
-function renderEmail(send: { subject: string; body: string }, who: { name: string; refId: string }, portalUrl: string | null, unsubscribeUrl: string) {
-  const ctx = { name: who.name, refId: who.refId, portalUrl };
+function renderEmail(send: { subject: string; body: string }, who: { name: string; refId: string; pzId: string }, portalUrl: string | null, unsubscribeUrl: string) {
+  const ctx = { name: who.name, refId: who.refId, portalUrl, pzId: who.pzId };
   // Body is plain text: tags render as text, buildParticipantHtml does the one HTML escape.
   const subject = renderParticipantTags(send.subject, ctx, "text");
   const html = buildParticipantHtml({ bodyText: renderParticipantTags(send.body, ctx, "text"), unsubscribeUrl });
@@ -192,6 +192,31 @@ async function refIdsFor(registrationIds: string[]): Promise<Map<string, string>
   return out;
 }
 
+/** PZ ID the message shows: each registration's OWN person (members do not take their lead's). No person yet means no entry. */
+async function pzIdsFor(registrationIds: string[]): Promise<Map<string, string>> {
+  const admin = createAdminSupabase();
+  const out = new Map<string, string>();
+  const ids = Array.from(new Set(registrationIds));
+  const personOf = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const { data, error } = await admin.from("landing_registrations").select("id, person_id").in("id", ids.slice(i, i + ID_CHUNK));
+    check("registrations read", error);
+    for (const r of data ?? []) if (r.person_id) personOf.set(r.id as string, r.person_id as string);
+  }
+  const personIds = Array.from(new Set(personOf.values()));
+  const pzOf = new Map<string, string>();
+  for (let i = 0; i < personIds.length; i += ID_CHUNK) {
+    const { data, error } = await admin.from("pz_people").select("id, pz_id").in("id", personIds.slice(i, i + ID_CHUNK));
+    check("people read", error);
+    for (const p of data ?? []) if (p.pz_id) pzOf.set(p.id as string, p.pz_id as string);
+  }
+  for (const [regId, personId] of Array.from(personOf.entries())) {
+    const pz = pzOf.get(personId);
+    if (pz) out.set(regId, pz);
+  }
+  return out;
+}
+
 export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: number; failed: number; pending: number }> {
   const admin = createAdminSupabase();
   const { data: send, error: sendErr } = await admin.from("participant_sends").select("*").eq("id", sendId).maybeSingle();
@@ -213,6 +238,7 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
   const portalUrl = await portalUrlFor(await pageCourseId(send.page_id));
   const optedOut = await listUnsubscribed(pendingRows.map((r) => r.email).filter((e) => e.trim() !== ""));
   const refIds = await refIdsFor(pendingRows.map((r) => r.registration_id));
+  const pzIds = await pzIdsFor(pendingRows.map((r) => r.registration_id));
 
   let sent = 0, failed = 0;
   await pool(pendingRows, CONCURRENCY, async (r) => {
@@ -243,7 +269,7 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
       let result: { ok: true } | { ok: false; error: string };
       try {
         const token = await getOrCreateToken(email);
-        const msg = renderEmail(send, { name: r.name, refId: refIds.get(r.registration_id) ?? "" }, portalUrl, `${appUrl()}/unsubscribe/participants/${token}`);
+        const msg = renderEmail(send, { name: r.name, refId: refIds.get(r.registration_id) ?? "", pzId: pzIds.get(r.registration_id) ?? "" }, portalUrl, `${appUrl()}/unsubscribe/participants/${token}`);
         result = await sendParticipantEmail({ to: r.email, toName: r.name, subject: msg.subject, htmlContent: msg.html });
       } catch (e) {
         result = { ok: false, error: e instanceof Error ? e.message : "Send failed" };
@@ -323,6 +349,8 @@ export type SendDetail = {
   recipients: SendRecipientRow[];
   /** registration id -> the ref id its message shows (members take their lead's). */
   refIds: Record<string, string>;
+  /** registration id -> its own person's PZ ID (absent when no person yet). */
+  pzIds: Record<string, string>;
   /** The campaign's portal link, or null when it has no course. */
   portalUrl: string | null;
 };
@@ -336,8 +364,9 @@ export async function getSend(sendId: string): Promise<SendDetail | null> {
     admin.from("participant_send_recipients").select("*").eq("send_id", sendId)
       .order("name", { ascending: true }).order("id", { ascending: true }));
   const refIds = Object.fromEntries(await refIdsFor(recipients.map((r) => r.registration_id)));
+  const pzIds = Object.fromEntries(await pzIdsFor(recipients.map((r) => r.registration_id)));
   const portalUrl = await portalUrlFor(await pageCourseId((send as SendRow).page_id));
-  return { send: send as SendRow, recipients, refIds, portalUrl };
+  return { send: send as SendRow, recipients, refIds, pzIds, portalUrl };
 }
 
 export async function listMessagesForRegistrations(registrationIds: string[]): Promise<{ registrationId: string; channel: string; subject: string; state: string; sentAt: string | null; sendCreatedAt: string | null }[]> {
@@ -368,7 +397,7 @@ export async function listMessagesForRegistrations(registrationIds: string[]): P
 export async function sendTestToMe(input: { subject: string; body: string; toEmail: string; pageId: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const portalUrl = await portalUrlFor(await pageCourseId(input.pageId));
-    const msg = renderEmail(input, { name: "Sample Person", refId: "REF-SAMPLE" }, portalUrl, `${appUrl()}/unsubscribe/participants/preview`);
+    const msg = renderEmail(input, { name: "Sample Person", refId: "REF-SAMPLE", pzId: "Sample-0000" }, portalUrl, `${appUrl()}/unsubscribe/participants/preview`);
     const res = await sendParticipantEmail({ to: input.toEmail, subject: `[TEST] ${msg.subject}`, htmlContent: msg.html });
     return res.ok ? { ok: true } : { ok: false, error: res.error };
   } catch (e) {

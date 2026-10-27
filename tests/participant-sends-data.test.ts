@@ -42,7 +42,8 @@ function setup(courseId: string | null = "course-1") {
   store = {
     landing_pages: [{ id: PAGE, course_id: courseId }],
     courses: [{ id: "course-1", slug: "pmh" }],
-    landing_registrations: ["a", "b", "c", "m1"].map((id) => ({ id, ref_id: `R-${id}`, lead_registration_id: null })),
+    landing_registrations: ["a", "b", "c", "m1"].map((id) => ({ id, ref_id: `R-${id}`, lead_registration_id: null, person_id: id === "c" ? null : `p-${id}` })),
+    pz_people: ["a", "b", "m1"].map((id) => ({ id: `p-${id}`, pz_id: `Zed-${id}`, display_name: id })),
     participant_sends: [],
     participant_send_recipients: [],
   };
@@ -264,6 +265,23 @@ describe("runEmailSend", () => {
     }
   });
 
+  it("renders the PZ ID per recipient, empty when they have no person", async () => {
+    const id = await made({ body: "ID [{{ pz_id }}]" });
+    await runEmailSend(id);
+    const html = (to: string) => h.send.mock.calls.find((c) => c[0].to === to)![0].htmlContent as string;
+    expect(html("a@x.com")).toContain("ID [Zed-a]");
+    expect(html("b@x.com")).toContain("ID [Zed-b]");
+    expect(html("c@x.com")).toContain("ID []");
+  });
+
+  it("a member gets their own PZ ID, not the lead's", async () => {
+    store.landing_registrations.find((r) => r.id === "m1")!.lead_registration_id = "a";
+    h.candidates = [cand("m1", { leadId: "a", isMember: true, refId: "R-a" })];
+    const id = await made({ expectedCount: 1, body: "[{{ ref_id }}|{{ pz_id }}]" });
+    await runEmailSend(id);
+    expect(h.send.mock.calls[0][0].htmlContent as string).toContain("[R-a|Zed-m1]");
+  });
+
   it("escapes a name like A&B once", async () => {
     h.candidates = [cand("a", { name: "A&B Co" })];
     const id = await made({ expectedCount: 1, body: "Dear {{ full_name }}" });
@@ -310,6 +328,7 @@ describe("whatsapp, messages and test send", () => {
     const got = await getSend((r as { sendId: string }).sendId);
     expect(got?.recipients).toHaveLength(3);
     expect(got?.refIds).toEqual({ a: "R-a", b: "R-b", c: "R-c" });
+    expect(got?.pzIds).toEqual({ a: "Zed-a", b: "Zed-b" });
     expect(got?.portalUrl).toMatch(/\/portal\/pmh$/);
   });
 

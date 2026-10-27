@@ -75,6 +75,7 @@ export function RegistrationsTable({
   filters,
   detailHrefBase,
   showAgentColumn,
+  showPzId = false,
   selectable,
   rowActions,
 }: {
@@ -85,6 +86,8 @@ export function RegistrationsTable({
   filters: RegistrationQuery;
   detailHrefBase: string;
   showAgentColumn: boolean;
+  /** Campaign page only: adds a PZ ID column. */
+  showPzId?: boolean;
   /** Campaign page only: adds a tick box to every row and one in the header. */
   selectable?: {
     isSelected: (id: string) => boolean;
@@ -137,6 +140,7 @@ export function RegistrationsTable({
           ),
           meta: (r) => [
             `${r.pageTitle} · ${r.optionLabel}`,
+            ...(showPzId && r.pzId ? [`PZ ID: ${r.pzId}`] : []),
             `${r.region} · ${r.mode === "live" ? "Live" : "Recorded"} · ${formatMoney(r.expectedAmount, r.currency)}`,
             ...(r.sheetUpdateWaiting ? [<WaitingTag key="waiting" row={r} />] : []),
             <span key="status" className="inline-flex items-center gap-2">
@@ -169,6 +173,7 @@ export function RegistrationsTable({
                       </th>
                     )}
                     <th className={`${TH} ${selectable ? "pl-3" : "pl-6"}`}>Name</th>
+                    {showPzId && <th className={TH}>PZ ID</th>}
                     <th className={TH}>Page</th>
                     <th className={TH}>Country</th>
                     <th className={TH}>Option</th>
@@ -215,6 +220,11 @@ export function RegistrationsTable({
                           </span>
                         </Link>
                       </td>
+                      {showPzId && (
+                        <td className="py-4 px-3 whitespace-nowrap font-headline font-semibold">
+                          {r.pzId ? r.pzId : <span aria-label="No PZ ID yet" className="text-pz-on-surface-variant/70">&ndash;</span>}
+                        </td>
+                      )}
                       <td className="py-4 px-3 min-w-[10rem] font-headline font-medium">{r.pageTitle}</td>
                       <td className="py-4 px-3 whitespace-nowrap">
                         <span className="inline-block px-2 py-1 rounded bg-pz-surface-container-low font-headline font-semibold">{r.region}</span>

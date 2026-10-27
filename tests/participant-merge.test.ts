@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { firstNameOf } from "@/lib/crm/whatsapp-link";
 import { renderParticipantTags, usesPortalLink, PARTICIPANT_TAGS } from "@/lib/landing/participants/merge";
 
-const ctx = { name: "Dr Sara Khan", refId: "PZ-123", portalUrl: "https://x.test/p/abc" };
+const ctx = { name: "Dr Sara Khan", refId: "PZ-123", portalUrl: "https://x.test/p/abc", pzId: "Hamid-4821" };
 
 describe("renderParticipantTags", () => {
   it("renders first_name via firstNameOf", () => {
@@ -29,6 +29,11 @@ describe("renderParticipantTags", () => {
   });
   it("null portalUrl renders empty", () => {
     expect(renderParticipantTags("[{{portal_link}}]", { ...ctx, portalUrl: null }, "text")).toBe("[]");
+  });
+  it("renders pz_id, or nothing when the recipient has no person yet", () => {
+    expect(renderParticipantTags("Your ID: {{pz_id}}", ctx, "text")).toBe("Your ID: Hamid-4821");
+    expect(renderParticipantTags("Your ID: {{pz_id}}", { ...ctx, pzId: "" }, "text")).toBe("Your ID: ");
+    expect(PARTICIPANT_TAGS).toContain("pz_id");
   });
   it("exposes tags and usesPortalLink", () => {
     expect(PARTICIPANT_TAGS).toContain("portal_link");

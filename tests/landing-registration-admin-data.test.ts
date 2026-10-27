@@ -17,7 +17,7 @@ vi.mock("@/lib/data/participant-sends", () => ({ listMessagesForRegistrations: m
 const meta = vi.hoisted(() => ({ getMetaPurchase: vi.fn() }));
 vi.mock("@/lib/data/landing-meta-events", () => ({ getMetaPurchase: meta.getMetaPurchase }));
 
-import { listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
+import { getRegistrationPageSlug, listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
 const reg = (over: Record<string, unknown>) => ({
   page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com",
@@ -34,7 +34,7 @@ const seed = (): Store => ({
     reg({ id: "m1", name: "Member", row_type: "member", lead_registration_id: "L", agent_id: "ag1", status: "underpaid" }),
     reg({ id: "f", name: "Free", ref_id: "PZA-5", status: "free", agent_id: "ag1" }),
   ],
-  landing_pages: [{ id: "pg1", title: "PPC", slug: "ppc" }],
+  landing_pages: [{ id: "pg1", title: "PPC", slug: "ppc", status: "published" }],
   profiles: [{ id: "ag1", full_name: "Agent One" }, { id: "ag2", full_name: "Agent Two" }, { id: "adm", full_name: "Admin Person" }],
   landing_status_events: [
     { id: "e1", registration_id: "L", from_status: "pending", to_status: "underpaid", source: "app", changed_by: "adm", at: "2026-10-04T00:00:00Z" },
@@ -65,6 +65,27 @@ beforeEach(() => {
 const admin = { userId: "adm", role: "admin" as const };
 const agent = (id = "ag1") => ({ userId: id, role: "sales_agent" as const });
 const regReads = () => db.find("landing_registrations", "select");
+
+describe("getRegistrationPageSlug", () => {
+  beforeEach(() => {
+    db.reset();
+    db.state.handler = memoryHandler({
+      landing_pages: [
+        { id: "pg1", slug: "ppc", status: "published" },
+        { id: "pgd", slug: "draft-pg", status: "draft" },
+        { id: "pgc", slug: "closed-pg", status: "closed" },
+      ],
+    });
+  });
+  it("returns the slug of a published or closed page", async () => {
+    expect(await getRegistrationPageSlug("pg1")).toBe("ppc");
+    expect(await getRegistrationPageSlug("pgc")).toBe("closed-pg");
+  });
+  it("returns null for a draft page and for an unknown page", async () => {
+    expect(await getRegistrationPageSlug("pgd")).toBeNull();
+    expect(await getRegistrationPageSlug("nope")).toBeNull();
+  });
+});
 
 describe("list", () => {
   it("list for agent scope filters agent_id and excludes test rows", async () => {
