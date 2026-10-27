@@ -62,7 +62,7 @@ begin
   ) then
     alter table public.participant_sends
       add constraint participant_sends_session_pair_chk
-      check ((session_id is null) = (session_kind is null));
+      check (session_id is null or session_kind is not null);
   end if;
 end;
 $$;

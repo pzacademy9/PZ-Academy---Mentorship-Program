@@ -40,6 +40,13 @@ describe("checkinWindow", () => {
   });
 });
 
+describe("checkinWindow with a bad start time", () => {
+  it("auto mode is closed; override open still opens", () => {
+    expect(checkinWindow("not a date", "auto", new Date())).toBe("closed");
+    expect(checkinWindow("not a date", "open", new Date())).toBe("open");
+  });
+});
+
 describe("attendancePercent / meetsMinimum", () => {
   it("rounds and caps", () => {
     expect(attendancePercent(3, 4)).toBe(75);
@@ -47,6 +54,8 @@ describe("attendancePercent / meetsMinimum", () => {
     expect(attendancePercent(2, 3)).toBe(67);
     expect(attendancePercent(0, 0)).toBeNull();
     expect(attendancePercent(5, 4)).toBe(100);
+    expect(attendancePercent(29, 200)).toBe(15);
+    expect(attendancePercent(1, 8)).toBe(13);
   });
   it("meetsMinimum", () => {
     expect(meetsMinimum(75, 75)).toBe(true);

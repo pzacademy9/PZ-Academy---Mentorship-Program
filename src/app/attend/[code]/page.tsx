@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Session check-in", robots: { index: false } };
 
 const WINDOW_TEXT = {
-  before: "Check-in opens 15 minutes before the session.",
+  before: "Check-in opens 15 minutes before the class.",
   open: "Check-in is open.",
   closed: "Check-in has closed.",
 } as const;
@@ -79,7 +79,7 @@ export default async function AttendPage({
         token={token}
         personal={checkInPersonal}
         shared={checkInShared}
-        disabled={state !== "open"}
+        disabled={state === "closed"}
       />
     </Shell>
   );

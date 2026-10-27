@@ -208,6 +208,13 @@ describe("sessions CRUD", () => {
     expect((await createSession("pg1", input)).ok).toBe(true);
     expect(db.find("batch_sessions", "insert")).toHaveLength(2);
   });
+  it("rejects an automatic reminder lead under 5 minutes", async () => {
+    const msg = "Send the reminder at least 5 minutes before the class";
+    expect(await createSession("pg1", { ...input, emailLeadMinutes: 4 })).toEqual({ ok: false, message: msg });
+    expect(store.batch_sessions ?? []).toHaveLength(0);
+    expect(await updateSession("s1", { emailLeadMinutes: 0 })).toEqual({ ok: false, message: msg });
+    expect((await createSession("pg1", { ...input, emailLeadMinutes: 5 })).ok).toBe(true);
+  });
   it("updateSession moves a session already in the past and sets the override", async () => {
     store.batch_sessions = [sess(1, "2020-01-01T10:00:00Z")];
     const r = await updateSession("s1", { startsAt: "2026-12-01T10:00:00Z", windowOverride: "open" });

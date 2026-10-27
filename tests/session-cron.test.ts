@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         lte: (k: string, v: string) => { rows = rows.filter((r) => String(r[k]) <= v); return b; },
         in: (k: string, v: unknown[]) => { rows = rows.filter((r) => v.includes(r[k])); return b; },
         not: (k: string) => {
-          if (k.startsWith("participant_sends.")) rows = rows.filter((r) => (r.participant_sends as Row | null)?.session_id != null);
+          if (k.startsWith("participant_sends.")) rows = rows.filter((r) => (r.participant_sends as Row | null)?.session_kind != null);
           return b;
         },
         limit: () => b,
@@ -67,8 +67,8 @@ describe("listDueReminderSessionIds", () => {
 });
 
 describe("listSessionSendsWithPending", () => {
-  const rec = (sendId: string, state: string, sessionId: string | null, createdAt: string) =>
-    ({ send_id: sendId, state, participant_sends: { session_id: sessionId, created_at: createdAt } });
+  const rec = (sendId: string, state: string, sessionId: string | null, createdAt: string, kind: string | null = sessionId ? "update" : null) =>
+    ({ send_id: sendId, state, participant_sends: { session_id: sessionId, session_kind: kind, created_at: createdAt } });
 
   it("returns only session sends with pending recipients, oldest first, distinct, capped, in one query", async () => {
     store.tables.participant_send_recipients = [
@@ -78,9 +78,10 @@ describe("listSessionSendsWithPending", () => {
       rec("mid", "pending", "s3", "2026-11-02T00:00:00Z"),
       rec("done", "sent", "s4", "2026-10-01T00:00:00Z"),
       rec("manual", "pending", null, "2026-10-01T00:00:00Z"),
+      rec("orphan", "pending", null, "2026-11-01T12:00:00Z", "reminder"), // session deleted: session_id nulled, kind kept
     ];
-    expect(await listSessionSendsWithPending(5)).toEqual(["old", "mid", "new"]);
-    expect(await listSessionSendsWithPending(2)).toEqual(["old", "mid"]);
+    expect(await listSessionSendsWithPending(5)).toEqual(["old", "orphan", "mid", "new"]);
+    expect(await listSessionSendsWithPending(2)).toEqual(["old", "orphan"]);
     expect(store.calls.filter((t) => t === "participant_send_recipients")).toHaveLength(2);
   });
 });

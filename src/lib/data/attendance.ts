@@ -98,10 +98,14 @@ export async function getSessionById(sessionId: string): Promise<SessionRow | nu
   return (data as SessionRow | null) ?? null;
 }
 
+const LEAD_MSG = "Send the reminder at least 5 minutes before the class";
+const MIN_LEAD_MINUTES = 5;
+
 export async function createSession(
   pageId: string,
   input: SessionInput,
 ): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  if (input.emailLeadMinutes < MIN_LEAD_MINUTES) return { ok: false, message: LEAD_MSG };
   const admin = createAdminSupabase();
   for (let attempt = 0; attempt < 2; attempt++) {
     const { data, error } = await admin
@@ -137,6 +141,7 @@ export async function updateSession(
   sessionId: string,
   input: Partial<SessionInput> & { windowOverride?: WindowOverride },
 ): Promise<{ ok: boolean; message?: string }> {
+  if (input.emailLeadMinutes !== undefined && input.emailLeadMinutes < MIN_LEAD_MINUTES) return { ok: false, message: LEAD_MSG };
   const patch: TablesUpdate<"batch_sessions"> = {};
   if (input.number !== undefined) patch.number = input.number;
   if (input.title !== undefined) patch.title = input.title;

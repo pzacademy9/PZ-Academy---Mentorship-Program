@@ -40,7 +40,8 @@ it("adds attendance_min_pct and the participant_sends columns", () => {
   expect(sql).toContain("add column if not exists session_id");
   expect(sql).toContain("add column if not exists session_kind");
   expect(sql).toMatch(/session_id uuid references public\.batch_sessions \(id\) on delete set null/i);
-  expect(sql).toContain("(session_id is null) = (session_kind is null)");
+  expect(sql).toContain("check (session_id is null or session_kind is not null)");
+  expect(sql).not.toContain("(session_id is null) = (session_kind is null)");
   expect(sql).toMatch(/create unique index if not exists participant_sends_reminder_key\s+on public\.participant_sends \(session_id\) where session_kind = 'reminder'/i);
 });
 

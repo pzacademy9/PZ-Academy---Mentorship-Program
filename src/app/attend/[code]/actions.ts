@@ -18,6 +18,8 @@ export type CheckinResult =
   | { status: "not_live" | "not_found" | "bad_link" | "rate_limited" | "error" };
 
 const MAX_EMAIL = 254;
+// Shared check-in only. Students behind one campus or carrier IP all hit the same key at class start.
+const SHARED_CAP_PER_MIN = 60;
 
 async function clientIp(): Promise<string> {
   const h = await headers();
@@ -39,8 +41,8 @@ async function markIfOpen(
   return { status: "marked", firstName, already: !created };
 }
 
+// No per-IP limiter here: the request is HMAC-checked and cheap, and many students share one IP.
 export async function checkInPersonal(code: string, token: string): Promise<CheckinResult> {
-  if (!allowRequest(await clientIp())) return { status: "rate_limited" };
   try {
     const session = await getSessionByCode(String(code));
     if (!session) return { status: "not_found" };
@@ -58,12 +60,15 @@ export async function checkInPersonal(code: string, token: string): Promise<Chec
 }
 
 export async function checkInShared(code: string, email: string): Promise<CheckinResult> {
-  if (!allowRequest(await clientIp())) return { status: "rate_limited" };
+  if (!allowRequest(`attend:${await clientIp()}`, Date.now(), SHARED_CAP_PER_MIN)) return { status: "rate_limited" };
   try {
     const typed = String(email ?? "").trim();
     if (!typed || typed.length > MAX_EMAIL) return { status: "not_found" };
     const session = await getSessionByCode(String(code));
     if (!session) return { status: "not_found" };
+    // Window first, so before/closed reveal nothing about whether the email is enrolled.
+    const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date());
+    if (state !== "open") return { status: state };
     const person = await eligiblePersonForEmail(session.page_id, typed);
     if ("reason" in person) {
       return { status: person.reason === "not_live" ? "not_live" : "not_found" };

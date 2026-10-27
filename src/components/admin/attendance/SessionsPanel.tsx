@@ -126,7 +126,7 @@ function SessionFormFields({
         <label className="inline-flex items-center gap-2 max-md:min-h-11">
           Send it
           <input
-            type="number" min={0} max={10080} className={cn(fieldCls, "w-20")} value={f.emailLeadMinutes}
+            type="number" min={5} max={10080} className={cn(fieldCls, "w-20")} value={f.emailLeadMinutes}
             onChange={(e) => set("emailLeadMinutes", e.target.value)} aria-label="Minutes before the session"
           />
           minutes before

@@ -27,9 +27,9 @@ export async function listDueReminderSessionIds(now = new Date()): Promise<strin
 /** Session sends (reminder or update) that still have pending recipients, oldest first, at most max. One query. */
 export async function listSessionSendsWithPending(max: number): Promise<string[]> {
   const { data, error } = await createAdminSupabase().from("participant_send_recipients")
-    .select("send_id, participant_sends!inner(session_id, created_at)")
+    .select("send_id, participant_sends!inner(session_id, session_kind, created_at)")
     .eq("state", "pending")
-    .not("participant_sends.session_id", "is", null)
+    .not("participant_sends.session_kind", "is", null)
     .limit(2000);
   if (error) throw new Error(`pending sends read failed: ${error.message}`);
   const created = new Map<string, string>();

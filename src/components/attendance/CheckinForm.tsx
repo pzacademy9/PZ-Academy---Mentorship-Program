@@ -13,7 +13,7 @@ interface Props {
 }
 
 const MESSAGES: Record<string, string> = {
-  before: "Check-in is not open yet. It opens 15 minutes before the session.",
+  before: "Check-in is not open yet. It opens 15 minutes before the class.",
   closed: "Check-in for this session has closed. Please ask the team.",
   not_live: "Attendance is only for live students. Your enrolment is recorded-only.",
   not_found: "We could not find a live enrolment for that email. Check the spelling, or ask the team.",

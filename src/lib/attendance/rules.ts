@@ -14,6 +14,7 @@ export function checkinWindow(
   if (override === "open") return "open";
   if (override === "closed") return "closed";
   const start = new Date(startsAtIso).getTime();
+  if (Number.isNaN(start)) return "closed";
   const t = now.getTime();
   if (t < start - WINDOW_MS) return "before";
   if (t > start + WINDOW_MS) return "closed";
@@ -61,7 +62,7 @@ export function formatPkt(iso: string): string {
 /** Whole percent, rounded half up, capped at 100; null when no session has started. */
 export function attendancePercent(marked: number, started: number): number | null {
   if (started <= 0) return null;
-  return Math.min(100, Math.round((marked / started) * 100));
+  return Math.min(100, Math.round((marked * 100) / started));
 }
 
 export function meetsMinimum(pct: number | null, min: number): boolean {

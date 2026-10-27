@@ -121,14 +121,20 @@ describe("checkInShared", () => {
     expect(await checkInShared("abcd1234", "  ")).toEqual({ status: "not_found" });
     expect(eligiblePersonForEmail).not.toHaveBeenCalled();
   });
-  it("eleventh call from one IP is rate_limited", async () => {
+  it("shared path is rate limited per IP after 60 calls a minute", async () => {
     eligiblePersonForEmail.mockResolvedValue({ reason: "no_person" });
-    for (let i = 0; i < 10; i++) expect((await checkInShared("abcd1234", "a@x.com")).status).toBe("not_found");
+    for (let i = 0; i < 60; i++) expect((await checkInShared("abcd1234", "a@x.com")).status).toBe("not_found");
     expect(await checkInShared("abcd1234", "a@x.com")).toEqual({ status: "rate_limited" });
   });
-  it("personal action is rate limited too", async () => {
-    for (let i = 0; i < 10; i++) await checkInPersonal("abcd1234", token);
-    expect(await checkInPersonal("abcd1234", token)).toEqual({ status: "rate_limited" });
+  it("personal check-ins from one IP are never rate limited", async () => {
+    for (let i = 0; i < 80; i++) expect((await checkInPersonal("abcd1234", token)).status).toBe("marked");
+  });
+  it("before/closed return without touching the email lookup", async () => {
+    getSessionByCode.mockResolvedValue(session({ starts_at: "2099-01-01T00:00:00Z" }));
+    expect(await checkInShared("abcd1234", "nobody@x.com")).toEqual({ status: "before" });
+    getSessionByCode.mockResolvedValue(session({ starts_at: "2020-01-01T00:00:00Z" }));
+    expect(await checkInShared("abcd1234", "nobody@x.com")).toEqual({ status: "closed" });
+    expect(eligiblePersonForEmail).not.toHaveBeenCalled();
   });
   it("never leaks raw error text", async () => {
     eligiblePersonForEmail.mockRejectedValue(new Error("boom secret"));
