@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckSquare } from "lucide-react";
+import { ArrowLeft, CheckSquare, Copy, Download } from "lucide-react";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import type { RegistrationListFilters, RegistrationListRow } from "@/lib/data/landing-registration-admin";
 import { RegistrationFilters } from "./RegistrationFilters";
@@ -10,6 +10,7 @@ import { RegistrationsTable } from "./RegistrationsTable";
 import type { RegistrationQuery } from "./query";
 import { MessageBuilder } from "./MessageBuilder";
 import { RowActions } from "./RowActions";
+import { getBatchIdList } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/id-actions";
 
 /** Either the ticked rows on this page, or everyone matching the current filters. Never both. */
 export type CampaignSelection =
@@ -31,6 +32,8 @@ export type OpenBuilder = (channel: BuilderChannel, request: CampaignBuilderRequ
 export interface CampaignRegistrationsProps {
   pageId: string;
   pageTitle: string;
+  /** The public URL slug of this batch, for the public ID page link. */
+  publicSlug?: string | null;
   rows: RegistrationListRow[];
   total: number;
   pageSize: number;
@@ -52,6 +55,7 @@ const noBuilder: OpenBuilder = () => {};
 export function CampaignRegistrations({
   pageId,
   pageTitle,
+  publicSlug = null,
   rows,
   total,
   pageSize,
@@ -66,6 +70,8 @@ export function CampaignRegistrations({
 }: CampaignRegistrationsProps) {
   const [ids, setIds] = useState<Set<string>>(new Set());
   const [allInFilter, setAllInFilter] = useState(false);
+  const [idNote, setIdNote] = useState<string | null>(null);
+  const [idBusy, setIdBusy] = useState(false);
   const [builder, setBuilder] = useState<{ channel: BuilderChannel; request: CampaignBuilderRequest } | null>(null);
 
   const pageIds = rows.map((r) => r.id);
@@ -114,6 +120,40 @@ export function CampaignRegistrations({
     onOpenBuilder(channel, request);
   }
 
+  async function downloadIds() {
+    setIdBusy(true);
+    setIdNote(null);
+    try {
+      const list = await getBatchIdList(pageId);
+      if (list.length === 0) {
+        setIdNote("No one has a PZ ID in this batch yet.");
+        return;
+      }
+      const { buildBatchPdf } = await import("@/lib/pzid/batch-pdf");
+      const url = URL.createObjectURL(buildBatchPdf(pageTitle, list));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${pageTitle} - PZ IDs.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      setIdNote("Could not download the ID list. Please try again.");
+    } finally {
+      setIdBusy(false);
+    }
+  }
+
+  async function copyIdLink() {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/ids/${publicSlug}`);
+      setIdNote("Link copied.");
+    } catch {
+      setIdNote("Could not copy the link. Please copy it from the address of the public page.");
+    }
+  }
+
   const showBanner = allInFilter || (allOnPage && total > rows.length);
 
   return (
@@ -132,6 +172,29 @@ export function CampaignRegistrations({
             <span className="font-headline font-bold text-pz-on-surface tabular-nums">{counts.all} registrations total</span>
           </p>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          onClick={downloadIds}
+          disabled={idBusy}
+          className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40 hover:bg-pz-surface-container text-xs font-headline font-semibold disabled:opacity-60 transition-colors"
+        >
+          <Download className="w-4 h-4" aria-hidden="true" />
+          Download ID list (PDF)
+        </button>
+        {publicSlug && (
+          <button
+            type="button"
+            onClick={copyIdLink}
+            className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40 hover:bg-pz-surface-container text-xs font-headline font-semibold transition-colors"
+          >
+            <Copy className="w-4 h-4" aria-hidden="true" />
+            Copy public ID page link
+          </button>
+        )}
+        {idNote && <span role="status" className="text-xs font-body text-pz-on-surface-variant">{idNote}</span>}
       </div>
 
       <RegistrationFilters
@@ -172,6 +235,7 @@ export function CampaignRegistrations({
         filters={query}
         detailHrefBase={detailHrefBase}
         showAgentColumn={false}
+        showPzId
         rowActions={(r) => <RowActions row={r} onOpenBuilder={openForRow} />}
         selectable={{ isSelected, onToggle: toggleRow, allOnPageSelected: allOnPage || allInFilter, onTogglePage: togglePage }}
       />

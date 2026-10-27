@@ -59,6 +59,8 @@ export interface RegistrationListRow {
   sheetUpdateWaiting: boolean;
   /** Latest time each status email (automatic or manual) went out to this person. */
   lastEmailAt: Partial<Record<ManualEmailKind, string>>;
+  /** The person's permanent PZ ID, or null when they have no person yet (not paid, or free). */
+  pzId?: string | null;
 }
 export interface RegistrationList {
   rows: RegistrationListRow[];
@@ -258,6 +260,14 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   const extras = await loadRowExtras(records.map((r) => ({ id: str(r.id), createdAt: str(r.created_at), emailStatus: strOrNull(r.email_status) })), { includeEmails: scope.kind !== "agent" });
   const isAgent = scope.kind === "agent";
 
+  const personIds = Array.from(new Set(records.map((r) => strOrNull(r.person_id)).filter((v): v is string => v !== null)));
+  const pzIds = new Map<string, string>();
+  if (personIds.length > 0) {
+    const { data, error } = await admin.from("pz_people").select("id, pz_id").in("id", personIds);
+    if (error) throw error;
+    for (const p of data ?? []) pzIds.set(p.id, p.pz_id);
+  }
+
   const rows: RegistrationListRow[] = records.map((r) => ({
     id: str(r.id),
     refId: strOrNull(r.ref_id),
@@ -282,6 +292,7 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
     whatsapp: str(r.whatsapp),
     sheetUpdateWaiting: extras.waiting.has(str(r.id)),
     lastEmailAt: extras.lastEmail.get(str(r.id)) ?? {},
+    pzId: pzIds.get(str(r.person_id)) ?? null,
   }));
   const total = f.status && f.status !== "all" ? counts[f.status] : all;
   return { rows, total, pageSize: PAGE_SIZE, counts };
@@ -292,6 +303,13 @@ export async function listRegistrationPageOptions(): Promise<{ id: string; title
   const { data, error } = await createAdminSupabase().from("landing_pages").select("id, title").order("title", { ascending: true });
   if (error) throw error;
   return (data ?? []).map((p) => ({ id: p.id, title: p.title }));
+}
+
+/** The public URL slug of a landing page, or null when the page does not exist. */
+export async function getRegistrationPageSlug(pageId: string): Promise<string | null> {
+  const { data, error } = await createAdminSupabase().from("landing_pages").select("slug").eq("id", pageId).maybeSingle();
+  if (error) throw error;
+  return data?.slug ?? null;
 }
 
 /** Agent choices for the admin filter: every sales agent, by name. */

@@ -118,3 +118,27 @@ describe("other registration lists", () => {
     expect(sp.get("optionLabel")).toBe("Full course");
   });
 });
+
+describe("PZ ID column and batch ID tools", () => {
+  it("shows the PZ ID, and a dash for a row with no person", () => {
+    setup({
+      rows: [row(1, { pzId: "Hamid-4821" }), row(2, { status: "pending", pzId: null })],
+      total: 2, publicSlug: "ppc-batch-1",
+    });
+    expect(tbl().getByRole("columnheader", { name: "PZ ID" })).toBeTruthy();
+    expect(tbl().getByText("Hamid-4821")).toBeTruthy();
+    expect(tbl().getByLabelText("No PZ ID yet")).toBeTruthy();
+  });
+  it("has the download and copy-link buttons", () => {
+    setup({ publicSlug: "ppc-batch-1" });
+    expect(screen.getByRole("button", { name: "Download ID list (PDF)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy public ID page link" })).toBeTruthy();
+  });
+  it("copies the public ID page link", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    setup({ publicSlug: "ppc-batch-1" });
+    fireEvent.click(screen.getByRole("button", { name: "Copy public ID page link" }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/ids/ppc-batch-1`);
+  });
+});
