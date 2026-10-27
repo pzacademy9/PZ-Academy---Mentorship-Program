@@ -12,7 +12,7 @@ async function setup(mergeResult: { ok: true } | { ok: false; message: string } 
     .mockResolvedValue({ ok: true, people: [{ ...hamid, batches: 3 }], truncated: false });
   const merge = vi.fn(async () => mergeResult);
   render(<PeopleLookup search={search} merge={merge} />);
-  fireEvent.change(screen.getByLabelText("Search people"), { target: { value: "hamid" } });
+  fireEvent.change(screen.getByLabelText("Search students"), { target: { value: "hamid" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   await waitFor(() => expect(screen.getByText("Hamid-4821")).toBeTruthy());
   return { search, merge };
@@ -30,7 +30,7 @@ describe("PeopleLookup", () => {
   it("does not search for fewer than 3 characters", () => {
     const search = vi.fn();
     render(<PeopleLookup search={search} merge={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText("Search people"), { target: { value: "ab" } });
+    fireEvent.change(screen.getByLabelText("Search students"), { target: { value: "ab" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     expect(screen.getByText("Type at least 3 characters.")).toBeTruthy();
     expect(search).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("PeopleLookup", () => {
   it("tells the admin when only the first 20 matches are shown", async () => {
     const search = vi.fn().mockResolvedValue({ ok: true, people: [hamid, other], truncated: true });
     render(<PeopleLookup search={search} merge={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText("Search people"), { target: { value: "hamid" } });
+    fireEvent.change(screen.getByLabelText("Search students"), { target: { value: "hamid" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() =>
       expect(screen.getByText("Showing the first 20 matches. Type more of the name to narrow it down.")).toBeTruthy(),
@@ -102,10 +102,10 @@ describe("PeopleLookup", () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, people: [hamid, other], truncated: false })
-      .mockResolvedValue({ ok: false, message: "Could not search people. Please try again." });
+      .mockResolvedValue({ ok: false, message: "Could not search students. Please try again." });
     const merge = vi.fn(async () => ({ ok: true as const }));
     render(<PeopleLookup search={search} merge={merge} />);
-    fireEvent.change(screen.getByLabelText("Search people"), { target: { value: "hamid" } });
+    fireEvent.change(screen.getByLabelText("Search students"), { target: { value: "hamid" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() => expect(screen.getByText("Hamid-4821")).toBeTruthy());
     fireEvent.click(screen.getByLabelText("Select Hamid-1002"));

@@ -98,7 +98,7 @@ export function PeopleLookup({ search, merge }: Props) {
     <div className="space-y-5">
       <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
-          <label htmlFor="people-query" className="sr-only">Search people</label>
+          <label htmlFor="people-query" className="sr-only">Search students</label>
           <input
             id="people-query"
             value={query}
@@ -130,7 +130,7 @@ export function PeopleLookup({ search, merge }: Props) {
         <>
           <p className="text-sm text-pz-on-surface-variant">
             {selected.length === 2
-              ? "Two people selected. Choose which one should stay."
+              ? "Two students selected. Choose which one should stay."
               : "To combine two IDs of the same student, tick both of them."}
           </p>
           {truncated && (

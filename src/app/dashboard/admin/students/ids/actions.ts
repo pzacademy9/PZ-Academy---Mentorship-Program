@@ -17,7 +17,7 @@ export async function findPeopleAction(query: string): Promise<FindPeopleResult>
     const { people, truncated } = await findPeople(String(query ?? ""));
     return { ok: true, people, truncated };
   } catch {
-    return { ok: false, message: "Could not search people. Please try again." };
+    return { ok: false, message: "Could not search students. Please try again." };
   }
 }
 
