@@ -51,6 +51,26 @@ it("never overwrites an existing person_id with null in the trigger", () => {
   expect(fn).not.toMatch(/new\.person_id := public\.pz_ensure_person/i);
 });
 
+it("keeps the same person when an email is edited on an already linked row", () => {
+  const fn = sql.slice(sql.indexOf("function public.landing_registrations_set_person"));
+  expect(fn).toMatch(/old\.person_id/i);
+  expect(fn).toMatch(/tg_op = 'UPDATE'/i);
+  expect(fn).toMatch(/insert into public\.pz_person_emails \(email, person_id\)\s+values \(lower\(btrim\(new\.email\)\), old\.person_id\)\s+on conflict \(email\) do nothing/i);
+  expect(fn).toMatch(/new\.person_id := old\.person_id/i);
+});
+
+it("locks both people rows in a stable order at the start of a merge", () => {
+  const fn = sql.slice(sql.indexOf("function public.pz_merge_people"), sql.indexOf("revoke all on function public.pz_first_name"));
+  expect(fn).toMatch(/order by id\s+for update/i);
+  expect(fn.indexOf("for update")).toBeLessThan(fn.indexOf("update public.pz_person_emails"));
+});
+
+it("trims whitespace including tabs and newlines in pz_first_name", () => {
+  const fn = sql.slice(sql.indexOf("function public.pz_first_name"), sql.indexOf("function public.pz_ensure_person"));
+  expect(fn).toContain("regexp_replace(coalesce(p_name, ''), '^\\s+|\\s+$', '', 'g')");
+  expect(fn).not.toMatch(/btrim/i);
+});
+
 it("fires the trigger when status, email, name or is_test change", () => {
   expect(sql).toMatch(/before insert or update of status, email, name, is_test on public\.landing_registrations/i);
 });

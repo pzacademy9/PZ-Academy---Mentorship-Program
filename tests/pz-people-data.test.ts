@@ -65,6 +65,23 @@ describe("searchBatchIds", () => {
     expect(db.state.ops.some((o) => o.table === "landing_registrations")).toBe(false);
   });
 
+  it("treats a query of only asterisks as too short, with no registrations query", async () => {
+    const res = await searchBatchIds("batch-1", "***");
+    expect(res).toEqual({ found: false, rows: [] });
+    expect(db.state.ops.some((o) => o.table === "landing_registrations")).toBe(false);
+  });
+
+  it("removes asterisks from the pattern", async () => {
+    await searchBatchIds("batch-1", "a*bc");
+    const like = db.state.ops.flatMap((o) => o.filters).find(([k]) => k === "ilike");
+    expect(like?.[2]).toBe("%abc%");
+    db.reset();
+    db.state.handler = handler();
+    await searchBatchIds("batch-1", "al*i*");
+    const like2 = db.state.ops.flatMap((o) => o.filters).find(([k]) => k === "ilike");
+    expect(like2?.[2]).toBe("%ali%");
+  });
+
   it("escapes wildcards in the ilike argument", async () => {
     await searchBatchIds("batch-1", "%%%");
     const like = db.state.ops.flatMap((o) => o.filters).find(([k]) => k === "ilike");

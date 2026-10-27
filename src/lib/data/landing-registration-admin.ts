@@ -305,11 +305,12 @@ export async function listRegistrationPageOptions(): Promise<{ id: string; title
   return (data ?? []).map((p) => ({ id: p.id, title: p.title }));
 }
 
-/** The public URL slug of a landing page, or null when the page does not exist. */
+/** The public URL slug of a landing page, or null when the page does not exist or is not published or closed. */
 export async function getRegistrationPageSlug(pageId: string): Promise<string | null> {
-  const { data, error } = await createAdminSupabase().from("landing_pages").select("slug").eq("id", pageId).maybeSingle();
+  const { data, error } = await createAdminSupabase().from("landing_pages").select("slug, status").eq("id", pageId).maybeSingle();
   if (error) throw error;
-  return data?.slug ?? null;
+  if (!data || (data.status !== "published" && data.status !== "closed")) return null;
+  return data.slug ?? null;
 }
 
 /** Agent choices for the admin filter: every sales agent, by name. */

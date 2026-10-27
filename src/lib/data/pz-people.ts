@@ -62,7 +62,8 @@ export async function searchBatchIds(
   if (pageErr) throw new Error("Could not search IDs. Please try again.");
   if (!page || (page.status !== "published" && page.status !== "closed")) return null;
 
-  const q = query.trim();
+  // PostgREST treats * in like/ilike values as %, so it is removed before anything else.
+  const q = query.replace(/\*/g, "").trim();
   if (q.length < MIN_QUERY) return { found: false, rows: [] };
 
   const regs = await loadEnrolled(page.id);

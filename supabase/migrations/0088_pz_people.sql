@@ -51,9 +51,9 @@ declare
   v_rest text;
   v_word text;
 begin
-  v_rest := btrim(coalesce(p_name, ''));
+  v_rest := regexp_replace(coalesce(p_name, ''), '^\s+|\s+$', '', 'g');
   v_rest := regexp_replace(v_rest, '^((dr|mr|mrs|ms|miss|prof|engr)(\.\s*|\s+))+', '', 'i');
-  v_word := (regexp_split_to_array(btrim(v_rest), '\s+'))[1];
+  v_word := (regexp_split_to_array(v_rest, '\s+'))[1];
   v_word := regexp_replace(coalesce(v_word, ''), '[^a-zA-Z]', '', 'g');
   v_word := left(initcap(v_word), 12);
   if v_word = '' then
@@ -119,6 +119,12 @@ begin
   if p_keep = p_drop then
     raise exception 'pz_merge_people: cannot merge a person into itself';
   end if;
+  -- lock both rows, lower uuid first, so concurrent merges cannot deadlock
+  perform 1
+    from public.pz_people
+   where id in (p_keep, p_drop)
+   order by id
+     for update;
   if not exists (select 1 from public.pz_people where id = p_keep)
      or not exists (select 1 from public.pz_people where id = p_drop) then
     raise exception 'pz_merge_people: person not found';
@@ -149,9 +155,25 @@ declare
   v_person uuid;
 begin
   if new.status in ('paid','free') and not new.is_test then
-    v_person := public.pz_ensure_person(new.email, new.name);
-    if v_person is not null then
-      new.person_id := v_person;
+    if tg_op = 'UPDATE' and old.person_id is not null and btrim(coalesce(new.email, '')) <> '' then
+      -- Already linked: an email edit keeps the same person (and ID) unless the new
+      -- email already belongs to a different person (a real merge case).
+      insert into public.pz_person_emails (email, person_id)
+      values (lower(btrim(new.email)), old.person_id)
+      on conflict (email) do nothing;
+      select e.person_id into v_person
+        from public.pz_person_emails e
+       where e.email = lower(btrim(new.email));
+      if v_person is null or v_person = old.person_id then
+        new.person_id := old.person_id;
+      else
+        new.person_id := v_person;
+      end if;
+    else
+      v_person := public.pz_ensure_person(new.email, new.name);
+      if v_person is not null then
+        new.person_id := v_person;
+      end if;
     end if;
   end if;
   return new;

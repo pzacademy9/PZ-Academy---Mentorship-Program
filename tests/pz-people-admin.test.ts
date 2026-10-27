@@ -82,6 +82,19 @@ describe("findPeople", () => {
     expect(db.state.ops).toHaveLength(0);
   });
 
+  it("treats a query of only asterisks as too short, with no queries", async () => {
+    expect(await findPeople("***")).toEqual({ people: [], truncated: false });
+    expect(db.state.ops).toHaveLength(0);
+  });
+
+  it("removes asterisks from the patterns", async () => {
+    await findPeople("ha*mid");
+    const likes = db.state.ops.flatMap((o) => o.filters).filter(([k]) => k === "ilike");
+    expect(likes.length).toBeGreaterThan(0);
+    for (const l of likes) expect(String(l[2])).not.toContain("*");
+    expect(likes.some((l) => String(l[2]) === "%hamid%")).toBe(true);
+  });
+
   it("escapes wildcards in the ilike argument", async () => {
     await findPeople("100%_x");
     const likes = db.state.ops.flatMap((o) => o.filters).filter(([k]) => k === "ilike");

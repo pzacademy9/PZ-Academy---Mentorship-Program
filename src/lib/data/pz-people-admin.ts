@@ -23,7 +23,8 @@ function escapeLike(s: string): string {
  * name. `truncated` is true when more than 20 people matched. The caller guards access.
  */
 export async function findPeople(query: string): Promise<FindPeopleResult> {
-  const q = query.trim();
+  // PostgREST treats * in like/ilike values as %, so it is removed before anything else.
+  const q = query.replace(/\*/g, "").trim();
   if (q.length < MIN_QUERY) return { people: [], truncated: false };
 
   const supabase = createAdminSupabase();
