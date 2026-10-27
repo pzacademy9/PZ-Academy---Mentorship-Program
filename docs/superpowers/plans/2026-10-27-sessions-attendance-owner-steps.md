@@ -25,6 +25,7 @@ select cron.schedule(
   $$
   select net.http_get(
     url := 'https://pz-academy.pharmacozyme.com/api/cron/session-emails',
+    timeout_milliseconds := 60000,
     headers := jsonb_build_object(
       'Authorization',
       'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'session_cron_secret')
@@ -34,7 +35,7 @@ select cron.schedule(
 );
 ```
 
-Do not share this block after you have pasted your secret into it.
+Do not share this block after you have pasted your secret into it. Supabase also keeps it in the SQL editor's saved history, so do not share that screen either.
 
 **Check that it ran** (wait about 5 minutes, then run this in a new query):
 

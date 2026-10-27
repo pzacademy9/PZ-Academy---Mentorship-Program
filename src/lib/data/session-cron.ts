@@ -24,20 +24,21 @@ export async function listDueReminderSessionIds(now = new Date()): Promise<strin
   return due.filter((s) => !done.has(s.id)).map((s) => s.id);
 }
 
-/** Session sends (reminder or update) that still have pending recipients, oldest first. */
+/** Session sends (reminder or update) that still have pending recipients, oldest first, at most max. One query. */
 export async function listSessionSendsWithPending(max: number): Promise<string[]> {
-  const admin = createAdminSupabase();
-  const { data, error } = await admin.from("participant_sends")
-    .select("id").not("session_id", "is", null).order("created_at", { ascending: true }).limit(500);
-  if (error) throw new Error(`session sends read failed: ${error.message}`);
-  const ids = ((data ?? []) as { id: string }[]).map((r) => r.id);
-  const out: string[] = [];
-  for (const id of ids) {
-    if (out.length >= max) break;
-    const { data: p, error: pErr } = await admin.from("participant_send_recipients")
-      .select("id").eq("send_id", id).eq("state", "pending").limit(1);
-    if (pErr) throw new Error(`pending read failed: ${pErr.message}`);
-    if ((p ?? []).length > 0) out.push(id);
+  const { data, error } = await createAdminSupabase().from("participant_send_recipients")
+    .select("send_id, participant_sends!inner(session_id, created_at)")
+    .eq("state", "pending")
+    .not("participant_sends.session_id", "is", null)
+    .limit(2000);
+  if (error) throw new Error(`pending sends read failed: ${error.message}`);
+  const created = new Map<string, string>();
+  for (const r of (data ?? []) as unknown as { send_id: string; participant_sends: { created_at: string } | { created_at: string }[] | null }[]) {
+    const ps = Array.isArray(r.participant_sends) ? r.participant_sends[0] : r.participant_sends;
+    if (!created.has(r.send_id)) created.set(r.send_id, ps?.created_at ?? "");
   }
-  return out;
+  return Array.from(created.entries())
+    .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
+    .slice(0, max)
+    .map(([id]) => id);
 }
