@@ -4454,6 +4454,10 @@ export type Database = {
           session_count: number
         }[]
       }
+      pz_merge_people: {
+        Args: { p_keep: string; p_drop: string }
+        Returns: undefined
+      }
       resync_course_progress: {
         Args: { p_course_id: string }
         Returns: undefined
