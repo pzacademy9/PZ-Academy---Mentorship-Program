@@ -9,9 +9,12 @@ import { resolveCandidates } from "@/lib/data/participant-campaigns";
 import { getOrCreateToken, listUnsubscribed } from "@/lib/data/participant-prefs";
 import { sendParticipantEmail } from "@/lib/brevo-participants";
 import { planRecipients, summarize } from "@/lib/landing/participants/recipients";
-import { renderParticipantTags, usesPortalLink } from "@/lib/landing/participants/merge";
+import { renderParticipantTags, usesPortalLink, type SessionTagContext } from "@/lib/landing/participants/merge";
 import { buildParticipantHtml } from "@/lib/landing/participants/email-html";
-import type { Channel, Summary } from "@/lib/landing/participants/types";
+import type { Candidate, Channel, Summary } from "@/lib/landing/participants/types";
+import { checkinSecret, signCheckinToken } from "@/lib/attendance/link-token";
+import { formatPkt } from "@/lib/attendance/rules";
+import { getSessionById } from "@/lib/data/attendance";
 
 export type SendRow = Tables<"participant_sends">;
 export type SendRecipientRow = Tables<"participant_send_recipients">;
@@ -26,6 +29,9 @@ const STALE_CLAIM_MS = 15 * 60 * 1000;
 const INSERT_CHUNK = 500;
 const ID_CHUNK = 100;
 const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "https://pharmacozyme.com";
+
+/** Base of attendance links: same rule as the Sales "my links" page. */
+const attendanceBase = () => (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
 
 const MESSAGES: Record<CreateSendFailureCode, string> = {
   count_changed: "The list changed. Review it again.",
@@ -69,8 +75,10 @@ function check(what: string, error: { message: string } | null): void {
   if (error) throw new Error(`${what} failed: ${error.message}`);
 }
 
-async function plan(input: { pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters }) {
-  const candidates = await resolveCandidates({ pageId: input.pageId, ids: input.ids, filters: input.filters });
+/** `keep` narrows the resolved candidates before unsubscribed/missing-contact handling (used by session emails). */
+export async function plan(input: { pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters; keep?: (c: Candidate) => boolean }) {
+  const resolved = await resolveCandidates({ pageId: input.pageId, ids: input.ids, filters: input.filters });
+  const candidates = input.keep ? resolved.filter(input.keep) : resolved;
   const unsubscribed = input.channel === "email" ? await listUnsubscribed(candidates.map((c) => c.email).filter((e) => e.trim() !== "")) : new Set<string>();
   const planned = planRecipients(candidates, input.channel, unsubscribed);
   return { planned, summary: summarize(planned, input.channel) };
@@ -139,6 +147,13 @@ export async function createSend(input: {
   if (sendErr || !sendRow) throw new Error(`send insert failed: ${sendErr?.message ?? "no row"}`);
   const sendId = (sendRow as { id: string }).id;
 
+  await freezeRecipients(sendId, planned);
+  return { ok: true, sendId, count: planned.send.length };
+}
+
+/** Stores the recipient set of a send (pending and skipped rows). On failure the send row goes away and this throws. */
+export async function freezeRecipients(sendId: string, planned: Awaited<ReturnType<typeof plan>>["planned"]): Promise<void> {
+  const admin = createAdminSupabase();
   const toRow = (c: (typeof planned.send)[number], state: "pending" | "skipped", reason: string) => ({
     send_id: sendId, registration_id: c.registrationId, is_member: c.isMember, name: c.name, email: c.email, phone: c.phone,
     status_at_send: c.status, state, reason,
@@ -156,11 +171,10 @@ export async function createSend(input: {
       throw new Error(`recipient insert failed: ${error.message}`);
     }
   }
-  return { ok: true, sendId, count: planned.send.length };
 }
 
-function renderEmail(send: { subject: string; body: string }, who: { name: string; refId: string; pzId: string }, portalUrl: string | null, unsubscribeUrl: string) {
-  const ctx = { name: who.name, refId: who.refId, portalUrl, pzId: who.pzId };
+function renderEmail(send: { subject: string; body: string }, who: { name: string; refId: string; pzId: string }, portalUrl: string | null, unsubscribeUrl: string, session?: SessionTagContext) {
+  const ctx = { name: who.name, refId: who.refId, portalUrl, pzId: who.pzId, ...(session ? { session } : {}) };
   // Body is plain text: tags render as text, buildParticipantHtml does the one HTML escape.
   const subject = renderParticipantTags(send.subject, ctx, "text");
   const html = buildParticipantHtml({ bodyText: renderParticipantTags(send.body, ctx, "text"), unsubscribeUrl });
@@ -189,6 +203,19 @@ async function refIdsFor(registrationIds: string[]): Promise<Map<string, string>
     for (const r of data ?? []) leadRef.set(r.id as string, (r.ref_id as string) ?? "");
   }
   for (const [id, lead] of Array.from(leadOf.entries())) if (leadRef.has(lead)) out.set(id, leadRef.get(lead)!);
+  return out;
+}
+
+/** person_id of each registration (own person, members do not take their lead's). No person yet means no entry. */
+async function personIdsFor(registrationIds: string[]): Promise<Map<string, string>> {
+  const admin = createAdminSupabase();
+  const out = new Map<string, string>();
+  const ids = Array.from(new Set(registrationIds));
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const { data, error } = await admin.from("landing_registrations").select("id, person_id").in("id", ids.slice(i, i + ID_CHUNK));
+    check("registrations read", error);
+    for (const r of data ?? []) if (r.person_id) out.set(r.id as string, r.person_id as string);
+  }
   return out;
 }
 
@@ -240,6 +267,19 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
   const refIds = await refIdsFor(pendingRows.map((r) => r.registration_id));
   const pzIds = await pzIdsFor(pendingRows.map((r) => r.registration_id));
 
+  // Session sends: the session is read once per run; each person gets their own signed attendance link.
+  const session = send.session_id ? await getSessionById(send.session_id) : null;
+  const secret = session ? checkinSecret() : null;
+  const personIds = session ? await personIdsFor(pendingRows.map((r) => r.registration_id)) : new Map<string, string>();
+  const sessionCtxFor = (registrationId: string): SessionTagContext | undefined => {
+    if (!session) return undefined;
+    const shared = `${attendanceBase()}/attend/${session.public_code}`;
+    const personId = personIds.get(registrationId);
+    // No person or no signing secret: the shared link (never a token signed with an empty key).
+    const attendanceUrl = personId && secret ? `${shared}?t=${signCheckinToken(session.id, personId, secret)}` : shared;
+    return { zoomUrl: session.zoom_url, kahootUrl: session.include_kahoot ? session.kahoot_url : "", timeText: formatPkt(session.starts_at), attendanceUrl };
+  };
+
   let sent = 0, failed = 0;
   await pool(pendingRows, CONCURRENCY, async (r) => {
     try {
@@ -269,7 +309,7 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
       let result: { ok: true } | { ok: false; error: string };
       try {
         const token = await getOrCreateToken(email);
-        const msg = renderEmail(send, { name: r.name, refId: refIds.get(r.registration_id) ?? "", pzId: pzIds.get(r.registration_id) ?? "" }, portalUrl, `${appUrl()}/unsubscribe/participants/${token}`);
+        const msg = renderEmail(send, { name: r.name, refId: refIds.get(r.registration_id) ?? "", pzId: pzIds.get(r.registration_id) ?? "" }, portalUrl, `${appUrl()}/unsubscribe/participants/${token}`, sessionCtxFor(r.registration_id));
         result = await sendParticipantEmail({ to: r.email, toName: r.name, subject: msg.subject, htmlContent: msg.html });
       } catch (e) {
         result = { ok: false, error: e instanceof Error ? e.message : "Send failed" };

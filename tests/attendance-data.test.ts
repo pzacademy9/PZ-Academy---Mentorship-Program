@@ -230,3 +230,12 @@ describe("sessions CRUD", () => {
     expect(store.batch_sessions).toHaveLength(1);
   });
 });
+
+describe("getSessionById", () => {
+  it("returns the session row, or null when it does not exist", async () => {
+    const { getSessionById } = await import("@/lib/data/attendance");
+    db.state.handler = memoryHandler({ batch_sessions: [sess(1, "2026-11-10T12:00:00Z")] });
+    expect(await getSessionById("s1")).toMatchObject({ id: "s1", public_code: "code0001" });
+    expect(await getSessionById("nope")).toBeNull();
+  });
+});

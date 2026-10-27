@@ -92,6 +92,12 @@ export async function listSessions(pageId: string): Promise<SessionRow[]> {
   return (data ?? []) as SessionRow[];
 }
 
+export async function getSessionById(sessionId: string): Promise<SessionRow | null> {
+  const { data, error } = await createAdminSupabase().from("batch_sessions").select("*").eq("id", sessionId).maybeSingle();
+  check("session read", error);
+  return (data as SessionRow | null) ?? null;
+}
+
 export async function createSession(
   pageId: string,
   input: SessionInput,
