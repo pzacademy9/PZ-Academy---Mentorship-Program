@@ -1,5 +1,4 @@
 // Pure attendance rules. No server-only imports: also used in client components.
-import { randomInt } from "crypto";
 
 export type WindowOverride = "auto" | "open" | "closed";
 export type WindowState = "before" | "open" | "closed";
@@ -72,7 +71,16 @@ export function meetsMinimum(pct: number | null, min: number): boolean {
 const CODE_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 export function generateSessionCode(): string {
+  // Rejection sampling: 252 = 7 * 36, so bytes >= 252 are discarded to keep each char equally likely.
   let out = "";
-  for (let i = 0; i < 8; i++) out += CODE_CHARS[randomInt(CODE_CHARS.length)];
+  const buf = new Uint8Array(16);
+  while (out.length < 8) {
+    globalThis.crypto.getRandomValues(buf);
+    for (const b of buf) {
+      if (b >= 252) continue;
+      out += CODE_CHARS[b % 36];
+      if (out.length === 8) break;
+    }
+  }
   return out;
 }
