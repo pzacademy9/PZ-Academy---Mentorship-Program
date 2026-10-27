@@ -125,6 +125,39 @@ person across courses, so there is no way to find "the best student over six mon
 
 Suggested build order: 1, 2, 3, 4. Each part ends in something the owner can use.
 
+## Further calls (made after the builder check; all mine, not confirmed by the owner)
+
+- **Facts checked 2026-10-27:** `public.attendance` has 0 rows, so it can be replaced.
+  Only 3 paid or free non-test rows exist in `landing_registrations`, so history
+  lives only in the old sheets.
+- **People model:** one row per person with the permanent ID, and emails in a child
+  table (lowercased). One email maps to one person. Part 1 includes a small admin
+  "merge two people" tool that repoints attendance and results and keeps the old
+  IDs as aliases.
+- **ID is immutable.** The number is globally unique (not per name), and the display
+  name is editable separately. The ID never changes after it is issued.
+- **Rejoin rule:** an exact match on a known ID or alias always wins. Only if there is no
+  exact match, trailing `n` characters (and nothing else) are stripped and the match is
+  retried. Anything that still fails goes to the review list.
+- **Webinars, workshops, courses** all behave the same: each event or batch has one or
+  more sessions. A webinar is a batch with a single session.
+- **Batch link to registrations:** batch means the landing-page batch that
+  `landing_registrations` already points to. A session belongs to exactly one batch. A
+  person can be in several batches.
+- **Who can use admin screens:** admins only for now. Mentors are out of scope.
+- **Public safety:** no opt-out. The "find your ID" search needs at least 3 characters
+  and is rate limited. Results are public by decision. Attendance visibility is
+  pending the owner (see open questions).
+- **Quiz maximum for the percentage:** an admin-entered maximum score per session,
+  defaulting to the highest score in the uploaded file.
+- **Re-uploads:** saving a session's results replaces that session's earlier results.
+  Earlier review decisions (merge or keep one, and alias fixes) are remembered and
+  applied again.
+- **Session emails:** timing is set per session by the admin, default 1 hour before,
+  sent by a scheduled job. Recorded students do not get live-session emails.
+- **Time zone:** one academy time zone, PKT (UTC+5), for session times and the
+  check-in window.
+
 ## Left to the builder
 
 - Database design (tables, indexes, row-level security) and how the existing
