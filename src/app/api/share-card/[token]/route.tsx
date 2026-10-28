@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { type NextRequest } from 'next/server';
 import { fetchShareCardData } from '@/lib/mentorship/share-card-data';
+import { isAllowedCoverUrl } from '@/lib/classes/cover';
 
 export const runtime = 'edge';
 
@@ -9,7 +10,7 @@ const BRAND_LIME  = '#7ED957';
 const GOLD        = '#C9A84C';
 
 async function fetchCoverBase64(url: string): Promise<string | null> {
-  if (!url) return null;
+  if (!url || !isAllowedCoverUrl(url)) return null;
   try {
     const res = await fetch(url, { next: { revalidate: 3600 } });
     if (!res.ok) return null;

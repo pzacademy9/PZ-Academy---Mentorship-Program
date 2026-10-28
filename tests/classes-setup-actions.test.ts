@@ -136,6 +136,55 @@ describe("saveSetup", () => {
     expect(store.batch_sessions).toHaveLength(2);
   });
 
+  it("a confirmed removal keeps a feedback session that has answers and explains the loss", async () => {
+    store.batch_sessions = [cls(1, "2026-11-03"), cls(2, "2026-11-04", { feedback_session_id: "fs2" })];
+    store.feedback_sessions = [{ id: "fs2", slug: "s2" }];
+    store.feedback_responses = [{ id: "r1", feedback_session_id: "fs2" }];
+    const days = [{ date: "2026-11-03", existingId: "c1" }];
+    const refused = await saveSetup(PAGE, form({ days }));
+    expect(refused.message).toContain("attendance marks and quiz results");
+    expect(refused.message).toContain("feedback link");
+    expect(refused.message).toContain("Admin > Feedback");
+    const done = await saveSetup(PAGE, form({ days, confirmRemoveIds: ["c2"] }));
+    expect(done.ok).toBe(true);
+    expect(store.batch_sessions.map((c) => c.id)).toEqual(["c1"]);
+    expect(store.feedback_sessions.map((f) => f.id)).toContain("fs2");
+    expect(store.feedback_responses).toHaveLength(1);
+  });
+
+  it("removing a class with no answers deletes its feedback session", async () => {
+    store.batch_sessions = [cls(1, "2026-11-03"), cls(2, "2026-11-04", { feedback_session_id: "fs2" })];
+    store.feedback_sessions = [{ id: "fs2", slug: "s2" }];
+    const r = await saveSetup(PAGE, form({ days: [{ date: "2026-11-03", existingId: "c1" }] }));
+    expect(r.ok).toBe(true);
+    expect(store.feedback_sessions.map((f) => f.id)).not.toContain("fs2");
+  });
+
+  it("a feedback delete failure does not fail the save", async () => {
+    store.batch_sessions = [cls(1, "2026-11-03"), cls(2, "2026-11-04", { feedback_session_id: "fs2" })];
+    store.feedback_sessions = [{ id: "fs2", slug: "s2" }];
+    const inner = memoryHandler(store);
+    db.state.handler = (op) => op.table === "feedback_sessions" && op.op === "delete"
+      ? { data: null, error: { message: "fk" } }
+      : inner(op);
+    const r = await saveSetup(PAGE, form({ days: [{ date: "2026-11-03", existingId: "c1" }] }));
+    expect(r.ok).toBe(true);
+    expect(r.message).toContain("Day 2");
+    expect(store.batch_sessions.map((c) => c.id)).toEqual(["c1"]);
+  });
+
+  it("rejects a cover that is not from the picture library, and clears on empty", async () => {
+    for (const bad of ["http://169.254.169.254/", "https://evil.example/x.png", "http://drive.google.com/thumbnail?id=abc", "not a url"]) {
+      const r = await saveSetup(PAGE, form({ coverUrl: bad }));
+      expect(r.ok).toBe(false);
+      expect(r.message).toBe("Please pick the cover from the picture library.");
+    }
+    expect(store.batch_sessions).toHaveLength(0);
+    expect((await saveSetup(PAGE, form({ coverUrl: "https://drive.google.com/thumbnail?id=abcdefghij&sz=w1600" }))).ok).toBe(true);
+    expect((await saveSetup(PAGE, form({ coverUrl: "" }))).ok).toBe(true);
+    expect(h.cover).toHaveBeenLastCalledWith(PAGE, null, "admin-1");
+  });
+
   it("removing an empty class works without confirmation", async () => {
     store.batch_sessions = [cls(1, "2026-11-03"), cls(2, "2026-11-04")];
     const r = await saveSetup(PAGE, form({ days: [{ date: "2026-11-03", existingId: "c1" }] }));
@@ -188,6 +237,11 @@ describe("saveDefaults", () => {
       starts_at: iso("2026-11-04", "18:00"), zoom_url: "https://zoom.us/j/own",
     });
     expect(store.landing_pages[0]).toMatchObject({ class_default_start: "19:00", class_default_zoom: "https://zoom.us/j/new" });
+  });
+
+  it("says the batch was not found for an unknown page", async () => {
+    store.landing_pages = [];
+    expect(await saveDefaults(PAGE, defaults)).toEqual({ ok: false, message: "That batch was not found" });
   });
 
   it("rejects a bad time", async () => {

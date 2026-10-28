@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { isoToPktInput } from "@/lib/attendance/rules";
+import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import { createSession, deleteSession, updateSession } from "@/lib/data/attendance";
 import {
   applyDefaultsToClasses,
@@ -238,6 +239,11 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
     return { ok: false, message: "The Zoom link must start with http:// or https://" };
   }
   const defaults: ClassDefaults = { ...form.defaults, zoom: form.defaults.zoom.trim() };
+  const coverUrl = form.coverUrl && form.coverUrl.trim() !== "" ? form.coverUrl.trim() : null;
+  if (coverUrl && !isAllowedCoverUrl(coverUrl)) {
+    return { ok: false, message: "Please pick the cover from the picture library." };
+  }
+  const notes: string[] = [];
 
   try {
     const page = await readPage(pageId);
@@ -272,7 +278,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
         const them = names.length === 1 ? "it was" : "they were";
         return {
           ok: false,
-          message: `${listWords(names)} ${names.length === 1 ? "has" : "have"} attendance, quiz results or feedback saved, so ${them} not removed. Tick ${names.length === 1 ? "it" : "them"} again or confirm removal.`,
+          message: `${listWords(names)} ${names.length === 1 ? "has" : "have"} attendance, quiz results or feedback saved, so ${them} not removed. Removing ${names.length === 1 ? "it" : "them"} deletes the attendance marks and quiz results of ${names.length === 1 ? "that class" : "those classes"}. The feedback link stops working only if it has no answers; any feedback answers are kept in Admin > Feedback. Tick ${names.length === 1 ? "it" : "them"} again or confirm removal.`,
         };
       }
     }
@@ -282,10 +288,24 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
       if (op.kind !== "remove") continue;
       const row = classes.find((c) => c.id === op.id);
       await deleteSession(op.id);
-      if (row?.feedback_session_id) {
-        // The class is gone; its feedback form goes with it (removal of data was confirmed above).
-        const { error } = await createAdminSupabase().from("feedback_sessions").delete().eq("id", row.feedback_session_id);
-        if (error) throw new Error(error.message);
+      if (!row?.feedback_session_id) continue;
+      // The class is gone. Its feedback form goes too, but only when nobody has answered it.
+      try {
+        const admin = createAdminSupabase();
+        const { data: answers, error: readError } = await admin
+          .from("feedback_responses")
+          .select("id")
+          .eq("feedback_session_id", row.feedback_session_id)
+          .limit(1);
+        if (readError) throw new Error(readError.message);
+        if ((answers ?? []).length > 0) {
+          notes.push(`${dayLabel(row)}'s feedback answers were kept in Admin > Feedback`);
+        } else {
+          const { error } = await admin.from("feedback_sessions").delete().eq("id", row.feedback_session_id);
+          if (error) throw new Error(error.message);
+        }
+      } catch {
+        notes.push(`${dayLabel(row)}'s feedback form could not be removed and was left in Admin > Feedback`);
       }
     }
     for (const op of plan.ops) {
@@ -323,7 +343,6 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
 
     await storeDefaults(pageId, defaults);
 
-    const coverUrl = form.coverUrl && form.coverUrl.trim() !== "" ? form.coverUrl.trim() : null;
     const setup: BatchFeedbackSetup = { type, questions: form.questions, coverUrl };
     const before = await batchQuestionSet(pageId);
     for (const c of await readClasses(pageId)) {
@@ -335,7 +354,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
     await setBatchCover(pageId, coverUrl, auth.user.id);
 
     refresh(pageId);
-    return { ok: true, message: "Classes saved" };
+    return { ok: true, message: ["Classes saved", ...notes].join(". ") };
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }
@@ -349,6 +368,7 @@ export async function saveDefaults(pageId: string, defaults: ClassDefaults): Pro
   if (bad) return { ok: false, message: bad };
   const clean: ClassDefaults = { ...defaults, zoom: defaults.zoom.trim() };
   try {
+    if (!(await readPage(pageId))) return { ok: false, message: NO_PAGE };
     await storeDefaults(pageId, clean);
     const classes = await readClasses(pageId);
     for (const row of applyDefaultsToClasses(classes.map(toExisting), clean)) {
