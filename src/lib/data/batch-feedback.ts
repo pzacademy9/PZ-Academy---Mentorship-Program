@@ -4,6 +4,7 @@ import {
   createFeedbackSession,
   updateFeedbackSessionQuestions,
   setFeedbackSessionCover,
+  deleteFeedbackSession,
 } from "@/lib/data/feedback-sessions";
 import { setFeedbackProgramCover } from "@/lib/data/feedback-programs";
 import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
@@ -44,7 +45,8 @@ export async function ensureClassFeedback(
       .select("slug")
       .eq("id", cls.feedback_session_id)
       .maybeSingle();
-    return { feedbackSessionId: cls.feedback_session_id, slug: existing?.slug ?? "" };
+    if (!existing) throw new Error("Feedback session for this class is missing.");
+    return { feedbackSessionId: cls.feedback_session_id, slug: existing.slug };
   }
 
   const { data: page, error: pageError } = await admin
@@ -62,13 +64,26 @@ export async function ensureClassFeedback(
       .select("id")
       .single();
     if (error || !program) throw new Error(error?.message ?? "Could not create feedback program.");
-    programId = program.id;
-    await generateFeedbackShareToken("program", program.id, actorProfileId);
-    const { error: linkError } = await admin
+    // Link at once, only if no concurrent call linked one first.
+    const { data: linked, error: linkError } = await admin
       .from("landing_pages")
       .update({ feedback_program_id: program.id })
-      .eq("id", pageId);
+      .eq("id", pageId)
+      .is("feedback_program_id", null)
+      .select("id");
     if (linkError) throw new Error(linkError.message);
+    if ((linked ?? []).length === 0) {
+      await admin.from("feedback_programs").delete().eq("id", program.id);
+      const { data: current } = await admin
+        .from("landing_pages")
+        .select("feedback_program_id")
+        .eq("id", pageId)
+        .maybeSingle();
+      programId = current?.feedback_program_id ?? null;
+    } else {
+      programId = program.id;
+      await generateFeedbackShareToken("program", program.id, actorProfileId);
+    }
   }
 
   const topic = (cls.title ?? "").trim();
@@ -84,13 +99,41 @@ export async function ensureClassFeedback(
     },
     actorProfileId,
   );
-  if (setup.coverUrl) await setFeedbackSessionCover(created.id, setup.coverUrl, actorProfileId);
 
-  const { error: writeError } = await admin
+  // Link immediately and conditionally so a concurrent or retried call can
+  // never leave two sessions for one class or an unlinked session behind.
+  const { data: won, error: writeError } = await admin
     .from("batch_sessions")
     .update({ feedback_session_id: created.id })
-    .eq("id", sessionId);
+    .eq("id", sessionId)
+    .is("feedback_session_id", null)
+    .select("id");
   if (writeError) throw new Error(writeError.message);
+  if ((won ?? []).length === 0) {
+    await deleteFeedbackSession(created.id, actorProfileId);
+    const { data: winner } = await admin
+      .from("batch_sessions")
+      .select("feedback_session_id")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (!winner?.feedback_session_id) throw new Error("Could not link the class's feedback session.");
+    const { data: row } = await admin
+      .from("feedback_sessions")
+      .select("slug")
+      .eq("id", winner.feedback_session_id)
+      .maybeSingle();
+    if (!row) throw new Error("Feedback session for this class is missing.");
+    return { feedbackSessionId: winner.feedback_session_id, slug: row.slug };
+  }
+
+  // A cover failure must not undo the link; setBatchCover can set it later.
+  if (setup.coverUrl) {
+    try {
+      await setFeedbackSessionCover(created.id, setup.coverUrl, actorProfileId);
+    } catch {
+      // intentionally ignored
+    }
+  }
 
   return { feedbackSessionId: created.id, slug: created.slug };
 }
@@ -127,7 +170,7 @@ export async function createMissingFeedback(
   const admin = createAdminSupabase();
   const { data: page } = await admin
     .from("landing_pages")
-    .select("feedback_program_id, class_cover_url")
+    .select("kind, feedback_program_id, class_cover_url")
     .eq("id", pageId)
     .maybeSingle();
   if (!page) throw new Error("Batch not found.");
@@ -146,17 +189,9 @@ export async function createMissingFeedback(
     questions = bank.slice(0, 3).map((q) => ({ text: q.text, type: q.type }));
   }
 
-  // The program's own type is the only record of the batch type (spec call 11);
-  // a batch with no program is a webinar and keeps getting none.
-  let type: BatchFeedbackSetup["type"] = "webinar";
-  if (page.feedback_program_id) {
-    const { data: program } = await admin
-      .from("feedback_programs")
-      .select("type")
-      .eq("id", page.feedback_program_id)
-      .maybeSingle();
-    if (program) type = program.type;
-  }
+  // landing_pages.kind is the single source of the batch type; ensureClassFeedback
+  // creates the program for a course/workshop that has none yet.
+  const type = page.kind as BatchFeedbackSetup["type"];
 
   let created = 0;
   for (const c of missing) {

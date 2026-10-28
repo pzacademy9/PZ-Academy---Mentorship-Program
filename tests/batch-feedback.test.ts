@@ -5,11 +5,12 @@ vi.mock("server-only", () => ({}));
 type Row = Record<string, unknown>;
 const db: Record<string, Row[]> = {};
 let idCounter = 0;
+let beforeUpdate: ((table: string) => void) | null = null;
 
 /** Minimal in-memory stand-in for the Supabase query builder (only what batch-feedback.ts uses). */
 function table(name: string) {
   const filters: ((r: Row) => boolean)[] = [];
-  let op: "select" | "insert" | "update" = "select";
+  let op: "select" | "insert" | "update" | "delete" = "select";
   let payload: Row | Row[] | null = null;
   let orderBy: { col: string; asc: boolean } | null = null;
   let limitN: number | null = null;
@@ -24,6 +25,11 @@ function table(name: string) {
       rows.push(...list);
       return list;
     }
+    if (op === "delete") {
+      db[name] = rows.filter((r) => !filters.every((f) => f(r)));
+      return [];
+    }
+    if (op === "update") beforeUpdate?.(name);
     let matched = rows.filter((r) => filters.every((f) => f(r)));
     if (op === "update") {
       for (const r of matched) Object.assign(r, payload);
@@ -40,6 +46,7 @@ function table(name: string) {
   const b: Record<string, unknown> = {
     select: () => b,
     insert: (p: Row | Row[]) => ((op = "insert"), (payload = p), b),
+    delete: () => ((op = "delete"), b),
     update: (p: Row) => ((op = "update"), (payload = p), b),
     eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), b),
     in: (c: string, v: unknown[]) => (filters.push((r) => v.includes(r[c])), b),
@@ -65,11 +72,13 @@ const setFeedbackProgramCover = vi.fn();
 const generateFeedbackShareToken = vi.fn();
 const getFeedbackSessionDetail = vi.fn();
 const getQuestionBank = vi.fn();
+const deleteFeedbackSession = vi.fn();
 
 vi.mock("@/lib/data/feedback-sessions", () => ({
   createFeedbackSession: (...a: unknown[]) => createFeedbackSession(...a),
   updateFeedbackSessionQuestions: (...a: unknown[]) => updateFeedbackSessionQuestions(...a),
   setFeedbackSessionCover: (...a: unknown[]) => setFeedbackSessionCover(...a),
+  deleteFeedbackSession: (...a: unknown[]) => deleteFeedbackSession(...a),
 }));
 vi.mock("@/lib/data/feedback-programs", () => ({
   setFeedbackProgramCover: (...a: unknown[]) => setFeedbackProgramCover(...a),
@@ -116,6 +125,10 @@ function seedBatch(kind = "course") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  beforeUpdate = null;
+  deleteFeedbackSession.mockImplementation(async (id: string) => {
+    db.feedback_sessions = db.feedback_sessions.filter((r) => r.id !== id);
+  });
   idCounter = 0;
   for (const k of Object.keys(db)) delete db[k];
   seedBatch();
@@ -246,5 +259,54 @@ describe("batch question set and bulk actions", () => {
     expect(db.landing_pages[0].class_cover_url).toBe("https://x/c.jpg");
     expect(setFeedbackProgramCover).toHaveBeenCalledWith(db.feedback_programs[0].id, "https://x/c.jpg", "actor");
     expect(setFeedbackSessionCover).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("idempotency under races and retries", () => {
+  it("write-back conflict deletes the loser session and returns the winner's", async () => {
+    db.feedback_sessions.push({ id: "winner", slug: "winner-slug", name: "w" });
+    beforeUpdate = (table) => {
+      if (table === "batch_sessions") {
+        db.batch_sessions[0].feedback_session_id = "winner";
+        beforeUpdate = null;
+      }
+    };
+    const res = await ensureClassFeedback("p1", "s1", setup("workshop"), "actor");
+    expect(res).toEqual({ feedbackSessionId: "winner", slug: "winner-slug" });
+    expect(deleteFeedbackSession).toHaveBeenCalledTimes(1);
+    expect(db.batch_sessions[0].feedback_session_id).toBe("winner");
+    expect(setFeedbackSessionCover).not.toHaveBeenCalled();
+  });
+
+  it("cover failure keeps the link and a retry creates nothing new", async () => {
+    setFeedbackSessionCover.mockRejectedValueOnce(new Error("boom"));
+    const first = await ensureClassFeedback("p1", "s1", { ...setup(), coverUrl: "https://x/c.jpg" }, "actor");
+    expect(db.batch_sessions[0].feedback_session_id).toBe(first.feedbackSessionId);
+    const second = await ensureClassFeedback("p1", "s1", { ...setup(), coverUrl: "https://x/c.jpg" }, "actor");
+    expect(second).toEqual(first);
+    expect(createFeedbackSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("program race leaves one program and deletes the loser", async () => {
+    db.feedback_programs.push({ id: "prog-winner", name: "AMS Batch 1", type: "course" });
+    beforeUpdate = (table) => {
+      if (table === "landing_pages") {
+        db.landing_pages[0].feedback_program_id = "prog-winner";
+        beforeUpdate = null;
+      }
+    };
+    await ensureClassFeedback("p1", "s1", setup(), "actor");
+    expect(db.feedback_programs.map((p) => p.id)).toEqual(["prog-winner"]);
+    expect(createFeedbackSession.mock.calls[0][0].programId).toBe("prog-winner");
+    expect(generateFeedbackShareToken).not.toHaveBeenCalled();
+  });
+
+  it("createMissingFeedback on a course page with no program creates the program and groups sessions", async () => {
+    const res = await createMissingFeedback("p1", "actor");
+    expect(res).toEqual({ created: 2 });
+    expect(db.feedback_programs).toHaveLength(1);
+    expect(db.feedback_programs[0]).toMatchObject({ type: "course" });
+    const progId = db.feedback_programs[0].id;
+    expect(createFeedbackSession.mock.calls.every((c) => c[0].programId === progId)).toBe(true);
   });
 });
