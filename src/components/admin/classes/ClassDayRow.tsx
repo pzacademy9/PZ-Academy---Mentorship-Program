@@ -7,6 +7,8 @@ import { fieldCls, labelCls, quietBtn } from "./styles";
 export type DayState = {
   date: string;
   existingId?: string;
+  /** The class number the server gave an existing class. */
+  number?: number;
   hasData: boolean;
   title: string;
   speaker: string;
@@ -27,15 +29,13 @@ export function ownWords(d: Pick<DayState, "start" | "end" | "zoom">): string | 
 }
 
 export function ClassDayRow({
-  index, day, onChange, onRemove,
+  day, onChange, onRemove,
 }: {
-  index: number;
   day: DayState;
   onChange: (patch: Partial<DayState>) => void;
   onRemove: () => void;
 }) {
   const own = ownWords(day);
-  const n = index + 1;
   return (
     <li
       data-testid={`day-row-${day.date}`}
@@ -44,12 +44,12 @@ export function ClassDayRow({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-headline text-base font-bold text-pz-on-surface">Day {n}: {dateWords(day.date)}</p>
+          <p className="font-headline text-base font-bold text-pz-on-surface">{day.existingId ? `Day ${day.number}` : "New"}: {dateWords(day.date)}</p>
           <p className={`text-base ${own ? "font-bold text-pz-primary" : "text-pz-on-surface-variant"}`}>
             {own ?? "Same as default"}
           </p>
         </div>
-        <button type="button" onClick={onRemove} aria-label={`Remove day ${n}`}
+        <button type="button" onClick={onRemove} aria-label={`Remove the class on ${dateWords(day.date)}`}
           className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-pz-danger hover:bg-pz-surface-container-low">
           <Trash2 className="h-5 w-5" />
         </button>
@@ -84,7 +84,7 @@ export function ClassDayRow({
             <label className={labelCls} htmlFor={`zoom-${day.date}`}>Zoom link for this day</label>
             <input id={`zoom-${day.date}`} type="url" className={fieldCls} value={day.zoom} onChange={(e) => onChange({ zoom: e.target.value })} />
           </div>
-          <p className="text-sm text-pz-on-surface-variant md:col-span-3">Leave a box empty to use the default.</p>
+          <p className="text-base text-pz-on-surface-variant md:col-span-3">Leave a box empty to use the default.</p>
         </div>
       )}
     </li>

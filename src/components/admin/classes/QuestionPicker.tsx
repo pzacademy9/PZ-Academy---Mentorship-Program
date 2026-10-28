@@ -33,18 +33,18 @@ export function QuestionPicker({
       </p>
       <ul className="flex flex-wrap gap-2" aria-label="Chosen questions">
         {value.map((q) => (
-          <li key={q.text} className="inline-flex max-w-full items-center gap-2 rounded-full bg-pz-primary/10 py-1 pl-3 pr-1 text-base text-pz-on-surface">
+          <li key={q.text} className="inline-flex max-w-full items-center gap-2 rounded-full bg-pz-primary/10 py-1 pl-3 pr-0 text-base text-pz-on-surface">
             <TypeIcon type={q.type} />
             <span className="min-w-0">{q.text}</span>
             <button type="button" aria-label={`Remove question: ${q.text}`} onClick={() => onChange(value.filter((v) => v.text !== q.text))}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-pz-surface-container-high">
+              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full hover:bg-pz-surface-container-high">
               <X className="h-4 w-4" />
             </button>
           </li>
         ))}
       </ul>
       <div>
-        <p className="mb-2 font-headline text-sm font-bold text-pz-on-surface-variant">Question bank</p>
+        <p className="mb-2 font-headline text-base font-bold text-pz-on-surface-variant">Question bank</p>
         {bank === null ? (
           <p className="text-base text-pz-on-surface-variant">Loading questions...</p>
         ) : bank.length === 0 ? (
@@ -61,7 +61,7 @@ export function QuestionPicker({
                     } disabled:opacity-50`}>
                     <TypeIcon type={q.type} />
                     <span className="flex-1">{q.text}</span>
-                    <span className="text-sm text-pz-on-surface-variant">{typeWords(q.type)}</span>
+                    <span className="text-base text-pz-on-surface-variant">{typeWords(q.type)}</span>
                   </button>
                 </li>
               );

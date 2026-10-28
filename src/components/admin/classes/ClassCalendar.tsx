@@ -59,9 +59,9 @@ export function ClassCalendar({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="-mx-2 grid grid-cols-7 gap-0 md:mx-0 md:gap-1">
         {WEEK.map((w) => (
-          <div key={w} className="pb-1 text-center text-sm font-headline font-bold text-pz-on-surface-variant">{w}</div>
+          <div key={w} className="pb-1 text-center text-base font-headline font-bold text-pz-on-surface-variant">{w}</div>
         ))}
         {cells.map((date, i) => {
           if (!date) return <div key={`blank-${i}`} />;
@@ -73,7 +73,7 @@ export function ClassCalendar({
               aria-pressed={on}
               aria-label={dateWords(date)}
               onClick={() => onToggle(date)}
-              className={`h-12 rounded-lg text-base font-headline font-bold transition-colors ${
+              className={`h-12 w-full min-w-0 rounded-lg text-base font-headline font-bold transition-colors ${
                 on
                   ? "bg-pz-primary text-pz-on-primary"
                   : `border border-pz-outline-variant/60 bg-pz-surface-container-lowest text-pz-on-surface hover:bg-pz-surface-container-low ${full ? "opacity-50" : ""}`

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ function initialDays(state: SetupState): DayState[] {
   return state.classes.map((c) => ({
     date: c.date,
     existingId: c.id,
+    number: c.number,
     hasData: c.hasData,
     title: c.title,
     speaker: c.speaker,
@@ -55,6 +56,13 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   const [asking, setAsking] = useState<DayState | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Existing classes unticked in this visit, so ticking the same date again brings back the same class.
+  const [removed, setRemoved] = useState<Record<string, DayState>>({});
+  const keepRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (asking) keepRef.current?.focus();
+  }, [asking]);
 
   useEffect(() => {
     let live = true;
@@ -78,7 +86,11 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   }, []);
 
   const sorted = useMemo(() => [...days].sort((a, b) => a.date.localeCompare(b.date)), [days]);
-  const dropDay = (date: string) => setDays((cur) => cur.filter((d) => d.date !== date));
+  const dropDay = (date: string) => {
+    const gone = days.find((d) => d.date === date);
+    if (gone?.existingId) setRemoved((cur) => ({ ...cur, [date]: gone }));
+    setDays((cur) => cur.filter((d) => d.date !== date));
+  };
   const patchDay = (date: string, patch: Partial<DayState>) =>
     setDays((cur) => cur.map((d) => (d.date === date ? { ...d, ...patch } : d)));
 
@@ -93,6 +105,17 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
     if (present) return removeRequest(present);
     if (webinar && days.length >= 1) {
       setNote("A webinar has only one day. Untick the current day first to pick a different one.");
+      return;
+    }
+    const restored = removed[date];
+    if (restored) {
+      setDays((cur) => [...cur, { ...restored, editing: false }]);
+      setRemoved((cur) => {
+        const rest = { ...cur };
+        delete rest[date];
+        return rest;
+      });
+      setConfirmIds((cur) => cur.filter((id) => id !== restored.existingId));
       return;
     }
     setDays((cur) => [...cur, { date, hasData: false, title: "", speaker: "", start: "", end: "", zoom: "", editing: false }]);
@@ -171,7 +194,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
                 <input id="default-end" type="time" className={fieldCls} value={defaults.end} onChange={(e) => setDefaults({ ...defaults, end: e.target.value })} />
               </div>
             </div>
-            <p className="mt-1 text-sm text-pz-on-surface-variant">Pakistan time</p>
+            <p className="mt-1 text-base text-pz-on-surface-variant">Pakistan time</p>
             <div className="mt-3">
               <label className={labelCls} htmlFor="default-zoom">Zoom link</label>
               <input id="default-zoom" type="url" className={fieldCls} value={defaults.zoom} onChange={(e) => setDefaults({ ...defaults, zoom: e.target.value })} />
@@ -186,8 +209,8 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
           <p className="mt-2 text-base text-pz-on-surface-variant">No days yet. Tap a day on the calendar.</p>
         ) : (
           <ul className="mt-3 space-y-3">
-            {sorted.map((d, i) => (
-              <ClassDayRow key={d.date} index={i} day={d} onChange={(p) => patchDay(d.date, p)} onRemove={() => removeRequest(d)} />
+            {sorted.map((d) => (
+              <ClassDayRow key={d.date} day={d} onChange={(p) => patchDay(d.date, p)} onRemove={() => removeRequest(d)} />
             ))}
           </ul>
         )}
@@ -217,7 +240,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
       </section>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 md:sticky md:rounded-xl md:border">
-        <p className="mb-2 text-center text-sm text-pz-on-surface-variant md:text-left">
+        <p className="mb-2 text-center text-base text-pz-on-surface-variant md:text-left">
           Attendance link and feedback link are made for every class automatically.
         </p>
         <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center md:justify-end">
@@ -232,7 +255,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
 
       {asking && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 p-4 md:items-center">
-          <div role="dialog" aria-modal="true" aria-labelledby="remove-title" className="w-full max-w-md rounded-xl bg-pz-surface-container-lowest p-5">
+          <div role="dialog" aria-modal="true" aria-labelledby="remove-title" onKeyDown={(e) => { if (e.key === "Escape") setAsking(null); }} className="w-full max-w-md rounded-xl bg-pz-surface-container-lowest p-5">
             <h2 id="remove-title" className="font-headline text-lg font-bold text-pz-on-surface">Remove the class on {dateWords(asking.date)}?</h2>
             <p className="mt-2 text-base text-pz-on-surface-variant">
               The attendance marks and quiz results of this class will be deleted. Its feedback link stops working only if nobody has answered it.
@@ -240,7 +263,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <button type="button" onClick={confirmRemoval} className={primaryBtn}>Yes, remove this class</button>
-              <button type="button" onClick={() => setAsking(null)} className={quietBtn}>Keep it</button>
+              <button type="button" ref={keepRef} onClick={() => setAsking(null)} className={quietBtn}>Keep it</button>
             </div>
           </div>
         </div>

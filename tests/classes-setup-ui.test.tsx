@@ -13,7 +13,12 @@ vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessi
   saveSetup: h.save,
 }));
 vi.mock("@/components/admin/landing/LibraryImageField", () => ({
-  LibraryImageField: ({ value }: { value: string }) => <div data-testid="cover-field">{value}</div>,
+  LibraryImageField: ({ value, onChange }: { value: string; onChange: (u: string) => void }) => (
+    <div data-testid="cover-field">
+      {value}
+      <button type="button" onClick={() => onChange("")}>Clear cover</button>
+    </div>
+  ),
 }));
 
 import { SetupForm } from "@/components/admin/classes/SetupForm";
@@ -53,7 +58,11 @@ const state = (over: Partial<SetupState> = {}): SetupState => ({
   ...over,
 });
 
-const day = (n: number) => screen.getByRole("button", { name: new RegExp(`\\b${n} November 2026`) });
+// Calendar cells are the only date buttons with aria-pressed (the row's Remove button has none).
+const day = (n: number) =>
+  screen
+    .getAllByRole("button", { name: new RegExp(`\\b${n} November 2026`) })
+    .find((b) => b.hasAttribute("aria-pressed")) as HTMLElement;
 
 function show(s: SetupState) {
   return render(<SetupForm pageId={PAGE} state={s} initialMonth="2026-11" />);
@@ -155,6 +164,69 @@ describe("SetupForm", () => {
     expect(h.save.mock.calls[0][1].days).toEqual([
       { date: "2026-11-09", existingId: "id-1", start: "18:00", end: "20:30", zoom: "https://zoom.us/j/own", title: "Intro", speaker: "Dr A" },
     ]);
+  });
+
+  it("labels existing days with their class number and unsaved days New", () => {
+    show(state({ classes: [cls(3, "2026-11-20")] }));
+    fireEvent.click(day(9));
+    expect(within(screen.getByTestId("day-row-2026-11-20")).getByText(/^Day 3:/)).toBeTruthy();
+    expect(within(screen.getByTestId("day-row-2026-11-09")).getByText(/^New:/)).toBeTruthy();
+    const rows = screen.getAllByTestId(/^day-row-/).map((r) => r.getAttribute("data-testid"));
+    expect(rows).toEqual(["day-row-2026-11-09", "day-row-2026-11-20"]);
+  });
+
+  it("ticking a removed existing day again restores the same class", async () => {
+    show(state({ classes: [cls(1, "2026-11-09", { hasData: true, title: "Intro" }), cls(2, "2026-11-10")] }));
+    fireEvent.click(day(9));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /yes, remove/i }));
+    fireEvent.click(day(9));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    const form = h.save.mock.calls[0][1];
+    const d = form.days.find((x: { date: string }) => x.date === "2026-11-09");
+    expect(d.existingId).toBe("id-1");
+    expect(d.title).toBe("Intro");
+    expect(form.confirmRemoveIds).not.toContain("id-1");
+  });
+
+  it("Keep it closes the confirmation and removes nothing, with focus on Keep it", () => {
+    show(state({ classes: [cls(1, "2026-11-09", { hasData: true })] }));
+    fireEvent.click(day(9));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getAllByTestId(/^day-row-/)).toHaveLength(1);
+  });
+
+  it("Escape closes the confirmation and removes nothing", () => {
+    show(state({ classes: [cls(1, "2026-11-09", { hasData: true })] }));
+    fireEvent.click(day(9));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getAllByTestId(/^day-row-/)).toHaveLength(1);
+  });
+
+  it("blocks saving with fewer than 3 questions", () => {
+    show(state({ classes: [cls(1, "2026-11-09")], questions: QUESTIONS.slice(0, 2) }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(h.error).toHaveBeenCalledWith("Please pick 3 to 5 feedback questions.");
+    expect(h.save).not.toHaveBeenCalled();
+  });
+
+  it("blocks saving with more than 5 questions", () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ text: `Q${i}`, type: "stars" as const }));
+    show(state({ classes: [cls(1, "2026-11-09")], questions: six }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(h.error).toHaveBeenCalledWith("Please pick 3 to 5 feedback questions.");
+    expect(h.save).not.toHaveBeenCalled();
+  });
+
+  it("clearing the cover sends coverUrl null", async () => {
+    show(state({ classes: [cls(1, "2026-11-09")], coverUrl: "https://drive.google.com/thumbnail?id=abc" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear cover" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    expect(h.save.mock.calls[0][1].coverUrl).toBeNull();
   });
 
   it("shows the batch type as a plain label, not a toggle", () => {
