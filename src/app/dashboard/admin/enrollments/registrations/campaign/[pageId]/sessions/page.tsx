@@ -3,12 +3,11 @@ import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listRegistrationPageOptions } from "@/lib/data/landing-registration-admin";
 import { getBatchGrid } from "@/lib/data/attendance";
+import { getClassOverview } from "@/lib/data/class-overview";
 import { listSessionSendState } from "@/lib/data/session-emails";
-import { attendanceBase } from "@/lib/attendance/links";
 import { SessionsPanel } from "@/components/admin/attendance/SessionsPanel";
-import { AttendanceGrid } from "@/components/admin/attendance/AttendanceGrid";
 
-export const metadata = { title: "Sessions and Attendance — PZ Academy" };
+export const metadata = { title: "Classes — PZ Academy" };
 
 // Marks and times change from this page: never serve a cached copy.
 export const dynamic = "force-dynamic";
@@ -28,34 +27,32 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   if (!campaign) notFound();
 
   const now = new Date();
-  const grid = await getBatchGrid(pageId, now);
+  const [overview, grid] = await Promise.all([getClassOverview(pageId, now), getBatchGrid(pageId, now)]);
   const sends = await listSessionSendState(grid.sessions.map((s) => s.id));
-  const missingBySession: Record<string, number> = {};
-  for (const s of grid.sessions) missingBySession[s.id] = grid.rows.filter((r) => !r.marks[s.id]).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-headline text-xl font-bold text-pz-on-surface">Sessions and attendance</h1>
-          <p className="text-sm text-pz-on-surface-variant">{campaign.title}</p>
+          <h1 className="font-headline text-2xl font-bold text-pz-on-surface">Classes</h1>
+          <p className="text-base text-pz-on-surface-variant">{campaign.title}</p>
         </div>
         <Link
           href={`${BASE}/campaign/${pageId}`}
-          className="inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+          className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
         >
           Back to registrations
         </Link>
       </div>
       <SessionsPanel
         pageId={pageId}
-        base={attendanceBase()}
+        overview={overview}
         sessions={grid.sessions}
+        rows={grid.rows}
+        minPct={grid.minPct}
         sends={sends}
-        missingBySession={missingBySession}
         nowIso={now.toISOString()}
       />
-      <AttendanceGrid pageId={pageId} sessions={grid.sessions} rows={grid.rows} minPct={grid.minPct} />
     </div>
   );
 }
