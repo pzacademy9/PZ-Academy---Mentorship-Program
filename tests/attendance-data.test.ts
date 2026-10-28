@@ -184,12 +184,24 @@ describe("setMinPct", () => {
 });
 
 describe("sessions CRUD", () => {
-  const input = { number: 1, title: "Intro", startsAt: "2026-11-01T10:00:00Z", zoomUrl: "z", kahootUrl: "", includeKahoot: false, includeAttendanceLink: true, emailEnabled: true, emailLeadMinutes: 60 };
+  const input = { number: 1, title: "Intro", startsAt: "2026-11-01T10:00:00Z", zoomUrl: "z", kahootUrl: "", includeKahoot: false, includeAttendanceLink: true, emailEnabled: true, emailLeadMinutes: 60, endsAt: null as string | null, speaker: "", customTime: true, customZoom: true };
   it("creates with a generated code and maps fields", async () => {
     const r = await createSession("pg1", input);
     expect(r.ok).toBe(true);
     expect(store.batch_sessions[0]).toMatchObject({ page_id: "pg1", number: 1, starts_at: input.startsAt, zoom_url: "z", email_lead_minutes: 60 });
     expect(String(store.batch_sessions[0].public_code)).toMatch(/^[a-z0-9]{8}$/);
+  });
+  it("persists end time, speaker and the custom flags, and updates them", async () => {
+    await createSession("pg1", { ...input, endsAt: "2026-11-01T11:00:00Z", speaker: "Dr Sana", customTime: false, customZoom: false });
+    expect(store.batch_sessions[0]).toMatchObject({ ends_at: "2026-11-01T11:00:00Z", speaker: "Dr Sana", custom_time: false, custom_zoom: false });
+    const id = String(store.batch_sessions[0].id);
+    await updateSession(id, { endsAt: "2026-11-01T12:00:00Z", speaker: "Dr Ali", customTime: true, customZoom: true });
+    expect(store.batch_sessions[0]).toMatchObject({ ends_at: "2026-11-01T12:00:00Z", speaker: "Dr Ali", custom_time: true, custom_zoom: true });
+  });
+  it("getSessionByCode returns the batch cover", async () => {
+    store.landing_pages[0].class_cover_url = "https://img/c.png";
+    store.batch_sessions = [sess(1, "2026-11-01T10:00:00Z")];
+    expect(await getSessionByCode("code0001")).toMatchObject({ coverUrl: "https://img/c.png" });
   });
   it("duplicate number gives a clear message", async () => {
     await createSession("pg1", input);

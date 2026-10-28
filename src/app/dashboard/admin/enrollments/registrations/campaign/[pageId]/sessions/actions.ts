@@ -39,7 +39,9 @@ const SEND_MESSAGES: Record<string, string> = {
 const OVERRIDES: readonly WindowOverride[] = ["auto", "open", "closed"];
 
 /** What the form sends: the time is typed in PKT as `YYYY-MM-DDTHH:mm`. */
-export type SessionForm = Omit<SessionInput, "startsAt"> & { startsAtLocal: string };
+type NewFields = "endsAt" | "speaker" | "customTime" | "customZoom";
+export type SessionForm = Omit<SessionInput, "startsAt" | NewFields> &
+  Partial<Pick<SessionInput, NewFields>> & { startsAtLocal: string; endsAtLocal?: string };
 
 function refresh(pageId: string) {
   revalidatePath(`/dashboard/admin/enrollments/registrations/campaign/${pageId}/sessions`);
@@ -57,9 +59,23 @@ function parseForm(f: SessionForm): { ok: true; input: SessionInput } | { ok: fa
   if (!isUrlOrEmpty(f.zoomUrl) || !isUrlOrEmpty(f.kahootUrl)) {
     return { ok: false, message: "Links must start with http:// or https://" };
   }
+  let endsAt: string | null = null;
+  if (f.endsAtLocal !== undefined && f.endsAtLocal.trim() !== "") {
+    endsAt = pktToIso(f.endsAtLocal);
+    if (!endsAt) return { ok: false, message: BAD_TIME };
+    if (new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+      return { ok: false, message: "The end time must be after the start time" };
+    }
+  } else if (f.endsAt !== undefined) {
+    endsAt = f.endsAt;
+  }
   return {
     ok: true,
     input: {
+      endsAt,
+      speaker: (f.speaker ?? "").trim(),
+      customTime: f.customTime ?? true,
+      customZoom: f.customZoom ?? true,
       number: f.number,
       title: f.title.trim(),
       startsAt,
@@ -98,7 +114,13 @@ export async function saveSession(sessionId: string, form: SessionForm): Promise
   try {
     const before = await getSessionById(sessionId);
     if (!before) return { ok: false, message: "That session no longer exists" };
-    const res = await updateSession(sessionId, parsed.input);
+    // Fields the old per-class form never sends keep what the class already has.
+    const patch: Partial<SessionInput> = { ...parsed.input };
+    if (form.endsAt === undefined && form.endsAtLocal === undefined) delete patch.endsAt;
+    if (form.speaker === undefined) delete patch.speaker;
+    if (form.customTime === undefined) delete patch.customTime;
+    if (form.customZoom === undefined) delete patch.customZoom;
+    const res = await updateSession(sessionId, patch);
     if (!res.ok) return { ok: false, message: res.message ?? SAVE_FAILED };
     refresh(before.page_id);
     const timeChanged = new Date(before.starts_at).getTime() !== new Date(parsed.input.startsAt).getTime();

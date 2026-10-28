@@ -22,6 +22,10 @@ export type SessionInput = {
   includeAttendanceLink: boolean;
   emailEnabled: boolean;
   emailLeadMinutes: number;
+  endsAt: string | null;
+  speaker: string;
+  customTime: boolean;
+  customZoom: boolean;
 };
 export type GridRow = {
   personId: string;
@@ -121,6 +125,10 @@ export async function createSession(
         include_attendance_link: input.includeAttendanceLink,
         email_enabled: input.emailEnabled,
         email_lead_minutes: input.emailLeadMinutes,
+        ends_at: input.endsAt,
+        speaker: input.speaker,
+        custom_time: input.customTime,
+        custom_zoom: input.customZoom,
         public_code: generateSessionCode(),
       })
       .select("id")
@@ -152,6 +160,10 @@ export async function updateSession(
   if (input.includeAttendanceLink !== undefined) patch.include_attendance_link = input.includeAttendanceLink;
   if (input.emailEnabled !== undefined) patch.email_enabled = input.emailEnabled;
   if (input.emailLeadMinutes !== undefined) patch.email_lead_minutes = input.emailLeadMinutes;
+  if (input.endsAt !== undefined) patch.ends_at = input.endsAt;
+  if (input.speaker !== undefined) patch.speaker = input.speaker;
+  if (input.customTime !== undefined) patch.custom_time = input.customTime;
+  if (input.customZoom !== undefined) patch.custom_zoom = input.customZoom;
   if (input.windowOverride !== undefined) patch.window_override = input.windowOverride;
   if (Object.keys(patch).length === 0) return { ok: true };
   const { error } = await createAdminSupabase().from("batch_sessions").update(patch).eq("id", sessionId);
@@ -166,7 +178,9 @@ export async function deleteSession(sessionId: string): Promise<void> {
   check("session delete", error);
 }
 
-export async function getSessionByCode(code: string): Promise<(SessionRow & { batchTitle: string }) | null> {
+export async function getSessionByCode(
+  code: string,
+): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null }) | null> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("batch_sessions").select("*").eq("public_code", code).maybeSingle();
   check("session read", error);
@@ -174,11 +188,12 @@ export async function getSessionByCode(code: string): Promise<(SessionRow & { ba
   const session = data as SessionRow;
   const { data: page, error: pageErr } = await admin
     .from("landing_pages")
-    .select("title")
+    .select("title, class_cover_url")
     .eq("id", session.page_id)
     .maybeSingle();
   check("batch read", pageErr);
-  return { ...session, batchTitle: (page as { title: string } | null)?.title ?? "" };
+  const p = page as { title: string; class_cover_url: string | null } | null;
+  return { ...session, batchTitle: p?.title ?? "", coverUrl: p?.class_cover_url ?? null };
 }
 
 /**
