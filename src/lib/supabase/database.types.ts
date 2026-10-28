@@ -386,8 +386,13 @@ export type Database = {
       batch_sessions: {
         Row: {
           created_at: string | null
+          custom_time: boolean
+          custom_zoom: boolean
           email_enabled: boolean
           email_lead_minutes: number
+          ends_at: string | null
+          feedback_session_id: string | null
+          speaker: string
           id: string
           include_attendance_link: boolean
           include_kahoot: boolean
@@ -405,8 +410,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          custom_time?: boolean
+          custom_zoom?: boolean
           email_enabled?: boolean
           email_lead_minutes?: number
+          ends_at?: string | null
+          feedback_session_id?: string | null
+          speaker?: string
           id?: string
           include_attendance_link?: boolean
           include_kahoot?: boolean
@@ -424,8 +434,13 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          custom_time?: boolean
+          custom_zoom?: boolean
           email_enabled?: boolean
           email_lead_minutes?: number
+          ends_at?: string | null
+          feedback_session_id?: string | null
+          speaker?: string
           id?: string
           include_attendance_link?: boolean
           include_kahoot?: boolean
@@ -2038,6 +2053,11 @@ export type Database = {
       landing_pages: {
         Row: {
           attendance_min_pct: number
+          class_cover_url: string | null
+          class_default_end: string | null
+          class_default_start: string | null
+          class_default_zoom: string
+          feedback_program_id: string | null
           course_id: string | null
           created_at: string
           created_by: string | null
@@ -2061,6 +2081,11 @@ export type Database = {
         }
         Insert: {
           attendance_min_pct?: number
+          class_cover_url?: string | null
+          class_default_end?: string | null
+          class_default_start?: string | null
+          class_default_zoom?: string
+          feedback_program_id?: string | null
           course_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2084,6 +2109,11 @@ export type Database = {
         }
         Update: {
           attendance_min_pct?: number
+          class_cover_url?: string | null
+          class_default_end?: string | null
+          class_default_start?: string | null
+          class_default_zoom?: string
+          feedback_program_id?: string | null
           course_id?: string | null
           created_at?: string
           created_by?: string | null
