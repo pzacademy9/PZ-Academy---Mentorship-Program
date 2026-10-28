@@ -50,7 +50,7 @@ function check(what: string, error: DbError): void {
 }
 
 /** Reads every row, 1000 at a time. build() must order by a unique column so pages are stable. */
-async function fetchAll<T>(what: string, build: () => Page): Promise<T[]> {
+export async function fetchAll<T>(what: string, build: () => Page): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await build().range(from, from + PAGE - 1);
@@ -80,7 +80,7 @@ async function enrolledRegs(pageId: string, personId?: string): Promise<Enrolled
   return rows.filter((r): r is EnrolledReg => !!r.person_id);
 }
 
-async function livePersonIds(pageId: string): Promise<string[]> {
+export async function livePersonIds(pageId: string): Promise<string[]> {
   const ids = new Set<string>();
   for (const r of await enrolledRegs(pageId)) if (r.mode === "live") ids.add(r.person_id);
   return Array.from(ids);
