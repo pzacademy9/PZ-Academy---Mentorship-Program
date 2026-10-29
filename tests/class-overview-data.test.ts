@@ -4,6 +4,8 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 
 vi.mock("server-only", () => ({}));
 const db = createSupabaseMock();
+const share = vi.hoisted(() => ({ gen: vi.fn() }));
+vi.mock("@/lib/data/feedback-share", () => ({ generateFeedbackShareToken: share.gen }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
 import { getClassOverview } from "@/lib/data/class-overview";
@@ -18,8 +20,10 @@ const cls = (n: number, startsAt: string, over: Record<string, unknown> = {}) =>
 let store: Store;
 beforeEach(() => {
   db.reset();
+  share.gen.mockReset();
+  share.gen.mockResolvedValue({ shareUrl: "/review/tok123", token: "tok123" });
   store = {
-    landing_pages: [{ id: "pg1", title: "PPC Batch", attendance_min_pct: 75 }],
+    landing_pages: [{ id: "pg1", title: "PPC Batch", attendance_min_pct: 75, feedback_program_id: "prog1" }],
     landing_registrations: [
       { id: "r1", page_id: "pg1", person_id: "p1", mode: "live", status: "paid", is_test: false },
       { id: "r2", page_id: "pg1", person_id: "p2", mode: "live", status: "free", is_test: false },
@@ -91,6 +95,29 @@ describe("getClassOverview", () => {
   it("a failing feedback stats read throws instead of showing 0 responses", async () => {
     db.state.handler = memoryHandler(store, () => ({ data: null, error: { message: "rpc down" } }));
     await expect(getClassOverview("pg1", NOW)).rejects.toThrow(/feedback stats read failed/);
+  });
+
+  it("batchFeedback combines the classes and links the program review", async () => {
+    const o = await getClassOverview("pg1", NOW);
+    expect(o.batchFeedback.totalResponses).toBe(12);
+    expect(o.batchFeedback.overallAvg).toBe(4.5);
+    expect(o.batchFeedback.perClass.map((c) => c.number)).toEqual([1, 2, 3]);
+    expect(o.programReviewPath).toBe("/review/tok123");
+    expect(share.gen).toHaveBeenCalledWith("program", "prog1", null);
+  });
+
+  it("a batch without a program has no review path", async () => {
+    store.landing_pages[0].feedback_program_id = null;
+    const o = await getClassOverview("pg1", NOW);
+    expect(o.programReviewPath).toBeNull();
+    expect(share.gen).not.toHaveBeenCalled();
+  });
+
+  it("no feedback at all gives a null overall average", async () => {
+    for (const c of store.batch_sessions) c.feedback_session_id = null;
+    const o = await getClassOverview("pg1", NOW);
+    expect(o.batchFeedback.totalResponses).toBe(0);
+    expect(o.batchFeedback.overallAvg).toBeNull();
   });
 
   it("empty batch gives no classes and an empty selection", async () => {

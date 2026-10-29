@@ -9,6 +9,7 @@ import type { ClassOverview } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { saveMinPct } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { ClassList } from "@/components/admin/classes/ClassList";
+import { BatchSummary } from "@/components/admin/classes/BatchSummary";
 import { TodayPanel } from "@/components/admin/classes/TodayPanel";
 import { EditClassDialog } from "@/components/admin/classes/EditClassDialog";
 import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn } from "@/components/admin/classes/styles";
@@ -87,6 +88,7 @@ export function SessionsPanel({
 
   return (
     <div className="space-y-4">
+      <BatchSummary feedback={overview.batchFeedback} reviewPath={overview.programReviewPath} rows={rows} minPct={minPct} />
       <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="space-y-3">
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />

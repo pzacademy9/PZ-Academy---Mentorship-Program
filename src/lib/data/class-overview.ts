@@ -6,6 +6,8 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { isoToPktInput } from "@/lib/attendance/rules";
 import { attendanceBase } from "@/lib/attendance/links";
 import { fetchAll, listSessions, livePersonIds } from "@/lib/data/attendance";
+import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
+import { summarizeFeedback } from "@/lib/classes/summary";
 
 export type ClassStatus = "done" | "today" | "upcoming";
 export type ClassSummary = {
@@ -25,20 +27,28 @@ export type ClassSummary = {
   feedbackAvg: number | null;
   quiz: { saved: boolean; players: number };
 };
-export type ClassOverview = { title: string; classes: ClassSummary[]; selectedId: string };
+export type ClassOverview = {
+  title: string;
+  classes: ClassSummary[];
+  selectedId: string;
+  batchFeedback: ReturnType<typeof summarizeFeedback>;
+  /** `/review/<token>` of the batch's combined feedback report; null for a webinar or when there is no program. */
+  programReviewPath: string | null;
+};
 
 const pktDay = (iso: string) => isoToPktInput(iso).slice(0, 10);
 
 export async function getClassOverview(pageId: string, now: Date = new Date()): Promise<ClassOverview> {
   const admin = createAdminSupabase();
-  const { data: page, error: pageErr } = await admin.from("landing_pages").select("title").eq("id", pageId).maybeSingle();
+  const { data: page, error: pageErr } = await admin.from("landing_pages").select("title, feedback_program_id").eq("id", pageId).maybeSingle();
   if (pageErr) throw new Error(`batch read failed: ${pageErr.message}`);
-  const title = (page as { title: string } | null)?.title ?? "";
+  const pageRow = page as { title: string; feedback_program_id: string | null } | null;
+  const title = pageRow?.title ?? "";
 
   const sessions = (await listSessions(pageId)).sort(
     (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime() || a.number - b.number,
   );
-  if (sessions.length === 0) return { title, classes: [], selectedId: "" };
+  if (sessions.length === 0) return { title, classes: [], selectedId: "", batchFeedback: summarizeFeedback([]), programReviewPath: null };
 
   const ids = sessions.map((s) => s.id);
   const live = new Set(await livePersonIds(pageId));
@@ -97,5 +107,16 @@ export async function getClassOverview(pageId: string, now: Date = new Date()): 
 
   const selected =
     classes.find((c) => c.status === "today") ?? classes.find((c) => c.status === "upcoming") ?? classes[classes.length - 1];
-  return { title, classes, selectedId: selected.id };
+
+  let programReviewPath: string | null = null;
+  if (pageRow?.feedback_program_id) {
+    try {
+      // Idempotent: returns the existing token, or creates one the first time.
+      programReviewPath = (await generateFeedbackShareToken("program", pageRow.feedback_program_id, null)).shareUrl;
+    } catch {
+      programReviewPath = null; // the summary still shows; only the link is left out
+    }
+  }
+  const batchFeedback = summarizeFeedback(classes.map((c) => ({ number: c.number, responses: c.feedbackCount, avg: c.feedbackAvg })));
+  return { title, classes, selectedId: selected.id, batchFeedback, programReviewPath };
 }

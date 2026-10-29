@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { summarizeAttendance } from "@/lib/classes/summary";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import { saveMinPct, toggleMark } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
@@ -52,6 +53,8 @@ export function AttendanceGrid({
     });
   }
 
+  const summary = summarizeAttendance(rows, minPct);
+
   return (
     <section className="space-y-3">
       {!scoped && <h2 className="font-headline text-lg font-bold text-pz-on-surface">Attendance</h2>}
@@ -67,6 +70,11 @@ export function AttendanceGrid({
         </div>
         <button type="button" className={quietBtn} onClick={saveMin} disabled={busy}>Save minimum</button>
       </div>}
+      {!scoped && summary.averagePct !== null && (
+        <p className="text-sm font-medium text-pz-on-surface">
+          Batch average {summary.averagePct}%. {summary.meetingMin} of {summary.total} meet the minimum.
+        </p>
+      )}
       <p className={cn("text-pz-on-surface-variant", scoped ? "text-base" : "text-xs")}>
         {scoped
           ? "Only live students are listed. Tap a box to mark a student present or take it off."
