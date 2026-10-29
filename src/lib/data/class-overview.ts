@@ -23,8 +23,7 @@ export type ClassSummary = {
   feedbackSessionId: string | null;
   feedbackCount: number;
   feedbackAvg: number | null;
-  /** needCheck is 0: saved results are always matched to a student, the review happens before saving. */
-  quiz: { saved: boolean; players: number; needCheck: number };
+  quiz: { saved: boolean; players: number };
 };
 export type ClassOverview = { title: string; classes: ClassSummary[]; selectedId: string };
 
@@ -63,7 +62,8 @@ export async function getClassOverview(pageId: string, now: Date = new Date()): 
     const { data: fs, error: fsErr } = await admin.from("feedback_sessions").select("id, slug").in("id", feedbackIds);
     if (fsErr) throw new Error(`feedback read failed: ${fsErr.message}`);
     for (const f of (fs ?? []) as { id: string; slug: string }[]) slugs.set(f.id, f.slug);
-    const { data: st } = await admin.rpc("feedback_session_stats", { p_session_ids: feedbackIds });
+    const { data: st, error: stErr } = await admin.rpc("feedback_session_stats", { p_session_ids: feedbackIds });
+    if (stErr) throw new Error(`feedback stats read failed: ${stErr.message}`);
     for (const r of (st ?? []) as { feedback_session_id: string; response_count: number | string; avg_star: number | string | null }[]) {
       stats.set(r.feedback_session_id, { count: Number(r.response_count), avg: r.avg_star != null ? Number(r.avg_star) : null });
     }
@@ -91,7 +91,7 @@ export async function getClassOverview(pageId: string, now: Date = new Date()): 
       feedbackSessionId: slug ? s.feedback_session_id : null,
       feedbackCount: fb?.count ?? 0,
       feedbackAvg: fb?.avg ?? null,
-      quiz: { saved: !!s.quiz_saved_at, players: players.get(s.id) ?? 0, needCheck: 0 },
+      quiz: { saved: !!s.quiz_saved_at, players: players.get(s.id) ?? 0 },
     };
   });
 

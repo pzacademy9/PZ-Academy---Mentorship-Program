@@ -81,7 +81,9 @@ export function SessionsPanel({
   const cls = overview.classes.find((c) => c.id === selectedId) ?? overview.classes[0];
   const session = sessions.find((s) => s.id === cls.id);
   const nextNumber = sessions.reduce((m, s) => Math.max(m, s.number), 0) + 1;
-  const last = [...sessions].sort((a, b) => b.number - a.number)[0];
+  // A new class starts from the latest class that follows the batch defaults, so it follows them too.
+  const byNumber = [...sessions].sort((a, b) => b.number - a.number);
+  const last = byNumber.find((s) => !s.custom_time && !s.custom_zoom) ?? byNumber[0];
 
   return (
     <div className="space-y-4">

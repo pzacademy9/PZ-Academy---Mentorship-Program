@@ -5,7 +5,7 @@ import { cardCls, primaryBtn, quietBtn } from "./styles";
 
 export function QuizCard({ pageId, cls }: { pageId: string; cls: ClassSummary }) {
   const href = `/dashboard/admin/enrollments/registrations/campaign/${pageId}/sessions/${cls.id}/quiz`;
-  const { saved, players, needCheck } = cls.quiz;
+  const { saved, players } = cls.quiz;
   return (
     <section data-testid="quiz-card" className={`${cardCls} space-y-4`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -22,7 +22,7 @@ export function QuizCard({ pageId, cls }: { pageId: string; cls: ClassSummary })
       </div>
       <p className="text-base text-pz-on-surface-variant">
         {saved
-          ? `${players} players, ${needCheck} need checking`
+          ? `${players} players`
           : "After the live quiz, download the report from Kahoot and upload it here to score your students."}
       </p>
       <Link href={href} className={`${saved ? quietBtn : primaryBtn} max-md:w-full`}>

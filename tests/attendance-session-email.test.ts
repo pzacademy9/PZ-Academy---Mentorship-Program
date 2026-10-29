@@ -106,6 +106,14 @@ describe("buildSessionEmail", () => {
     expect(buildSessionEmail(sessRow({ include_attendance_link: true })).body).toContain("{{attendance_link}}");
     expect(buildSessionEmail(sessRow({ include_attendance_link: false })).body).not.toContain("attendance_link");
   });
+  it("resend wording is neutral: no updated or changed, same links", () => {
+    const m = buildSessionEmail(sessRow({ include_kahoot: true, kahoot_url: "https://kahoot.it/x" }), "update", { resend: true });
+    expect(m.subject.startsWith("Your class details:")).toBe(true);
+    const all = `${m.subject} ${m.body}`.toLowerCase();
+    expect(all).not.toContain("updated");
+    expect(all).not.toContain("changed");
+    for (const t of ["{{zoom_link}}", "{{attendance_link}}", "{{kahoot_link}}", "{{session_time}}"]) expect(m.body).toContain(t);
+  });
   it("update kind says Updated: and that the time changed", () => {
     const m = buildSessionEmail(sessRow(), "update");
     expect(m.subject.startsWith("Updated:")).toBe(true);

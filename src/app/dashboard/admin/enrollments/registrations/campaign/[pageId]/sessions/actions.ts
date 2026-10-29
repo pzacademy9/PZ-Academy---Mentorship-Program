@@ -215,12 +215,12 @@ export async function saveMinPct(pageId: string, pct: number): Promise<ActionRes
   }
 }
 
-async function sendNow(sessionId: string, kind: "reminder" | "update"): Promise<ActionResult> {
+async function sendNow(sessionId: string, kind: "reminder" | "update", opts?: { resend?: boolean }): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
-    const res = await createSessionSend(sessionId, kind);
+    const res = await (opts ? createSessionSend(sessionId, kind, opts) : createSessionSend(sessionId, kind));
     if (!res.ok) return { ok: false, message: SEND_MESSAGES[res.reason] ?? SAVE_FAILED };
     // One batch of 40 now; the rest is picked up by the timer that runs the sends.
     let out: { sent: number; failed: number; pending: number };
@@ -255,4 +255,9 @@ export async function sendReminderNow(sessionId: string): Promise<ActionResult> 
 
 export async function emailUpdatedTime(sessionId: string): Promise<ActionResult> {
   return sendNow(sessionId, "update");
+}
+
+/** A plain second send of the class details (Zoom link, attendance link): same email kind, neutral wording. */
+export async function resendClassDetails(sessionId: string): Promise<ActionResult> {
+  return sendNow(sessionId, "update", { resend: true });
 }

@@ -42,7 +42,7 @@ vi.mock("@/lib/data/participant-sends", () => ({ runEmailSend: h.runEmailSend })
 
 import {
   addSession, saveSession, removeSession, setOverride, toggleMark, markEveryonePresent, saveMinPct,
-  sendReminderNow, emailUpdatedTime,
+  sendReminderNow, emailUpdatedTime, resendClassDetails,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const PAGE = "00000000-0000-4000-8000-000000000001";
@@ -195,6 +195,9 @@ describe("email buttons", () => {
   it("send the update email", async () => {
     await emailUpdatedTime(SESS);
     expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "update");
+    h.createSessionSend.mockClear();
+    await resendClassDetails(SESS);
+    expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "update", { resend: true });
   });
   it.each([
     ["no_zoom", "No Zoom link on this session"],

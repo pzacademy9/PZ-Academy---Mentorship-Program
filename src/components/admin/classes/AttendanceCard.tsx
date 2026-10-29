@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Mail, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,9 +11,10 @@ import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { AttendanceGrid } from "@/components/admin/attendance/AttendanceGrid";
 import {
-  emailUpdatedTime, markEveryonePresent, sendReminderNow, setOverride, type ActionResult,
+  emailUpdatedTime, markEveryonePresent, resendClassDetails, sendReminderNow, setOverride, type ActionResult,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
+import { emailStatusLine } from "./email-status";
 import { cardCls, quietBtn } from "./styles";
 
 const WINDOW_LABEL = { before: "Not open yet", open: "Open now", closed: "Closed" } as const;
@@ -39,7 +40,12 @@ export function AttendanceCard({
   const confirm = useConfirm();
   const [busy, startTransition] = useTransition();
   const override = session.window_override as WindowOverride;
-  const state = checkinWindow(session.starts_at, override, new Date(nowIso));
+  const [now, setNow] = useState(() => new Date(nowIso));
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const state = checkinWindow(session.starts_at, override, now);
   const missing = rows.filter((r) => !r.marks[session.id]).length;
   const pct = cls.enrolledLive > 0 ? Math.min(100, Math.round((cls.presentCount * 100) / cls.enrolledLive)) : 0;
 
@@ -59,10 +65,10 @@ export function AttendanceCard({
     }
     const ok = await confirm({
       title: "Email students again?",
-      description: "Students already got the reminder. They will get a second email saying the class details were updated.",
+      description: "Send the class details again to all enrolled students?",
       confirmLabel: "Email to students",
     });
-    if (ok) run(() => emailUpdatedTime(session.id));
+    if (ok) run(() => resendClassDetails(session.id));
   }
 
   async function onMarkAll() {
@@ -93,6 +99,7 @@ export function AttendanceCard({
         </span>
       </div>
       <p className="text-base text-pz-on-surface-variant">Share this link so students can mark themselves present.</p>
+      <p className="text-base text-pz-on-surface-variant">{emailStatusLine(session, sends)}</p>
       <LinkBox url={cls.attendanceLink} />
       <div className="flex flex-col gap-2 md:flex-row">
         <CopyLinkButton url={cls.attendanceLink} />
@@ -149,6 +156,11 @@ export function AttendanceCard({
             ))}
           </div>
           <p className="text-base text-pz-on-surface-variant">{overrideNote(override, state)}</p>
+          <p className="pt-2 font-headline text-base font-bold text-pz-on-surface-variant">Time change email</p>
+          <p className="text-base text-pz-on-surface-variant">Use this after you change the class time, to tell students the new time.</p>
+          <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={() => run(() => emailUpdatedTime(session.id))}>
+            Email updated time
+          </button>
         </div>
       </details>
     </section>

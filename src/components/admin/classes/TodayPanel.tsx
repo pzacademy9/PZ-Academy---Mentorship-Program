@@ -94,7 +94,7 @@ export function TodayPanel({
       <QuizCard pageId={pageId} cls={cls} />
       <FeedbackCard pageId={pageId} cls={cls} />
 
-      {editing && <EditClassDialog pageId={pageId} session={session} nextNumber={cls.number} onClose={() => setEditing(false)} />}
+      {editing && <EditClassDialog pageId={pageId} session={session} nextNumber={cls.number} sends={sends} onClose={() => setEditing(false)} />}
     </div>
   );
 }

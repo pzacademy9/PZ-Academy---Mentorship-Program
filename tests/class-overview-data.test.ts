@@ -76,8 +76,8 @@ describe("getClassOverview", () => {
     expect(c1.presentCount).toBe(2); // recorded student p3 is not counted
     expect(c2.presentCount).toBe(1);
     expect(c1.enrolledLive).toBe(2);
-    expect(c1.quiz).toEqual({ saved: true, players: 2, needCheck: 0 });
-    expect(c2.quiz).toEqual({ saved: false, players: 0, needCheck: 0 });
+    expect(c1.quiz).toEqual({ saved: true, players: 2 });
+    expect(c2.quiz).toEqual({ saved: false, players: 0 });
     expect(c1.feedbackCount).toBe(12);
     expect(c1.feedbackAvg).toBe(4.5);
     expect(c2.feedbackCount).toBe(0);
@@ -86,6 +86,11 @@ describe("getClassOverview", () => {
     expect(c3.feedbackLink).toBeNull();
     expect(c1.attendanceLink).toMatch(/\/attend\/code0001$/);
     expect(o.title).toBe("PPC Batch");
+  });
+
+  it("a failing feedback stats read throws instead of showing 0 responses", async () => {
+    db.state.handler = memoryHandler(store, () => ({ data: null, error: { message: "rpc down" } }));
+    await expect(getClassOverview("pg1", NOW)).rejects.toThrow(/feedback stats read failed/);
   });
 
   it("empty batch gives no classes and an empty selection", async () => {

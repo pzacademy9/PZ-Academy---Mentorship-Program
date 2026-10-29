@@ -55,7 +55,7 @@ export function AttendanceGrid({
   return (
     <section className="space-y-3">
       {!scoped && <h2 className="font-headline text-lg font-bold text-pz-on-surface">Attendance</h2>}
-      <div className={cn("flex flex-wrap items-end gap-2", scoped && "hidden")}>
+      {!scoped && <div className="flex flex-wrap items-end gap-2">
         <div>
           <label htmlFor="min-pct" className="block text-xs font-headline font-bold text-pz-on-surface-variant mb-1">
             Minimum attendance to pass (%)
@@ -66,7 +66,7 @@ export function AttendanceGrid({
           />
         </div>
         <button type="button" className={quietBtn} onClick={saveMin} disabled={busy}>Save minimum</button>
-      </div>
+      </div>}
       <p className={cn("text-pz-on-surface-variant", scoped ? "text-base" : "text-xs")}>
         {scoped
           ? "Only live students are listed. Tap a box to mark a student present or take it off."
@@ -76,7 +76,7 @@ export function AttendanceGrid({
       {rows.length === 0 ? (
         <p className="text-sm text-pz-on-surface-variant">No live students in this batch yet.</p>
       ) : sessions.length === 0 ? (
-        <p className="text-sm text-pz-on-surface-variant">Add a session above to start taking attendance.</p>
+        <p className="text-sm text-pz-on-surface-variant">Add a class to start taking attendance.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-pz-outline-variant/60">
           <table className="w-full text-sm">

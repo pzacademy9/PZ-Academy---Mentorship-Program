@@ -36,7 +36,11 @@ export async function listSessionSendState(sessionIds: string[]): Promise<Record
  * out by the resolver (mode = live) and their members come only through their lead, so they are out too.
  * Test rows never come back from the resolver; unsubscribed people are skipped by the planner.
  */
-export async function createSessionSend(sessionId: string, kind: "reminder" | "update" = "reminder"): Promise<SessionSendResult> {
+export async function createSessionSend(
+  sessionId: string,
+  kind: "reminder" | "update" = "reminder",
+  opts: { resend?: boolean } = {},
+): Promise<SessionSendResult> {
   const session = await getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
   if (session.zoom_url.trim() === "") return { ok: false, reason: "no_zoom" };
@@ -62,7 +66,7 @@ export async function createSessionSend(sessionId: string, kind: "reminder" | "u
   });
   if (planned.send.length === 0) return { ok: false, reason: "no_recipients" };
 
-  const msg = buildSessionEmail(session, kind);
+  const msg = buildSessionEmail(session, kind, opts);
   const { data: sendRow, error: sendErr } = await admin.from("participant_sends").insert({
     page_id: session.page_id,
     channel: "email",
