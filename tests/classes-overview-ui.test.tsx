@@ -13,13 +13,15 @@ const h = vi.hoisted(() => ({
   saveMinPct: vi.fn(),
   removeSession: vi.fn(),
   createMissing: vi.fn(),
+  emailFeedbackLink: vi.fn(),
+  confirm: vi.fn(),
   refresh: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: h.refresh }) }));
 vi.mock("sonner", () => ({ toast: { success: h.success, error: h.error } }));
-vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => async () => true }));
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => h.confirm }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions", () => ({
   addSession: h.addSession,
   saveSession: h.saveSession,
@@ -31,6 +33,7 @@ vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessi
   toggleMark: h.toggleMark,
   saveMinPct: h.saveMinPct,
   removeSession: h.removeSession,
+  emailFeedbackLink: h.emailFeedbackLink,
 }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions", () => ({
   createMissingFeedbackAction: h.createMissing,
@@ -74,6 +77,7 @@ function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridR
 
 beforeEach(() => {
   Object.values(h).forEach((f) => f.mockReset());
+  h.confirm.mockResolvedValue(true);
   h.addSession.mockResolvedValue({ ok: true, message: "Session added" });
   h.saveSession.mockResolvedValue({ ok: true, message: "Session saved" });
   h.sendReminderNow.mockResolvedValue({ ok: true, message: "Email sent to 5 people" });
@@ -117,6 +121,37 @@ describe("cards", () => {
     const fb = screen.getByTestId("feedback-card");
     expect(within(fb).getAllByRole("button")[0].textContent).toMatch(/Copy link/);
     expect(att.textContent).toMatch(/38\s*of 52 present/);
+  });
+
+  it("feedback card shows Copy link first and Email to students second", () => {
+    panel(summary());
+    const buttons = within(screen.getByTestId("feedback-card")).getAllByRole("button");
+    expect(buttons[0].textContent).toMatch(/Copy link/);
+    expect(buttons[1].textContent).toMatch(/Email to students/);
+  });
+
+  it("email button confirms before sending", async () => {
+    h.emailFeedbackLink.mockResolvedValue({ ok: true, message: "Email sent to 52 students" });
+    panel(summary());
+    fireEvent.click(within(screen.getByTestId("feedback-card")).getByRole("button", { name: /Email to students/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      description: "Send the feedback link by email to all enrolled students?",
+    })));
+    await waitFor(() => expect(h.emailFeedbackLink).toHaveBeenCalledWith("s1"));
+    await waitFor(() => expect(h.success).toHaveBeenCalledWith("Email sent to 52 students"));
+  });
+
+  it("does not send when the confirm is declined", async () => {
+    h.confirm.mockResolvedValue(false);
+    panel(summary());
+    fireEvent.click(within(screen.getByTestId("feedback-card")).getByRole("button", { name: /Email to students/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.emailFeedbackLink).not.toHaveBeenCalled();
+  });
+
+  it("no email button when the class has no feedback link", () => {
+    panel(summary({ feedbackLink: null, feedbackSessionId: null }));
+    expect(within(screen.getByTestId("feedback-card")).queryByRole("button", { name: /Email to students/ })).toBeNull();
   });
 
   it("class with no feedback shows Create missing feedback links", async () => {
@@ -248,13 +283,13 @@ describe("EditClassDialog rules", () => {
 describe("attendance card actions", () => {
   it("first send uses the reminder; a second send asks and then re-sends the plain class details", async () => {
     const { unmount } = panel(summary());
-    fireEvent.click(screen.getByRole("button", { name: /Email to students/ }));
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email to students/ }));
     await waitFor(() => expect(h.sendReminderNow).toHaveBeenCalledWith("s1"));
     expect(h.resendClassDetails).not.toHaveBeenCalled();
     unmount();
 
     panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
-    fireEvent.click(screen.getByRole("button", { name: /Email to students/ }));
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email to students/ }));
     await waitFor(() => expect(h.resendClassDetails).toHaveBeenCalledWith("s1"));
     expect(h.emailUpdatedTime).not.toHaveBeenCalled();
   });

@@ -3,14 +3,31 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { MessageSquareText, Star } from "lucide-react";
+import { Mail, MessageSquareText, Star } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { ClassSummary } from "@/lib/data/class-overview";
+import { emailFeedbackLink } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { createMissingFeedbackAction } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
 import { cardCls, primaryBtn, quietBtn } from "./styles";
 
 export function FeedbackCard({ pageId, cls }: { pageId: string; cls: ClassSummary }) {
+  const confirm = useConfirm();
   const [busy, startTransition] = useTransition();
+
+  async function email(sessionId: string) {
+    const ok = await confirm({
+      title: "Email the feedback link?",
+      description: "Send the feedback link by email to all enrolled students?",
+      confirmLabel: "Email to students",
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      const res = await emailFeedbackLink(sessionId);
+      if (res.ok) toast.success(res.message ?? "Email sent");
+      else toast.error(res.message ?? "Something went wrong. Please try again.");
+    });
+  }
 
   function create() {
     startTransition(async () => {
@@ -29,6 +46,10 @@ export function FeedbackCard({ pageId, cls }: { pageId: string; cls: ClassSummar
           <LinkBox url={cls.feedbackLink} />
           <div className="flex flex-col gap-2 md:flex-row">
             <CopyLinkButton url={cls.feedbackLink} />
+            <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={() => email(cls.id)}>
+              <Mail className="size-5" aria-hidden />
+              Email to students
+            </button>
           </div>
           <div className="rounded-lg bg-pz-surface-container-low p-4">
             <p className="font-headline text-2xl font-bold text-pz-on-surface">

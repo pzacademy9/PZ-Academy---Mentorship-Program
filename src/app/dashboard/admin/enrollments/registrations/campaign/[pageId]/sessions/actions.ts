@@ -37,6 +37,7 @@ const SEND_MESSAGES: Record<string, string> = {
   no_recipients: "Nobody to send to",
   not_set_up: "Email is not set up",
   too_soon: "Wait a minute before sending again",
+  no_feedback_link: "This class has no feedback link yet",
 };
 const OVERRIDES: readonly WindowOverride[] = ["auto", "open", "closed"];
 
@@ -232,7 +233,7 @@ export async function openProgramReport(pageId: string): Promise<{ ok: boolean; 
   }
 }
 
-async function sendNow(sessionId: string, kind: "reminder" | "update", opts?: { resend?: boolean }): Promise<ActionResult> {
+async function sendNow(sessionId: string, kind: "reminder" | "update" | "feedback", opts?: { resend?: boolean }): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
@@ -248,15 +249,14 @@ async function sendNow(sessionId: string, kind: "reminder" | "update", opts?: { 
     }
     const s = await getSessionById(sessionId);
     if (s) refresh(s.page_id);
-    return sendMessage(out);
+    return sendMessage(out, kind === "feedback" ? "student" : "person");
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }
 }
 
-const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
-
-function sendMessage(out: { sent: number; failed: number; pending: number }): ActionResult {
+function sendMessage(out: { sent: number; failed: number; pending: number }, noun: "person" | "student" = "person"): ActionResult {
+  const people = (n: number) => (noun === "student" ? `${n} ${n === 1 ? "student" : "students"}` : `${n} ${n === 1 ? "person" : "people"}`);
   if (out.failed > 0) {
     return { ok: out.sent > 0, message: `Sent to ${people(out.sent)}, ${out.failed} could not be sent. Open Messages sent to retry.` };
   }
@@ -277,4 +277,9 @@ export async function emailUpdatedTime(sessionId: string): Promise<ActionResult>
 /** A plain second send of the class details (Zoom link, attendance link): same email kind, neutral wording. */
 export async function resendClassDetails(sessionId: string): Promise<ActionResult> {
   return sendNow(sessionId, "update", { resend: true });
+}
+
+/** Emails the class's feedback link to every enrolled student of the batch. */
+export async function emailFeedbackLink(sessionId: string): Promise<ActionResult> {
+  return sendNow(sessionId, "feedback");
 }
