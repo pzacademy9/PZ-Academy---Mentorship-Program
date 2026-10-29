@@ -215,8 +215,8 @@ describe("EditClassDialog rules", () => {
     expect(h.addSession.mock.calls[0][1].includeAttendanceLink).toBe(true);
   });
 
-  it("a new class copied from a customised class follows the defaults unless time or zoom changed", async () => {
-    const ref = session({ custom_time: true, custom_zoom: true });
+  it("a new class copied from a reference that follows the defaults stays non-custom unless time or zoom changed", async () => {
+    const ref = session({ custom_time: false, custom_zoom: false });
     const { unmount } = render(<EditClassDialog pageId={PAGE} reference={ref} nextNumber={2} onClose={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-11-12" } });
     fireEvent.click(screen.getByRole("button", { name: "Add class" }));
@@ -232,6 +232,16 @@ describe("EditClassDialog rules", () => {
     await waitFor(() => expect(h.addSession).toHaveBeenCalledTimes(2));
     expect(h.addSession.mock.calls[1][1].customZoom).toBe(true);
     expect(h.addSession.mock.calls[1][1].customTime).toBe(false);
+  });
+
+  it("when the only reference is customised, the copied time and zoom are saved as custom", async () => {
+    const ref = session({ custom_time: true, custom_zoom: true });
+    render(<EditClassDialog pageId={PAGE} reference={ref} nextNumber={2} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-11-12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add class" }));
+    await waitFor(() => expect(h.addSession).toHaveBeenCalledTimes(1));
+    expect(h.addSession.mock.calls[0][1].customTime).toBe(true);
+    expect(h.addSession.mock.calls[0][1].customZoom).toBe(true);
   });
 });
 
@@ -258,7 +268,7 @@ describe("attendance card actions", () => {
   it("shows when the reminder and the time change email went out", () => {
     panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: "2026-11-09T12:00:00.000Z" } });
     const att = screen.getByTestId("attendance-card");
-    expect(att.textContent).toMatch(/Reminder email sent .*Time change email sent/);
+    expect(att.textContent).toMatch(/Reminder email sent .*Class details email sent/);
   });
 
   it("shows when no reminder has gone out yet", () => {

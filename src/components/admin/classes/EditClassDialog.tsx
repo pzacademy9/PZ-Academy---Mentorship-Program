@@ -26,8 +26,9 @@ const fromMinutes = (n: number) => {
  * Edit one class (pass `session`) or add a new one (pass `reference`, the class whose time and link
  * the new one starts from). A time or Zoom link that differs from where it started stops following the
  * batch defaults, so customTime / customZoom are sent explicitly together with a matching end time.
- * A new class only turns custom when the admin changed the time or link; with no reference to compare
- * against, it is custom.
+ * A new class inherits the reference's flags and turns custom when the admin changed the time or link;
+ * with no reference to compare against, it is custom. The caller picks a reference that follows the
+ * batch defaults whenever one exists, so inheriting is only the fallback when every class is customised.
  */
 export function EditClassDialog({
   pageId, session, reference, nextNumber, sends, onClose,
@@ -75,8 +76,8 @@ export function EditClassDialog({
       emailEnabled: remind,
       emailLeadMinutes: Number(minutes),
       speaker,
-      customTime: (session ? session.custom_time : false) || timeChanged,
-      customZoom: (session ? session.custom_zoom : false) || zoomChanged,
+      customTime: (base?.custom_time ?? true) || timeChanged,
+      customZoom: (base?.custom_zoom ?? true) || zoomChanged,
     };
     if (end.trim() !== "") form.endsAtLocal = `${date}T${end}`;
     else form.endsAt = null;

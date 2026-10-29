@@ -6,8 +6,8 @@ import type { SessionSendState } from "@/lib/data/session-emails";
 export function emailStatusLine(session: Pick<SessionRow, "email_enabled">, sends: SessionSendState | undefined): string {
   if (sends?.reminderAt) {
     const base = `Reminder email sent ${formatPkt(sends.reminderAt)}`;
-    return sends.updateAt ? `${base}. Time change email sent ${formatPkt(sends.updateAt)}` : base;
+    return sends.updateAt ? `${base}. Class details email sent ${formatPkt(sends.updateAt)}` : base;
   }
-  if (sends?.updateAt) return `Time change email sent ${formatPkt(sends.updateAt)}`;
+  if (sends?.updateAt) return `Class details email sent ${formatPkt(sends.updateAt)}`;
   return session.email_enabled ? "Reminder email not sent yet" : "Reminder email is switched off";
 }
