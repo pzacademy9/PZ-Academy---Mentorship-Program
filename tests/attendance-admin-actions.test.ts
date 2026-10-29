@@ -105,8 +105,8 @@ describe("addSession", () => {
     expect(h.createSession).toHaveBeenCalledWith(PAGE, expect.objectContaining({ startsAt: "2026-11-03T15:00:00.000Z", number: 1 }));
   });
   it("passes on a duplicate-number message", async () => {
-    h.createSession.mockResolvedValue({ ok: false, message: "Session number already used" });
-    expect(await addSession(PAGE, form())).toEqual({ ok: false, message: "Session number already used" });
+    h.createSession.mockResolvedValue({ ok: false, message: "That class number is already used" });
+    expect(await addSession(PAGE, form())).toEqual({ ok: false, message: "That class number is already used" });
   });
 });
 
@@ -200,10 +200,10 @@ describe("email buttons", () => {
     expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "update", { resend: true });
   });
   it.each([
-    ["no_zoom", "No Zoom link on this session"],
+    ["no_zoom", "No Zoom link on this class"],
     ["already_sent", "Reminder already sent"],
-    ["started", "Session already started"],
-    ["disabled", "Reminders are switched off for this session"],
+    ["started", "This class has already started"],
+    ["disabled", "Reminders are switched off for this class"],
     ["no_recipients", "Nobody to send to"],
     ["not_set_up", "Email is not set up"],
     ["too_soon", "Wait a minute before sending again"],

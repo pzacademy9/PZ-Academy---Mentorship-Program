@@ -43,7 +43,7 @@ export default async function AdminQuizPage({ params }: { params: Promise<{ page
           href={`${BASE}/campaign/${pageId}/sessions`}
           className="inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
         >
-          Back to sessions and attendance
+          Back to classes
         </Link>
       </div>
       <QuizScreen

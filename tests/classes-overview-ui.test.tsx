@@ -78,8 +78,8 @@ function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridR
 beforeEach(() => {
   Object.values(h).forEach((f) => f.mockReset());
   h.confirm.mockResolvedValue(true);
-  h.addSession.mockResolvedValue({ ok: true, message: "Session added" });
-  h.saveSession.mockResolvedValue({ ok: true, message: "Session saved" });
+  h.addSession.mockResolvedValue({ ok: true, message: "Class added" });
+  h.saveSession.mockResolvedValue({ ok: true, message: "Class saved" });
   h.sendReminderNow.mockResolvedValue({ ok: true, message: "Email sent to 5 people" });
   h.resendClassDetails.mockResolvedValue({ ok: true, message: "Email sent to 5 people" });
   h.emailUpdatedTime.mockResolvedValue({ ok: true });

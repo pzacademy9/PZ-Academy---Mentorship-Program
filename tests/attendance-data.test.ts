@@ -205,7 +205,7 @@ describe("sessions CRUD", () => {
   });
   it("duplicate number gives a clear message", async () => {
     await createSession("pg1", input);
-    expect(await createSession("pg1", input)).toEqual({ ok: false, message: "Session number already used" });
+    expect(await createSession("pg1", input)).toEqual({ ok: false, message: "That class number is already used" });
   });
   it("retries once on a public_code collision", async () => {
     let first = true;
@@ -238,7 +238,7 @@ describe("sessions CRUD", () => {
     db.state.handler = (op) => op.table === "batch_sessions" && op.op === "update"
       ? { data: null, error: { code: "23505", message: "duplicate key" } }
       : handler()(op);
-    expect(await updateSession("s1", { number: 2 })).toEqual({ ok: false, message: "Session number already used" });
+    expect(await updateSession("s1", { number: 2 })).toEqual({ ok: false, message: "That class number is already used" });
   });
   it("lists by number, finds by code with batch title, deletes", async () => {
     store.batch_sessions = [sess(2, "2026-11-03T10:00:00Z"), sess(1, "2026-11-01T10:00:00Z")];

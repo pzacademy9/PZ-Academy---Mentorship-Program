@@ -81,7 +81,7 @@ export default async function AdminCampaignRegistrationsPage({
           href={`${DETAIL_BASE}/campaign/${pageId}/sessions`}
           className="ml-4 inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
         >
-          Sessions and attendance
+          Classes
         </Link>
       </div>
       <CampaignRegistrations

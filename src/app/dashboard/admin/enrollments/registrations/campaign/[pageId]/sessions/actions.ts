@@ -24,16 +24,16 @@ export type ActionResult = { ok: boolean; message?: string; staleReminder?: bool
 
 const NOT_ALLOWED = "You do not have permission to do this.";
 const SAVE_FAILED = "Something went wrong. Please try again.";
-const NO_SESSION = "That session was not found";
+const NO_SESSION = "That class was not found";
 const NO_PAGE = "That batch was not found";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const BAD_TIME = "Please enter a valid date and time";
 const SEND_MESSAGES: Record<string, string> = {
-  no_zoom: "No Zoom link on this session",
+  no_zoom: "No Zoom link on this class",
   already_sent: "Reminder already sent",
-  started: "Session already started",
-  disabled: "Reminders are switched off for this session",
+  started: "This class has already started",
+  disabled: "Reminders are switched off for this class",
   no_recipients: "Nobody to send to",
   not_set_up: "Email is not set up",
   too_soon: "Wait a minute before sending again",
@@ -56,7 +56,7 @@ const isUrlOrEmpty = (v: string) => v.trim() === "" || /^https?:\/\/\S+$/i.test(
 function parseForm(f: SessionForm): { ok: true; input: SessionInput } | { ok: false; message: string } {
   const startsAt = pktToIso(f.startsAtLocal);
   if (!startsAt) return { ok: false, message: BAD_TIME };
-  if (!Number.isInteger(f.number) || f.number < 1) return { ok: false, message: "Session number must be 1 or more" };
+  if (!Number.isInteger(f.number) || f.number < 1) return { ok: false, message: "Class number must be 1 or more" };
   if (!Number.isInteger(f.emailLeadMinutes) || f.emailLeadMinutes < 0 || f.emailLeadMinutes > 10080) {
     return { ok: false, message: "Minutes before must be a whole number between 0 and 10080" };
   }
@@ -103,7 +103,7 @@ export async function addSession(pageId: string, form: SessionForm): Promise<Act
     const res = await createSession(pageId, parsed.input);
     if (!res.ok) return { ok: false, message: res.message };
     refresh(pageId);
-    return { ok: true, message: "Session added" };
+    return { ok: true, message: "Class added" };
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }
@@ -117,7 +117,7 @@ export async function saveSession(sessionId: string, form: SessionForm): Promise
   if (!parsed.ok) return parsed;
   try {
     const before = await getSessionById(sessionId);
-    if (!before) return { ok: false, message: "That session no longer exists" };
+    if (!before) return { ok: false, message: "That class no longer exists" };
     // Fields the old per-class form never sends keep what the class already has.
     const patch: Partial<SessionInput> = { ...parsed.input };
     if (form.endsAt === undefined && form.endsAtLocal === undefined) delete patch.endsAt;
@@ -129,7 +129,7 @@ export async function saveSession(sessionId: string, form: SessionForm): Promise
     refresh(before.page_id);
     const timeChanged = new Date(before.starts_at).getTime() !== new Date(parsed.input.startsAt).getTime();
     const state = timeChanged ? (await listSessionSendState([sessionId]))[sessionId] : undefined;
-    return { ok: true, message: "Session saved", staleReminder: !!state?.reminderAt };
+    return { ok: true, message: "Class saved", staleReminder: !!state?.reminderAt };
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }
@@ -144,7 +144,7 @@ export async function removeSession(sessionId: string): Promise<ActionResult> {
     if (!s) return { ok: false, message: NO_SESSION };
     await deleteSession(sessionId);
     refresh(s.page_id);
-    return { ok: true, message: "Session deleted" };
+    return { ok: true, message: "Class deleted" };
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }
@@ -174,7 +174,7 @@ export async function toggleMark(sessionId: string, personId: string, present: b
   if (!isUuid(personId)) return { ok: false, message: "That student was not found" };
   try {
     const s = await getSessionById(sessionId);
-    if (!s) return { ok: false, message: "That session no longer exists" };
+    if (!s) return { ok: false, message: "That class no longer exists" };
     if (present) {
       if (!(await isLiveEnrolled(s.page_id, personId))) {
         return { ok: false, message: "This person is not a live student of this batch" };
@@ -196,7 +196,7 @@ export async function markEveryonePresent(sessionId: string): Promise<ActionResu
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
     const s = await getSessionById(sessionId);
-    if (!s) return { ok: false, message: "That session no longer exists" };
+    if (!s) return { ok: false, message: "That class no longer exists" };
     const { added } = await markAllPresent(sessionId, auth.user.id);
     refresh(s.page_id);
     return { ok: true, message: added === 1 ? "1 student marked present" : `${added} students marked present` };

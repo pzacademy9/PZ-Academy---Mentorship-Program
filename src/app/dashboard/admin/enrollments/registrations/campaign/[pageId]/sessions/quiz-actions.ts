@@ -18,7 +18,7 @@ import { decisionsFromChoices, resolveReview, type Choices, type ReviewBase, typ
 
 const NOT_ALLOWED = "You do not have permission to do this.";
 const FAILED = "Something went wrong. Please try again.";
-const NO_SESSION = "That session was not found";
+const NO_SESSION = "That class was not found";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 

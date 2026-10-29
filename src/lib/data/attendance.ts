@@ -40,7 +40,7 @@ export type GridRow = {
 
 const PAGE = 1000;
 const CHUNK = 200;
-const DUP_NUMBER = "Session number already used";
+const DUP_NUMBER = "That class number is already used";
 
 type DbError = { message: string; code?: string } | null;
 type Page = { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: DbError }> };
@@ -137,12 +137,12 @@ export async function createSession(
     if (isDuplicate(error)) {
       // A code collision is retried once with a fresh code; anything else is a duplicate number.
       if (/public_code/.test(error!.message) && attempt === 0) continue;
-      if (/public_code/.test(error!.message)) return { ok: false, message: "Could not create the session. Please try again." };
+      if (/public_code/.test(error!.message)) return { ok: false, message: "Could not create the class. Please try again." };
       return { ok: false, message: DUP_NUMBER };
     }
-    return { ok: false, message: "Could not create the session. Please try again." };
+    return { ok: false, message: "Could not create the class. Please try again." };
   }
-  return { ok: false, message: "Could not create the session. Please try again." };
+  return { ok: false, message: "Could not create the class. Please try again." };
 }
 
 export async function updateSession(
@@ -168,7 +168,7 @@ export async function updateSession(
   if (Object.keys(patch).length === 0) return { ok: true };
   const { error } = await createAdminSupabase().from("batch_sessions").update(patch).eq("id", sessionId);
   if (isDuplicate(error)) return { ok: false, message: DUP_NUMBER };
-  if (error) return { ok: false, message: "Could not save the session. Please try again." };
+  if (error) return { ok: false, message: "Could not save the class. Please try again." };
   return { ok: true };
 }
 

@@ -32,7 +32,7 @@ export default async function SetupClassesPage({ params }: { params: Promise<{ p
           href={`${BASE}/campaign/${pageId}/sessions`}
           className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
         >
-          Back to sessions
+          Back to classes
         </Link>
       </div>
       <SetupForm pageId={pageId} state={state} />
