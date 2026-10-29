@@ -234,4 +234,34 @@ describe("SetupForm", () => {
     expect(screen.getByText("Workshop")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Webinar" })).toBeNull();
   });
+
+  it("the action bar and the removal dialog clear the mobile bottom nav", () => {
+    show(state({ classes: [cls(1, "2026-11-09", { hasData: true }), cls(2, "2026-11-10")] }));
+    const save = screen.getByRole("button", { name: "Save changes" });
+    const bar = save.closest("div.fixed") as HTMLElement;
+    expect(bar.className).toContain("bottom-[calc(4.5rem+env(safe-area-inset-bottom))]");
+    expect(bar.className).toContain("z-[60]");
+    expect(bar.className).toContain("lg:sticky");
+    expect(bar.className).toContain("lg:bottom-0");
+    fireEvent.click(day(9));
+    const overlay = screen.getByRole("dialog").parentElement as HTMLElement;
+    expect(overlay.className).toContain("z-[60]");
+    expect(overlay.className).toContain("pb-24");
+    expect(overlay.className).toContain("lg:pb-4");
+  });
+
+  it("a webinar that already has two classes is not limited to one day", async () => {
+    show(state({ type: "webinar", classes: [cls(1, "2026-11-09"), cls(2, "2026-11-10")] }));
+    fireEvent.click(day(11));
+    expect(screen.getAllByTestId(/^day-row-/)).toHaveLength(3);
+    fireEvent.click(day(11));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    expect(h.save.mock.calls[0][1].days).toHaveLength(2);
+  });
+
+  it("says a reminder email goes out 60 minutes before each class", () => {
+    show(state());
+    expect(screen.getByText("A reminder email goes to students 60 minutes before each class. You can change this in Edit this class.")).toBeTruthy();
+  });
 });

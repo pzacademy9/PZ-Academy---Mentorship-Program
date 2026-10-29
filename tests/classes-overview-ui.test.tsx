@@ -198,6 +198,16 @@ describe("EditClassDialog", () => {
   });
 });
 
+describe("EditClassDialog stacking", () => {
+  it("sits above the mobile bottom nav and clears it", () => {
+    render(<EditClassDialog pageId={PAGE} session={session()} nextNumber={2} onClose={vi.fn()} />);
+    const overlay = screen.getByRole("dialog").parentElement as HTMLElement;
+    expect(overlay.className).toContain("z-[60]");
+    expect(overlay.className).toContain("pb-[calc(4.5rem+env(safe-area-inset-bottom))]");
+    expect(overlay.className).toContain("lg:pb-4");
+  });
+});
+
 describe("EditClassDialog rules", () => {
   it("moving only the start moves the end by the same amount", async () => {
     render(<EditClassDialog pageId={PAGE} session={session()} nextNumber={2} onClose={vi.fn()} />);

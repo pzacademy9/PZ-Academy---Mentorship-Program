@@ -112,7 +112,7 @@ export function EditClassDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:items-center md:p-4 md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-4">
       <div
         role="dialog"
         aria-modal="true"

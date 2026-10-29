@@ -44,7 +44,8 @@ function initialDays(state: SetupState): DayState[] {
 export function SetupForm({ pageId, state, initialMonth }: { pageId: string; state: SetupState; initialMonth?: string }) {
   const router = useRouter();
   const back = `${BASE}/campaign/${pageId}/sessions`;
-  const webinar = state.type === "webinar";
+  // A webinar is one day, but a webinar that already has several classes keeps them (the limit is max(1, existing)).
+  const webinar = state.type === "webinar" && state.classes.length <= 1;
 
   const [month, setMonth] = useState(initialMonth ?? startingMonth(state));
   const [days, setDays] = useState<DayState[]>(() => initialDays(state));
@@ -167,7 +168,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   const exists = state.classes.length > 0;
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6 pb-56 lg:pb-28">
       <section className={cardCls}>
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="font-headline text-xl font-bold text-pz-on-surface">1. When are the classes?</h2>
@@ -195,6 +196,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
               </div>
             </div>
             <p className="mt-1 text-base text-pz-on-surface-variant">Pakistan time</p>
+            <p className="mt-3 text-base text-pz-on-surface-variant">A reminder email goes to students 60 minutes before each class. You can change this in Edit this class.</p>
             <div className="mt-3">
               <label className={labelCls} htmlFor="default-zoom">Zoom link</label>
               <input id="default-zoom" type="url" className={fieldCls} value={defaults.zoom} onChange={(e) => setDefaults({ ...defaults, zoom: e.target.value })} />
@@ -239,7 +241,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
         />
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 md:sticky md:rounded-xl md:border">
+      <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 lg:sticky lg:bottom-0 lg:rounded-xl lg:border">
         <p className="mb-2 text-center text-base text-pz-on-surface-variant md:text-left">
           Attendance link and feedback link are made for every class automatically.
         </p>
@@ -254,7 +256,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
       </div>
 
       {asking && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 p-4 md:items-center">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 pb-24 md:items-center lg:pb-4">
           <div role="dialog" aria-modal="true" aria-labelledby="remove-title" onKeyDown={(e) => { if (e.key === "Escape") setAsking(null); }} className="w-full max-w-md rounded-xl bg-pz-surface-container-lowest p-5">
             <h2 id="remove-title" className="font-headline text-lg font-bold text-pz-on-surface">Remove the class on {dateWords(asking.date)}?</h2>
             <p className="mt-2 text-base text-pz-on-surface-variant">
