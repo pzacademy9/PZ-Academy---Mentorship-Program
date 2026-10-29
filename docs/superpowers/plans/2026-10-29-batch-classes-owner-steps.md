@@ -35,3 +35,5 @@ Small things to eyeball while you are there:
 - The day boxes in the calendar at 390px width: numbers and names should not be squeezed or cut off.
 - The cover picker: it should open on the right library folder.
 - The feedback email button: it should ask "are you sure" before sending anything.
+
+Good to know: a student without a PZ ID fails the feedback email with "No PZ ID yet". The admin screen shows only a failure count; the reason is in Messages sent.

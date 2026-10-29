@@ -28,6 +28,8 @@ it("adds the batch_sessions columns, existing rows count as custom", () => {
 
 it("widens the session_kind check to include feedback, safely", () => {
   expect(sql).toContain("drop constraint if exists participant_sends_session_kind_check");
+  expect(sql).toMatch(/add constraint participant_sends_session_kind_check\s/);
+  expect(sql).not.toContain("add constraint participant_sends_session_kind_check_v2");
   expect(sql).toContain("check (session_kind in ('reminder','update','feedback'))");
   expect(sql).not.toMatch(/drop index/i);
   expect(sql).not.toMatch(/participant_sends_reminder_key/);

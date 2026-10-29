@@ -41,5 +41,5 @@ alter table public.participant_sends
 alter table public.participant_sends
   drop constraint if exists participant_sends_session_kind_check_v2;
 alter table public.participant_sends
-  add constraint participant_sends_session_kind_check_v2
+  add constraint participant_sends_session_kind_check
   check (session_kind in ('reminder','update','feedback'));
