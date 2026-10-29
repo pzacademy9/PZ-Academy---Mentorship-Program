@@ -1,18 +1,31 @@
-import Link from "next/link";
+"use client";
+
+import { useTransition } from "react";
+import { toast } from "sonner";
 import { Award, ExternalLink, Star, Users } from "lucide-react";
+import { openProgramReport } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { summarizeAttendance, summarizeFeedback } from "@/lib/classes/summary";
 import type { GridRow } from "@/lib/data/attendance";
 import { cardCls, quietBtn } from "@/components/admin/classes/styles";
 
 export function BatchSummary({
-  feedback, reviewPath, rows, minPct,
+  pageId, feedback, programId, rows, minPct,
 }: {
+  pageId: string;
   feedback: ReturnType<typeof summarizeFeedback>;
-  /** Public combined report for a course or workshop; null for a webinar. */
-  reviewPath: string | null;
+  /** The batch's feedback program (course or workshop); null for a webinar. */
+  programId: string | null;
   rows: GridRow[];
   minPct: number;
 }) {
+  const [busy, startTransition] = useTransition();
+  function openReport() {
+    startTransition(async () => {
+      const res = await openProgramReport(pageId);
+      if (res.ok && res.path) window.open(res.path, "_blank", "noopener,noreferrer");
+      else toast.error(res.message ?? "Something went wrong. Please try again.");
+    });
+  }
   const att = summarizeAttendance(rows, minPct);
   const hasFeedback = feedback.overallAvg !== null;
 
@@ -47,11 +60,16 @@ export function BatchSummary({
         ) : (
           <p className="text-base text-pz-on-surface-variant">No feedback yet</p>
         )}
-        {reviewPath && (
-          <Link href={reviewPath} target="_blank" className={`${quietBtn} max-md:w-full`}>
-            <ExternalLink className="size-5" aria-hidden />
-            See the combined feedback report
-          </Link>
+        {programId && (
+          <div className="space-y-2">
+            <button type="button" className={`${quietBtn} min-h-12 max-md:w-full`} onClick={openReport} disabled={busy}>
+              <ExternalLink className="size-5" aria-hidden />
+              Open combined feedback report
+            </button>
+            <p className="text-base text-pz-on-surface-variant">
+              This opens a page that anyone with the link can read. It shows students&apos; names and comments, so share it carefully.
+            </p>
+          </div>
         )}
       </section>
 

@@ -88,7 +88,7 @@ export function SessionsPanel({
 
   return (
     <div className="space-y-4">
-      <BatchSummary feedback={overview.batchFeedback} reviewPath={overview.programReviewPath} rows={rows} minPct={minPct} />
+      <BatchSummary feedback={overview.batchFeedback} pageId={pageId} programId={overview.programId} rows={rows} minPct={minPct} />
       <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="space-y-3">
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />

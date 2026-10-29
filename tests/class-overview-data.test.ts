@@ -97,19 +97,19 @@ describe("getClassOverview", () => {
     await expect(getClassOverview("pg1", NOW)).rejects.toThrow(/feedback stats read failed/);
   });
 
-  it("batchFeedback combines the classes and links the program review", async () => {
+  it("batchFeedback combines the classes and reports the program id", async () => {
     const o = await getClassOverview("pg1", NOW);
     expect(o.batchFeedback.totalResponses).toBe(12);
     expect(o.batchFeedback.overallAvg).toBe(4.5);
     expect(o.batchFeedback.perClass.map((c) => c.number)).toEqual([1, 2, 3]);
-    expect(o.programReviewPath).toBe("/review/tok123");
-    expect(share.gen).toHaveBeenCalledWith("program", "prog1", null);
+    expect(o.programId).toBe("prog1");
+    expect(share.gen).not.toHaveBeenCalled(); // no public link is created on page load
   });
 
-  it("a batch without a program has no review path", async () => {
+  it("a batch without a program has no program id", async () => {
     store.landing_pages[0].feedback_program_id = null;
     const o = await getClassOverview("pg1", NOW);
-    expect(o.programReviewPath).toBeNull();
+    expect(o.programId).toBeNull();
     expect(share.gen).not.toHaveBeenCalled();
   });
 

@@ -77,7 +77,7 @@ export function TodayPanel({
           <a
             href={session.zoom_url}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex min-h-12 items-center gap-2 text-base font-headline font-bold text-pz-primary"
           >
             <Video className="size-5" aria-hidden />

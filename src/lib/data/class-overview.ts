@@ -6,7 +6,6 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { isoToPktInput } from "@/lib/attendance/rules";
 import { attendanceBase } from "@/lib/attendance/links";
 import { fetchAll, listSessions, livePersonIds } from "@/lib/data/attendance";
-import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
 import { summarizeFeedback } from "@/lib/classes/summary";
 
 export type ClassStatus = "done" | "today" | "upcoming";
@@ -32,8 +31,8 @@ export type ClassOverview = {
   classes: ClassSummary[];
   selectedId: string;
   batchFeedback: ReturnType<typeof summarizeFeedback>;
-  /** `/review/<token>` of the batch's combined feedback report; null for a webinar or when there is no program. */
-  programReviewPath: string | null;
+  /** The batch's feedback program; null for a webinar or when there is none. */
+  programId: string | null;
 };
 
 const pktDay = (iso: string) => isoToPktInput(iso).slice(0, 10);
@@ -48,7 +47,7 @@ export async function getClassOverview(pageId: string, now: Date = new Date()): 
   const sessions = (await listSessions(pageId)).sort(
     (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime() || a.number - b.number,
   );
-  if (sessions.length === 0) return { title, classes: [], selectedId: "", batchFeedback: summarizeFeedback([]), programReviewPath: null };
+  if (sessions.length === 0) return { title, classes: [], selectedId: "", batchFeedback: summarizeFeedback([]), programId: pageRow?.feedback_program_id ?? null };
 
   const ids = sessions.map((s) => s.id);
   const live = new Set(await livePersonIds(pageId));
@@ -108,15 +107,6 @@ export async function getClassOverview(pageId: string, now: Date = new Date()): 
   const selected =
     classes.find((c) => c.status === "today") ?? classes.find((c) => c.status === "upcoming") ?? classes[classes.length - 1];
 
-  let programReviewPath: string | null = null;
-  if (pageRow?.feedback_program_id) {
-    try {
-      // Idempotent: returns the existing token, or creates one the first time.
-      programReviewPath = (await generateFeedbackShareToken("program", pageRow.feedback_program_id, null)).shareUrl;
-    } catch {
-      programReviewPath = null; // the summary still shows; only the link is left out
-    }
-  }
   const batchFeedback = summarizeFeedback(classes.map((c) => ({ number: c.number, responses: c.feedbackCount, avg: c.feedbackAvg })));
-  return { title, classes, selectedId: selected.id, batchFeedback, programReviewPath };
+  return { title, classes, selectedId: selected.id, batchFeedback, programId: pageRow?.feedback_program_id ?? null };
 }

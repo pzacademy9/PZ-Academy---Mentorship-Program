@@ -138,6 +138,17 @@ export async function ensureClassFeedback(
   return { feedbackSessionId: created.id, slug: created.slug };
 }
 
+/** The batch's feedback program id, or null (webinar or none yet). */
+export async function getBatchProgramId(pageId: string): Promise<string | null> {
+  const { data, error } = await createAdminSupabase()
+    .from("landing_pages")
+    .select("feedback_program_id")
+    .eq("id", pageId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.feedback_program_id ?? null;
+}
+
 /** Feedback session ids of a batch's classes, in class order (classes without one are left out). */
 async function batchFeedbackSessionIds(pageId: string): Promise<string[]> {
   const admin = createAdminSupabase();

@@ -17,6 +17,8 @@ import {
 } from "@/lib/data/attendance";
 import { createSessionSend, listSessionSendState } from "@/lib/data/session-emails";
 import { runEmailSend } from "@/lib/data/participant-sends";
+import { getBatchProgramId } from "@/lib/data/batch-feedback";
+import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
 
 export type ActionResult = { ok: boolean; message?: string; staleReminder?: boolean };
 
@@ -210,6 +212,21 @@ export async function saveMinPct(pageId: string, pct: number): Promise<ActionRes
     if (!res.ok) return { ok: false, message: "Enter a whole number from 0 to 100" };
     refresh(pageId);
     return { ok: true, message: "Minimum saved" };
+  } catch {
+    return { ok: false, message: SAVE_FAILED };
+  }
+}
+
+/** Creates (or reuses) the public link to the batch's combined feedback report. Only runs on an admin click. */
+export async function openProgramReport(pageId: string): Promise<{ ok: boolean; path?: string; message?: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
+  try {
+    const programId = await getBatchProgramId(pageId);
+    if (!programId) return { ok: false, message: "This batch has no combined report" };
+    const { shareUrl } = await generateFeedbackShareToken("program", programId, auth.user.id);
+    return { ok: true, path: shareUrl };
   } catch {
     return { ok: false, message: SAVE_FAILED };
   }

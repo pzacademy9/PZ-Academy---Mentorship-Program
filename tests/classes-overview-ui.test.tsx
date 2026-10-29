@@ -298,7 +298,7 @@ describe("attendance card actions", () => {
 describe("SessionsPanel", () => {
   const overview = (classes: ClassSummary[]): ClassOverview => ({
     title: "Batch", classes, selectedId: classes[0]?.id ?? "",
-    batchFeedback: { totalResponses: 0, overallAvg: null, perClass: [] }, programReviewPath: null,
+    batchFeedback: { totalResponses: 0, overallAvg: null, perClass: [] }, programId: null,
   });
 
   it("shows a friendly empty state with a Set up classes button", () => {
