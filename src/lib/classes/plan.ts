@@ -25,7 +25,7 @@ export type ExistingClass = {
 type ClassFields = {
   date: string;
   startsAt: string;
-  endsAt: string;
+  endsAt: string | null;
   zoom: string;
   customTime: boolean;
   customZoom: boolean;
@@ -67,11 +67,14 @@ export function planClasses(
     const start = ownStart || defaults.start;
     const end = ownEnd || defaults.end;
     const startsAt = pktToIso(`${day.date}T${start}`);
-    const endsAt = pktToIso(`${day.date}T${end}`);
-    if (!startsAt || !endsAt) {
+    // An old class that never had an end time keeps none: do not invent one from the defaults.
+    const old = day.existingId ? existing.find((e) => e.id === day.existingId) : undefined;
+    const keepNoEnd = !!old && old.endsAtIso === null && old.customTime && ownEnd === "";
+    const endsAt = keepNoEnd ? null : pktToIso(`${day.date}T${end}`);
+    if (!startsAt || (!keepNoEnd && !endsAt)) {
       return { ok: false, message: `The date or time for ${day.date} is not valid` };
     }
-    if (new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+    if (endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
       return { ok: false, message: `The end time must be after the start time on ${day.date}` };
     }
     built.push({

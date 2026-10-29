@@ -24,6 +24,26 @@ describe("planClasses", () => {
     expect(r).toEqual({ ok: false, message: "A webinar has only one day" });
   });
 
+  it("an existing custom class with no end time keeps it empty when the day sends no end", () => {
+    const old = existing({ id: "c1", number: 1, customTime: true, endsAtIso: null, startsAtIso: pktToIso("2026-11-10T21:00")! });
+    const r = planClasses([{ date: "2026-11-10", existingId: "c1", start: "21:00" }], defaults, [old], "course");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.ops[0]).toMatchObject({ kind: "update", id: "c1", endsAt: null, startsAt: pktToIso("2026-11-10T21:00"), customTime: true });
+  });
+
+  it("an existing custom class with no end time and a late start does not fail on the default end", () => {
+    const old = existing({ id: "c1", number: 1, customTime: true, endsAtIso: null, startsAtIso: pktToIso("2026-11-10T22:00")! });
+    const r = planClasses([{ date: "2026-11-10", existingId: "c1", start: "22:00" }], defaults, [old], "course");
+    expect(r.ok).toBe(true);
+  });
+
+  it("an end time typed for a class that had none is used", () => {
+    const old = existing({ id: "c1", number: 1, customTime: true, endsAtIso: null });
+    const r = planClasses([{ date: "2026-11-10", existingId: "c1", start: "20:00", end: "22:00" }], defaults, [old], "course");
+    expect(r.ok && r.ops[0]).toMatchObject({ endsAt: pktToIso("2026-11-10T22:00") });
+  });
+
   it("course follows defaults and marks not custom", () => {
     const r = planClasses([{ date: "2026-11-10" }, { date: "2026-11-12" }], defaults, [], "course");
     expect(r.ok).toBe(true);

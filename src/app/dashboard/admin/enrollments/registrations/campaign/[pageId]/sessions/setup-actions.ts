@@ -265,7 +265,9 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
       return { ...d, existingId: id };
     });
 
-    const plan = planClasses(days, defaults, existing, type);
+    // A webinar is one day, but one that already has several classes keeps them (spec call 11).
+    const planType = type === "webinar" && existing.length > 1 ? "workshop" : type;
+    const plan = planClasses(days, defaults, existing, planType);
     if (!plan.ok) return { ok: false, message: plan.message };
 
     const removing = plan.ops.filter((o): o is Extract<ClassOp, { kind: "remove" }> => o.kind === "remove");
@@ -351,7 +353,9 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
     if (before.length > 0 && JSON.stringify(before) !== JSON.stringify(form.questions)) {
       await applyQuestionsToBatch(pageId, form.questions, auth.user.id);
     }
-    await setBatchCover(pageId, coverUrl, auth.user.id);
+    // Only when the cover changed here, so a cover an admin set by hand on a feedback session survives a plain save.
+    const storedCover = page.class_cover_url && page.class_cover_url.trim() !== "" ? page.class_cover_url.trim() : null;
+    if (coverUrl !== storedCover) await setBatchCover(pageId, coverUrl, auth.user.id);
 
     refresh(pageId);
     return { ok: true, message: ["Classes saved", ...notes].join(". ") };

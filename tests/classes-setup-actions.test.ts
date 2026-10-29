@@ -94,7 +94,7 @@ describe("saveSetup", () => {
     });
     expect(h.ensure).toHaveBeenCalledTimes(3);
     expect(h.ensure.mock.calls[0][2]).toMatchObject({ type: "course", questions: QS });
-    expect(h.cover).toHaveBeenCalledWith(PAGE, null, "admin-1");
+    expect(h.cover).not.toHaveBeenCalled();
     expect(store.landing_pages[0]).toMatchObject({
       class_default_start: "20:00", class_default_end: "21:30", class_default_zoom: defaults.zoom,
     });
@@ -181,6 +181,8 @@ describe("saveSetup", () => {
     }
     expect(store.batch_sessions).toHaveLength(0);
     expect((await saveSetup(PAGE, form({ coverUrl: "https://drive.google.com/thumbnail?id=abcdefghij&sz=w1600" }))).ok).toBe(true);
+    expect(h.cover).toHaveBeenLastCalledWith(PAGE, "https://drive.google.com/thumbnail?id=abcdefghij&sz=w1600", "admin-1");
+    store.landing_pages[0].class_cover_url = "https://drive.google.com/thumbnail?id=abcdefghij&sz=w1600";
     expect((await saveSetup(PAGE, form({ coverUrl: "" }))).ok).toBe(true);
     expect(h.cover).toHaveBeenLastCalledWith(PAGE, null, "admin-1");
   });
@@ -210,6 +212,39 @@ describe("saveSetup", () => {
     const r = await saveSetup(PAGE, form());
     expect(r.ok).toBe(false);
     expect(store.batch_sessions).toHaveLength(0);
+  });
+
+  it("a webinar that already has two classes saves without the one-day error and keeps both", async () => {
+    store.landing_pages[0].kind = "webinar";
+    store.batch_sessions = [cls(1, "2026-11-03"), cls(2, "2026-11-04")];
+    const r = await saveSetup(PAGE, form({
+      days: [{ date: "2026-11-03", existingId: "c1" }, { date: "2026-11-04", existingId: "c2" }],
+    }));
+    expect(r.ok).toBe(true);
+    expect(store.batch_sessions).toHaveLength(2);
+  });
+
+  it("an old custom class with no end time saves without error and stays without an end", async () => {
+    store.batch_sessions = [cls(1, "2026-11-03", { custom_time: true, starts_at: iso("2026-11-03", "21:00"), ends_at: null })];
+    const r = await saveSetup(PAGE, form({
+      days: [{ date: "2026-11-03", existingId: "c1", start: "21:00" }],
+    }));
+    expect(r.ok).toBe(true);
+    expect(store.batch_sessions[0].ends_at).toBeNull();
+    expect(store.batch_sessions[0].starts_at).toBe(iso("2026-11-03", "21:00"));
+  });
+
+  it("does not touch the batch cover when it did not change", async () => {
+    store.landing_pages[0].class_cover_url = "https://drive.google.com/thumbnail?id=abc";
+    const r = await saveSetup(PAGE, form({ coverUrl: " https://drive.google.com/thumbnail?id=abc " }));
+    expect(r.ok).toBe(true);
+    expect(h.cover).not.toHaveBeenCalled();
+  });
+
+  it("sets the batch cover when it changed or was cleared", async () => {
+    store.landing_pages[0].class_cover_url = "https://drive.google.com/thumbnail?id=abc";
+    await saveSetup(PAGE, form({ coverUrl: null }));
+    expect(h.cover).toHaveBeenCalledWith(PAGE, null, "admin-1");
   });
 
   it("keeps a class's own time when the form sends it back", async () => {
