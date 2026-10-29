@@ -22,6 +22,10 @@ export type SessionInput = {
   includeAttendanceLink: boolean;
   emailEnabled: boolean;
   emailLeadMinutes: number;
+  endsAt: string | null;
+  speaker: string;
+  customTime: boolean;
+  customZoom: boolean;
 };
 export type GridRow = {
   personId: string;
@@ -36,7 +40,7 @@ export type GridRow = {
 
 const PAGE = 1000;
 const CHUNK = 200;
-const DUP_NUMBER = "Session number already used";
+const DUP_NUMBER = "That class number is already used";
 
 type DbError = { message: string; code?: string } | null;
 type Page = { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: DbError }> };
@@ -46,7 +50,7 @@ function check(what: string, error: DbError): void {
 }
 
 /** Reads every row, 1000 at a time. build() must order by a unique column so pages are stable. */
-async function fetchAll<T>(what: string, build: () => Page): Promise<T[]> {
+export async function fetchAll<T>(what: string, build: () => Page): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await build().range(from, from + PAGE - 1);
@@ -76,7 +80,7 @@ async function enrolledRegs(pageId: string, personId?: string): Promise<Enrolled
   return rows.filter((r): r is EnrolledReg => !!r.person_id);
 }
 
-async function livePersonIds(pageId: string): Promise<string[]> {
+export async function livePersonIds(pageId: string): Promise<string[]> {
   const ids = new Set<string>();
   for (const r of await enrolledRegs(pageId)) if (r.mode === "live") ids.add(r.person_id);
   return Array.from(ids);
@@ -121,6 +125,10 @@ export async function createSession(
         include_attendance_link: input.includeAttendanceLink,
         email_enabled: input.emailEnabled,
         email_lead_minutes: input.emailLeadMinutes,
+        ends_at: input.endsAt,
+        speaker: input.speaker,
+        custom_time: input.customTime,
+        custom_zoom: input.customZoom,
         public_code: generateSessionCode(),
       })
       .select("id")
@@ -129,12 +137,12 @@ export async function createSession(
     if (isDuplicate(error)) {
       // A code collision is retried once with a fresh code; anything else is a duplicate number.
       if (/public_code/.test(error!.message) && attempt === 0) continue;
-      if (/public_code/.test(error!.message)) return { ok: false, message: "Could not create the session. Please try again." };
+      if (/public_code/.test(error!.message)) return { ok: false, message: "Could not create the class. Please try again." };
       return { ok: false, message: DUP_NUMBER };
     }
-    return { ok: false, message: "Could not create the session. Please try again." };
+    return { ok: false, message: "Could not create the class. Please try again." };
   }
-  return { ok: false, message: "Could not create the session. Please try again." };
+  return { ok: false, message: "Could not create the class. Please try again." };
 }
 
 export async function updateSession(
@@ -152,11 +160,15 @@ export async function updateSession(
   if (input.includeAttendanceLink !== undefined) patch.include_attendance_link = input.includeAttendanceLink;
   if (input.emailEnabled !== undefined) patch.email_enabled = input.emailEnabled;
   if (input.emailLeadMinutes !== undefined) patch.email_lead_minutes = input.emailLeadMinutes;
+  if (input.endsAt !== undefined) patch.ends_at = input.endsAt;
+  if (input.speaker !== undefined) patch.speaker = input.speaker;
+  if (input.customTime !== undefined) patch.custom_time = input.customTime;
+  if (input.customZoom !== undefined) patch.custom_zoom = input.customZoom;
   if (input.windowOverride !== undefined) patch.window_override = input.windowOverride;
   if (Object.keys(patch).length === 0) return { ok: true };
   const { error } = await createAdminSupabase().from("batch_sessions").update(patch).eq("id", sessionId);
   if (isDuplicate(error)) return { ok: false, message: DUP_NUMBER };
-  if (error) return { ok: false, message: "Could not save the session. Please try again." };
+  if (error) return { ok: false, message: "Could not save the class. Please try again." };
   return { ok: true };
 }
 
@@ -166,7 +178,9 @@ export async function deleteSession(sessionId: string): Promise<void> {
   check("session delete", error);
 }
 
-export async function getSessionByCode(code: string): Promise<(SessionRow & { batchTitle: string }) | null> {
+export async function getSessionByCode(
+  code: string,
+): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null }) | null> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("batch_sessions").select("*").eq("public_code", code).maybeSingle();
   check("session read", error);
@@ -174,11 +188,12 @@ export async function getSessionByCode(code: string): Promise<(SessionRow & { ba
   const session = data as SessionRow;
   const { data: page, error: pageErr } = await admin
     .from("landing_pages")
-    .select("title")
+    .select("title, class_cover_url")
     .eq("id", session.page_id)
     .maybeSingle();
   check("batch read", pageErr);
-  return { ...session, batchTitle: (page as { title: string } | null)?.title ?? "" };
+  const p = page as { title: string; class_cover_url: string | null } | null;
+  return { ...session, batchTitle: p?.title ?? "", coverUrl: p?.class_cover_url ?? null };
 }
 
 /**

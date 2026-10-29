@@ -3,13 +3,14 @@
 // Recipients are frozen here (like createSend); runEmailSend renders and sends them, one signed link each.
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { buildSessionEmail } from "@/lib/attendance/session-email";
+import { buildFeedbackEmail, buildSessionEmail } from "@/lib/attendance/session-email";
 import { getSessionById } from "@/lib/data/attendance";
+import { attendanceBase } from "@/lib/attendance/links";
 import { freezeRecipients, plan } from "@/lib/data/participant-sends";
 
 export type SessionSendResult =
   | { ok: true; sendId: string; count: number }
-  | { ok: false; reason: "no_zoom" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" };
+  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" };
 
 const TOO_SOON_MS = 60 * 1000;
 
@@ -36,21 +37,48 @@ export async function listSessionSendState(sessionIds: string[]): Promise<Record
  * out by the resolver (mode = live) and their members come only through their lead, so they are out too.
  * Test rows never come back from the resolver; unsubscribed people are skipped by the planner.
  */
-export async function createSessionSend(sessionId: string, kind: "reminder" | "update" = "reminder"): Promise<SessionSendResult> {
+export async function createSessionSend(
+  sessionId: string,
+  kind: "reminder" | "update" | "feedback" = "reminder",
+  opts: { resend?: boolean } = {},
+): Promise<SessionSendResult> {
   const session = await getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
-  if (session.zoom_url.trim() === "") return { ok: false, reason: "no_zoom" };
+  // The feedback email needs a feedback link, not a Zoom link.
+  if (kind !== "feedback" && session.zoom_url.trim() === "") return { ok: false, reason: "no_zoom" };
   if (kind === "reminder") {
     if (new Date(session.starts_at).getTime() <= Date.now()) return { ok: false, reason: "started" };
     if (!session.email_enabled) return { ok: false, reason: "disabled" };
   }
   const admin = createAdminSupabase();
-  if (kind === "update") {
+  let feedbackUrl = "";
+  if (kind === "feedback") {
+    if (!session.feedback_session_id) return { ok: false, reason: "no_feedback_link" };
+    const { data: fs, error: fsErr } = await admin.from("feedback_sessions").select("slug").eq("id", session.feedback_session_id).maybeSingle();
+    if (fsErr) throw new Error(`feedback link read failed: ${fsErr.message}`);
+    const slug = (fs as { slug: string | null } | null)?.slug;
+    if (!slug) return { ok: false, reason: "no_feedback_link" };
+    feedbackUrl = `${attendanceBase()}/feedback/${slug}`;
+  }
+  if (kind === "update" || kind === "feedback") {
     const since = new Date(Date.now() - TOO_SOON_MS).toISOString();
     const { data: recent, error: recentErr } = await admin.from("participant_sends").select("id")
-      .eq("session_id", sessionId).eq("session_kind", "update").gte("created_at", since);
-    if (recentErr) throw new Error(`recent update check failed: ${recentErr.message}`);
+      .eq("session_id", sessionId).eq("session_kind", kind).gte("created_at", since);
+    if (recentErr) throw new Error(`recent send check failed: ${recentErr.message}`);
     if ((recent ?? []).length > 0) return { ok: false, reason: "too_soon" };
+  }
+  if (kind === "feedback") {
+    // An earlier feedback send for this class that still has people waiting (pending or being sent) must finish first.
+    const { data: earlier, error: earlierErr } = await admin.from("participant_sends").select("id")
+      .eq("session_id", sessionId).eq("session_kind", "feedback");
+    if (earlierErr) throw new Error(`earlier send check failed: ${earlierErr.message}`);
+    const ids = ((earlier ?? []) as { id: string }[]).map((r) => r.id);
+    if (ids.length > 0) {
+      const { data: waiting, error: waitErr } = await admin.from("participant_send_recipients").select("id")
+        .in("send_id", ids).in("state", ["pending", "claimed"]).limit(1);
+      if (waitErr) throw new Error(`waiting recipients check failed: ${waitErr.message}`);
+      if ((waiting ?? []).length > 0) return { ok: false, reason: "still_sending" };
+    }
   }
   if (!process.env.BREVO_API_KEY_PARTICIPANTS) return { ok: false, reason: "not_set_up" };
 
@@ -62,7 +90,24 @@ export async function createSessionSend(sessionId: string, kind: "reminder" | "u
   });
   if (planned.send.length === 0) return { ok: false, reason: "no_recipients" };
 
-  const msg = buildSessionEmail(session, kind);
+  let batchTitle = "";
+  if (kind === "feedback") {
+    const { data: page } = await admin.from("landing_pages").select("title").eq("id", session.page_id).maybeSingle();
+    batchTitle = (page as { title: string | null } | null)?.title ?? "";
+  }
+  let msg: { subject: string; body: string };
+  if (kind === "feedback") {
+    // The link is the same for everyone; the greeting is filled in per person when the email is sent.
+    const fb = buildFeedbackEmail({
+      batchTitle,
+      classTitle: session.title.trim() !== "" ? session.title.trim() : `Session ${session.number}`,
+      feedbackUrl,
+      firstName: "{{first_name}}",
+    });
+    msg = { subject: fb.subject, body: fb.text };
+  } else {
+    msg = buildSessionEmail(session, kind, opts);
+  }
   const { data: sendRow, error: sendErr } = await admin.from("participant_sends").insert({
     page_id: session.page_id,
     channel: "email",

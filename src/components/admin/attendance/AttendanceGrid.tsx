@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { summarizeAttendance } from "@/lib/classes/summary";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import { saveMinPct, toggleMark } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
@@ -11,12 +12,14 @@ const quietBtn =
   "inline-flex items-center justify-center gap-1.5 px-3 py-2 max-md:min-h-11 rounded-lg font-headline text-xs font-medium bg-pz-surface-container-low text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function AttendanceGrid({
-  pageId, sessions, rows, minPct,
+  pageId, sessions, rows, minPct, scoped = false,
 }: {
   pageId: string;
   sessions: SessionRow[];
   rows: GridRow[];
   minPct: number;
+  /** One class only: no heading or minimum field, and no whole-batch percentage columns. */
+  scoped?: boolean;
 }) {
   const [min, setMin] = useState(String(minPct));
   const [busy, startTransition] = useTransition();
@@ -50,10 +53,12 @@ export function AttendanceGrid({
     });
   }
 
+  const summary = summarizeAttendance(rows, minPct);
+
   return (
     <section className="space-y-3">
-      <h2 className="font-headline text-lg font-bold text-pz-on-surface">Attendance</h2>
-      <div className="flex flex-wrap items-end gap-2">
+      {!scoped && <h2 className="font-headline text-lg font-bold text-pz-on-surface">Attendance</h2>}
+      {!scoped && <div className="flex flex-wrap items-end gap-2">
         <div>
           <label htmlFor="min-pct" className="block text-xs font-headline font-bold text-pz-on-surface-variant mb-1">
             Minimum attendance to pass (%)
@@ -64,15 +69,22 @@ export function AttendanceGrid({
           />
         </div>
         <button type="button" className={quietBtn} onClick={saveMin} disabled={busy}>Save minimum</button>
-      </div>
-      <p className="text-xs text-pz-on-surface-variant">
-        Only live students are listed. Click a box to mark a student present or take it off. The percentage counts sessions that have already started.
+      </div>}
+      {!scoped && summary.averagePct !== null && (
+        <p className="text-sm font-medium text-pz-on-surface">
+          Batch average {summary.averagePct}%. {summary.meetingMin} of {summary.total} meet the minimum.
+        </p>
+      )}
+      <p className={cn("text-pz-on-surface-variant", scoped ? "text-base" : "text-xs")}>
+        {scoped
+          ? "Only live students are listed. Tap a box to mark a student present or take it off."
+          : "Only live students are listed. Click a box to mark a student present or take it off. The percentage counts sessions that have already started."}
       </p>
 
       {rows.length === 0 ? (
         <p className="text-sm text-pz-on-surface-variant">No live students in this batch yet.</p>
       ) : sessions.length === 0 ? (
-        <p className="text-sm text-pz-on-surface-variant">Add a session above to start taking attendance.</p>
+        <p className="text-sm text-pz-on-surface-variant">Add a class to start taking attendance.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-pz-outline-variant/60">
           <table className="w-full text-sm">
@@ -82,8 +94,8 @@ export function AttendanceGrid({
                 {sessions.map((s) => (
                   <th key={s.id} className="px-3 py-2 text-center" title={s.title || `Session ${s.number}`}>S{s.number}</th>
                 ))}
-                <th className="px-3 py-2 text-right">Attended</th>
-                <th className="px-3 py-2 text-center">Meets minimum</th>
+                {!scoped && <th className="px-3 py-2 text-right">Attended</th>}
+                {!scoped && <th className="px-3 py-2 text-center">Meets minimum</th>}
               </tr>
             </thead>
             <tbody>
@@ -114,16 +126,16 @@ export function AttendanceGrid({
                       </td>
                     );
                   })}
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  {!scoped && <td className="px-3 py-2 text-right tabular-nums">
                     {r.pct === null ? "No session yet" : `${r.pct}% (${r.marked} of ${r.started})`}
-                  </td>
-                  <td className="px-3 py-2 text-center">
+                  </td>}
+                  {!scoped && <td className="px-3 py-2 text-center">
                     {r.pct === null ? "" : r.meetsMin ? (
                       <span className="text-emerald-700 dark:text-emerald-300 font-bold">Yes</span>
                     ) : (
                       <span className="text-pz-on-surface-variant">No</span>
                     )}
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
