@@ -47,6 +47,7 @@ function escapeHtml(value: string): string {
 
 /**
  * The email that asks students for feedback on one class. Short and plain: a greeting, one line, one button.
+ * The shared sender currently stores and sends `text`; the html is for preview/future use.
  * Every value is HTML-escaped. `text` is the plain version (the link on its own line).
  */
 export function buildFeedbackEmail(source: {

@@ -10,7 +10,7 @@ import { freezeRecipients, plan } from "@/lib/data/participant-sends";
 
 export type SessionSendResult =
   | { ok: true; sendId: string; count: number }
-  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" };
+  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" };
 
 const TOO_SOON_MS = 60 * 1000;
 
@@ -67,6 +67,19 @@ export async function createSessionSend(
     if (recentErr) throw new Error(`recent send check failed: ${recentErr.message}`);
     if ((recent ?? []).length > 0) return { ok: false, reason: "too_soon" };
   }
+  if (kind === "feedback") {
+    // An earlier feedback send for this class that still has people waiting (pending or being sent) must finish first.
+    const { data: earlier, error: earlierErr } = await admin.from("participant_sends").select("id")
+      .eq("session_id", sessionId).eq("session_kind", "feedback");
+    if (earlierErr) throw new Error(`earlier send check failed: ${earlierErr.message}`);
+    const ids = ((earlier ?? []) as { id: string }[]).map((r) => r.id);
+    if (ids.length > 0) {
+      const { data: waiting, error: waitErr } = await admin.from("participant_send_recipients").select("id")
+        .in("send_id", ids).in("state", ["pending", "claimed"]).limit(1);
+      if (waitErr) throw new Error(`waiting recipients check failed: ${waitErr.message}`);
+      if ((waiting ?? []).length > 0) return { ok: false, reason: "still_sending" };
+    }
+  }
   if (!process.env.BREVO_API_KEY_PARTICIPANTS) return { ok: false, reason: "not_set_up" };
 
   const { planned, summary } = await plan({
@@ -77,11 +90,16 @@ export async function createSessionSend(
   });
   if (planned.send.length === 0) return { ok: false, reason: "no_recipients" };
 
+  let batchTitle = "";
+  if (kind === "feedback") {
+    const { data: page } = await admin.from("landing_pages").select("title").eq("id", session.page_id).maybeSingle();
+    batchTitle = (page as { title: string | null } | null)?.title ?? "";
+  }
   let msg: { subject: string; body: string };
   if (kind === "feedback") {
     // The link is the same for everyone; the greeting is filled in per person when the email is sent.
     const fb = buildFeedbackEmail({
-      batchTitle: "",
+      batchTitle,
       classTitle: session.title.trim() !== "" ? session.title.trim() : `Session ${session.number}`,
       feedbackUrl,
       firstName: "{{first_name}}",

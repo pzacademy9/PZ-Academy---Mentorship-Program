@@ -103,7 +103,32 @@ describe("createSessionSend feedback", () => {
     expect(await createSessionSend(SESS, "feedback")).toEqual({ ok: false, reason: "too_soon" });
     expect(store.participant_sends).toHaveLength(1);
     store.participant_sends[0].created_at = new Date(Date.now() - 61_000).toISOString();
+    expect(await createSessionSend(SESS, "feedback")).toEqual({ ok: false, reason: "still_sending" });
+    for (const r of store.participant_send_recipients) r.state = "sent";
     expect(await createSessionSend(SESS, "feedback")).toMatchObject({ ok: true });
+  });
+  it("refuses while an older feedback send for this class still has people waiting", async () => {
+    store.participant_sends.push({ id: "old", session_id: SESS, session_kind: "feedback", created_at: new Date(Date.now() - 600_000).toISOString() });
+    store.participant_send_recipients.push({ id: "r1", send_id: "old", state: "sent" }, { id: "r2", send_id: "old", state: "pending" });
+    expect(await createSessionSend(SESS, "feedback")).toEqual({ ok: false, reason: "still_sending" });
+    store.participant_send_recipients[1].state = "claimed";
+    expect(await createSessionSend(SESS, "feedback")).toEqual({ ok: false, reason: "still_sending" });
+    expect(store.participant_sends).toHaveLength(1);
+  });
+  it("allows again once the earlier feedback send is fully sent", async () => {
+    store.participant_sends.push({ id: "old", session_id: SESS, session_kind: "feedback", created_at: new Date(Date.now() - 600_000).toISOString() });
+    store.participant_send_recipients.push({ id: "r1", send_id: "old", state: "sent" }, { id: "r2", send_id: "old", state: "failed" });
+    expect(await createSessionSend(SESS, "feedback")).toMatchObject({ ok: true });
+  });
+  it("another class's unfinished send does not block this class", async () => {
+    store.participant_sends.push({ id: "other", session_id: "other-session", session_kind: "feedback", created_at: new Date(Date.now() - 600_000).toISOString() });
+    store.participant_send_recipients.push({ id: "r1", send_id: "other", state: "pending" });
+    expect(await createSessionSend(SESS, "feedback")).toMatchObject({ ok: true });
+  });
+  it("puts the batch name in the email", async () => {
+    store.landing_pages[0].title = "Pharmacology Batch 4";
+    await createSessionSend(SESS, "feedback");
+    expect(store.participant_sends[0].body).toContain("Pharmacology Batch 4");
   });
   it("does not need a Zoom link and is allowed after the class started", async () => {
     setup({ zoom_url: "", email_enabled: false });
