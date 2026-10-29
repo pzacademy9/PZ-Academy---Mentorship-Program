@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { getSessionByCode, personFirstName } from "@/lib/data/attendance";
 import { checkinWindow, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
 import { checkinSecret, verifyCheckinToken } from "@/lib/attendance/link-token";
+import { isAllowedCoverUrl } from "@/lib/classes/cover";
+import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import { CheckinForm } from "@/components/attendance/CheckinForm";
 import { checkInPersonal, checkInShared } from "./actions";
 
@@ -15,11 +17,14 @@ const WINDOW_TEXT = {
   closed: "Check-in has closed.",
 } as const;
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, coverSrc }: { children: React.ReactNode; coverSrc?: string }) {
   return (
     <main className="min-h-screen bg-pz-offwhite px-4 py-12">
       <div className="mx-auto max-w-xl">
         <p className="text-sm font-semibold text-pz-mid">PZ Academy</p>
+        {coverSrc ? (
+          <img src={coverSrc} alt="" className="mt-3 aspect-[16/9] w-full rounded-lg object-cover" />
+        ) : null}
         {children}
       </div>
     </main>
@@ -62,8 +67,11 @@ export default async function AttendPage({
   const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date());
   const token = firstName !== null ? rawToken : undefined;
 
+  // Public page: only a cover on an allowed host is rendered.
+  const coverSrc = isAllowedCoverUrl(session.coverUrl) ? coverProxyUrl(session.coverUrl) : undefined;
+
   return (
-    <Shell>
+    <Shell coverSrc={coverSrc}>
       <h1 className="mt-1 font-poppins text-2xl font-bold text-pz-deep">Session check-in</h1>
       {session.batchTitle ? <p className="mt-1 text-pz-mid">{session.batchTitle}</p> : null}
       <p className="mt-4 font-semibold text-pz-deep">{session.title}</p>
