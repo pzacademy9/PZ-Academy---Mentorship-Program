@@ -67,7 +67,7 @@ describe("mapSheetRow", () => {
     expect(ok({ "Expected Amount": "PKR. 1,200" }).expectedAmount).toBe(1200);
     expect(ok({ "Expected Amount": "INR 1,200" }).expectedAmount).toBe(1200);
     expect(ok({ "Expected Amount": "4800.50" }).expectedAmount).toBe(4800.5);
-    expect(reason({ "Expected Amount": "" })).toBe("bad-amount");
+    expect(ok({ "Expected Amount": "" }).expectedAmount).toBe(0);
     expect(reason({ "Expected Amount": "abc" })).toBe("bad-amount");
   });
   it("pins the PK/PKR fallback for a blank or unknown Source", () => {

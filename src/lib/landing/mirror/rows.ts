@@ -78,8 +78,9 @@ export function mapSheetRow(header: string[], cells: string[]): MapResult {
   const rt = get("Row Type").toLowerCase();
   const rowType = rt === "group lead" ? "lead" : rt === "group member" ? "member" : "individual";
   const amt = parseSheetAmount(get("Amount"));
-  const amountMatch = /\d[\d,]*(?:\.\d+)?/.exec(get("Expected Amount"));
-  const expected = amountMatch ? Number(amountMatch[0].replace(/,/g, "")) : NaN;
+  const expectedText = get("Expected Amount"); // blank (Free and member rows) means 0
+  const amountMatch = /\d[\d,]*(?:\.\d+)?/.exec(expectedText);
+  const expected = expectedText === "" ? 0 : amountMatch ? Number(amountMatch[0].replace(/,/g, "")) : NaN;
   if (!Number.isFinite(expected)) return { ok: false, reason: "bad-amount" };
   const region = regionFromSource(get("Source"));
 
