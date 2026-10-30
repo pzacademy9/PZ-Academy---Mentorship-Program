@@ -385,6 +385,7 @@ export type Database = {
       }
       batch_sessions: {
         Row: {
+          audience: Json | null
           created_at: string | null
           custom_time: boolean
           custom_zoom: boolean
@@ -409,6 +410,7 @@ export type Database = {
           zoom_url: string
         }
         Insert: {
+          audience?: Json | null
           created_at?: string | null
           custom_time?: boolean
           custom_zoom?: boolean
@@ -433,6 +435,7 @@ export type Database = {
           zoom_url?: string
         }
         Update: {
+          audience?: Json | null
           created_at?: string | null
           custom_time?: boolean
           custom_zoom?: boolean

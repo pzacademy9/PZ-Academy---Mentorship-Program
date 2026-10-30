@@ -10,6 +10,7 @@ import {
   meetsMinimum,
   type WindowOverride,
 } from "@/lib/attendance/rules";
+import { audienceFromJson, type Audience } from "@/lib/classes/audience";
 
 export type SessionRow = Tables<"batch_sessions">;
 export type SessionInput = {
@@ -170,6 +171,17 @@ export async function updateSession(
   if (isDuplicate(error)) return { ok: false, message: DUP_NUMBER };
   if (error) return { ok: false, message: "Could not save the class. Please try again." };
   return { ok: true };
+}
+
+/** Who this class emails. null = nothing stored (or unreadable), which means send nothing. */
+export function getSessionAudience(session: SessionRow): Audience | null {
+  return audienceFromJson(session.audience);
+}
+
+/** Stores the audience on one class; null clears it. Touches only the audience column. */
+export async function setSessionAudience(sessionId: string, audience: Audience | null): Promise<void> {
+  const { error } = await createAdminSupabase().from("batch_sessions").update({ audience }).eq("id", sessionId);
+  check("session audience update", error);
 }
 
 /** Deletes the session; its marks go with it (on delete cascade). */
