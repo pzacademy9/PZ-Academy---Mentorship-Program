@@ -131,12 +131,12 @@ describe("PZ ID column and batch ID tools", () => {
   });
   it("has the download and copy-link buttons", () => {
     setup({ publicSlug: "ppc-batch-1" });
-    expect(screen.getByRole("button", { name: "Download ID list (PDF)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Download IDs/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy public ID page link" })).toBeTruthy();
   });
   it("hides the copy-link button when the page has no public link (draft)", () => {
     setup({ publicSlug: null });
-    expect(screen.getByRole("button", { name: "Download ID list (PDF)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Download IDs/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Copy public ID page link" })).toBeNull();
   });
   it("copies the public ID page link", async () => {

@@ -15,6 +15,7 @@ import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
 import { RECEIVED_SENT, type ManualEmailKind } from "@/lib/landing/registration/manual-kinds";
 import { resolveAccess } from "@/lib/data/landing-enrollment";
 import { listMessagesForRegistrations } from "@/lib/data/participant-sends";
+import { optionPatterns } from "@/lib/classes/audience";
 
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
 type ApplyArgs = Database["public"]["Functions"]["landing_apply_status"]["Args"];
@@ -30,6 +31,8 @@ export interface RegistrationListFilters {
   q?: string;
   region?: string;
   optionLabel?: string;
+  /** Any of these matches: "full" for the full course, or a module number. Empty or missing adds no filter. */
+  optionScopes?: ("full" | number)[];
   page?: number;
 }
 export interface RegistrationListRow {
@@ -154,6 +157,11 @@ export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query:
   if (f.mode) qy = qy.eq("mode", f.mode);
   if (f.region) qy = qy.eq("region", f.region);
   if (f.optionLabel) qy = qy.eq("option_label", f.optionLabel);
+  if (f.optionScopes && f.optionScopes.length > 0) {
+    // Quoted because the module patterns contain a comma, which would otherwise split the or() list.
+    const entries = f.optionScopes.flatMap((s) => optionPatterns(s)).map((pat) => `option_label.ilike."${pat}"`);
+    qy = qy.or(entries.join(","));
+  }
   if (f.agentId && scope.kind === "all") qy = qy.eq("agent_id", f.agentId);
   const q = f.q?.trim();
   if (q) {

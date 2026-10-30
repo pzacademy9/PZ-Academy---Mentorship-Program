@@ -17,7 +17,7 @@ vi.mock("@/lib/data/participant-sends", () => ({ listMessagesForRegistrations: m
 const meta = vi.hoisted(() => ({ getMetaPurchase: vi.fn() }));
 vi.mock("@/lib/data/landing-meta-events", () => ({ getMetaPurchase: meta.getMetaPurchase }));
 
-import { getRegistrationPageSlug, listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
+import { applyHeadFilters, getRegistrationPageSlug, listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
 const reg = (over: Record<string, unknown>) => ({
   page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com",
@@ -493,5 +493,35 @@ describe("filter options", () => {
       { id: "adm", full_name: "Admin Person", role: "admin" },
     ];
     expect(await listRegistrationAgentOptions()).toEqual([{ id: "ag1", name: "Agent One" }]);
+  });
+});
+
+describe("applyHeadFilters optionScopes", () => {
+  function scopeOrs(scopes?: ("full" | number)[]) {
+    const ors: string[] = [];
+    const q: Record<string, unknown> = {
+      in: () => q,
+      eq: () => q,
+      or: (expr: string) => { ors.push(expr); return q; },
+    };
+    applyHeadFilters(q as { in: unknown; eq: unknown; or: unknown }, { kind: "all" }, { optionScopes: scopes });
+    return ors;
+  }
+  it("full adds the full-course pattern", () => {
+    expect(scopeOrs(["full"])).toEqual(['option_label.ilike."%full course%"']);
+  });
+  it("a module adds its three boundary patterns, quoted so the comma does not split the list", () => {
+    expect(scopeOrs([1])).toEqual(['option_label.ilike."%module%:%m1,%",option_label.ilike."%module%:%m1 %",option_label.ilike."%module%:%m1"']);
+  });
+  it("full plus a module carries both sets in one or()", () => {
+    const ors = scopeOrs(["full", 1]);
+    expect(ors).toHaveLength(1);
+    expect(ors[0]).toContain('"%full course%"');
+    expect(ors[0]).toContain('"%module%:%m1,%"');
+    expect(ors[0]).toContain('"%module%:%m1"');
+  });
+  it("adds no filter for undefined or an empty list", () => {
+    expect(scopeOrs(undefined)).toEqual([]);
+    expect(scopeOrs([])).toEqual([]);
   });
 });

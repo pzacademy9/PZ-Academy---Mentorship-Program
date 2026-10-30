@@ -7,6 +7,8 @@ export interface RegistrationQuery {
   agentId?: string;
   region?: string;
   optionLabel?: string;
+  /** Comma-separated: "full", module numbers 1-12, e.g. "full,1". */
+  optionScopes?: string;
   q?: string;
   p?: number;
 }
@@ -20,6 +22,7 @@ export function registrationHref(basePath: string, current: RegistrationQuery, o
   if (merged.agentId) sp.set("agentId", merged.agentId);
   if (merged.region) sp.set("region", merged.region);
   if (merged.optionLabel) sp.set("optionLabel", merged.optionLabel);
+  if (merged.optionScopes) sp.set("optionScopes", merged.optionScopes);
   if (merged.q) sp.set("q", merged.q);
   if (merged.p && merged.p > 1) sp.set("p", String(merged.p));
   const qs = sp.toString();
