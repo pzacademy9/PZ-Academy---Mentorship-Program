@@ -117,6 +117,8 @@ export function StatusChangeControl({
     }
     setOpen(false);
     toast.success(`${studentName} marked ${REGISTRATION_STATUS_LABELS[choice].toLowerCase()}.`);
+    const okBody = (await res.json().catch(() => null)) as { warning?: unknown } | null;
+    if (typeof okBody?.warning === "string") toast.warning(okBody.warning, { duration: 10000 });
     router.refresh();
     if (choice !== status) {
       awaiting.current = choice;

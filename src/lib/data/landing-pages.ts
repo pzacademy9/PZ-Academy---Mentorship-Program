@@ -15,6 +15,7 @@ type Row = Omit<
   Database["public"]["Tables"]["landing_pages"]["Row"],
   "sheet_id" | "drive_folder_id" | "ref_prefix" | "sheet_sync_state" | "sheet_last_scanned_at" | "sheet_sync_waiting" | "attendance_min_pct"
   | "class_default_start" | "class_default_end" | "class_default_zoom" | "class_cover_url" | "feedback_program_id"
+  | "mirror_sheet_id" | "mirror_last_run_at" | "mirror_last_result" | "mirror_running_at"
 >;
 
 export interface LandingPage {

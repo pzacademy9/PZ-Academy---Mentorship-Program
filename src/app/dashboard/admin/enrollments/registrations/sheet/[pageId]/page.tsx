@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listRegistrationPageOptions } from "@/lib/data/landing-registration-admin";
-import { getPageSheetInfo } from "@/lib/data/landing-event-sheet";
+import { getPageSheetInfo, getPageMirrorInfo } from "@/lib/data/landing-event-sheet";
 import { getSheetSyncStatus } from "@/lib/data/landing-sheet-sync";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { SheetSyncPanel } from "@/components/admin/registrations/SheetSyncPanel";
+import { MirrorPanel } from "@/components/admin/registrations/MirrorPanel";
 
 export const metadata = { title: "Sheet sync — PZ Academy" };
 
@@ -28,10 +29,15 @@ export default async function AdminSheetSyncPage({ params }: { params: Promise<{
   const hasSheet = Boolean(info?.sheetId);
   const status = hasSheet ? await getSheetSyncStatus(pageId) : null;
 
+  const mirror = await getPageMirrorInfo(pageId);
+
   return (
     <div className="space-y-6">
       <EnrollmentSourceTabs active="page" />
       <SheetSyncPanel pageId={pageId} pageTitle={campaign.title} hasSheet={hasSheet} status={status} />
+      {mirror?.sheetId ? (
+        <MirrorPanel pageId={pageId} lastRunAt={mirror.lastRunAt} lastResult={mirror.lastResult} />
+      ) : null}
     </div>
   );
 }

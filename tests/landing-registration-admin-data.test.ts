@@ -14,6 +14,10 @@ vi.mock("@/lib/data/landing-email-log", () => ({ listEmailLog: enr.listEmailLog 
 const msgs = vi.hoisted(() => ({ listMessagesForRegistrations: vi.fn() }));
 vi.mock("@/lib/data/participant-sends", () => ({ listMessagesForRegistrations: msgs.listMessagesForRegistrations }));
 
+const pub = vi.hoisted(() => ({ getRegistrablePageById: vi.fn() }));
+vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePageById: pub.getRegistrablePageById }));
+import { ppcConfig } from "./fixtures/landing-registration";
+
 const meta = vi.hoisted(() => ({ getMetaPurchase: vi.fn() }));
 vi.mock("@/lib/data/landing-meta-events", () => ({ getMetaPurchase: meta.getMetaPurchase }));
 
@@ -523,5 +527,64 @@ describe("applyHeadFilters optionScopes", () => {
   it("adds no filter for undefined or an empty list", () => {
     expect(scopeOrs(undefined)).toEqual([]);
     expect(scopeOrs([])).toEqual([]);
+  });
+});
+
+describe("changeRegistrationStatus Paid group-link warning", () => {
+  const WARNING = "Marked Paid. The email will go out without a WhatsApp group button, because no group link applies to this student. Check that the batch has a group link and that the student's course option is set.";
+  beforeEach(() => {
+    pub.getRegistrablePageById.mockReset();
+    pub.getRegistrablePageById.mockResolvedValue({ registration: ppcConfig() });
+  });
+  const setRow = (id: string, over: Record<string, unknown>) => {
+    const r = store.landing_registrations.find((x) => x.id === id)!;
+    Object.assign(r, over);
+  };
+
+  it("warns for a live Paid change when no group link applies", async () => {
+    setRow("a", { option_keys: ["unknown-key"] });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r).toMatchObject({ ok: true, warning: WARNING });
+    expect(pub.getRegistrablePageById).toHaveBeenCalledWith("pg1");
+  });
+  it("does not warn for a recorded student", async () => {
+    setRow("a", { mode: "recorded", option_keys: ["unknown-key"] });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r.ok).toBe(true);
+    expect(r).not.toHaveProperty("warning");
+  });
+  it("does not warn, or look up the page, for other statuses", async () => {
+    setRow("a", { option_keys: ["unknown-key"] });
+    const u = await changeRegistrationStatus({ registrationId: "a", to: "underpaid", expectedFrom: "pending", amount: 2000, actor: admin });
+    expect(u.ok).toBe(true);
+    expect(u).not.toHaveProperty("warning");
+    setRow("a", { status: "pending" });
+    const s = await changeRegistrationStatus({ registrationId: "a", to: "reserved", expectedFrom: "pending", actor: admin });
+    expect(s.ok).toBe(true);
+    expect(s).not.toHaveProperty("warning");
+    const p = await changeRegistrationStatus({ registrationId: "b", to: "pending", expectedFrom: "paid", actor: admin });
+    expect(p.ok).toBe(true);
+    expect(p).not.toHaveProperty("warning");
+    expect(pub.getRegistrablePageById).not.toHaveBeenCalled();
+  });
+  it("does not warn, and still succeeds, when the lookup throws", async () => {
+    setRow("a", { option_keys: ["unknown-key"] });
+    pub.getRegistrablePageById.mockRejectedValue(new Error("boom"));
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r.ok).toBe(true);
+    expect(r).not.toHaveProperty("warning");
+  });
+  it("does not warn when the page is not found", async () => {
+    setRow("a", { option_keys: ["unknown-key"] });
+    pub.getRegistrablePageById.mockResolvedValue(null);
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r.ok).toBe(true);
+    expect(r).not.toHaveProperty("warning");
+  });
+  it("does not warn when a valid group link applies", async () => {
+    setRow("a", { option_keys: ["full"] });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r.ok).toBe(true);
+    expect(r).not.toHaveProperty("warning");
   });
 });

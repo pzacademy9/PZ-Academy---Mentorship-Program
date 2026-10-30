@@ -2003,6 +2003,48 @@ export type Database = {
           },
         ]
       }
+      landing_mirror_rows: {
+        Row: {
+          last_amount: number | null
+          last_seen_at: string
+          last_status: string
+          page_id: string
+          registration_id: string
+          row_key: string
+        }
+        Insert: {
+          last_amount?: number | null
+          last_seen_at?: string
+          last_status: string
+          page_id: string
+          registration_id: string
+          row_key: string
+        }
+        Update: {
+          last_amount?: number | null
+          last_seen_at?: string
+          last_status?: string
+          page_id?: string
+          registration_id?: string
+          row_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_mirror_rows_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landing_mirror_rows_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "landing_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_page_variants: {
         Row: {
           created_at: string
@@ -2081,6 +2123,10 @@ export type Database = {
           sheet_last_scanned_at: string | null
           sheet_sync_state: string
           sheet_sync_waiting: number
+          mirror_sheet_id: string | null
+          mirror_last_run_at: string | null
+          mirror_last_result: Json | null
+          mirror_running_at: string | null
         }
         Insert: {
           attendance_min_pct?: number
@@ -2109,6 +2155,10 @@ export type Database = {
           sheet_last_scanned_at?: string | null
           sheet_sync_state?: string
           sheet_sync_waiting?: number
+          mirror_sheet_id?: string | null
+          mirror_last_run_at?: string | null
+          mirror_last_result?: Json | null
+          mirror_running_at?: string | null
         }
         Update: {
           attendance_min_pct?: number
@@ -2137,6 +2187,10 @@ export type Database = {
           sheet_last_scanned_at?: string | null
           sheet_sync_state?: string
           sheet_sync_waiting?: number
+          mirror_sheet_id?: string | null
+          mirror_last_run_at?: string | null
+          mirror_last_result?: Json | null
+          mirror_running_at?: string | null
         }
         Relationships: [
           {
