@@ -18,7 +18,17 @@ const STATUSES = ["pending", "reserved", "underpaid", "paid", "free"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DETAIL_BASE = "/dashboard/admin/enrollments/registrations";
 
-type Params = { status?: string; mode?: string; q?: string; region?: string; optionLabel?: string; p?: string };
+function parseScopes(raw: string | undefined): ("full" | number)[] | undefined {
+  const out: ("full" | number)[] = [];
+  for (const part of (raw ?? "").split(",")) {
+    const t = part.trim().toLowerCase();
+    const v: "full" | number | null = t === "full" ? "full" : /^\d{1,2}$/.test(t) && Number(t) >= 1 && Number(t) <= 12 ? Number(t) : null;
+    if (v !== null && !out.includes(v)) out.push(v);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+type Params = { status?: string; mode?: string; q?: string; region?: string; optionLabel?: string; optionScopes?: string; p?: string };
 
 export default async function AdminCampaignRegistrationsPage({
   params,
@@ -45,6 +55,7 @@ export default async function AdminCampaignRegistrationsPage({
     q: sp.q?.trim() || undefined,
     region: sp.region || undefined,
     optionLabel: sp.optionLabel || undefined,
+    optionScopes: parseScopes(sp.optionScopes),
     page: Number.isFinite(p) && p > 1 ? p : 1,
   };
 
@@ -61,6 +72,7 @@ export default async function AdminCampaignRegistrationsPage({
     q: filters.q,
     region: filters.region,
     optionLabel: filters.optionLabel,
+    optionScopes: filters.optionScopes?.join(","),
     p: filters.page,
   };
   // What "select everyone in this filter" stores: the filters without the page number.

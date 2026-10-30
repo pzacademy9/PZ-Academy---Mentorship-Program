@@ -317,7 +317,7 @@ describe("attendance card actions", () => {
   });
 
   it("shows when no reminder has gone out yet", () => {
-    panel(summary());
+    panel(summary(), session({ audience: { mode: "live", modules: "all" } } as Partial<SessionRow>));
     expect(screen.getByTestId("attendance-card").textContent).toMatch(/Reminder email not sent yet/);
   });
 

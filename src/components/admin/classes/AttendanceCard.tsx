@@ -14,6 +14,7 @@ import {
   emailUpdatedTime, markEveryonePresent, resendClassDetails, sendReminderNow, setOverride, type ActionResult,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
+import { AudiencePicker } from "./AudiencePicker";
 import { emailStatusLine } from "./email-status";
 import { cardCls, quietBtn } from "./styles";
 
@@ -108,6 +109,7 @@ export function AttendanceCard({
           Email to students
         </button>
       </div>
+      <AudiencePicker pageId={pageId} sessionId={session.id} saved={session.audience} />
 
       <div className="rounded-lg bg-pz-surface-container-low p-4">
         <p className="text-base text-pz-on-surface-variant">

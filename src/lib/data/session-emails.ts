@@ -4,13 +4,14 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { buildFeedbackEmail, buildSessionEmail } from "@/lib/attendance/session-email";
-import { getSessionById } from "@/lib/data/attendance";
+import { getSessionAudience, getSessionById } from "@/lib/data/attendance";
+import { matchAudience, parseOption } from "@/lib/classes/audience";
 import { attendanceBase } from "@/lib/attendance/links";
 import { freezeRecipients, plan } from "@/lib/data/participant-sends";
 
 export type SessionSendResult =
   | { ok: true; sendId: string; count: number }
-  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" };
+  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" | "no_audience" };
 
 const TOO_SOON_MS = 60 * 1000;
 
@@ -44,6 +45,9 @@ export async function createSessionSend(
 ): Promise<SessionSendResult> {
   const session = await getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
+  // A class with no chosen audience sends nothing, for every kind of email.
+  const audience = getSessionAudience(session);
+  if (!audience) return { ok: false, reason: "no_audience" };
   // The feedback email needs a feedback link, not a Zoom link.
   if (kind !== "feedback" && session.zoom_url.trim() === "") return { ok: false, reason: "no_zoom" };
   if (kind === "reminder") {
@@ -85,8 +89,13 @@ export async function createSessionSend(
   const { planned, summary } = await plan({
     pageId: session.page_id,
     channel: "email",
-    filters: { mode: "live" },
-    keep: (c) => c.status === "paid" || c.status === "free",
+    // Same rule as the class preview: someone with no PZ ID yet is not emailed.
+    requirePzId: true,
+    // A live-only audience can be narrowed up front; "any" must be able to reach recorded students.
+    filters: audience.mode === "live" ? { mode: "live" } : {},
+    keep: (c) =>
+      (c.status === "paid" || c.status === "free") &&
+      matchAudience(parseOption(c.optionLabel ?? ""), audience).include,
   });
   if (planned.send.length === 0) return { ok: false, reason: "no_recipients" };
 

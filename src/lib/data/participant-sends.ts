@@ -9,7 +9,7 @@ import { resolveCandidates } from "@/lib/data/participant-campaigns";
 import { getOrCreateToken, listUnsubscribed } from "@/lib/data/participant-prefs";
 import { sendParticipantEmail } from "@/lib/brevo-participants";
 import { planRecipients, summarize } from "@/lib/landing/participants/recipients";
-import { renderParticipantTags, usesPortalLink, type SessionTagContext } from "@/lib/landing/participants/merge";
+import { renderParticipantTags, usesPortalLink, usesPzId, type SessionTagContext } from "@/lib/landing/participants/merge";
 import { buildParticipantHtml } from "@/lib/landing/participants/email-html";
 import type { Candidate, Channel, Summary } from "@/lib/landing/participants/types";
 import { checkinSecret, signCheckinToken } from "@/lib/attendance/link-token";
@@ -77,16 +77,24 @@ function check(what: string, error: { message: string } | null): void {
 }
 
 /** `keep` narrows the resolved candidates before unsubscribed/missing-contact handling (used by session emails). */
-export async function plan(input: { pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters; keep?: (c: Candidate) => boolean }) {
+/** `requirePzId` drops candidates who have no PZ ID yet (a message that shows the ID must not go to them). */
+export async function plan(input: { pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters; keep?: (c: Candidate) => boolean; requirePzId?: boolean }) {
   const resolved = await resolveCandidates({ pageId: input.pageId, ids: input.ids, filters: input.filters });
-  const candidates = input.keep ? resolved.filter(input.keep) : resolved;
+  let candidates = input.keep ? resolved.filter(input.keep) : resolved;
+  if (input.requirePzId) {
+    const pzIds = await pzIdsFor(candidates.map((c) => c.registrationId));
+    candidates = candidates.filter((c) => pzIds.has(c.registrationId));
+  }
   const unsubscribed = input.channel === "email" ? await listUnsubscribed(candidates.map((c) => c.email).filter((e) => e.trim() !== "")) : new Set<string>();
   const planned = planRecipients(candidates, input.channel, unsubscribed);
   return { planned, summary: summarize(planned, input.channel) };
 }
 
-export async function previewSend(input: { pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters }): Promise<{ summary: Summary; count: number }> {
-  const { summary } = await plan(input);
+/** A message that shows the PZ ID only goes to people who have one. */
+const needsPzId = (m: { subject?: string; body?: string }): boolean => usesPzId(m.subject ?? "") || usesPzId(m.body ?? "");
+
+export async function previewSend(input: { pageId: string; channel: Channel; ids?: string[]; filters?: RegistrationListFilters; subject?: string; body?: string }): Promise<{ summary: Summary; count: number }> {
+  const { summary } = await plan({ pageId: input.pageId, channel: input.channel, ids: input.ids, filters: input.filters, requirePzId: needsPzId(input) });
   return { summary, count: summary.total };
 }
 
@@ -110,7 +118,7 @@ export async function createSend(input: {
 }): Promise<CreateSendResult> {
   let resolved: Awaited<ReturnType<typeof plan>>;
   try {
-    resolved = await plan(input);
+    resolved = await plan({ pageId: input.pageId, channel: input.channel, ids: input.ids, filters: input.filters, requirePzId: needsPzId(input) });
   } catch (e) {
     // A ticked row stopped being a valid head since the preview (flagged or deleted): the list changed.
     if (e instanceof Error && /not on this campaign/i.test(e.message)) return fail("count_changed");
@@ -221,7 +229,7 @@ async function personIdsFor(registrationIds: string[]): Promise<Map<string, stri
 }
 
 /** PZ ID the message shows: each registration's OWN person (members do not take their lead's). No person yet means no entry. */
-async function pzIdsFor(registrationIds: string[]): Promise<Map<string, string>> {
+export async function pzIdsFor(registrationIds: string[]): Promise<Map<string, string>> {
   const admin = createAdminSupabase();
   const out = new Map<string, string>();
   const ids = Array.from(new Set(registrationIds));

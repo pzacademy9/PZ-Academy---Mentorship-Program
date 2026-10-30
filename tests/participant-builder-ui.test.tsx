@@ -41,6 +41,7 @@ beforeEach(() => {
       { id: "44444444-4444-4444-8444-444444444444", name: "Zoom link", subject: "Your Zoom link", emailBody: "Hi {{first_name}}", whatsappBody: "" },
     ] } }),
     "POST /api/admin/participants/preview": () => ({ json: { summary: summary(), count: 12 } }),
+    "POST /api/admin/participants/recipients": () => ({ json: { receiving: [{ name: "Sana Ahmed", email: "sana@x.com", optionLabel: "" }], notReceiving: [] } }),
     "POST /api/admin/participants/sends": () => ({ status: 201, json: { sendId: "s1", count: 12 } }),
     "POST /api/admin/participants/sends/s1/run": () => ({ json: { sent: 12, failed: 0, pending: 0 } }),
     "POST /api/admin/participants/sends/s1/retry": () => ({ json: { requeued: 1 } }),
@@ -401,5 +402,56 @@ describe("request body from a real CampaignSelection", () => {
   it("filter mode pins the filter to this campaign even if pageId is missing", () => {
     const r = buildRecipientBody(PAGE, { mode: "filter", filters: { status: "all" } });
     expect(r).toEqual({ filters: { pageId: PAGE, status: "all" } });
+  });
+});
+
+describe("recipient lists", () => {
+  it("shows both lists before Confirm, and keeps Confirm disabled until they have loaded", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    handlers["POST /api/admin/participants/recipients"] = async () => {
+      await gate;
+      return {
+        json: {
+          receiving: [{ name: "Sana Ahmed", email: "sana@x.com", optionLabel: "" }],
+          notReceiving: [{ name: "Omar Khan", email: "omar@x.com", optionLabel: "", reason: "no_id" }],
+        },
+      };
+    };
+    await toReview();
+    const confirm = screen.getByRole("button", { name: /Confirm and send/ }) as HTMLButtonElement;
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.getByText(/Loading the list of people/)).toBeTruthy();
+    expect(confirm.disabled).toBe(true);
+    release();
+    expect(await screen.findByText(/Getting this email/)).toBeTruthy();
+    expect(screen.getByText(/Not getting this email/)).toBeTruthy();
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+    const body = count("/api/admin/participants/recipients")[0].body as Record<string, unknown>;
+    expect(body).toMatchObject({ pageId: PAGE, ids: [R1, R2], requirePzId: false });
+  });
+
+  it("asks for the PZ ID requirement when the message uses the PZ ID tag", async () => {
+    render(<MessageBuilder channel="email" request={request} onClose={() => {}} />);
+    await fill("Your PZ ID", "Your PZ ID is {{pz_id}}");
+    fireEvent.click(screen.getByRole("button", { name: /Review and send/ }));
+    await screen.findByText(/You are about to email/);
+    await waitFor(() => expect(count("/api/admin/participants/recipients").length).toBe(1));
+    expect(count("/api/admin/participants/recipients")[0].body).toMatchObject({ requirePzId: true });
+    expect(count("/api/admin/participants/preview")[0].body).toMatchObject({ body: "Your PZ ID is {{pz_id}}" });
+  });
+
+  it("starts from the given subject and message", () => {
+    render(<MessageBuilder channel="email" request={{ ...request, starter: { subject: "S1", body: "B1 {{pz_id}}" } }} onClose={() => {}} />);
+    expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("S1");
+    expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe("B1 {{pz_id}}");
+  });
+
+  it("keeps Confirm disabled and offers a retry when the lists cannot load", async () => {
+    handlers["POST /api/admin/participants/recipients"] = () => ({ status: 500, json: { error: "x" } });
+    await toReview();
+    expect(await screen.findByText(/Could not load the list of people/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Confirm and send/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 });

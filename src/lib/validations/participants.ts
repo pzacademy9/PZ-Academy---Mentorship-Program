@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 
-const filtersSchema = z.object({
+export const filtersSchema = z.object({
   pageId: uuid.optional(),
   status: z.enum(["all", "pending", "reserved", "underpaid", "paid", "free"]).optional(),
   mode: z.enum(["live", "recorded"]).optional(),
@@ -10,6 +10,7 @@ const filtersSchema = z.object({
   q: z.string().max(200).optional(),
   region: z.string().max(200).optional(),
   optionLabel: z.string().max(200).optional(),
+  optionScopes: z.array(z.union([z.literal("full"), z.number().int().min(1).max(12)])).max(12).optional(),
   page: z.number().int().min(1).optional(),
 });
 
@@ -21,7 +22,10 @@ const recipientSet = {
 /** Exactly one of ids / filters. */
 const exactlyOne = (v: { ids?: unknown; filters?: unknown }) => (v.ids === undefined) !== (v.filters === undefined);
 
-export const previewBodySchema = z.object({ pageId: uuid, channel, ...recipientSet }).refine(exactlyOne);
+export const previewBodySchema = z.object({ pageId: uuid, channel, ...recipientSet, subject: z.string().max(300).optional(), body: z.string().max(20000).optional() }).refine(exactlyOne);
+
+/** Who would get a message and who would not (the lists the builder shows before sending). */
+export const recipientsBodySchema = z.object({ pageId: uuid, ...recipientSet, requirePzId: z.boolean().optional() }).refine(exactlyOne);
 
 export const createSendBodySchema = z
   .object({

@@ -11,6 +11,7 @@ export async function listDueReminderSessionIds(now = new Date()): Promise<strin
   const { data, error } = await admin.from("batch_sessions")
     .select("id, starts_at, email_lead_minutes")
     .eq("email_enabled", true)
+    .not("audience", "is", null)
     .gt("starts_at", now.toISOString())
     .lte("starts_at", new Date(now.getTime() + MAX_LEAD_MS).toISOString());
   if (error) throw new Error(`due sessions read failed: ${error.message}`);

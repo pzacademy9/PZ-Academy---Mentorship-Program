@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { isoToPktInput } from "@/lib/attendance/rules";
+import { audienceFromJson } from "@/lib/classes/audience";
 import type { SessionRow } from "@/lib/data/attendance";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import {
@@ -52,7 +53,9 @@ export function EditClassDialog({
   const [kahoot, setKahoot] = useState(session?.kahoot_url ?? "");
   const [includeKahoot, setIncludeKahoot] = useState(session?.include_kahoot ?? false);
   const [includeAttendance, setIncludeAttendance] = useState(session?.include_attendance_link ?? true);
-  const [remind, setRemind] = useState(session?.email_enabled ?? true);
+  // A class email needs an audience first, so the switch stays off until one is chosen.
+  const hasAudience = audienceFromJson(session?.audience) !== null;
+  const [remind, setRemind] = useState(hasAudience ? (session?.email_enabled ?? true) : false);
   const [minutes, setMinutes] = useState(String(session?.email_lead_minutes ?? base?.email_lead_minutes ?? 60));
   const [busy, startTransition] = useTransition();
 
@@ -167,9 +170,10 @@ export function EditClassDialog({
             Put the attendance link in the class email
           </label>
           <label className="flex min-h-12 items-center gap-3 text-base text-pz-on-surface">
-            <input type="checkbox" className="size-5" checked={remind} onChange={(e) => setRemind(e.target.checked)} />
+            <input type="checkbox" className="size-5" checked={remind} disabled={!hasAudience} onChange={(e) => setRemind(e.target.checked)} />
             Send a reminder email
           </label>
+          {!hasAudience && <p className="text-base text-pz-on-surface-variant">Choose who gets this email first</p>}
           <div>
             <label htmlFor="cls-minutes" className={labelCls}>Send it this many minutes before the class</label>
             <input id="cls-minutes" type="number" min={5} max={10080} className={fieldCls} value={minutes} onChange={(e) => setMinutes(e.target.value)} />

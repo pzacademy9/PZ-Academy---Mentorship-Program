@@ -10,7 +10,7 @@ import { RegistrationsTable } from "./RegistrationsTable";
 import type { RegistrationQuery } from "./query";
 import { MessageBuilder } from "./MessageBuilder";
 import { RowActions } from "./RowActions";
-import { getBatchIdList } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/id-actions";
+import { getSelectionIdList } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/id-actions";
 
 /** Either the ticked rows on this page, or everyone matching the current filters. Never both. */
 export type CampaignSelection =
@@ -25,7 +25,15 @@ export interface CampaignBuilderRequest {
   pageTitle: string;
   selection: CampaignSelection;
   count: number;
+  /** A ready-made subject and message the builder starts with (still editable). */
+  starter?: { subject: string; body: string };
 }
+
+/** The "Email their IDs" starting message. No link: there is no page for it yet. */
+export const ID_EMAIL_STARTER = {
+  subject: "Your PZ ID",
+  body: "Hello {{first_name}},\n\nYour PZ ID is {{pz_id}}.\n\nPlease keep it. You will use it to mark your attendance and to see your quiz results.\n\nPZ Academy",
+};
 
 export type OpenBuilder = (channel: BuilderChannel, request: CampaignBuilderRequest) => void;
 
@@ -105,11 +113,11 @@ export function CampaignRegistrations({
     setIds(new Set());
   }
 
-  function open(channel: BuilderChannel) {
+  function open(channel: BuilderChannel, starter?: CampaignBuilderRequest["starter"]) {
     const selection: CampaignSelection = allInFilter
       ? { mode: "filter", filters }
       : { mode: "ids", ids: Array.from(ids) };
-    const request: CampaignBuilderRequest = { pageId, pageTitle, selection, count };
+    const request: CampaignBuilderRequest = { pageId, pageTitle, selection, count, ...(starter ? { starter } : {}) };
     // Both builders live here; onOpenBuilder is only a hook for the page to observe the click.
     setBuilder({ channel, request });
     onOpenBuilder(channel, request);
@@ -120,13 +128,27 @@ export function CampaignRegistrations({
     onOpenBuilder(channel, request);
   }
 
+  // What the ID PDF will cover: the ticked people, else the active filter, else the whole batch.
+  const filterActive = Boolean(
+    filters.q || filters.mode || filters.region || filters.optionLabel || (filters.optionScopes && filters.optionScopes.length > 0) ||
+    (filters.status && filters.status !== "all"),
+  );
+  const idSelection: CampaignSelection | null = allInFilter
+    ? { mode: "filter", filters }
+    : ids.size > 0
+      ? { mode: "ids", ids: Array.from(ids) }
+      : filterActive
+        ? { mode: "filter", filters }
+        : null;
+  const idLabel = count > 0 ? `Download IDs (${count} selected)` : filterActive ? "Download IDs (filtered)" : "Download IDs (whole batch)";
+
   async function downloadIds() {
     setIdBusy(true);
     setIdNote(null);
     try {
-      const list = await getBatchIdList(pageId);
+      const list = await getSelectionIdList(pageId, idSelection);
       if (list.length === 0) {
-        setIdNote("No one has a PZ ID in this batch yet.");
+        setIdNote("No one in this selection has a PZ ID yet.");
         return;
       }
       const { buildBatchPdf } = await import("@/lib/pzid/batch-pdf");
@@ -182,8 +204,9 @@ export function CampaignRegistrations({
           className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40 hover:bg-pz-surface-container text-xs font-headline font-semibold disabled:opacity-60 transition-colors"
         >
           <Download className="w-4 h-4" aria-hidden="true" />
-          Download ID list (PDF)
+          {idLabel}
         </button>
+        <span className="text-xs font-body text-pz-on-surface-variant">People without an ID yet are left out.</span>
         {publicSlug && (
           <button
             type="button"
@@ -270,6 +293,13 @@ export function CampaignRegistrations({
                 className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-inverse-on-surface/15 hover:bg-pz-inverse-on-surface/25 text-pz-inverse-on-surface text-xs font-headline font-semibold transition-all"
               >
                 Send email
+              </button>
+              <button
+                type="button"
+                onClick={() => open("email", ID_EMAIL_STARTER)}
+                className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-inverse-on-surface/15 hover:bg-pz-inverse-on-surface/25 text-pz-inverse-on-surface text-xs font-headline font-semibold transition-all"
+              >
+                Email their IDs
               </button>
               <button
                 type="button"

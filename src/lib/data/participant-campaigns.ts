@@ -158,9 +158,11 @@ export async function resolveCandidates(input: { pageId: string; ids?: string[];
   const out: Candidate[] = [];
   for (const h of heads) {
     const lead = { leadId: str(h.id), refId: str(h.ref_id), status: str(h.status) as RegistrationStatus };
-    out.push({ registrationId: lead.leadId, leadId: lead.leadId, isMember: false, name: str(h.name), email: str(h.email), phone: str(h.whatsapp), refId: lead.refId, status: lead.status });
+    const mode = str(h.mode) === "live" ? "live" : str(h.mode) === "recorded" ? "recorded" : undefined;
+    const optionLabel = str(h.option_label);
+    out.push({ registrationId: lead.leadId, leadId: lead.leadId, isMember: false, name: str(h.name), email: str(h.email), phone: str(h.whatsapp), refId: lead.refId, status: lead.status, mode, optionLabel });
     for (const m of byLead.get(lead.leadId) ?? []) {
-      out.push({ registrationId: str(m.id), leadId: lead.leadId, isMember: true, name: str(m.name), email: str(m.email), phone: str(m.whatsapp), refId: lead.refId, status: lead.status });
+      out.push({ registrationId: str(m.id), leadId: lead.leadId, isMember: true, name: str(m.name), email: str(m.email), phone: str(m.whatsapp), refId: lead.refId, status: lead.status, mode, optionLabel });
     }
   }
   return out;

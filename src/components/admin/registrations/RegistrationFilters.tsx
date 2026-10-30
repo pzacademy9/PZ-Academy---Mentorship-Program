@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { REGISTRATION_STATUS_LABELS } from "./RegistrationStatusBadge";
 import { registrationHref, type RegistrationQuery } from "./query";
+import { QuickFilters } from "./QuickFilters";
 
 const TABS: (RegistrationStatus | "all")[] = ["all", "pending", "reserved", "underpaid", "paid", "free"];
 
@@ -35,7 +36,7 @@ export function RegistrationFilters({
   campaignOptions?: { regions: string[]; optionLabels: string[] };
 }) {
   const active = filters.status && filters.status !== "all" ? filters.status : "all";
-  const anyFilter = Boolean(filters.q || filters.mode || filters.pageId || filters.agentId || filters.region || filters.optionLabel);
+  const anyFilter = Boolean(filters.q || filters.mode || filters.pageId || filters.agentId || filters.region || filters.optionLabel || filters.optionScopes);
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
@@ -62,8 +63,11 @@ export function RegistrationFilters({
         })}
       </div>
 
+      {campaignOptions && <QuickFilters basePath={basePath} filters={filters} />}
+
       <form method="get" action={basePath} className="flex flex-wrap items-center gap-3 rounded-xl bg-pz-surface-container-low/60 px-4 py-3">
         {active !== "all" && <input type="hidden" name="status" value={active} />}
+        {filters.optionScopes && <input type="hidden" name="optionScopes" value={filters.optionScopes} />}
         <div className="relative flex-1 min-w-[16rem]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-pz-on-surface-variant" aria-hidden="true" />
           <input

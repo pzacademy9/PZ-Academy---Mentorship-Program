@@ -28,7 +28,7 @@ const SESS = "00000000-0000-4000-8000-000000000002";
 const PAGE = "00000000-0000-4000-8000-000000000001";
 const PERSON = "11111111-1111-1111-1111-111111111111";
 const cand = (id: string) => ({
-  registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "+923001234567", refId: `R-${id}`, status: "paid",
+  registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "+923001234567", refId: `R-${id}`, status: "paid", optionLabel: "Live - Full Course",
 });
 
 let store: Store;
@@ -37,7 +37,8 @@ function setup(over: Record<string, unknown> = {}) {
     batch_sessions: [{
       id: SESS, page_id: PAGE, number: 1, title: "Intro", starts_at: new Date(Date.now() - 3600_000).toISOString(),
       zoom_url: "https://zoom.test/j/1", kahoot_url: "", include_kahoot: false, include_attendance_link: true,
-      email_enabled: true, public_code: "code0001", window_override: "auto", feedback_session_id: "f1", ...over,
+      email_enabled: true, public_code: "code0001", window_override: "auto", feedback_session_id: "f1",
+      audience: { mode: "live", modules: "all" }, ...over,
     }],
     feedback_sessions: [{ id: "f1", slug: "slug-one" }],
     landing_pages: [{ id: PAGE, course_id: null }],
