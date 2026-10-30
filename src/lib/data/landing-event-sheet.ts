@@ -2,6 +2,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { normalizeContent } from "@/lib/landing/content";
+import type { MirrorResult } from "@/lib/data/landing-mirror";
 
 export interface PageSheetInfo {
   id: string;
@@ -30,6 +31,30 @@ export async function getPageSheetInfo(id: string): Promise<PageSheetInfo | null
     driveFolderId: data.drive_folder_id,
     refPrefix: data.ref_prefix,
     draftRefPrefix: normalizeContent(data.draft).registration.refPrefix,
+  };
+}
+
+export interface PageMirrorInfo {
+  sheetId: string | null;
+  lastRunAt: string | null;
+  lastResult: MirrorResult | null;
+}
+
+/** Read-only: the old-sheet mirror columns of one page. */
+export async function getPageMirrorInfo(id: string): Promise<PageMirrorInfo | null> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("landing_pages")
+    .select("mirror_sheet_id, mirror_last_run_at, mirror_last_result")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const raw = data.mirror_last_result as unknown;
+  return {
+    sheetId: data.mirror_sheet_id || null,
+    lastRunAt: data.mirror_last_run_at,
+    lastResult: raw && typeof raw === "object" ? (raw as MirrorResult) : null,
   };
 }
 
