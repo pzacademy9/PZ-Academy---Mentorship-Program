@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { paidGroupWarning } from "@/lib/landing/registration/wa-groups";
 import { statusChangeResponse } from "@/lib/landing/registration/status-change-response";
 
-const SENTENCE = "Marked Paid and the email is queued, but this batch has no WhatsApp group link, so the email will have no group button.";
+const SENTENCE = "Marked Paid. The email will go out without a WhatsApp group button, because no group link applies to this student. Check that the batch has a group link and that the student's course option is set.";
 const group = [{ label: "Group A", url: "https://chat.whatsapp.com/AAAAAAAAAAAAAAAAAAAAAA" }];
 
 describe("paidGroupWarning", () => {

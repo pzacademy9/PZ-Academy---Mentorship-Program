@@ -11,7 +11,7 @@ export function isValidWaGroupUrl(url: string): boolean {
 }
 
 export const PAID_NO_GROUP_WARNING =
-  "Marked Paid and the email is queued, but this batch has no WhatsApp group link, so the email will have no group button.";
+  "Marked Paid. The email will go out without a WhatsApp group button, because no group link applies to this student. Check that the batch has a group link and that the student's course option is set.";
 
 /** Warning for the admin when Paid goes out to a live student whose batch has no group link. Recorded students never get one. */
 export function paidGroupWarning(args: { to: ChangeableStatus; mode: "live" | "recorded"; groups: WaGroupButton[] }): string | null {
