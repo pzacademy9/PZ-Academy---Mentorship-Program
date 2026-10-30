@@ -61,3 +61,12 @@ A first (needed for Day 2 emails), then B. Each is its own branch and PR; the ow
 6. **Track Your Progress numbers.** Attendance is "attended X of Y classes held so far" (not all scheduled). A student counts only classes whose audience includes them (so a Module 1 student's total ignores Module 4 classes). Recorded students have no attendance line (shown as "not tracked for recorded students"); they still see results and certificate status. Attendance data and quiz results already exist (plans 2 and 3 are live on main).
 7. **Rate limit:** a small Postgres counter keyed by a hash of the IP, about 30 lookups per 10 minutes. It adds one table to migration 0092 or a 0093; the owner pastes it.
 8. **Link:** an app route (`/progress`) on the app's own domain; the WordPress site only links to it. Certificate status is text only ("Issued" with the date, or "Not issued yet"); no download from this page, so nothing beyond first name and totals is exposed.
+
+## Owner change to project B (2026-10-30): two sections, each shown event by event
+
+Track Your Progress has an **Attendance section** and a **Results section** (plus a small Certificates line). Both list **one row per class**, not only totals.
+
+- **Attendance section:** for the batch(es) the ID belongs to, a list of every class held so far: class title and date, then Present or Absent (and how: "marked at check-in" or "marked by admin"). Classes not held yet show as "Upcoming", with no mark. A header line gives the total: "Attended 7 of 9 classes (78%)", plus whether they meet the batch's minimum for a certificate. Only classes that include the student (their module or full course) are listed.
+- **Results section:** one row per quiz: class title and date, the student's score out of the maximum, and their rank among live students where the owner has made that visible. Classes with no quiz are skipped. A header line gives the running total score across quizzes.
+- Recorded students: Attendance shows "not tracked for recorded students"; Results still lists their quiz scores, with no rank (live competition only).
+- Same privacy rule: first name only, no email or phone. Phone-first layout: each class is a tap-friendly row, long lists scroll the page, never sideways.
