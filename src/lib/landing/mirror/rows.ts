@@ -13,7 +13,7 @@ export interface MirrorSheetRow {
 
 export type MapResult =
   | { ok: true; row: MirrorSheetRow }
-  | { ok: false; reason: "no-email" | "bad-status" | "bad-time" | "no-name" | "bad-option" };
+  | { ok: false; reason: "no-email" | "bad-status" | "bad-time" | "no-name" | "bad-option" | "bad-amount" };
 
 // Region keys and currencies match REGION_PRESETS in registration/admin-edit.ts.
 const CURRENCY: Record<string, string> = { PK: "PKR", UAE: "AED", KSA: "SAR", PH: "PHP", IN: "INR", INTL: "USD" };
@@ -52,7 +52,8 @@ function parseOption(label: string): { mode: "live" | "recorded"; tierKey: strin
 
 function regionFromSource(source: string): string {
   const m = /-(PK|UAE|KSA|PH|IN|INTL)(?:#|$)/i.exec(source.trim());
-  return m ? m[1].toUpperCase() : "PK"; // assumption: unlabelled sources are Pakistan
+  // Blank/unknown Source falls back to PK. The mirror must never overwrite region/currency of an existing row (Task 4 writes them on insert only).
+  return m ? m[1].toUpperCase() : "PK";
 }
 
 export function mapSheetRow(header: string[], cells: string[]): MapResult {
@@ -77,8 +78,9 @@ export function mapSheetRow(header: string[], cells: string[]): MapResult {
   const rt = get("Row Type").toLowerCase();
   const rowType = rt === "group lead" ? "lead" : rt === "group member" ? "member" : "individual";
   const amt = parseSheetAmount(get("Amount"));
-  const expectedDigits = get("Expected Amount").replace(/[^\d.]/g, "");
-  const expected = Number(expectedDigits);
+  const amountMatch = /\d[\d,]*(?:\.\d+)?/.exec(get("Expected Amount"));
+  const expected = amountMatch ? Number(amountMatch[0].replace(/,/g, "")) : NaN;
+  if (!Number.isFinite(expected)) return { ok: false, reason: "bad-amount" };
   const region = regionFromSource(get("Source"));
 
   return {
@@ -88,7 +90,7 @@ export function mapSheetRow(header: string[], cells: string[]): MapResult {
       discovery: get("Discovery"), consent: get("Consent").toLowerCase().startsWith("yes"), rowType,
       leadEmail: get("Group Lead Email").toLowerCase(), optionLabel: get("Registration Option"),
       mode: opt.mode, tierKey: opt.tierKey, groupSize: opt.groupSize, region, currency: CURRENCY[region],
-      promoCodeText: get("Promo Code"), expectedAmount: Number.isFinite(expected) ? expected : 0,
+      promoCodeText: get("Promo Code"), expectedAmount: expected,
       paymentMethod: get("Payment Method"), voucherUrl: get("Voucher URL"), status,
       amountReceived: typeof amt === "number" ? amt : null, emailStatusText: get("Email Confirmation"), refId: get("Ref ID"),
     },

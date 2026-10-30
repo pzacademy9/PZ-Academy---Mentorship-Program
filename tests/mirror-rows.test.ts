@@ -62,6 +62,18 @@ describe("mapSheetRow", () => {
     expect(ok({ Amount: "" }).amountReceived).toBeNull();
     expect(ok({ "Expected Amount": "INR 1,200" }).expectedAmount).toBe(1200);
   });
+  it("parses Expected Amount after any prefix", () => {
+    expect(ok({ "Expected Amount": "Rs. 5000" }).expectedAmount).toBe(5000);
+    expect(ok({ "Expected Amount": "PKR. 1,200" }).expectedAmount).toBe(1200);
+    expect(ok({ "Expected Amount": "INR 1,200" }).expectedAmount).toBe(1200);
+    expect(ok({ "Expected Amount": "4800.50" }).expectedAmount).toBe(4800.5);
+    expect(reason({ "Expected Amount": "" })).toBe("bad-amount");
+    expect(reason({ "Expected Amount": "abc" })).toBe("bad-amount");
+  });
+  it("pins the PK/PKR fallback for a blank or unknown Source", () => {
+    expect(ok({ Source: "" })).toMatchObject({ region: "PK", currency: "PKR" });
+    expect(ok({ Source: "something-else" })).toMatchObject({ region: "PK", currency: "PKR" });
+  });
   it("rejects bad rows with a reason", () => {
     expect(reason({ "Payment Confirmation": "Maybe" })).toBe("bad-status");
     expect(reason({ Email: "  " })).toBe("no-email");

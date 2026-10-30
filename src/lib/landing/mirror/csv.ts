@@ -30,7 +30,7 @@ export function parseCsv(text: string): string[][] {
       endRow();
     } else { field += c; touched = true; }
   }
-  if (touched || field !== "") { touched = true; endRow(); }
+  if (touched) endRow();
   return rows;
 }
 
