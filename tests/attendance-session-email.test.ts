@@ -69,8 +69,12 @@ function setup(session: Partial<SessionRow> = {}) {
     landing_registrations: [
       { id: "a", ref_id: "R-a", lead_registration_id: null, person_id: PERSON },
       { id: "b", ref_id: "R-b", lead_registration_id: null, person_id: null },
+      ...["f", "u", "p", "fullLive", "m1", "m4", "rec", "recm1", "blank", "live"].map((id, i) => ({ id, ref_id: `R-${id}`, lead_registration_id: null, person_id: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}` })),
     ],
-    pz_people: [{ id: PERSON, pz_id: "Zed-1", display_name: "a" }],
+    pz_people: [
+      { id: PERSON, pz_id: "Zed-1", display_name: "a" },
+      ...["f", "u", "p", "fullLive", "m1", "m4", "rec", "recm1", "blank", "live"].map((id, i) => ({ id: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`, pz_id: `Id-${id}`, display_name: id })),
+    ],
     participant_sends: [],
     participant_send_recipients: [],
   };
@@ -160,6 +164,13 @@ describe("createSessionSend", () => {
     expect(await createSessionSend("s1")).toEqual({ ok: false, reason: "already_sent" });
     expect(store.participant_sends).toHaveLength(1);
   });
+  it("a paid person with no PZ ID is not emailed, one with an ID is", async () => {
+    h.candidates = [cand("a"), cand("b")];
+    const r = await createSessionSend("s1");
+    expect(r).toMatchObject({ ok: true, count: 1 });
+    expect(store.participant_send_recipients.map((x) => x.registration_id)).toEqual(["a"]);
+    expect(await (async () => { setup(); h.candidates = [cand("b")]; return createSessionSend("s1"); })()).toEqual({ ok: false, reason: "no_recipients" });
+  });
   it("with the real resolver, recorded leads and their members are excluded and test rows never appear", async () => {
     h.real = true;
     const reg = (o: Record<string, unknown>) => ({
@@ -167,13 +178,17 @@ describe("createSessionSend", () => {
       option_label: "Live - Full Course", mode: "live", region: "PK", status: "paid", is_test: false, agent_id: null, created_at: "2026-10-01T00:00:00Z", person_id: null, ...o,
     });
     store.landing_registrations = [
-      reg({ id: "L", row_type: "lead", ref_id: "R-L" }),
-      reg({ id: "lm", row_type: "member", lead_registration_id: "L" }),
+      reg({ id: "L", row_type: "lead", ref_id: "R-L", person_id: "00000000-0000-4000-8000-000000000201" }),
+      reg({ id: "lm", row_type: "member", lead_registration_id: "L", person_id: "00000000-0000-4000-8000-000000000202" }),
       reg({ id: "R", row_type: "lead", ref_id: "R-R", mode: "recorded" }),
       reg({ id: "rm", row_type: "member", lead_registration_id: "R", mode: "recorded" }),
       reg({ id: "T", row_type: "lead", ref_id: "R-T", is_test: true }),
       reg({ id: "P", row_type: "lead", ref_id: "R-P", status: "pending" }),
     ];
+    store.pz_people.push(
+      { id: "00000000-0000-4000-8000-000000000201", pz_id: "Id-L", display_name: "L" },
+      { id: "00000000-0000-4000-8000-000000000202", pz_id: "Id-lm", display_name: "lm" },
+    );
     const r = await createSessionSend("s1");
     expect(r).toMatchObject({ ok: true, count: 2 });
     expect(store.participant_send_recipients.filter((x) => x.state === "pending").map((x) => x.registration_id).sort()).toEqual(["L", "lm"]);
@@ -230,6 +245,8 @@ describe("runEmailSend with a session", () => {
   const htmlTo = (to: string) => String(h.send.mock.calls.map((c) => c[0]).find((c) => c.to === to).htmlContent);
   it("renders the per-person attendance link and PKT time, and fails a recipient with no PZ ID instead of emailing a blank one", async () => {
     await createSessionSend("s1");
+    // "b" has no PZ ID, so the send itself leaves them out; add them as a recipient anyway to prove the sender still fails them safely.
+    store.participant_send_recipients.push({ ...store.participant_send_recipients[0], id: "rb", registration_id: "b", email: "b@x.com", state: "pending" });
     const out = await runEmailSend(store.participant_sends[0].id as string);
     expect(out).toMatchObject({ sent: 1, failed: 1 });
     const token = signCheckinToken("s1", PERSON, checkinSecret()!);
@@ -246,7 +263,7 @@ describe("runEmailSend with a session", () => {
     const out = await runEmailSend(store.participant_sends[0].id as string);
     expect(out).toEqual({ sent: 0, failed: 0, pending: 0 });
     expect(h.send).not.toHaveBeenCalled();
-    expect(store.participant_send_recipients.map((x) => `${x.state}:${x.reason}`)).toEqual(["skipped:Session was deleted", "skipped:Session was deleted"]);
+    expect(store.participant_send_recipients.map((x) => `${x.state}:${x.reason}`)).toEqual(["skipped:Session was deleted"]);
   });
   it("fails closed to the shared link when there is no signing secret", async () => {
     await createSessionSend("s1");

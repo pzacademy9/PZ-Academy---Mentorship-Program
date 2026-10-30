@@ -89,6 +89,8 @@ export async function createSessionSend(
   const { planned, summary } = await plan({
     pageId: session.page_id,
     channel: "email",
+    // Same rule as the class preview: someone with no PZ ID yet is not emailed.
+    requirePzId: true,
     // A live-only audience can be narrowed up front; "any" must be able to reach recorded students.
     filters: audience.mode === "live" ? { mode: "live" } : {},
     keep: (c) =>

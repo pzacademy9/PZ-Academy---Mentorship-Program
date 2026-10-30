@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { AUDIENCE_PRESETS, audienceFromJson, presetLiveWithModule, type Audience } from "@/lib/classes/audience";
 import type { RecipientPreview } from "@/lib/data/audience-preview";
@@ -38,6 +38,8 @@ export function AudiencePicker({
   const [choice, setChoice] = useState<Choice>(start.choice);
   const [moduleText, setModuleText] = useState(start.module);
   const [preview, setPreview] = useState<RecipientPreview | null>(null);
+  /** The audience the lists on screen were loaded for. Save only works when it matches the current choice. */
+  const [loadedFor, setLoadedFor] = useState("");
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -57,6 +59,8 @@ export function AudiencePicker({
   async function refreshPreview(a: Audience | null) {
     const id = ++request.current;
     setPreviewError("");
+    setPreview(null);
+    setLoadedFor("");
     if (!a) {
       setPreview(null);
       setPreviewing(false);
@@ -65,7 +69,10 @@ export function AudiencePicker({
     setPreviewing(true);
     try {
       const res = await previewClassAudience(pageId, sessionId, a);
-      if (id === request.current) setPreview(res);
+      if (id === request.current) {
+        setPreview(res);
+        setLoadedFor(JSON.stringify(a));
+      }
     } catch {
       if (id === request.current) {
         setPreview(null);
@@ -75,6 +82,14 @@ export function AudiencePicker({
       if (id === request.current) setPreviewing(false);
     }
   }
+
+  // A class that already has an audience shows its lists straight away, so Save is meaningful.
+  useEffect(() => {
+    if (audience) void refreshPreview(audience);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const listShown = !!audience && !!preview && !previewing && !previewError && loadedFor === JSON.stringify(audience);
 
   function pick(c: Choice) {
     setChoice(c);
@@ -89,7 +104,7 @@ export function AudiencePicker({
   }
 
   async function save() {
-    if (!audience) return;
+    if (!audience || !listShown) return;
     setSaving(true);
     setNote(null);
     try {
@@ -152,9 +167,12 @@ export function AudiencePicker({
         <RecipientPreviewLists preview={preview} receivingTitle="Will get this email" notReceivingTitle="Will not get this email" />
       )}
 
-      <button type="button" className={`${primaryBtn} max-md:w-full`} disabled={!audience || saving} onClick={save}>
+      <button type="button" className={`${primaryBtn} max-md:w-full`} disabled={!listShown || saving} onClick={save}>
         {saving ? "Saving..." : "Save who gets this"}
       </button>
+      {audience && !listShown && !saving && (
+        <p className="text-base text-pz-on-surface-variant">Look at the two lists above, then save.</p>
+      )}
       {note && (
         <p role={note.ok ? "status" : "alert"} className={cn("text-base", note.ok ? "text-emerald-800 dark:text-emerald-200" : "text-red-700 dark:text-red-300")}>
           {note.text}

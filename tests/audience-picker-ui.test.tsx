@@ -77,6 +77,7 @@ describe("AudiencePicker", () => {
   it("Save calls the save action with the chosen audience", async () => {
     renderPicker();
     fireEvent.click(screen.getByRole("radio", { name: "Everyone with an ID" }));
+    await waitFor(() => expect(screen.getByText("Will get this email (1)")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Save who gets this" }));
     await waitFor(() => expect(h.setSessionAudience).toHaveBeenCalledWith(SESS, { mode: "any", modules: "all" }));
     await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Saved/));
@@ -95,10 +96,75 @@ describe("AudiencePicker", () => {
     expect(saveBtn.disabled).toBe(true);
     expect(h.previewRecipients).not.toHaveBeenCalled();
     fireEvent.change(field, { target: { value: "3" } });
-    expect(saveBtn.disabled).toBe(false);
     await waitFor(() => expect(h.previewRecipients).toHaveBeenCalledWith({ pageId: PAGE, audience: { mode: "live", modules: [3] } }));
+    await waitFor(() => expect(saveBtn.disabled).toBe(false));
     fireEvent.click(saveBtn);
     await waitFor(() => expect(h.setSessionAudience).toHaveBeenCalledWith(SESS, { mode: "live", modules: [3] }));
+  });
+});
+
+describe("AudiencePicker Save needs the list on screen", () => {
+  const save = () => screen.getByRole("button", { name: "Save who gets this" }) as HTMLButtonElement;
+  const deferred = () => {
+    let resolve!: (v: typeof PREVIEW) => void;
+    const promise = new Promise<typeof PREVIEW>((res) => { resolve = res; });
+    return { promise, resolve };
+  };
+
+  it("is disabled while the list loads and enabled once it has loaded", async () => {
+    const d = deferred();
+    h.previewRecipients.mockReturnValue(d.promise);
+    render(<AudiencePicker pageId={PAGE} sessionId={SESS} saved={null} />);
+    fireEvent.click(screen.getByRole("radio", { name: "All live students" }));
+    expect(save().disabled).toBe(true);
+    expect(screen.getByText("Look at the two lists above, then save.")).toBeTruthy();
+    d.resolve(PREVIEW);
+    await waitFor(() => expect(save().disabled).toBe(false));
+    expect(screen.queryByText("Look at the two lists above, then save.")).toBeNull();
+  });
+
+  it("stays disabled after the list fails to load", async () => {
+    h.previewRecipients.mockRejectedValue(new Error("boom"));
+    render(<AudiencePicker pageId={PAGE} sessionId={SESS} saved={null} />);
+    fireEvent.click(screen.getByRole("radio", { name: "All live students" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/could not be loaded/));
+    expect(save().disabled).toBe(true);
+    fireEvent.click(save());
+    expect(h.setSessionAudience).not.toHaveBeenCalled();
+  });
+
+  it("disables again after the choice changes, until the new list returns", async () => {
+    render(<AudiencePicker pageId={PAGE} sessionId={SESS} saved={null} />);
+    fireEvent.click(screen.getByRole("radio", { name: "All live students" }));
+    await waitFor(() => expect(save().disabled).toBe(false));
+    const d = deferred();
+    h.previewRecipients.mockReturnValue(d.promise);
+    fireEvent.click(screen.getByRole("radio", { name: "Everyone with an ID" }));
+    expect(save().disabled).toBe(true);
+    d.resolve(PREVIEW);
+    await waitFor(() => expect(save().disabled).toBe(false));
+  });
+
+  it("disables again when the module number changes, until the new list returns", async () => {
+    render(<AudiencePicker pageId={PAGE} sessionId={SESS} saved={null} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Live full course + Module N" }));
+    const field = screen.getByLabelText(/Module number/) as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "2" } });
+    await waitFor(() => expect(save().disabled).toBe(false));
+    const d = deferred();
+    h.previewRecipients.mockReturnValue(d.promise);
+    fireEvent.change(field, { target: { value: "3" } });
+    expect(save().disabled).toBe(true);
+    d.resolve(PREVIEW);
+    await waitFor(() => expect(save().disabled).toBe(false));
+  });
+
+  it("a class with a saved audience loads its lists on first render, then Save is enabled", async () => {
+    render(<AudiencePicker pageId={PAGE} sessionId={SESS} saved={{ mode: "any", modules: "all" }} />);
+    expect(save().disabled).toBe(true);
+    await waitFor(() => expect(screen.getByText("Will get this email (1)")).toBeTruthy());
+    expect(h.previewRecipients).toHaveBeenCalledWith({ pageId: PAGE, audience: { mode: "any", modules: "all" } });
+    expect(save().disabled).toBe(false);
   });
 });
 

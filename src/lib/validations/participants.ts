@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 
-const filtersSchema = z.object({
+export const filtersSchema = z.object({
   pageId: uuid.optional(),
   status: z.enum(["all", "pending", "reserved", "underpaid", "paid", "free"]).optional(),
   mode: z.enum(["live", "recorded"]).optional(),
