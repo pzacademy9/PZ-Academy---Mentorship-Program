@@ -95,3 +95,22 @@ describe("optionPatterns", () => {
     }
   });
 });
+
+describe("unreadable labels", () => {
+  const presets = AUDIENCE_PRESETS.map((x) => x.audience);
+  it("are unknown and never included", () => {
+    for (const l of ["Live — Workshop", "Live — Modules M1", "Recorded — Workshop", "Recorded — Modules M1"]) {
+      const o = parseOption(l);
+      expect(o).toEqual({ mode: "unknown", full: false, modules: [] });
+      for (const a of presets) {
+        expect(matchAudience(o, a)).toEqual({ include: false, reason: "unrecognised" });
+      }
+    }
+  });
+  it("only reads a module number ending at a comma, space or end", () => {
+    expect(parseOption("Live — Modules: M1–Individual")).toEqual({ mode: "unknown", full: false, modules: [] });
+    expect(parseOption("Live — Modules: M1 – Individual").modules).toEqual([1]);
+    expect(parseOption("Live — Modules: M1, M2 – Individual").modules).toEqual([1, 2]);
+    expect(parseOption("Live — Modules: M2, M1").modules).toEqual([2, 1]);
+  });
+});

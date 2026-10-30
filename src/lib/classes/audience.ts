@@ -9,16 +9,18 @@ export type OptionScope = {
 
 export function parseOption(label: string): OptionScope {
   const text = (label ?? "").trim().toLowerCase();
-  const mode: OptionScope["mode"] = text.startsWith("live")
+  const rawMode: OptionScope["mode"] = text.startsWith("live")
     ? "live"
     : text.startsWith("recorded")
       ? "recorded"
       : "unknown";
   const full = text.includes("full course");
-  const m = /modules?:\s*((?:m\d+\s*,?\s*)+)/i.exec(label ?? "");
+  const m = /modules?:\s*((?:m\d+(?=[,\s]|$)\s*,?\s*)+)/i.exec(label ?? "");
   const modules = m
     ? Array.from(m[1].matchAll(/m(\d+)/gi), (x) => Number(x[1]))
     : [];
+  // A label with neither "full course" nor a readable module list is never trusted.
+  const mode = full || modules.length > 0 ? rawMode : "unknown";
   return { mode, full, modules };
 }
 
