@@ -25,7 +25,15 @@ export interface CampaignBuilderRequest {
   pageTitle: string;
   selection: CampaignSelection;
   count: number;
+  /** A ready-made subject and message the builder starts with (still editable). */
+  starter?: { subject: string; body: string };
 }
+
+/** The "Email their IDs" starting message. No link: there is no page for it yet. */
+export const ID_EMAIL_STARTER = {
+  subject: "Your PZ ID",
+  body: "Hello {{first_name}},\n\nYour PZ ID is {{pz_id}}.\n\nPlease keep it. You will use it to mark your attendance and to see your quiz results.\n\nPZ Academy",
+};
 
 export type OpenBuilder = (channel: BuilderChannel, request: CampaignBuilderRequest) => void;
 
@@ -105,11 +113,11 @@ export function CampaignRegistrations({
     setIds(new Set());
   }
 
-  function open(channel: BuilderChannel) {
+  function open(channel: BuilderChannel, starter?: CampaignBuilderRequest["starter"]) {
     const selection: CampaignSelection = allInFilter
       ? { mode: "filter", filters }
       : { mode: "ids", ids: Array.from(ids) };
-    const request: CampaignBuilderRequest = { pageId, pageTitle, selection, count };
+    const request: CampaignBuilderRequest = { pageId, pageTitle, selection, count, ...(starter ? { starter } : {}) };
     // Both builders live here; onOpenBuilder is only a hook for the page to observe the click.
     setBuilder({ channel, request });
     onOpenBuilder(channel, request);
@@ -285,6 +293,13 @@ export function CampaignRegistrations({
                 className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-inverse-on-surface/15 hover:bg-pz-inverse-on-surface/25 text-pz-inverse-on-surface text-xs font-headline font-semibold transition-all"
               >
                 Send email
+              </button>
+              <button
+                type="button"
+                onClick={() => open("email", ID_EMAIL_STARTER)}
+                className="inline-flex items-center gap-1.5 max-md:min-h-12 px-3 py-1.5 rounded-lg bg-pz-inverse-on-surface/15 hover:bg-pz-inverse-on-surface/25 text-pz-inverse-on-surface text-xs font-headline font-semibold transition-all"
+              >
+                Email their IDs
               </button>
               <button
                 type="button"

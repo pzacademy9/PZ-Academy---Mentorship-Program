@@ -265,13 +265,14 @@ describe("runEmailSend", () => {
     }
   });
 
-  it("renders the PZ ID per recipient, empty when they have no person", async () => {
-    const id = await made({ body: "ID [{{ pz_id }}]" });
+  it("renders the PZ ID per recipient, and never sends a PZ ID message to someone with no person", async () => {
+    // c has no person, so no PZ ID: since the PZ ID requirement, c is left out when the send is created.
+    const id = await made({ body: "ID [{{ pz_id }}]", expectedCount: 2 });
     await runEmailSend(id);
     const html = (to: string) => h.send.mock.calls.find((c) => c[0].to === to)![0].htmlContent as string;
     expect(html("a@x.com")).toContain("ID [Zed-a]");
     expect(html("b@x.com")).toContain("ID [Zed-b]");
-    expect(html("c@x.com")).toContain("ID []");
+    expect(h.send.mock.calls.find((c) => c[0].to === "c@x.com")).toBeUndefined();
   });
 
   it("a member gets their own PZ ID, not the lead's", async () => {

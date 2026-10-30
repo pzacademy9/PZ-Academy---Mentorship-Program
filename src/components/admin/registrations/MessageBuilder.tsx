@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookmarkPlus, Eye, Info, Send, X } from "lucide-react";
 import type { Summary } from "@/lib/landing/participants/types";
-import { PARTICIPANT_TAGS, renderParticipantTags } from "@/lib/landing/participants/merge";
+import { PARTICIPANT_TAGS, renderParticipantTags, usesPzId } from "@/lib/landing/participants/merge";
+import type { RecipientPreview } from "@/lib/data/audience-preview";
+import { RecipientPreviewLists } from "@/components/admin/shared/RecipientPreviewLists";
 import type { BuilderChannel, CampaignBuilderRequest } from "./CampaignRegistrations";
 import { buildRecipientBody } from "./builder-body";
 import { SendSummary, skippedTotal } from "./SendSummary";
@@ -53,8 +55,8 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [subject, setSubject] = useState(request.starter?.subject ?? "");
+  const [body, setBody] = useState(request.starter?.body ?? "");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateMsg, setTemplateMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -71,6 +73,9 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   const [progress, setProgress] = useState<Progress>({ sent: 0, failed: 0, total: 0 });
   const [runError, setRunError] = useState<string | null>(null);
   const [recorded, setRecorded] = useState<Recorded | null>(null);
+  /** Who would and would not get the email, loaded when the review opens. */
+  const [lists, setLists] = useState<{ state: "loading" } | { state: "error" } | { state: "ready"; preview: RecipientPreview }>({ state: "loading" });
+  const listsToken = useRef(0);
 
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -164,7 +169,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   async function review() {
     await exclusive(async () => {
       setEditError(null);
-      const { status, data } = await call(`${API}/preview`, "POST", { pageId, channel, ...recipients() });
+      const { status, data } = await call(`${API}/preview`, "POST", { pageId, channel, ...recipients(), ...(isEmail ? { subject, body } : {}) });
       if (status !== 200 || typeof data.summary !== "object" || data.summary === null) {
         setEditError(errorText(data, "Could not build the list of people. Try again."));
         return;
@@ -174,7 +179,24 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
       setNotice(null);
       setUnconfirmed(false);
       setStep("review");
+      void loadLists();
     });
+  }
+
+  /** Loads the two lists. Only the newest request may set the result. */
+  async function loadLists() {
+    if (!isEmail) return;
+    const token = (listsToken.current += 1);
+    setLists({ state: "loading" });
+    const { status, data } = await call(`${API}/recipients`, "POST", {
+      pageId, ...recipients(), requirePzId: usesPzId(body) || usesPzId(subject),
+    });
+    if (token !== listsToken.current) return;
+    if (status === 200 && Array.isArray(data.receiving) && Array.isArray(data.notReceiving)) {
+      setLists({ state: "ready", preview: data as unknown as RecipientPreview });
+    } else {
+      setLists({ state: "error" });
+    }
   }
 
   async function runLoop(id: string, start: Progress, total: number) {
@@ -228,7 +250,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
             setSummary(data.summary as Summary);
           } else {
             // The server sent no new figures: ask once for them (a preview never sends anything).
-            const again = await call(`${API}/preview`, "POST", { pageId, channel, ...recipients() });
+            const again = await call(`${API}/preview`, "POST", { pageId, channel, ...recipients(), ...(isEmail ? { subject, body } : {}) });
             if (again.status === 200 && typeof again.data.summary === "object" && again.data.summary !== null) {
               setSummary(again.data.summary as Summary);
             } else {
@@ -238,6 +260,7 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
             }
           }
           setNotice("The list changed. Review it again.");
+          void loadLists();
         } else {
           setNotice(errorText(data, "This could not be sent."));
         }
@@ -294,7 +317,8 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
   const running = step === "sending";
   const failedCount = recorded ? recorded.failed : progress.failed;
   const pct = progress.total > 0 ? Math.min(100, Math.round((progress.sent / progress.total) * 100)) : 0;
-  const canConfirm = !!summary && summary.total > 0 && (summary.notPaid === 0 || ack) && !busy && !unconfirmed && step === "review";
+  const listsReady = !isEmail || lists.state === "ready";
+  const canConfirm = !!summary && summary.total > 0 && (summary.notPaid === 0 || ack) && !busy && !unconfirmed && step === "review" && listsReady;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-pz-surface text-pz-on-surface" role="region" aria-label={`Write an ${word}`}>
@@ -533,6 +557,23 @@ export function MessageBuilder({ channel, request, onClose, pauseMs = 300 }: Mes
 
             {step === "review" && (
               <SendSummary summary={summary} channelWord={word} acknowledged={ack} onAcknowledge={setAck} disabled={busy} notice={notice} />
+            )}
+
+            {step === "review" && isEmail && (
+              <div className="px-6 sm:px-7 py-2 flex flex-col gap-2">
+                {lists.state === "loading" && <p role="status" className="text-base text-pz-on-surface-variant">Loading the list of people...</p>}
+                {lists.state === "error" && (
+                  <div role="alert" className="flex flex-col gap-2">
+                    <p className="text-base font-headline font-semibold text-pz-error">Could not load the list of people. You cannot send until you have seen it.</p>
+                    <button type="button" onClick={() => void loadLists()} className="w-full sm:w-auto px-5 py-2.5 min-h-12 rounded-lg text-sm font-headline font-semibold text-pz-on-surface-variant bg-pz-surface-container hover:bg-pz-surface-container-high transition-all">
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {lists.state === "ready" && (
+                  <RecipientPreviewLists preview={lists.preview} receivingTitle="Getting this email" notReceivingTitle="Not getting this email" />
+                )}
+              </div>
             )}
 
             {step === "list" && sendId && <WhatsAppSendList sendId={sendId} onClose={close} />}

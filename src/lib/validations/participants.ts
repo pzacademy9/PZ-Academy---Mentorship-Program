@@ -21,7 +21,10 @@ const recipientSet = {
 /** Exactly one of ids / filters. */
 const exactlyOne = (v: { ids?: unknown; filters?: unknown }) => (v.ids === undefined) !== (v.filters === undefined);
 
-export const previewBodySchema = z.object({ pageId: uuid, channel, ...recipientSet }).refine(exactlyOne);
+export const previewBodySchema = z.object({ pageId: uuid, channel, ...recipientSet, subject: z.string().max(300).optional(), body: z.string().max(20000).optional() }).refine(exactlyOne);
+
+/** Who would get a message and who would not (the lists the builder shows before sending). */
+export const recipientsBodySchema = z.object({ pageId: uuid, ...recipientSet, requirePzId: z.boolean().optional() }).refine(exactlyOne);
 
 export const createSendBodySchema = z
   .object({

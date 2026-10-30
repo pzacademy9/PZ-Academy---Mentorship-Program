@@ -40,6 +40,11 @@ export function renderParticipantTags(template: string, ctx: TagContext, mode: "
   });
 }
 
+/** True when the template shows the person's PZ ID, so people without one must not get it. */
+export function usesPzId(template: string): boolean {
+  return /\{\{\s*pz_id\s*\}\}/.test(template);
+}
+
 export function usesPortalLink(template: string): boolean {
   return /\{\{\s*portal_link\s*\}\}/.test(template);
 }

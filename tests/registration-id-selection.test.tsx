@@ -112,3 +112,24 @@ describe("quick filters", () => {
     expect(sp.get("optionScopes")).toBeNull();
   });
 });
+
+describe("Email their IDs", () => {
+  it("opens the email builder with the selection and the starter subject and message", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ templates: [] }) }) as Response));
+    const onOpenBuilder = vi.fn();
+    setup({ onOpenBuilder });
+    fireEvent.click(rowBoxes()[0]);
+    fireEvent.click(rowBoxes()[2]);
+    fireEvent.click(screen.getByRole("button", { name: "Email their IDs" }));
+    expect(onOpenBuilder).toHaveBeenCalledWith("email", expect.objectContaining({
+      selection: { mode: "ids", ids: ["r1", "r3"] },
+      starter: expect.objectContaining({ subject: "Your PZ ID" }),
+    }));
+    expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe("Your PZ ID");
+    const message = (screen.getByLabelText("Message") as HTMLTextAreaElement).value;
+    expect(message).toContain("{{first_name}}");
+    expect(message).toContain("{{pz_id}}");
+    expect(message).not.toMatch(/https?:/);
+    vi.unstubAllGlobals();
+  });
+});
