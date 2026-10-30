@@ -21,8 +21,10 @@ const primaryBtn =
 const quietBtn =
   "inline-flex items-center justify-center gap-1.5 px-3 py-2 max-md:min-h-11 rounded-lg font-headline text-xs font-medium bg-pz-surface-container-low text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
-function ProblemList({ problems }: { problems: MirrorResult["problems"] }) {
+function ProblemList({ problems, heading }: { problems: MirrorResult["problems"]; heading: string }) {
   return (
+    <div className="space-y-1">
+    <p className="text-xs font-headline font-bold text-pz-on-surface">{heading}</p>
     <ul className="space-y-1 text-sm font-body text-pz-on-surface-variant">
       {problems.slice(0, MAX_PROBLEMS_SHOWN).map((p, i) => (
         <li key={`${p.rowNumber}-${i}`}>{`Row ${p.rowNumber}: ${p.reason}`}</li>
@@ -31,6 +33,7 @@ function ProblemList({ problems }: { problems: MirrorResult["problems"] }) {
         <li className="text-pz-outline">{`and ${problems.length - MAX_PROBLEMS_SHOWN} more`}</li>
       )}
     </ul>
+    </div>
   );
 }
 
@@ -144,6 +147,9 @@ export function MirrorPanel({
               : "Preview only, nothing was changed. Could not read the sheet."}
           </p>
         )}
+        {previewResult && previewResult.problems.length > 0 && (
+          <ProblemList problems={previewResult.problems} heading="Preview would flag:" />
+        )}
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => void run(true)} disabled={pending} className={quietBtn}>
@@ -157,11 +163,7 @@ export function MirrorPanel({
         </div>
       </div>
 
-      {previewResult && previewResult.problems.length > 0 && (
-        <ProblemList problems={previewResult.problems} />
-      )}
-
-      {problems.length > 0 && <ProblemList problems={problems} />}
+      {problems.length > 0 && <ProblemList problems={problems} heading="Problems from the last sync:" />}
 
       {notes.length > 0 && (
         <ul className="space-y-1 text-xs font-body text-pz-outline list-disc pl-4">

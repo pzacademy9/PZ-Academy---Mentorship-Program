@@ -104,6 +104,24 @@ describe("MirrorPanel", () => {
     expect(screen.getByText(/and 2 more/i)).toBeTruthy();
   });
 
+  it("labels the preview list and the last-sync list separately", async () => {
+    fetchMock.mockReturnValue(jsonRes(result({ preview: true, problems: [{ rowNumber: 40, reason: "Preview reason" }] })));
+    render(
+      <MirrorPanel pageId={PAGE} lastRunAt={minutesAgo(2)} lastResult={result({ problems: [{ rowNumber: 5, reason: "Old reason" }] })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
+    const previewHeading = await screen.findByText("Preview would flag:");
+    const lastHeading = screen.getByText("Problems from the last sync:");
+    const previewRow = screen.getByText("Row 40: Preview reason");
+    const lastRow = screen.getByText("Row 5: Old reason");
+    expect(previewHeading.parentElement?.contains(previewRow)).toBe(true);
+    expect(previewHeading.parentElement?.contains(lastRow)).toBe(false);
+    expect(lastHeading.parentElement?.contains(lastRow)).toBe(true);
+    expect(lastHeading.parentElement?.contains(previewRow)).toBe(false);
+    const banner = screen.getByText(/would add 2, change 1/i);
+    expect(banner.nextElementSibling).toBe(previewHeading.parentElement);
+  });
+
   it("shows a plain error when the network request rejects", async () => {
     fetchMock.mockReturnValue(Promise.reject(new Error("offline")));
     render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
