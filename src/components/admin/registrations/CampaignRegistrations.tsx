@@ -297,7 +297,7 @@ export function CampaignRegistrations({
               <button
                 type="button"
                 onClick={() => open("email", ID_EMAIL_STARTER)}
-                className="inline-flex items-center gap-1.5 max-md:min-h-12 px-3 py-1.5 rounded-lg bg-pz-inverse-on-surface/15 hover:bg-pz-inverse-on-surface/25 text-pz-inverse-on-surface text-xs font-headline font-semibold transition-all"
+                className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-inverse-on-surface/15 hover:bg-pz-inverse-on-surface/25 text-pz-inverse-on-surface text-xs font-headline font-semibold transition-all"
               >
                 Email their IDs
               </button>

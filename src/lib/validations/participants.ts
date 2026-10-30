@@ -10,6 +10,7 @@ const filtersSchema = z.object({
   q: z.string().max(200).optional(),
   region: z.string().max(200).optional(),
   optionLabel: z.string().max(200).optional(),
+  optionScopes: z.array(z.union([z.literal("full"), z.number().int().min(1).max(12)])).max(12).optional(),
   page: z.number().int().min(1).optional(),
 });
 
