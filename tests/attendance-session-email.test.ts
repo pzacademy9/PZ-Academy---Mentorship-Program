@@ -33,6 +33,7 @@ import { createSessionSend } from "@/lib/data/session-emails";
 import { runEmailSend } from "@/lib/data/participant-sends";
 import { signCheckinToken, checkinSecret } from "@/lib/attendance/link-token";
 import type { SessionRow } from "@/lib/data/attendance";
+import { presetLiveWithModule } from "@/lib/classes/audience";
 
 const PERSON = "11111111-1111-1111-1111-111111111111";
 const FUTURE = new Date(Date.now() + 86400_000).toISOString();
@@ -40,10 +41,10 @@ const PAST = new Date(Date.now() - 3600_000).toISOString();
 const sessRow = (over: Partial<SessionRow> = {}): SessionRow => ({
   id: "s1", page_id: "pg1", number: 1, title: "Day 1", starts_at: FUTURE, zoom_url: "https://zoom.test/j/1", kahoot_url: "",
   include_kahoot: false, include_attendance_link: true, email_enabled: true, email_lead_minutes: 60, public_code: "code0001", window_override: "auto",
-  created_at: "2026-10-01T00:00:00Z", ...over,
+  created_at: "2026-10-01T00:00:00Z", audience: { mode: "live", modules: "all" }, ...over,
 } as SessionRow);
 const cand = (id: string, o: Record<string, unknown> = {}) => ({
-  registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "+923001234567", refId: `R-${id}`, status: "paid", ...o,
+  registrationId: id, leadId: id, isMember: false, name: `Name ${id}`, email: `${id}@x.com`, phone: "+923001234567", refId: `R-${id}`, status: "paid", optionLabel: "Live - Full Course", ...o,
 });
 
 let store: Store;
@@ -163,7 +164,7 @@ describe("createSessionSend", () => {
     h.real = true;
     const reg = (o: Record<string, unknown>) => ({
       page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: `${(o.id as string).toLowerCase()}@x.com`, whatsapp: "0300",
-      option_label: "Live", mode: "live", region: "PK", status: "paid", is_test: false, agent_id: null, created_at: "2026-10-01T00:00:00Z", person_id: null, ...o,
+      option_label: "Live - Full Course", mode: "live", region: "PK", status: "paid", is_test: false, agent_id: null, created_at: "2026-10-01T00:00:00Z", person_id: null, ...o,
     });
     store.landing_registrations = [
       reg({ id: "L", row_type: "lead", ref_id: "R-L" }),
@@ -184,6 +185,38 @@ describe("createSessionSend", () => {
     expect(await createSessionSend("s1", "update")).toEqual({ ok: false, reason: "too_soon" });
     store.participant_sends[0].created_at = new Date(Date.now() - 61_000).toISOString();
     expect(await createSessionSend("s1", "update")).toMatchObject({ ok: true });
+  });
+  it("returns no_audience for every kind and creates no send when the class has no audience", async () => {
+    setup({ audience: null, feedback_session_id: "f1" });
+    for (const kind of ["reminder", "update", "feedback"] as const) {
+      expect(await createSessionSend("s1", kind)).toEqual({ ok: false, reason: "no_audience" });
+    }
+    expect(store.participant_sends).toHaveLength(0);
+    expect(h.calls).toHaveLength(0);
+  });
+  it("with a live Module 1 audience only live full-course and live Module 1 people are planned", async () => {
+    setup({ audience: presetLiveWithModule(1) });
+    h.candidates = [
+      cand("fullLive"),
+      cand("m1", { optionLabel: "Live - Modules: M1, M2" }),
+      cand("m4", { optionLabel: "Live - Modules: M4" }),
+      cand("rec", { optionLabel: "Recorded - Full Course" }),
+      cand("recm1", { optionLabel: "Recorded - Modules: M1" }),
+      cand("blank", { optionLabel: undefined }),
+    ];
+    const r = await createSessionSend("s1");
+    expect(r).toMatchObject({ ok: true, count: 2 });
+    expect(store.participant_send_recipients.map((x) => x.registration_id).sort()).toEqual(["fullLive", "m1"]);
+  });
+  it("an audience of mode any is not narrowed to live and includes recorded people", async () => {
+    setup({ audience: { mode: "any", modules: "all" } });
+    h.candidates = [cand("live"), cand("rec", { optionLabel: "Recorded - Full Course" })];
+    expect(await createSessionSend("s1")).toMatchObject({ ok: true, count: 2 });
+    expect((h.calls[0] as { filters: Record<string, unknown> }).filters.mode).toBeUndefined();
+  });
+  it("a live audience keeps the live filter", async () => {
+    await createSessionSend("s1");
+    expect(h.calls[0]).toMatchObject({ filters: { mode: "live" } });
   });
   it("a reminder does not block an update, and an update still needs a Zoom URL", async () => {
     expect(await createSessionSend("s1")).toMatchObject({ ok: true });

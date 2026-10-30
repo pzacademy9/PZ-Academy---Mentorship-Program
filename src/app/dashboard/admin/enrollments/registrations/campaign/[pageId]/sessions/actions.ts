@@ -37,6 +37,7 @@ const SEND_MESSAGES: Record<string, string> = {
   no_recipients: "Nobody to send to",
   not_set_up: "Email is not set up",
   too_soon: "Wait a minute before sending again",
+  no_audience: "Choose who gets this email first.",
   no_feedback_link: "This class has no feedback link yet",
   still_sending: "The last feedback email is still being sent. Please wait until it finishes.",
 };
