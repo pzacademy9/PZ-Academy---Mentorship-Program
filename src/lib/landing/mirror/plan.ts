@@ -14,7 +14,7 @@ export type MirrorAction =
   | { kind: "link"; rowKey: string; registrationId: string; status: RegistrationStatus; amount: number | null }
   | { kind: "apply"; rowKey: string; registrationId: string; to: RegistrationStatus; amount: number | null; from: RegistrationStatus }
   | { kind: "remember"; rowKey: string; registrationId: string; status: RegistrationStatus; amount: number | null }
-  | { kind: "skip"; rowKey: string; reason: "unchanged" | "app-owns-row" | "free-row" | "member-row" | "orphan-member" }
+  | { kind: "skip"; rowKey: string; reason: "unchanged" | "free-row" | "member-row" }
   | { kind: "problem"; rowNumber: number; reason: string };
 
 const UNMAPPABLE: Record<string, string> = {
@@ -22,6 +22,8 @@ const UNMAPPABLE: Record<string, string> = {
   "no-name": "No name", "bad-option": "Unknown option", "bad-amount": "Bad amount",
 };
 const LINK_WINDOW_MS = 60_000;
+
+type Entry = { rowNumber: number; row: MirrorSheetRow | null; action: MirrorAction | null };
 
 export function planMirror(
   sheet: { rowNumber: number; mapped: MapResult }[],
@@ -33,76 +35,77 @@ export function planMirror(
   // App rows already tied to a sheet row (by memory, or by a link made earlier in this plan) are not link candidates.
   const claimed = new Set(memory.map((m) => m.registrationId));
   const seen = new Set<string>();
+  const entries: Entry[] = [];
 
-  const inserts: { rowNumber: number; row: MirrorSheetRow }[] = [];
-  const out: { order: number; action: MirrorAction }[] = []; // non-insert actions with sheet position
-  const insertEmails = new Set<string>();
-
-  // Pass 1: decide every row except the orphan-member check, which needs the full insert list.
-  sheet.forEach(({ rowNumber, mapped }, order) => {
+  // Step 1: problems, duplicates and memory hits. Rows left with action === null still need a link or an insert.
+  for (const { rowNumber, mapped } of sheet) {
     if (!mapped.ok) {
-      out.push({ order, action: { kind: "problem", rowNumber, reason: UNMAPPABLE[mapped.reason] ?? "Bad row" } });
-      return;
+      entries.push({ rowNumber, row: null, action: { kind: "problem", rowNumber, reason: UNMAPPABLE[mapped.reason] ?? "Bad row" } });
+      continue;
     }
     const row = mapped.row;
     // Limitation: two rows with the same email in the same minute share a key and cannot be told apart, so the later one is reported.
     if (seen.has(row.key)) {
-      out.push({ order, action: { kind: "problem", rowNumber, reason: "Same row twice" } });
-      return;
+      entries.push({ rowNumber, row: null, action: { kind: "problem", rowNumber, reason: "Same row twice" } });
+      continue;
     }
     seen.add(row.key);
-
     const mem = memByKey.get(row.key);
-    if (mem) {
-      const target = appById.get(mem.registrationId);
-      if (!target) { out.push({ order, action: { kind: "problem", rowNumber, reason: "App row is gone" } }); return; }
-      const remember: MirrorAction = { kind: "remember", rowKey: row.key, registrationId: target.id, status: row.status, amount: row.amountReceived };
-      if (row.status === mem.lastStatus && row.amountReceived === mem.lastAmount) {
-        out.push({ order, action: { kind: "skip", rowKey: row.key, reason: "unchanged" } });
-      } else if (target.rowType === "member") {
-        out.push({ order, action: { kind: "skip", rowKey: row.key, reason: "member-row" } });
-      } else if (target.status === "free") {
-        out.push({ order, action: { kind: "skip", rowKey: row.key, reason: "free-row" } });
-      } else if (target.statusSource === "app") {
-        out.push({ order, action: remember });
-      } else if (target.status === row.status && target.amountReceived === row.amountReceived) {
-        out.push({ order, action: remember });
-      } else {
-        out.push({ order, action: { kind: "apply", rowKey: row.key, registrationId: target.id, to: row.status, amount: row.amountReceived, from: target.status } });
-      }
-      return;
+    if (!mem) { entries.push({ rowNumber, row, action: null }); continue; }
+    const target = appById.get(mem.registrationId);
+    let action: MirrorAction;
+    if (!target) action = { kind: "problem", rowNumber, reason: "App row is gone" };
+    else if (row.status === mem.lastStatus && row.amountReceived === mem.lastAmount) action = { kind: "skip", rowKey: row.key, reason: "unchanged" };
+    else if (target.rowType === "member") action = { kind: "skip", rowKey: row.key, reason: "member-row" };
+    else if (target.status === "free") action = { kind: "skip", rowKey: row.key, reason: "free-row" };
+    else if (target.statusSource === "app" || (target.status === row.status && target.amountReceived === row.amountReceived)) {
+      action = { kind: "remember", rowKey: row.key, registrationId: target.id, status: row.status, amount: row.amountReceived };
+    } else {
+      action = { kind: "apply", rowKey: row.key, registrationId: target.id, to: row.status, amount: row.amountReceived, from: target.status };
     }
+    entries.push({ rowNumber, row, action });
+  }
 
-    const candidates = app.filter((a) => a.email.trim().toLowerCase() === row.email && !claimed.has(a.id));
-    if (candidates.length > 0) {
-      const t = row.submittedAt.getTime();
-      const near = candidates
-        .filter((a) => Math.abs(a.createdAt.getTime() - t) <= LINK_WINDOW_MS)
-        .sort((x, y) => Math.abs(x.createdAt.getTime() - t) - Math.abs(y.createdAt.getTime() - t))[0];
-      const pick = near ?? (candidates.length === 1 ? candidates[0] : undefined);
-      if (!pick) { out.push({ order, action: { kind: "problem", rowNumber, reason: "Ambiguous match" } }); return; }
-      claimed.add(pick.id);
-      out.push({ order, action: { kind: "link", rowKey: row.key, registrationId: pick.id, status: row.status, amount: row.amountReceived } });
-      return;
-    }
+  const link = (e: Entry, a: AppRowLite) => {
+    claimed.add(a.id);
+    e.action = { kind: "link", rowKey: e.row!.key, registrationId: a.id, status: e.row!.status, amount: e.row!.amountReceived };
+  };
+  const unclaimed = (row: MirrorSheetRow) =>
+    app.filter((a) => !claimed.has(a.id) && a.email.trim().toLowerCase() === row.email && (a.rowType === "member") === (row.rowType === "member"));
 
-    inserts.push({ rowNumber, row });
-    if (row.rowType !== "member") insertEmails.add(row.email);
-    out.push({ order, action: { kind: "insert", row } });
-  });
+  // Step 2: claim near-time matches (within a minute) for every row first, so sheet order cannot steal a row.
+  for (const e of entries) {
+    if (e.action || !e.row) continue;
+    const t = e.row.submittedAt.getTime();
+    const near = unclaimed(e.row)
+      .filter((a) => Math.abs(a.createdAt.getTime() - t) <= LINK_WINDOW_MS)
+      .sort((x, y) => Math.abs(x.createdAt.getTime() - t) - Math.abs(y.createdAt.getTime() - t))[0];
+    if (near) link(e, near);
+  }
 
+  // Step 3: for the rest, a lone unclaimed app row matches a lone unmatched sheet row with that email; otherwise insert.
+  const waiting = (row: MirrorSheetRow) =>
+    entries.filter((x) => !x.action && x.row && x.row.email === row.email && (x.row.rowType === "member") === (row.rowType === "member")).length;
+  for (const e of entries) {
+    if (e.action || !e.row) continue;
+    const cands = unclaimed(e.row);
+    if (cands.length === 0 || waiting(e.row) > 1) continue; // stays an insert
+    if (cands.length === 1) link(e, cands[0]);
+    else e.action = { kind: "problem", rowNumber: e.rowNumber, reason: "Ambiguous match" };
+  }
+
+  // Step 4: whatever is left is an insert. Members need a lead in the app or among this plan's inserts.
+  const insertEmails = new Set(entries.filter((e) => !e.action && e.row && e.row.rowType !== "member").map((e) => e.row!.email));
   const appLeadEmails = new Set(app.filter((a) => a.rowType !== "member").map((a) => a.email.trim().toLowerCase()));
-  const rowNumberByKey = new Map(inserts.map((i) => [i.row.key, i.rowNumber]));
-
   const first: MirrorAction[] = [];
   const members: MirrorAction[] = [];
   const rest: MirrorAction[] = [];
-  for (const { action } of out) {
-    if (action.kind !== "insert") { rest.push(action); continue; }
-    if (action.row.rowType !== "member") { first.push(action); continue; }
-    const lead = action.row.leadEmail;
-    if (lead && (insertEmails.has(lead) || appLeadEmails.has(lead))) members.push(action);
-    else rest.push({ kind: "problem", rowNumber: rowNumberByKey.get(action.row.key) ?? 0, reason: "orphan-member" });
+  for (const e of entries) {
+    if (e.action) { rest.push(e.action); continue; }
+    const row = e.row!;
+    if (row.rowType !== "member") { first.push({ kind: "insert", row }); continue; }
+    if (row.leadEmail && (insertEmails.has(row.leadEmail) || appLeadEmails.has(row.leadEmail))) members.push({ kind: "insert", row });
+    else rest.push({ kind: "problem", rowNumber: e.rowNumber, reason: "Group member without a group lead" });
   }
   return [...first, ...members, ...rest];
 }

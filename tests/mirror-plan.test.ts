@@ -52,9 +52,39 @@ describe("planMirror", () => {
   });
 
   it("second run over the same data yields only skips", () => {
-    const r = sheetRow();
-    const out = planMirror([ok(r)], [appRow({ status: "paid", amountReceived: 1000 })], [mem(r)]);
-    expect(out).toEqual([{ kind: "skip", rowKey: r.key, reason: "unchanged" }]);
+    const rows = [
+      sheetRow({ email: "lead@example.com", rowType: "lead" }),
+      sheetRow({ email: "m@example.com", rowType: "member", leadEmail: "lead@example.com", status: "free", amountReceived: null }),
+      sheetRow({ email: "solo@example.com", status: "pending", amountReceived: null }),
+      sheetRow({ email: "old@example.com" }),
+    ];
+    const sheet = rows.map((r, i) => ok(r, i + 2));
+    let apps: AppRowLite[] = [appRow({ id: "old", email: "old@example.com", status: "pending" })];
+    const memory: MemoryRow[] = [];
+    const first = planMirror(sheet, apps, memory);
+    let n = 0;
+    for (const a of first) {
+      if (a.kind === "insert") {
+        const id = "new" + n++;
+        apps = [...apps, appRow({ id, email: a.row.email, createdAt: a.row.submittedAt, status: a.row.status, amountReceived: a.row.amountReceived, rowType: a.row.rowType })];
+        memory.push({ rowKey: a.row.key, registrationId: id, lastStatus: a.row.status, lastAmount: a.row.amountReceived });
+      } else if (a.kind === "link" || a.kind === "remember" || a.kind === "apply") {
+        const id = a.registrationId;
+        const status = a.kind === "apply" ? a.to : a.status;
+        apps = apps.map((x) => (x.id === id ? { ...x, status, amountReceived: a.amount } : x));
+        memory.push({ rowKey: a.rowKey, registrationId: id, lastStatus: status, lastAmount: a.amount });
+      }
+    }
+    expect(first.every((a) => a.kind !== "problem")).toBe(true);
+    const second = planMirror(sheet, apps, memory);
+    expect(second).toHaveLength(4);
+    expect(second.every((a) => a.kind === "skip")).toBe(true);
+  });
+
+  it("amount-only change applies with the new amount", () => {
+    const r = sheetRow({ status: "underpaid", amountReceived: 600 });
+    const out = planMirror([ok(r)], [appRow({ status: "underpaid", amountReceived: 500 })], [mem(r, "r1", { lastStatus: "underpaid", lastAmount: 500 })]);
+    expect(out).toEqual([{ kind: "apply", rowKey: r.key, registrationId: "r1", to: "underpaid", amount: 600, from: "underpaid" }]);
   });
 
   it("app-owned row is never moved by the sheet", () => {
@@ -127,7 +157,7 @@ describe("planMirror", () => {
 
   it("orphan member becomes a problem", () => {
     const m = sheetRow({ email: "m@example.com", rowType: "member", leadEmail: "lead@example.com" });
-    expect(planMirror([ok(m, 4)], [], [])).toEqual([{ kind: "problem", rowNumber: 4, reason: "orphan-member" }]);
+    expect(planMirror([ok(m, 4)], [], [])).toEqual([{ kind: "problem", rowNumber: 4, reason: "Group member without a group lead" }]);
   });
 
   it("member insert is accepted when its lead is in the app list", () => {
@@ -149,5 +179,38 @@ describe("planMirror", () => {
     expect(out.map((a) => a.kind + ":" + (a.kind === "insert" ? a.row.email : ""))).toEqual([
       "insert:lead@example.com", "insert:solo@example.com", "insert:m@example.com", "skip:",
     ]);
+  });
+
+  it("link does not depend on sheet order: the near-time row gets the app row", () => {
+    const late = sheetRow({ submittedAt: new Date("2026-09-15T14:00:00Z") });
+    const early = sheetRow({ submittedAt: new Date("2026-09-01T10:00:00Z") });
+    const apps = [appRow({ id: "R1", createdAt: new Date("2026-09-01T10:00:20Z") })];
+    for (const order of [[late, early], [early, late]]) {
+      const out = planMirror(order.map((r, i) => ok(r, i + 2)), apps, []);
+      expect(out.filter((a) => a.kind === "link")).toEqual([
+        { kind: "link", rowKey: early.key, registrationId: "R1", status: "paid", amount: 1000 },
+      ]);
+      expect(out.filter((a) => a.kind === "insert")).toEqual([{ kind: "insert", row: late }]);
+    }
+  });
+
+  it("a second sheet row cannot claim an app row already claimed in the same plan", () => {
+    const a = sheetRow({ submittedAt: new Date(T0.getTime() + 10_000) });
+    const b = sheetRow({ submittedAt: new Date(T0.getTime() + 50_000) });
+    const out = planMirror([ok(a, 2), ok(b, 3)], [appRow()], []);
+    expect(out.filter((x) => x.kind === "link")).toHaveLength(1);
+    expect(out.filter((x) => x.kind === "insert" || x.kind === "problem")).toHaveLength(1);
+  });
+
+  it("member insert whose lead exists only as a member row in the app is a problem", () => {
+    const m = sheetRow({ email: "m@example.com", rowType: "member", leadEmail: "lead@example.com" });
+    const out = planMirror([ok(m, 6)], [appRow({ id: "x", email: "lead@example.com", rowType: "member" })], []);
+    expect(out).toEqual([{ kind: "problem", rowNumber: 6, reason: "Group member without a group lead" }]);
+  });
+
+  it("a member sheet row never links to a non-member app row", () => {
+    const m = sheetRow({ email: "a@example.com", rowType: "member", leadEmail: "lead@example.com" });
+    const out = planMirror([ok(m)], [appRow({ rowType: "lead" })], []);
+    expect(out).toEqual([{ kind: "problem", rowNumber: 2, reason: "Group member without a group lead" }]);
   });
 });
