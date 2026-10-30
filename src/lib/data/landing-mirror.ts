@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
@@ -20,11 +21,11 @@ const SHEET_ID_PATTERN = /^[A-Za-z0-9_-]{20,80}$/;
 
 export interface MirrorResult {
   ok: boolean; preview: boolean; inserted: number; changed: number; linked: number; skipped: number;
-  problems: { rowNumber: number; reason: string }[]; error?: string; ranAt: string;
+  problems: { rowNumber: number; reason: string }[]; notes: string[]; error?: string; ranAt: string;
 }
 
 function blank(preview: boolean): MirrorResult {
-  return { ok: true, preview, inserted: 0, changed: 0, linked: 0, skipped: 0, problems: [], ranAt: new Date().toISOString() };
+  return { ok: true, preview, inserted: 0, changed: 0, linked: 0, skipped: 0, problems: [], notes: [], ranAt: new Date().toISOString() };
 }
 const failed = (preview: boolean, error: string): MirrorResult => ({ ...blank(preview), ok: false, error });
 
@@ -67,11 +68,12 @@ export async function runMirror(pageId: string, opts: { preview?: boolean } = {}
   const sheetId = page.mirror_sheet_id as string | null;
   if (!sheetId || !SHEET_ID_PATTERN.test(sheetId)) return failed(preview, "No valid sheet is linked to this page");
 
+  const lockValue = new Date().toISOString();
   if (!preview) {
     const cutoff = new Date(Date.now() - 10 * 60_000).toISOString();
     const { data: got, error: lErr } = await db
-      .from("landing_pages").update({ mirror_running_at: new Date().toISOString() })
-      .eq("id", pageId).or(`mirror_running_at.is.null,mirror_running_at.lt.${cutoff}`).select("id");
+      .from("landing_pages").update({ mirror_running_at: lockValue })
+      .eq("id", pageId).or(`mirror_running_at.is.null,mirror_running_at.lt."${cutoff}"`).select("id");
     if (lErr) { console.error(`${LOG} lock failed:`, (lErr as { code?: string }).code); return failed(preview, "Could not start"); }
     if (!got || got.length === 0) return failed(preview, "Already running");
   }
@@ -98,7 +100,8 @@ export async function runMirror(pageId: string, opts: { preview?: boolean } = {}
     return result;
   } finally {
     if (!preview) {
-      const { error } = await db.from("landing_pages").update({ mirror_running_at: null }).eq("id", pageId);
+      // Only release our own lock: a later run that took over a stale lock keeps its own.
+      const { error } = await db.from("landing_pages").update({ mirror_running_at: null }).eq("id", pageId).eq("mirror_running_at", lockValue);
       if (error) console.error(`${LOG} unlock failed:`, (error as { code?: string }).code);
     }
   }
@@ -135,6 +138,7 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
   const actions = planMirror(sheet, regs.map(toApp), memory);
 
   const res = blank(preview);
+  // A failed memory save is safe: the next run links the row again by email + time.
   const remember = async (rowKey: string, registrationId: string, status: RegistrationStatus, amount: number | null) => {
     if (preview) return;
     const { error } = await db.from("landing_mirror_rows").upsert(
@@ -146,7 +150,7 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
   // Ref ids and group leads known so far (existing plus inserted in this run).
   const usedRefs = new Set(regs.map((r) => r.ref_id).filter((x): x is string => !!x));
   const leadIdByEmail = new Map<string, string>();
-  for (const r of regs) if (r.row_type !== "member") leadIdByEmail.set(r.email.trim().toLowerCase(), r.id);
+  for (const r of regs) if (r.row_type === "lead") leadIdByEmail.set(r.email.trim().toLowerCase(), r.id);
   const failedLeads = new Set<string>();
   const freeRef = (base: string): string => {
     let ref = base;
@@ -165,29 +169,42 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
       leadId = leadIdByEmail.get(row.leadEmail) ?? null;
       if (!leadId) { problem("Group member without a group lead"); return; }
     }
-    if (!isMember && !row.refId) { problem("Row has no Ref ID"); if (row.rowType === "lead") failedLeads.add(row.email); return; }
-    const refId = row.refId ? freeRef(row.refId) : null;
+    let baseRef: string | null = row.refId || null;
+    if (!isMember && !baseRef) {
+      baseRef = "SHEETMIR-" + createHash("sha256").update(`${pageId}|${row.key}`).digest("hex").slice(0, 10).toUpperCase();
+      if (res.notes.length < 20) res.notes.push(`Row ${rowNumber} had no Ref ID, one was made`);
+    }
+    let refId = baseRef ? freeRef(baseRef) : null;
     if (preview) { res.inserted++; if (refId) usedRefs.add(refId); return; }
 
-    const insert: RegInsert = {
+    const build = (ref: string | null): RegInsert => ({
       page_id: pageId, row_type: row.rowType, lead_registration_id: leadId, name: row.name, email: row.email,
       whatsapp: row.whatsapp, profession: row.profession, discovery: row.discovery, consent: row.consent,
       region: row.region, currency: row.currency, option_label: row.optionLabel, mode: row.mode, tier_key: row.tierKey,
       group_size: row.groupSize, promo_code_text: row.promoCodeText, expected_amount: row.expectedAmount,
       payment_method: row.paymentMethod, voucher_url: row.voucherUrl, status: row.status, amount_received: row.amountReceived,
-      email_status: row.emailStatusText, status_source: "sheet", is_test: false, ref_id: refId,
+      email_status: row.emailStatusText, status_source: "sheet", is_test: false, ref_id: ref,
       created_at: row.submittedAt.toISOString(),
-    };
-    const { data, error } = await db.from("landing_registrations").insert(insert).select("id").single();
+    });
+    // Ref ids are unique across the whole table, other pages included: on a clash try the next suffix.
+    let data: unknown = null;
+    let error: { code?: string } | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const r = await db.from("landing_registrations").insert(build(refId)).select("id").single();
+      data = r.data; error = r.error as { code?: string } | null;
+      if (!error && data) break;
+      if (error?.code === "23505" && refId && baseRef) { usedRefs.add(refId); refId = freeRef(baseRef); continue; }
+      break;
+    }
     if (error || !data) {
-      console.error(`${LOG} insert failed:`, (error as { code?: string } | null)?.code ?? "none");
+      console.error(`${LOG} insert failed:`, error?.code ?? "none");
       problem("Could not save this row");
       if (row.rowType === "lead") failedLeads.add(row.email);
       return;
     }
     const id = (data as { id: string }).id;
     if (refId) usedRefs.add(refId);
-    if (!isMember) leadIdByEmail.set(row.email, id);
+    if (row.rowType === "lead") leadIdByEmail.set(row.email, id);
     res.inserted++;
     await remember(row.key, id, row.status, row.amountReceived);
   };
@@ -216,7 +233,8 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
     if (error) { console.error(`${LOG} status change failed:`, error.code); problem("Could not save this status change"); return; }
     const r = (data ?? {}) as { ok?: unknown; reason?: unknown };
     if (r.ok !== true) {
-      if (r.reason === "stale" || r.reason === "already-in-status") res.skipped++;
+      if (r.reason === "stale") res.skipped++;
+      else if (r.reason === "already-in-status") { res.skipped++; await remember(a.rowKey, a.registrationId, a.to, a.amount); }
       else if (r.reason === "free-row") problem(STATUS_CHANGE_MESSAGES["free-row"]);
       else if (r.reason === "not-found") problem("App row is gone");
       else { console.warn(`${LOG} unmapped rpc reason`); problem("Could not save this status change"); }
@@ -250,7 +268,9 @@ export async function runMirrorForAllPages(): Promise<{ pageId: string; result: 
   if (error) throw new Error("Could not list pages");
   const out: { pageId: string; result: MirrorResult }[] = [];
   for (const p of (data ?? []).filter((x) => typeof x.mirror_sheet_id === "string" && x.mirror_sheet_id !== "")) {
-    out.push({ pageId: p.id as string, result: await runMirror(p.id as string) });
+    let result: MirrorResult;
+    try { result = await runMirror(p.id as string); } catch { result = failed(false, "Unexpected error"); }
+    out.push({ pageId: p.id as string, result });
   }
   return out;
 }
