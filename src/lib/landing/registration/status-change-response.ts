@@ -8,7 +8,7 @@ type Failure = Extract<ChangeStatusResult, { ok: false }>["reason"];
 const STALE_MESSAGE = "Someone else changed this just now. Reload to see the latest.";
 
 export function statusChangeResponse(result: ChangeStatusResult): NextResponse {
-  if (result.ok) return NextResponse.json({ id: result.id, status: result.status });
+  if (result.ok) return NextResponse.json({ id: result.id, status: result.status, ...(result.warning ? { warning: result.warning } : {}) });
   const reason: Failure = result.reason;
   switch (reason) {
     // not-found and member-row share one body so nothing reveals whether another agent's row exists.

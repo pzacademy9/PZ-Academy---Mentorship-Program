@@ -16,6 +16,8 @@ import { RECEIVED_SENT, type ManualEmailKind } from "@/lib/landing/registration/
 import { resolveAccess } from "@/lib/data/landing-enrollment";
 import { listMessagesForRegistrations } from "@/lib/data/participant-sends";
 import { optionPatterns } from "@/lib/classes/audience";
+import { getRegistrablePageById } from "@/lib/data/landing-public";
+import { paidGroupWarning, selectWaGroups } from "@/lib/landing/registration/wa-groups";
 
 type RegRow = Database["public"]["Tables"]["landing_registrations"]["Row"];
 type ApplyArgs = Database["public"]["Functions"]["landing_apply_status"]["Args"];
@@ -104,7 +106,7 @@ export interface RegistrationAccess {
   modules: { id: string; title: string; open: boolean }[] | null;
 }
 export type ChangeStatusResult =
-  | { ok: true; id: string; status: ChangeableStatus; rowsChanged: number }
+  | { ok: true; id: string; status: ChangeableStatus; rowsChanged: number; warning?: string }
   | {
       ok: false;
       reason: "not-found" | "member-row" | "free-row" | "amount-required" | "amount-invalid" | "already-in-status" | "stale" | "db-error";
@@ -520,7 +522,20 @@ export async function changeRegistrationStatus(p: {
   }
 
   await queueStatusFollowUps(rec.id);
-  return { ok: true, id: rec.id, status: p.to, rowsChanged: Number(out.changed ?? 0) };
+  const warning = await lookupPaidWarning(rec, p.to);
+  return { ok: true, id: rec.id, status: p.to, rowsChanged: Number(out.changed ?? 0), ...(warning ? { warning } : {}) };
+}
+
+/** Read-only check for the Paid-without-group-link warning. A failed lookup yields no warning, never a failed change. */
+async function lookupPaidWarning(rec: RegistrationRecord, to: ChangeableStatus): Promise<string | null> {
+  if (to !== "paid" || rec.mode !== "live") return null;
+  try {
+    const page = await getRegistrablePageById(rec.pageId);
+    if (!page) return null;
+    return paidGroupWarning({ to, mode: rec.mode, groups: selectWaGroups(page.registration, rec.optionKeys, rec.mode) });
+  } catch {
+    return null;
+  }
 }
 
 /**
