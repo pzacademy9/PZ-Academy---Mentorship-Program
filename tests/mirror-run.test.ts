@@ -18,7 +18,7 @@ vi.mock("@/lib/data/landing-jobs", () => ({
   runJobsFor: (id: string) => runJobsFor(id),
 }));
 
-import { runMirror, runMirrorForAllPages } from "@/lib/data/landing-mirror";
+import { runMirror, runMirrorForAllPages, MIRROR_PAGE_NOT_FOUND, MIRROR_NO_SHEET } from "@/lib/data/landing-mirror";
 
 const SHEET_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
 const HEADER = ["Name", "Email", "WhatsApp", "Profession", "Discovery", "Registration Option", "Consent", "Row Type", "Promo Code", "Voucher URL", "Submitted At", "Expected Amount", "Group Lead Email", "Payment Method", "Amount", "Payment Confirmation", "Email Confirmation", "Source", "Ref ID"];
@@ -409,5 +409,18 @@ describe("module hygiene", () => {
     const src = readFileSync("src/lib/data/landing-mirror.ts", "utf8");
     const imports = src.split(/\r?\n/).filter((l) => /^\s*import\b/.test(l)).join("\n");
     expect(imports).not.toMatch(/landing-jobs|landing-registration-admin|landing-sheet-sync|email|brevo|meta/i);
+  });
+});
+
+describe("runMirror not-configured signals", () => {
+  it("reports an unknown page with the exported constant", async () => {
+    setup();
+    const r = await runMirror("missing-page");
+    expect(r).toMatchObject({ ok: false, error: MIRROR_PAGE_NOT_FOUND });
+  });
+  it("reports a page with no sheet with the exported constant", async () => {
+    setup({ page: { mirror_sheet_id: null } });
+    const r = await runMirror("p1");
+    expect(r).toMatchObject({ ok: false, error: MIRROR_NO_SHEET });
   });
 });

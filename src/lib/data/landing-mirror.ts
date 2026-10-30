@@ -17,6 +17,9 @@ type ApplyArgs = Database["public"]["Functions"]["landing_apply_status"]["Args"]
 
 const LOG = "[landing-mirror]";
 const CHUNK = 1000;
+// Exported so the sync route can tell "not configured" apart from other failures.
+export const MIRROR_PAGE_NOT_FOUND = "Page not found";
+export const MIRROR_NO_SHEET = "No valid sheet is linked to this page";
 const SHEET_ID_PATTERN = /^[A-Za-z0-9_-]{20,80}$/;
 
 export interface MirrorResult {
@@ -64,9 +67,9 @@ export async function runMirror(pageId: string, opts: { preview?: boolean } = {}
 
   const { data: page, error: pErr } = await db
     .from("landing_pages").select("id, mirror_sheet_id, mirror_last_result").eq("id", pageId).maybeSingle();
-  if (pErr || !page) return failed(preview, "Page not found");
+  if (pErr || !page) return failed(preview, MIRROR_PAGE_NOT_FOUND);
   const sheetId = page.mirror_sheet_id as string | null;
-  if (!sheetId || !SHEET_ID_PATTERN.test(sheetId)) return failed(preview, "No valid sheet is linked to this page");
+  if (!sheetId || !SHEET_ID_PATTERN.test(sheetId)) return failed(preview, MIRROR_NO_SHEET);
 
   const lockValue = new Date().toISOString();
   if (!preview) {
