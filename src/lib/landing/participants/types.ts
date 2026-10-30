@@ -12,6 +12,9 @@ export type Candidate = {
   phone: string;
   refId: string;
   status: RegistrationStatus;
+  /** Lead row's mode and option label; members follow their lead. */
+  mode?: "live" | "recorded";
+  optionLabel?: string;
 };
 
 export type SkipReason = "no_email" | "no_phone" | "unsubscribed" | "merged";

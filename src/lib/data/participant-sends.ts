@@ -221,7 +221,7 @@ async function personIdsFor(registrationIds: string[]): Promise<Map<string, stri
 }
 
 /** PZ ID the message shows: each registration's OWN person (members do not take their lead's). No person yet means no entry. */
-async function pzIdsFor(registrationIds: string[]): Promise<Map<string, string>> {
+export async function pzIdsFor(registrationIds: string[]): Promise<Map<string, string>> {
   const admin = createAdminSupabase();
   const out = new Map<string, string>();
   const ids = Array.from(new Set(registrationIds));
