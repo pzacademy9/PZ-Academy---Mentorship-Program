@@ -11,6 +11,7 @@ import {
   markAllPresent,
   markPresent,
   setMinPct,
+  setSessionAudience,
   unmarkPresent,
   updateSession,
   type SessionInput,
@@ -19,6 +20,8 @@ import { createSessionSend, listSessionSendState } from "@/lib/data/session-emai
 import { runEmailSend } from "@/lib/data/participant-sends";
 import { getBatchProgramId } from "@/lib/data/batch-feedback";
 import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
+import { previewRecipients, type RecipientPreview } from "@/lib/data/audience-preview";
+import { audienceFromJson, type Audience } from "@/lib/classes/audience";
 
 export type ActionResult = { ok: boolean; message?: string; staleReminder?: boolean };
 
@@ -284,4 +287,44 @@ export async function resendClassDetails(sessionId: string): Promise<ActionResul
 /** Emails the class's feedback link to every enrolled student of the batch. */
 export async function emailFeedbackLink(sessionId: string): Promise<ActionResult> {
   return sendNow(sessionId, "feedback");
+}
+
+/** Re-checks an audience that came from the browser: known shape, and every module number a whole number from 1 to 12. */
+function cleanAudience(raw: unknown): Audience | null {
+  const a = audienceFromJson(raw);
+  if (!a) return null;
+  if (a.modules !== "all" && (a.modules.length === 0 || !a.modules.every((n) => Number.isInteger(n) && n >= 1 && n <= 12))) return null;
+  return a;
+}
+
+async function sessionOfPage(pageId: string, sessionId: string): Promise<boolean> {
+  if (!isUuid(pageId) || !isUuid(sessionId)) return false;
+  const s = await getSessionById(sessionId);
+  return !!s && s.page_id === pageId;
+}
+
+/** Chooses who gets this class's emails. */
+export async function saveClassAudience(pageId: string, sessionId: string, audience: Audience): Promise<{ ok: true } | { ok: false; message: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  const clean = cleanAudience(audience);
+  if (!clean) return { ok: false, message: "Choose who gets this email" };
+  try {
+    if (!(await sessionOfPage(pageId, sessionId))) return { ok: false, message: NO_SESSION };
+    await setSessionAudience(sessionId, clean);
+    refresh(pageId);
+    return { ok: true };
+  } catch {
+    return { ok: false, message: SAVE_FAILED };
+  }
+}
+
+/** Who would get a class email with this audience, and who would not and why. */
+export async function previewClassAudience(pageId: string, sessionId: string, audience: Audience): Promise<RecipientPreview> {
+  const auth = await requireAdmin();
+  if (!auth.ok) throw new Error(NOT_ALLOWED);
+  const clean = cleanAudience(audience);
+  if (!clean) throw new Error("Choose who gets this email");
+  if (!(await sessionOfPage(pageId, sessionId))) throw new Error(NO_SESSION);
+  return previewRecipients({ pageId, audience: clean });
 }
