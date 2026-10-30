@@ -58,7 +58,7 @@ async function fetchSheet(sheetId: string): Promise<string[][] | null> {
 const toApp = (r: RegRow): AppRowLite => ({
   id: r.id, email: r.email, createdAt: new Date(r.created_at), status: r.status as RegistrationStatus,
   amountReceived: r.amount_received === null ? null : Number(r.amount_received),
-  statusSource: r.status_source === "sheet" ? "sheet" : "app", rowType: r.row_type as AppRowLite["rowType"],
+  statusSource: r.status_source === "sheet" ? "sheet" : "app", rowType: r.row_type as AppRowLite["rowType"], refId: r.ref_id,
 });
 
 export async function runMirror(pageId: string, opts: { preview?: boolean } = {}): Promise<MirrorResult> {
@@ -142,13 +142,23 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
 
   const res = blank(preview);
   // A failed memory save is safe: the next run links the row again by email + time.
-  const remember = async (rowKey: string, registrationId: string, status: RegistrationStatus, amount: number | null) => {
-    if (preview) return;
-    const { error } = await db.from("landing_mirror_rows").upsert(
-      { page_id: pageId, row_key: rowKey, registration_id: registrationId, last_status: status, last_amount: amount, last_seen_at: new Date().toISOString() },
-      { onConflict: "page_id,row_key" });
+  type MemInsert = Database["public"]["Tables"]["landing_mirror_rows"]["Insert"];
+  const memRow = (rowKey: string, registrationId: string, status: RegistrationStatus, amount: number | null): MemInsert =>
+    ({ page_id: pageId, row_key: rowKey, registration_id: registrationId, last_status: status, last_amount: amount, last_seen_at: new Date().toISOString() });
+  const saveMemory = async (rows: MemInsert[]) => {
+    const { error } = await db.from("landing_mirror_rows").upsert(rows, { onConflict: "page_id,row_key" });
     if (error) console.error(`${LOG} memory save failed:`, (error as { code?: string }).code);
   };
+  const remember = async (rowKey: string, registrationId: string, status: RegistrationStatus, amount: number | null) => {
+    if (preview) return;
+    await saveMemory([memRow(rowKey, registrationId, status, amount)]);
+  };
+  // Link and remember actions only touch memory, so they are saved together at the end (500 per call).
+  const queued = new Map<string, MemInsert>();
+  const queueMemory = (rowKey: string, registrationId: string, status: RegistrationStatus, amount: number | null) => {
+    if (!preview) queued.set(rowKey, memRow(rowKey, registrationId, status, amount));
+  };
+  const addNote = (text: string) => { if (res.notes.length < 20) res.notes.push(text); };
 
   // Ref ids and group leads known so far (existing plus inserted in this run).
   const usedRefs = new Set(regs.map((r) => r.ref_id).filter((x): x is string => !!x));
@@ -172,13 +182,19 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
       leadId = leadIdByEmail.get(row.leadEmail) ?? null;
       if (!leadId) { problem("Group member without a group lead"); return; }
     }
-    let baseRef: string | null = row.refId || null;
+    // Group members have no ref id of their own (the imported ones are NULL too).
+    let baseRef: string | null = isMember ? null : row.refId || null;
     if (!isMember && !baseRef) {
       baseRef = "SHEETMIR-" + createHash("sha256").update(`${pageId}|${row.key}`).digest("hex").slice(0, 10).toUpperCase();
-      if (res.notes.length < 20) res.notes.push(`Row ${rowNumber} had no Ref ID, one was made`);
+      addNote(`Row ${rowNumber} had no Ref ID, one was made`);
     }
     let refId = baseRef ? freeRef(baseRef) : null;
-    if (preview) { res.inserted++; if (refId) usedRefs.add(refId); return; }
+    if (preview) {
+      res.inserted++;
+      if (refId) usedRefs.add(refId);
+      if (row.rowType === "lead") leadIdByEmail.set(row.email, "preview-lead"); // so its members count like a real run
+      return;
+    }
 
     const build = (ref: string | null): RegInsert => ({
       page_id: pageId, row_type: row.rowType, lead_registration_id: leadId, name: row.name, email: row.email,
@@ -251,18 +267,26 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
     switch (action.kind) {
       case "insert": await doInsert(action); break;
       case "apply": await doApply(action); break;
-      case "link":
+      case "link": {
         res.linked++;
-        await remember(action.rowKey, action.registrationId, action.status, action.amount);
+        const app = regById.get(action.registrationId);
+        const appAmount = app && app.amount_received !== null ? Number(app.amount_received) : null;
+        if (app && (app.status !== action.status || appAmount !== action.amount)) {
+          addNote(`Row ${rowNumberByKey.get(action.rowKey) ?? 0}: sheet and app differ; left as is`);
+        }
+        queueMemory(action.rowKey, action.registrationId, action.status, action.amount);
         break;
+      }
       case "remember":
         res.skipped++;
-        await remember(action.rowKey, action.registrationId, action.status, action.amount);
+        queueMemory(action.rowKey, action.registrationId, action.status, action.amount);
         break;
       case "skip": res.skipped++; break;
       case "problem": res.problems.push({ rowNumber: action.rowNumber, reason: action.reason }); break;
     }
   }
+  const pending = Array.from(queued.values());
+  for (let i = 0; i < pending.length; i += 500) await saveMemory(pending.slice(i, i + 500));
   return res;
 }
 

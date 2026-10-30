@@ -38,7 +38,7 @@ describe("MirrorPanel", () => {
   });
 
   it("shows a red failure line when the last run failed", () => {
-    render(<MirrorPanel pageId={PAGE} lastRunAt={minutesAgo(4)} lastResult={result({ ok: false, error: "Could not start" })} />);
+    render(<MirrorPanel pageId={PAGE} lastRunAt={minutesAgo(4)} lastResult={result({ ok: false, error: "Could not read the sheet" })} />);
     const line = screen.getByText(/could not read the sheet/i);
     expect(line.className).toMatch(/text-pz-error/);
   });
@@ -87,7 +87,7 @@ describe("MirrorPanel", () => {
   });
 
   it("shows a preview that could not read the sheet as a failure", async () => {
-    fetchMock.mockReturnValue(jsonRes(result({ preview: true, ok: false, error: "Could not start" })));
+    fetchMock.mockReturnValue(jsonRes(result({ preview: true, ok: false, error: "Could not read the sheet" })));
     render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
     const alert = await screen.findByRole("alert");
@@ -158,6 +158,37 @@ describe("MirrorPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
     await screen.findByText(/would add 7, change 0/i);
     expect(screen.getByText(/synced from sheet 4 minutes ago: 2 new, 1 changed, 0 problems/i)).toBeTruthy();
+  });
+
+  it("preview banner says how many existing rows matched", async () => {
+    fetchMock.mockReturnValue(jsonRes(result({ preview: true, inserted: 19, changed: 0, linked: 72 })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
+    expect(await screen.findByText(/would add 19, change 0, match 72 existing, 0 problems/i)).toBeTruthy();
+  });
+
+  it("Sync now that comes back already running shows the plain reason", async () => {
+    fetchMock.mockReturnValue(jsonRes(result({ ok: false, error: "Already running" })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/a sync is already running\. try again in a minute\./i);
+  });
+
+  it("Sync now that could not read the sheet says so, and an unknown failure gets a generic line", async () => {
+    fetchMock.mockReturnValueOnce(jsonRes(result({ ok: false, error: "Could not read the sheet" })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/could not read the sheet/i);
+    cleanup();
+    fetchMock.mockReturnValueOnce(jsonRes(result({ ok: false, error: "Something went wrong" })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/the sync did not finish\. please try again\./i);
+  });
+
+  it("the stored failure line maps the stored error the same way", () => {
+    render(<MirrorPanel pageId={PAGE} lastRunAt={minutesAgo(4)} lastResult={result({ ok: false, error: "Already running" })} />);
+    expect(screen.getByText(/a sync is already running\. try again in a minute\./i).className).toMatch(/text-pz-error/);
   });
 
   it("keeps a polite live region mounted", () => {

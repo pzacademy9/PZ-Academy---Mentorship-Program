@@ -5,7 +5,7 @@ import type { MapResult, MirrorSheetRow } from "@/lib/landing/mirror/rows";
 
 export interface AppRowLite {
   id: string; email: string; createdAt: Date; status: RegistrationStatus; amountReceived: number | null;
-  statusSource: "app" | "sheet"; rowType: "individual" | "lead" | "member";
+  statusSource: "app" | "sheet"; rowType: "individual" | "lead" | "member"; refId?: string | null;
 }
 export interface MemoryRow { rowKey: string; registrationId: string; lastStatus: RegistrationStatus; lastAmount: number | null }
 
@@ -97,13 +97,27 @@ export function planMirror(
   // Step 4: whatever is left is an insert. Members need a lead in the app or among this plan's inserts.
   const insertEmails = new Set(entries.filter((e) => !e.action && e.row && e.row.rowType !== "member").map((e) => e.row!.email));
   const appLeadEmails = new Set(app.filter((a) => a.rowType !== "member").map((a) => a.email.trim().toLowerCase()));
+  // An app row remembered under a sheet key that is no longer in the sheet was edited there (email or time).
+  const editedRefs = new Set<string>();
+  const memKeyByReg = new Map(memory.map((m) => [m.registrationId, m.rowKey]));
+  for (const a of app) {
+    const k = memKeyByReg.get(a.id);
+    if (k !== undefined && !seen.has(k) && a.refId) editedRefs.add(a.refId.trim().toUpperCase());
+  }
   const first: MirrorAction[] = [];
   const members: MirrorAction[] = [];
   const rest: MirrorAction[] = [];
   for (const e of entries) {
     if (e.action) { rest.push(e.action); continue; }
     const row = e.row!;
-    if (row.rowType !== "member") { first.push({ kind: "insert", row }); continue; }
+    if (row.rowType !== "member") {
+      if (row.refId && editedRefs.has(row.refId.trim().toUpperCase())) {
+        rest.push({ kind: "problem", rowNumber: e.rowNumber, reason: "Looks like an existing sign-up whose email or time was edited in the sheet; fix it in the app" });
+        continue;
+      }
+      first.push({ kind: "insert", row });
+      continue;
+    }
     if (row.leadEmail && (insertEmails.has(row.leadEmail) || appLeadEmails.has(row.leadEmail))) members.push({ kind: "insert", row });
     else rest.push({ kind: "problem", rowNumber: e.rowNumber, reason: "Group member without a group lead" });
   }

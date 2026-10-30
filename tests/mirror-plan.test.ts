@@ -213,4 +213,18 @@ describe("planMirror", () => {
     const out = planMirror([ok(m)], [appRow({ rowType: "lead" })], []);
     expect(out).toEqual([{ kind: "problem", rowNumber: 2, reason: "Group member without a group lead" }]);
   });
+  it("a new row whose Ref ID belongs to a remembered app row whose old sheet key vanished is a problem (email or time edited)", () => {
+    const old = sheetRow({ email: "a@example.com", refId: "T-001" });
+    const edited = sheetRow({ email: "a2@example.com", refId: "t-001" });
+    const out = planMirror([ok(edited, 5)], [appRow({ refId: "T-001" })], [mem(old)]);
+    expect(out).toEqual([{ kind: "problem", rowNumber: 5, reason: "Looks like an existing sign-up whose email or time was edited in the sheet; fix it in the app" }]);
+  });
+
+  it("a reused Ref ID still inserts when the old row is still in the sheet", () => {
+    const old = sheetRow({ email: "a@example.com", refId: "T-001" });
+    const again = sheetRow({ email: "b@example.com", refId: "T-001" });
+    const out = planMirror([ok(old, 2), ok(again, 3)], [appRow({ refId: "T-001" })], [mem(old)]);
+    expect(out.filter((a) => a.kind === "insert")).toHaveLength(1);
+    expect(out.some((a) => a.kind === "problem")).toBe(false);
+  });
 });

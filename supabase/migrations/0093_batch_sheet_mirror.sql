@@ -1,5 +1,5 @@
 -- 0093: batch sheet mirror. The owner pastes this by hand into the Supabase SQL editor.
--- Mirrors a batch's registrations into a Google Sheet on a schedule.
+-- Mirrors a batch's registrations FROM a Google Sheet INTO the app on a schedule.
 -- landing_pages gets four mirror_* columns (target sheet, last run time, last result, running lock).
 -- landing_mirror_rows remembers which sheet row belongs to which registration, and the status/amount last written.
 -- landing_mirror_rows has RLS on and no policies: only the service role touches it.

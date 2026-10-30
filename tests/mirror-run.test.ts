@@ -47,6 +47,7 @@ const fetchMock = vi.fn(async (_url: string, _init?: unknown) => { onFetch?.(); 
 let store: Store;
 const rpcCalls: Record<string, unknown>[] = [];
 let rpcReply: Res | null = null;
+let upsertCalls = 0;
 let failInsertFor: string | null = null;
 let onFetch: (() => void) | null = null;
 function handler(): (op: Op) => Res {
@@ -74,9 +75,13 @@ function handler(): (op: Op) => Res {
       if (item.ref_id && store.landing_registrations.some((r) => r.ref_id === item.ref_id)) return { data: null, error: { code: "23505" } };
     }
     if (op.table === "landing_mirror_rows" && op.op === "upsert") {
-      const item = op.payload as Record<string, unknown>;
-      const hit = store.landing_mirror_rows.find((r) => r.page_id === item.page_id && r.row_key === item.row_key);
-      if (hit) { Object.assign(hit, item); return { data: [hit], error: null }; }
+      upsertCalls++;
+      const items = (Array.isArray(op.payload) ? op.payload : [op.payload]) as Record<string, unknown>[];
+      for (const item of items) {
+        const hit = store.landing_mirror_rows.find((r) => r.page_id === item.page_id && r.row_key === item.row_key);
+        if (hit) Object.assign(hit, item); else store.landing_mirror_rows.push({ id: `m${store.landing_mirror_rows.length}`, ...item });
+      }
+      return { data: items, error: null };
     }
     return base(op);
   };
@@ -97,7 +102,7 @@ const writes = () => db.state.ops.filter((o) => ["insert", "update", "upsert", "
 const regs = () => store.landing_registrations;
 
 beforeEach(() => {
-  db.reset(); rpcCalls.length = 0; rpcReply = null; failInsertFor = null; onFetch = null;
+  db.reset(); rpcCalls.length = 0; rpcReply = null; upsertCalls = 0; failInsertFor = null; onFetch = null;
   queueStatusFollowUps.mockClear(); enqueueStatusEffects.mockClear(); enqueueSheetStatus.mockClear(); runJobsFor.mockClear();
   fetchMock.mockClear(); sheetStatus = 200; sheetBody = THREE();
   vi.stubGlobal("fetch", fetchMock);
@@ -359,6 +364,61 @@ describe("runMirror", () => {
     onFetch = () => { store.landing_pages[0].mirror_running_at = other; };
     await runMirror("p1");
     expect(store.landing_pages[0].mirror_running_at).toBe(other);
+  });
+
+  it("preview of a new group counts the lead and its members with no problems", async () => {
+    setup();
+    sheetBody = csv(
+      csvLine({ Name: "Lead", Email: "lead@example.com", "Row Type": "Group Lead", "Registration Option": "Live — Full Course – Group of 3", "Submitted At": "9/15/2026 19:00:00", "Ref ID": "G-001" }),
+      csvLine({ Name: "Member A", Email: "a@example.com", "Row Type": "Group Member", "Group Lead Email": "lead@example.com", "Submitted At": "9/15/2026 19:00:01", "Ref ID": "", "Expected Amount": "" }),
+      csvLine({ Name: "Member B", Email: "b@example.com", "Row Type": "Group Member", "Group Lead Email": "lead@example.com", "Submitted At": "9/15/2026 19:00:02", "Ref ID": "", "Expected Amount": "" }),
+    );
+    const r = await runMirror("p1", { preview: true });
+    expect(r).toMatchObject({ inserted: 3, problems: [] });
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("a group member is stored with no ref id even when the sheet has one", async () => {
+    setup();
+    sheetBody = csv(
+      csvLine({ Name: "Lead", Email: "lead@example.com", "Row Type": "Group Lead", "Registration Option": "Live — Full Course – Group of 3", "Submitted At": "9/15/2026 19:00:00", "Ref ID": "G-001" }),
+      csvLine({ Name: "Member A", Email: "a@example.com", "Row Type": "Group Member", "Group Lead Email": "lead@example.com", "Submitted At": "9/15/2026 19:00:01", "Ref ID": "G-001", "Expected Amount": "" }),
+    );
+    await runMirror("p1");
+    expect(regs().find((x) => x.row_type === "member")!.ref_id).toBeNull();
+    expect(regs().find((x) => x.row_type === "lead")!.ref_id).toBe("G-001");
+  });
+
+  it("a sign-up whose email was edited in the sheet is a problem, not a duplicate", async () => {
+    setup({
+      regs: [{ id: "r1", page_id: "p1", row_type: "individual", email: "one@example.com", created_at: "2026-09-15T14:17:27.000Z", status: "pending", amount_received: null, status_source: "sheet", expected_amount: 5000, ref_id: "T-001" }],
+      mem: [{ page_id: "p1", row_key: "one@example.com|2026-09-15T14:17", registration_id: "r1", last_status: "pending", last_amount: null }],
+    });
+    sheetBody = csv(csvLine({ Email: "edited@example.com" }));
+    const r = await runMirror("p1");
+    expect(r.inserted).toBe(0);
+    expect(r.problems).toHaveLength(1);
+    expect(regs()).toHaveLength(1);
+  });
+
+  it("adds a note when a linked row differs from the app, capped at 20", async () => {
+    const mk = (i: number) => ({ id: `a${i}`, page_id: "p1", row_type: "individual", email: `u${i}@example.com`, created_at: `2026-09-15T14:${String(10 + (i % 40)).padStart(2, "0")}:00.000Z`, status: "paid", amount_received: 5000, status_source: "app", expected_amount: 5000, ref_id: `L-${i}` });
+    const apps = Array.from({ length: 1 }, (_, i) => mk(i));
+    setup({ regs: apps });
+    sheetBody = csv(csvLine({ Email: "u0@example.com", "Submitted At": "9/15/2026 19:10:00", "Ref ID": "L-0", "Payment Confirmation": "Pending" }));
+    const r = await runMirror("p1");
+    expect(r.linked).toBe(1);
+    expect(r.notes).toEqual(["Row 2: sheet and app differ; left as is"]);
+  });
+
+  it("saves the memory for linked rows in one batched upsert", async () => {
+    const apps = Array.from({ length: 5 }, (_, i) => ({ id: `a${i}`, page_id: "p1", row_type: "individual", email: `u${i}@example.com`, created_at: `2026-09-15T14:1${i}:00.000Z`, status: "pending", amount_received: null, status_source: "app", expected_amount: 5000, ref_id: `L-${i}` }));
+    setup({ regs: apps });
+    sheetBody = csv(...apps.map((a, i) => csvLine({ Email: `u${i}@example.com`, "Submitted At": `9/15/2026 19:1${i}:00`, "Ref ID": `L-${i}` })));
+    const r = await runMirror("p1");
+    expect(r).toMatchObject({ linked: 5, inserted: 0 });
+    expect(store.landing_mirror_rows).toHaveLength(5);
+    expect(upsertCalls).toBe(1);
   });
 
   it("refuses a sheet id that is not a plain id", async () => {

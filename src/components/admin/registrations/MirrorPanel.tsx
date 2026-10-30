@@ -14,6 +14,17 @@ const ERROR_TEXT = "Something went wrong. Please try again.";
 const ADMIN_TEXT = "You need to be an admin to do this.";
 const MAX_PROBLEMS_SHOWN = 20;
 
+const ALREADY_RUNNING_TEXT = "A sync is already running. Try again in a minute.";
+const UNREADABLE_TEXT = "Could not read the sheet";
+const NOT_FINISHED_TEXT = "The sync did not finish. Please try again.";
+
+/** Turns the stored or returned error code into plain words. */
+function plainError(error: string | undefined): string {
+  if (error === "Already running") return ALREADY_RUNNING_TEXT;
+  if (error === "Could not read the sheet") return UNREADABLE_TEXT;
+  return NOT_FINISHED_TEXT;
+}
+
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const primaryBtn =
@@ -78,7 +89,8 @@ export function MirrorPanel({
         setPreviewResult(data);
       } else {
         setPreviewResult(null);
-        router.refresh();
+        if (!data.ok) setRunError(plainError(data.error));
+        if (data.ok || data.error !== "Already running") router.refresh();
       }
     } catch {
       setRunError(ERROR_TEXT);
@@ -96,7 +108,7 @@ export function MirrorPanel({
   if (!lastResult) {
     summary = "Not synced yet.";
   } else if (failed) {
-    summary = "Could not read the sheet";
+    summary = plainError(lastResult.error);
   } else {
     summary = `Synced from sheet${when ? ` ${relativeTime(when)}` : ""}: ${lastResult.inserted} new, ${lastResult.changed} changed, ${plural(problems.length, "problem", "problems")}`;
   }
@@ -143,8 +155,8 @@ export function MirrorPanel({
             )}
           >
             {previewResult.ok
-              ? `Preview only, nothing was changed. Would add ${previewResult.inserted}, change ${previewResult.changed}, ${plural(previewResult.problems.length, "problem", "problems")}.`
-              : "Preview only, nothing was changed. Could not read the sheet."}
+              ? `Preview only, nothing was changed. Would add ${previewResult.inserted}, change ${previewResult.changed}, match ${previewResult.linked} existing, ${plural(previewResult.problems.length, "problem", "problems")}.`
+              : `Preview only, nothing was changed. ${plainError(previewResult.error)}`}
           </p>
         )}
         {previewResult && previewResult.problems.length > 0 && (
