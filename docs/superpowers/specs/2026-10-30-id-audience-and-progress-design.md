@@ -70,3 +70,14 @@ Track Your Progress has an **Attendance section** and a **Results section** (plu
 - **Results section:** one row per quiz: class title and date, the student's score out of the maximum, and their rank among live students where the owner has made that visible. Classes with no quiz are skipped. A header line gives the running total score across quizzes.
 - Recorded students: Attendance shows "not tracked for recorded students"; Results still lists their quiz scores, with no rank (live competition only).
 - Same privacy rule: first name only, no email or phone. Phone-first layout: each class is a tap-friendly row, long lists scroll the page, never sideways.
+
+## Owner change to project B (2026-10-30): grouped by Courses, Workshops, Webinars, then by batch
+
+Both sections are grouped, not one long list:
+
+- **Top level: three groups, Courses, Workshops, Webinars.** Taken from each batch page's kind (`landing_pages.kind` = course / workshop / webinar). A group with nothing for this student is hidden.
+- **Inside a group: one block per batch** the student's ID belongs to (e.g. "Diabetes Management & Pharmacotherapy – Batch 1", "PPC Batch 3"), newest first. Each block opens to show its classes event by event and its own totals line.
+- The same grouping applies to the Attendance section and the Results section. A student in several batches sees them all under their kind.
+- A webinar is a batch with a single class, so its block shows one row.
+- Certificates line sits inside each batch block.
+- Phone-first: batch blocks collapse (tap to open); the batch with the most recent class is open by default.
