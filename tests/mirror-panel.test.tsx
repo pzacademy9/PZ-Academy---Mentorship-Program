@@ -86,6 +86,67 @@ describe("MirrorPanel", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
+  it("shows a preview that could not read the sheet as a failure", async () => {
+    fetchMock.mockReturnValue(jsonRes(result({ preview: true, ok: false, error: "Could not start" })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/could not read the sheet/i);
+  });
+
+  it("shows preview problems as rows with the same cap", async () => {
+    const problems = Array.from({ length: 22 }, (_, i) => ({ rowNumber: i + 2, reason: `Why ${i + 2}` }));
+    fetchMock.mockReturnValue(jsonRes(result({ preview: true, problems })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
+    await screen.findByText("Row 2: Why 2");
+    expect(screen.queryByText("Row 22: Why 22")).toBeNull();
+    expect(screen.getByText(/and 2 more/i)).toBeTruthy();
+  });
+
+  it("shows a plain error when the network request rejects", async () => {
+    fetchMock.mockReturnValue(Promise.reject(new Error("offline")));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/something went wrong\. please try again\./i);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("says the person must be an admin on 401 or 403", async () => {
+    fetchMock.mockReturnValue(jsonRes({ error: "Forbidden" }, false).then((r) => ({ ...r, ok: false, status: 403 }) as Response));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect(await screen.findByText("You need to be an admin to do this.")).toBeTruthy();
+  });
+
+  it("shows the plain message when a 200 reply has the wrong shape", async () => {
+    fetchMock.mockReturnValue(jsonRes("garbage"));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect(await screen.findByText(/something went wrong\. please try again\./i)).toBeTruthy();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("does not show red or 'not synced yet' when there is a result but no run time", () => {
+    render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={result({ ranAt: "" })} />);
+    expect(screen.queryByText(/not synced yet/i)).toBeNull();
+    const line = screen.getByText(/synced from sheet: 2 new, 1 changed, 0 problems/i);
+    expect(line.className).not.toMatch(/text-pz-error/);
+  });
+
+  it("keeps the last real summary in place after a preview", async () => {
+    fetchMock.mockReturnValue(jsonRes(result({ preview: true, inserted: 7, changed: 0 })));
+    render(<MirrorPanel pageId={PAGE} lastRunAt={minutesAgo(4)} lastResult={result()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Preview (changes nothing)" }));
+    await screen.findByText(/would add 7, change 0/i);
+    expect(screen.getByText(/synced from sheet 4 minutes ago: 2 new, 1 changed, 0 problems/i)).toBeTruthy();
+  });
+
+  it("keeps a polite live region mounted", () => {
+    const { container } = render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);
+    expect(container.querySelector('[aria-live="polite"]')).toBeTruthy();
+  });
+
   it("shows a plain error when the request fails", async () => {
     fetchMock.mockReturnValue(jsonRes({ error: "nope" }, false));
     render(<MirrorPanel pageId={PAGE} lastRunAt={null} lastResult={null} />);

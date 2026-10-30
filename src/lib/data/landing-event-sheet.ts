@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { normalizeContent } from "@/lib/landing/content";
 import type { MirrorResult } from "@/lib/data/landing-mirror";
+import { parseMirrorResult } from "@/lib/landing/mirror/result";
 
 export interface PageSheetInfo {
   id: string;
@@ -50,11 +51,10 @@ export async function getPageMirrorInfo(id: string): Promise<PageMirrorInfo | nu
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const raw = data.mirror_last_result as unknown;
   return {
     sheetId: data.mirror_sheet_id || null,
     lastRunAt: data.mirror_last_run_at,
-    lastResult: raw && typeof raw === "object" ? (raw as MirrorResult) : null,
+    lastResult: parseMirrorResult(data.mirror_last_result),
   };
 }
 

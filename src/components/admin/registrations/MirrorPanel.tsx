@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 import { formatDateTimePkt, relativeTime } from "@/lib/format";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { MirrorResult } from "@/lib/data/landing-mirror";
+import { parseMirrorResult } from "@/lib/landing/mirror/result";
 
 const SYNC_ROUTE = "/api/admin/landing-mirror/sync";
 const ERROR_TEXT = "Something went wrong. Please try again.";
+const ADMIN_TEXT = "You need to be an admin to do this.";
 const MAX_PROBLEMS_SHOWN = 20;
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -18,6 +20,19 @@ const primaryBtn =
   "inline-flex items-center justify-center gap-2 px-3.5 py-2 max-md:min-h-11 rounded-lg font-headline text-xs font-bold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 const quietBtn =
   "inline-flex items-center justify-center gap-1.5 px-3 py-2 max-md:min-h-11 rounded-lg font-headline text-xs font-medium bg-pz-surface-container-low text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+
+function ProblemList({ problems }: { problems: MirrorResult["problems"] }) {
+  return (
+    <ul className="space-y-1 text-sm font-body text-pz-on-surface-variant">
+      {problems.slice(0, MAX_PROBLEMS_SHOWN).map((p, i) => (
+        <li key={`${p.rowNumber}-${i}`}>{`Row ${p.rowNumber}: ${p.reason}`}</li>
+      ))}
+      {problems.length > MAX_PROBLEMS_SHOWN && (
+        <li className="text-pz-outline">{`and ${problems.length - MAX_PROBLEMS_SHOWN} more`}</li>
+      )}
+    </ul>
+  );
+}
 
 export function MirrorPanel({
   pageId,
@@ -43,11 +58,19 @@ export function MirrorPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId, preview }),
       });
+      if (res.status === 401 || res.status === 403) {
+        setRunError(ADMIN_TEXT);
+        return;
+      }
       if (!res.ok) {
         setRunError(ERROR_TEXT);
         return;
       }
-      const data = (await res.json()) as MirrorResult;
+      const data = parseMirrorResult(await res.json());
+      if (!data) {
+        setRunError(ERROR_TEXT);
+        return;
+      }
       if (preview) {
         setPreviewResult(data);
       } else {
@@ -67,12 +90,12 @@ export function MirrorPanel({
   const notes = lastResult?.notes ?? [];
 
   let summary: string;
-  if (!lastResult || !when) {
+  if (!lastResult) {
     summary = "Not synced yet.";
   } else if (failed) {
     summary = "Could not read the sheet";
   } else {
-    summary = `Synced from sheet ${relativeTime(when)}: ${lastResult.inserted} new, ${lastResult.changed} changed, ${plural(problems.length, "problem", "problems")}`;
+    summary = `Synced from sheet${when ? ` ${relativeTime(when)}` : ""}: ${lastResult.inserted} new, ${lastResult.changed} changed, ${plural(problems.length, "problem", "problems")}`;
   }
 
   return (
@@ -85,7 +108,9 @@ export function MirrorPanel({
       </div>
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div aria-live="polite" className="space-y-3 min-w-0">
         <p
+          role={failed ? "alert" : undefined}
           className={cn(
             "inline-flex items-center gap-2 text-sm font-headline font-semibold",
             failed ? "text-pz-error" : "text-pz-on-surface",
@@ -99,6 +124,27 @@ export function MirrorPanel({
           ) : null}
           {summary}
         </p>
+        {runError && (
+          <p role="alert" className="text-sm font-body text-pz-error">
+            {runError}
+          </p>
+        )}
+        {previewResult && (
+          <p
+            role={previewResult.ok ? "status" : "alert"}
+            className={cn(
+              "rounded-lg px-4 py-3 text-sm font-body",
+              previewResult.ok
+                ? "bg-pz-tertiary-fixed text-pz-on-tertiary-fixed-variant"
+                : "bg-pz-error-container text-pz-on-error-container",
+            )}
+          >
+            {previewResult.ok
+              ? `Preview only, nothing was changed. Would add ${previewResult.inserted}, change ${previewResult.changed}, ${plural(previewResult.problems.length, "problem", "problems")}.`
+              : "Preview only, nothing was changed. Could not read the sheet."}
+          </p>
+        )}
+        </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => void run(true)} disabled={pending} className={quietBtn}>
             <Eye className="w-4 h-4" aria-hidden="true" />
@@ -111,38 +157,11 @@ export function MirrorPanel({
         </div>
       </div>
 
-      {runError && (
-        <p role="status" className="text-sm font-body text-pz-error">
-          {runError}
-        </p>
+      {previewResult && previewResult.problems.length > 0 && (
+        <ProblemList problems={previewResult.problems} />
       )}
 
-      {previewResult && (
-        <p
-          role="status"
-          className={cn(
-            "rounded-lg px-4 py-3 text-sm font-body",
-            previewResult.ok
-              ? "bg-pz-tertiary-fixed text-pz-on-tertiary-fixed-variant"
-              : "bg-pz-error-container text-pz-on-error-container",
-          )}
-        >
-          {previewResult.ok
-            ? `Preview only, nothing was changed. Would add ${previewResult.inserted}, change ${previewResult.changed}, ${plural(previewResult.problems.length, "problem", "problems")}.`
-            : "Preview only, nothing was changed. Could not read the sheet."}
-        </p>
-      )}
-
-      {problems.length > 0 && (
-        <ul className="space-y-1 text-sm font-body text-pz-on-surface-variant">
-          {problems.slice(0, MAX_PROBLEMS_SHOWN).map((p, i) => (
-            <li key={`${p.rowNumber}-${i}`}>{`Row ${p.rowNumber}: ${p.reason}`}</li>
-          ))}
-          {problems.length > MAX_PROBLEMS_SHOWN && (
-            <li className="text-pz-outline">{`and ${problems.length - MAX_PROBLEMS_SHOWN} more`}</li>
-          )}
-        </ul>
-      )}
+      {problems.length > 0 && <ProblemList problems={problems} />}
 
       {notes.length > 0 && (
         <ul className="space-y-1 text-xs font-body text-pz-outline list-disc pl-4">
