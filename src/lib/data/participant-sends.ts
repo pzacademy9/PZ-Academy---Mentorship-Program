@@ -120,7 +120,7 @@ export async function createSend(input: {
   try {
     resolved = await plan({ pageId: input.pageId, channel: input.channel, ids: input.ids, filters: input.filters, requirePzId: needsPzId(input) });
   } catch (e) {
-    // A ticked row stopped being a valid head since the preview (flagged or deleted): the list changed.
+    // A ticked row stopped being a valid row since the preview (flagged or deleted): the list changed.
     if (e instanceof Error && /not on this campaign/i.test(e.message)) return fail("count_changed");
     throw e;
   }

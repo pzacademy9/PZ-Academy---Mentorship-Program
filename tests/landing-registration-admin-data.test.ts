@@ -113,6 +113,23 @@ describe("list", () => {
     expect(out.rows.map((r) => r.id)).toContain("m1");
     expect(filterValue(regReads()[0], "in", "row_type")).toEqual(["individual", "lead", "member"]);
   });
+  it("list orders by created_at desc, then row_type, then id so ties are stable across pages", async () => {
+    await listRegistrations({ kind: "all" }, {});
+    const rowsOp = regReads().find((op) => op.orders.length > 0)!;
+    expect(rowsOp.orders).toEqual([["created_at", false], ["row_type", true], ["id", true]]);
+  });
+  it("list puts a lead before its member when created_at ties", async () => {
+    db.state.handler = memoryHandler({
+      landing_registrations: [
+        reg({ id: "m9", name: "Mem", row_type: "member", lead_registration_id: "L9" }),
+        reg({ id: "L9", name: "Lead9", row_type: "lead", ref_id: "PZA-9", group_size: 2 }),
+      ],
+      landing_pages: [{ id: "pg1", title: "PPC", slug: "ppc", status: "published" }],
+      profiles: [],
+    }, () => rpcResult);
+    const out = await listRegistrations({ kind: "all" }, {});
+    expect(out.rows.map((r) => r.id)).toEqual(["L9", "m9"]);
+  });
   it("list maps page and agent names", async () => {
     const out = await listRegistrations({ kind: "all" }, {});
     const a = out.rows.find((r) => r.id === "a")!;

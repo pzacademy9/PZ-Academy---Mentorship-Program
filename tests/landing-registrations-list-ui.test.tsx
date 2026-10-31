@@ -53,6 +53,13 @@ describe("registrations list UI", () => {
     expect(within(screen.getByRole("table")).getByRole("checkbox", { name: "Select Bilal Ahmed" })).toBeTruthy();
   });
 
+  it("a member row with no lead name shows 'Group member' with no dangling 'of'", () => {
+    table([{ ...memberRow(), leadName: null }]);
+    const t = within(screen.getByRole("table"));
+    expect(t.getByText("Group member")).toBeTruthy();
+    expect(t.queryByText(/Group member of/)).toBeNull();
+  });
+
   it("a member row links to the lead's detail page, other rows to their own id", () => {
     table([memberRow(), row({ id: "r9", name: "Imran Khan", groupSize: 3, rowType: "lead" })]);
     const t = within(screen.getByRole("table"));

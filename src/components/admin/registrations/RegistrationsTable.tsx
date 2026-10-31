@@ -41,7 +41,7 @@ function MembersChip({ groupSize }: { groupSize: number }) {
 
 function MemberOfLine({ row }: { row: RegistrationListRow }) {
   if (row.rowType !== "member") return null;
-  return <span className="text-[10px] text-pz-tertiary font-semibold mt-0.5">Group member of {row.leadName}</span>;
+  return <span className="text-[10px] text-pz-tertiary font-semibold mt-0.5">{row.leadName ? `Group member of ${row.leadName}` : "Group member"}</span>;
 }
 
 function WaitingTag({ row }: { row: RegistrationListRow }) {

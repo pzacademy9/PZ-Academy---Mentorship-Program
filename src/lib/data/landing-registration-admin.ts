@@ -156,7 +156,7 @@ function scopeParams(scope: Scope): { agentFilter: boolean; agentId: string; hid
 /** An agent scope with no usable id must see nothing (never fall through to "every row"). */
 const isEmptyAgentScope = (scope: Scope): boolean => scope.kind === "agent" && !scope.agentId;
 
-/** The head-row filters shared by the list and by campaign recipient resolution (everything except status and paging). */
+/** The row filters (applied to heads, or to heads and members when given LIST_ROW_TYPES) shared by the list and by campaign recipient resolution (everything except status and paging). */
 export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query: T, scope: Scope, f: RegistrationListFilters, rowTypes: string[] = HEAD_ROW_TYPES): T {
   let qy: any = query.in("row_type", rowTypes);
   const sc = scopeParams(scope);
@@ -258,7 +258,7 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   let rowsQuery = base(false);
   if (f.status && f.status !== "all") rowsQuery = rowsQuery.eq("status", f.status);
   const [rowsRes, all, ...perStatus] = await Promise.all([
-    rowsQuery.order("created_at", { ascending: false }).range(from, from + PAGE_SIZE - 1),
+    rowsQuery.order("created_at", { ascending: false }).order("row_type", { ascending: true }).order("id", { ascending: true }).range(from, from + PAGE_SIZE - 1),
     countFor("all"),
     ...STATUSES.map(countFor),
   ]);
