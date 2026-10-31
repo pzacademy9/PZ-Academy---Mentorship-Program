@@ -35,7 +35,7 @@ export async function listSessionSendState(sessionIds: string[]): Promise<Record
 
 /**
  * Enrolled (paid or free) live registrations only: heads and their members. Recorded heads are filtered
- * out by the resolver (mode = live) and their members come only through their lead, so they are out too.
+ * out by the resolver (mode = live); members are filtered on their own mode and option.
  * Test rows never come back from the resolver; unsubscribed people are skipped by the planner.
  */
 export async function createSessionSend(
