@@ -70,7 +70,9 @@ export function mapSheetRow(header: string[], cells: string[]): MapResult {
   if (!submittedAt) return { ok: false, reason: "bad-time" };
   const name = get("Name");
   if (!name) return { ok: false, reason: "no-name" };
-  const status = parseSheetStatus(get("Payment Confirmation"));
+  // The old sheet leaves Payment Confirmation blank until someone sets it; a blank cell is a new, unpaid sign-up.
+  const statusText = get("Payment Confirmation");
+  const status = statusText === "" ? "pending" : parseSheetStatus(statusText);
   if (!status) return { ok: false, reason: "bad-status" };
   const opt = parseOption(get("Registration Option"));
   if (!opt) return { ok: false, reason: "bad-option" };

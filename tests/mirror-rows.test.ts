@@ -58,6 +58,10 @@ describe("mapSheetRow", () => {
       expect(ok({ "Payment Confirmation": t }).status).toBe(s);
     }
   });
+  it("treats a blank status as pending", () => {
+    expect(ok({ "Payment Confirmation": "" }).status).toBe("pending");
+    expect(ok({ "Payment Confirmation": "   " }).status).toBe("pending");
+  });
   it("handles blank amounts and prefixed expected amounts", () => {
     expect(ok({ Amount: "" }).amountReceived).toBeNull();
     expect(ok({ "Expected Amount": "INR 1,200" }).expectedAmount).toBe(1200);
