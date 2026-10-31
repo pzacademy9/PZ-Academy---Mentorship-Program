@@ -13,7 +13,7 @@ const ITEM =
   "gap-3 px-3 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface focus:bg-pz-surface-container focus:text-pz-on-surface max-md:flex-col max-md:items-start max-md:gap-1 max-md:bg-pz-surface-container-low";
 const ICON = "w-4 h-4 text-pz-primary shrink-0";
 
-/** The row menu: Edit details, Status email, Send email, Send WhatsApp. List rows are never group members. */
+/** The row menu: Edit details, Status email, Send email, Send WhatsApp. Group members get their own row, so the Status email dialog is told the row type. */
 export function RowActions({ row, onOpenBuilder }: { row: RegistrationListRow; onOpenBuilder: OpenBuilder }) {
   const [dialog, setDialog] = useState<"edit" | "status" | null>(null);
   const waProblem = phoneProblemWord(row.whatsapp);
@@ -66,7 +66,7 @@ export function RowActions({ row, onOpenBuilder }: { row: RegistrationListRow; o
       </DropdownMenu>
 
       {dialog === "edit" && <EditDetailsDialog row={row} onClose={() => setDialog(null)} />}
-      {dialog === "status" && <StatusEmailDialog row={row} rowType="lead" onClose={() => setDialog(null)} />}
+      {dialog === "status" && <StatusEmailDialog row={row} rowType={row.rowType} onClose={() => setDialog(null)} />}
     </>
   );
 }

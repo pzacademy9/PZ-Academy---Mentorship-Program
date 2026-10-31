@@ -39,6 +39,11 @@ function MembersChip({ groupSize }: { groupSize: number }) {
   );
 }
 
+function MemberOfLine({ row }: { row: RegistrationListRow }) {
+  if (row.rowType !== "member") return null;
+  return <span className="text-[10px] text-pz-tertiary font-semibold mt-0.5">Group member of {row.leadName}</span>;
+}
+
 function WaitingTag({ row }: { row: RegistrationListRow }) {
   if (!row.sheetUpdateWaiting) return null;
   return (
@@ -114,7 +119,8 @@ export function RegistrationsTable({
   const last = Math.min(total, first + rows.length - 1);
   const hasPrev = page > 1;
   const hasNext = page * pageSize < total;
-  const href = (r: RegistrationListRow) => `${detailHrefBase}/${r.id}`;
+  // A member has no detail page of its own (its id would 404), so it opens its lead's.
+  const href = (r: RegistrationListRow) => `${detailHrefBase}/${r.leadId ?? r.id}`;
 
   return (
     <div className="space-y-4">
@@ -135,10 +141,11 @@ export function RegistrationsTable({
             <span className="inline-flex flex-wrap items-center gap-1.5">
               {r.name}
               {r.isTest && <TestChip />}
-              <MembersChip groupSize={r.groupSize} />
+              {r.rowType !== "member" && <MembersChip groupSize={r.groupSize} />}
             </span>
           ),
           meta: (r) => [
+            ...(r.rowType === "member" ? [<MemberOfLine key="member-of" row={r} />] : []),
             `${r.pageTitle} · ${r.optionLabel}`,
             ...(showPzId && r.pzId ? [`PZ ID: ${r.pzId}`] : []),
             `${r.region} · ${r.mode === "live" ? "Live" : "Recorded"} · ${formatMoney(r.expectedAmount, r.currency)}`,
@@ -212,10 +219,11 @@ export function RegistrationsTable({
                             <span className="flex flex-wrap items-center gap-1.5">
                               <span className="font-headline font-bold truncate group-hover:text-pz-primary transition-colors">{r.name}</span>
                               {r.isTest && <TestChip />}
-                              <MembersChip groupSize={r.groupSize} />
+                              {r.rowType !== "member" && <MembersChip groupSize={r.groupSize} />}
                               <WaitingTag row={r} />
                             </span>
                             <span className="text-[11px] text-pz-on-surface-variant truncate">{r.email}</span>
+                            <MemberOfLine row={r} />
                             {r.refId && <span className="text-[10px] text-pz-tertiary font-semibold mt-0.5">Ref: {r.refId}</span>}
                           </span>
                         </Link>

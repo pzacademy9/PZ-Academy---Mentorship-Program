@@ -161,6 +161,18 @@ describe("row menu", () => {
   });
 });
 
+describe("member row menu", () => {
+  it("a member row's Status email dialog offers only Received and Paid", () => {
+    render(<RowActions row={row({ rowType: "member", leadId: "r0", leadName: "Lead Person" })} onOpenBuilder={() => {}} />);
+    openMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: /Status email/ }));
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    // the "received" email kind is labelled Pending in the dialog
+    expect(screen.getByRole("radio", { name: /Pending/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /Paid/ })).toBeTruthy();
+  });
+});
+
 describe("status email dialog", () => {
   const open = (r = row(), rowType: "individual" | "lead" | "member" = "lead") =>
     render(<StatusEmailDialog row={r} rowType={rowType} onClose={() => {}} />);

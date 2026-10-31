@@ -1,6 +1,6 @@
 // tests/landing-registrations-list-ui.test.tsx
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, cleanup } from "@testing-library/react";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { RegistrationFilters } from "@/components/admin/registrations/RegistrationFilters";
 import { RegistrationsTable } from "@/components/admin/registrations/RegistrationsTable";
@@ -41,6 +41,36 @@ describe("registrations list UI", () => {
   it("shows +N members for a group lead", () => {
     table([row({ groupSize: 5 })]);
     expect(within(screen.getByRole("table")).getByText("+4 members")).toBeTruthy();
+  });
+
+  const memberRow = () => row({ id: "m1", refId: null, name: "Bilal Ahmed", email: "b@x.com", groupSize: 1, rowType: "member", leadId: "r1", leadName: "Zainab Qasim" });
+  const selectable = { isSelected: () => false, onToggle: () => {}, allOnPageSelected: false, onTogglePage: () => {} };
+
+  it("a member row shows 'Group member of <lead name>' under the name and its own tick-box", () => {
+    table([memberRow()], { selectable });
+    expect(within(screen.getByRole("table")).getByText("Group member of Zainab Qasim")).toBeTruthy();
+    expect(within(screen.getByTestId("responsive-cards")).getByText("Group member of Zainab Qasim")).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByRole("checkbox", { name: "Select Bilal Ahmed" })).toBeTruthy();
+  });
+
+  it("a member row links to the lead's detail page, other rows to their own id", () => {
+    table([memberRow(), row({ id: "r9", name: "Imran Khan", groupSize: 3, rowType: "lead" })]);
+    const t = within(screen.getByRole("table"));
+    expect(t.getByRole("link", { name: /Bilal Ahmed/ }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/r1");
+    expect(t.getByRole("link", { name: /Imran Khan/ }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/r9");
+  });
+
+  it("a member row has no '+N members' tag, a lead row keeps it", () => {
+    table([row({ id: "m2", rowType: "member", leadId: "r1", leadName: "Zainab Qasim", groupSize: 4 })]);
+    expect(within(screen.getByRole("table")).queryByText("+3 members")).toBeNull();
+    cleanup();
+    table([row({ rowType: "lead", groupSize: 4 })]);
+    expect(within(screen.getByRole("table")).getByText("+3 members")).toBeTruthy();
+  });
+
+  it("the sales table shows no member line for lead or individual rows", () => {
+    table([row(), row({ id: "r2", rowType: "lead", groupSize: 2 })], { showAgentColumn: false });
+    expect(screen.queryByText(/Group member of/)).toBeNull();
   });
 
   it("hides the agent column when asked", () => {
