@@ -44,7 +44,6 @@ export interface CampaignRegistrationsProps {
   publicSlug?: string | null;
   rows: RegistrationListRow[];
   total: number;
-  pageSize: number;
   counts: Record<RegistrationStatus | "all", number>;
   basePath: string;
   detailHrefBase: string;
@@ -66,7 +65,6 @@ export function CampaignRegistrations({
   publicSlug = null,
   rows,
   total,
-  pageSize,
   counts,
   basePath,
   detailHrefBase,
@@ -253,9 +251,7 @@ export function CampaignRegistrations({
       <RegistrationsTable
         rows={rows}
         total={total}
-        pageSize={pageSize}
         basePath={basePath}
-        filters={query}
         detailHrefBase={detailHrefBase}
         showAgentColumn={false}
         showPzId

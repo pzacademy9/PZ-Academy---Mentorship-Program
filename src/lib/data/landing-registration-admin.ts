@@ -71,11 +71,14 @@ export interface RegistrationListRow {
   leadId: string | null;
   /** For a member row, the name of its lead; null for a lead or individual. */
   leadName: string | null;
+  /** The lead's id for a lead or a member (the same value for the whole group); null for a single registration. */
+  groupId: string | null;
 }
 export interface RegistrationList {
   rows: RegistrationListRow[];
+  /** Every row is returned at once, so this is the row count. */
   total: number;
-  pageSize: 25;
+  pageSize: number;
   counts: Record<RegistrationStatus | "all", number>;
 }
 export interface StatusEventRow {
@@ -253,20 +256,26 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
     return count ?? 0;
   };
 
-  const page = Math.max(1, Math.floor(f.page ?? 1));
-  const from = (page - 1) * PAGE_SIZE;
-  let rowsQuery = base(false);
-  if (f.status && f.status !== "all") rowsQuery = rowsQuery.eq("status", f.status);
-  const [rowsRes, all, ...perStatus] = await Promise.all([
-    rowsQuery.order("created_at", { ascending: false }).order("row_type", { ascending: true }).order("id", { ascending: true }).range(from, from + PAGE_SIZE - 1),
-    countFor("all"),
-    ...STATUSES.map(countFor),
-  ]);
-  if (rowsRes.error) throw rowsRes.error;
+  // Every matching row comes back at once (no pages). The database hands out at most FETCH_STEP rows per request, so keep asking until a short answer.
+  const fetchAll = async (): Promise<Record<string, unknown>[]> => {
+    const out: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += FETCH_STEP) {
+      let rowsQuery = base(false);
+      if (f.status && f.status !== "all") rowsQuery = rowsQuery.eq("status", f.status);
+      const { data, error } = await rowsQuery
+        .order("created_at", { ascending: false }).order("row_type", { ascending: true }).order("id", { ascending: true })
+        .range(from, from + FETCH_STEP - 1);
+      if (error) throw error;
+      const part = (data ?? []) as unknown as Record<string, unknown>[];
+      out.push(...part);
+      if (part.length < FETCH_STEP) return out;
+    }
+  };
+  const [matched, all, ...perStatus] = await Promise.all([fetchAll(), countFor("all"), ...STATUSES.map(countFor)]);
 
   const counts = { all } as Record<RegistrationStatus | "all", number>;
   STATUSES.forEach((s, i) => { counts[s] = perStatus[i]; });
-  const records = (rowsRes.data ?? []) as unknown as Record<string, unknown>[];
+  const records = scope.kind === "all" ? await groupTogether(admin, matched) : matched;
 
   const pageIds = Array.from(new Set(records.map((r) => str(r.page_id)).filter(Boolean)));
   const titles = new Map<string, string>();
@@ -324,9 +333,54 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
     rowType: r.row_type === "member" ? "member" : r.row_type === "lead" ? "lead" : "individual",
     leadId: r.row_type === "member" ? strOrNull(r.lead_registration_id) : null,
     leadName: r.row_type === "member" ? leadNames.get(str(r.lead_registration_id)) ?? null : null,
+    groupId: r.row_type === "lead" ? str(r.id) : r.row_type === "member" ? strOrNull(r.lead_registration_id) : null,
   }));
-  const total = f.status && f.status !== "all" ? counts[f.status] : all;
-  return { rows, total, pageSize: PAGE_SIZE, counts };
+  // Everything is on one screen: the "page" holds every row, so total and page size are the row count.
+  return { rows, total: rows.length, pageSize: Math.max(rows.length, 1), counts };
+}
+
+const FETCH_STEP = 1000;
+
+/**
+ * A group always shows together: when a search or filter matched only some of a group, the rest of it
+ * (lead and every member) is pulled in, and each group is placed in one block, lead first, at the spot
+ * of its first matching row. Single registrations keep their place.
+ */
+async function groupTogether(admin: ReturnType<typeof createAdminSupabase>, matched: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  const groupOf = (r: Record<string, unknown>): string | null =>
+    r.row_type === "lead" ? str(r.id) : r.row_type === "member" ? strOrNull(r.lead_registration_id) : null;
+
+  const have = new Set(matched.map((r) => str(r.id)));
+  const groupIds = Array.from(new Set(matched.map(groupOf).filter((g): g is string => g !== null)));
+  const extra: Record<string, unknown>[] = [];
+  for (const part of chunks(groupIds)) {
+    const [heads, members] = await Promise.all([
+      admin.from("landing_registrations").select("*").in("id", part),
+      admin.from("landing_registrations").select("*").in("lead_registration_id", part).eq("row_type", "member"),
+    ]);
+    if (heads.error) throw heads.error;
+    if (members.error) throw members.error;
+    for (const r of [...(heads.data ?? []), ...(members.data ?? [])] as unknown as Record<string, unknown>[]) {
+      if (!have.has(str(r.id))) { have.add(str(r.id)); extra.push(r); }
+    }
+  }
+
+  const byGroup = new Map<string, Record<string, unknown>[]>();
+  for (const r of [...matched, ...extra]) {
+    const g = groupOf(r);
+    if (g) byGroup.set(g, [...(byGroup.get(g) ?? []), r]);
+  }
+  const rank = (r: Record<string, unknown>) => (r.row_type === "lead" ? 0 : 1);
+  const placed = new Set<string>();
+  const out: Record<string, unknown>[] = [];
+  for (const r of matched) {
+    const g = groupOf(r);
+    if (g === null) { out.push(r); continue; }
+    if (placed.has(g)) continue;
+    placed.add(g);
+    out.push(...(byGroup.get(g) ?? []).sort((a, b) => rank(a) - rank(b) || str(a.created_at).localeCompare(str(b.created_at)) || str(a.id).localeCompare(str(b.id))));
+  }
+  return out;
 }
 
 /** Page choices for the admin filter: every landing page, by title. */

@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Inbox, Users, Radio, PlayCircle, RefreshCw } from "lucide-react";
+import { Inbox, Users, Radio, PlayCircle, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDatePkt, initials } from "@/lib/format";
 import { formatMoney } from "@/lib/format-money";
 import type { RegistrationListRow } from "@/lib/data/landing-registration-admin";
 import { RegistrationStatusBadge } from "./RegistrationStatusBadge";
-import { registrationHref, type RegistrationQuery } from "./query";
 import { VoucherThumb } from "./VoucherThumb";
 
 const TH = "py-3.5 px-3 font-headline font-bold text-[11px] tracking-wide uppercase";
@@ -65,19 +64,20 @@ function Amount({ row }: { row: RegistrationListRow }) {
   );
 }
 
-const PAGER_LINK =
-  "inline-flex items-center gap-1 h-9 px-3 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40 text-xs font-headline font-semibold hover:bg-pz-surface-container";
+/** True for the first row of a group (a lead, or a member shown without its lead above it). */
+const groupStart = (rows: RegistrationListRow[], i: number): boolean => rows[i].groupId !== null && rows[i].groupId !== rows[i - 1]?.groupId;
+/** Group rows share a tint and a left bar so a lead and its members read as one block. */
+const GROUP_CARD = "border-l-4 border-l-pz-primary bg-pz-primary-fixed/15";
 
 /**
- * The list of page registrations, with its empty state and pager. Role-agnostic: the agent
+ * The list of page registrations, with its empty state. Every row is shown at once (no pages), and a
+ * group's lead and members sit together in a highlighted block. Role-agnostic: the agent
  * page passes showAgentColumn={false} and its own detailHrefBase.
  */
 export function RegistrationsTable({
   rows,
   total,
-  pageSize,
   basePath,
-  filters,
   detailHrefBase,
   showAgentColumn,
   showPzId = false,
@@ -86,9 +86,7 @@ export function RegistrationsTable({
 }: {
   rows: RegistrationListRow[];
   total: number;
-  pageSize: number;
   basePath: string;
-  filters: RegistrationQuery;
   detailHrefBase: string;
   showAgentColumn: boolean;
   /** Campaign page only: adds a PZ ID column. */
@@ -114,11 +112,6 @@ export function RegistrationsTable({
     );
   }
 
-  const page = Math.max(1, filters.p ?? 1);
-  const first = (page - 1) * pageSize + 1;
-  const last = Math.min(total, first + rows.length - 1);
-  const hasPrev = page > 1;
-  const hasNext = page * pageSize < total;
   // A member has no detail page of its own (its id would 404), so it opens its lead's.
   const href = (r: RegistrationListRow) => `${detailHrefBase}/${r.leadId ?? r.id}`;
 
@@ -127,6 +120,7 @@ export function RegistrationsTable({
       <ResponsiveList
         rows={rows}
         getKey={(r) => r.id}
+        rowClass={(r, i) => (r.groupId ? `${GROUP_CARD}${groupStart(rows, i) ? " mt-4" : ""}` : undefined)}
         mobile={{
           href,
           actions: rowActions,
@@ -194,10 +188,10 @@ export function RegistrationsTable({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pz-outline-variant/30 text-pz-on-surface">
-                  {rows.map((r) => (
+                  {rows.map((r, i) => (
                     <tr
                       key={r.id}
-                      className={`hover:bg-pz-surface-container/40 transition-colors${r.isTest ? " opacity-80 hover:opacity-100" : ""}${selectable?.isSelected(r.id) ? " bg-pz-primary-fixed/20" : ""}`}
+                      className={`hover:bg-pz-surface-container/40 transition-colors${r.groupId ? " bg-pz-primary-fixed/15 border-l-4 border-l-pz-primary" : ""}${groupStart(rows, i) ? " border-t-2 border-t-pz-primary/40" : ""}${r.isTest ? " opacity-80 hover:opacity-100" : ""}${selectable?.isSelected(r.id) ? " bg-pz-primary-fixed/20" : ""}`}
                     >
                       {selectable && (
                         <td className="py-4 pl-6 pr-0 w-10">
@@ -267,23 +261,9 @@ export function RegistrationsTable({
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs font-body text-pz-on-surface-variant">
-          Showing {first}-{last} of {total}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {hasPrev && (
-            <Link href={registrationHref(basePath, filters, { p: page - 1 })} rel="prev" className={PAGER_LINK}>
-              <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Previous
-            </Link>
-          )}
-          {hasNext && (
-            <Link href={registrationHref(basePath, filters, { p: page + 1 })} rel="next" className={PAGER_LINK}>
-              Next <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </Link>
-          )}
-        </div>
-      </div>
+      <span className="block text-xs font-body text-pz-on-surface-variant">
+        Showing all {total}
+      </span>
     </div>
   );
 }

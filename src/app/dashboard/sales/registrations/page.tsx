@@ -77,9 +77,7 @@ export default async function SalesRegistrationsPage({ searchParams }: { searchP
           <RegistrationsTable
             rows={list.rows}
             total={list.total}
-            pageSize={list.pageSize}
             basePath={BASE_PATH}
-            filters={query}
             detailHrefBase={BASE_PATH}
             showAgentColumn={false}
           />

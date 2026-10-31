@@ -22,7 +22,7 @@ const row = (over: Partial<RegistrationListRow> = {}): RegistrationListRow => ({
   optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
   status: "pending", agentId: null, agentName: null, groupSize: 1, isTest: false,
   createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null,
-  voucherUrl: null, whatsapp: "+923219876543", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, ...over,
+  voucherUrl: null, whatsapp: "+923219876543", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, groupId: null, ...over,
 });
 
 const jsonRes = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });

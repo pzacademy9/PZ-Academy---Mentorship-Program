@@ -95,9 +95,7 @@ export default async function AdminAllRegistrationsPage({ searchParams }: { sear
       <AllRegistrationsList
         rows={list.rows}
         total={list.total}
-        pageSize={list.pageSize}
         basePath={BASE_PATH}
-        filters={query}
         detailHrefBase={DETAIL_BASE}
         showAgentColumn
       />

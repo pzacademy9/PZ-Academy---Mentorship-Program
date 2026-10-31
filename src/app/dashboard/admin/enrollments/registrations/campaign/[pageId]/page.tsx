@@ -104,7 +104,6 @@ export default async function AdminCampaignRegistrationsPage({
         publicSlug={publicSlug}
         rows={list.rows}
         total={list.total}
-        pageSize={list.pageSize}
         counts={list.counts}
         basePath={`${DETAIL_BASE}/campaign/${pageId}`}
         detailHrefBase={DETAIL_BASE}

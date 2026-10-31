@@ -273,7 +273,7 @@ describe("Send WhatsApp on the campaign page", () => {
     };
     render(
       <CampaignRegistrations
-        pageId="pg1" pageTitle="TMC Batch 1" rows={[row] as never} total={1} pageSize={25}
+        pageId="pg1" pageTitle="TMC Batch 1" rows={[row] as never} total={1}
         counts={{ all: 1, pending: 0, reserved: 0, underpaid: 0, paid: 1, free: 0 }}
         basePath="/x" detailHrefBase="/y" filters={{ pageId: "pg1" }} query={{}}
         filterOptions={{ regions: [], optionLabels: [] }}
