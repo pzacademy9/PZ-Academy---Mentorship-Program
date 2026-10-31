@@ -14,6 +14,21 @@ type Props = {
 
 const who = (p: PersonInfo) => `${p.name} (${p.pzId})`;
 
+const personOfId = (base: ReviewBase, id: string): PersonInfo => base.people[id] ?? { personId: id, pzId: "", name: "Unknown person", mode: null };
+const keyOf =(item: ReviewItem): string => (item.type === "unknown" ? String(item.row.line) : item.person.personId);
+const bucketOf = (item: ReviewItem): "unknown" | "duplicate" | "notInBatch" => (item.type === "unknown" ? "unknown" : item.type === "duplicate" ? "duplicate" : "notInBatch");
+
+/** The app answered this item itself (and the answer is still what it chose). */
+export function isAuto(base: ReviewBase | undefined, item: ReviewItem): boolean {
+  const mine = (base?.auto[bucketOf(item)] as Record<string, unknown> | undefined)?.[keyOf(item)];
+  return mine !== undefined && JSON.stringify(mine) === JSON.stringify(item.choice);
+}
+
+/** The app has a best guess for this item (waiting for one click to accept). */
+export function hasGuess(base: ReviewBase | undefined, item: ReviewItem): boolean {
+  return (base?.likely[bucketOf(item)] as Record<string, unknown> | undefined)?.[keyOf(item)] !== undefined;
+}
+
 function RowLine({ r }: { r: KahootRow }) {
   return (
     <span className="text-sm text-pz-on-surface">
@@ -26,13 +41,13 @@ function RowLine({ r }: { r: KahootRow }) {
   );
 }
 
-function Shell({ done, title, children }: { done: boolean; title: string; children: React.ReactNode }) {
+function Shell({ done, auto = false, guess = false, title, children }: { done: boolean; auto?: boolean; guess?: boolean; title: string; children: React.ReactNode }) {
   return (
     <li className={cn(cardCls, "space-y-3", done && "opacity-70")}>
       <div className="flex items-center justify-between gap-2">
         <p className="font-headline text-sm font-bold text-pz-on-surface">{title}</p>
         <span className={cn("text-xs font-headline font-bold", done ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300")}>
-          {done ? "Answered" : "Waiting for you"}
+          {done ? (auto ? "Matched for you" : "Answered") : guess ? "Best guess ready" : "Waiting for you"}
         </span>
       </div>
       {children}
@@ -67,7 +82,7 @@ export function QuizReview({ base, review, choices, onChoices }: Props) {
     if (item.type === "duplicate") {
       const c = item.choice;
       return (
-        <Shell key={item.id} done={done} title={`Same student twice: ${item.person.name} (${item.person.pzId})`}>
+        <Shell key={item.id} done={done} auto={isAuto(base, item)} guess={hasGuess(base, item)} title={`Same student twice: ${item.person.name} (${item.person.pzId})`}>
           <ul className="space-y-1">
             {item.rows.map((r) => (
               <li key={r.line} className="flex flex-wrap items-center gap-2">
@@ -76,12 +91,16 @@ export function QuizReview({ base, review, choices, onChoices }: Props) {
                   Keep this one
                 </Toggle>
                 {item.suggested?.keep === r.line && <span className="text-xs font-headline font-bold text-pz-primary">Suggested: the only row with points</span>}
+                {c === null && base.likely.duplicate[item.person.personId] === "merge" && <span className="sr-only">Best guess is to add the scores together</span>}
               </li>
             ))}
           </ul>
           <Toggle on={c === "merge"} onClick={() => setDuplicate(item.person.personId, "merge")}>
             Add the scores together
           </Toggle>
+          {c === null && base.likely.duplicate[item.person.personId] === "merge" && (
+            <p className="text-xs font-headline font-bold text-pz-primary">Best guess: both rows scored, so add them together.</p>
+          )}
         </Shell>
       );
     }
@@ -89,11 +108,16 @@ export function QuizReview({ base, review, choices, onChoices }: Props) {
       const c = item.choice;
       const chosen = c && c !== "skip" ? base.people[c.personId] : null;
       return (
-        <Shell key={item.id} done={done} title="Unknown player">
+        <Shell key={item.id} done={done} auto={isAuto(base, item)} guess={hasGuess(base, item)} title="Unknown player">
           <RowLine r={item.row} />
           {item.row.hint && <p className="text-xs text-pz-on-surface-variant">Name typed in the second box: {item.row.hint}</p>}
           {c === "skip" && <p className="text-sm text-pz-on-surface">This row will be skipped.</p>}
           {chosen && <p className="text-sm text-pz-on-surface">Counted for {who(chosen)}.</p>}
+          {c === null && base.likely.unknown[String(item.row.line)] && (
+            <p className="text-xs font-headline font-bold text-pz-primary">
+              Best guess: {who(personOfId(base, (base.likely.unknown[String(item.row.line)] as { personId: string }).personId))}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {item.suggestions.map((p) => (
               <Toggle key={p.personId} on={!!c && c !== "skip" && c.personId === p.personId} onClick={() => setUnknown(item.row.line, { personId: p.personId })}>
@@ -131,7 +155,7 @@ export function QuizReview({ base, review, choices, onChoices }: Props) {
     }
     const c = item.choice;
     return (
-      <Shell key={item.id} done={done} title={`Not in this batch: ${item.person.name} (${item.person.pzId})`}>
+      <Shell key={item.id} done={done} auto={isAuto(base, item)} guess={hasGuess(base, item)} title={`Not in this batch: ${item.person.name} (${item.person.pzId})`}>
         <p className="text-xs text-pz-on-surface-variant">This ID belongs to a student who is not enrolled here. Check the ID was typed correctly.</p>
         <ul className="space-y-1">
           {item.rows.map((r) => (

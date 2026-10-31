@@ -81,19 +81,34 @@ describe("QuizScreen review", () => {
     expect(h.refresh).toHaveBeenCalled();
   });
 
-  it("clicking a suggestion answers an unknown row", async () => {
+  it("a near-exact ID is matched for you: Save is already on and the row says so", async () => {
     await upload([row(4, "Sami_FUUAST89", 900)]);
-    expect((screen.getByRole("button", { name: "Save results" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Sami Ullah (Sami-FUUAST89)" }));
     expect((screen.getByRole("button", { name: "Save results" }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByText(/Counted for Sami Ullah/)).toBeTruthy();
+    expect(screen.getByText("Matched for you")).toBeTruthy();
+    expect(screen.getByText(/1 row was matched for you/)).toBeTruthy();
   });
 
-  it("'Skip all unknown players with 0 points' answers only the 0-point unknown rows", async () => {
-    await upload([row(4, "Zeb", 0), row(5, "Saira", 9000)]);
-    expect(screen.getByText("2 problems still waiting")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Skip all unknown players with 0 points" }));
+  it("clicking a suggestion answers an unknown row", async () => {
+    await upload([row(4, "Saira", 900)]);
+    expect((screen.getByRole("button", { name: "Save results" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Skip this row" }));
+    expect((screen.getByRole("button", { name: "Save results" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("'Accept all best guesses' answers every fairly-sure item with one click and leaves the rest waiting", async () => {
+    await upload([row(4, "Hamid", 500), row(5, "Sami", 300), row(6, "Saira", 900)]);
+    expect(screen.getByText("3 problems still waiting")).toBeTruthy();
+    expect(screen.getAllByText("Best guess ready")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Accept all 2 best guesses" }));
     expect(screen.getByText("1 problem still waiting")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Accept all/ })).toBeNull();
+  });
+
+  it("'Skip all unknown players with 0 points' is mostly done already: zero-point strangers are skipped for you", async () => {
+    await upload([row(4, "Zeb", 0), row(5, "Saira", 9000)]);
+    expect(screen.getByText("1 problem still waiting")).toBeTruthy();
+    expect(screen.getByText("Matched for you")).toBeTruthy();
   });
 
   it("tags rejoined and recorded rows in the fine list", async () => {
