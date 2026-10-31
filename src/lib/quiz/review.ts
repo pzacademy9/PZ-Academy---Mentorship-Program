@@ -31,7 +31,12 @@ export type ReviewBase = {
   people: Record<string, PersonInfo>;
   /** suggested person ids by row line, best first */
   suggestions: Record<string, string[]>;
+  /** Remembered from an earlier save of this session. */
   prior: Choices;
+  /** Answers the app is sure about. Applied on upload (see initialChoices); the admin can still change each one. */
+  auto: Choices;
+  /** Best guesses the app is fairly sure about. Never applied alone: the admin accepts them all with one click (see acceptLikely). */
+  likely: Choices;
   questionCount: number | null;
 };
 
@@ -79,7 +84,28 @@ function editDistance(a: string, b: string): number {
   return prev[b.length];
 }
 
+// How sure the app must be. "Sure" needs a near-exact ID and a clear gap to the runner-up; "fairly sure" a good match with a gap.
+const SURE_MIN = 90;
+const SURE_GAP = 40;
+const FAIRLY_MIN = 40;
+const FAIRLY_GAP = 20;
+
+type Scored = { id: string; score: number };
+
+function tierOf(scored: Scored[]): "sure" | "fairly" | null {
+  const top = scored[0];
+  if (!top) return null;
+  const gap = top.score - (scored[1]?.score ?? 0);
+  if (top.score >= SURE_MIN && gap >= SURE_GAP) return "sure";
+  if (top.score >= FAIRLY_MIN && gap >= FAIRLY_GAP) return "fairly";
+  return null;
+}
+
 function suggest(row: KahootRow, batch: PersonInfo[], keysByPerson: Map<string, string[]>): string[] {
+  return scoreCandidates(row, batch, keysByPerson).map((s) => s.id);
+}
+
+function scoreCandidates(row: KahootRow, batch: PersonInfo[], keysByPerson: Map<string, string[]>): Scored[] {
   const player = squash(row.player);
   const want = new Set([...tokens(row.player), ...tokens(row.hint)]);
   const scored: { id: string; score: number }[] = [];
@@ -98,7 +124,7 @@ function suggest(row: KahootRow, batch: PersonInfo[], keysByPerson: Map<string, 
     if (score > 0) scored.push({ id: p.personId, score });
   }
   scored.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-  return scored.slice(0, MAX_SUGGESTIONS).map((s) => s.id);
+  return scored.slice(0, MAX_SUGGESTIONS);
 }
 
 const sig = (r: KahootRow) => `${normalizePzId(r.player)}|${r.score}`;
@@ -142,8 +168,12 @@ export function buildBase(
 
   const matched = rows.map((row) => ({ row, match: matchPlayer(row.player, aliases) }));
   const suggestions: Record<string, string[]> = {};
+  const scoredByLine = new Map<number, Scored[]>();
   for (const { row, match } of matched) {
-    if (match.kind === "unknown") suggestions[String(row.line)] = suggest(row, batch, keysByPerson);
+    if (match.kind !== "unknown") continue;
+    const scored = scoreCandidates(row, batch, keysByPerson);
+    scoredByLine.set(row.line, scored);
+    suggestions[String(row.line)] = scored.map((s) => s.id);
   }
 
   const base: ReviewBase = {
@@ -151,6 +181,8 @@ export function buildBase(
     people: Object.fromEntries(Array.from(people.entries())),
     suggestions,
     prior: { unknown: {}, duplicate: {}, notInBatch: {} },
+    auto: { unknown: {}, duplicate: {}, notInBatch: {} },
+    likely: { unknown: {}, duplicate: {}, notInBatch: {} },
     questionCount,
   };
 
@@ -173,7 +205,79 @@ export function buildBase(
       if (hit) base.prior.duplicate[personId] = { keep: hit.row.line };
     }
   });
+
+  // Automatic answers. What the admin chose last time always wins; the app fills in only what is left.
+  for (const { row, match } of matched) {
+    const line = String(row.line);
+    if (match.kind !== "unknown" || base.prior.unknown[line]) continue;
+    const scored = scoredByLine.get(row.line) ?? [];
+    const tier = tierOf(scored);
+    if (tier === "sure") base.auto.unknown[line] = { personId: scored[0].id };
+    else if (tier === "fairly") base.likely.unknown[line] = { personId: scored[0].id };
+    else if (row.score === 0) base.auto.unknown[line] = "skip"; // nobody to match and no points: nothing to count
+  }
+  const sure: Choices = {
+    unknown: { ...base.prior.unknown, ...base.auto.unknown },
+    duplicate: { ...base.prior.duplicate },
+    notInBatch: { ...base.prior.notInBatch },
+  };
+  const first = deriveOthers(base, sure);
+  Object.assign(base.auto.duplicate, first.keep);
+  Object.assign(base.auto.notInBatch, first.skipOutsiders);
+  Object.assign(base.likely.duplicate, first.merge);
+  if (Object.keys(base.likely.unknown).length > 0) {
+    // People who only become duplicates or outsiders once the best guesses are accepted.
+    const guessed: Choices = {
+      unknown: { ...sure.unknown, ...base.likely.unknown },
+      duplicate: { ...sure.duplicate, ...base.auto.duplicate, ...base.likely.duplicate },
+      notInBatch: { ...sure.notInBatch, ...base.auto.notInBatch },
+    };
+    const second = deriveOthers(base, guessed);
+    Object.assign(base.likely.duplicate, second.keep, second.merge);
+    Object.assign(base.likely.notInBatch, second.skipOutsiders);
+  }
   return base;
+}
+
+/**
+ * For people not yet answered under `choices`: a student who played twice keeps the one scored row (or the
+ * first if none scored; "keep"), or has both added together when both scored ("merge", only a good guess);
+ * a student outside this batch is skipped ("skipOutsiders").
+ */
+function deriveOthers(base: ReviewBase, choices: Choices): { keep: Record<string, { keep: number }>; merge: Record<string, "merge">; skipOutsiders: Record<string, "skip"> } {
+  const out = { keep: {} as Record<string, { keep: number }>, merge: {} as Record<string, "merge">, skipOutsiders: {} as Record<string, "skip"> };
+  const { byPerson } = assign(base, choices);
+  byPerson.forEach((list, personId) => {
+    if (personOf(base, personId).mode === null && !choices.notInBatch[personId]) out.skipOutsiders[personId] = "skip";
+    if (list.length < 2 || choices.duplicate[personId]) return;
+    const rows = list.map((x) => x.row).sort((a, b) => a.line - b.line);
+    const scored = rows.filter((r) => r.score > 0);
+    if (scored.length <= 1) out.keep[personId] = { keep: (scored[0] ?? rows[0]).line };
+    else out.merge[personId] = "merge";
+  });
+  return out;
+}
+
+const overlay = (a: Choices, b: Choices): Choices => ({
+  unknown: { ...a.unknown, ...b.unknown },
+  duplicate: { ...a.duplicate, ...b.duplicate },
+  notInBatch: { ...a.notInBatch, ...b.notInBatch },
+});
+
+/** What the screen starts with after an upload: last time's answers, then the app's sure answers for everything else. */
+export function initialChoices(base: ReviewBase): Choices {
+  return overlay(base.auto, base.prior);
+}
+
+/** Accept every best guess for the items still waiting; answers already given are never changed. */
+export function acceptLikely(base: ReviewBase, choices: Choices): Choices {
+  const pick = <T,>(guess: Record<string, T>, have: Record<string, unknown>): Record<string, T> =>
+    Object.fromEntries(Object.entries(guess).filter(([k]) => have[k] === undefined));
+  return overlay(choices, {
+    unknown: pick(base.likely.unknown, choices.unknown),
+    duplicate: pick(base.likely.duplicate, choices.duplicate),
+    notInBatch: pick(base.likely.notInBatch, choices.notInBatch),
+  });
 }
 
 export function computeReview(base: ReviewBase, choices: Choices): Review {

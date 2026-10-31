@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPkt } from "@/lib/attendance/rules";
-import { bulkSkipZero, computeReview, EMPTY_CHOICES, type Choices, type ReviewBase, type Summary } from "@/lib/quiz/review";
+import { acceptLikely, bulkSkipZero, computeReview, EMPTY_CHOICES, initialChoices, type Choices, type ReviewBase, type Summary } from "@/lib/quiz/review";
 import type { LeaderRow, SessionQuizRow } from "@/lib/data/quiz-results";
 import {
   markFromQuiz, saveReview, uploadKahootReport,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/quiz-actions";
 import { BatchLeaderboard } from "./BatchLeaderboard";
-import { QuizReview } from "./QuizReview";
+import { QuizReview, hasGuess, isAuto } from "./QuizReview";
 import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn, tagRecorded } from "./styles";
 
 type Props = {
@@ -49,7 +49,7 @@ export function QuizScreen({ pageId, sessionId, sessionTitle, startsAt, saved, n
     startTransition(async () => {
       const res = await uploadKahootReport(pageId, sessionId, fd);
       if (!res.ok) { setError(res.message); return; }
-      setDraft({ base: res.base, choices: res.prior, fileName: res.fileName, skipped: res.skipped, sheetName: res.sheetName });
+      setDraft({ base: res.base, choices: initialChoices(res.base), fileName: res.fileName, skipped: res.skipped, sheetName: res.sheetName });
       setMaxEdited(false);
       setMaxText("");
       if (fileRef.current) fileRef.current.value = "";
@@ -78,6 +78,8 @@ export function QuizScreen({ pageId, sessionId, sessionTitle, startsAt, saved, n
 
   const total = draft?.base.rows.length ?? 0;
   const waiting = review?.undecided ?? 0;
+  const matchedForYou = review?.items.filter((i) => i.choice !== null && isAuto(draft?.base, i)).length ?? 0;
+  const guessesWaiting = review?.items.filter((i) => i.choice === null && hasGuess(draft?.base, i)).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -118,7 +120,15 @@ export function QuizScreen({ pageId, sessionId, sessionTitle, startsAt, saved, n
                 style={{ width: `${review.items.length === 0 ? 100 : Math.round(((review.items.length - waiting) / review.items.length) * 100)}%` }}
               />
             </div>
+            {matchedForYou > 0 && (
+              <p className="text-xs text-pz-on-surface-variant">{matchedForYou} {matchedForYou === 1 ? "row was" : "rows were"} matched for you. They are marked below, and you can change any of them.</p>
+            )}
             <div className="flex flex-wrap gap-2">
+              {guessesWaiting > 0 && (
+                <button type="button" className={primaryBtn} onClick={() => setDraft({ ...draft, choices: acceptLikely(draft.base, draft.choices) })}>
+                  Accept all {guessesWaiting} best {guessesWaiting === 1 ? "guess" : "guesses"}
+                </button>
+              )}
               <button type="button" className={quietBtn} onClick={() => setDraft({ ...draft, choices: bulkSkipZero(draft.base, draft.choices) })}>
                 Skip all unknown players with 0 points
               </button>

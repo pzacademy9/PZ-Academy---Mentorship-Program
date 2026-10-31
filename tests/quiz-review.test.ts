@@ -1,11 +1,14 @@
 import type { KahootRow } from "@/lib/quiz/kahoot-parse";
 import type { AliasMap } from "@/lib/quiz/match";
+import { normalizePzId } from "@/lib/pzid/format";
 import {
   EMPTY_CHOICES,
+  acceptLikely,
   bulkSkipZero,
   buildBase,
   computeReview,
   decisionsFromChoices,
+  initialChoices,
   resolveReview,
   type Choices,
   type PersonInfo,
@@ -190,5 +193,66 @@ describe("summary and maximum", () => {
     expect(computeReview(make([row("Hamid-4821", 15090)], [], null), EMPTY_CHOICES).maxScoreDefault).toBe(15090);
     const base = make([row("Hamid-4821", 15000), row("Hamid-4821n", 9000)], [], 20);
     expect(computeReview(base, choices({ duplicate: { "p-hamid": "merge" } })).maxScoreDefault).toBe(24000);
+  });
+});
+
+describe("automatic matching", () => {
+  it("a near-exact ID typo is matched for you and needs no answer", () => {
+    const base = make([row("Sami_FUUAST89", 900)]);
+    expect(base.auto.unknown).toEqual({ "4": { personId: "p-sami" } });
+    const start = initialChoices(base);
+    expect(computeReview(base, start).undecided).toBe(0);
+    expect(resolveReview(base, start)).toMatchObject({ ok: true, rows: [{ personId: "p-sami", score: 900 }] });
+  });
+
+  it("a fairly sure match is only a best guess until accepted, and accepting never changes an answer already given", () => {
+    const base = make([row("Hamid", 500), row("Sidra", 300)]);
+    expect(base.likely.unknown).toEqual({ "4": { personId: "p-hamid" }, "5": { personId: "p-sidra" } });
+    expect(base.auto.unknown).toEqual({});
+    const start = initialChoices(base);
+    expect(computeReview(base, start).undecided).toBe(2);
+    const mine = choices({ unknown: { "4": "skip" } });
+    expect(acceptLikely(base, mine).unknown).toEqual({ "4": "skip", "5": { personId: "p-sidra" } });
+    const all = acceptLikely(base, start);
+    expect(computeReview(base, all).undecided).toBe(0);
+    expect(resolveReview(base, all)).toMatchObject({ ok: true, rows: [{ personId: "p-hamid" }, { personId: "p-sidra" }] });
+  });
+
+  it("an unknown player with no points and no match is skipped for you; one with points waits", () => {
+    const base = make([row("Zeb", 0), row("Saira", 9000)]);
+    expect(base.auto.unknown).toEqual({ "4": "skip" });
+    expect(computeReview(base, initialChoices(base)).undecided).toBe(1);
+  });
+
+  it("a student outside this batch is skipped for you", () => {
+    const base = make([row("Zed-9999", 50)]);
+    expect(base.auto.notInBatch).toEqual({ "p-str": "skip" });
+    expect(resolveReview(base, initialChoices(base))).toMatchObject({ ok: true, rows: [], summary: { saved: 0, skipped: 1 } });
+  });
+
+  it("played twice with one scored row keeps the scored row for you; both scored is only a best guess to add together", () => {
+    const one = make([row("Hamid-4821", 500), row("Hamid-4821n", 0)]);
+    expect(one.auto.duplicate).toEqual({ "p-hamid": { keep: 4 } });
+    expect(resolveReview(one, initialChoices(one))).toMatchObject({ ok: true, rows: [{ score: 500 }], summary: { dropped: 1 } });
+    line = 3;
+    const both = make([row("Hamid-4821", 500), row("Hamid-4821n", 300)]);
+    expect(both.auto.duplicate).toEqual({});
+    expect(both.likely.duplicate).toEqual({ "p-hamid": "merge" });
+    expect(computeReview(both, initialChoices(both)).undecided).toBe(1);
+    expect(resolveReview(both, acceptLikely(both, initialChoices(both)))).toMatchObject({ ok: true, rows: [{ score: 800 }] });
+  });
+
+  it("a best guess that makes someone play twice has its duplicate answered in the same click", () => {
+    const base = make([row("Hamid-4821", 500), row("Hamid", 0)]);
+    expect(base.likely.unknown["5"]).toEqual({ personId: "p-hamid" });
+    expect(base.likely.duplicate).toEqual({ "p-hamid": { keep: 4 } });
+    expect(resolveReview(base, acceptLikely(base, initialChoices(base)))).toMatchObject({ ok: true, rows: [{ score: 500 }] });
+  });
+
+  it("what the admin chose last time wins over the app's own answer", () => {
+    const key = normalizePzId("Sami_FUUAST89");
+    const base = make([row("Sami_FUUAST89", 900)], [{ kind: "skip", key, choice: "", personId: null }]);
+    expect(base.auto.unknown).toEqual({});
+    expect(initialChoices(base).unknown).toEqual({ "4": "skip" });
   });
 });
