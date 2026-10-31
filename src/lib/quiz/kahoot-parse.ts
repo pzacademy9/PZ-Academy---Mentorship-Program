@@ -149,8 +149,10 @@ export async function readKahootFile(name: string, bytes: Uint8Array): Promise<R
     if (isCsv) {
       sheets = [{ sheet: "CSV", data: parseCsv(new TextDecoder("utf-8").decode(bytes)) }];
     } else {
-      const { default: readXlsxFile } = await import("read-excel-file/node");
-      const result = await readXlsxFile(Buffer.from(bytes));
+      // The "node" reader streams the zip and fails on Kahoot's reports (zip64 + data descriptors).
+      // The "universal" reader unzips from memory and handles them.
+      const { default: readXlsxFile } = await import("read-excel-file/universal");
+      const result = await readXlsxFile(new Blob([bytes as BlobPart]));
       sheets = (result as unknown as { sheet: string; data: unknown[][] }[]).map((s) => ({ sheet: s.sheet, data: s.data }));
     }
   } catch {
