@@ -66,8 +66,8 @@ function Amount({ row }: { row: RegistrationListRow }) {
 
 /** True for the first row of a group (a lead, or a member shown without its lead above it). */
 const groupStart = (rows: RegistrationListRow[], i: number): boolean => rows[i].groupId !== null && rows[i].groupId !== rows[i - 1]?.groupId;
-/** Group rows share a tint and a left bar so a lead and its members read as one block. */
-const GROUP_CARD = "border-l-4 border-l-pz-primary bg-pz-primary-fixed/15";
+/** Group rows share a tint (and cards an outline) so a lead and its members read as one block. */
+const GROUP_CARD = "border-pz-primary/40 bg-pz-primary-fixed/25";
 
 /**
  * The list of page registrations, with its empty state. Every row is shown at once (no pages), and a
@@ -191,7 +191,7 @@ export function RegistrationsTable({
                   {rows.map((r, i) => (
                     <tr
                       key={r.id}
-                      className={`hover:bg-pz-surface-container/40 transition-colors${r.groupId ? " bg-pz-primary-fixed/15 border-l-4 border-l-pz-primary" : ""}${groupStart(rows, i) ? " border-t-2 border-t-pz-primary/40" : ""}${r.isTest ? " opacity-80 hover:opacity-100" : ""}${selectable?.isSelected(r.id) ? " bg-pz-primary-fixed/20" : ""}`}
+                      className={`hover:bg-pz-surface-container/40 transition-colors${r.groupId ? " bg-pz-primary-fixed/25" : ""}${groupStart(rows, i) ? " border-t-2 border-t-pz-primary/40" : ""}${r.isTest ? " opacity-80 hover:opacity-100" : ""}${selectable?.isSelected(r.id) ? " bg-pz-primary-fixed/20" : ""}`}
                     >
                       {selectable && (
                         <td className="py-4 pl-6 pr-0 w-10">

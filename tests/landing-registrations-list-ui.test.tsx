@@ -128,12 +128,12 @@ describe("registrations list UI", () => {
     const solo = row({ id: "s", name: "Solo Person" });
     table([lead, m1, m2, solo]);
     const trOf = (name: string) => within(screen.getByRole("table")).getByText(name).closest("tr")!;
-    for (const n of ["Lead One", "Mem One", "Mem Two"]) expect(trOf(n).className).toContain("border-l-pz-primary");
-    expect(trOf("Solo Person").className).not.toContain("border-l-pz-primary");
+    for (const n of ["Lead One", "Mem One", "Mem Two"]) expect(trOf(n).className).toContain("bg-pz-primary-fixed/25");
+    expect(trOf("Solo Person").className).not.toContain("bg-pz-primary-fixed/25");
     expect(trOf("Lead One").className).toContain("border-t-pz-primary");
     expect(trOf("Mem One").className).not.toContain("border-t-pz-primary");
     const cards = within(screen.getByTestId("responsive-cards")).getAllByRole("listitem");
-    expect(cards.map((c) => c.className.includes("border-l-pz-primary"))).toEqual([true, true, true, false]);
+    expect(cards.map((c) => c.className.includes("bg-pz-primary-fixed/25"))).toEqual([true, true, true, false]);
   });
 
   it("tab strip links between App sign-ups and Page registrations", () => {
