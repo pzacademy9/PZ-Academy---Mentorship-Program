@@ -172,8 +172,36 @@ describe("list", () => {
     const out = await listRegistrations({ kind: "all" }, { status: "pending" });
     expect(out.rows.map((r) => r.id)).toEqual(["a"]);
     expect(out.total).toBe(1);
-    expect(out.pageSize).toBe(25);
     expect(out.counts).toEqual({ all: 5, pending: 1, paid: 1, underpaid: 2, reserved: 0, free: 1 });
+  });
+  it("returns every matching row at once, not one page of 25", async () => {
+    for (let i = 0; i < 40; i++) store.landing_registrations.push(reg({ id: `x${i}`, name: `Extra ${i}`, ref_id: `PZA-X${i}`, created_at: `2026-09-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z` }));
+    const out = await listRegistrations({ kind: "all" }, {});
+    expect(out.rows).toHaveLength(5 + 40);
+    expect(out.total).toBe(45);
+  });
+  it("a group shows together: a filter that matches one member pulls in the lead and the other members, lead first", async () => {
+    store.landing_registrations.push(
+      reg({ id: "L2", name: "Lead Two", row_type: "lead", ref_id: "PZA-L2", group_size: 3, region: "PK" }),
+      reg({ id: "m2a", name: "Mem A", row_type: "member", lead_registration_id: "L2", region: "UAE" }),
+      reg({ id: "m2b", name: "Mem B", row_type: "member", lead_registration_id: "L2", region: "PK" }),
+    );
+    const out = await listRegistrations({ kind: "all" }, { region: "UAE" });
+    expect(out.rows.map((r) => r.id)).toEqual(["L2", "m2a", "m2b"]);
+    expect(out.rows.map((r) => r.groupId)).toEqual(["L2", "L2", "L2"]);
+    expect(out.total).toBe(3);
+  });
+  it("members sit right under their lead and single registrations keep their place; groupId is null for singles", async () => {
+    const out = await listRegistrations({ kind: "all" }, {});
+    const ids = out.rows.map((r) => r.id);
+    expect(ids.indexOf("m1")).toBe(ids.indexOf("L") + 1);
+    expect(out.rows.find((r) => r.id === "a")!.groupId).toBeNull();
+    expect(out.rows.find((r) => r.id === "L")!.groupId).toBe("L");
+    expect(out.rows.find((r) => r.id === "m1")!.groupId).toBe("L");
+  });
+  it("an agent scope is not regrouped (heads only, no member rows)", async () => {
+    const out = await listRegistrations({ kind: "agent", agentId: "ag1" }, {});
+    expect(out.rows.map((r) => r.id)).not.toContain("m1");
   });
 });
 

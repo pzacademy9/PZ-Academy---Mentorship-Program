@@ -2,10 +2,12 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export function ResponsiveList<T>({
-  rows, getKey, mobile, table, selection, empty,
+  rows, getKey, mobile, table, selection, empty, rowClass,
 }: {
   rows: T[];
   getKey: (row: T) => string;
+  /** Extra classes for a mobile card (for example to tint a group). */
+  rowClass?: (row: T, index: number) => string | undefined;
   mobile: {
     title: (row: T) => React.ReactNode;
     meta?: (row: T) => React.ReactNode[];
@@ -24,7 +26,7 @@ export function ResponsiveList<T>({
   return (
     <>
       <ul data-testid="responsive-cards" className="space-y-2 md:hidden">
-        {rows.map((row) => {
+        {rows.map((row, index) => {
           const href = mobile.href?.(row);
           const meta = mobile.meta?.(row) ?? [];
           const body = (
@@ -36,7 +38,7 @@ export function ResponsiveList<T>({
             </div>
           );
           return (
-            <li key={getKey(row)} className="rounded-xl border border-border bg-card">
+            <li key={getKey(row)} className={cn("rounded-xl border border-border bg-card", rowClass?.(row, index))}>
               <div className="flex items-stretch">
               {selection && (
                 <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center">

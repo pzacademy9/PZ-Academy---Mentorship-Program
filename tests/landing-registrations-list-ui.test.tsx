@@ -11,13 +11,13 @@ const row = (over: Partial<RegistrationListRow> = {}): RegistrationListRow => ({
   optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 15725, amountReceived: null, currency: "PKR",
   status: "paid", agentId: "ag1", agentName: "Sarah Jenkins", groupSize: 1, isTest: false,
   createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null,
-  voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, ...over,
+  voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, groupId: null, ...over,
 });
 const counts = { all: 9, pending: 2, reserved: 1, underpaid: 1, paid: 4, free: 1 };
 const table = (rows: RegistrationListRow[], extra: Partial<Parameters<typeof RegistrationsTable>[0]> = {}) =>
   render(
-    <RegistrationsTable rows={rows} total={rows.length} pageSize={25} basePath="/dashboard/admin/enrollments/registrations"
-      filters={{}} detailHrefBase="/dashboard/admin/enrollments/registrations" showAgentColumn {...extra} />,
+    <RegistrationsTable rows={rows} total={rows.length} basePath="/dashboard/admin/enrollments/registrations"
+      detailHrefBase="/dashboard/admin/enrollments/registrations" showAgentColumn {...extra} />,
   );
 
 describe("registrations list UI", () => {
@@ -30,7 +30,7 @@ describe("registrations list UI", () => {
     expect(within(t).getByText("PKR 15,725")).toBeTruthy();
     expect(within(t).getByText("Sarah Jenkins")).toBeTruthy();
     expect(within(t).getByRole("link", { name: /Zainab Qasim/ }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/r1");
-    expect(screen.getByText("Showing 1-1 of 1")).toBeTruthy();
+    expect(screen.getByText("Showing all 1")).toBeTruthy();
   });
 
   it("shows Test label for test rows when included", () => {
@@ -113,11 +113,27 @@ describe("registrations list UI", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
-  it("pager links keep filters and move by one page", () => {
-    table(Array.from({ length: 25 }, (_, i) => row({ id: `r${i}` })), { total: 60, filters: { status: "paid", p: 2 } });
-    expect(screen.getByText("Showing 26-50 of 60")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Previous/ }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations?status=paid");
-    expect(screen.getByRole("link", { name: /Next/ }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations?status=paid&p=3");
+  it("shows every row at once with no pager", () => {
+    table(Array.from({ length: 60 }, (_, i) => row({ id: `r${i}`, name: `Person ${i}` })));
+    expect(screen.getByText("Showing all 60")).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByText("Person 59")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Next/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Previous/ })).toBeNull();
+  });
+
+  it("a group's lead and members share a highlight; single registrations do not, and only the first row of a group gets the top divider", () => {
+    const lead = row({ id: "L", name: "Lead One", rowType: "lead", groupSize: 3, groupId: "L" });
+    const m1 = row({ id: "m1", name: "Mem One", rowType: "member", leadId: "L", leadName: "Lead One", groupId: "L" });
+    const m2 = row({ id: "m2", name: "Mem Two", rowType: "member", leadId: "L", leadName: "Lead One", groupId: "L" });
+    const solo = row({ id: "s", name: "Solo Person" });
+    table([lead, m1, m2, solo]);
+    const trOf = (name: string) => within(screen.getByRole("table")).getByText(name).closest("tr")!;
+    for (const n of ["Lead One", "Mem One", "Mem Two"]) expect(trOf(n).className).toContain("bg-pz-primary-fixed/25");
+    expect(trOf("Solo Person").className).not.toContain("bg-pz-primary-fixed/25");
+    expect(trOf("Lead One").className).toContain("border-t-pz-primary");
+    expect(trOf("Mem One").className).not.toContain("border-t-pz-primary");
+    const cards = within(screen.getByTestId("responsive-cards")).getAllByRole("listitem");
+    expect(cards.map((c) => c.className.includes("bg-pz-primary-fixed/25"))).toEqual([true, true, true, false]);
   });
 
   it("tab strip links between App sign-ups and Page registrations", () => {

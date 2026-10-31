@@ -12,7 +12,7 @@ const row = (i: number, over: Partial<RegistrationListRow> = {}): RegistrationLi
   optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
   status: "paid", agentId: null, agentName: null, groupSize: 1, isTest: false,
   createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null,
-  voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, ...over,
+  voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, groupId: null, ...over,
 });
 const rows = Array.from({ length: 25 }, (_, i) => row(i + 1));
 const counts = { all: 57, pending: 10, reserved: 5, underpaid: 2, paid: 35, free: 5 };
@@ -21,7 +21,7 @@ function setup(over: Partial<Parameters<typeof CampaignRegistrations>[0]> = {}) 
   const onOpenBuilder = vi.fn();
   render(
     <CampaignRegistrations
-      pageId="pg1" pageTitle="TMC Batch 1" rows={rows} total={57} pageSize={25} counts={counts}
+      pageId="pg1" pageTitle="TMC Batch 1" rows={rows} total={57} counts={counts}
       basePath="/dashboard/admin/enrollments/registrations/campaign/pg1"
       detailHrefBase="/dashboard/admin/enrollments/registrations"
       filters={{ pageId: "pg1", status: "paid" }} query={{ status: "paid" }}
@@ -104,7 +104,7 @@ describe("campaign page", () => {
 describe("other registration lists", () => {
   it("the plain table renders no checkboxes", () => {
     render(
-      <RegistrationsTable rows={rows} total={25} pageSize={25} basePath="/x" filters={{}} detailHrefBase="/d" showAgentColumn={false} />,
+      <RegistrationsTable rows={rows} total={25} basePath="/x" detailHrefBase="/d" showAgentColumn={false} />,
     );
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });

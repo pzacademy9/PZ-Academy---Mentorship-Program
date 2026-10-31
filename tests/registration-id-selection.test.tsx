@@ -14,7 +14,7 @@ const row = (i: number): RegistrationListRow => ({
   id: `r${i}`, refId: null, name: `Person ${i}`, email: `p${i}@x.com`, pageId: "pg1", pageTitle: "TMC",
   optionLabel: "Live - Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
   status: "paid", agentId: null, agentName: null, groupSize: 1, isTest: false,
-  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null, voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null,
+  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null, voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null, groupId: null,
 });
 const rows = Array.from({ length: 5 }, (_, i) => row(i + 1));
 const counts = { all: 5, pending: 0, reserved: 0, underpaid: 0, paid: 5, free: 0 };
@@ -23,7 +23,7 @@ const BASE = "/dashboard/admin/enrollments/registrations/campaign/pg1";
 function setup(over: Partial<Parameters<typeof CampaignRegistrations>[0]> = {}) {
   render(
     <CampaignRegistrations
-      pageId="pg1" pageTitle="TMC" rows={rows} total={5} pageSize={25} counts={counts}
+      pageId="pg1" pageTitle="TMC" rows={rows} total={5} counts={counts}
       basePath={BASE} detailHrefBase="/dashboard/admin/enrollments/registrations"
       filters={{ pageId: "pg1", status: "all" }} query={{ status: "all" }}
       filterOptions={{ regions: ["PK"], optionLabels: [] }}
