@@ -14,7 +14,7 @@ const row = (i: number): RegistrationListRow => ({
   id: `r${i}`, refId: null, name: `Person ${i}`, email: `p${i}@x.com`, pageId: "pg1", pageTitle: "TMC",
   optionLabel: "Live - Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
   status: "paid", agentId: null, agentName: null, groupSize: 1, isTest: false,
-  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null, voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {},
+  createdAt: "2026-10-01T10:00:00Z", statusChangedAt: null, voucherUrl: null, whatsapp: "", sheetUpdateWaiting: false, lastEmailAt: {}, rowType: "individual", leadId: null, leadName: null,
 });
 const rows = Array.from({ length: 5 }, (_, i) => row(i + 1));
 const counts = { all: 5, pending: 0, reserved: 0, underpaid: 0, paid: 5, free: 0 };

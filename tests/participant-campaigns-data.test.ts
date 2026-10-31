@@ -1,6 +1,6 @@
 // tests/participant-campaigns-data.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabase-mock";
+import { createSupabaseMock, filterValue, memoryHandler, type Store } from "./helpers/supabase-mock";
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
@@ -40,12 +40,20 @@ beforeEach(() => {
 });
 
 describe("listCampaigns", () => {
-  it("omits a page whose only head is a test row, counts per status, newest first", async () => {
+  it("omits a page whose only row is a test row, counts every non-test row per status, newest first", async () => {
     const out = await listCampaigns();
     expect(out.map((c) => c.pageId)).toEqual(["pg3", "pg1"]);
     const c = out.find((x) => x.pageId === "pg1")!;
-    expect(c).toMatchObject({ title: "PPC", pageStatus: "published", total: 3 });
-    expect(c.counts).toEqual({ pending: 1, reserved: 0, underpaid: 0, paid: 2, free: 0 });
+    expect(c).toMatchObject({ title: "PPC", pageStatus: "published", total: 6 });
+    expect(c.counts).toEqual({ pending: 4, reserved: 0, underpaid: 0, paid: 2, free: 0 });
+  });
+  it("listCampaigns counts members", async () => {
+    store.landing_registrations = [
+      reg({ id: "L2", row_type: "lead", name: "Lead2", ref_id: "PZA-20" }),
+      reg({ id: "M2", row_type: "member", lead_registration_id: "L2", name: "Mem2" }),
+    ];
+    const out = await listCampaigns();
+    expect(out.find((c) => c.pageId === "pg1")!.total).toBe(2);
   });
 });
 
@@ -58,27 +66,43 @@ describe("listCampaignFilterOptions", () => {
 });
 
 describe("resolveCandidates", () => {
-  it("filters {status:paid}: lead plus its two members carrying paid status and the lead refId", async () => {
+  it("filters {status:paid} returns only the paid rows, each once", async () => {
     const out = await resolveCandidates({ pageId: "pg1", filters: { status: "paid" } });
-    const lead = out.find((c) => c.registrationId === "L")!;
-    expect(lead).toMatchObject({ isMember: false, leadId: "L", refId: "PZA-1", status: "paid" });
-    const members = out.filter((c) => c.isMember);
-    expect(members.map((m) => m.registrationId).sort()).toEqual(["m1", "m2"]);
-    for (const m of members) expect(m).toMatchObject({ leadId: "L", refId: "PZA-1", status: "paid" });
-    expect(members.find((m) => m.registrationId === "m1")).toMatchObject({ name: "M One", email: "m1@x.com", phone: "0311" });
-    expect(out.map((c) => c.registrationId)).not.toContain("mt");
-    expect(out.map((c) => c.registrationId)).toContain("i");
-    expect(out.map((c) => c.registrationId)).not.toContain("P");
+    expect(out.map((c) => c.registrationId).sort()).toEqual(["L", "i"]);
+    expect(out.find((c) => c.registrationId === "L")).toMatchObject({ isMember: false, leadId: "L", refId: "PZA-1", status: "paid" });
   });
-  it("a pending lead's members come back pending", async () => {
-    const out = await resolveCandidates({ pageId: "pg1", ids: ["P"] });
-    expect(out.map((c) => c.registrationId).sort()).toEqual(["P", "pm"]);
-    expect(out.every((c) => c.status === "pending")).toBe(true);
+  it("resolveCandidates with ids returns exactly the rows asked for", async () => {
+    const lead = await resolveCandidates({ pageId: "pg1", ids: ["L"] });
+    expect(lead).toHaveLength(1);
+    expect(lead[0]).toMatchObject({ registrationId: "L", leadId: "L", isMember: false, refId: "PZA-1" });
+    const member = await resolveCandidates({ pageId: "pg1", ids: ["m1"] });
+    expect(member).toHaveLength(1);
+    expect(member[0]).toMatchObject({ registrationId: "m1", leadId: "L", isMember: true, refId: "PZA-1", name: "M One", email: "m1@x.com", phone: "0311", status: "pending" });
+    const both = await resolveCandidates({ pageId: "pg1", ids: ["L", "m1"] });
+    expect(both.map((c) => c.registrationId).sort()).toEqual(["L", "m1"]);
   });
-  it("throws when an id belongs to another page, a member row, or does not exist", async () => {
-    await expect(resolveCandidates({ pageId: "pg1", ids: ["o"] })).rejects.toThrow();
-    await expect(resolveCandidates({ pageId: "pg1", ids: ["m1"] })).rejects.toThrow();
+  it("resolveCandidates rejects an id that is not on the campaign", async () => {
+    await expect(resolveCandidates({ pageId: "pg1", ids: ["o"] })).rejects.toThrow("A selected registration is not on this campaign");
+    await expect(resolveCandidates({ pageId: "pg3", ids: ["m1"] })).rejects.toThrow("A selected registration is not on this campaign");
     await expect(resolveCandidates({ pageId: "pg1", ids: ["L", "zzz"] })).rejects.toThrow();
+    await expect(resolveCandidates({ pageId: "pg1", ids: ["mt"] })).rejects.toThrow();
+  });
+  it("resolveCandidates with filters returns heads and members once each", async () => {
+    const out = await resolveCandidates({ pageId: "pg1", filters: {} });
+    const ids = out.map((c) => c.registrationId);
+    expect(ids.sort()).toEqual(["L", "P", "i", "m1", "m2", "pm"]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it("resolveCandidates filter q matches the member's own name", async () => {
+    // The fake client does not evaluate or(), so assert the search runs against member rows' own columns.
+    await resolveCandidates({ pageId: "pg1", filters: { q: "M One" } });
+    const reads = db.find("landing_registrations", "select");
+    const withQ = reads.filter((op) => op.filters.some(([k]) => k === "or"));
+    expect(withQ.length).toBeGreaterThan(0);
+    for (const op of withQ) {
+      expect(filterValue(op, "in", "row_type")).toEqual(["individual", "lead", "member"]);
+      expect(String(filterValue(op, "or", "or"))).toContain("name.ilike.");
+    }
   });
   it("never returns test heads", async () => {
     await expect(resolveCandidates({ pageId: "pg2", ids: ["t"] })).rejects.toThrow();
@@ -86,7 +110,7 @@ describe("resolveCandidates", () => {
   });
   it("region and optionLabel filters narrow the heads", async () => {
     const out = await resolveCandidates({ pageId: "pg1", filters: { region: "UAE", optionLabel: "Live Gold" } });
-    expect(out.map((c) => c.registrationId).sort()).toEqual(["L", "m1", "m2"]);
+    expect(out.map((c) => c.registrationId)).toEqual(["L"]);
   });
 });
 
@@ -120,11 +144,13 @@ describe("paging and chunking", () => {
         if (kind === "in" && (key === "id" || key === "lead_registration_id")) { sawChunked++; expect((v as unknown[]).length).toBeLessThanOrEqual(100); }
       }
     }
-    expect(sawChunked).toBeGreaterThanOrEqual(6);
+    expect(sawChunked).toBeGreaterThanOrEqual(3);
   });
-  it("a test member under a non-test lead is excluded via the ids path", async () => {
+  it("a test member is excluded from a lead's ids and from filters", async () => {
     const out = await resolveCandidates({ pageId: "pg1", ids: ["L"] });
-    expect(out.map((c) => c.registrationId).sort()).toEqual(["L", "m1", "m2"]);
+    expect(out.map((c) => c.registrationId)).toEqual(["L"]);
+    const all = await resolveCandidates({ pageId: "pg1", filters: {} });
+    expect(all.map((c) => c.registrationId)).not.toContain("mt");
   });
   it("q and agentId filters pass through", async () => {
     await resolveCandidates({ pageId: "pg1", filters: { q: "Lead", agentId: "ag1" } });

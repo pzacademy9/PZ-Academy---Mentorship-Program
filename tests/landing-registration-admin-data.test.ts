@@ -21,7 +21,7 @@ import { ppcConfig } from "./fixtures/landing-registration";
 const meta = vi.hoisted(() => ({ getMetaPurchase: vi.fn() }));
 vi.mock("@/lib/data/landing-meta-events", () => ({ getMetaPurchase: meta.getMetaPurchase }));
 
-import { applyHeadFilters, getRegistrationPageSlug, listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
+import { applyHeadFilters, LIST_ROW_TYPES, getRegistrationPageSlug, listRegistrationPageOptions, listRegistrationAgentOptions, listRegistrations, getRegistrationDetail, changeRegistrationStatus } from "@/lib/data/landing-registration-admin";
 
 const reg = (over: Record<string, unknown>) => ({
   page_id: "pg1", row_type: "individual", lead_registration_id: null, ref_id: null, name: "N", email: "n@x.com",
@@ -108,10 +108,10 @@ describe("list", () => {
     expect((await listRegistrations({ kind: "all" }, {})).rows.map((r) => r.id)).not.toContain("t");
     expect((await listRegistrations({ kind: "all", includeTest: true }, {})).rows.map((r) => r.id)).toContain("t");
   });
-  it("list returns only individual and lead rows", async () => {
+  it("list returns individual, lead and member rows for an admin scope", async () => {
     const out = await listRegistrations({ kind: "all" }, {});
-    expect(out.rows.map((r) => r.id)).not.toContain("m1");
-    expect(filterValue(regReads()[0], "in", "row_type")).toEqual(["individual", "lead"]);
+    expect(out.rows.map((r) => r.id)).toContain("m1");
+    expect(filterValue(regReads()[0], "in", "row_type")).toEqual(["individual", "lead", "member"]);
   });
   it("list maps page and agent names", async () => {
     const out = await listRegistrations({ kind: "all" }, {});
@@ -156,7 +156,7 @@ describe("list", () => {
     expect(out.rows.map((r) => r.id)).toEqual(["a"]);
     expect(out.total).toBe(1);
     expect(out.pageSize).toBe(25);
-    expect(out.counts).toEqual({ all: 4, pending: 1, paid: 1, underpaid: 1, reserved: 0, free: 1 });
+    expect(out.counts).toEqual({ all: 5, pending: 1, paid: 1, underpaid: 2, reserved: 0, free: 1 });
   });
 });
 
@@ -497,6 +497,43 @@ describe("filter options", () => {
       { id: "adm", full_name: "Admin Person", role: "admin" },
     ];
     expect(await listRegistrationAgentOptions()).toEqual([{ id: "ag1", name: "Agent One" }]);
+  });
+});
+
+describe("member rows in the list", () => {
+  const rowTypeArgs = () => regReads().map((op) => filterValue(op, "in", "row_type")).filter((t) => t !== undefined);
+  it("listRegistrations includes member rows for an admin scope", async () => {
+    store.landing_registrations = [
+      reg({ id: "L", name: "Lead", row_type: "lead", ref_id: "PZA-4", group_size: 2 }),
+      reg({ id: "m1", name: "Member", row_type: "member", lead_registration_id: "L" }),
+    ];
+    const out = await listRegistrations({ kind: "all" }, {});
+    expect(out.rows.map((r) => r.id).sort()).toEqual(["L", "m1"]);
+    expect(out.counts.all).toBe(2);
+    expect(out.total).toBe(2);
+    const lead = out.rows.find((r) => r.id === "L")!;
+    const member = out.rows.find((r) => r.id === "m1")!;
+    expect(member).toMatchObject({ rowType: "member", leadId: "L", leadName: "Lead" });
+    expect(lead).toMatchObject({ rowType: "lead", leadId: null, leadName: null });
+    for (const t of rowTypeArgs()) expect(t).toEqual(["individual", "lead", "member"]);
+  });
+  it("listRegistrations keeps member rows out of an agent scope", async () => {
+    store.landing_registrations = [
+      reg({ id: "L", name: "Lead", row_type: "lead", agent_id: "ag1" }),
+      reg({ id: "m1", name: "Member", row_type: "member", lead_registration_id: "L", agent_id: "ag1" }),
+    ];
+    const out = await listRegistrations({ kind: "agent", agentId: "ag1" }, {});
+    for (const t of rowTypeArgs()) expect(t).toEqual(["individual", "lead"]);
+    expect(out.rows.some((r) => r.rowType === "member")).toBe(false);
+    expect(out.counts.all).toBe(1);
+  });
+  it("applyHeadFilters uses the given row types", () => {
+    const seen: unknown[] = [];
+    const q: Record<string, unknown> = { in: (_k: string, v: unknown) => { seen.push(v); return q; }, eq: () => q, or: () => q };
+    const cast = q as { in: unknown; eq: unknown; or: unknown };
+    applyHeadFilters(cast, { kind: "all" }, {});
+    applyHeadFilters(cast, { kind: "all" }, {}, LIST_ROW_TYPES);
+    expect(seen).toEqual([["individual", "lead"], ["individual", "lead", "member"]]);
   });
 });
 

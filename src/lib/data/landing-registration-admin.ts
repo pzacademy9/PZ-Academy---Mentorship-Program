@@ -66,6 +66,11 @@ export interface RegistrationListRow {
   lastEmailAt: Partial<Record<ManualEmailKind, string>>;
   /** The person's permanent PZ ID, or null when they have no person yet (not paid, or free). */
   pzId?: string | null;
+  rowType: "individual" | "lead" | "member";
+  /** For a member row, the id of its lead; null for a lead or individual. */
+  leadId: string | null;
+  /** For a member row, the name of its lead; null for a lead or individual. */
+  leadName: string | null;
 }
 export interface RegistrationList {
   rows: RegistrationListRow[];
@@ -115,6 +120,8 @@ export type ChangeStatusResult =
 const PAGE_SIZE = 25 as const;
 const STATUSES: RegistrationStatus[] = ["pending", "reserved", "underpaid", "paid", "free"];
 export const HEAD_ROW_TYPES = ["individual", "lead"];
+/** Admin lists, counts and sends read every person: heads and group members. Sales-agent scope stays on HEAD_ROW_TYPES. */
+export const LIST_ROW_TYPES = ["individual", "lead", "member"];
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
@@ -150,8 +157,8 @@ function scopeParams(scope: Scope): { agentFilter: boolean; agentId: string; hid
 const isEmptyAgentScope = (scope: Scope): boolean => scope.kind === "agent" && !scope.agentId;
 
 /** The head-row filters shared by the list and by campaign recipient resolution (everything except status and paging). */
-export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query: T, scope: Scope, f: RegistrationListFilters): T {
-  let qy: any = query.in("row_type", HEAD_ROW_TYPES);
+export function applyHeadFilters<T extends { in: any; eq: any; or: any }>(query: T, scope: Scope, f: RegistrationListFilters, rowTypes: string[] = HEAD_ROW_TYPES): T {
+  let qy: any = query.in("row_type", rowTypes);
   const sc = scopeParams(scope);
   if (sc.agentFilter) qy = qy.eq("agent_id", sc.agentId);
   if (sc.hideTest) qy = qy.eq("is_test", false);
@@ -230,10 +237,13 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
   const admin = createAdminSupabase();
 
   // Everything except the status filter, so each status tab can show its own count.
+  // Admins see members as their own rows; an agent scope stays heads only.
+  const rowTypes = scope.kind === "all" ? LIST_ROW_TYPES : HEAD_ROW_TYPES;
   const base = (head: boolean) => applyHeadFilters(
     admin.from("landing_registrations").select(head ? "id" : "*", head ? { count: "exact", head: true } : undefined),
     scope,
     f,
+    rowTypes,
   );
 
   const countFor = async (status: RegistrationStatus | "all"): Promise<number> => {
@@ -278,6 +288,14 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
     for (const p of data ?? []) pzIds.set(p.id, p.pz_id);
   }
 
+  const leadIds = Array.from(new Set(records.filter((r) => r.row_type === "member").map((r) => strOrNull(r.lead_registration_id)).filter((v): v is string => v !== null)));
+  const leadNames = new Map<string, string>();
+  for (const part of chunks(leadIds)) {
+    const { data, error } = await admin.from("landing_registrations").select("id, name").in("id", part);
+    if (error) throw error;
+    for (const l of data ?? []) leadNames.set(l.id, l.name);
+  }
+
   const rows: RegistrationListRow[] = records.map((r) => ({
     id: str(r.id),
     refId: strOrNull(r.ref_id),
@@ -303,6 +321,9 @@ export async function listRegistrations(scope: Scope, f: RegistrationListFilters
     sheetUpdateWaiting: extras.waiting.has(str(r.id)),
     lastEmailAt: extras.lastEmail.get(str(r.id)) ?? {},
     pzId: pzIds.get(str(r.person_id)) ?? null,
+    rowType: r.row_type === "member" ? "member" : r.row_type === "lead" ? "lead" : "individual",
+    leadId: r.row_type === "member" ? strOrNull(r.lead_registration_id) : null,
+    leadName: r.row_type === "member" ? leadNames.get(str(r.lead_registration_id)) ?? null : null,
   }));
   const total = f.status && f.status !== "all" ? counts[f.status] : all;
   return { rows, total, pageSize: PAGE_SIZE, counts };

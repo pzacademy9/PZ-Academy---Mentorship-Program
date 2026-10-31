@@ -2,7 +2,7 @@ import type { RegistrationStatus } from "@/lib/landing/registration/config";
 
 export type Channel = "email" | "whatsapp";
 
-/** Member candidates carry the lead's refId and status. */
+/** One candidate per registration row. Member candidates carry the lead's refId. */
 export type Candidate = {
   registrationId: string;
   leadId: string;
@@ -12,7 +12,7 @@ export type Candidate = {
   phone: string;
   refId: string;
   status: RegistrationStatus;
-  /** Lead row's mode and option label; members follow their lead. */
+  /** The row's own mode and option label. */
   mode?: "live" | "recorded";
   optionLabel?: string;
 };

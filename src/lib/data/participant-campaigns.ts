@@ -5,7 +5,7 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import type { Candidate } from "@/lib/landing/participants/types";
-import { applyHeadFilters, HEAD_ROW_TYPES, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
+import { applyHeadFilters, HEAD_ROW_TYPES, LIST_ROW_TYPES, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
 
 type Row = Record<string, unknown>;
 const STATUSES: RegistrationStatus[] = ["pending", "reserved", "underpaid", "paid", "free"];
@@ -46,7 +46,7 @@ export async function listCampaigns(): Promise<Campaign[]> {
     admin
       .from("landing_registrations")
       .select("id, page_id, status, created_at")
-      .in("row_type", HEAD_ROW_TYPES)
+      .in("row_type", LIST_ROW_TYPES)
       .eq("is_test", false)
       .order("created_at", { ascending: false })
       .order("id", { ascending: true }),
@@ -98,72 +98,72 @@ export async function listCampaignFilterOptions(pageId: string): Promise<{ regio
   return { regions: Array.from(regions).sort(), optionLabels: Array.from(labels).sort() };
 }
 
-/** Heads (and their non-test members) of one page, as sendable candidates. Members take the lead's refId and status. */
+/** One sendable candidate per matching registration row of a page (heads and members alike). A member carries its lead's refId. */
 export async function resolveCandidates(input: { pageId: string; ids?: string[]; filters?: RegistrationListFilters }): Promise<Candidate[]> {
   const admin = createAdminSupabase();
-  let heads: Row[];
+  let rows: Row[];
   if (input.ids) {
     const ids = Array.from(new Set(input.ids));
     if (ids.length === 0) return [];
-    heads = [];
+    rows = [];
     for (const part of chunks(ids)) {
-      heads.push(...await fetchAll(() =>
+      rows.push(...await fetchAll(() =>
         admin
           .from("landing_registrations")
           .select("*")
           .in("id", part)
           .eq("page_id", input.pageId)
-          .in("row_type", HEAD_ROW_TYPES)
+          .in("row_type", LIST_ROW_TYPES)
           .eq("is_test", false)
           .order("created_at", { ascending: false })
           .order("id", { ascending: true }),
       ));
     }
-    const found = new Set(heads.map((h) => str(h.id)));
+    const found = new Set(rows.map((h) => str(h.id)));
     if (ids.some((id) => !found.has(id))) throw new Error("A selected registration is not on this campaign");
   } else {
     const f = input.filters ?? {};
-    heads = await fetchAll(() => {
+    rows = await fetchAll(() => {
       let query = applyHeadFilters(
         admin.from("landing_registrations").select("*"),
         { kind: "all" },
         { ...f, pageId: input.pageId },
+        LIST_ROW_TYPES,
       );
       if (f.status && f.status !== "all") query = query.eq("status", f.status);
       return query.order("created_at", { ascending: false }).order("id", { ascending: true });
     });
   }
-  if (heads.length === 0) return [];
+  if (rows.length === 0) return [];
 
-  const members: Row[] = [];
-  for (const part of chunks(heads.map((h) => str(h.id)))) {
-    members.push(...await fetchAll(() =>
-      admin
-        .from("landing_registrations")
-        .select("*")
-        .in("lead_registration_id", part)
-        .eq("is_test", false)
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true }),
-    ));
-  }
-  const byLead = new Map<string, Row[]>();
-  for (const m of members) {
-    const k = str(m.lead_registration_id);
-    const list = byLead.get(k);
-    if (list) list.push(m);
-    else byLead.set(k, [m]);
+  // A member is sent under its lead's refId, so read the leads of the member rows.
+  const leadRefs = new Map<string, string>();
+  const leadIds = Array.from(new Set(rows.filter((r) => str(r.row_type) === "member").map((r) => str(r.lead_registration_id)).filter(Boolean)));
+  for (const part of chunks(leadIds)) {
+    const { data, error } = await admin.from("landing_registrations").select("id, ref_id").in("id", part);
+    if (error) throw error;
+    for (const l of (data ?? []) as Row[]) leadRefs.set(str(l.id), str(l.ref_id));
   }
 
   const out: Candidate[] = [];
-  for (const h of heads) {
-    const lead = { leadId: str(h.id), refId: str(h.ref_id), status: str(h.status) as RegistrationStatus };
-    const mode = str(h.mode) === "live" ? "live" : str(h.mode) === "recorded" ? "recorded" : undefined;
-    const optionLabel = str(h.option_label);
-    out.push({ registrationId: lead.leadId, leadId: lead.leadId, isMember: false, name: str(h.name), email: str(h.email), phone: str(h.whatsapp), refId: lead.refId, status: lead.status, mode, optionLabel });
-    for (const m of byLead.get(lead.leadId) ?? []) {
-      out.push({ registrationId: str(m.id), leadId: lead.leadId, isMember: true, name: str(m.name), email: str(m.email), phone: str(m.whatsapp), refId: lead.refId, status: lead.status, mode, optionLabel });
-    }
+  for (const r of rows) {
+    const isMember = str(r.row_type) === "member";
+    const leadId = isMember ? str(r.lead_registration_id) : str(r.id);
+    const refId = isMember ? leadRefs.get(leadId) : str(r.ref_id);
+    if (refId === undefined) continue; // a member whose lead cannot be read is skipped
+    const mode = str(r.mode) === "live" ? "live" : str(r.mode) === "recorded" ? "recorded" : undefined;
+    out.push({
+      registrationId: str(r.id),
+      leadId,
+      isMember,
+      name: str(r.name),
+      email: str(r.email),
+      phone: str(r.whatsapp),
+      refId,
+      status: str(r.status) as RegistrationStatus,
+      mode,
+      optionLabel: str(r.option_label),
+    });
   }
   return out;
 }
