@@ -141,7 +141,7 @@ Note: the old "enter your PZ ID and press Show my progress" check no longer exis
 
 ## (e) Migration 0095: show or hide a batch on the portal
 
-**Paste 0095 BEFORE the new code goes live. 0094 must already be live.** The new code reads a column that 0095 adds, so deploying first would break the portal pages.
+**Paste 0095 BEFORE the new code goes live. 0094 must already be live.** The new code reads a column that 0095 adds, so if the new code is live before you paste 0095, the admin landing-pages list and editor AND the portal pages (/progress and each batch page) all fail.
 
 1. Open the Supabase SQL editor.
 2. Open `supabase/migrations/0095_portal_visibility.sql`, copy everything in it, paste it and press Run.
@@ -176,7 +176,7 @@ as $$
      and lp.show_in_portal = true
      and lp.kind in ('course', 'workshop', 'webinar')
      and p.display_name ilike
-         '%' || replace(replace(replace(p_query, '\', '\'), '%', '\%'), '_', '\_') || '%' escape '\'
+         '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
    group by p.display_name, p.pz_id, lp.title
    order by p.display_name, p.pz_id, lp.title
    limit 6;
@@ -194,7 +194,8 @@ Check it worked. Paste this and run it:
 select
   (select count(*) from information_schema.columns
     where table_schema = 'public' and table_name = 'landing_pages' and column_name = 'show_in_portal') as show_in_portal_column,
-  (select count(*) from pg_proc where proname = 'find_enrolled_ids_by_name') as name_search_function;
+  (select count(*) from pg_proc where proname = 'find_enrolled_ids_by_name') as name_search_function,
+  (select prosrc like '%show_in_portal%' from pg_proc where proname = 'find_enrolled_ids_by_name') as new_version;
 ```
 
-Expect one row with `1` and `1`. If either shows `0`, tell me which one.
+Expect one row with `1`, `1` and `true`. `new_version` must be `true`: if it shows `false` or empty, the old search function is still in place. If anything else shows, tell me which column.
