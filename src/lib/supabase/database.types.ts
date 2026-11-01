@@ -2098,6 +2098,7 @@ export type Database = {
       landing_pages: {
         Row: {
           attendance_min_pct: number
+          ids_list_public: boolean
           class_cover_url: string | null
           class_default_end: string | null
           class_default_start: string | null
@@ -2129,6 +2130,7 @@ export type Database = {
           mirror_running_at: string | null
         }
         Insert: {
+          ids_list_public?: boolean
           attendance_min_pct?: number
           class_cover_url?: string | null
           class_default_end?: string | null
@@ -2161,6 +2163,7 @@ export type Database = {
           mirror_running_at?: string | null
         }
         Update: {
+          ids_list_public?: boolean
           attendance_min_pct?: number
           class_cover_url?: string | null
           class_default_end?: string | null
@@ -3829,6 +3832,24 @@ export type Database = {
         }
         Relationships: []
       }
+      public_lookup_hits: {
+        Row: {
+          hit_at: string
+          id: number
+          key: string
+        }
+        Insert: {
+          hit_at?: string
+          id?: number
+          key: string
+        }
+        Update: {
+          hit_at?: string
+          id?: number
+          key?: string
+        }
+        Relationships: []
+      }
       pz_id_aliases: {
         Row: {
           alias_norm: string
@@ -4773,6 +4794,10 @@ export type Database = {
       batch_quiz_save: {
         Args: { p_file: string; p_max: number; p_rows: Json; p_session: string }
         Returns: number
+      }
+      public_lookup_allow: {
+        Args: { p_key: string; p_limit: number; p_window_secs: number }
+        Returns: boolean
       }
       pz_merge_people: {
         Args: { p_keep: string; p_drop: string }
