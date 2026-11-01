@@ -12,14 +12,22 @@
 -- Safe to re-run: the data step only happens the first time, so pasting again changes nothing.
 
 -- The one-time data step runs ONLY while the column is still NOT NULL (i.e. 0096 has not run before),
--- so pasting this file again never undoes a switch an admin made later.
+-- so pasting this file again never undoes a switch an admin made later. Inside that step the
+-- column is made nullable FIRST (the updates below write NULL), then the data is changed.
+-- If an earlier paste failed, it was rolled back, the column is still NOT NULL, and this paste works.
 do $$
+declare
+  v_nullable text;
 begin
-  if (select is_nullable
-        from information_schema.columns
-       where table_schema = 'public'
-         and table_name = 'landing_pages'
-         and column_name = 'show_in_portal') = 'NO' then
+  select is_nullable into v_nullable
+    from information_schema.columns
+   where table_schema = 'public'
+     and table_name = 'landing_pages'
+     and column_name = 'show_in_portal';
+
+  if v_nullable = 'NO' then
+    execute 'alter table public.landing_pages alter column show_in_portal drop not null';
+
     update public.landing_pages
        set show_in_portal = null
      where show_in_portal is true
@@ -33,6 +41,7 @@ begin
 end
 $$;
 
+-- Harmless repeats (already done inside the block on the first run).
 alter table public.landing_pages alter column show_in_portal drop not null;
 alter table public.landing_pages alter column show_in_portal drop default;
 

@@ -21,13 +21,30 @@ describe("0096 draft batches stay private", () => {
     expect(sql).toContain("alter column show_in_portal drop default");
   });
 
-  it("runs the data step only while the column is still NOT NULL, before the drop", () => {
-    const guard = sql.indexOf("select is_nullable");
-    expect(guard).toBeGreaterThan(-1);
-    expect(sql).toContain("= 'NO' then");
-    expect(guard).toBeLessThan(sql.indexOf("set show_in_portal = null"));
-    expect(guard).toBeLessThan(sql.indexOf("set show_in_portal = true"));
-    expect(sql.indexOf("set show_in_portal = true")).toBeLessThan(sql.indexOf("alter column show_in_portal drop not null"));
+  it("inside one DO block: reads is_nullable, then drops not null BEFORE both updates, all under the NO check", () => {
+    const doStart = sql.indexOf("do $$");
+    const doEnd = sql.indexOf("$$;", doStart + 5);
+    expect(doStart).toBeGreaterThan(-1);
+    const block = sql.slice(doStart, doEnd);
+    const read = block.indexOf("select is_nullable into v_nullable");
+    const check = block.indexOf("if v_nullable = 'NO' then");
+    const drop = block.indexOf("alter column show_in_portal drop not null");
+    const toNull = block.indexOf("set show_in_portal = null");
+    const toTrue = block.indexOf("set show_in_portal = true");
+    expect(read).toBeGreaterThan(-1);
+    expect(check).toBeGreaterThan(read);
+    expect(drop).toBeGreaterThan(check);
+    expect(drop).toBeLessThan(toNull);
+    expect(drop).toBeLessThan(toTrue);
+    expect(block.indexOf("end if;")).toBeGreaterThan(toTrue);
+    expect(block).toContain("declare");
+  });
+
+  it("repeats drop not null and drop default after the block, then replaces the function", () => {
+    const after = sql.slice(sql.indexOf("$$;") + 3);
+    expect(after.indexOf("alter column show_in_portal drop not null")).toBeGreaterThan(-1);
+    expect(after.indexOf("alter column show_in_portal drop default")).toBeGreaterThan(-1);
+    expect(after.indexOf("create or replace function")).toBeGreaterThan(after.indexOf("drop default"));
   });
 
   it("resets true to null except ppc-batch-3, and is re-runnable", () => {
