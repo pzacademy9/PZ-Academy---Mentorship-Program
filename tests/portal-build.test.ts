@@ -267,12 +267,33 @@ describe("buildPortalBatch full name", () => {
   it("shows the full display name, trimmed with spaces collapsed", () => {
     expect(run("Name-0000", "  Dr. Name   Surname ")).toBe("Dr. Name Surname");
   });
-  it("falls back to the PZ ID first name when the name looks like an email", () => {
+  it("falls back to the PZ ID first name when the name looks like an email (full name sort unaffected)", () => {
     expect(run("Name-0000", "sample.name@example.com")).toBe("Name");
     expect(run("Name-Two-0007", "x@y")).toBe("Name-Two");
   });
-  it("falls back to the first word when the PZ ID has no dash and the name is an email", () => {
-    expect(run("Name0000", "Sample@example.com Name")).toBe("Sample@example.com");
+  it("never returns an email even when the PZ ID has no dash: shows the PZ ID itself", () => {
+    expect(run("Sample0000", "sample@example.com")).toBe("Sample0000");
+    expect(run("Name0000", "Sample@example.com Name")).toBe("Name0000");
+  });
+  it("treats a name with 7 or more digits (a phone) as unsafe", () => {
+    expect(run("Name-0000", "Sample 0300 1234567")).toBe("Name");
+    expect(run("Name-0000", "Sample 123456")).toBe("Sample 123456");
+  });
+  it("caps the shown name at 60 characters, cutting at a word boundary", () => {
+    const long = Array.from({ length: 20 }, () => "Wordy").join(" ");
+    const out = run("Name-0000", long);
+    expect(out.length).toBeLessThanOrEqual(60);
+    expect(out.endsWith("Wordy")).toBe(true);
+    expect(run("Name-0000", "x".repeat(80)).length).toBe(60);
+  });
+  it("two live students with the same full name sort by PZ ID", () => {
+    const v = buildPortalBatch(
+      batch({
+        people: [{ id: "p1", pzId: "Sample-0009", displayName: "Sample Name" }, { id: "p2", pzId: "Sample-0002", displayName: "Sample Name" }],
+        regs: ["p1", "p2"].map((id) => ({ personId: id, mode: "live" as const, optionLabel: FULL })),
+      }),
+    );
+    expect(v.attendance.map((r) => r.pzId)).toEqual(["Sample-0002", "Sample-0009"]);
   });
   it("falls back to the PZ ID first name when the name is blank", () => {
     expect(run("Name-0000", "   ")).toBe("Name");
@@ -281,7 +302,7 @@ describe("buildPortalBatch full name", () => {
 
 describe("buildPortalBatch attendance order", () => {
   const mk = (i: number, name: string) => ({ id: `p${i}`, pzId: `${name}-${String(i).padStart(4, "0")}`, displayName: name });
-  it("lists live students first, then recorded, each by first name then PZ ID", () => {
+  it("lists live students first, then recorded, each by full name then PZ ID", () => {
     const people = [mk(1, "Aaa"), mk(2, "Zed"), mk(3, "Bbb"), mk(4, "Mid"), mk(5, "Mid")];
     const regs = [
       { personId: "p1", mode: "recorded" as const, optionLabel: "Recorded" },

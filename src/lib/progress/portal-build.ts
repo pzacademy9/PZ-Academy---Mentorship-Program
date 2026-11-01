@@ -1,5 +1,5 @@
 // Pure builder for the public batch portal (attendance + results lists).
-// Public rows carry first name + PZ ID only. No server imports, no clock: `now` is an input.
+// Public rows carry the full name + PZ ID only (never phone or email). No server imports, no clock: `now` is an input.
 import { matchAudience, parseOption, type Audience } from "@/lib/classes/audience";
 import { attendancePercent, meetsMinimum } from "@/lib/attendance/rules";
 import { publicFirstName, type ProgressKind } from "@/lib/progress/build";
@@ -84,10 +84,25 @@ export type PortalBatchCard = {
 const time = (iso: string) => new Date(iso).getTime();
 const cmpText = (a: string, b: string) => a.localeCompare(b);
 
-/** Full display name (trimmed, spaces collapsed). A blank name or one that looks like an email falls back to the first name. */
+const MAX_NAME = 60;
+/** A name that is empty, has an "@" (email) or 7+ digits (phone) must never be shown. */
+const unsafeName = (s: string) => s === "" || s.includes("@") || (s.match(/\d/g) ?? []).length >= 7;
+
+/**
+ * Full display name (trimmed, spaces collapsed, at most 60 characters, cut at a word boundary).
+ * An unsafe name (blank, email-like, phone-like) falls back to the PZ ID first name, and if that is
+ * unsafe too, to the PZ ID itself, so contact details can never reach the public page.
+ */
 export function publicName(pzId: string, displayName: string): string {
-  const full = displayName.replace(/\s+/g, " ").trim();
-  return full === "" || full.includes("@") ? publicFirstName(pzId, displayName) : full;
+  let full = displayName.replace(/\s+/g, " ").trim();
+  if (unsafeName(full)) full = publicFirstName(pzId, displayName).replace(/\s+/g, " ").trim();
+  if (unsafeName(full)) return pzId;
+  if (full.length > MAX_NAME) {
+    const cut = full.slice(0, MAX_NAME);
+    const space = cut.lastIndexOf(" ");
+    full = (space > 0 ? cut.slice(0, space) : cut).trim();
+  }
+  return full;
 }
 
 type Student = { person: PortalPersonInput; name: string; mode: "live" | "recorded"; labels: string[] };
@@ -175,7 +190,7 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
       const pct = attendancePercent(attended, held);
       return { ...base, attended, held, pct, meetsMin: meetsMinimum(pct, input.minPct), classes };
     })
-    // Live students first, recorded students after all of them; each group by first name then PZ ID.
+    // Live students first, recorded students after all of them; each group by full name then PZ ID.
     .sort((a, b) => (a.mode === b.mode ? 0 : a.mode === "live" ? -1 : 1) || byName(a, b));
 
   const studentById = new Map(all.map((s) => [s.person.id, s]));

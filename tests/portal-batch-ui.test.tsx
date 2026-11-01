@@ -215,3 +215,12 @@ describe("BatchPortal full names", () => {
     expect(screen.queryByText("Sample Longname")).toBeNull();
   });
 });
+
+describe("BatchPortal avatar", () => {
+  it("uses the first letter, not punctuation, for the avatar initial", () => {
+    const rowOf = { name: "(Dr.) Sample Name", pzId: "Sample-0001", mode: "live" as const, attended: 1, held: 1, pct: 100, meetsMin: true, classes: [] };
+    render(<BatchPortal view={view({ attendance: [rowOf] })} />);
+    const avatar = document.querySelector("span[aria-hidden].rounded-full");
+    expect(avatar?.textContent).toBe("D");
+  });
+});
