@@ -38,12 +38,20 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
           <h1 className="font-headline text-2xl font-bold text-pz-on-surface">Classes</h1>
           <p className="text-base text-pz-on-surface-variant">{campaign.title}</p>
         </div>
-        <Link
-          href={`${BASE}/campaign/${pageId}`}
-          className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
-        >
-          Back to registrations
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-5">
+          <Link
+            href={`${BASE}/campaign/${pageId}/ids`}
+            className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+          >
+            Student IDs
+          </Link>
+          <Link
+            href={`${BASE}/campaign/${pageId}`}
+            className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+          >
+            Back to registrations
+          </Link>
+        </div>
       </div>
       <SessionsPanel
         pageId={pageId}
