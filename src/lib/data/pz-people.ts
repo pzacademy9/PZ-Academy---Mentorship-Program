@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { maskEmail } from "@/lib/pzid/format";
+import { rowFromLabels, type IdRow } from "@/lib/pzid/id-list";
 
 const PAGE = 1000;
 const CHUNK = 200;
@@ -12,7 +13,7 @@ const ADMIN_ERROR = "Could not load IDs. Please try again.";
 
 export type BatchIdRow = { name: string; pzId: string; emailMasked: string };
 
-type EnrolledReg = { person_id: string | null; email: string };
+type EnrolledReg = { person_id: string | null; email: string; option_label?: string | null };
 type Person = { id: string; pz_id: string; display_name: string };
 
 /** Escapes LIKE wildcards so user input is matched literally. */
@@ -27,7 +28,7 @@ async function loadEnrolled(pageId: string): Promise<EnrolledReg[] | null> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("landing_registrations")
-      .select("person_id, email")
+      .select("person_id, email, option_label")
       .eq("page_id", pageId)
       .in("status", ["paid", "free"])
       .eq("is_test", false)
@@ -160,6 +161,34 @@ export async function listBatchIdsForAdmin(
     }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Admin-only list for the Student IDs page: one row per enrolled person with their course scope
+ * (from every registration option label). Never returns an email or phone; the caller guards.
+ */
+export async function listBatchIdRowsWithScope(pageId: string): Promise<IdRow[]> {
+  const regs = await loadEnrolled(pageId);
+  if (!regs) throw new Error(ADMIN_ERROR);
+  const labels = new Map<string, string[]>();
+  for (const r of regs) {
+    if (!r.person_id) continue;
+    const list = labels.get(r.person_id) ?? [];
+    if (r.option_label) list.push(r.option_label);
+    labels.set(r.person_id, list);
+  }
+  const ids = Array.from(labels.keys());
+  const supabase = createAdminSupabase();
+  const out: IdRow[] = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from("pz_people")
+      .select("id, pz_id, display_name")
+      .in("id", ids.slice(i, i + CHUNK));
+    if (error) throw new Error(ADMIN_ERROR);
+    for (const p of (data ?? []) as Person[]) out.push(rowFromLabels(p.display_name, p.pz_id, labels.get(p.id) ?? []));
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "en"));
 }
 
 /** Title of a published or closed landing page, for the public find-your-ID heading. */
