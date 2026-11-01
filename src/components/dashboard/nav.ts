@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy,
+  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
@@ -25,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Help & Safety", shortLabel: "Help", href: "/dashboard/sales/help", icon: LifeBuoy, roles: ["sales_agent"] },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["student", "mentor", "admin", "super_admin"] },
   { label: "My Courses", shortLabel: "Courses", href: "/dashboard/courses", icon: BookOpen, roles: ["student"] },
+  { label: "My Progress", shortLabel: "Progress", href: "/dashboard/progress", icon: TrendingUp, roles: ["student"] },
   { label: "My Notes", shortLabel: "Notes", href: "/dashboard/notes", icon: NotebookPen, roles: ["student"] },
   { label: "Sessions", href: "/dashboard/sessions", icon: Calendar, roles: ["student", "mentor"] },
   { label: "Messages", href: "/dashboard/messages", icon: MessageCircle, roles: ["student"] },
