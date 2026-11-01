@@ -169,7 +169,8 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
       const pct = attendancePercent(attended, held);
       return { ...base, attended, held, pct, meetsMin: meetsMinimum(pct, input.minPct), classes };
     })
-    .sort(byName);
+    // Live students first, recorded students after all of them; each group by first name then PZ ID.
+    .sort((a, b) => (a.mode === b.mode ? 0 : a.mode === "live" ? -1 : 1) || byName(a, b));
 
   const studentById = new Map(all.map((s) => [s.person.id, s]));
   const sessionIds = new Set(sessions.map((s) => s.id));

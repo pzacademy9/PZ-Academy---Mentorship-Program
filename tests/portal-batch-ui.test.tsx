@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { BatchPortal } from "@/components/progress/portal/BatchPortal";
-import type { PortalBatchView } from "@/lib/progress/portal-build";
+import { buildPortalBatch, type PortalBatchView } from "@/lib/progress/portal-build";
 
 const cls = (number: number, state: "present" | "absent" | "upcoming", how: "check-in" | "admin" | null = null) => ({
   number,
@@ -164,5 +164,33 @@ describe("BatchPortal results", () => {
   it("no results at all says No results yet", () => {
     open(view({ overall: [], perClass: { s1: [], s2: [] } }));
     expect(screen.getByText("No results yet")).toBeTruthy();
+  });
+});
+
+describe("BatchPortal attendance order", () => {
+  const built = () =>
+    buildPortalBatch({
+      pageId: "b1", title: "Sample Batch", slug: "sample-batch", kind: "course", minPct: 75,
+      sessions: [{ id: "s1", number: 1, title: "Class 1", startsAt: "2026-03-01T10:00:00Z", audience: null, quizMax: null }],
+      people: [
+        { id: "p1", pzId: "Aaa-0001", displayName: "Aaa" },
+        { id: "p2", pzId: "Zed-0002", displayName: "Zed" },
+        { id: "p3", pzId: "Bbb-0003", displayName: "Bbb" },
+      ],
+      regs: [
+        { personId: "p1", mode: "recorded", optionLabel: "Recorded" },
+        { personId: "p2", mode: "live", optionLabel: "Live" },
+        { personId: "p3", mode: "recorded", optionLabel: "Recorded" },
+      ],
+      marks: [], scores: [], now: new Date("2026-03-10T12:00:00Z"),
+    });
+  const order = () => ["Zed-0002", "Aaa-0001", "Bbb-0003"].filter((id) => screen.queryByText(id)).sort(
+    (a, b) => (screen.getByText(a).compareDocumentPosition(screen.getByText(b)) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1),
+  );
+  it("shows the live student above the recorded ones, and search keeps that order", () => {
+    render(<BatchPortal view={built()} />);
+    expect(order()).toEqual(["Zed-0002", "Aaa-0001", "Bbb-0003"]);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "-000" } });
+    expect(order()).toEqual(["Zed-0002", "Aaa-0001", "Bbb-0003"]);
   });
 });

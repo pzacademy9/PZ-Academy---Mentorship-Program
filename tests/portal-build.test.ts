@@ -274,3 +274,31 @@ describe("buildPortalBatch first name", () => {
     expect(run("Name0000", "Sample Name")).toBe("Sample");
   });
 });
+
+describe("buildPortalBatch attendance order", () => {
+  const mk = (i: number, name: string) => ({ id: `p${i}`, pzId: `${name}-${String(i).padStart(4, "0")}`, displayName: name });
+  it("lists live students first, then recorded, each by first name then PZ ID", () => {
+    const people = [mk(1, "Aaa"), mk(2, "Zed"), mk(3, "Bbb"), mk(4, "Mid"), mk(5, "Mid")];
+    const regs = [
+      { personId: "p1", mode: "recorded" as const, optionLabel: "Recorded" },
+      { personId: "p2", mode: "live" as const, optionLabel: FULL },
+      { personId: "p3", mode: "recorded" as const, optionLabel: "Recorded" },
+      { personId: "p4", mode: "live" as const, optionLabel: FULL },
+      { personId: "p5", mode: "live" as const, optionLabel: FULL },
+    ];
+    const v = buildPortalBatch(batch({ people, regs }));
+    expect(v.attendance.map((r) => `${r.mode}:${r.pzId}`)).toEqual([
+      "live:Mid-0004", "live:Mid-0005", "live:Zed-0002", "recorded:Aaa-0001", "recorded:Bbb-0003",
+    ]);
+  });
+  it("keeps live-ranked first then recorded on the Results lists", () => {
+    const people = [mk(1, "Aaa"), mk(2, "Zed")];
+    const regs = [
+      { personId: "p1", mode: "recorded" as const, optionLabel: "Recorded" },
+      { personId: "p2", mode: "live" as const, optionLabel: FULL },
+    ];
+    const scores = [{ sessionId: "s1", personId: "p1", score: 99 }, { sessionId: "s1", personId: "p2", score: 10 }];
+    const v = buildPortalBatch(batch({ people, regs, scores }));
+    expect(v.overall.map((r) => r.pzId)).toEqual(["Zed-0002", "Aaa-0001"]);
+  });
+});
