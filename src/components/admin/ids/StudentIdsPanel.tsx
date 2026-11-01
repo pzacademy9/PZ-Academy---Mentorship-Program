@@ -82,6 +82,7 @@ const CHIPS: { key: IdFilter; label: string; count: (c: ReturnType<typeof countB
   { key: 2, label: "Module 2", count: (c) => c["2"] },
   { key: 3, label: "Module 3", count: (c) => c["3"] },
   { key: 4, label: "Module 4", count: (c) => c["4"] },
+  { key: "unknown", label: "Scope not set", count: (c) => c.unknown },
 ];
 
 export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: IdRow[] }) {
@@ -123,7 +124,7 @@ export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-headline text-2xl font-extrabold text-pz-on-surface">Student IDs</h2>
-            <span className="rounded-full bg-pz-primary-fixed px-3 py-1 text-sm font-headline font-bold text-pz-on-primary-container">
+            <span className="rounded-full bg-pz-primary-fixed px-3 py-1 text-sm font-headline font-bold text-pz-on-primary-fixed dark:bg-pz-primary-fixed/30 dark:text-pz-on-surface">
               {rows.length} students
             </span>
           </div>
@@ -137,7 +138,7 @@ export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: 
             Download ID PDF
           </button>
         </div>
-        {note && <p role="alert" className="mt-2 text-base text-pz-error">{note}</p>}
+        {note && <p role="alert" className="mt-2 text-base text-pz-academy-error">{note}</p>}
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <Stat icon={<Users aria-hidden className="h-5 w-5" />} label="Total enrolled" value={rows.length} />
@@ -149,7 +150,7 @@ export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: 
       <section className={`${cardCls} space-y-4`}>
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Filter by course">
-            {CHIPS.map((c) => {
+            {CHIPS.filter((c) => c.key !== "unknown" || counts.unknown > 0).map((c) => {
               const on = filter === c.key;
               return (
                 <button
@@ -163,7 +164,7 @@ export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: 
                       : "bg-pz-surface-container text-pz-on-surface-variant hover:text-pz-on-surface"
                   }`}
                 >
-                  {c.label} <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs">{c.count(counts)}</span>
+                  {c.label} <span className="rounded-full bg-black/10 dark:bg-white/10 px-2 py-0.5 text-xs">{c.count(counts)}</span>
                 </button>
               );
             })}
@@ -224,7 +225,7 @@ export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: 
               <li key={r.pzId} className="flex items-center gap-3 py-3">
                 <span
                   aria-hidden
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pz-primary-fixed font-headline text-sm font-bold text-pz-on-primary-container max-md:hidden"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pz-primary-fixed font-headline text-sm font-bold text-pz-on-primary-fixed dark:bg-pz-primary-fixed/30 dark:text-pz-on-surface max-md:hidden"
                 >
                   {initials(r.name)}
                 </span>

@@ -25,6 +25,18 @@ describe("rowFromLabels", () => {
   });
 });
 
+describe("unrecognised scope", () => {
+  it("a module above 4 is unrecognised, so every student sits in exactly one bucket", () => {
+    const m5 = rowFromLabels("Sample Five-0005", "PPC4-0005", ["Live - Modules: M5"]);
+    expect(m5).toMatchObject({ full: false, modules: [], known: false });
+    const c = countByFilter([...all, m5]);
+    expect(c.full + c.modular + c.unknown).toBe(c.all);
+  });
+  it("filters to unrecognised students", () => {
+    expect(filterRows(all, "unknown", "")).toEqual([odd]);
+  });
+});
+
 describe("scopeTag", () => {
   it("names each scope", () => {
     expect(scopeTag(full)).toBe("Full course");
@@ -54,7 +66,7 @@ describe("filterRows", () => {
 
 describe("countByFilter", () => {
   it("counts each chip", () => {
-    expect(countByFilter(all)).toEqual({ all: 4, full: 1, modular: 2, "1": 2, "2": 0, "3": 1, "4": 0 });
+    expect(countByFilter(all)).toEqual({ all: 4, full: 1, modular: 2, unknown: 1, "1": 2, "2": 0, "3": 1, "4": 0 });
   });
 });
 

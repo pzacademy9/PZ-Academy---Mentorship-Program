@@ -73,6 +73,16 @@ describe("StudentIdsPanel", () => {
     await waitFor(() => expect(btn.textContent).toContain("Copy failed"));
   });
 
+  it("shows a Scope not set chip only when someone has no readable scope", () => {
+    const { unmount } = render(<StudentIdsPanel pageTitle="B" rows={rows} />);
+    fireEvent.click(chip(/^Scope not set\s*1/));
+    expect(screen.getByText("Sample Scholar-0138")).toBeTruthy();
+    expect(screen.queryByText("Sample Doctor-0012")).toBeNull();
+    unmount();
+    render(<StudentIdsPanel pageTitle="B" rows={rows.slice(0, 3)} />);
+    expect(screen.queryByRole("button", { name: /^Scope not set/ })).toBeNull();
+  });
+
   it("handles an empty batch", () => {
     render(<StudentIdsPanel pageTitle="B" rows={[]} />);
     expect(screen.getByText("No students enrolled yet.")).toBeTruthy();
