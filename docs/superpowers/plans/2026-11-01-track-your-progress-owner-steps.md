@@ -138,3 +138,151 @@ delete from public.public_lookup_hits where key = 'x';
 3. `/dashboard/progress`: log in as a student with a confirmed email and check your own progress shows.
 
 Note: the old "enter your PZ ID and press Show my progress" check no longer exists. The public pages no longer show one person's record from a typed ID. The "Find my ID" check and the rate-limit check (the "yes twice, then no" step in (c)) stay.
+
+## (e) Migration 0095: show or hide a batch on the portal
+
+**Paste 0095 BEFORE the new code goes live. 0094 must already be live.** The new code reads a column that 0095 adds, so if the new code is live before you paste 0095, the admin landing-pages list and editor AND the portal pages (/progress and each batch page) all fail.
+
+1. Open the Supabase SQL editor.
+2. Open `supabase/migrations/0095_portal_visibility.sql`, copy everything in it, paste it and press Run.
+3. It is safe to run twice. It changes no existing data (every batch starts as "shown").
+
+What it does, in plain words:
+- Adds a "Show on public progress portal" switch to every batch (starts ON). Turning it off hides the batch from /progress, from its own page, from "Find my ID" and from My Progress.
+- A batch that is still a draft but already has paid or free students (for example PPC Batch 3) now shows on the portal. Empty drafts stay hidden.
+- Updates the "find my ID" search to follow the same rule. It still returns at most 6 rows of first name, PZ ID and batch title only.
+
+The complete SQL to paste is:
+
+```sql
+alter table public.landing_pages
+  add column if not exists show_in_portal boolean not null default true;
+
+create or replace function public.find_enrolled_ids_by_name(p_query text)
+returns table (first_name text, pz_id text, batch_title text)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select substring(btrim(p.display_name) from '^\S+') as first_name,
+         p.pz_id::text,
+         lp.title::text as batch_title
+    from public.pz_people p
+    join public.landing_registrations r on r.person_id = p.id
+    join public.landing_pages lp on lp.id = r.page_id
+   where r.status in ('paid', 'free')
+     and r.is_test = false
+     and lp.show_in_portal = true
+     and lp.kind in ('course', 'workshop', 'webinar')
+     and p.display_name ilike
+         '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
+   group by p.display_name, p.pz_id, lp.title
+   order by p.display_name, p.pz_id, lp.title
+   limit 6;
+$$;
+
+revoke all on function public.find_enrolled_ids_by_name(text) from public;
+revoke all on function public.find_enrolled_ids_by_name(text) from anon;
+revoke all on function public.find_enrolled_ids_by_name(text) from authenticated;
+grant execute on function public.find_enrolled_ids_by_name(text) to service_role;
+```
+
+Check it worked. Paste this and run it:
+
+```sql
+select
+  (select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'landing_pages' and column_name = 'show_in_portal') as show_in_portal_column,
+  (select count(*) from pg_proc where proname = 'find_enrolled_ids_by_name') as name_search_function,
+  (select prosrc like '%show_in_portal%' from pg_proc where proname = 'find_enrolled_ids_by_name') as new_version;
+```
+
+Expect one row with `1`, `1` and `true`. `new_version` must be `true`: if it shows `false` or empty, the old search function is still in place. If anything else shows, tell me which column.
+
+## (f) Migration 0096: draft batches stay private until you switch them on
+
+**Safe order: 0095 must already be live. First deploy the new code (push, then wait for the deploy to finish). Then paste 0096 straight away.**
+
+What happens if the order is different:
+- New code live BEFORE 0096 is pasted: nothing breaks. Drafts that already have students (PPC Batch 3) are still shown. Any other draft with students would also be public until 0096 is pasted.
+- 0096 pasted while the PREVIOUS portal code (the 0095-era one, which still requires the switch to be on) is still the live deploy: every published batch except PPC Batch 3 disappears from /progress and from Find my ID until the new code deploys.
+
+1. Open the Supabase SQL editor.
+2. Open `supabase/migrations/0096_portal_draft_private.sql`, copy everything in it, paste it and press Run.
+3. It is safe to paste again later. The one-time data step only runs the first time, so a switch an admin made afterwards is never undone.
+
+What it does, in plain words:
+- The "Show on public progress portal" switch now has three states: automatic (new batches start here: shown only once the batch is published or closed), switched on, and switched off.
+- Every batch that 0095 had set to "on" goes back to automatic, so a draft batch is private until an admin switches it on.
+- PPC Batch 3 stays visible because 0096 switches it on.
+- The "find my ID" search follows the same rule. It still returns at most 6 rows of first name, PZ ID and batch title only.
+
+The complete SQL to paste is:
+
+```sql
+-- The one-time data step runs ONLY while the column is still NOT NULL (i.e. 0096 has not run before),
+-- so pasting this file again never undoes a switch an admin made later.
+do $$
+begin
+  if (select is_nullable
+        from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'landing_pages'
+         and column_name = 'show_in_portal') = 'NO' then
+    update public.landing_pages
+       set show_in_portal = null
+     where show_in_portal is true
+       and slug <> 'ppc-batch-3';
+
+    update public.landing_pages
+       set show_in_portal = true
+     where slug = 'ppc-batch-3'
+       and show_in_portal is distinct from true;
+  end if;
+end
+$$;
+
+alter table public.landing_pages alter column show_in_portal drop not null;
+alter table public.landing_pages alter column show_in_portal drop default;
+
+create or replace function public.find_enrolled_ids_by_name(p_query text)
+returns table (first_name text, pz_id text, batch_title text)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select substring(btrim(p.display_name) from '^\S+') as first_name,
+         p.pz_id::text,
+         lp.title::text as batch_title
+    from public.pz_people p
+    join public.landing_registrations r on r.person_id = p.id
+    join public.landing_pages lp on lp.id = r.page_id
+   where r.status in ('paid', 'free')
+     and r.is_test = false
+     and coalesce(lp.show_in_portal, lp.status in ('published', 'closed'))
+     and lp.kind in ('course', 'workshop', 'webinar')
+     and p.display_name ilike
+         '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
+   group by p.display_name, p.pz_id, lp.title
+   order by p.display_name, p.pz_id, lp.title
+   limit 6;
+$$;
+
+revoke all on function public.find_enrolled_ids_by_name(text) from public;
+revoke all on function public.find_enrolled_ids_by_name(text) from anon;
+revoke all on function public.find_enrolled_ids_by_name(text) from authenticated;
+grant execute on function public.find_enrolled_ids_by_name(text) to service_role;
+```
+
+Check it worked. Paste this and run it:
+
+```sql
+select
+  (select count(*) from public.landing_pages where status = 'draft' and show_in_portal is true) as drafts_switched_on,
+  (select count(*) from public.landing_pages where status = 'published' and show_in_portal is null) as published_automatic,
+  (select prosrc like '%coalesce(lp.show_in_portal%' from pg_proc where proname = 'find_enrolled_ids_by_name') as new_version;
+```
+
+Expect `drafts_switched_on` = `1` (PPC Batch 3), `published_automatic` = the number of published batches (any number), and `new_version` = `true`. If `drafts_switched_on` is `0`, the PPC batch has a different slug than `ppc-batch-3`; tell Claude. If `new_version` is `false` or empty, the old search function is still in place; tell Claude.

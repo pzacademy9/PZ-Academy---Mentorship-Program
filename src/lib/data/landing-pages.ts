@@ -23,6 +23,8 @@ export interface LandingPage {
   draft: LandingContent; published: LandingContent | null; revision: number;
   publishedAt: string | null; createdAt: string; updatedAt: string;
   courseId: string | null; isMainPage: boolean;
+  /** Whether the batch may appear on the public progress portal (migration 0095). */
+  showInPortal?: boolean | null;
 }
 export interface LandingPageSummary {
   id: string; slug: string; kind: PageKind; title: string; status: PageStatus; revision: number;
@@ -41,14 +43,14 @@ export type SimpleResult = { ok: true } | { ok: false; reason: "not-found" | "no
 
 const UNIQUE_VIOLATION = "23505";
 const PUBLIC_COLUMNS = "id, slug, kind, title, status, published";
-const COLUMNS = "id, slug, kind, title, status, draft, published, revision, published_at, created_by, created_at, updated_at, course_id, is_main_page";
+const COLUMNS = "id, slug, kind, title, status, draft, published, revision, published_at, created_by, created_at, updated_at, course_id, is_main_page, show_in_portal";
 
 function mapRow(r: Row): LandingPage {
   return {
     id: r.id, slug: r.slug, kind: r.kind as PageKind, title: r.title, status: r.status as PageStatus,
     draft: normalizeContent(r.draft), published: r.published ? normalizeContent(r.published) : null,
     revision: r.revision, publishedAt: r.published_at, createdAt: r.created_at, updatedAt: r.updated_at,
-    courseId: r.course_id, isMainPage: r.is_main_page,
+    courseId: r.course_id, isMainPage: r.is_main_page, showInPortal: r.show_in_portal,
   };
 }
 
@@ -253,6 +255,22 @@ export async function renameLandingPage(id: string, title: string): Promise<Simp
   if (!data) return { ok: false, reason: "not-found" };
   revalidateLandingSlug(data.slug);
   revalidatePath("/dashboard/admin/landing-pages");
+  return { ok: true };
+}
+
+/** Shows or hides a batch on the public progress portal. */
+export async function setPortalVisibility(pageId: string, show: boolean): Promise<SimpleResult> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("landing_pages")
+    .update({ show_in_portal: show, updated_at: new Date().toISOString() })
+    .eq("id", pageId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, reason: "db-error" };
+  if (!data) return { ok: false, reason: "not-found" };
+  revalidatePath("/dashboard/admin/landing-pages");
+  revalidatePath("/progress", "layout");
   return { ok: true };
 }
 

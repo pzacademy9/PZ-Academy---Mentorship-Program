@@ -36,6 +36,8 @@ export const renameSchema = z.object({ title: z.string().trim().min(1, "Give the
 
 export const courseAssignmentSchema = z.object({ courseId: z.string().uuid().nullable(), isMain: z.boolean() });
 
+export const portalVisibilitySchema = z.object({ show: z.boolean() });
+
 export const statusSchema = z.object({ status: z.enum(["closed", "published"]) });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

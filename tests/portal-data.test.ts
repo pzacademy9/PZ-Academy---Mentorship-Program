@@ -29,9 +29,14 @@ const seed = (): Store => ({
   ],
   pz_person_emails: [{ email: "me@example.com", person_id: "me" }],
   landing_pages: [
-    { id: "pc", title: "Course A", slug: "course-a", status: "published", kind: "course", attendance_min_pct: 70 },
-    { id: "pd", title: "Draft C", slug: "draft-c", status: "draft", kind: "course", attendance_min_pct: 75 },
-    { id: "pk", title: "Other Kind", slug: "other-kind", status: "published", kind: "page", attendance_min_pct: 75 },
+    { id: "pc", title: "Course A", slug: "course-a", status: "published", kind: "course", attendance_min_pct: 70, show_in_portal: true },
+    { id: "pd", title: "Draft C", slug: "draft-c", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: true },
+    { id: "pk", title: "Other Kind", slug: "other-kind", status: "published", kind: "page", attendance_min_pct: 75, show_in_portal: true },
+    { id: "pe", title: "Empty Draft", slug: "empty-draft", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: true },
+    { id: "ph", title: "Hidden By Switch", slug: "hidden", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: false },
+    { id: "pq", title: "Hidden Draft", slug: "hidden-draft", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: false },
+    { id: "pn", title: "Auto Draft", slug: "auto-draft", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: null },
+    { id: "pa", title: "Auto Published", slug: "auto-published", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: null },
   ],
   landing_registrations: [
     reg("r1", "pc", "me"),
@@ -42,6 +47,10 @@ const seed = (): Store => ({
     reg("r6", "pc", "blank"),
     reg("r7", "pd", "me"),
     reg("r8", "pk", "me"),
+    reg("r9", "ph", "me"),
+    reg("r10", "pq", "me"),
+    reg("r11", "pn", "me"),
+    reg("r12", "pa", "me"),
   ],
   batch_sessions: [
     { id: "s1", page_id: "pc", number: 1, title: "Class one", starts_at: PAST, audience: null, quiz_max_score: 100 },
@@ -63,6 +72,7 @@ const seed = (): Store => ({
     { id: "q5", session_id: "s1", person_id: "pend", score: 60 },
   ],
   pz_id_aliases: [],
+  courses: [{ id: "crs1", title: "Sample Programme" }],
 });
 
 beforeEach(() => {
@@ -71,9 +81,25 @@ beforeEach(() => {
 });
 
 describe("listPortalBatches", () => {
-  it("omits drafts and wrong kinds, and counts enrolled people and classes", async () => {
+  it("shows a draft that has students, hides empty drafts, wrong kinds and switched-off batches", async () => {
     const cards = await listPortalBatches(NOW);
-    expect(cards.map((c) => c.slug)).toEqual(["course-a"]);
+    expect(cards.map((c) => c.slug).sort()).toEqual(["auto-published", "course-a", "draft-c"]);
+    const draft = cards.find((c) => c.slug === "draft-c")!;
+    expect(draft).toMatchObject({ students: 1, state: "completed" });
+  });
+
+  it("carries the course id and title, or null when the batch has no course", async () => {
+    const s = seed();
+    Object.assign(s.landing_pages[0], { course_id: "crs1" });
+    db.state.handler = memoryHandler(s);
+    const cards = await listPortalBatches(NOW);
+    expect(cards.find((c) => c.slug === "course-a")).toMatchObject({ courseId: "crs1", courseTitle: "Sample Programme" });
+    expect(cards.find((c) => c.slug === "draft-c")).toMatchObject({ courseId: null, courseTitle: null });
+    expect(db.find("courses", "select")).toHaveLength(1);
+  });
+
+  it("counts enrolled people and classes", async () => {
+    const cards = (await listPortalBatches(NOW)).filter((c) => c.slug === "course-a");
     expect(cards[0]).toMatchObject({ students: 3, classesHeld: 2, classesTotal: 3, lastClassAt: FUTURE, state: "live" });
   });
 
@@ -82,7 +108,7 @@ describe("listPortalBatches", () => {
       const s = seed();
       Object.assign(s.landing_pages[0], { published, class_cover_url: classCover });
       db.state.handler = memoryHandler(s);
-      return (await listPortalBatches(NOW))[0].coverUrl;
+      return (await listPortalBatches(NOW)).find((c) => c.slug === "course-a")!.coverUrl;
     };
     const content = (hero: Record<string, unknown>, ogImage = "") => ({
       seo: { title: "", description: "", ogImage },
@@ -111,7 +137,7 @@ describe("listPortalBatches", () => {
     const s = seed();
     s.landing_pages[0].status = "closed";
     db.state.handler = memoryHandler(s);
-    expect((await listPortalBatches(NOW))[0].state).toBe("completed");
+    expect((await listPortalBatches(NOW)).find((c) => c.slug === "course-a")!.state).toBe("completed");
   });
 
   it("rejects when a read fails", async () => {
@@ -147,8 +173,25 @@ describe("getPortalBatch", () => {
     expect(view.sessions.map((s) => s.id)).not.toContain("sx");
   });
 
-  it("returns null for unknown, draft and wrong-kind slugs", async () => {
-    for (const slug of ["nope", "draft-c", "other-kind"]) expect(await getPortalBatch(slug, NOW)).toBeNull();
+  it("returns null for unknown, empty-draft, wrong-kind and switched-off slugs", async () => {
+    for (const slug of ["nope", "empty-draft", "other-kind", "hidden", "hidden-draft", "auto-draft"]) expect(await getPortalBatch(slug, NOW)).toBeNull();
+  });
+
+  it("an automatic draft stays private even with students; an automatic published batch is open", async () => {
+    expect(await getPortalBatch("auto-draft", NOW)).toBeNull();
+    expect(await getPortalBatch("auto-published", NOW)).not.toBeNull();
+  });
+
+  it("opens a draft batch that is switched on and has students", async () => {
+    const view = (await getPortalBatch("draft-c", NOW))!;
+    expect(view.attendance.map((r) => r.pzId)).toEqual(["Sample-0000"]);
+  });
+
+  it("opens a hidden batch again when the switch is turned on", async () => {
+    const s = seed();
+    s.landing_pages.find((p) => p.id === "ph")!.show_in_portal = true;
+    db.state.handler = memoryHandler(s);
+    expect(await getPortalBatch("hidden", NOW)).not.toBeNull();
   });
 
   it("rejects when a read fails", async () => {

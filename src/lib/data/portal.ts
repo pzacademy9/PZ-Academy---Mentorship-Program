@@ -8,6 +8,7 @@ import { normalizeContent } from "@/lib/landing/content";
 import { isSafeUrl } from "@/lib/landing/simple-text";
 import { fetchAll } from "@/lib/data/attendance";
 import { getProgressByPzId } from "@/lib/data/progress";
+import { isPortalVisible } from "@/lib/progress/visibility";
 import type { Progress, ProgressKind } from "@/lib/progress/build";
 import {
   buildPortalBatch,
@@ -34,7 +35,7 @@ function chunks<T>(items: T[]): T[][] {
   return out;
 }
 
-type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null };
+type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null; show_in_portal: boolean | null; course_id: string | null };
 type SessionRow = { id: string; page_id: string; number: number; title: string; starts_at: string; audience: unknown; quiz_max_score: number | null };
 type RegRow = { page_id: string; person_id: string | null; mode: string; option_label: string };
 
@@ -52,12 +53,11 @@ function pickCover(p: PageRow): string | null {
   return safeHttp(p.class_cover_url);
 }
 
-/** Published or closed batches of a portal kind, optionally just one slug. */
+/** Batches of a portal kind, optionally just one slug. loadInputs applies the visibility rule (hidden ones, private drafts). */
 async function readPages(slug?: string): Promise<PageRow[]> {
   let q = createAdminSupabase()
     .from("landing_pages")
-    .select("id, title, slug, status, kind, attendance_min_pct, published, class_cover_url")
-    .in("status", ["published", "closed"])
+    .select("id, title, slug, status, kind, attendance_min_pct, published, class_cover_url, show_in_portal, course_id")
     .in("kind", KINDS);
   if (slug !== undefined) q = q.eq("slug", slug);
   const { data, error } = await q;
@@ -65,23 +65,12 @@ async function readPages(slug?: string): Promise<PageRow[]> {
   return ((data ?? []) as PageRow[]).filter((p) => KINDS.includes(p.kind));
 }
 
-async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Promise<PortalBatchInput[]> {
-  if (pages.length === 0) return [];
+async function loadInputs(candidates: PageRow[], withResults: boolean, now: Date): Promise<PortalBatchInput[]> {
+  if (candidates.length === 0) return [];
   const admin = createAdminSupabase();
-  const pageIds = pages.map((p) => p.id);
 
-  const sessions: SessionRow[] = [];
   const regs: RegRow[] = [];
-  for (const part of chunks(pageIds)) {
-    sessions.push(
-      ...(await fetchAll<SessionRow>("sessions read", () =>
-        admin
-          .from("batch_sessions")
-          .select("id, page_id, number, title, starts_at, audience, quiz_max_score")
-          .in("page_id", part)
-          .order("id", { ascending: true }),
-      )),
-    );
+  for (const part of chunks(candidates.map((p) => p.id))) {
     // Only paid or free, non-test registrations count: the builders cannot see payment status.
     regs.push(
       ...(await fetchAll<RegRow>("registrations read", () =>
@@ -91,6 +80,37 @@ async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Pr
           .in("page_id", part)
           .in("status", ["paid", "free"])
           .eq("is_test", false)
+          .order("id", { ascending: true }),
+      )),
+    );
+  }
+
+  // One visibility rule everywhere: a draft batch is shown only once it has enrolled students.
+  const enrolledPages = new Set(regs.map((r) => r.page_id));
+  const pages = candidates.filter((p) =>
+    isPortalVisible({ status: p.status, showInPortal: p.show_in_portal, kind: p.kind, enrolled: enrolledPages.has(p.id) }),
+  );
+  if (pages.length === 0) return [];
+  const pageIds = pages.map((p) => p.id);
+
+  // Course titles for the home page grouping, in one query.
+  const courseIds = Array.from(new Set(pages.map((p) => p.course_id).filter((id): id is string => !!id)));
+  const courseTitles = new Map<string, string>();
+  for (const part of chunks(courseIds)) {
+    const rows = await fetchAll<{ id: string; title: string }>("courses read", () =>
+      admin.from("courses").select("id, title").in("id", part).order("id", { ascending: true }),
+    );
+    for (const c of rows) courseTitles.set(c.id, c.title);
+  }
+
+  const sessions: SessionRow[] = [];
+  for (const part of chunks(pageIds)) {
+    sessions.push(
+      ...(await fetchAll<SessionRow>("sessions read", () =>
+        admin
+          .from("batch_sessions")
+          .select("id, page_id, number, title, starts_at, audience, quiz_max_score")
+          .in("page_id", part)
           .order("id", { ascending: true }),
       )),
     );
@@ -152,6 +172,8 @@ async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Pr
       minPct: p.attendance_min_pct,
       closed: p.status === "closed",
       coverUrl: pickCover(p),
+      courseId: p.course_id,
+      courseTitle: p.course_id ? (courseTitles.get(p.course_id) ?? null) : null,
       sessions: sessionInputs,
       people: Array.from(pagePeople.values()),
       regs: pageRegs,
@@ -162,17 +184,18 @@ async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Pr
   });
 }
 
-/** Cards for every published or closed batch. A failed read throws; never a partial list. */
+/** Cards for every visible batch (see isPortalVisible). A failed read throws; never a partial list. */
 export async function listPortalBatches(now: Date = new Date()): Promise<PortalBatchCard[]> {
   return buildPortalCards(await loadInputs(await readPages(), false, now));
 }
 
-/** One batch's public lists, or null for an unknown slug, a non-public status, or the wrong kind. */
+/** One batch's public lists, or null for an unknown slug, a hidden batch (switch off, empty draft), or the wrong kind. */
 export async function getPortalBatch(slug: string, now: Date = new Date()): Promise<PortalBatchView | null> {
   if (typeof slug !== "string" || slug.length === 0 || slug.length > 200) return null;
   const pages = await readPages(slug);
   if (pages.length === 0) return null;
   const [input] = await loadInputs(pages.slice(0, 1), true, now);
+  if (!input) return null; // hidden: empty draft
   return buildPortalBatch(input);
 }
 

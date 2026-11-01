@@ -6,7 +6,7 @@ import { ArrowRight, BookOpen, FlaskConical, Presentation, Search, ShieldCheck, 
 import type { FindMyIdByNameResult } from "@/app/progress/actions";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import type { ProgressKind } from "@/lib/progress/build";
-import type { PortalBatchCard } from "@/lib/progress/portal-build";
+import { groupCardsByCourse, type PortalBatchCard } from "@/lib/progress/portal-build";
 import { MyIdSection } from "../MyIdSection";
 import { btnFocus, inputClass } from "../ui";
 
@@ -108,13 +108,18 @@ export function PortalHome({ groups, findId, failed = false }: Props) {
             <h2 id={`group-${g.kind}`} className="font-headline text-xl font-bold text-pz-on-surface">
               {LABELS[g.kind]}
             </h2>
-            <ul className="grid min-w-0 gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {g.batches.map((b) => (
-                <li key={b.slug} className="min-w-0">
-                  <BatchCard batch={b} />
-                </li>
-              ))}
-            </ul>
+            {groupCardsByCourse(g.batches).map((cg) => (
+              <div key={cg.key} className="flex min-w-0 flex-col gap-2">
+                <h3 className="break-words font-headline text-base font-bold text-pz-on-surface-variant">{cg.heading}</h3>
+                <ul className="grid min-w-0 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {cg.batches.map((b) => (
+                    <li key={b.slug} className="min-w-0">
+                      <BatchCard batch={b} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </section>
         ))
       )}
@@ -154,7 +159,7 @@ function BatchCard({ batch: b }: { batch: PortalBatchCard }) {
         </div>
       )}
       <div className="flex min-w-0 items-start justify-between gap-3 px-4">
-        <h3 className="min-w-0 break-words font-headline text-lg font-bold leading-snug text-pz-on-surface">{b.title}</h3>
+        <h4 className="min-w-0 break-words font-headline text-lg font-bold leading-snug text-pz-on-surface">{b.title}</h4>
         <span className={`shrink-0 rounded-full px-2.5 py-1 font-headline text-sm font-bold ${chip.cls}`}>{chip.text}</span>
       </div>
       <div className="flex min-w-0 flex-wrap gap-2 px-4 text-sm text-pz-on-surface-variant">
