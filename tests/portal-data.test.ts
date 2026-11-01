@@ -122,6 +122,14 @@ describe("listPortalBatches", () => {
 });
 
 describe("getPortalBatch", () => {
+  it("passes how each mark was made (admin vs check-in)", async () => {
+    const view = (await getPortalBatch("course-a", NOW))!;
+    const me = view.attendance.find((r) => r.pzId === "Sample-0000")!;
+    expect(me.classes.find((c) => c.number === 1)?.how).toBe("check-in");
+    const other = view.attendance.find((r) => r.pzId === "Name-0001")!;
+    expect(other.classes.find((c) => c.number === 2)?.how).toBe("admin");
+  });
+
   it("returns exactly the enrolled people with first names only and no emails", async () => {
     const view = (await getPortalBatch("course-a", NOW))!;
     expect(view.attendance.map((r) => r.pzId).sort()).toEqual(["Name-0001", "Name-0002", "Sample-0000"]);

@@ -24,7 +24,7 @@ export type PortalBatchInput = {
   sessions: PortalSessionInput[];
   people: PortalPersonInput[];
   regs: PortalRegInput[];
-  marks: { sessionId: string; personId: string }[];
+  marks: { sessionId: string; personId: string; how?: "check-in" | "admin" }[];
   scores: { sessionId: string; personId: string; score: number }[];
   /** The batch's landing page is closed (status 'closed'). */
   closed?: boolean;
@@ -41,7 +41,7 @@ export type PortalAttendanceRow = {
   held: number | null;
   pct: number | null;
   meetsMin: boolean | null;
-  classes: { number: number; title: string; startsAt: string; state: "present" | "absent" | "upcoming" }[];
+  classes: { number: number; title: string; startsAt: string; state: "present" | "absent" | "upcoming"; how: "check-in" | "admin" | null }[];
 };
 export type PortalResultRow = {
   firstName: string;
@@ -55,6 +55,10 @@ export type PortalBatchView = {
   slug: string;
   kind: ProgressKind;
   minPct: number;
+  state: "live" | "completed" | "recorded";
+  coverUrl: string | null;
+  students: number;
+  classesHeld: number;
   sessions: { id: string; number: number; title: string; quizMax: number | null }[];
   attendance: PortalAttendanceRow[];
   overall: PortalResultRow[];
@@ -121,6 +125,16 @@ function rankRows(rows: { s: Student; score: number }[]): PortalResultRow[] {
   ];
 }
 
+function batchState(b: PortalBatchInput): PortalBatchCard["state"] {
+  const people = new Set(b.people.map((p) => p.id));
+  const regsOf = b.regs.filter((r) => people.has(r.personId));
+  const students = new Set(regsOf.map((r) => r.personId)).size;
+  const held = b.sessions.filter((s) => time(s.startsAt) <= b.now.getTime()).length;
+  const allRecorded = students > 0 && regsOf.every((r) => r.mode === "recorded");
+  if (b.closed === true || (b.sessions.length > 0 && held === b.sessions.length)) return "completed";
+  return allRecorded ? "recorded" : "live";
+}
+
 export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
   const sessions = [...input.sessions].sort((a, b) => a.number - b.number);
   const all = students(input);
@@ -133,7 +147,7 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
         return { ...base, attended: null, held: null, pct: null, meetsMin: null, classes: [] };
       }
       const scopes = s.labels.map(parseOption);
-      const marked = new Set(input.marks.filter((m) => m.personId === s.person.id).map((m) => m.sessionId));
+      const marked = new Map(input.marks.filter((m) => m.personId === s.person.id).map((m) => [m.sessionId, m.how ?? "check-in"] as const));
       const classes = sessions
         .filter((x) => x.audience === null || scopes.some((sc) => matchAudience(sc, x.audience!).include))
         .map((x) => ({
@@ -144,6 +158,7 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
             | "present"
             | "absent"
             | "upcoming",
+          how: time(x.startsAt) > nowMs ? null : (marked.get(x.id) ?? null),
         }));
       const held = classes.filter((c) => c.state !== "upcoming").length;
       const attended = classes.filter((c) => c.state === "present").length;
@@ -174,6 +189,10 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
     slug: input.slug,
     kind: input.kind,
     minPct: input.minPct,
+    state: batchState(input),
+    coverUrl: input.coverUrl ?? null,
+    students: all.length,
+    classesHeld: sessions.filter((x) => time(x.startsAt) <= nowMs).length,
     sessions: sessions.map((x) => ({ id: x.id, number: x.number, title: x.title, quizMax: x.quizMax })),
     attendance,
     overall,
@@ -188,13 +207,7 @@ export function buildPortalCards(batches: PortalBatchInput[]): PortalBatchCard[]
     const students = new Set(b.regs.filter((r) => people.has(r.personId)).map((r) => r.personId)).size;
     const regsOf = b.regs.filter((r) => people.has(r.personId));
     const classesHeld = b.sessions.filter((s) => time(s.startsAt) <= b.now.getTime()).length;
-    const allRecorded = students > 0 && regsOf.every((r) => r.mode === "recorded");
-    const state: PortalBatchCard["state"] =
-      b.closed === true || (b.sessions.length > 0 && classesHeld === b.sessions.length)
-        ? "completed"
-        : allRecorded
-          ? "recorded"
-          : "live";
+    const state = batchState(b);
     const card: PortalBatchCard = {
       title: b.title,
       slug: b.slug,

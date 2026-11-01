@@ -229,3 +229,28 @@ describe("buildPortalCards", () => {
     expect(by).toEqual({ l: "live", d: "completed", c: "completed", r: "recorded", m: "live", n: "live" });
   });
 });
+
+describe("buildPortalBatch header facts", () => {
+  it("carries cover, state, student and held-class counts and the mark source", () => {
+    const v = buildPortalBatch(
+      batch({
+        coverUrl: "https://x.test/c.jpg",
+        marks: [
+          { sessionId: "s1", personId: "p1", how: "admin" },
+          { sessionId: "s2", personId: "p1" },
+        ],
+      }),
+    );
+    expect(v.coverUrl).toBe("https://x.test/c.jpg");
+    expect(v.state).toBe("live");
+    expect(v.students).toBe(1);
+    expect(v.classesHeld).toBe(3);
+    expect(v.attendance[0].classes.map((c) => c.how)).toEqual(["admin", "check-in", null, null]);
+  });
+
+  it("closed batch is completed; no cover gives null", () => {
+    const v = buildPortalBatch(batch({ closed: true }));
+    expect(v.state).toBe("completed");
+    expect(v.coverUrl).toBeNull();
+  });
+});

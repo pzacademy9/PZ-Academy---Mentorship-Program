@@ -109,13 +109,13 @@ async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Pr
   }
 
   const sessionIds = sessions.map((s) => s.id);
-  const marks: { session_id: string; person_id: string }[] = [];
+  const marks: { session_id: string; person_id: string; source: string }[] = [];
   const scores: { session_id: string; person_id: string; score: number }[] = [];
   if (withResults) {
     for (const part of chunks(sessionIds)) {
       marks.push(
-        ...(await fetchAll<{ session_id: string; person_id: string }>("marks read", () =>
-          admin.from("batch_session_marks").select("session_id, person_id").in("session_id", part).order("id", { ascending: true }),
+        ...(await fetchAll<{ session_id: string; person_id: string; source: string }>("marks read", () =>
+          admin.from("batch_session_marks").select("session_id, person_id, source").in("session_id", part).order("id", { ascending: true }),
         )),
       );
       scores.push(
@@ -155,7 +155,7 @@ async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Pr
       sessions: sessionInputs,
       people: Array.from(pagePeople.values()),
       regs: pageRegs,
-      marks: marks.filter((m) => keep.has(m.session_id)).map((m) => ({ sessionId: m.session_id, personId: m.person_id })),
+      marks: marks.filter((m) => keep.has(m.session_id)).map((m) => ({ sessionId: m.session_id, personId: m.person_id, how: m.source === "admin" ? ("admin" as const) : ("check-in" as const) })),
       scores: scores.filter((s) => keep.has(s.session_id)).map((s) => ({ sessionId: s.session_id, personId: s.person_id, score: s.score })),
       now,
     };
