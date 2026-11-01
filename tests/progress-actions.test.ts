@@ -1,20 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" }) }));
+let hdrs: Record<string, string> = { "x-forwarded-for": "1.2.3.4, 5.6.7.8" };
+vi.mock("next/headers", () => ({ headers: async () => new Headers(hdrs) }));
 
 const allowLookup = vi.fn();
 const getProgressByPzId = vi.fn();
 const findIdsByName = vi.fn();
 vi.mock("@/lib/pzid/lookup-limit", () => ({ allowLookup: (ip: string) => allowLookup(ip) }));
 vi.mock("@/lib/data/progress", () => ({ getProgressByPzId: (...a: unknown[]) => getProgressByPzId(...a) }));
-vi.mock("@/lib/data/pz-people", () => ({ findIdsByName: (...a: unknown[]) => findIdsByName(...a) }));
+vi.mock("@/lib/data/pz-people", async (orig) => ({
+  ...(await orig<typeof import("@/lib/data/pz-people")>()),
+  findIdsByName: (...a: unknown[]) => findIdsByName(...a),
+}));
 
 import { findMyIdByName, getMyProgress } from "@/app/progress/actions";
 
 const GENERIC = "Something went wrong. Please try again in a minute.";
 
 beforeEach(() => {
+  hdrs = { "x-forwarded-for": "1.2.3.4, 5.6.7.8" };
   allowLookup.mockReset().mockResolvedValue(true);
   getProgressByPzId.mockReset();
   findIdsByName.mockReset();
@@ -28,6 +33,21 @@ describe("rate limit", () => {
     expect(allowLookup).toHaveBeenCalledWith("1.2.3.4");
     expect(findIdsByName).not.toHaveBeenCalled();
     expect(getProgressByPzId).not.toHaveBeenCalled();
+  });
+});
+
+describe("rate limit address", () => {
+  it("prefers x-real-ip over x-forwarded-for", async () => {
+    hdrs = { "x-real-ip": " 9.9.9.9 ", "x-forwarded-for": "1.2.3.4" };
+    findIdsByName.mockResolvedValue([]);
+    await findMyIdByName("sample");
+    expect(allowLookup).toHaveBeenCalledWith("9.9.9.9");
+  });
+  it("falls back to unknown", async () => {
+    hdrs = {};
+    findIdsByName.mockResolvedValue([]);
+    await findMyIdByName("sample");
+    expect(allowLookup).toHaveBeenCalledWith("unknown");
   });
 });
 
@@ -63,6 +83,8 @@ describe("findMyIdByName", () => {
   it("is too_short under 3 letters without searching", async () => {
     expect(await findMyIdByName("sa")).toEqual({ status: "too_short" });
     expect(await findMyIdByName("*s*")).toEqual({ status: "too_short" });
+    for (const q of ["a b", "...", "x".repeat(61), "  a   b  "]) expect(await findMyIdByName(q)).toEqual({ status: "too_short" });
+    expect(await findMyIdByName(undefined as unknown as string)).toEqual({ status: "too_short" });
     expect(findIdsByName).not.toHaveBeenCalled();
   });
 

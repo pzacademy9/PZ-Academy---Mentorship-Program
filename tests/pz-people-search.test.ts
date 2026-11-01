@@ -61,6 +61,24 @@ describe("findIdsByName", () => {
     expect(db.state.ops).toHaveLength(0);
   });
 
+  it("needs 3 real letters or digits and at most 60 characters", async () => {
+    for (const q of ["a b", "...", "  a   b ", "ab ", "x".repeat(61)]) expect(await findIdsByName(q)).toEqual([]);
+    expect(db.state.ops).toHaveLength(0);
+    expect((await findIdsByName("1 2 3")).length).toBe(0);
+    expect(await findIdsByName("123")).toEqual([]);
+    expect(db.state.ops.length).toBeGreaterThan(0);
+  });
+
+  it("finds the one enrolled match even among more than 1000 matching people", async () => {
+    const many = Array.from({ length: 1500 }, (_, i) => ({
+      id: `m${i}`, pz_id: `Name-${String(i).padStart(4, "0")}`, display_name: `Aaa Common${i}`,
+    }));
+    store.pz_people = [...many, { id: "z", pz_id: "Zed-0001", display_name: "Zzz Common" }];
+    store.landing_registrations = [reg("only", "z", "p1")];
+    const rows = await findIdsByName("common");
+    expect(rows).toEqual([{ firstName: "Zzz", pzId: "Zed-0001", batchTitle: "Batch One" }]);
+  });
+
   it("returns first name, id and batch title only, once per batch", async () => {
     const rows = await findIdsByName("alpha");
     expect(rows).toEqual([

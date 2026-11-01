@@ -5,7 +5,7 @@ import { maskEmail } from "@/lib/pzid/format";
 const PAGE = 1000;
 const CHUNK = 200;
 const MIN_QUERY = 3;
-const MAX_ROWS = 5;
+export const MAX_ROWS = 5;
 const ADMIN_ERROR = "Could not load IDs. Please try again.";
 
 export type BatchIdRow = { name: string; pzId: string; emailMasked: string };
@@ -93,15 +93,31 @@ export async function searchBatchIds(
 export type MyIdRow = { firstName: string; pzId: string; batchTitle: string };
 
 const FIND_ERROR = "Could not search IDs. Please try again.";
+const MAX_QUERY = 60;
+
+
+/**
+ * Cleans a public name query: removes *, trims, collapses inner whitespace. Returns null when it is
+ * too short (under 3 characters or under 3 letters/digits) or too long (over 60 characters).
+ */
+export function cleanNameQuery(query: unknown): string | null {
+  if (typeof query !== "string") return null;
+  const q = query.replace(/\*/g, "").replace(/\s+/g, " ").trim();
+  if (q.length < MIN_QUERY || q.length > MAX_QUERY) return null;
+  if (Array.from(q).filter((c) => /[0-9]/.test(c) || c.toLowerCase() !== c.toUpperCase()).length < MIN_QUERY) return null;
+  return q;
+}
 
 /**
  * Public "find my ID" search for the progress page. Looks across ALL published or closed
- * batches, enrolled people only. Returns at most 5 rows, first name only: never a surname,
- * email or phone, so it cannot be used to list everyone. Throws a plain error on a database failure.
+ * batches, enrolled people only. The enrolled person ids are loaded first and the name filter is
+ * applied only to those (in chunks), so a common name can never be cut off before enrolment is
+ * checked. Returns at most 5 rows, first name only: never a surname, email or phone, so it cannot
+ * be used to list everyone. Throws a plain error on a database failure.
  */
 export async function findIdsByName(query: string): Promise<MyIdRow[]> {
-  const q = query.replace(/\*/g, "").trim();
-  if (q.length < MIN_QUERY) return [];
+  const q = cleanNameQuery(query);
+  if (!q) return [];
   const supabase = createAdminSupabase();
 
   const { data: pages, error: pageErr } = await supabase
@@ -112,28 +128,19 @@ export async function findIdsByName(query: string): Promise<MyIdRow[]> {
   const titles = new Map<string, string>();
   for (const p of pages as Array<{ id: string; title: string }>) titles.set(p.id, p.title);
   if (titles.size === 0) return [];
-
-  const { data: matched, error: pplErr } = await supabase
-    .from("pz_people")
-    .select("id, pz_id, display_name")
-    .ilike("display_name", `%${escapeLike(q)}%`)
-    .order("display_name", { ascending: true })
-    .order("pz_id", { ascending: true })
-    .range(0, PAGE - 1);
-  if (pplErr || !matched) throw new Error(FIND_ERROR);
-  const people = matched as Person[];
-
-  // person id -> set of batch page ids where they are enrolled.
-  const pagesOf = new Map<string, Set<string>>();
   const pageIds = Array.from(titles.keys());
-  for (let i = 0; i < people.length; i += CHUNK) {
+
+  // person id -> set of batch page ids where they are enrolled (paid/free, non-test).
+  const pagesOf = new Map<string, Set<string>>();
+  for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("landing_registrations")
       .select("person_id, page_id")
-      .in("person_id", people.slice(i, i + CHUNK).map((p) => p.id))
       .in("page_id", pageIds)
       .in("status", ["paid", "free"])
-      .eq("is_test", false);
+      .eq("is_test", false)
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
     if (error || !data) throw new Error(FIND_ERROR);
     for (const r of data as Array<{ person_id: string | null; page_id: string }>) {
       if (!r.person_id) continue;
@@ -141,6 +148,20 @@ export async function findIdsByName(query: string): Promise<MyIdRow[]> {
       set.add(r.page_id);
       pagesOf.set(r.person_id, set);
     }
+    if (data.length < PAGE) break;
+  }
+
+  const ids = Array.from(pagesOf.keys());
+  const pattern = `%${escapeLike(q)}%`;
+  const people: Person[] = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from("pz_people")
+      .select("id, pz_id, display_name")
+      .in("id", ids.slice(i, i + CHUNK))
+      .ilike("display_name", pattern);
+    if (error || !data) throw new Error(FIND_ERROR);
+    people.push(...(data as Person[]));
   }
 
   const rows: Array<MyIdRow & { sortName: string }> = [];

@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { findIdsByName, type MyIdRow } from "@/lib/data/pz-people";
+import { cleanNameQuery, findIdsByName, MAX_ROWS, type MyIdRow } from "@/lib/data/pz-people";
 import { getProgressByPzId } from "@/lib/data/progress";
 import type { Progress } from "@/lib/progress/build";
 import { allowLookup } from "@/lib/pzid/lookup-limit";
@@ -21,20 +21,19 @@ export type MyProgressResult =
 
 // The only error text ever sent to the browser. Thrown messages stay on the server.
 const GENERIC_ERROR = "Something went wrong. Please try again in a minute.";
-const MIN_QUERY = 3;
-const MAX_ROWS = 5;
 
 async function callerAllowed(): Promise<boolean> {
   const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  const ip =
+    (h.get("x-real-ip") ?? "").trim() || (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
   return allowLookup(ip);
 }
 
 export async function findMyIdByName(query: string): Promise<FindMyIdByNameResult> {
   try {
     if (!(await callerAllowed())) return { status: "rate_limited" };
-    const q = typeof query === "string" ? query.replace(/\*/g, "").trim() : "";
-    if (q.length < MIN_QUERY) return { status: "too_short" };
+    const q = cleanNameQuery(query);
+    if (!q) return { status: "too_short" };
     const rows = (await findIdsByName(q)).slice(0, MAX_ROWS);
     if (rows.length === 0) return { status: "not_found" };
     return { status: "ok", rows };
