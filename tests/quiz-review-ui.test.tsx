@@ -97,7 +97,7 @@ describe("QuizScreen review", () => {
   });
 
   it("'Accept all best guesses' answers every fairly-sure item with one click and leaves the rest waiting", async () => {
-    await upload([row(4, "Hamid", 500), row(5, "Sami", 300), row(6, "Saira", 900)]);
+    await upload([row(4, "Hamid-482", 500), row(5, "Sami-FUUAST", 300), row(6, "Saira", 900)]);
     expect(screen.getByText("3 problems still waiting")).toBeTruthy();
     expect(screen.getAllByText("Best guess ready")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Accept all 2 best guesses" }));
@@ -109,6 +109,28 @@ describe("QuizScreen review", () => {
     await upload([row(4, "Zeb", 0), row(5, "Saira", 9000)]);
     expect(screen.getByText("1 problem still waiting")).toBeTruthy();
     expect(screen.getByText("Matched for you")).toBeTruthy();
+  });
+
+  it("a student can be found by typing part of a name or the ID number, with no long list to scroll", async () => {
+    await upload([row(4, "Zzzz", 900)]);
+    const search = screen.getByLabelText("Find any student of this batch");
+    fireEvent.change(search, { target: { value: "4821" } });
+    expect(screen.getByRole("button", { name: "Hamid Khan (Hamid-4821)" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Sami Ullah/ })).toBeNull();
+    fireEvent.change(search, { target: { value: "ull sami" } });
+    expect(screen.queryByRole("button", { name: /Hamid Khan/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sami Ullah (Sami-FUUAST89)" }));
+    expect(screen.getByText(/Counted for Sami Ullah/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Save results" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("search shows a plain message when nobody matches, and finds recorded students too", async () => {
+    await upload([row(4, "Zzzz", 900)]);
+    const search = screen.getByLabelText("Find any student of this batch");
+    fireEvent.change(search, { target: { value: "qqq" } });
+    expect(screen.getByText(/No student found/)).toBeTruthy();
+    fireEvent.change(search, { target: { value: "rana" } });
+    expect(screen.getByRole("button", { name: "Rana Bibi (Rana-1111)" })).toBeTruthy();
   });
 
   it("tags rejoined and recorded rows in the fine list", async () => {
