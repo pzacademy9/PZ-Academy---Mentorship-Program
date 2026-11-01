@@ -80,11 +80,17 @@ export async function getProgressByPzId(raw: string, now: Date = new Date()): Pr
   );
   if (regs.length === 0) return null;
 
-  // One registration per batch: a live one wins over a recorded one.
-  const regByPage = new Map<string, Reg>();
+  // One entry per batch: a live registration wins over a recorded one. A person can hold several
+  // live registrations in one batch (e.g. Module 1, later Module 3): keep every live label.
+  const regByPage = new Map<string, { mode: "live" | "recorded"; labels: string[] }>();
   for (const r of regs) {
+    const isLive = r.mode === "live";
     const prev = regByPage.get(r.page_id);
-    if (!prev || (prev.mode !== "live" && r.mode === "live")) regByPage.set(r.page_id, r);
+    if (!prev || (prev.mode !== "live" && isLive)) {
+      regByPage.set(r.page_id, { mode: isLive ? "live" : "recorded", labels: [r.option_label] });
+    } else if (isLive === (prev.mode === "live")) {
+      prev.labels.push(r.option_label);
+    }
   }
 
   const pages: Page[] = [];
@@ -196,7 +202,7 @@ export async function getProgressByPzId(raw: string, now: Date = new Date()): Pr
       kind: p.kind as ProgressKind,
       minPct: p.attendance_min_pct,
       mode: reg.mode === "live" ? "live" : "recorded",
-      optionLabel: reg.option_label,
+      optionLabels: reg.labels,
       sessions: sessionInputs,
       marks,
       myScores,

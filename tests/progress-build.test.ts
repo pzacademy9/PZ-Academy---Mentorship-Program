@@ -22,7 +22,7 @@ const batch = (over: Partial<BatchInput> = {}): BatchInput => ({
   kind: "course",
   minPct: 75,
   mode: "live",
-  optionLabel: "Live - Full Course",
+  optionLabels: ["Live - Full Course"],
   sessions: [],
   marks: {},
   myScores: {},
@@ -75,7 +75,7 @@ describe("buildProgress", () => {
 
   it("a class with no audience counts for everyone, even a module student", () => {
     const out = buildProgress(
-      input([batch({ optionLabel: "Live - Modules: M2", sessions: [sess("s1", 1, day(1), { audience: null })] })]),
+      input([batch({ optionLabels: ["Live - Modules: M2"], sessions: [sess("s1", 1, day(1), { audience: null })] })]),
     );
     expect(out.groups[0].batches[0].attendance!.held).toBe(1);
   });
@@ -86,15 +86,25 @@ describe("buildProgress", () => {
       sess("s2", 2, day(2), { audience: { mode: "live", modules: [2] } }),
       sess("s3", 3, day(3), { audience: { mode: "any", modules: "all" } }),
     ];
-    const mod2 = buildProgress(input([batch({ optionLabel: "Live - Modules: M2", sessions })]));
+    const mod2 = buildProgress(input([batch({ optionLabels: ["Live - Modules: M2"], sessions })]));
     expect(mod2.groups[0].batches[0].attendance!.rows.map((r) => r.number)).toEqual([2, 3]);
-    const full = buildProgress(input([batch({ optionLabel: "Live - Full Course", sessions })]));
+    const full = buildProgress(input([batch({ optionLabels: ["Live - Full Course"], sessions })]));
     expect(full.groups[0].batches[0].attendance!.rows.map((r) => r.number)).toEqual([1, 2, 3]);
+  });
+
+  it("counts a class when ANY of several live options in the batch matches", () => {
+    const sessions = [
+      sess("s1", 1, day(1), { audience: { mode: "live", modules: [1] } }),
+      sess("s2", 2, day(2), { audience: { mode: "live", modules: [2] } }),
+      sess("s3", 3, day(3), { audience: { mode: "live", modules: [3] } }),
+    ];
+    const out = buildProgress(input([batch({ optionLabels: ["Live - Modules: M1", "Live - Modules: M3"], sessions })]));
+    expect(out.groups[0].batches[0].attendance!.rows.map((r) => r.number)).toEqual([1, 3]);
   });
 
   it("does not count a class when the option label cannot be read", () => {
     const out = buildProgress(
-      input([batch({ optionLabel: "Something odd", sessions: [sess("s1", 1, day(1), { audience: { mode: "any", modules: "all" } })] })]),
+      input([batch({ optionLabels: ["Something odd"], sessions: [sess("s1", 1, day(1), { audience: { mode: "any", modules: "all" } })] })]),
     );
     expect(out.groups[0].batches[0].attendance!.held).toBe(0);
     expect(out.groups[0].batches[0].attendance!.pct).toBeNull();
@@ -105,7 +115,7 @@ describe("buildProgress", () => {
       input([
         batch({
           mode: "recorded",
-          optionLabel: "Recorded - Full Course",
+          optionLabels: ["Recorded - Full Course"],
           sessions: [sess("s1", 1, day(1), { quizMax: 100 })],
           myScores: { s1: 80 },
           liveScores: { s1: [90, 80, 70] },
@@ -138,6 +148,10 @@ describe("buildProgress", () => {
       input([batch({ sessions: [sess("s1", 1, day(1))], myScores: { s1: 10 }, liveScores: { s1: [10, 10, 5] } })]),
     );
     expect(tied.groups[0].batches[0].results.rows[0].rank).toBe(1);
+    const below = buildProgress(
+      input([batch({ sessions: [sess("s1", 1, day(1))], myScores: { s1: 5 }, liveScores: { s1: [10, 10, 5] } })]),
+    );
+    expect(below.groups[0].batches[0].results.rows[0].rank).toBe(3);
   });
 
   it("lists results only for classes with a saved score, and sums them", () => {

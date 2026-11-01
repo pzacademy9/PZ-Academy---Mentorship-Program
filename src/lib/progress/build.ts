@@ -23,7 +23,8 @@ export type BatchInput = {
   kind: ProgressKind;
   minPct: number;
   mode: "live" | "recorded";
-  optionLabel: string;
+  /** Option labels of ALL this person's live registrations in the batch (a class counts if any matches). */
+  optionLabels: string[];
   sessions: SessionInput[];
   /** This person's attendance marks: session id -> how it was marked. */
   marks: Record<string, MarkSource>;
@@ -82,8 +83,8 @@ function buildBatch(b: BatchInput, now: Date): ProgressBatch {
 
   let attendance: ProgressBatch["attendance"] = null;
   if (b.mode === "live") {
-    const scope = parseOption(b.optionLabel);
-    const mine = sessions.filter((s) => s.audience === null || matchAudience(scope, s.audience).include);
+    const scopes = b.optionLabels.map(parseOption);
+    const mine = sessions.filter((s) => s.audience === null || scopes.some((scope) => matchAudience(scope, s.audience!).include));
     const rows: AttendanceRow[] = mine.map((s) => {
       const source = b.marks[s.id];
       const started = time(s.startsAt) <= now.getTime();
@@ -109,6 +110,7 @@ function buildBatch(b: BatchInput, now: Date): ProgressBatch {
         startsAt: s.startsAt,
         score,
         max: s.quizMax,
+        // Competition ranking: 10, 10, 5 gives ranks 1, 1, 3.
         rank: ranked ? 1 + live.filter((x) => x > score).length : null,
         of: ranked ? live.length : null,
       };

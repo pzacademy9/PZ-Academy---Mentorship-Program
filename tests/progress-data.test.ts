@@ -119,6 +119,17 @@ describe("getProgressByPzId", () => {
     expect(text).not.toContain("Recorded-2222");
   });
 
+  it("counts a class if ANY of several live registrations in one batch matches", async () => {
+    const store = seed();
+    store.landing_registrations.push({ id: "r8", page_id: "pc", person_id: "me", status: "paid", is_test: false, option_label: "Live - Modules: M1", mode: "live", email: "me@example.com" });
+    store.landing_registrations.push({ id: "r9", page_id: "pc", person_id: "me", status: "paid", is_test: false, option_label: "Recorded - Full Course", mode: "recorded", email: "me@example.com" });
+    db.state.handler = memoryHandler(store);
+    const out = (await getProgressByPzId("Sample-0000", NOW))!;
+    const course = out.groups[0].batches[0];
+    expect(course.mode).toBe("live");
+    expect(course.attendance!.rows.map((r) => r.number)).toEqual([1, 2, 3]);
+  });
+
   it("reads in chunks of 200 ids", async () => {
     const store = seed();
     for (let i = 0; i < 450; i++) {
