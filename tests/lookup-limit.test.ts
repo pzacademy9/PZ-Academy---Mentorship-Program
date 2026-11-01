@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 const mem = vi.hoisted(() => ({ allowRequest: vi.fn() }));
 vi.mock("@/lib/pzid/rate-limit", () => ({ allowRequest: mem.allowRequest }));
 
-import { allowLookup } from "@/lib/pzid/lookup-limit";
+import { allowLookup, rateKeyForIp } from "@/lib/pzid/lookup-limit";
 
 beforeEach(() => {
   db.reset();
@@ -56,5 +56,47 @@ describe("allowLookup", () => {
     await allowLookup("203.0.113.10");
     const key2 = (db.find("public_lookup_allow", "rpc")[1].payload as { p_key: string }).p_key;
     expect(key2).not.toBe(key);
+  });
+});
+
+describe("rateKeyForIp", () => {
+  it("leaves IPv4 and unknown alone", () => {
+    expect(rateKeyForIp("203.0.113.9")).toBe("203.0.113.9");
+    expect(rateKeyForIp("unknown")).toBe("unknown");
+  });
+
+  it("buckets full and compressed IPv6 by the first four groups", () => {
+    expect(rateKeyForIp("2001:0db8:85a3:0042:1111:2222:3333:4444")).toBe("v6:2001:db8:85a3:42");
+    expect(rateKeyForIp("2001:db8:1:2::9")).toBe("v6:2001:db8:1:2");
+    expect(rateKeyForIp("2001:db8::1")).toBe("v6:2001:db8:0:0");
+    expect(rateKeyForIp("::1")).toBe("v6:0:0:0:0");
+    expect(rateKeyForIp("2001:DB8:1:2:0:0:0:5")).toBe("v6:2001:db8:1:2");
+    expect(rateKeyForIp("[2001:db8:1:2::9]")).toBe("v6:2001:db8:1:2");
+  });
+
+  it("treats an IPv4-mapped address as that IPv4", () => {
+    expect(rateKeyForIp("::ffff:203.0.113.9")).toBe("203.0.113.9");
+    expect(rateKeyForIp("::FFFF:cb00:7109")).toBe("203.0.113.9");
+  });
+
+  it("same /64 gives the same key, a different /64 differs", () => {
+    expect(rateKeyForIp("2001:db8:1:2::1")).toBe(rateKeyForIp("2001:db8:1:2:aaaa:bbbb:cccc:dddd"));
+    expect(rateKeyForIp("2001:db8:1:2::1")).not.toBe(rateKeyForIp("2001:db8:1:3::1"));
+  });
+
+  it("does not throw on garbage", () => {
+    for (const bad of ["", ":::", "1:2:3", "zz::1", "1::2::3", "::ffff:999.1.1.1", "1:2:3:4:5:6:7:8:9", null, undefined, 42]) {
+      expect(() => rateKeyForIp(bad as unknown as string)).not.toThrow();
+    }
+  });
+
+  it("allowLookup counts two addresses of one /64 under one hashed key, and never sends the address", async () => {
+    db.state.handler = () => ({ data: true, error: null });
+    await allowLookup("2001:db8:1:2::1");
+    await allowLookup("2001:db8:1:2::2");
+    const ops = db.find("public_lookup_allow", "rpc");
+    const k = (ops[0].payload as { p_key: string }).p_key;
+    expect((ops[1].payload as { p_key: string }).p_key).toBe(k);
+    expect(k).toMatch(/^[0-9a-f]{64}$/);
   });
 });
