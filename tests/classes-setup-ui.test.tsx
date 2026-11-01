@@ -265,3 +265,70 @@ describe("SetupForm", () => {
     expect(screen.getByText("A reminder email goes to students 60 minutes before each class. You can change this in Edit this class.")).toBeTruthy();
   });
 });
+
+describe("SetupForm: three steps on a phone", () => {
+  const withDays = () => state({ classes: [cls(1, "2026-11-10"), cls(2, "2026-11-12")] });
+  const next = (re: RegExp) => fireEvent.click(screen.getByRole("button", { name: re }));
+
+  it("starts on step 1 and moves to step 2", () => {
+    show(withDays());
+    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+    next(/Next: Feedback questions/);
+    expect(screen.getByText("Step 2 of 3")).toBeTruthy();
+  });
+
+  it("will not leave step 1 with no class days", () => {
+    show(state());
+    next(/Next: Feedback questions/);
+    expect(screen.getByRole("alert").textContent).toContain("Pick at least one class day.");
+    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+  });
+
+  it("will not leave step 2 with too few questions", () => {
+    show({ ...withDays(), questions: QUESTIONS.slice(0, 2) });
+    next(/Next: Feedback questions/);
+    next(/Next: Cover image/);
+    expect(h.error).toHaveBeenCalledWith("Please pick 3 to 5 feedback questions.");
+    expect(screen.getByText("Step 2 of 3")).toBeTruthy();
+  });
+
+  it("Back keeps the chosen days", () => {
+    show(withDays());
+    next(/Next: Feedback questions/);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+    expect(day(10).getAttribute("aria-pressed")).toBe("true");
+    expect(day(12).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("step 3 shows a schedule summary", () => {
+    show(withDays());
+    next(/Next: Feedback questions/);
+    next(/Next: Cover image/);
+    const box = screen.getByTestId("schedule-summary");
+    expect(box.textContent).toContain("2 class days");
+    expect(box.textContent).toContain("3 feedback questions");
+    expect(box.textContent).toContain("Pakistan time");
+  });
+
+  it("the phone Save classes button saves exactly what the desktop button saves", async () => {
+    const first = show(withDays());
+    next(/Next: Feedback questions/);
+    next(/Next: Cover image/);
+    fireEvent.click(screen.getByRole("button", { name: "Save classes" }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    const phoneArgs = h.save.mock.calls[0];
+    first.unmount();
+    h.save.mockClear();
+    show(withDays());
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    expect(h.save.mock.calls[0]).toEqual(phoneArgs);
+  });
+
+  it("chosen calendar days show Day 1, Day 2 in date order", () => {
+    show(withDays());
+    expect(within(day(10)).getByText("Day 1")).toBeTruthy();
+    expect(within(day(12)).getByText("Day 2")).toBeTruthy();
+  });
+});
