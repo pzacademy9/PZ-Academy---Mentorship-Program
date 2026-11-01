@@ -35,7 +35,7 @@ function chunks<T>(items: T[]): T[][] {
   return out;
 }
 
-type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null; show_in_portal: boolean };
+type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null; show_in_portal: boolean; course_id: string | null };
 type SessionRow = { id: string; page_id: string; number: number; title: string; starts_at: string; audience: unknown; quiz_max_score: number | null };
 type RegRow = { page_id: string; person_id: string | null; mode: string; option_label: string };
 
@@ -57,7 +57,7 @@ function pickCover(p: PageRow): string | null {
 async function readPages(slug?: string): Promise<PageRow[]> {
   let q = createAdminSupabase()
     .from("landing_pages")
-    .select("id, title, slug, status, kind, attendance_min_pct, published, class_cover_url, show_in_portal")
+    .select("id, title, slug, status, kind, attendance_min_pct, published, class_cover_url, show_in_portal, course_id")
     .eq("show_in_portal", true)
     .in("kind", KINDS);
   if (slug !== undefined) q = q.eq("slug", slug);
@@ -93,6 +93,16 @@ async function loadInputs(candidates: PageRow[], withResults: boolean, now: Date
   );
   if (pages.length === 0) return [];
   const pageIds = pages.map((p) => p.id);
+
+  // Course titles for the home page grouping, in one query.
+  const courseIds = Array.from(new Set(pages.map((p) => p.course_id).filter((id): id is string => !!id)));
+  const courseTitles = new Map<string, string>();
+  for (const part of chunks(courseIds)) {
+    const rows = await fetchAll<{ id: string; title: string }>("courses read", () =>
+      admin.from("courses").select("id, title").in("id", part).order("id", { ascending: true }),
+    );
+    for (const c of rows) courseTitles.set(c.id, c.title);
+  }
 
   const sessions: SessionRow[] = [];
   for (const part of chunks(pageIds)) {
@@ -163,6 +173,8 @@ async function loadInputs(candidates: PageRow[], withResults: boolean, now: Date
       minPct: p.attendance_min_pct,
       closed: p.status === "closed",
       coverUrl: pickCover(p),
+      courseId: p.course_id,
+      courseTitle: p.course_id ? (courseTitles.get(p.course_id) ?? null) : null,
       sessions: sessionInputs,
       people: Array.from(pagePeople.values()),
       regs: pageRegs,

@@ -13,6 +13,8 @@ const card = (over: Partial<PortalBatchCard> = {}): PortalBatchCard => ({
   lastClassAt: "2026-10-01T10:00:00Z",
   state: "live",
   coverUrl: null,
+  courseId: null,
+  courseTitle: null,
   ...over,
 });
 
@@ -76,6 +78,49 @@ describe("PortalHome", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Workshops/ }));
     expect(screen.queryByRole("link", { name: /Sample Course/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Sample Workshop/ })).toBeTruthy();
+  });
+
+  describe("course grouping", () => {
+    const CA = { courseId: "c1", courseTitle: "Sample Programme" };
+    const grouped = [
+      {
+        kind: "course" as const,
+        batches: [
+          card({ title: "Batch Old", slug: "old", state: "completed", lastClassAt: "2026-08-01T10:00:00Z", ...CA }),
+          card({ title: "Batch New", slug: "new", state: "live", lastClassAt: "2026-10-01T10:00:00Z", ...CA }),
+          card({ title: "Solo Course", slug: "solo", lastClassAt: "2026-11-01T10:00:00Z" }),
+        ],
+      },
+      { kind: "workshop" as const, batches: [card({ title: "Only Workshop", slug: "ws", kind: "workshop", courseId: "c9", courseTitle: "Workshop Programme" })] },
+      { kind: "webinar" as const, batches: [] },
+    ];
+    const course3 = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+
+    it("puts batches of one course under that course heading, live before completed", () => {
+      render(<PortalHome groups={grouped} />);
+      expect(course3()).toEqual(["Solo Course", "Sample Programme", "Workshop Programme"]);
+      const links = screen.getAllByRole("link").map((l) => l.getAttribute("href"));
+      expect(links.filter((h) => h?.startsWith("/progress/"))).toEqual(["/progress/solo", "/progress/new", "/progress/old", "/progress/ws"]);
+    });
+
+    it("a batch with no course is its own group headed by its title, and a single-batch course still shows a heading", () => {
+      render(<PortalHome groups={grouped} />);
+      expect(course3()).toContain("Solo Course");
+      expect(course3()).toContain("Workshop Programme");
+    });
+
+    it("search keeps filtering across groups and hides empty groups", () => {
+      render(<PortalHome groups={grouped} />);
+      fireEvent.change(screen.getByRole("searchbox", { name: /search a batch/i }), { target: { value: "batch old" } });
+      expect(course3()).toEqual(["Sample Programme"]);
+      expect(screen.queryByRole("link", { name: /Batch New/ })).toBeNull();
+      expect(screen.getByRole("link", { name: /Batch Old/ })).toBeTruthy();
+    });
+
+    it("tab counts still count batches, not groups", () => {
+      render(<PortalHome groups={grouped} />);
+      expect(screen.getByRole("tab", { name: /Courses/ }).textContent).toContain("3");
+    });
   });
 
   it("empty portal says No batches yet", () => {

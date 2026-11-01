@@ -68,6 +68,7 @@ const seed = (): Store => ({
     { id: "q5", session_id: "s1", person_id: "pend", score: 60 },
   ],
   pz_id_aliases: [],
+  courses: [{ id: "crs1", title: "Sample Programme" }],
 });
 
 beforeEach(() => {
@@ -81,6 +82,16 @@ describe("listPortalBatches", () => {
     expect(cards.map((c) => c.slug).sort()).toEqual(["course-a", "draft-c"]);
     const draft = cards.find((c) => c.slug === "draft-c")!;
     expect(draft).toMatchObject({ students: 1, state: "completed" });
+  });
+
+  it("carries the course id and title, or null when the batch has no course", async () => {
+    const s = seed();
+    Object.assign(s.landing_pages[0], { course_id: "crs1" });
+    db.state.handler = memoryHandler(s);
+    const cards = await listPortalBatches(NOW);
+    expect(cards.find((c) => c.slug === "course-a")).toMatchObject({ courseId: "crs1", courseTitle: "Sample Programme" });
+    expect(cards.find((c) => c.slug === "draft-c")).toMatchObject({ courseId: null, courseTitle: null });
+    expect(db.find("courses", "select")).toHaveLength(1);
   });
 
   it("counts enrolled people and classes", async () => {

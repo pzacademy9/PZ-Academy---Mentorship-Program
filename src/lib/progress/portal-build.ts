@@ -30,6 +30,9 @@ export type PortalBatchInput = {
   closed?: boolean;
   /** Safe http(s) cover picture, already chosen by the loader. */
   coverUrl?: string | null;
+  /** The course this batch belongs to (landing_pages.course_id) and its title, when set. */
+  courseId?: string | null;
+  courseTitle?: string | null;
   now: Date;
 };
 
@@ -74,6 +77,8 @@ export type PortalBatchCard = {
   lastClassAt: string | null;
   state: "live" | "completed" | "recorded";
   coverUrl: string | null;
+  courseId: string | null;
+  courseTitle: string | null;
 };
 
 const time = (iso: string) => new Date(iso).getTime();
@@ -216,10 +221,40 @@ export function buildPortalCards(batches: PortalBatchInput[]): PortalBatchCard[]
       lastClassAt: b.sessions.find((s) => time(s.startsAt) === last)?.startsAt ?? null,
       state,
       coverUrl: b.coverUrl ?? null,
+      courseId: b.courseId ?? null,
+      courseTitle: b.courseTitle ?? null,
     };
     return { card, last };
   });
   return cards
     .sort((a, b) => b.last - a.last || cmpText(a.card.title, b.card.title) || cmpText(a.card.slug, b.card.slug))
     .map((c) => c.card);
+}
+
+
+export type PortalCourseGroup = { key: string; heading: string; batches: PortalBatchCard[] };
+
+const STATE_RANK: Record<PortalBatchCard["state"], number> = { live: 0, recorded: 1, completed: 2 };
+const lastMs = (c: PortalBatchCard) => (c.lastClassAt ? time(c.lastClassAt) : Number.NEGATIVE_INFINITY);
+
+/**
+ * Groups cards under their course (heading = course title). A batch with no course, or a course whose
+ * title is unknown, forms its own group headed by the batch title. Groups are ordered by their most
+ * recent class; inside a group live batches come first, then recorded, then completed, newest class first.
+ */
+export function groupCardsByCourse(cards: PortalBatchCard[]): PortalCourseGroup[] {
+  const groups = new Map<string, PortalCourseGroup>();
+  for (const c of cards) {
+    const byCourse = c.courseId !== null && c.courseTitle !== null && c.courseTitle.trim().length > 0;
+    const key = byCourse ? `course:${c.courseId}` : `batch:${c.slug}`;
+    const group = groups.get(key) ?? { key, heading: byCourse ? c.courseTitle! : c.title, batches: [] };
+    group.batches.push(c);
+    groups.set(key, group);
+  }
+  const out = Array.from(groups.values());
+  for (const g of out) {
+    g.batches.sort((a, b) => STATE_RANK[a.state] - STATE_RANK[b.state] || lastMs(b) - lastMs(a) || cmpText(a.title, b.title) || cmpText(a.slug, b.slug));
+  }
+  const latest = (g: PortalCourseGroup) => Math.max(...g.batches.map(lastMs));
+  return out.sort((a, b) => latest(b) - latest(a) || cmpText(a.heading, b.heading) || cmpText(a.key, b.key));
 }
