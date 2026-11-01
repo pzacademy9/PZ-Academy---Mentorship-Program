@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
-import { listRegistrationPageOptions } from "@/lib/data/landing-registration-admin";
+import { listRegistrationPageOptions, getPagePortalState } from "@/lib/data/landing-registration-admin";
 import { getBatchGrid } from "@/lib/data/attendance";
 import { getClassOverview } from "@/lib/data/class-overview";
 import { listSessionSendState } from "@/lib/data/session-emails";
@@ -29,6 +29,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const now = new Date();
   const [overview, grid] = await Promise.all([getClassOverview(pageId, now), getBatchGrid(pageId, now)]);
   const sends = await listSessionSendState(grid.sessions.map((s) => s.id));
+  const portal = await getPagePortalState(pageId);
 
   return (
     <div className="space-y-6">
@@ -51,6 +52,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         rows={grid.rows}
         minPct={grid.minPct}
         sends={sends}
+        pageStatus={portal?.status ?? "draft"}
+        showInPortal={portal?.showInPortal ?? null}
         nowIso={now.toISOString()}
       />
     </div>

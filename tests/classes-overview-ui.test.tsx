@@ -347,14 +347,14 @@ describe("SessionsPanel", () => {
   });
 
   it("shows a friendly empty state with a Set up classes button", () => {
-    render(<SessionsPanel pageId={PAGE} overview={overview([])} sessions={[]} rows={[]} minPct={75} sends={{}} nowIso={NOW} />);
+    render(<SessionsPanel pageId={PAGE} overview={overview([])} sessions={[]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
     expect(screen.getByText("No classes yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Set up classes" }).getAttribute("href")).toMatch(/\/sessions\/setup$/);
   });
 
   it("adding a class creates its feedback link afterwards", async () => {
     render(
-      <SessionsPanel pageId={PAGE} overview={overview([summary()])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} />,
+      <SessionsPanel pageId={PAGE} overview={overview([summary()])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />,
     );
     expect(screen.getByRole("link", { name: "Edit all classes" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Add a class" }));
@@ -364,5 +364,18 @@ describe("SessionsPanel", () => {
     await waitFor(() => expect(h.addSession).toHaveBeenCalledTimes(1));
     expect(h.addSession.mock.calls[0][1].number).toBe(2);
     await waitFor(() => expect(h.createMissing).toHaveBeenCalledWith(PAGE));
+  });
+
+  it("shows the portal switch with its effective state (draft + automatic is off, published + automatic is on)", () => {
+    const { unmount } = render(
+      <SessionsPanel pageId={PAGE} overview={overview([summary()])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="draft" showInPortal={null} />,
+    );
+    expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText(/still a draft/)).toBeTruthy();
+    unmount();
+    render(
+      <SessionsPanel pageId={PAGE} overview={overview([summary()])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />,
+    );
+    expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(true);
   });
 });

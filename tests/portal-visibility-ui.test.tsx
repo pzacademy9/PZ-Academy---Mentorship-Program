@@ -6,7 +6,7 @@ const { refresh, toastError, toastSuccess } = vi.hoisted(() => ({ refresh: vi.fn
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: toastError } }));
 
-import { PortalVisibilitySwitch } from "@/components/admin/landing/PortalVisibilitySwitch";
+import { PortalVisibilitySwitch } from "@/components/admin/classes/PortalVisibilitySwitch";
 
 const fetchMock = vi.fn();
 beforeEach(() => {
