@@ -63,7 +63,7 @@ describe("PortalHome", () => {
 
   it("shows the privacy line and tab counts", () => {
     render(<PortalHome groups={groups} />);
-    expect(screen.getByText("First name and ID only. No phone or email shown.")).toBeTruthy();
+    expect(screen.getByText("Names and IDs only. No phone or email shown.")).toBeTruthy();
     expect(screen.getByRole("tab", { name: /Courses/ }).textContent).toContain("2");
     expect(screen.getByRole("tab", { name: /Webinars/ }).textContent).toContain("0");
   });

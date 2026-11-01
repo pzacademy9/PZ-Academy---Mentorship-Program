@@ -37,7 +37,7 @@ export type PortalBatchInput = {
 };
 
 export type PortalAttendanceRow = {
-  firstName: string;
+  name: string;
   pzId: string;
   mode: "live" | "recorded";
   attended: number | null;
@@ -47,7 +47,7 @@ export type PortalAttendanceRow = {
   classes: { number: number; title: string; startsAt: string; state: "present" | "absent" | "upcoming"; how: "check-in" | "admin" | null }[];
 };
 export type PortalResultRow = {
-  firstName: string;
+  name: string;
   pzId: string;
   mode: "live" | "recorded";
   score: number;
@@ -84,7 +84,13 @@ export type PortalBatchCard = {
 const time = (iso: string) => new Date(iso).getTime();
 const cmpText = (a: string, b: string) => a.localeCompare(b);
 
-type Student = { person: PortalPersonInput; firstName: string; mode: "live" | "recorded"; labels: string[] };
+/** Full display name (trimmed, spaces collapsed). A blank name or one that looks like an email falls back to the first name. */
+export function publicName(pzId: string, displayName: string): string {
+  const full = displayName.replace(/\s+/g, " ").trim();
+  return full === "" || full.includes("@") ? publicFirstName(pzId, displayName) : full;
+}
+
+type Student = { person: PortalPersonInput; name: string; mode: "live" | "recorded"; labels: string[] };
 
 function students(input: PortalBatchInput): Student[] {
   const byId = new Map(input.people.map((p) => [p.id, p]));
@@ -101,7 +107,7 @@ function students(input: PortalBatchInput): Student[] {
     const live = regs.filter((r) => r.mode === "live");
     out.push({
       person,
-      firstName: publicFirstName(person.pzId, person.displayName),
+      name: publicName(person.pzId, person.displayName),
       mode: live.length > 0 ? "live" : "recorded",
       labels: live.map((r) => r.optionLabel),
     });
@@ -109,14 +115,14 @@ function students(input: PortalBatchInput): Student[] {
   return out;
 }
 
-const byName = (a: { firstName: string; pzId: string }, b: { firstName: string; pzId: string }) =>
-  cmpText(a.firstName, b.firstName) || cmpText(a.pzId, b.pzId);
+const byName = (a: { name: string; pzId: string }, b: { name: string; pzId: string }) =>
+  cmpText(a.name, b.name) || cmpText(a.pzId, b.pzId);
 
 /** Competition ranking among live rows (10, 10, 5 -> 1, 1, 3); recorded rows listed after, unranked. */
 function rankRows(rows: { s: Student; score: number }[]): PortalResultRow[] {
   const liveScores = rows.filter((r) => r.s.mode === "live").map((r) => r.score);
   const make = (r: { s: Student; score: number }): PortalResultRow => ({
-    firstName: r.s.firstName,
+    name: r.s.name,
     pzId: r.s.person.pzId,
     mode: r.s.mode,
     score: r.score,
@@ -146,7 +152,7 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
 
   const attendance: PortalAttendanceRow[] = all
     .map((s): PortalAttendanceRow => {
-      const base = { firstName: s.firstName, pzId: s.person.pzId, mode: s.mode };
+      const base = { name: s.name, pzId: s.person.pzId, mode: s.mode };
       if (s.mode === "recorded") {
         return { ...base, attended: null, held: null, pct: null, meetsMin: null, classes: [] };
       }

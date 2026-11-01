@@ -32,10 +32,10 @@ function RowBody({ row, minPct }: { row: PortalAttendanceRow; minPct: number }) 
   const pct = row.pct ?? 0;
   return (
     <>
-      <Avatar name={row.firstName} recorded={recorded} />
+      <Avatar name={row.name} recorded={recorded} />
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="min-w-0 break-words font-headline text-base font-bold text-pz-on-surface">{row.firstName}</span>
+          <span className="min-w-0 break-words font-headline text-base font-bold text-pz-on-surface">{row.name}</span>
           <span className="rounded-md bg-pz-surface-container-high px-2 py-0.5 font-mono text-sm text-pz-on-surface-variant">{row.pzId}</span>
         </span>
         {recorded ? (

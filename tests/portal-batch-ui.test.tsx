@@ -27,7 +27,7 @@ function view(over: Partial<PortalBatchView> = {}): PortalBatchView {
     ],
     attendance: [
       {
-        firstName: "Sample",
+        name: "Sample",
         pzId: "Sample-0001",
         mode: "live",
         attended: 2,
@@ -36,17 +36,17 @@ function view(over: Partial<PortalBatchView> = {}): PortalBatchView {
         meetsMin: false,
         classes: [cls(1, "present", "check-in"), cls(2, "present", "admin"), cls(3, "absent"), cls(4, "upcoming")],
       },
-      { firstName: "Faro", pzId: "Faro-0002", mode: "live", attended: 3, held: 3, pct: 100, meetsMin: true, classes: [cls(1, "present", "check-in")] },
-      { firstName: "Bilal", pzId: "Bilal-0003", mode: "recorded", attended: null, held: null, pct: null, meetsMin: null, classes: [] },
-      { firstName: "Newbie", pzId: "Newbie-0004", mode: "live", attended: 0, held: 0, pct: null, meetsMin: false, classes: [cls(1, "upcoming")] },
+      { name: "Faro", pzId: "Faro-0002", mode: "live", attended: 3, held: 3, pct: 100, meetsMin: true, classes: [cls(1, "present", "check-in")] },
+      { name: "Bilal", pzId: "Bilal-0003", mode: "recorded", attended: null, held: null, pct: null, meetsMin: null, classes: [] },
+      { name: "Newbie", pzId: "Newbie-0004", mode: "live", attended: 0, held: 0, pct: null, meetsMin: false, classes: [cls(1, "upcoming")] },
     ],
     overall: [
-      { firstName: "Faro", pzId: "Faro-0002", mode: "live", score: 90, rank: 1 },
-      { firstName: "Sample", pzId: "Sample-0001", mode: "live", score: 90, rank: 1 },
-      { firstName: "Bilal", pzId: "Bilal-0003", mode: "recorded", score: 70, rank: null },
+      { name: "Faro", pzId: "Faro-0002", mode: "live", score: 90, rank: 1 },
+      { name: "Sample", pzId: "Sample-0001", mode: "live", score: 90, rank: 1 },
+      { name: "Bilal", pzId: "Bilal-0003", mode: "recorded", score: 70, rank: null },
     ],
     perClass: {
-      s1: [{ firstName: "Faro", pzId: "Faro-0002", mode: "live", score: 90, rank: 1 }],
+      s1: [{ name: "Faro", pzId: "Faro-0002", mode: "live", score: 90, rank: 1 }],
       s2: [],
     },
     ...over,
@@ -108,7 +108,7 @@ describe("BatchPortal attendance", () => {
     expect(screen.queryByText(/Class 3 - Topic 3/)).toBeNull();
   });
 
-  it("search matches first name or PZ ID, ignores case and spaces, shared with the Results tab", () => {
+  it("search matches name or PZ ID, ignores case and spaces, shared with the Results tab", () => {
     render(<BatchPortal view={view()} />);
     const box = screen.getByRole("searchbox");
     fireEvent.change(box, { target: { value: " SAMPLE " } });
@@ -192,5 +192,26 @@ describe("BatchPortal attendance order", () => {
     expect(order()).toEqual(["Zed-0002", "Aaa-0001", "Bbb-0003"]);
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "-000" } });
     expect(order()).toEqual(["Zed-0002", "Aaa-0001", "Bbb-0003"]);
+  });
+});
+
+describe("BatchPortal full names", () => {
+  const row = (name: string, pzId: string) => ({ name, pzId, mode: "live" as const, attended: 1, held: 1, pct: 100, meetsMin: true, classes: [cls(1, "present", "check-in")] });
+  const full = () => view({ attendance: [row("Sample Longname", "Sample-0001"), row("Faro Other", "Faro-0002")], overall: [{ name: "Sample Longname", pzId: "Sample-0001", mode: "live", score: 9, rank: 1 }], perClass: {} });
+  it("shows the full name with the PZ ID in Attendance and Results", () => {
+    render(<BatchPortal view={full()} />);
+    expect(screen.getByText("Sample Longname")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Results" }));
+    expect(screen.getByText("Sample Longname")).toBeTruthy();
+  });
+  it("search finds a surname part or a PZ ID", () => {
+    render(<BatchPortal view={full()} />);
+    const box = screen.getByRole("searchbox");
+    fireEvent.change(box, { target: { value: "LONG name" } });
+    expect(screen.getByText("Sample Longname")).toBeTruthy();
+    expect(screen.queryByText("Faro Other")).toBeNull();
+    fireEvent.change(box, { target: { value: "faro-0002" } });
+    expect(screen.getByText("Faro Other")).toBeTruthy();
+    expect(screen.queryByText("Sample Longname")).toBeNull();
   });
 });

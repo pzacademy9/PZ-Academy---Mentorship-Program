@@ -64,7 +64,7 @@ export function ResultsBoard({ view, pick, onPick, rows, totalRows }: Props) {
                 </span>
               )}
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="min-w-0 break-words font-headline text-base font-bold text-pz-on-surface">{r.firstName}</span>
+                <span className="min-w-0 break-words font-headline text-base font-bold text-pz-on-surface">{r.name}</span>
                 <span className="rounded-md bg-pz-surface-container-high px-2 py-0.5 font-mono text-sm text-pz-on-surface-variant">{r.pzId}</span>
                 {r.mode === "recorded" && (
                   <span className="rounded-full bg-pz-surface-container-high px-2.5 py-0.5 font-headline text-sm font-bold text-pz-on-surface-variant">

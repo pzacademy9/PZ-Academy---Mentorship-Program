@@ -156,15 +156,16 @@ describe("getPortalBatch", () => {
     expect(other.classes.find((c) => c.number === 2)?.how).toBe("admin");
   });
 
-  it("returns exactly the enrolled people with first names only and no emails", async () => {
+  it("returns exactly the enrolled people with full names and no emails", async () => {
     const view = (await getPortalBatch("course-a", NOW))!;
     expect(view.attendance.map((r) => r.pzId).sort()).toEqual(["Name-0001", "Name-0002", "Sample-0000"]);
-    expect(view.attendance.map((r) => r.firstName).sort()).toEqual(["Name", "Name", "Sample"]);
+    expect(view.attendance.map((r) => r.name).sort()).toEqual(["Other Person", "Rec Student", "Sample Surname"]);
     expect(view.sessions.map((s) => s.number)).toEqual([1, 2, 3]);
     expect(view.overall.map((r) => r.pzId)).toEqual(["Name-0001", "Sample-0000", "Name-0002"]);
     const text = JSON.stringify(view);
     expect(text).not.toContain("@");
-    expect(text).not.toContain("Surname");
+    expect(text).toContain("Sample Surname");
+    expect(text).not.toMatch(/email|phone|whatsapp/i);
     for (const gone of ["Name-0003", "Name-0004", "Name-0005", "Name-0006"]) expect(text).not.toContain(gone);
   });
 

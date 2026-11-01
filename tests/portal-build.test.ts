@@ -108,17 +108,17 @@ describe("buildPortalBatch attendance", () => {
     expect(v.attendance[0].meetsMin).toBe(false);
   });
 
-  it("attendance sorted by first name then PZ ID; same first name gives two rows", () => {
+  it("attendance sorted by full name then PZ ID", () => {
     const v = buildPortalBatch(
       batch({
         people: [person(3, "Zed Name"), person(2, "Sample Name"), person(1, "Sample Other")],
         regs: ["p1", "p2", "p3"].map((id) => ({ personId: id, mode: "live" as const, optionLabel: FULL })),
       }),
     );
-    expect(v.attendance.map((r) => [r.firstName, r.pzId])).toEqual([
-      ["Sample", "Sample-0001"],
-      ["Sample", "Sample-0002"],
-      ["Zed", "Zed-0003"],
+    expect(v.attendance.map((r) => [r.name, r.pzId])).toEqual([
+      ["Sample Name", "Sample-0002"],
+      ["Sample Other", "Sample-0001"],
+      ["Zed Name", "Zed-0003"],
     ]);
   });
 });
@@ -140,11 +140,11 @@ describe("buildPortalBatch results", () => {
         ],
       }),
     );
-    expect(v.overall.map((r) => [r.firstName, r.rank, r.score, r.mode])).toEqual([
-      ["Bee", 1, 10, "live"],
-      ["Cee", 1, 10, "live"],
-      ["Aye", 3, 5, "live"],
-      ["Rec", null, 99, "recorded"],
+    expect(v.overall.map((r) => [r.name, r.rank, r.score, r.mode])).toEqual([
+      ["Bee Name", 1, 10, "live"],
+      ["Cee Name", 1, 10, "live"],
+      ["Aye Name", 3, 5, "live"],
+      ["Rec Name", null, 99, "recorded"],
     ]);
     expect(v.perClass.s1.map((r) => r.rank)).toEqual([1, 1, 3, null]);
   });
@@ -255,23 +255,27 @@ describe("buildPortalBatch header facts", () => {
   });
 });
 
-describe("buildPortalBatch first name", () => {
+describe("buildPortalBatch full name", () => {
   const run = (pzId: string, displayName: string) =>
     buildPortalBatch(
       batch({
         people: [{ id: "p1", pzId, displayName }],
         regs: [{ personId: "p1", mode: "live", optionLabel: FULL }],
       }),
-    ).attendance[0].firstName;
+    ).attendance[0].name;
 
-  it("uses the PZ ID prefix, not a title word in the display name", () => {
-    expect(run("Name-0000", "Dr. Name Surname")).toBe("Name");
+  it("shows the full display name, trimmed with spaces collapsed", () => {
+    expect(run("Name-0000", "  Dr. Name   Surname ")).toBe("Dr. Name Surname");
   });
-  it("uses the text before the LAST dash", () => {
-    expect(run("Name-Two-0007", "Dr. Name Two Surname")).toBe("Name-Two");
+  it("falls back to the PZ ID first name when the name looks like an email", () => {
+    expect(run("Name-0000", "sample.name@example.com")).toBe("Name");
+    expect(run("Name-Two-0007", "x@y")).toBe("Name-Two");
   });
-  it("falls back to the first word when the PZ ID has no dash", () => {
-    expect(run("Name0000", "Sample Name")).toBe("Sample");
+  it("falls back to the first word when the PZ ID has no dash and the name is an email", () => {
+    expect(run("Name0000", "Sample@example.com Name")).toBe("Sample@example.com");
+  });
+  it("falls back to the PZ ID first name when the name is blank", () => {
+    expect(run("Name-0000", "   ")).toBe("Name");
   });
 });
 
