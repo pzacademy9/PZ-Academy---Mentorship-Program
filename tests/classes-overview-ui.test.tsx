@@ -350,6 +350,7 @@ describe("SessionsPanel", () => {
     render(<SessionsPanel pageId={PAGE} overview={overview([])} sessions={[]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
     expect(screen.getByText("No classes yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Set up classes" }).getAttribute("href")).toMatch(/\/sessions\/setup$/);
+    expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(true);
   });
 
   it("adding a class creates its feedback link afterwards", async () => {

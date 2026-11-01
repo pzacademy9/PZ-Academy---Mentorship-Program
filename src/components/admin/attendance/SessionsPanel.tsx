@@ -74,11 +74,16 @@ export function SessionsPanel({
 
   if (overview.classes.length === 0) {
     return (
-      <section className={`${cardCls} space-y-4 text-center`}>
-        <h2 className="font-headline text-2xl font-bold text-pz-on-surface">No classes yet</h2>
-        <p className="text-base text-pz-on-surface-variant">Pick the days this batch meets and we will create each class, its attendance link and its feedback link.</p>
-        <Link href={setupHref} className={`${primaryBtn} max-md:w-full`}>Set up classes</Link>
-      </section>
+      <div className="space-y-4">
+        <section className={`${cardCls} space-y-4 text-center`}>
+          <h2 className="font-headline text-2xl font-bold text-pz-on-surface">No classes yet</h2>
+          <p className="text-base text-pz-on-surface-variant">Pick the days this batch meets and we will create each class, its attendance link and its feedback link.</p>
+          <Link href={setupHref} className={`${primaryBtn} max-md:w-full`}>Set up classes</Link>
+        </section>
+        <section className={cardCls}>
+          <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
+        </section>
+      </div>
     );
   }
 
