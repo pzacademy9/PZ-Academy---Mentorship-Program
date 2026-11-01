@@ -105,12 +105,14 @@ export function SessionsPanel({
       <BatchSummary feedback={overview.batchFeedback} pageId={pageId} programId={overview.programId} rows={rows} minPct={minPct} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="min-w-0 space-y-3">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+            <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
+              <CalendarPlus className="size-5" aria-hidden />
+              Add a class
+            </button>
+            <Link href={setupHref} className={`${quietBtn} w-full`}>Edit all classes</Link>
+          </div>
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />
-          <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
-            <CalendarPlus className="size-5" aria-hidden />
-            Add a class
-          </button>
-          <Link href={setupHref} className={`${quietBtn} w-full`}>Edit all classes</Link>
         </div>
         {session && (
           <TodayPanel

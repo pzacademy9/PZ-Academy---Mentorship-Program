@@ -468,4 +468,13 @@ describe("phone-first Classes screen", () => {
     fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
     await waitFor(() => expect(scroll).toHaveBeenCalled());
   });
+
+  it("Edit all classes and Add a class are above the day strip, so they are found without scrolling past every class", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary(), summary({ id: "s2", number: 2 })])} sessions={[session(), session({ id: "s2", number: 2 })]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const edit = screen.getByRole("link", { name: "Edit all classes" });
+    const add = screen.getByRole("button", { name: "Add a class" });
+    const day2 = screen.getByRole("button", { name: /Day 2/ });
+    expect(edit.compareDocumentPosition(day2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(add.compareDocumentPosition(day2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
