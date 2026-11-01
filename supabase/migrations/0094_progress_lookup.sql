@@ -69,7 +69,7 @@ as $$
      and r.is_test = false
      and lp.status in ('published', 'closed')
      and p.display_name ilike
-         '%' || replace(replace(replace(p_query, '\', '\'), '%', '\%'), '_', '\_') || '%' escape '\'
+         '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
    group by p.display_name, p.pz_id, lp.title
    order by p.display_name, p.pz_id, lp.title
    limit 5;
