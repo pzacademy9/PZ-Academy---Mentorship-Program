@@ -29,13 +29,12 @@
 
 ## Tasks
 
-### Task 1: Migration 0094 (rate limit + ID-list switch), owner pastes
+### Task 1: Migration 0094 (lookup rate limit), owner pastes
 
 **Files:** create `supabase/migrations/0094_progress_lookup.sql`, `docs/superpowers/plans/2026-11-01-track-your-progress-owner-steps.md`; modify `src/lib/supabase/database.types.ts` (hand-add).
 
 - Table `public_lookup_hits (id bigserial pk, key text not null, hit_at timestamptz not null default now())` with index on `(key, hit_at)`; RLS on, zero policies.
 - Function `public_lookup_allow(p_key text, p_limit int, p_window_secs int) returns boolean`: deletes this key's hits older than the window, counts the rest, returns false if at the limit, else inserts a hit and returns true. `security definer`, `set search_path = public, pg_temp`, execute only for `service_role`.
-- Column `landing_pages.ids_list_public boolean not null default false` (the per-batch "show the full ID list" switch, used by the ID-list link; added now so one paste covers both).
 - Safe to run twice. Owner steps file gives the SQL to paste plus a check query.
 
 ### Task 2: Rate limiter
@@ -83,9 +82,9 @@
 - One review of the whole branch against Global Constraints (privacy first: try to extract another person's data, a surname, an email).
 - Update `CLAUDE.md` project state and the memory files.
 
-## Not in this plan (next plan, needs its own Stitch screen)
+## Not in this plan (next plan, needs its own Stitch screens)
 
-**Batch ID list link:** `/ids/<batch>` gets filter chips (All, Full course, Module 1-4), copy buttons per row, and the full list only when `landing_pages.ids_list_public` is on (switch on the admin batch page, with a "Share ID list link" button). The column ships in 0094; the screens are not designed yet, so a Stitch prompt is handed over first.
+**Owner ruling 2026-11-01: students can never see or share a full ID list.** The public link `/ids/<batch>` stays search-only (type your name, get your own ID, max 5 rows). There is no public full list and no "show the full list" switch. The whole list exists only for admins: an admin-only, organised list on the batch page (filters All / Full course / Module 1-4, search, copy buttons) plus the existing ID PDF, and the admin shares those themselves. The public search page gets the filter-free polish from the Design B card (copy button, states) only.
 
 ## Review Focus
 
