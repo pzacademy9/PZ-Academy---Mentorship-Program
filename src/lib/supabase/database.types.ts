@@ -2098,7 +2098,6 @@ export type Database = {
       landing_pages: {
         Row: {
           attendance_min_pct: number
-          ids_list_public: boolean
           class_cover_url: string | null
           class_default_end: string | null
           class_default_start: string | null
@@ -2130,7 +2129,6 @@ export type Database = {
           mirror_running_at: string | null
         }
         Insert: {
-          ids_list_public?: boolean
           attendance_min_pct?: number
           class_cover_url?: string | null
           class_default_end?: string | null
@@ -2163,7 +2161,6 @@ export type Database = {
           mirror_running_at?: string | null
         }
         Update: {
-          ids_list_public?: boolean
           attendance_min_pct?: number
           class_cover_url?: string | null
           class_default_end?: string | null

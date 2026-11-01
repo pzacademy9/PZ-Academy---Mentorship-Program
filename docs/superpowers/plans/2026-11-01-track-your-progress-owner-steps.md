@@ -10,7 +10,6 @@ Do this once, before the "Track Your Progress" page goes live.
 
 What it does, in plain words:
 - Adds a small notebook that remembers recent public lookups, so one person cannot search again and again without limit (about 30 lookups per 10 minutes).
-- Adds an "ID list" switch to each batch. It starts switched off, so nothing becomes public.
 
 The complete SQL to paste is:
 
@@ -35,6 +34,9 @@ as $$
 declare
   v_count int;
 begin
+  -- one call per key at a time, so two simultaneous requests cannot both slip under the limit
+  perform pg_advisory_xact_lock(hashtext(p_key));
+
   delete from public.public_lookup_hits
    where key = p_key
      and hit_at < now() - make_interval(secs => p_window_secs);
@@ -56,9 +58,6 @@ revoke all on function public.public_lookup_allow(text, int, int) from public;
 revoke all on function public.public_lookup_allow(text, int, int) from anon;
 revoke all on function public.public_lookup_allow(text, int, int) from authenticated;
 grant execute on function public.public_lookup_allow(text, int, int) to service_role;
-
-alter table public.landing_pages
-  add column if not exists ids_list_public boolean not null default false;
 ```
 
 ## (b) Check it worked
@@ -67,12 +66,10 @@ Paste this and run it:
 
 ```sql
 select
-  (select count(*) from information_schema.columns
-    where table_name = 'landing_pages' and column_name = 'ids_list_public') as switch_column,
   (select count(*) from information_schema.tables
     where table_schema = 'public' and table_name = 'public_lookup_hits') as notebook_table,
   (select count(*) from pg_proc
     where proname = 'public_lookup_allow') as limit_function;
 ```
 
-Expect one row with `1`, `1` and `1`. If any shows `0`, tell me which one.
+Expect one row with `1` and `1`. If any shows `0`, tell me which one.
