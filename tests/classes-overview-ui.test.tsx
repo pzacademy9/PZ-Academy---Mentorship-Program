@@ -380,3 +380,101 @@ describe("SessionsPanel", () => {
     expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(true);
   });
 });
+
+describe("phone-first Classes screen", () => {
+  const overview2 = (classes: ClassSummary[]): ClassOverview => ({
+    title: "Batch", classes, selectedId: classes[0]?.id ?? "",
+    batchFeedback: { totalResponses: 0, overallAvg: null, perClass: [] }, programId: null,
+  });
+
+  it("next step has one big button: a link to the quiz page when the quiz is missing", () => {
+    panel(summary());
+    const box = screen.getByRole("status");
+    const link = within(box).getByRole("link", { name: "Upload quiz results" });
+    expect(link.getAttribute("href")).toMatch(/\/sessions\/s1\/quiz$/);
+  });
+
+  it("for an upcoming class the button opens the Attendance fold", () => {
+    panel(summary({ status: "upcoming" }));
+    const fold = screen.getByRole("button", { name: /^Attendance/ });
+    expect(fold.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("attendance-card")).toBeTruthy();
+  });
+
+  it("opening one fold leaves the others as they were", () => {
+    panel(summary({ quiz: { saved: true, players: 5 } }));
+    fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Feedback/ }));
+    expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Quiz results/ }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("no next-step button when everything is done", () => {
+    panel(summary({ quiz: { saved: true, players: 54 }, feedbackCount: 12, feedbackAvg: 4.5 }));
+    const box = screen.getByRole("status");
+    expect(within(box).queryByRole("button")).toBeNull();
+    expect(within(box).queryByRole("link")).toBeNull();
+  });
+
+  it("each fold header shows its one-line status", () => {
+    panel(summary({ feedbackCount: 18, feedbackAvg: 4.6 }));
+    expect(screen.getByRole("button", { name: /^Attendance/ }).textContent).toContain("38 of 52 present");
+    expect(screen.getByRole("button", { name: /^Quiz results/ }).textContent).toContain("Not uploaded yet");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("18 answers · 4.6 average");
+  });
+
+  it("the day list scrolls sideways on a phone", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary(), summary({ id: "s2", number: 2 })])} sessions={[session(), session({ id: "s2", number: 2 })]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const strip = screen.getByRole("button", { name: /Day 2/ }).closest("ul")!;
+    expect(strip.className).toContain("overflow-x-auto");
+    expect(strip.className).toMatch(/\bflex\b/);
+  });
+
+  it("one Batch settings fold holds the pass mark and the portal switch", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary()])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const folds = screen.getAllByText("Batch settings");
+    expect(folds).toHaveLength(1);
+    const details = folds[0].closest("details")!;
+    expect(within(details).getByLabelText(/Minimum attendance to pass/)).toBeTruthy();
+    expect(within(details).getByLabelText(/Show on public progress portal/)).toBeTruthy();
+  });
+
+  it("the page grid cannot be stretched by the day strip (single shrinkable column on a phone)", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary(), summary({ id: "s2", number: 2 })])} sessions={[session(), session({ id: "s2", number: 2 })]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const grid = screen.getByRole("button", { name: /Day 2/ }).closest("div.grid")!;
+    expect(grid.className).toContain("grid-cols-1");
+  });
+
+  it("each day chip has a status dot", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary({ status: "done" })])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const chip = screen.getByRole("button", { name: /Day 1/ });
+    expect(chip.querySelector("span[aria-hidden='true'].rounded-full")!.className).toContain("bg-emerald-600");
+  });
+
+  it("the next-step button scrolls the fold into view and moves focus to its header", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    panel(summary({ status: "upcoming" }));
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    expect((scroll.mock.instances[0] as HTMLElement).id).toBe("fold-attendance-fold");
+    expect(document.activeElement).toBe(document.getElementById("fold-attendance-header"));
+    // tapping again after folding by hand scrolls again
+    fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
+    scroll.mockClear();
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+  });
+
+  it("Edit all classes and Add a class are above the day strip, so they are found without scrolling past every class", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary(), summary({ id: "s2", number: 2 })])} sessions={[session(), session({ id: "s2", number: 2 })]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const edit = screen.getByRole("link", { name: "Edit all classes" });
+    const add = screen.getByRole("button", { name: "Add a class" });
+    const day2 = screen.getByRole("button", { name: /Day 2/ });
+    expect(edit.compareDocumentPosition(day2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(add.compareDocumentPosition(day2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

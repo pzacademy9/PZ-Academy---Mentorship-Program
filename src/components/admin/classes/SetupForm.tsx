@@ -60,6 +60,18 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   // Existing classes unticked in this visit, so ticking the same date again brings back the same class.
   const [removed, setRemoved] = useState<Record<string, DayState>>({});
   const keepRef = useRef<HTMLButtonElement>(null);
+  // Phones show one step at a time; from the lg breakpoint up every section is visible.
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const topRef = useRef<HTMLDivElement>(null);
+  const firstStep = useRef(true);
+  useEffect(() => {
+    // Only on a real step change: not when the page first opens.
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    topRef.current?.scrollIntoView?.({ block: "start" });
+  }, [step]);
 
   useEffect(() => {
     if (asking) keepRef.current?.focus();
@@ -129,9 +141,28 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
     setAsking(null);
   }
 
+  const questionsOk = questions.length >= MIN_QUESTIONS && questions.length <= MAX_QUESTIONS;
+  const QUESTION_ERROR = `Please pick ${MIN_QUESTIONS} to ${MAX_QUESTIONS} feedback questions.`;
+  function goToQuestions() {
+    if (days.length === 0) {
+      setNote("Pick at least one class day.");
+      toast.error("Pick at least one class day.");
+      return;
+    }
+    setNote(null);
+    setStep(2);
+  }
+  function goToCover() {
+    if (!questionsOk) {
+      toast.error(QUESTION_ERROR);
+      return;
+    }
+    setStep(3);
+  }
+
   async function submit() {
-    if (questions.length < MIN_QUESTIONS || questions.length > MAX_QUESTIONS) {
-      toast.error(`Please pick ${MIN_QUESTIONS} to ${MAX_QUESTIONS} feedback questions.`);
+    if (!questionsOk) {
+      toast.error(QUESTION_ERROR);
       return;
     }
     const input: ClassDayInput[] = sorted.map((d) => {
@@ -168,8 +199,17 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   const exists = state.classes.length > 0;
 
   return (
-    <div className="space-y-6 pb-56 lg:pb-28">
-      <section className={cardCls}>
+    <div ref={topRef} className="scroll-mt-20 space-y-6 pb-56 lg:pb-28">
+      <div className="space-y-2 lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-headline text-lg font-bold text-pz-on-surface">Step {step} of 3</p>
+          <Link href={back} className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary">Back to classes</Link>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-pz-surface-container-high" aria-hidden>
+          <div className="h-2 rounded-full bg-pz-primary transition-all" style={{ width: `${(step / 3) * 100}%` }} />
+        </div>
+      </div>
+      <section className={`${cardCls} ${step === 1 ? "" : "max-lg:hidden"}`}>
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="font-headline text-xl font-bold text-pz-on-surface">1. When are the classes?</h2>
           <span className="rounded-full bg-pz-primary/10 px-3 py-1 font-headline text-sm font-bold text-pz-primary">{TYPE_WORDS[state.type]}</span>
@@ -180,7 +220,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
         {note && <p role="alert" className="mt-2 text-base font-bold text-pz-danger">{note}</p>}
 
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
-          <ClassCalendar month={month} selected={days.map((d) => d.date)} max={webinar ? 1 : null} onToggle={toggle} onMonthChange={setMonth} />
+          <ClassCalendar month={month} selected={days.map((d) => d.date)} labels={Object.fromEntries(sorted.map((d, i) => [d.date, `Day ${i + 1}`]))} max={webinar ? 1 : null} onToggle={toggle} onMonthChange={setMonth} />
 
           <div className="rounded-xl border border-pz-outline-variant/60 p-4">
             <h3 className="font-headline text-lg font-bold text-pz-on-surface">Usual time and Zoom link</h3>
@@ -218,13 +258,13 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
         )}
       </section>
 
-      <section className={cardCls}>
+      <section className={`${cardCls} ${step === 2 ? "" : "max-lg:hidden"}`}>
         <h2 className="font-headline text-xl font-bold text-pz-on-surface">2. Feedback questions</h2>
         <p className="mb-3 mt-1 text-base text-pz-on-surface-variant">Students answer these at the end of every class.</p>
         <QuestionPicker bank={bank} value={questions} onChange={setQuestions} />
       </section>
 
-      <section className={cardCls}>
+      <section className={`${cardCls} ${step === 3 ? "" : "max-lg:hidden"}`}>
         <h2 className="font-headline text-xl font-bold text-pz-on-surface">3. Cover image</h2>
         <p className="mb-3 mt-1 text-base text-pz-on-surface-variant">Shown on the feedback page. You can leave it empty.</p>
         <LibraryImageField
@@ -241,7 +281,32 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
         />
       </section>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 lg:sticky lg:bottom-0 lg:rounded-xl lg:border">
+      <section data-testid="schedule-summary" className={`${cardCls} ${step === 3 ? "" : "max-lg:hidden"}`}>
+        <h2 className="font-headline text-xl font-bold text-pz-on-surface">Schedule summary</h2>
+        <dl className="mt-2 space-y-1 text-base text-pz-on-surface-variant">
+          <div className="flex justify-between gap-3"><dt>Classes</dt><dd className="font-bold text-pz-on-surface">{sorted.length} class {sorted.length === 1 ? "day" : "days"}</dd></div>
+          <div className="flex justify-between gap-3"><dt>Feedback</dt><dd className="font-bold text-pz-on-surface">{questions.length} feedback {questions.length === 1 ? "question" : "questions"}</dd></div>
+          <div className="flex justify-between gap-3"><dt>Times</dt><dd className="font-bold text-pz-on-surface">Pakistan time</dd></div>
+        </dl>
+        <p className="mt-3 text-base text-pz-on-surface-variant lg:hidden">Attendance link and feedback link are made for every class automatically.</p>
+      </section>
+
+      <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] flex gap-2 border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 lg:hidden">
+        {step > 1 && (
+          <button type="button" onClick={() => setStep((step - 1) as 1 | 2)} className={quietBtn}>Back</button>
+        )}
+        {step === 1 && (
+          <button type="button" onClick={goToQuestions} className={`${primaryBtn} flex-1`}>Next: Feedback questions</button>
+        )}
+        {step === 2 && (
+          <button type="button" onClick={goToCover} className={`${primaryBtn} flex-1`}>Next: Cover image</button>
+        )}
+        {step === 3 && (
+          <button type="button" onClick={submit} disabled={saving} className={`${primaryBtn} flex-1`}>Save classes</button>
+        )}
+      </div>
+
+      <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 max-lg:hidden lg:sticky lg:bottom-0 lg:rounded-xl lg:border">
         <p className="mb-2 text-center text-base text-pz-on-surface-variant md:text-left">
           Attendance link and feedback link are made for every class automatically.
         </p>

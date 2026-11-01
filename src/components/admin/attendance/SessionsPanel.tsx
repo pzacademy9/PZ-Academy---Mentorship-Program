@@ -17,7 +17,7 @@ import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn } from "@/components/
 
 const BASE = "/dashboard/admin/enrollments/registrations";
 
-function BatchSettings({ pageId, minPct }: { pageId: string; minPct: number }) {
+function BatchSettings({ pageId, minPct, pageStatus, showInPortal }: { pageId: string; minPct: number; pageStatus: string; showInPortal: boolean | null }) {
   const [min, setMin] = useState(String(minPct));
   const [busy, startTransition] = useTransition();
   function save() {
@@ -31,7 +31,10 @@ function BatchSettings({ pageId, minPct }: { pageId: string; minPct: number }) {
     <details className={cardCls}>
       <summary className="flex min-h-12 cursor-pointer items-center gap-2 font-headline text-lg font-bold text-pz-on-surface">
         <Settings2 className="size-5" aria-hidden />
-        Batch settings
+        <span>
+          Batch settings
+          <span className="block text-base font-normal text-pz-on-surface-variant">Pass mark and student portal</span>
+        </span>
       </summary>
       <div className="mt-3 space-y-2">
         <label htmlFor="min-pct" className={labelCls}>Minimum attendance to pass (%)</label>
@@ -45,6 +48,9 @@ function BatchSettings({ pageId, minPct }: { pageId: string; minPct: number }) {
         <p className="text-base text-pz-on-surface-variant">
           The percentage counts classes that have already started. Each class has its own attendance link, shown in its Attendance card.
         </p>
+      </div>
+      <div className="mt-4 border-t border-pz-outline-variant/60 pt-4">
+        <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
       </div>
     </details>
   );
@@ -97,14 +103,16 @@ export function SessionsPanel({
   return (
     <div className="space-y-4">
       <BatchSummary feedback={overview.batchFeedback} pageId={pageId} programId={overview.programId} rows={rows} minPct={minPct} />
-      <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-        <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_1fr]">
+        <div className="min-w-0 space-y-3">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+            <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
+              <CalendarPlus className="size-5" aria-hidden />
+              Add a class
+            </button>
+            <Link href={setupHref} className={`${quietBtn} w-full`}>Edit all classes</Link>
+          </div>
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />
-          <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
-            <CalendarPlus className="size-5" aria-hidden />
-            Add a class
-          </button>
-          <Link href={setupHref} className={`${quietBtn} w-full`}>Edit all classes</Link>
         </div>
         {session && (
           <TodayPanel
@@ -119,10 +127,7 @@ export function SessionsPanel({
           />
         )}
       </div>
-      <BatchSettings pageId={pageId} minPct={minPct} />
-      <section className={cardCls}>
-        <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
-      </section>
+      <BatchSettings pageId={pageId} minPct={minPct} pageStatus={pageStatus} showInPortal={showInPortal} />
       {adding && <EditClassDialog pageId={pageId} reference={last} nextNumber={nextNumber} onClose={() => setAdding(false)} />}
     </div>
   );

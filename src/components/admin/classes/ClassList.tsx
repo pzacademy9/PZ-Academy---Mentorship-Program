@@ -7,7 +7,7 @@ import type { ClassSummary } from "@/lib/data/class-overview";
 
 const STATUS_LABEL = { done: "Done", today: "Today", upcoming: "Upcoming" } as const;
 
-/** Day strip: 3 columns on a phone, a list down the side on a wide screen. */
+/** Day strip: scrolls sideways on a phone, a list down the side on a wide screen. */
 export function ClassList({
   classes, selectedId, onSelect,
 }: {
@@ -16,11 +16,11 @@ export function ClassList({
   onSelect: (id: string) => void;
 }) {
   return (
-    <ul className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+    <ul className="flex gap-2 overflow-x-auto p-1 lg:grid lg:grid-cols-1 lg:overflow-visible lg:p-0">
       {classes.map((c) => {
         const on = c.id === selectedId;
         return (
-          <li key={c.id}>
+          <li key={c.id} className="shrink-0 max-lg:w-36 lg:w-auto">
             <button
               type="button"
               aria-pressed={on}
@@ -33,7 +33,10 @@ export function ClassList({
               )}
             >
               <span className="flex w-full items-center justify-between gap-1 font-headline text-base font-bold text-pz-on-surface">
-                Day {c.number}
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className={cn("size-2.5 rounded-full", c.status === "done" ? "bg-emerald-600" : c.status === "today" ? "bg-amber-500" : "bg-pz-outline-variant")} />
+                  Day {c.number}
+                </span>
                 {c.status === "done" && <Check className="size-5 text-emerald-600" aria-label="Done" />}
               </span>
               <span className="text-base text-pz-on-surface-variant max-lg:hidden">{c.title}</span>

@@ -26,13 +26,15 @@ export function dateWords(date: string): string {
 
 /** Month grid, weeks start on Monday. `max` is the most days that can be picked (null = no limit). */
 export function ClassCalendar({
-  month, selected, max, onToggle, onMonthChange,
+  month, selected, max, onToggle, onMonthChange, labels,
 }: {
   month: string;
   selected: string[];
   max: number | null;
   onToggle: (date: string) => void;
   onMonthChange?: (month: string) => void;
+  /** Small text under a chosen date, for example "Day 1". */
+  labels?: Record<string, string>;
 }) {
   const [y, m] = month.split("-").map(Number);
   const first = new Date(Date.UTC(y, m - 1, 1));
@@ -73,13 +75,14 @@ export function ClassCalendar({
               aria-pressed={on}
               aria-label={dateWords(date)}
               onClick={() => onToggle(date)}
-              className={`h-12 w-full min-w-0 rounded-lg text-base font-headline font-bold transition-colors ${
+              className={`flex h-12 w-full min-w-0 flex-col items-center justify-center rounded-lg text-base leading-tight font-headline font-bold transition-colors ${
                 on
                   ? "bg-pz-primary text-pz-on-primary"
                   : `border border-pz-outline-variant/60 bg-pz-surface-container-lowest text-pz-on-surface hover:bg-pz-surface-container-low ${full ? "opacity-50" : ""}`
               }`}
             >
               {Number(date.slice(8))}
+              {on && labels?.[date] && <span className="text-[10px] font-medium leading-none">{labels[date]}</span>}
             </button>
           );
         })}
