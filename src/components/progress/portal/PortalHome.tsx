@@ -45,7 +45,7 @@ export function PortalHome({ groups, findId, failed = false }: Props) {
     <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-5">
       <p className="flex min-w-0 items-start gap-2 rounded-xl bg-pz-surface-container-high px-3.5 py-2.5 text-sm text-pz-on-surface-variant">
         <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-pz-primary" />
-        <span>First name and ID only. No phone or email shown.</span>
+        <span>Names and IDs only. No phone or email shown.</span>
       </p>
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[1fr_24rem] lg:items-start">

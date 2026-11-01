@@ -10,6 +10,7 @@ import type { SessionSendState } from "@/lib/data/session-emails";
 import { saveMinPct } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { ClassList } from "@/components/admin/classes/ClassList";
 import { BatchSummary } from "@/components/admin/classes/BatchSummary";
+import { PortalVisibilitySwitch } from "@/components/admin/classes/PortalVisibilitySwitch";
 import { TodayPanel } from "@/components/admin/classes/TodayPanel";
 import { EditClassDialog } from "@/components/admin/classes/EditClassDialog";
 import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn } from "@/components/admin/classes/styles";
@@ -50,8 +51,10 @@ function BatchSettings({ pageId, minPct }: { pageId: string; minPct: number }) {
 }
 
 export function SessionsPanel({
-  pageId, overview, sessions, rows, minPct, sends, nowIso,
+  pageId, overview, sessions, rows, minPct, sends, nowIso, pageStatus, showInPortal,
 }: {
+  pageStatus: string;
+  showInPortal: boolean | null;
   pageId: string;
   overview: ClassOverview;
   sessions: SessionRow[];
@@ -71,11 +74,16 @@ export function SessionsPanel({
 
   if (overview.classes.length === 0) {
     return (
-      <section className={`${cardCls} space-y-4 text-center`}>
-        <h2 className="font-headline text-2xl font-bold text-pz-on-surface">No classes yet</h2>
-        <p className="text-base text-pz-on-surface-variant">Pick the days this batch meets and we will create each class, its attendance link and its feedback link.</p>
-        <Link href={setupHref} className={`${primaryBtn} max-md:w-full`}>Set up classes</Link>
-      </section>
+      <div className="space-y-4">
+        <section className={`${cardCls} space-y-4 text-center`}>
+          <h2 className="font-headline text-2xl font-bold text-pz-on-surface">No classes yet</h2>
+          <p className="text-base text-pz-on-surface-variant">Pick the days this batch meets and we will create each class, its attendance link and its feedback link.</p>
+          <Link href={setupHref} className={`${primaryBtn} max-md:w-full`}>Set up classes</Link>
+        </section>
+        <section className={cardCls}>
+          <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
+        </section>
+      </div>
     );
   }
 
@@ -112,6 +120,9 @@ export function SessionsPanel({
         )}
       </div>
       <BatchSettings pageId={pageId} minPct={minPct} />
+      <section className={cardCls}>
+        <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
+      </section>
       {adding && <EditClassDialog pageId={pageId} reference={last} nextNumber={nextNumber} onClose={() => setAdding(false)} />}
     </div>
   );

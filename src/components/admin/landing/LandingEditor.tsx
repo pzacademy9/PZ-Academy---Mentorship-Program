@@ -25,7 +25,6 @@ import type { CourseModule } from "@/lib/data/landing-course-modules";
 import { pruneModuleIds } from "@/lib/landing/registration/admin-edit";
 import { parseRegistrationTarget, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import { CourseMainPicker } from "./CourseMainPicker";
-import { PortalVisibilitySwitch } from "./PortalVisibilitySwitch";
 import { PreviewFrame } from "./PreviewFrame";
 import { PublishSlot, ReadinessSlot } from "./PublishSlot";
 import { ReadinessPanel } from "./ReadinessPanel";
@@ -459,7 +458,6 @@ function EditorShell({
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
         {courses && <CourseMainPicker pageId={page.id} courses={courses} courseId={page.courseId ?? null} isMainPage={page.isMainPage ?? false} />}
-        <PortalVisibilitySwitch pageId={page.id} status={page.status} showInPortal={page.showInPortal ?? null} />
         {options.length > 0 && (
           <VariantSwitcher options={options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
         )}

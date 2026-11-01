@@ -108,17 +108,17 @@ describe("buildPortalBatch attendance", () => {
     expect(v.attendance[0].meetsMin).toBe(false);
   });
 
-  it("attendance sorted by first name then PZ ID; same first name gives two rows", () => {
+  it("attendance sorted by full name then PZ ID", () => {
     const v = buildPortalBatch(
       batch({
         people: [person(3, "Zed Name"), person(2, "Sample Name"), person(1, "Sample Other")],
         regs: ["p1", "p2", "p3"].map((id) => ({ personId: id, mode: "live" as const, optionLabel: FULL })),
       }),
     );
-    expect(v.attendance.map((r) => [r.firstName, r.pzId])).toEqual([
-      ["Sample", "Sample-0001"],
-      ["Sample", "Sample-0002"],
-      ["Zed", "Zed-0003"],
+    expect(v.attendance.map((r) => [r.name, r.pzId])).toEqual([
+      ["Sample Name", "Sample-0002"],
+      ["Sample Other", "Sample-0001"],
+      ["Zed Name", "Zed-0003"],
     ]);
   });
 });
@@ -140,11 +140,11 @@ describe("buildPortalBatch results", () => {
         ],
       }),
     );
-    expect(v.overall.map((r) => [r.firstName, r.rank, r.score, r.mode])).toEqual([
-      ["Bee", 1, 10, "live"],
-      ["Cee", 1, 10, "live"],
-      ["Aye", 3, 5, "live"],
-      ["Rec", null, 99, "recorded"],
+    expect(v.overall.map((r) => [r.name, r.rank, r.score, r.mode])).toEqual([
+      ["Bee Name", 1, 10, "live"],
+      ["Cee Name", 1, 10, "live"],
+      ["Aye Name", 3, 5, "live"],
+      ["Rec Name", null, 99, "recorded"],
     ]);
     expect(v.perClass.s1.map((r) => r.rank)).toEqual([1, 1, 3, null]);
   });
@@ -255,22 +255,75 @@ describe("buildPortalBatch header facts", () => {
   });
 });
 
-describe("buildPortalBatch first name", () => {
+describe("buildPortalBatch full name", () => {
   const run = (pzId: string, displayName: string) =>
     buildPortalBatch(
       batch({
         people: [{ id: "p1", pzId, displayName }],
         regs: [{ personId: "p1", mode: "live", optionLabel: FULL }],
       }),
-    ).attendance[0].firstName;
+    ).attendance[0].name;
 
-  it("uses the PZ ID prefix, not a title word in the display name", () => {
-    expect(run("Name-0000", "Dr. Name Surname")).toBe("Name");
+  it("shows the full display name, trimmed with spaces collapsed", () => {
+    expect(run("Name-0000", "  Dr. Name   Surname ")).toBe("Dr. Name Surname");
   });
-  it("uses the text before the LAST dash", () => {
-    expect(run("Name-Two-0007", "Dr. Name Two Surname")).toBe("Name-Two");
+  it("falls back to the PZ ID first name when the name looks like an email (full name sort unaffected)", () => {
+    expect(run("Name-0000", "sample.name@example.com")).toBe("Name");
+    expect(run("Name-Two-0007", "x@y")).toBe("Name-Two");
   });
-  it("falls back to the first word when the PZ ID has no dash", () => {
-    expect(run("Name0000", "Sample Name")).toBe("Sample");
+  it("never returns an email even when the PZ ID has no dash: shows the PZ ID itself", () => {
+    expect(run("Sample0000", "sample@example.com")).toBe("Sample0000");
+    expect(run("Name0000", "Sample@example.com Name")).toBe("Name0000");
+  });
+  it("treats a name with 7 or more digits (a phone) as unsafe", () => {
+    expect(run("Name-0000", "Sample 0300 1234567")).toBe("Name");
+    expect(run("Name-0000", "Sample 123456")).toBe("Sample 123456");
+  });
+  it("caps the shown name at 60 characters, cutting at a word boundary", () => {
+    const long = Array.from({ length: 20 }, () => "Wordy").join(" ");
+    const out = run("Name-0000", long);
+    expect(out.length).toBeLessThanOrEqual(60);
+    expect(out.endsWith("Wordy")).toBe(true);
+    expect(run("Name-0000", "x".repeat(80)).length).toBe(60);
+  });
+  it("two live students with the same full name sort by PZ ID", () => {
+    const v = buildPortalBatch(
+      batch({
+        people: [{ id: "p1", pzId: "Sample-0009", displayName: "Sample Name" }, { id: "p2", pzId: "Sample-0002", displayName: "Sample Name" }],
+        regs: ["p1", "p2"].map((id) => ({ personId: id, mode: "live" as const, optionLabel: FULL })),
+      }),
+    );
+    expect(v.attendance.map((r) => r.pzId)).toEqual(["Sample-0002", "Sample-0009"]);
+  });
+  it("falls back to the PZ ID first name when the name is blank", () => {
+    expect(run("Name-0000", "   ")).toBe("Name");
+  });
+});
+
+describe("buildPortalBatch attendance order", () => {
+  const mk = (i: number, name: string) => ({ id: `p${i}`, pzId: `${name}-${String(i).padStart(4, "0")}`, displayName: name });
+  it("lists live students first, then recorded, each by full name then PZ ID", () => {
+    const people = [mk(1, "Aaa"), mk(2, "Zed"), mk(3, "Bbb"), mk(4, "Mid"), mk(5, "Mid")];
+    const regs = [
+      { personId: "p1", mode: "recorded" as const, optionLabel: "Recorded" },
+      { personId: "p2", mode: "live" as const, optionLabel: FULL },
+      { personId: "p3", mode: "recorded" as const, optionLabel: "Recorded" },
+      { personId: "p4", mode: "live" as const, optionLabel: FULL },
+      { personId: "p5", mode: "live" as const, optionLabel: FULL },
+    ];
+    const v = buildPortalBatch(batch({ people, regs }));
+    expect(v.attendance.map((r) => `${r.mode}:${r.pzId}`)).toEqual([
+      "live:Mid-0004", "live:Mid-0005", "live:Zed-0002", "recorded:Aaa-0001", "recorded:Bbb-0003",
+    ]);
+  });
+  it("keeps live-ranked first then recorded on the Results lists", () => {
+    const people = [mk(1, "Aaa"), mk(2, "Zed")];
+    const regs = [
+      { personId: "p1", mode: "recorded" as const, optionLabel: "Recorded" },
+      { personId: "p2", mode: "live" as const, optionLabel: FULL },
+    ];
+    const scores = [{ sessionId: "s1", personId: "p1", score: 99 }, { sessionId: "s1", personId: "p2", score: 10 }];
+    const v = buildPortalBatch(batch({ people, regs, scores }));
+    expect(v.overall.map((r) => r.pzId)).toEqual(["Zed-0002", "Aaa-0001"]);
   });
 });

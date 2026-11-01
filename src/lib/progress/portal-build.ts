@@ -1,5 +1,5 @@
 // Pure builder for the public batch portal (attendance + results lists).
-// Public rows carry first name + PZ ID only. No server imports, no clock: `now` is an input.
+// Public rows carry the full name + PZ ID only (never phone or email). No server imports, no clock: `now` is an input.
 import { matchAudience, parseOption, type Audience } from "@/lib/classes/audience";
 import { attendancePercent, meetsMinimum } from "@/lib/attendance/rules";
 import { publicFirstName, type ProgressKind } from "@/lib/progress/build";
@@ -37,7 +37,7 @@ export type PortalBatchInput = {
 };
 
 export type PortalAttendanceRow = {
-  firstName: string;
+  name: string;
   pzId: string;
   mode: "live" | "recorded";
   attended: number | null;
@@ -47,7 +47,7 @@ export type PortalAttendanceRow = {
   classes: { number: number; title: string; startsAt: string; state: "present" | "absent" | "upcoming"; how: "check-in" | "admin" | null }[];
 };
 export type PortalResultRow = {
-  firstName: string;
+  name: string;
   pzId: string;
   mode: "live" | "recorded";
   score: number;
@@ -84,7 +84,28 @@ export type PortalBatchCard = {
 const time = (iso: string) => new Date(iso).getTime();
 const cmpText = (a: string, b: string) => a.localeCompare(b);
 
-type Student = { person: PortalPersonInput; firstName: string; mode: "live" | "recorded"; labels: string[] };
+const MAX_NAME = 60;
+/** A name that is empty, has an "@" (email) or 7+ digits (phone) must never be shown. */
+const unsafeName = (s: string) => s === "" || s.includes("@") || (s.match(/\d/g) ?? []).length >= 7;
+
+/**
+ * Full display name (trimmed, spaces collapsed, at most 60 characters, cut at a word boundary).
+ * An unsafe name (blank, email-like, phone-like) falls back to the PZ ID first name, and if that is
+ * unsafe too, to the PZ ID itself, so contact details can never reach the public page.
+ */
+export function publicName(pzId: string, displayName: string): string {
+  let full = displayName.replace(/\s+/g, " ").trim();
+  if (unsafeName(full)) full = publicFirstName(pzId, displayName).replace(/\s+/g, " ").trim();
+  if (unsafeName(full)) return pzId;
+  if (full.length > MAX_NAME) {
+    const cut = full.slice(0, MAX_NAME);
+    const space = cut.lastIndexOf(" ");
+    full = (space > 0 ? cut.slice(0, space) : cut).trim();
+  }
+  return full;
+}
+
+type Student = { person: PortalPersonInput; name: string; mode: "live" | "recorded"; labels: string[] };
 
 function students(input: PortalBatchInput): Student[] {
   const byId = new Map(input.people.map((p) => [p.id, p]));
@@ -101,7 +122,7 @@ function students(input: PortalBatchInput): Student[] {
     const live = regs.filter((r) => r.mode === "live");
     out.push({
       person,
-      firstName: publicFirstName(person.pzId, person.displayName),
+      name: publicName(person.pzId, person.displayName),
       mode: live.length > 0 ? "live" : "recorded",
       labels: live.map((r) => r.optionLabel),
     });
@@ -109,14 +130,14 @@ function students(input: PortalBatchInput): Student[] {
   return out;
 }
 
-const byName = (a: { firstName: string; pzId: string }, b: { firstName: string; pzId: string }) =>
-  cmpText(a.firstName, b.firstName) || cmpText(a.pzId, b.pzId);
+const byName = (a: { name: string; pzId: string }, b: { name: string; pzId: string }) =>
+  cmpText(a.name, b.name) || cmpText(a.pzId, b.pzId);
 
 /** Competition ranking among live rows (10, 10, 5 -> 1, 1, 3); recorded rows listed after, unranked. */
 function rankRows(rows: { s: Student; score: number }[]): PortalResultRow[] {
   const liveScores = rows.filter((r) => r.s.mode === "live").map((r) => r.score);
   const make = (r: { s: Student; score: number }): PortalResultRow => ({
-    firstName: r.s.firstName,
+    name: r.s.name,
     pzId: r.s.person.pzId,
     mode: r.s.mode,
     score: r.score,
@@ -146,7 +167,7 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
 
   const attendance: PortalAttendanceRow[] = all
     .map((s): PortalAttendanceRow => {
-      const base = { firstName: s.firstName, pzId: s.person.pzId, mode: s.mode };
+      const base = { name: s.name, pzId: s.person.pzId, mode: s.mode };
       if (s.mode === "recorded") {
         return { ...base, attended: null, held: null, pct: null, meetsMin: null, classes: [] };
       }
@@ -169,7 +190,8 @@ export function buildPortalBatch(input: PortalBatchInput): PortalBatchView {
       const pct = attendancePercent(attended, held);
       return { ...base, attended, held, pct, meetsMin: meetsMinimum(pct, input.minPct), classes };
     })
-    .sort(byName);
+    // Live students first, recorded students after all of them; each group by full name then PZ ID.
+    .sort((a, b) => (a.mode === b.mode ? 0 : a.mode === "live" ? -1 : 1) || byName(a, b));
 
   const studentById = new Map(all.map((s) => [s.person.id, s]));
   const sessionIds = new Set(sessions.map((s) => s.id));

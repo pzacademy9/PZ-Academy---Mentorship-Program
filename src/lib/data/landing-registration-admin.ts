@@ -390,6 +390,13 @@ export async function listRegistrationPageOptions(): Promise<{ id: string; title
   return (data ?? []).map((p) => ({ id: p.id, title: p.title }));
 }
 
+/** A page's status and portal switch value, for the Classes screen. Null when the page does not exist. */
+export async function getPagePortalState(pageId: string): Promise<{ status: string; showInPortal: boolean | null } | null> {
+  const { data, error } = await createAdminSupabase().from("landing_pages").select("status, show_in_portal").eq("id", pageId).maybeSingle();
+  if (error) throw error;
+  return data ? { status: data.status, showInPortal: data.show_in_portal } : null;
+}
+
 /** The public URL slug of a landing page, or null when the page does not exist or is not published or closed. */
 export async function getRegistrationPageSlug(pageId: string): Promise<string | null> {
   const { data, error } = await createAdminSupabase().from("landing_pages").select("slug, status").eq("id", pageId).maybeSingle();

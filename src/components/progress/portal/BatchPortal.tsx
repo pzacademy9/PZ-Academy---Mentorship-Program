@@ -27,8 +27,8 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
   const [pick, setPick] = useState("overall");
 
   const needle = squash(term);
-  const matches = (r: { firstName: string; pzId: string }) =>
-    needle === "" || squash(r.firstName).includes(needle) || squash(r.pzId).includes(needle);
+  const matches = (r: { name: string; pzId: string }) =>
+    needle === "" || squash(r.name).includes(needle) || squash(r.pzId).includes(needle);
 
   const attendance = view.attendance.filter(matches);
   const resultTotal = resultRowsFor(view, pick);
@@ -87,8 +87,8 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
           type="search"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          aria-label="Search by first name or PZ ID"
-          placeholder="Search by first name or PZ ID"
+          aria-label="Search by name or PZ ID"
+          placeholder="Search by name or PZ ID"
           className={`${inputClass} pl-11`}
         />
       </div>
