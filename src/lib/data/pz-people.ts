@@ -90,6 +90,79 @@ export async function searchBatchIds(
   return { found: rows.length > 0, rows };
 }
 
+export type MyIdRow = { firstName: string; pzId: string; batchTitle: string };
+
+const FIND_ERROR = "Could not search IDs. Please try again.";
+
+/**
+ * Public "find my ID" search for the progress page. Looks across ALL published or closed
+ * batches, enrolled people only. Returns at most 5 rows, first name only: never a surname,
+ * email or phone, so it cannot be used to list everyone. Throws a plain error on a database failure.
+ */
+export async function findIdsByName(query: string): Promise<MyIdRow[]> {
+  const q = query.replace(/\*/g, "").trim();
+  if (q.length < MIN_QUERY) return [];
+  const supabase = createAdminSupabase();
+
+  const { data: pages, error: pageErr } = await supabase
+    .from("landing_pages")
+    .select("id, title")
+    .in("status", ["published", "closed"]);
+  if (pageErr || !pages) throw new Error(FIND_ERROR);
+  const titles = new Map<string, string>();
+  for (const p of pages as Array<{ id: string; title: string }>) titles.set(p.id, p.title);
+  if (titles.size === 0) return [];
+
+  const { data: matched, error: pplErr } = await supabase
+    .from("pz_people")
+    .select("id, pz_id, display_name")
+    .ilike("display_name", `%${escapeLike(q)}%`)
+    .order("display_name", { ascending: true })
+    .order("pz_id", { ascending: true })
+    .range(0, PAGE - 1);
+  if (pplErr || !matched) throw new Error(FIND_ERROR);
+  const people = matched as Person[];
+
+  // person id -> set of batch page ids where they are enrolled.
+  const pagesOf = new Map<string, Set<string>>();
+  const pageIds = Array.from(titles.keys());
+  for (let i = 0; i < people.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from("landing_registrations")
+      .select("person_id, page_id")
+      .in("person_id", people.slice(i, i + CHUNK).map((p) => p.id))
+      .in("page_id", pageIds)
+      .in("status", ["paid", "free"])
+      .eq("is_test", false);
+    if (error || !data) throw new Error(FIND_ERROR);
+    for (const r of data as Array<{ person_id: string | null; page_id: string }>) {
+      if (!r.person_id) continue;
+      const set = pagesOf.get(r.person_id) ?? new Set<string>();
+      set.add(r.page_id);
+      pagesOf.set(r.person_id, set);
+    }
+  }
+
+  const rows: Array<MyIdRow & { sortName: string }> = [];
+  for (const p of people) {
+    for (const pageId of Array.from(pagesOf.get(p.id) ?? [])) {
+      rows.push({
+        firstName: p.display_name.trim().split(/\s+/)[0] ?? "",
+        pzId: p.pz_id,
+        batchTitle: titles.get(pageId) ?? "",
+        sortName: p.display_name,
+      });
+    }
+  }
+  rows.sort(
+    (a, b) =>
+      a.sortName.localeCompare(b.sortName) ||
+      a.pzId.localeCompare(b.pzId) ||
+      a.batchTitle.localeCompare(b.batchTitle),
+  );
+  return rows.slice(0, MAX_ROWS).map(({ firstName, pzId, batchTitle }) => ({ firstName, pzId, batchTitle }));
+}
+
 /** Admin-only list of every enrolled person of a batch (raw email; the caller guards). */
 export async function listBatchIdsForAdmin(
   pageId: string,
