@@ -5,7 +5,7 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { listPortalBatches, getPortalBatch, getProgressForEmail } from "@/lib/data/portal";
+import { listPortalBatches, getPortalBatch, getProgressForEmail, getProgressForUser } from "@/lib/data/portal";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 const PAST = "2026-10-01T10:00:00Z";
@@ -166,5 +166,25 @@ describe("getProgressForEmail", () => {
   });
   it("returns null for an unknown email", async () => {
     expect(await getProgressForEmail("nobody@example.com", NOW)).toBeNull();
+  });
+});
+
+describe("getProgressForUser", () => {
+  it("is unconfirmed without a confirmed email and loads nothing", async () => {
+    const calls = vi.fn();
+    const ok = db.state.handler;
+    db.state.handler = (op) => (calls(), ok(op));
+    expect(await getProgressForUser({ email: "me@example.com", email_confirmed_at: null }, NOW)).toEqual({ status: "unconfirmed" });
+    expect(await getProgressForUser({ email: null, email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW)).toEqual({ status: "unconfirmed" });
+    expect(await getProgressForUser({}, NOW)).toEqual({ status: "unconfirmed" });
+    expect(calls).not.toHaveBeenCalled();
+  });
+  it("returns the progress for a confirmed email", async () => {
+    const out = await getProgressForUser({ email: "Me@Example.com", email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW);
+    expect(out.status).toBe("ok");
+    expect(out.status === "ok" && out.progress?.pzId).toBe("Sample-0000");
+  });
+  it("is ok with null progress for an unknown confirmed email", async () => {
+    expect(await getProgressForUser({ email: "nobody@example.com", email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW)).toEqual({ status: "ok", progress: null });
   });
 });

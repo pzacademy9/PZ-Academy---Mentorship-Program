@@ -190,3 +190,17 @@ export async function getProgressForEmail(email: string, now: Date = new Date())
   const pzId = (person as { pz_id: string } | null)?.pz_id;
   return pzId ? getProgressByPzId(pzId, now) : null;
 }
+
+export type ProgressForUser = { status: "unconfirmed" } | { status: "ok"; progress: Progress | null };
+
+/**
+ * Progress for a signed-in user. Same identity rule as the certificates page: the email must exist
+ * AND be confirmed, otherwise nothing is loaded (an unconfirmed address proves nothing).
+ */
+export async function getProgressForUser(
+  user: { email?: string | null; email_confirmed_at?: string | null },
+  now: Date = new Date(),
+): Promise<ProgressForUser> {
+  if (!user.email || !user.email_confirmed_at) return { status: "unconfirmed" };
+  return { status: "ok", progress: await getProgressForEmail(user.email, now) };
+}

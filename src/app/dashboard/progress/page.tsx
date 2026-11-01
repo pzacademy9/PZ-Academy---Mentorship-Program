@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getProgressForEmail } from "@/lib/data/portal";
+import { getProgressForUser } from "@/lib/data/portal";
 import type { Progress } from "@/lib/progress/build";
 import { ProgressSection } from "@/components/progress/ProgressSection";
 import { CopyPzId } from "@/components/progress/CopyPzId";
@@ -37,18 +37,23 @@ export default async function MyProgressPage() {
 
   let progress: Progress | null = null;
   let failed = false;
+  let unconfirmed = false;
   try {
-    progress = await getProgressForEmail(user.email);
+    const out = await getProgressForUser(user);
+    if (out.status === "unconfirmed") unconfirmed = true;
+    else progress = out.progress;
   } catch {
     failed = true;
   }
 
-  if (failed || !progress) {
+  if (unconfirmed || failed || !progress) {
     return (
       <div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-4">
         <h1 className="font-headline text-2xl font-black text-pz-on-surface">My Progress</h1>
         <p className={`${card} text-base text-pz-on-surface-variant`}>
-          {failed
+          {unconfirmed
+            ? "Please confirm your email address to see your progress."
+            : failed
             ? "We could not load your progress right now. Please try again in a minute."
             : "We cannot find your enrolment yet. It appears here once your registration is confirmed."}
         </p>
