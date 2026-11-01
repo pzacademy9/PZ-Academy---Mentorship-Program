@@ -21,6 +21,15 @@ describe("0096 draft batches stay private", () => {
     expect(sql).toContain("alter column show_in_portal drop default");
   });
 
+  it("runs the data step only while the column is still NOT NULL, before the drop", () => {
+    const guard = sql.indexOf("select is_nullable");
+    expect(guard).toBeGreaterThan(-1);
+    expect(sql).toContain("= 'NO' then");
+    expect(guard).toBeLessThan(sql.indexOf("set show_in_portal = null"));
+    expect(guard).toBeLessThan(sql.indexOf("set show_in_portal = true"));
+    expect(sql.indexOf("set show_in_portal = true")).toBeLessThan(sql.indexOf("alter column show_in_portal drop not null"));
+  });
+
   it("resets true to null except ppc-batch-3, and is re-runnable", () => {
     expect(sql).toContain("where show_in_portal is true");
     expect(sql).toContain("slug <> 'ppc-batch-3'");

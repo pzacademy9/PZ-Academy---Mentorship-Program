@@ -202,11 +202,15 @@ Expect one row with `1`, `1` and `true`. `new_version` must be `true`: if it sho
 
 ## (f) Migration 0096: draft batches stay private until you switch them on
 
-**Order: 0095 must already be live. Paste 0096 BEFORE you deploy this code**, because the code expects the new "automatic" meaning of the switch. If the code goes live first, the portal and the admin pages can show the wrong batches.
+**Safe order: 0095 must already be live. First deploy the new code (push, then wait for the deploy to finish). Then paste 0096 straight away.**
+
+What happens if the order is different:
+- New code live BEFORE 0096 is pasted: nothing breaks. Drafts that already have students (PPC Batch 3) are still shown. Any other draft with students would also be public until 0096 is pasted.
+- 0096 pasted while the PREVIOUS portal code (the 0095-era one, which still requires the switch to be on) is still the live deploy: every published batch except PPC Batch 3 disappears from /progress and from Find my ID until the new code deploys.
 
 1. Open the Supabase SQL editor.
 2. Open `supabase/migrations/0096_portal_draft_private.sql`, copy everything in it, paste it and press Run.
-3. It is safe to run twice.
+3. It is safe to paste again later. The one-time data step only runs the first time, so a switch an admin made afterwards is never undone.
 
 What it does, in plain words:
 - The "Show on public progress portal" switch now has three states: automatic (new batches start here: shown only once the batch is published or closed), switched on, and switched off.
@@ -217,18 +221,30 @@ What it does, in plain words:
 The complete SQL to paste is:
 
 ```sql
+-- The one-time data step runs ONLY while the column is still NOT NULL (i.e. 0096 has not run before),
+-- so pasting this file again never undoes a switch an admin made later.
+do $$
+begin
+  if (select is_nullable
+        from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'landing_pages'
+         and column_name = 'show_in_portal') = 'NO' then
+    update public.landing_pages
+       set show_in_portal = null
+     where show_in_portal is true
+       and slug <> 'ppc-batch-3';
+
+    update public.landing_pages
+       set show_in_portal = true
+     where slug = 'ppc-batch-3'
+       and show_in_portal is distinct from true;
+  end if;
+end
+$$;
+
 alter table public.landing_pages alter column show_in_portal drop not null;
 alter table public.landing_pages alter column show_in_portal drop default;
-
-update public.landing_pages
-   set show_in_portal = null
- where show_in_portal is true
-   and slug <> 'ppc-batch-3';
-
-update public.landing_pages
-   set show_in_portal = true
- where slug = 'ppc-batch-3'
-   and show_in_portal is distinct from true;
 
 create or replace function public.find_enrolled_ids_by_name(p_query text)
 returns table (first_name text, pz_id text, batch_title text)
@@ -269,4 +285,4 @@ select
   (select prosrc like '%coalesce(lp.show_in_portal%' from pg_proc where proname = 'find_enrolled_ids_by_name') as new_version;
 ```
 
-Expect `drafts_switched_on` = `1` (PPC Batch 3), `published_automatic` = the number of published batches (any number), and `new_version` = `true`. If `new_version` is `false` or empty, the old search function is still in place; tell me.
+Expect `drafts_switched_on` = `1` (PPC Batch 3), `published_automatic` = the number of published batches (any number), and `new_version` = `true`. If `drafts_switched_on` is `0`, the PPC batch has a different slug than `ppc-batch-3`; tell Claude. If `new_version` is `false` or empty, the old search function is still in place; tell Claude.
