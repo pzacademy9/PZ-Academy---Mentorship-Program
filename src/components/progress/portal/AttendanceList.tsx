@@ -21,7 +21,7 @@ function Avatar({ name, recorded }: { name: string; recorded: boolean }) {
         recorded ? "bg-pz-surface-container-highest text-pz-on-surface-variant" : "bg-pz-primary-container text-pz-on-primary-container"
       }`}
     >
-      {(name.match(/\p{L}/u)?.[0] ?? "?").toUpperCase()}
+      {(name.match(/[a-zÀ-￿]/i)?.[0] ?? "?").toUpperCase()}
     </span>
   );
 }
