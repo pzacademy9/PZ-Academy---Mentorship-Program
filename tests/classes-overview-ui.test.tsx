@@ -398,7 +398,7 @@ describe("phone-first Classes screen", () => {
     panel(summary({ status: "upcoming" }));
     const fold = screen.getByRole("button", { name: /^Attendance/ });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Open attendance link" }));
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
     expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("attendance-card")).toBeTruthy();
   });
@@ -440,5 +440,32 @@ describe("phone-first Classes screen", () => {
     const details = folds[0].closest("details")!;
     expect(within(details).getByLabelText(/Minimum attendance to pass/)).toBeTruthy();
     expect(within(details).getByLabelText(/Show on public progress portal/)).toBeTruthy();
+  });
+
+  it("the page grid cannot be stretched by the day strip (single shrinkable column on a phone)", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary(), summary({ id: "s2", number: 2 })])} sessions={[session(), session({ id: "s2", number: 2 })]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const grid = screen.getByRole("button", { name: /Day 2/ }).closest("div.grid")!;
+    expect(grid.className).toContain("grid-cols-1");
+  });
+
+  it("each day chip has a status dot", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary({ status: "done" })])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const chip = screen.getByRole("button", { name: /Day 1/ });
+    expect(chip.querySelector("span[aria-hidden='true'].rounded-full")!.className).toContain("bg-emerald-600");
+  });
+
+  it("the next-step button scrolls the fold into view and moves focus to its header", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    panel(summary({ status: "upcoming" }));
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    expect((scroll.mock.instances[0] as HTMLElement).id).toBe("fold-attendance-fold");
+    expect(document.activeElement).toBe(document.getElementById("fold-attendance-header"));
+    // tapping again after folding by hand scrolls again
+    fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
+    scroll.mockClear();
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
   });
 });

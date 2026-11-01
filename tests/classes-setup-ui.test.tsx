@@ -331,4 +331,26 @@ describe("SetupForm: three steps on a phone", () => {
     expect(within(day(10)).getByText("Day 1")).toBeTruthy();
     expect(within(day(12)).getByText("Day 2")).toBeTruthy();
   });
+
+  it("does not scroll when the page first opens, only on a real step change", () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    show(withDays());
+    expect(scroll).not.toHaveBeenCalled();
+    next(/Next: Feedback questions/);
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect((scroll.mock.instances[0] as HTMLElement).className).toContain("scroll-mt-20");
+  });
+
+  it("also shows a toast when Next is blocked for no days", () => {
+    show(state());
+    next(/Next: Feedback questions/);
+    expect(h.error).toHaveBeenCalledWith("Pick at least one class day.");
+  });
+
+  it("has a way out on a phone and says links are made automatically", () => {
+    show(withDays());
+    expect(screen.getByRole("link", { name: "Back to classes" }).getAttribute("href")).toMatch(/\/sessions$/);
+    expect(within(screen.getByTestId("schedule-summary")).getByText(/made for every class automatically/)).toBeTruthy();
+  });
 });

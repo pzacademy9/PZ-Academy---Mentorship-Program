@@ -26,9 +26,10 @@ export function FoldCard({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div id={`${id}-fold`} className="scroll-mt-20">
       <button
         type="button"
+        id={`${id}-header`}
         aria-expanded={open}
         aria-controls={id}
         onClick={onToggle}
@@ -40,10 +41,10 @@ export function FoldCard({
         <span className="min-w-0 flex-1">
           <span className="block font-headline text-lg font-bold text-pz-on-surface">{title}</span>
           <span className="block text-base text-pz-on-surface-variant">{status.line}</span>
+          {status.badge && (
+            <span className={cn("mt-1 inline-block rounded-full px-3 py-1 text-sm font-headline font-bold", BADGE[status.tone])}>{status.badge}</span>
+          )}
         </span>
-        {status.badge && (
-          <span className={cn("shrink-0 rounded-full px-3 py-1 text-sm font-headline font-bold", BADGE[status.tone])}>{status.badge}</span>
-        )}
         <ChevronDown aria-hidden className={cn("size-5 shrink-0 text-pz-on-surface-variant transition-transform", open && "rotate-180")} />
       </button>
       <div id={id} className={cn(!open && "max-lg:hidden", open && "max-lg:mt-2")}>

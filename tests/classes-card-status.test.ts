@@ -55,7 +55,7 @@ describe("feedbackStatus", () => {
 
 describe("nextAction", () => {
   it("upcoming opens the attendance link", () => {
-    expect(nextAction(cls({ status: "upcoming" }))).toEqual({ label: "Open attendance link", target: "attendance" });
+    expect(nextAction(cls({ status: "upcoming" }))).toEqual({ label: "Show attendance link", target: "attendance" });
   });
   it("quiz missing", () => {
     expect(nextAction(cls())).toEqual({ label: "Upload quiz results", target: "quiz" });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { CalendarClock, FileUp, MessageSquareText, Pencil, Users, Video } from "lucide-react";
 import { formatPkt, isoToPktInput } from "@/lib/attendance/rules";
@@ -54,7 +54,6 @@ export function TodayPanel({
   nowIso: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const [openCard, setOpenCard] = useState<"attendance" | "quiz" | "feedback" | null>(null);
   const [opened, setOpened] = useState<Record<"attendance" | "quiz" | "feedback", boolean>>({ attendance: false, quiz: false, feedback: false });
   const step = nextStep(cls);
   const action = nextAction(cls);
@@ -64,11 +63,13 @@ export function TodayPanel({
     if (action.target === null || action.target === "quiz") return;
     const k = action.target;
     setOpened((cur) => ({ ...cur, [k]: true }));
-    setOpenCard(k);
+    // Wait for the fold to open, then bring it into view (below the sticky top bar) and focus its header.
+    requestAnimationFrame(() => {
+      document.getElementById(`fold-${k}-fold`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      document.getElementById(`fold-${k}-header`)?.focus();
+    });
   }
-  useEffect(() => {
-    if (openCard) document.getElementById(`fold-${openCard}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  }, [openCard]);
+
   return (
     <div className="space-y-4">
       <section className={`${cardCls} space-y-3`}>

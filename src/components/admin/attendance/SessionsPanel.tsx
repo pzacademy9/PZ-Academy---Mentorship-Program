@@ -103,8 +103,8 @@ export function SessionsPanel({
   return (
     <div className="space-y-4">
       <BatchSummary feedback={overview.batchFeedback} pageId={pageId} programId={overview.programId} rows={rows} minPct={minPct} />
-      <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-        <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_1fr]">
+        <div className="min-w-0 space-y-3">
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />
           <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
             <CalendarPlus className="size-5" aria-hidden />

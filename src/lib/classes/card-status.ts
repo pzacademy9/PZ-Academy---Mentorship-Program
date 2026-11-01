@@ -31,7 +31,7 @@ export function feedbackStatus(c: ClassSummary): CardStatus {
 
 /** The one button under "Next step". Mirrors the order of nextStep() in TodayPanel. */
 export function nextAction(c: ClassSummary): { label: string; target: NextTarget } {
-  if (c.status === "upcoming") return { label: "Open attendance link", target: "attendance" };
+  if (c.status === "upcoming") return { label: "Show attendance link", target: "attendance" };
   if (!c.quiz.saved) return { label: "Upload quiz results", target: "quiz" };
   if (!c.feedbackLink) return { label: "Create feedback link", target: "feedback" };
   if (c.feedbackCount === 0) return { label: "Open feedback", target: "feedback" };

@@ -63,7 +63,13 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   // Phones show one step at a time; from the lg breakpoint up every section is visible.
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const topRef = useRef<HTMLDivElement>(null);
+  const firstStep = useRef(true);
   useEffect(() => {
+    // Only on a real step change: not when the page first opens.
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
     topRef.current?.scrollIntoView?.({ block: "start" });
   }, [step]);
 
@@ -140,6 +146,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   function goToQuestions() {
     if (days.length === 0) {
       setNote("Pick at least one class day.");
+      toast.error("Pick at least one class day.");
       return;
     }
     setNote(null);
@@ -192,10 +199,12 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
   const exists = state.classes.length > 0;
 
   return (
-    <div ref={topRef} className="space-y-6 pb-56 lg:pb-28">
+    <div ref={topRef} className="scroll-mt-20 space-y-6 pb-56 lg:pb-28">
       <div className="space-y-2 lg:hidden">
-        <p className="font-headline text-lg font-bold text-pz-on-surface">Set up classes</p>
-        <p className="text-base text-pz-on-surface-variant">Step {step} of 3</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-headline text-lg font-bold text-pz-on-surface">Step {step} of 3</p>
+          <Link href={back} className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary">Back to classes</Link>
+        </div>
         <div className="h-2 overflow-hidden rounded-full bg-pz-surface-container-high" aria-hidden>
           <div className="h-2 rounded-full bg-pz-primary transition-all" style={{ width: `${(step / 3) * 100}%` }} />
         </div>
@@ -279,6 +288,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
           <div className="flex justify-between gap-3"><dt>Feedback</dt><dd className="font-bold text-pz-on-surface">{questions.length} feedback {questions.length === 1 ? "question" : "questions"}</dd></div>
           <div className="flex justify-between gap-3"><dt>Times</dt><dd className="font-bold text-pz-on-surface">Pakistan time</dd></div>
         </dl>
+        <p className="mt-3 text-base text-pz-on-surface-variant lg:hidden">Attendance link and feedback link are made for every class automatically.</p>
       </section>
 
       <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] flex gap-2 border-t border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 lg:hidden">
