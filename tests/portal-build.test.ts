@@ -21,7 +21,7 @@ const sess = (n: number, startsAt: string, extra: Partial<PortalSessionInput> = 
 
 const person = (i: number, name = "Sample Name") => ({
   id: `p${i}`,
-  pzId: `Name-${String(i).padStart(4, "0")}`,
+  pzId: `${name.split(" ")[0]}-${String(i).padStart(4, "0")}`,
   displayName: `${name}`,
 });
 
@@ -116,9 +116,9 @@ describe("buildPortalBatch attendance", () => {
       }),
     );
     expect(v.attendance.map((r) => [r.firstName, r.pzId])).toEqual([
-      ["Sample", "Name-0001"],
-      ["Sample", "Name-0002"],
-      ["Zed", "Name-0003"],
+      ["Sample", "Sample-0001"],
+      ["Sample", "Sample-0002"],
+      ["Zed", "Zed-0003"],
     ]);
   });
 });
@@ -252,5 +252,25 @@ describe("buildPortalBatch header facts", () => {
     const v = buildPortalBatch(batch({ closed: true }));
     expect(v.state).toBe("completed");
     expect(v.coverUrl).toBeNull();
+  });
+});
+
+describe("buildPortalBatch first name", () => {
+  const run = (pzId: string, displayName: string) =>
+    buildPortalBatch(
+      batch({
+        people: [{ id: "p1", pzId, displayName }],
+        regs: [{ personId: "p1", mode: "live", optionLabel: FULL }],
+      }),
+    ).attendance[0].firstName;
+
+  it("uses the PZ ID prefix, not a title word in the display name", () => {
+    expect(run("Name-0000", "Dr. Name Surname")).toBe("Name");
+  });
+  it("uses the text before the LAST dash", () => {
+    expect(run("Name-Two-0007", "Dr. Name Two Surname")).toBe("Name-Two");
+  });
+  it("falls back to the first word when the PZ ID has no dash", () => {
+    expect(run("Name0000", "Sample Name")).toBe("Sample");
   });
 });

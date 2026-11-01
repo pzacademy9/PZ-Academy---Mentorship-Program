@@ -130,6 +130,7 @@ function BatchCard({ batch: b }: { batch: PortalBatchCard }) {
   return (
     <Link
       href={`/progress/${b.slug}`}
+      prefetch={false}
       className={`flex h-full min-h-11 min-w-0 flex-col gap-3 overflow-hidden rounded-xl bg-pz-surface-container-lowest pb-4 shadow-sm ring-1 ring-pz-outline-variant/40 transition-colors hover:bg-pz-surface-container-low motion-reduce:transition-none ${btnFocus}`}
     >
       {b.coverUrl ? (

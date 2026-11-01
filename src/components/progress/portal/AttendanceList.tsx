@@ -33,26 +33,26 @@ function RowBody({ row, minPct }: { row: PortalAttendanceRow; minPct: number }) 
   return (
     <>
       <Avatar name={row.firstName} recorded={recorded} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 break-words font-headline text-base font-bold text-pz-on-surface">{row.firstName}</span>
           <span className="rounded-md bg-pz-surface-container-high px-2 py-0.5 font-mono text-sm text-pz-on-surface-variant">{row.pzId}</span>
-        </div>
+        </span>
         {recorded ? (
-          <p className="text-sm text-pz-on-surface-variant">Not tracked</p>
+          <span className="block text-sm text-pz-on-surface-variant">Not tracked</span>
         ) : noClasses ? (
-          <p className="text-sm text-pz-on-surface-variant">No classes yet</p>
+          <span className="block text-sm text-pz-on-surface-variant">No classes yet</span>
         ) : (
           <>
-            <p className="text-sm text-pz-on-surface-variant">
+            <span className="block text-sm text-pz-on-surface-variant">
               Attended {row.attended} of {row.held} classes ({row.pct}%)
-            </p>
-            <div aria-hidden className="h-2 overflow-hidden rounded-full bg-pz-surface-container-highest">
-              <div
-                className={`h-full rounded-full ${row.meetsMin ? "bg-pz-primary" : "bg-pz-tertiary"}`}
+            </span>
+            <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-pz-surface-container-highest">
+              <span
+                className={`block h-full rounded-full ${row.meetsMin ? "bg-pz-primary" : "bg-pz-tertiary"}`}
                 style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
               />
-            </div>
+            </span>
             {row.meetsMin ? (
               <span className="flex w-fit items-center gap-1 rounded-full bg-pz-primary-container px-2.5 py-1 font-headline text-sm font-bold text-pz-on-primary-container">
                 <CheckCircle2 aria-hidden className="h-4 w-4" />
@@ -72,7 +72,7 @@ function RowBody({ row, minPct }: { row: PortalAttendanceRow; minPct: number }) 
             Recorded student
           </span>
         )}
-      </div>
+      </span>
     </>
   );
 }

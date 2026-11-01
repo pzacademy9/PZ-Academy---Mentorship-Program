@@ -75,7 +75,7 @@ export default async function MyProgressPage() {
         </div>
         <p className="text-sm text-pz-on-surface-variant">Your attendance and quiz results across your batches.</p>
       </div>
-      <ProgressSection progress={progress} hideHello />
+      <ProgressSection progress={progress} />
       <PortalCard />
     </div>
   );

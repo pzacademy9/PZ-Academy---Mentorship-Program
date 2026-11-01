@@ -2,7 +2,7 @@
 // Public rows carry first name + PZ ID only. No server imports, no clock: `now` is an input.
 import { matchAudience, parseOption, type Audience } from "@/lib/classes/audience";
 import { attendancePercent, meetsMinimum } from "@/lib/attendance/rules";
-import type { ProgressKind } from "@/lib/progress/build";
+import { publicFirstName, type ProgressKind } from "@/lib/progress/build";
 
 export type PortalSessionInput = {
   id: string;
@@ -77,7 +77,6 @@ export type PortalBatchCard = {
 };
 
 const time = (iso: string) => new Date(iso).getTime();
-const firstNameOf = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 const cmpText = (a: string, b: string) => a.localeCompare(b);
 
 type Student = { person: PortalPersonInput; firstName: string; mode: "live" | "recorded"; labels: string[] };
@@ -97,7 +96,7 @@ function students(input: PortalBatchInput): Student[] {
     const live = regs.filter((r) => r.mode === "live");
     out.push({
       person,
-      firstName: firstNameOf(person.displayName),
+      firstName: publicFirstName(person.pzId, person.displayName),
       mode: live.length > 0 ? "live" : "recorded",
       labels: live.map((r) => r.optionLabel),
     });
@@ -205,7 +204,6 @@ export function buildPortalCards(batches: PortalBatchInput[]): PortalBatchCard[]
     const last = b.sessions.reduce((max, s) => Math.max(max, time(s.startsAt)), Number.NEGATIVE_INFINITY);
     const people = new Set(b.people.map((p) => p.id));
     const students = new Set(b.regs.filter((r) => people.has(r.personId)).map((r) => r.personId)).size;
-    const regsOf = b.regs.filter((r) => people.has(r.personId));
     const classesHeld = b.sessions.filter((s) => time(s.startsAt) <= b.now.getTime()).length;
     const state = batchState(b);
     const card: PortalBatchCard = {

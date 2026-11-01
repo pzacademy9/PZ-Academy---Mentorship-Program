@@ -58,10 +58,8 @@ export function ResultsBoard({ view, pick, onPick, rows, totalRows }: Props) {
               className="flex min-w-0 items-center gap-3 rounded-xl bg-pz-surface-container-lowest p-3 shadow-sm ring-1 ring-pz-outline-variant/40"
             >
               {r.rank !== null && (
-                <span
-                  aria-label={`Rank ${r.rank}`}
-                  className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-pz-primary-container px-2 font-headline text-sm font-black text-pz-on-primary-container"
-                >
+                <span className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-pz-primary-container px-2 font-headline text-sm font-black text-pz-on-primary-container">
+                  <span className="sr-only">Rank </span>
                   {r.rank}
                 </span>
               )}

@@ -145,9 +145,9 @@ describe("BatchPortal results", () => {
   it("overall shows tied ranks equally, recorded rows with a chip and no rank", () => {
     open();
     const items = screen.getAllByRole("listitem");
-    expect(within(items[0]).getByLabelText("Rank 1")).toBeTruthy();
-    expect(within(items[1]).getByLabelText("Rank 1")).toBeTruthy();
-    expect(within(items[2]).queryByLabelText(/Rank/)).toBeNull();
+    expect(items[0].textContent).toMatch(/Rank 1/);
+    expect(items[1].textContent).toMatch(/Rank 1/);
+    expect(items[2].textContent).not.toMatch(/Rank/);
     expect(within(items[2]).getByText("Recorded")).toBeTruthy();
     expect(within(items[2]).getByText("70")).toBeTruthy();
   });

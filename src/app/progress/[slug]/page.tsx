@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BatchPortal } from "@/components/progress/portal/BatchPortal";
 import { getPortalBatch } from "@/lib/data/portal";
-import { callerAllowed } from "@/lib/pzid/caller-allowed";
+import { portalCallerAllowed } from "@/lib/pzid/caller-allowed";
 import type { PortalBatchView } from "@/lib/progress/portal-build";
 
 // Reads request headers for the rate limit, so every visit runs on the server.
@@ -19,7 +19,7 @@ type LoadResult = { status: "ok"; view: PortalBatchView } | { status: "limited" 
 // cache(): the metadata step and the page share one lookup per request (one rate-limit hit, one read).
 const load = cache(async (slug: string): Promise<LoadResult> => {
   try {
-    if (!(await callerAllowed())) return { status: "limited" };
+    if (!(await portalCallerAllowed())) return { status: "limited" };
     const view = await getPortalBatch(slug);
     return view ? { status: "ok", view } : { status: "missing" };
   } catch {

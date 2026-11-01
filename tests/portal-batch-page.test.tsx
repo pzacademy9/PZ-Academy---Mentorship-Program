@@ -7,7 +7,7 @@ vi.mock("react", async (orig) => ({ ...(await orig<typeof import("react")>()), c
 const getPortalBatch = vi.fn();
 const callerAllowed = vi.fn();
 vi.mock("@/lib/data/portal", () => ({ getPortalBatch: (...a: unknown[]) => getPortalBatch(...a) }));
-vi.mock("@/lib/pzid/caller-allowed", () => ({ callerAllowed: () => callerAllowed() }));
+vi.mock("@/lib/pzid/caller-allowed", () => ({ portalCallerAllowed: () => callerAllowed() }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
