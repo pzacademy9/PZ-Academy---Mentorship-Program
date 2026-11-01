@@ -1,10 +1,9 @@
 "use server";
 
-import { headers } from "next/headers";
 import { checkNameQuery, findIdsByName, MAX_ROWS, type MyIdRow } from "@/lib/data/pz-people";
 import { getProgressByPzId } from "@/lib/data/progress";
 import type { Progress } from "@/lib/progress/build";
-import { allowLookup } from "@/lib/pzid/lookup-limit";
+import { callerAllowed } from "@/lib/pzid/caller-allowed";
 
 export type FindMyIdByNameResult =
   | { status: "ok"; rows: MyIdRow[]; more: boolean }
@@ -22,13 +21,6 @@ export type MyProgressResult =
 
 // The only error text ever sent to the browser. Thrown messages stay on the server.
 const GENERIC_ERROR = "Something went wrong. Please try again in a minute.";
-
-async function callerAllowed(): Promise<boolean> {
-  const h = await headers();
-  const ip =
-    (h.get("x-real-ip") ?? "").trim() || (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  return allowLookup(ip);
-}
 
 export async function findMyIdByName(query: string): Promise<FindMyIdByNameResult> {
   try {
