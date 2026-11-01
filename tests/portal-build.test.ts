@@ -200,4 +200,32 @@ describe("buildPortalCards", () => {
     expect(cards[1]).toMatchObject({ students: 2, classesHeld: 2, classesTotal: 2, lastClassAt: day(2) });
     expect(cards[0]).toMatchObject({ students: 1, classesHeld: 1, classesTotal: 2 });
   });
+
+  it("passes the chosen cover through, else null", () => {
+    const [a, b] = buildPortalCards([batch({ slug: "a", coverUrl: "https://x.test/a.jpg" }), batch({ slug: "b", sessions: [] })]);
+    expect([a.coverUrl, b.coverUrl].sort()).toEqual(["https://x.test/a.jpg", null].sort());
+  });
+
+  it("sets the state chip: completed, recorded, else live", () => {
+    const live = batch({ slug: "l", sessions: [sess(1, day(1)), sess(2, day(20))] });
+    const done = batch({ slug: "d", sessions: [sess(1, day(1)), sess(2, day(2))] });
+    const closed = batch({ slug: "c", closed: true, sessions: [sess(1, day(1)), sess(2, day(20))] });
+    const rec = batch({
+      slug: "r",
+      sessions: [sess(1, day(1)), sess(2, day(20))],
+      regs: [{ personId: "p1", mode: "recorded", optionLabel: "Recorded - Full Course" }],
+    });
+    const mixed = batch({
+      slug: "m",
+      sessions: [sess(1, day(1)), sess(2, day(20))],
+      people: [person(1), person(2)],
+      regs: [
+        { personId: "p1", mode: "recorded", optionLabel: "Recorded - Full Course" },
+        { personId: "p2", mode: "live", optionLabel: FULL },
+      ],
+    });
+    const none = batch({ slug: "n", sessions: [], regs: [], people: [] });
+    const by = Object.fromEntries(buildPortalCards([live, done, closed, rec, mixed, none]).map((c) => [c.slug, c.state]));
+    expect(by).toEqual({ l: "live", d: "completed", c: "completed", r: "recorded", m: "live", n: "live" });
+  });
 });

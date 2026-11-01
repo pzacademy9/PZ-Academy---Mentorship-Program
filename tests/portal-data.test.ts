@@ -74,7 +74,44 @@ describe("listPortalBatches", () => {
   it("omits drafts and wrong kinds, and counts enrolled people and classes", async () => {
     const cards = await listPortalBatches(NOW);
     expect(cards.map((c) => c.slug)).toEqual(["course-a"]);
-    expect(cards[0]).toMatchObject({ students: 3, classesHeld: 2, classesTotal: 3, lastClassAt: FUTURE });
+    expect(cards[0]).toMatchObject({ students: 3, classesHeld: 2, classesTotal: 3, lastClassAt: FUTURE, state: "live" });
+  });
+
+  describe("coverUrl", () => {
+    const cover = async (published: unknown, classCover: string | null = null) => {
+      const s = seed();
+      Object.assign(s.landing_pages[0], { published, class_cover_url: classCover });
+      db.state.handler = memoryHandler(s);
+      return (await listPortalBatches(NOW))[0].coverUrl;
+    };
+    const content = (hero: Record<string, unknown>, ogImage = "") => ({
+      seo: { title: "", description: "", ogImage },
+      sections: [{ id: "h1", type: "hero", enabled: true, data: hero }],
+    });
+
+    it("prefers hero computer picture, then phone, then og image, then class cover", async () => {
+      expect(await cover(content({ imagePc: "https://x.test/pc.jpg", imagePhone: "https://x.test/ph.jpg" }, "https://x.test/og.jpg"), "https://x.test/cc.jpg")).toBe("https://x.test/pc.jpg");
+      expect(await cover(content({ imagePhone: "https://x.test/ph.jpg" }, "https://x.test/og.jpg"), "https://x.test/cc.jpg")).toBe("https://x.test/ph.jpg");
+      expect(await cover(content({}, "https://x.test/og.jpg"), "https://x.test/cc.jpg")).toBe("https://x.test/og.jpg");
+      expect(await cover(content({}), "https://x.test/cc.jpg")).toBe("https://x.test/cc.jpg");
+    });
+
+    it("skips unsafe urls and falls through", async () => {
+      expect(await cover(content({ imagePc: "javascript:alert(1)", imagePhone: "/relative.jpg" }, "https://x.test/og.jpg"))).toBe("https://x.test/og.jpg");
+      expect(await cover(null, "data:text/html,x")).toBeNull();
+    });
+
+    it("is null when nothing is set", async () => {
+      expect(await cover(null)).toBeNull();
+      expect(await cover(content({}))).toBeNull();
+    });
+  });
+
+  it("marks a closed batch completed", async () => {
+    const s = seed();
+    s.landing_pages[0].status = "closed";
+    db.state.handler = memoryHandler(s);
+    expect((await listPortalBatches(NOW))[0].state).toBe("completed");
   });
 
   it("rejects when a read fails", async () => {

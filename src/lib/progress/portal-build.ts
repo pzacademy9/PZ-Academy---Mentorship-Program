@@ -26,6 +26,10 @@ export type PortalBatchInput = {
   regs: PortalRegInput[];
   marks: { sessionId: string; personId: string }[];
   scores: { sessionId: string; personId: string; score: number }[];
+  /** The batch's landing page is closed (status 'closed'). */
+  closed?: boolean;
+  /** Safe http(s) cover picture, already chosen by the loader. */
+  coverUrl?: string | null;
   now: Date;
 };
 
@@ -64,6 +68,8 @@ export type PortalBatchCard = {
   classesHeld: number;
   classesTotal: number;
   lastClassAt: string | null;
+  state: "live" | "completed" | "recorded";
+  coverUrl: string | null;
 };
 
 const time = (iso: string) => new Date(iso).getTime();
@@ -180,14 +186,25 @@ export function buildPortalCards(batches: PortalBatchInput[]): PortalBatchCard[]
     const last = b.sessions.reduce((max, s) => Math.max(max, time(s.startsAt)), Number.NEGATIVE_INFINITY);
     const people = new Set(b.people.map((p) => p.id));
     const students = new Set(b.regs.filter((r) => people.has(r.personId)).map((r) => r.personId)).size;
+    const regsOf = b.regs.filter((r) => people.has(r.personId));
+    const classesHeld = b.sessions.filter((s) => time(s.startsAt) <= b.now.getTime()).length;
+    const allRecorded = students > 0 && regsOf.every((r) => r.mode === "recorded");
+    const state: PortalBatchCard["state"] =
+      b.closed === true || (b.sessions.length > 0 && classesHeld === b.sessions.length)
+        ? "completed"
+        : allRecorded
+          ? "recorded"
+          : "live";
     const card: PortalBatchCard = {
       title: b.title,
       slug: b.slug,
       kind: b.kind,
       students,
-      classesHeld: b.sessions.filter((s) => time(s.startsAt) <= b.now.getTime()).length,
+      classesHeld,
       classesTotal: b.sessions.length,
       lastClassAt: b.sessions.find((s) => time(s.startsAt) === last)?.startsAt ?? null,
+      state,
+      coverUrl: b.coverUrl ?? null,
     };
     return { card, last };
   });

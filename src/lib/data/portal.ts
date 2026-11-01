@@ -4,6 +4,8 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { audienceFromJson } from "@/lib/classes/audience";
+import { normalizeContent } from "@/lib/landing/content";
+import { isSafeUrl } from "@/lib/landing/simple-text";
 import { fetchAll } from "@/lib/data/attendance";
 import { getProgressByPzId } from "@/lib/data/progress";
 import type { Progress, ProgressKind } from "@/lib/progress/build";
@@ -32,15 +34,29 @@ function chunks<T>(items: T[]): T[][] {
   return out;
 }
 
-type PageRow = { id: string; title: string; slug: string; kind: string; attendance_min_pct: number };
+type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null };
 type SessionRow = { id: string; page_id: string; number: number; title: string; starts_at: string; audience: unknown; quiz_max_score: number | null };
 type RegRow = { page_id: string; person_id: string | null; mode: string; option_label: string };
+
+const safeHttp = (v: unknown): string | null =>
+  typeof v === "string" && /^https?:\/\//i.test(v.trim()) && isSafeUrl(v) ? v.trim() : null;
+
+/** One cover URL: hero picture (computer, then phone), then the social image, then the class cover. Never the whole content. */
+function pickCover(p: PageRow): string | null {
+  if (p.published !== null && p.published !== undefined) {
+    const content = normalizeContent(p.published);
+    const hero = content.sections.find((s) => s.type === "hero");
+    const found = safeHttp(hero?.data.imagePc) ?? safeHttp(hero?.data.imagePhone) ?? safeHttp(content.seo.ogImage);
+    if (found) return found;
+  }
+  return safeHttp(p.class_cover_url);
+}
 
 /** Published or closed batches of a portal kind, optionally just one slug. */
 async function readPages(slug?: string): Promise<PageRow[]> {
   let q = createAdminSupabase()
     .from("landing_pages")
-    .select("id, title, slug, status, kind, attendance_min_pct")
+    .select("id, title, slug, status, kind, attendance_min_pct, published, class_cover_url")
     .in("status", ["published", "closed"])
     .in("kind", KINDS);
   if (slug !== undefined) q = q.eq("slug", slug);
@@ -134,6 +150,8 @@ async function loadInputs(pages: PageRow[], withResults: boolean, now: Date): Pr
       slug: p.slug,
       kind: p.kind as ProgressKind,
       minPct: p.attendance_min_pct,
+      closed: p.status === "closed",
+      coverUrl: pickCover(p),
       sessions: sessionInputs,
       people: Array.from(pagePeople.values()),
       regs: pageRegs,
