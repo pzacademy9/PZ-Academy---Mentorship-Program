@@ -6,6 +6,8 @@ const PAGE = 1000;
 const CHUNK = 200;
 const MIN_QUERY = 3;
 export const MAX_ROWS = 5;
+/** Rows read from the database: one more than shown, so the page can say "more people match". */
+export const FETCH_ROWS = MAX_ROWS + 1;
 const ADMIN_ERROR = "Could not load IDs. Please try again.";
 
 export type BatchIdRow = { name: string; pzId: string; emailMasked: string };
@@ -96,22 +98,33 @@ const FIND_ERROR = "Could not search IDs. Please try again.";
 const MAX_QUERY = 60;
 
 
+export type NameQueryCheck = { ok: true; q: string } | { ok: false; reason: "too_short" | "too_long" };
+
 /**
- * Cleans a public name query: removes *, trims, collapses inner whitespace. Returns null when it is
+ * Cleans a public name query: removes *, trims, collapses inner whitespace. Says why it is rejected:
  * too short (under 3 characters or under 3 letters/digits) or too long (over 60 characters).
  */
-export function cleanNameQuery(query: unknown): string | null {
-  if (typeof query !== "string") return null;
+export function checkNameQuery(query: unknown): NameQueryCheck {
+  if (typeof query !== "string") return { ok: false, reason: "too_short" };
   const q = query.replace(/\*/g, "").replace(/\s+/g, " ").trim();
-  if (q.length < MIN_QUERY || q.length > MAX_QUERY) return null;
-  if (Array.from(q).filter((c) => /[0-9]/.test(c) || c.toLowerCase() !== c.toUpperCase()).length < MIN_QUERY) return null;
-  return q;
+  if (q.length > MAX_QUERY) return { ok: false, reason: "too_long" };
+  if (q.length < MIN_QUERY) return { ok: false, reason: "too_short" };
+  if (Array.from(q).filter((c) => /[0-9]/.test(c) || c.toLowerCase() !== c.toUpperCase()).length < MIN_QUERY) {
+    return { ok: false, reason: "too_short" };
+  }
+  return { ok: true, q };
+}
+
+/** The cleaned query, or null when it is too short or too long. */
+export function cleanNameQuery(query: unknown): string | null {
+  const c = checkNameQuery(query);
+  return c.ok ? c.q : null;
 }
 
 /**
  * Public "find my ID" search for the progress page. The query is cleaned first (3-60 characters),
  * then ONE database function does the whole search (enrolled people of published or closed batches
- * only) and returns at most 5 rows: first name, PZ ID and batch title. It never returns an email,
+ * only) and returns at most 6 rows (callers show 5 and use the 6th as a "more" signal): first name, PZ ID and batch title. It never returns an email,
  * last name or full name, so it cannot be used to list everyone. Throws a plain error on a database failure.
  */
 export async function findIdsByName(query: string): Promise<MyIdRow[]> {
@@ -119,7 +132,7 @@ export async function findIdsByName(query: string): Promise<MyIdRow[]> {
   if (!q) return [];
   const { data, error } = await createAdminSupabase().rpc("find_enrolled_ids_by_name", { p_query: q });
   if (error || !Array.isArray(data)) throw new Error(FIND_ERROR);
-  return data.slice(0, MAX_ROWS).map((r) => ({
+  return data.slice(0, FETCH_ROWS).map((r) => ({
     firstName: r.first_name,
     pzId: r.pz_id,
     batchTitle: r.batch_title,

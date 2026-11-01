@@ -87,7 +87,7 @@ function setup() {
   return render(<ProgressPage findId={findId} getProgress={getProgress} />);
 }
 
-const nameBox = () => screen.getByLabelText("Type your first name") as HTMLInputElement;
+const nameBox = () => screen.getByLabelText("Type your full name") as HTMLInputElement;
 const idBox = () => screen.getByLabelText("Your PZ ID") as HTMLInputElement;
 
 async function searchName(q: string) {
@@ -147,7 +147,7 @@ describe("Find My ID box", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     setup();
-    findId.mockResolvedValueOnce({ status: "ok", rows: [row("Sample", "Sample-0000", "Sample Batch 1")] });
+    findId.mockResolvedValueOnce({ status: "ok", rows: [row("Sample", "Sample-0000", "Sample Batch 1")], more: false });
     await searchName("Sample");
     expect(await screen.findByText("Sample-0000")).toBeTruthy();
     expect(screen.getByText("Batch: Sample Batch 1")).toBeTruthy();
@@ -171,7 +171,7 @@ describe("Find My ID box", () => {
     const writeText = vi.fn().mockRejectedValue(new Error("blocked"));
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     setup();
-    findId.mockResolvedValueOnce({ status: "ok", rows: [row("Sample", "Sample-0000", "Sample Batch 1")] });
+    findId.mockResolvedValueOnce({ status: "ok", rows: [row("Sample", "Sample-0000", "Sample Batch 1")], more: false });
     await searchName("Sample");
     fireEvent.click(await screen.findByRole("button", { name: /copy id sample-0000/i }));
     const alert = await screen.findByRole("alert");
@@ -185,6 +185,7 @@ describe("Find My ID box", () => {
     findId.mockResolvedValueOnce({
       status: "ok",
       rows: [row("Sample", "Sample-0000", "Sample Batch 1"), row("Sample", "Sample-1111", "Sample Batch 2")],
+      more: false,
     });
     await searchName("Sample");
     expect(await screen.findByText("2 matches found")).toBeTruthy();
@@ -194,7 +195,72 @@ describe("Find My ID box", () => {
   });
 });
 
+describe("Find My ID box: full name, long names, more matches, announcements", () => {
+  it("asks for the full name and describes the box with a short hint only", async () => {
+    setup();
+    expect(nameBox().getAttribute("aria-describedby")).toBe("progress-name-hint");
+    expect(document.getElementById("progress-name-hint")?.textContent).toMatch(/at least 3 letters/i);
+    findId.mockResolvedValueOnce({
+      status: "ok",
+      rows: [row("Sample", "Sample-0000", "Sample Batch 1"), row("Sample", "Sample-1111", "Sample Batch 2")],
+      more: false,
+    });
+    await searchName("Sample Name");
+    await screen.findByText("2 matches found");
+    expect(document.getElementById("progress-name-hint")?.textContent).not.toMatch(/Sample-0000/);
+  });
+
+  it("too_long gets its own plain message, not 'too short'", async () => {
+    setup();
+    findId.mockResolvedValueOnce({ status: "too_long" });
+    await searchName("x".repeat(61));
+    expect(await screen.findByText("That name is too long. Type just your full name.")).toBeTruthy();
+    expect(screen.queryByText("Name too short")).toBeNull();
+    expect(nameBox().getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("shows the 'more people match' message only when the server says more", async () => {
+    setup();
+    const rows = Array.from({ length: 5 }, (_, i) => row("Sample", `Sample-000${i}`, "Sample Batch 1"));
+    findId.mockResolvedValueOnce({ status: "ok", rows, more: true });
+    await searchName("Sample");
+    expect(await screen.findByText("More people match. Type your full name to narrow it down.")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^Use ID/ })).toHaveLength(5);
+    findId.mockResolvedValueOnce({ status: "ok", rows, more: false });
+    await searchName("Sample Name");
+    await waitFor(() => expect(screen.queryByText(/More people match/)).toBeNull());
+  });
+
+  it("has exactly one polite live region in step 1 with a one-line summary, and no nested alert", async () => {
+    const { container } = setup();
+    findId.mockResolvedValueOnce({
+      status: "ok",
+      rows: [row("Sample", "Sample-0000", "Sample Batch 1"), row("Sample", "Sample-1111", "Sample Batch 2")],
+      more: false,
+    });
+    await searchName("Sample");
+    await screen.findByText("2 matches found");
+    const live = container.querySelector("#progress-name-status");
+    expect(live?.getAttribute("aria-live")).toBe("polite");
+    expect(live?.textContent).toBe("2 matches found.");
+    expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
+    findId.mockResolvedValueOnce({ status: "not_found" });
+    await searchName("Nobody");
+    await screen.findByText("We could not find that name");
+    expect(container.querySelector("[aria-live] [role='alert']")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
 describe("My Progress Tracker box", () => {
+  it("announces a step 2 error once: role=alert, with no live region around it", async () => {
+    const { container } = setup();
+    fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(container.querySelector("#progress-id-status")?.getAttribute("aria-live")).toBeNull();
+    expect(container.querySelector("[aria-live] [role='alert']")).toBeNull();
+  });
+
   it("empty ID asks for the ID without calling the server", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
@@ -342,6 +408,7 @@ describe("privacy and layout", () => {
     findId.mockResolvedValueOnce({
       status: "ok",
       rows: [row("Sample", "Sample-0000", "Sample Batch 1"), row("Sample", "Sample-1111", "Sample Batch 2")],
+      more: false,
     });
     getProgress.mockResolvedValue({ status: "ok", progress: progress() });
     const { container } = setup();

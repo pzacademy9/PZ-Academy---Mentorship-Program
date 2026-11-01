@@ -10,7 +10,7 @@ Do this once, before the "Track Your Progress" page goes live.
 
 What it does, in plain words:
 - Adds a small notebook that remembers recent public lookups, so one person cannot search again and again without limit (about 30 lookups per 10 minutes).
-- Adds the "find my ID by name" search as one safe function. It returns at most 5 rows, with first name, PZ ID and batch title only.
+- Adds the "find my ID by name" search as one safe function. It returns at most 6 rows (the page shows 5 and uses the 6th to say more people match), with first name, PZ ID and batch title only.
 
 The complete SQL to paste is:
 
@@ -80,7 +80,7 @@ as $$
          '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
    group by p.display_name, p.pz_id, lp.title
    order by p.display_name, p.pz_id, lp.title
-   limit 5;
+   limit 6;
 $$;
 
 revoke all on function public.find_enrolled_ids_by_name(text) from public;
@@ -104,3 +104,29 @@ select
 ```
 
 Expect one row with `1`, `1` and `1`. If any shows `0`, tell me which one.
+
+Note: migration 0092 must already be pasted before you paste 0094 (0092 is the one that gives people their permanent PZ IDs). If you are not sure, paste 0092 first.
+
+## (c) Two quick smoke checks
+
+Run each one on its own in the SQL editor.
+
+1. Name search must not list everyone. Run:
+
+```sql
+select * from public.find_enrolled_ids_by_name('%%%');
+```
+
+It should show 0 rows. If it shows rows, stop and tell me.
+
+2. The lookup limit must say yes twice, then no. Run this line three times in a row:
+
+```sql
+select public.public_lookup_allow('x', 2, 60);
+```
+
+You should see true, then true, then false. (If you wait more than a minute between runs the count starts again, so run the three quickly.) Then clean up the test rows:
+
+```sql
+delete from public.public_lookup_hits where key = 'x';
+```

@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { findIdsByName, cleanNameQuery } from "@/lib/data/pz-people";
+import { findIdsByName, cleanNameQuery, checkNameQuery } from "@/lib/data/pz-people";
 
 const row = (i: number) => ({ first_name: "Sample", pz_id: `Name-${String(i).padStart(4, "0")}`, batch_title: "Batch One" });
 let reply: Res;
@@ -17,6 +17,14 @@ beforeEach(() => {
 });
 
 const rpcOps = () => db.state.ops.filter((o) => o.op === "rpc");
+
+describe("checkNameQuery", () => {
+  it("tells too long from too short", () => {
+    expect(checkNameQuery("x".repeat(61))).toEqual({ ok: false, reason: "too_long" });
+    expect(checkNameQuery("x".repeat(60))).toMatchObject({ ok: true });
+    for (const q of ["sa", "...", "   ", "", undefined]) expect(checkNameQuery(q)).toEqual({ ok: false, reason: "too_short" });
+  });
+});
 
 describe("cleanNameQuery", () => {
   it("rejects short, symbol-only, too long and non-string input", () => {
@@ -58,9 +66,9 @@ describe("findIdsByName", () => {
     expect(json).not.toContain("Surname");
   });
 
-  it("caps the result at 5 rows even if the database returned more", async () => {
+  it("caps the result at 6 rows (5 shown plus one for the more signal) even if the database returned more", async () => {
     reply = { data: Array.from({ length: 9 }, (_, i) => row(i)), error: null };
-    expect(await findIdsByName("sample")).toHaveLength(5);
+    expect(await findIdsByName("sample")).toHaveLength(6);
   });
 
   it("returns an empty list when nothing matches", async () => {

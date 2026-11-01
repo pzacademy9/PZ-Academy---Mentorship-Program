@@ -127,7 +127,7 @@ export function ProgressPage({ findId, getProgress }: Props) {
             )}
             {pending ? "Loading your progress..." : "Show my progress"}
           </button>
-          <div id="progress-id-status" aria-live="polite" className="min-w-0">
+          <div id="progress-id-status" className="min-w-0">
             {idError && <IdErrorNotice error={idError} />}
           </div>
           <button

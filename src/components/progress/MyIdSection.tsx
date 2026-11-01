@@ -60,7 +60,7 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
     if (ok) timer.current = setTimeout(() => setCopy(null), COPIED_MS);
   }
 
-  const invalid = result?.status === "too_short" || result?.status === "not_found";
+  const invalid = result?.status === "too_short" || result?.status === "too_long" || result?.status === "not_found";
 
   return (
     <section aria-labelledby="find-id-heading" className="flex min-w-0 flex-col gap-3">
@@ -68,7 +68,7 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
       <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-pz-surface-container-lowest p-4 shadow-sm ring-1 ring-pz-outline-variant/40">
         <form onSubmit={onSubmit} noValidate className="flex min-w-0 flex-col gap-3">
           <label htmlFor="progress-name" className="font-headline text-sm font-semibold text-pz-on-surface-variant">
-            Type your first name
+            Type your full name
           </label>
           <input
             ref={nameRef}
@@ -76,13 +76,16 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
             name="name"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. Sample"
-            autoComplete="given-name"
+            placeholder="Your full name"
+            autoComplete="name"
             enterKeyHint="search"
             aria-invalid={invalid || undefined}
-            aria-describedby="progress-name-status"
+            aria-describedby="progress-name-hint"
             className={inputClass}
           />
+          <p id="progress-name-hint" className="text-sm text-pz-on-surface-variant">
+            At least 3 letters. Your full name works best.
+          </p>
           <button
             type="submit"
             disabled={pending}
@@ -98,7 +101,11 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
           </button>
         </form>
 
-        <div id="progress-name-status" aria-live="polite" className="min-w-0">
+        {/* One polite live region: it announces a one-line summary only, never the whole result. */}
+        <p id="progress-name-status" role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {result ? summaryOf(result) : ""}
+        </p>
+        <div className="min-w-0">
           {result && (
             <IdResult result={result} copy={copy} onCopy={onCopy} onUse={(id) => onFill(id, true)} />
           )}
@@ -106,6 +113,26 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
       </div>
     </section>
   );
+}
+
+function summaryOf(result: FindMyIdByNameResult): string {
+  switch (result.status) {
+    case "too_short":
+      return "Name too short. Type at least 3 letters.";
+    case "too_long":
+      return "Name too long. Type just your full name.";
+    case "not_found":
+      return "No match found for that name.";
+    case "rate_limited":
+      return "Too many tries. Please wait a few minutes.";
+    case "error":
+      return "Something went wrong. Please try again.";
+    case "ok": {
+      const n = result.rows.length;
+      const count = result.more ? `More than ${n} matches found` : `${n} ${n === 1 ? "match" : "matches"} found`;
+      return `${count}.`;
+    }
+  }
 }
 
 function Notice({ tone, title, body }: { tone: "error" | "wait"; title: string; body: string }) {
@@ -139,6 +166,8 @@ function IdResult({
   switch (result.status) {
     case "too_short":
       return <Notice tone="error" title="Name too short" body="Type at least 3 letters of your first name, then tap Find my ID." />;
+    case "too_long":
+      return <Notice tone="error" title="Name too long" body="That name is too long. Type just your full name." />;
     case "not_found":
       return (
         <Notice
@@ -181,6 +210,9 @@ function IdResult({
     <div className="flex min-w-0 flex-col gap-2 rounded-lg bg-pz-surface-container-low p-3.5">
       <p className="font-headline text-sm font-bold text-pz-on-surface">{result.rows.length} matches found</p>
       <p className="text-sm text-pz-on-surface-variant">Pick the one with your batch. Tap Use to put it in the box below.</p>
+      {result.more && (
+        <p className="text-sm font-semibold text-pz-on-surface">More people match. Type your full name to narrow it down.</p>
+      )}
       <ul className="flex min-w-0 flex-col gap-2">
         {result.rows.map((r, i) => (
           <li

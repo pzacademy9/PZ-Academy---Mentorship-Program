@@ -83,9 +83,16 @@ describe("findMyIdByName", () => {
   it("is too_short under 3 letters without searching", async () => {
     expect(await findMyIdByName("sa")).toEqual({ status: "too_short" });
     expect(await findMyIdByName("*s*")).toEqual({ status: "too_short" });
-    for (const q of ["a b", "...", "x".repeat(61), "  a   b  "]) expect(await findMyIdByName(q)).toEqual({ status: "too_short" });
+    for (const q of ["a b", "...", "  a   b  "]) expect(await findMyIdByName(q)).toEqual({ status: "too_short" });
     expect(await findMyIdByName(undefined as unknown as string)).toEqual({ status: "too_short" });
     expect(findIdsByName).not.toHaveBeenCalled();
+  });
+
+  it("is too_long (a distinct status) over 60 characters, without searching", async () => {
+    findIdsByName.mockResolvedValue([]);
+    expect(await findMyIdByName("x".repeat(61))).toEqual({ status: "too_long" });
+    expect(findIdsByName).not.toHaveBeenCalled();
+    expect(await findMyIdByName("x".repeat(60))).toEqual({ status: "not_found" });
   });
 
   it("is not_found when nothing matches", async () => {
@@ -102,7 +109,18 @@ describe("findMyIdByName", () => {
     expect(res.status).toBe("ok");
     if (res.status !== "ok") throw new Error("unreachable");
     expect(res.rows).toHaveLength(5);
+    expect(res.more).toBe(true);
     expect(JSON.stringify(res)).not.toMatch(/@|email|surname/i);
+  });
+
+  it("says more is false with 5 rows or fewer, and true with a 6th", async () => {
+    const mk = (n: number) => Array.from({ length: n }, (_, i) => ({ firstName: "Sample", pzId: `Name-000${i}`, batchTitle: "B" }));
+    findIdsByName.mockResolvedValue(mk(5));
+    expect(await findMyIdByName("sample")).toMatchObject({ status: "ok", more: false });
+    findIdsByName.mockResolvedValue(mk(6));
+    const res = await findMyIdByName("sample");
+    expect(res).toMatchObject({ status: "ok", more: true });
+    if (res.status === "ok") expect(res.rows).toHaveLength(5);
   });
 
   it("hides thrown database text behind one generic message", async () => {

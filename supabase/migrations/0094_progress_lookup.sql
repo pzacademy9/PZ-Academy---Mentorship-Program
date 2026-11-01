@@ -3,7 +3,8 @@
 -- public_lookup_hits remembers recent public lookups (by a hashed key, never a raw IP).
 -- public_lookup_allow(key, limit, window) answers true if the caller may go ahead, and records the hit.
 -- public_lookup_hits has RLS on and no policies: only the service role (through the function) touches it.
--- find_enrolled_ids_by_name(query) is the whole public "find my ID" search in one call: at most 5 rows,
+-- find_enrolled_ids_by_name(query) is the whole public "find my ID" search in one call: at most 6 rows
+-- (the app shows 5 and uses the 6th only to say "more people match"),
 -- first name + PZ ID + batch title only (never email, last name or full name).
 -- No existing data is changed. Safe to re-run.
 
@@ -72,7 +73,7 @@ as $$
          '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
    group by p.display_name, p.pz_id, lp.title
    order by p.display_name, p.pz_id, lp.title
-   limit 5;
+   limit 6;
 $$;
 
 revoke all on function public.find_enrolled_ids_by_name(text) from public;
