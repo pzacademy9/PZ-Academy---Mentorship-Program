@@ -25,10 +25,11 @@ const seed = (): Store => ({
     { alias_norm: "nobody-3333", person_id: "nobody" },
   ],
   landing_pages: [
-    { id: "pc", title: "Course A", slug: "course-a", status: "published", kind: "course", attendance_min_pct: 70 },
-    { id: "pw", title: "Workshop B", slug: "workshop-b", status: "closed", kind: "workshop", attendance_min_pct: 75 },
-    { id: "pd", title: "Draft C", slug: "draft-c", status: "draft", kind: "course", attendance_min_pct: 75 },
-    { id: "pt", title: "Test Only D", slug: "test-d", status: "published", kind: "webinar", attendance_min_pct: 75 },
+    { id: "pc", title: "Course A", slug: "course-a", status: "published", kind: "course", attendance_min_pct: 70, show_in_portal: true },
+    { id: "pw", title: "Workshop B", slug: "workshop-b", status: "closed", kind: "workshop", attendance_min_pct: 75, show_in_portal: true },
+    { id: "pd", title: "Draft C", slug: "draft-c", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: true },
+    { id: "pt", title: "Test Only D", slug: "test-d", status: "published", kind: "webinar", attendance_min_pct: 75, show_in_portal: true },
+    { id: "ph", title: "Hidden E", slug: "hidden-e", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: false },
   ],
   landing_registrations: [
     { id: "r1", page_id: "pc", person_id: "me", status: "paid", is_test: false, option_label: "Live - Modules: M2", mode: "live", email: "me@example.com" },
@@ -37,6 +38,7 @@ const seed = (): Store => ({
     { id: "r4", page_id: "pw", person_id: "me", status: "free", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
     { id: "r5", page_id: "pd", person_id: "me", status: "paid", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
     { id: "r6", page_id: "pt", person_id: "me", status: "paid", is_test: true, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
+    { id: "r8h", page_id: "ph", person_id: "me", status: "paid", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
     { id: "r7", page_id: "pw", person_id: "nobody", status: "pending", is_test: false, option_label: "Live - Full Course", mode: "live", email: "n@example.com" },
   ],
   batch_sessions: [
@@ -85,11 +87,10 @@ describe("getProgressByPzId", () => {
     }
   });
 
-  it("filters by module, counts started classes only, and shows only published or closed non-test batches", async () => {
+  it("filters by module, counts started classes only, and shows visible non-test batches (a draft with the student included)", async () => {
     const out = (await getProgressByPzId("Sample-0000", NOW))!;
     expect(out.groups.map((g) => g.kind)).toEqual(["course", "workshop"]);
-    const course = out.groups[0].batches[0];
-    expect(course.slug).toBe("course-a");
+    const course = out.groups[0].batches.find((b) => b.slug === "course-a")!;
     expect(course.attendance!.rows.map((r) => [r.number, r.state, r.how])).toEqual([
       [2, "present", "check-in"],
       [3, "upcoming", null],
@@ -98,8 +99,19 @@ describe("getProgressByPzId", () => {
     expect(course.attendance!.minPct).toBe(70);
     expect(out.groups[1].batches[0].attendance!.rows[0].state).toBe("absent");
     const slugs = out.groups.flatMap((g) => g.batches.map((b) => b.slug));
-    expect(slugs).not.toContain("draft-c");
+    expect(slugs).toContain("draft-c");
     expect(slugs).not.toContain("test-d");
+    expect(slugs).not.toContain("hidden-e");
+  });
+
+  it("drops a batch whose portal switch is off, and shows it again when switched on", async () => {
+    const off = (await getProgressByPzId("Sample-0000", NOW))!;
+    expect(off.groups.flatMap((g) => g.batches.map((b) => b.slug))).not.toContain("hidden-e");
+    const store = seed();
+    store.landing_pages.find((p) => p.id === "ph")!.show_in_portal = true;
+    db.state.handler = memoryHandler(store);
+    const on = (await getProgressByPzId("Sample-0000", NOW))!;
+    expect(on.groups.flatMap((g) => g.batches.map((b) => b.slug))).toContain("hidden-e");
   });
 
   it("ranks among live students with a saved score; recorded students are not ranked", async () => {

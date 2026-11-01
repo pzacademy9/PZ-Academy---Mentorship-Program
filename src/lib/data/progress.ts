@@ -6,6 +6,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { audienceFromJson } from "@/lib/classes/audience";
 import { normalizePzId, PZ_ID_SHAPE } from "@/lib/pzid/format";
 import { fetchAll } from "@/lib/data/attendance";
+import { isPortalVisible } from "@/lib/progress/visibility";
 import {
   buildProgress,
   type BatchInput,
@@ -17,7 +18,6 @@ import {
 
 const CHUNK = 200;
 const MAX_ID_LENGTH = 40;
-const KINDS: string[] = ["course", "workshop", "webinar"];
 
 type DbError = { message: string } | null;
 function check(what: string, error: DbError): void {
@@ -32,7 +32,7 @@ function chunks<T>(items: T[]): T[][] {
 
 type Person = { id: string; pz_id: string; display_name: string };
 type Reg = { page_id: string; mode: string; option_label: string };
-type Page = { id: string; title: string; slug: string; kind: string; attendance_min_pct: number };
+type Page = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; show_in_portal: boolean };
 type SessionRow = {
   id: string;
   page_id: string;
@@ -57,7 +57,7 @@ async function findPerson(norm: string): Promise<Person | null> {
 
 /**
  * Progress of the person who owns this PZ ID, or null for anything not found
- * (malformed, unknown, or a person with no paid/free non-test enrolment in a published or closed batch).
+ * (malformed, unknown, or a person with no paid/free non-test enrolment in a batch visible on the portal).
  * A read that fails throws; it never returns a partial answer.
  */
 export async function getProgressByPzId(raw: string, now: Date = new Date()): Promise<Progress | null> {
@@ -97,11 +97,15 @@ export async function getProgressByPzId(raw: string, now: Date = new Date()): Pr
   for (const part of chunks(Array.from(regByPage.keys()))) {
     const { data, error } = await admin
       .from("landing_pages")
-      .select("id, title, slug, status, kind, attendance_min_pct")
-      .in("id", part)
-      .in("status", ["published", "closed"]);
+      .select("id, title, slug, status, kind, attendance_min_pct, show_in_portal")
+      .in("id", part);
     check("batches read", error);
-    pages.push(...((data ?? []) as Page[]).filter((p) => KINDS.includes(p.kind)));
+    // The person holds a paid/free non-test registration in each of these, so "enrolled" is true.
+    pages.push(
+      ...((data ?? []) as Page[]).filter((p) =>
+        isPortalVisible({ status: p.status, showInPortal: p.show_in_portal, kind: p.kind, enrolled: true }),
+      ),
+    );
   }
   if (pages.length === 0) return null;
   const pageIds = pages.map((p) => p.id);

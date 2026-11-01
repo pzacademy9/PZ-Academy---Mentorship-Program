@@ -138,3 +138,63 @@ delete from public.public_lookup_hits where key = 'x';
 3. `/dashboard/progress`: log in as a student with a confirmed email and check your own progress shows.
 
 Note: the old "enter your PZ ID and press Show my progress" check no longer exists. The public pages no longer show one person's record from a typed ID. The "Find my ID" check and the rate-limit check (the "yes twice, then no" step in (c)) stay.
+
+## (e) Migration 0095: show or hide a batch on the portal
+
+**Paste 0095 BEFORE the new code goes live. 0094 must already be live.** The new code reads a column that 0095 adds, so deploying first would break the portal pages.
+
+1. Open the Supabase SQL editor.
+2. Open `supabase/migrations/0095_portal_visibility.sql`, copy everything in it, paste it and press Run.
+3. It is safe to run twice. It changes no existing data (every batch starts as "shown").
+
+What it does, in plain words:
+- Adds a "Show on public progress portal" switch to every batch (starts ON). Turning it off hides the batch from /progress, from its own page, from "Find my ID" and from My Progress.
+- A batch that is still a draft but already has paid or free students (for example PPC Batch 3) now shows on the portal. Empty drafts stay hidden.
+- Updates the "find my ID" search to follow the same rule. It still returns at most 6 rows of first name, PZ ID and batch title only.
+
+The complete SQL to paste is:
+
+```sql
+alter table public.landing_pages
+  add column if not exists show_in_portal boolean not null default true;
+
+create or replace function public.find_enrolled_ids_by_name(p_query text)
+returns table (first_name text, pz_id text, batch_title text)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select substring(btrim(p.display_name) from '^\S+') as first_name,
+         p.pz_id::text,
+         lp.title::text as batch_title
+    from public.pz_people p
+    join public.landing_registrations r on r.person_id = p.id
+    join public.landing_pages lp on lp.id = r.page_id
+   where r.status in ('paid', 'free')
+     and r.is_test = false
+     and lp.show_in_portal = true
+     and lp.kind in ('course', 'workshop', 'webinar')
+     and p.display_name ilike
+         '%' || replace(replace(replace(p_query, '\', '\'), '%', '\%'), '_', '\_') || '%' escape '\'
+   group by p.display_name, p.pz_id, lp.title
+   order by p.display_name, p.pz_id, lp.title
+   limit 6;
+$$;
+
+revoke all on function public.find_enrolled_ids_by_name(text) from public;
+revoke all on function public.find_enrolled_ids_by_name(text) from anon;
+revoke all on function public.find_enrolled_ids_by_name(text) from authenticated;
+grant execute on function public.find_enrolled_ids_by_name(text) to service_role;
+```
+
+Check it worked. Paste this and run it:
+
+```sql
+select
+  (select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'landing_pages' and column_name = 'show_in_portal') as show_in_portal_column,
+  (select count(*) from pg_proc where proname = 'find_enrolled_ids_by_name') as name_search_function;
+```
+
+Expect one row with `1` and `1`. If either shows `0`, tell me which one.
