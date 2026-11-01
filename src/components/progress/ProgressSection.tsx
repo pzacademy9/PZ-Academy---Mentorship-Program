@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
-import { ClipboardCheck, GraduationCap, Trophy } from "lucide-react";
+import { useRef, useState } from "react";
+import { ClipboardCheck, Trophy } from "lucide-react";
 import type { Progress, ProgressKind } from "@/lib/progress/build";
 import { BatchCard, type ProgressView } from "./BatchCard";
 import { btnFocus } from "./ui";
@@ -19,12 +19,11 @@ const TABS: { id: ProgressView; label: string; Icon: typeof Trophy }[] = [
 
 interface Props {
   progress: Progress;
-  headingRef: RefObject<HTMLHeadingElement>;
 }
 
 const cardKey = (kind: ProgressKind, slug: string, i: number) => `pb-${kind}-${i}-${slug.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
-export function ProgressSection({ progress, headingRef }: Props) {
+export function ProgressSection({ progress }: Props) {
   const [view, setView] = useState<ProgressView>("attendance");
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -48,26 +47,7 @@ export function ProgressSection({ progress, headingRef }: Props) {
   const groups = progress.groups.filter((g) => g.batches.length > 0);
 
   return (
-    <section aria-labelledby="progress-hello" className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-pz-surface-container-lowest p-4 shadow-sm ring-1 ring-pz-outline-variant/40">
-        <div className="min-w-0">
-          <h2
-            id="progress-hello"
-            ref={headingRef}
-            tabIndex={-1}
-            className="break-words font-headline text-xl font-black text-pz-on-surface focus:outline-none"
-          >
-            Hello, {progress.firstName}
-          </h2>
-          <p className="text-sm text-pz-on-surface-variant">
-            PZ ID: <span className="break-all font-headline font-bold text-pz-primary">{progress.pzId}</span>
-          </p>
-        </div>
-        <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-pz-surface-container-high text-pz-primary">
-          <GraduationCap className="h-6 w-6" />
-        </span>
-      </div>
-
+    <section aria-label="Your batches" className="flex min-w-0 flex-col gap-4">
       {groups.length === 0 ? (
         <p className="rounded-xl bg-pz-surface-container-lowest p-4 text-base text-pz-on-surface-variant shadow-sm">
           We found your ID, but there are no classes to show yet. Please check again after your first class.

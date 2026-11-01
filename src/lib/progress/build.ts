@@ -78,6 +78,17 @@ const KIND_ORDER: ProgressKind[] = ["course", "workshop", "webinar"];
 
 const time = (iso: string) => new Date(iso).getTime();
 
+/**
+ * The name shown publicly: the PZ ID prefix (text before the LAST "-"), which is the person's
+ * real first name even when the display name starts with a title like "Dr.". With no usable
+ * prefix, the first word of the display name.
+ */
+export function publicFirstName(pzId: string, displayName: string): string {
+  const cut = pzId.lastIndexOf("-");
+  const prefix = cut > 0 ? pzId.slice(0, cut).trim() : "";
+  return prefix !== "" ? prefix : (displayName.trim().split(/\s+/)[0] ?? "");
+}
+
 function buildBatch(b: BatchInput, now: Date): ProgressBatch {
   const sessions = [...b.sessions].sort((a, c) => a.number - c.number);
 
@@ -144,7 +155,7 @@ export function buildProgress(input: ProgressInput): Progress {
   }
 
   return {
-    firstName: input.person.displayName.trim().split(/\s+/)[0] ?? "",
+    firstName: publicFirstName(input.person.pzId, input.person.displayName),
     pzId: input.person.pzId,
     groups,
   };

@@ -1,20 +1,34 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ProgressPage } from "@/components/progress/ProgressPage";
-import { findMyIdByName, getMyProgress } from "./actions";
+import { PortalHome, type PortalGroup } from "@/components/progress/portal/PortalHome";
+import { listPortalBatches } from "@/lib/data/portal";
+import type { ProgressKind } from "@/lib/progress/build";
+import { findMyIdByName } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Track Your Progress | PZ Academy",
-  description: "Enter your PZ ID to see your attendance and results in your PZ Academy courses.",
+  title: "Progress Portal | PZ Academy",
+  description: "See attendance and quiz results for every PZ Academy batch.",
 };
 
-// Server-rendered shell only: no student data is ever placed in this HTML.
-// The two server actions are passed down; all lookups happen after the page loads.
-export default function ProgressRoute() {
+// Always fresh: batch counts change as classes are held.
+export const dynamic = "force-dynamic";
+
+const KINDS: ProgressKind[] = ["course", "workshop", "webinar"];
+
+// Server-rendered: only counts and batch titles reach the HTML. No student data.
+export default async function ProgressRoute() {
+  let groups: PortalGroup[] = [];
+  let failed = false;
+  try {
+    const cards = await listPortalBatches();
+    groups = KINDS.map((kind) => ({ kind, batches: cards.filter((c) => c.kind === kind) }));
+  } catch {
+    failed = true;
+  }
   return (
     <main className="min-h-screen overflow-x-hidden bg-pz-surface px-4 pb-10 pt-4 sm:pt-8">
-      <div className="mx-auto mb-4 flex w-full min-w-0 max-w-2xl items-center justify-between gap-3">
+      <div className="mx-auto mb-4 flex w-full min-w-0 max-w-6xl items-center justify-between gap-3">
         <Link
           href="/"
           className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary"
@@ -34,7 +48,7 @@ export default function ProgressRoute() {
           </span>
         </Link>
       </div>
-      <ProgressPage findId={findMyIdByName} getProgress={getMyProgress} />
+      <PortalHome groups={groups} findId={findMyIdByName} failed={failed} />
     </main>
   );
 }

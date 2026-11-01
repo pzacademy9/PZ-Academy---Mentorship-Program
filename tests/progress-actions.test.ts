@@ -5,23 +5,20 @@ let hdrs: Record<string, string> = { "x-forwarded-for": "1.2.3.4, 5.6.7.8" };
 vi.mock("next/headers", () => ({ headers: async () => new Headers(hdrs) }));
 
 const allowLookup = vi.fn();
-const getProgressByPzId = vi.fn();
 const findIdsByName = vi.fn();
 vi.mock("@/lib/pzid/lookup-limit", () => ({ allowLookup: (ip: string) => allowLookup(ip) }));
-vi.mock("@/lib/data/progress", () => ({ getProgressByPzId: (...a: unknown[]) => getProgressByPzId(...a) }));
 vi.mock("@/lib/data/pz-people", async (orig) => ({
   ...(await orig<typeof import("@/lib/data/pz-people")>()),
   findIdsByName: (...a: unknown[]) => findIdsByName(...a),
 }));
 
-import { findMyIdByName, getMyProgress } from "@/app/progress/actions";
+import { findMyIdByName } from "@/app/progress/actions";
 
 const GENERIC = "Something went wrong. Please try again in a minute.";
 
 beforeEach(() => {
   hdrs = { "x-forwarded-for": "1.2.3.4, 5.6.7.8" };
   allowLookup.mockReset().mockResolvedValue(true);
-  getProgressByPzId.mockReset();
   findIdsByName.mockReset();
 });
 
@@ -29,10 +26,8 @@ describe("rate limit", () => {
   it("checks the first forwarded IP and stops before any lookup", async () => {
     allowLookup.mockResolvedValue(false);
     expect(await findMyIdByName("sample")).toEqual({ status: "rate_limited" });
-    expect(await getMyProgress("Sample-0001")).toEqual({ status: "rate_limited" });
     expect(allowLookup).toHaveBeenCalledWith("1.2.3.4");
     expect(findIdsByName).not.toHaveBeenCalled();
-    expect(getProgressByPzId).not.toHaveBeenCalled();
   });
 });
 
@@ -48,34 +43,6 @@ describe("rate limit address", () => {
     findIdsByName.mockResolvedValue([]);
     await findMyIdByName("sample");
     expect(allowLookup).toHaveBeenCalledWith("unknown");
-  });
-});
-
-describe("getMyProgress", () => {
-  it("gives the identical not_found for a bad format and an unknown ID", async () => {
-    getProgressByPzId.mockResolvedValue(null);
-    const bad = await getMyProgress("!!");
-    const unknown = await getMyProgress("Nobody-9999");
-    expect(bad).toEqual({ status: "not_found" });
-    expect(unknown).toEqual(bad);
-  });
-
-  it("treats a non-string input as not_found", async () => {
-    getProgressByPzId.mockResolvedValue(null);
-    expect(await getMyProgress(undefined as unknown as string)).toEqual({ status: "not_found" });
-  });
-
-  it("returns only the builder output on success", async () => {
-    const progress = { firstName: "Sample", pzId: "Sample-0001", groups: [] };
-    getProgressByPzId.mockResolvedValue(progress);
-    expect(await getMyProgress("Sample-0001")).toEqual({ status: "ok", progress });
-  });
-
-  it("hides thrown database text behind one generic message", async () => {
-    getProgressByPzId.mockRejectedValue(new Error('relation "landing_registrations" secret failure'));
-    const res = await getMyProgress("Sample-0001");
-    expect(res).toEqual({ status: "error", message: GENERIC });
-    expect(JSON.stringify(res)).not.toContain("secret");
   });
 });
 

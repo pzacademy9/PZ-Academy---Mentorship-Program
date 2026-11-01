@@ -94,3 +94,12 @@ it("nav shows Registrations for sales_agent only", () => {
     expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/sales/registrations");
   }
 });
+
+it("My Progress is a student-only item right after My Courses", () => {
+  const student = navForRole("student").map((i) => i.label);
+  expect(student[student.indexOf("My Courses") + 1]).toBe("My Progress");
+  for (const role of ["mentor", "admin", "super_admin", "sales_agent"] as Role[]) {
+    expect(navForRole(role).map((i) => i.label)).not.toContain("My Progress");
+  }
+  expect(NAV_ITEMS.find((i) => i.label === "My Progress")?.href).toBe("/dashboard/progress");
+});

@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { allowRequest } from "@/lib/pzid/rate-limit";
 
-const LIMIT = 30;
-const WINDOW_SECS = 600;
+export const LIMIT = 30;
+export const PORTAL_LIMIT = 300;
+export const WINDOW_SECS = 600;
 
 function v4ToGroups(v4: string): string[] | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v4);
@@ -64,11 +65,23 @@ export function rateKeyForIp(ip: string): string {
  * stored, never the address. If the database call fails, the in-memory limiter is used instead.
  */
 export async function allowLookup(ip: string): Promise<boolean> {
-  const key = createHash("sha256").update(`pz-lookup:${rateKeyForIp(ip)}`).digest("hex");
+  return allowUnder("pz-lookup:", LIMIT, ip);
+}
+
+/**
+ * Rate limit for opening a public batch page: about 300 views per 10 minutes per IP, counted
+ * separately from Find my ID (different key prefix), so a class on one network is not locked out.
+ */
+export async function allowPortalView(ip: string): Promise<boolean> {
+  return allowUnder("pz-portal:", PORTAL_LIMIT, ip);
+}
+
+async function allowUnder(prefix: string, limit: number, ip: string): Promise<boolean> {
+  const key = createHash("sha256").update(`${prefix}${rateKeyForIp(ip)}`).digest("hex");
   try {
     const { data, error } = await createAdminSupabase().rpc("public_lookup_allow", {
       p_key: key,
-      p_limit: LIMIT,
+      p_limit: limit,
       p_window_secs: WINDOW_SECS,
     });
     if (error || typeof data !== "boolean") return allowRequest(`lookup:${key}`);

@@ -45,6 +45,12 @@ describe("buildProgress", () => {
     expect(JSON.stringify(out)).not.toContain("Sample Name");
   });
 
+  it("takes the first name from the PZ ID, falling back to the display name without a dash", () => {
+    const withPerson = (displayName: string, pzId: string) => buildProgress({ ...input([batch()]), person: { displayName, pzId } });
+    expect(withPerson("Dr. Name Surname", "Name-0000").firstName).toBe("Name");
+    expect(withPerson("Dr. Name Surname", "Name0000").firstName).toBe("Dr.");
+  });
+
   it("counts only started classes and labels how each was marked", () => {
     const out = buildProgress(
       input([

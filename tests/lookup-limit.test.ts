@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 const mem = vi.hoisted(() => ({ allowRequest: vi.fn() }));
 vi.mock("@/lib/pzid/rate-limit", () => ({ allowRequest: mem.allowRequest }));
 
-import { allowLookup, rateKeyForIp } from "@/lib/pzid/lookup-limit";
+import { allowLookup, allowPortalView, rateKeyForIp, LIMIT, PORTAL_LIMIT, WINDOW_SECS } from "@/lib/pzid/lookup-limit";
 
 beforeEach(() => {
   db.reset();
@@ -56,6 +56,36 @@ describe("allowLookup", () => {
     await allowLookup("203.0.113.10");
     const key2 = (db.find("public_lookup_allow", "rpc")[1].payload as { p_key: string }).p_key;
     expect(key2).not.toBe(key);
+  });
+});
+
+describe("allowPortalView", () => {
+  it("has its own, higher limit; Find my ID keeps 30", async () => {
+    expect([LIMIT, PORTAL_LIMIT, WINDOW_SECS]).toEqual([30, 300, 600]);
+    db.state.handler = () => ({ data: true, error: null });
+    await allowPortalView("203.0.113.9");
+    await allowLookup("203.0.113.9");
+    const ops = db.find("public_lookup_allow", "rpc");
+    expect(ops[0].payload).toMatchObject({ p_limit: 300, p_window_secs: 600 });
+    expect(ops[1].payload).toMatchObject({ p_limit: 30, p_window_secs: 600 });
+  });
+
+  it("counts under a different key than Find my ID for the same IP", async () => {
+    db.state.handler = () => ({ data: true, error: null });
+    await allowPortalView("203.0.113.9");
+    await allowLookup("203.0.113.9");
+    const ops = db.find("public_lookup_allow", "rpc");
+    const k1 = (ops[0].payload as { p_key: string }).p_key;
+    const k2 = (ops[1].payload as { p_key: string }).p_key;
+    expect(k1).toMatch(/^[0-9a-f]{64}$/);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("falls back to the in-memory limiter on a database error", async () => {
+    db.state.handler = () => ({ data: null, error: { message: "down" } });
+    mem.allowRequest.mockReturnValue(true);
+    expect(await allowPortalView("203.0.113.9")).toBe(true);
+    expect(mem.allowRequest).toHaveBeenCalledTimes(1);
   });
 });
 

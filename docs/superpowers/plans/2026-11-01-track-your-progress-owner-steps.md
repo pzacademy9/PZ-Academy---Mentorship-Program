@@ -130,3 +130,11 @@ You should see true, then true, then false. (If you wait more than a minute betw
 ```sql
 delete from public.public_lookup_hits where key = 'x';
 ```
+
+## (d) Pages to look at in the browser
+
+1. `/progress` (the home page): lists the batches. The "Find my ID" box is on this page. Search a name and check it shows first name, PZ ID and batch only, with a Copy button.
+2. `/progress/<slug>` (a batch page, for example one batch from the list): shows that batch's attendance and results lists.
+3. `/dashboard/progress`: log in as a student with a confirmed email and check your own progress shows.
+
+Note: the old "enter your PZ ID and press Show my progress" check no longer exists. The public pages no longer show one person's record from a typed ID. The "Find my ID" check and the rate-limit check (the "yes twice, then no" step in (c)) stay.
