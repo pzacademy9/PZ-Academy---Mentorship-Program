@@ -10,6 +10,7 @@ Do this once, before the "Track Your Progress" page goes live.
 
 What it does, in plain words:
 - Adds a small notebook that remembers recent public lookups, so one person cannot search again and again without limit (about 30 lookups per 10 minutes).
+- Adds the "find my ID by name" search as one safe function. It returns at most 5 rows, with first name, PZ ID and batch title only.
 
 The complete SQL to paste is:
 
@@ -58,6 +59,34 @@ revoke all on function public.public_lookup_allow(text, int, int) from public;
 revoke all on function public.public_lookup_allow(text, int, int) from anon;
 revoke all on function public.public_lookup_allow(text, int, int) from authenticated;
 grant execute on function public.public_lookup_allow(text, int, int) to service_role;
+
+create or replace function public.find_enrolled_ids_by_name(p_query text)
+returns table (first_name text, pz_id text, batch_title text)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select substring(btrim(p.display_name) from '^\S+') as first_name,
+         p.pz_id::text,
+         lp.title::text as batch_title
+    from public.pz_people p
+    join public.landing_registrations r on r.person_id = p.id
+    join public.landing_pages lp on lp.id = r.page_id
+   where r.status in ('paid', 'free')
+     and r.is_test = false
+     and lp.status in ('published', 'closed')
+     and p.display_name ilike
+         '%' || replace(replace(replace(p_query, '\', '\'), '%', '\%'), '_', '\_') || '%' escape '\'
+   group by p.display_name, p.pz_id, lp.title
+   order by p.display_name, p.pz_id, lp.title
+   limit 5;
+$$;
+
+revoke all on function public.find_enrolled_ids_by_name(text) from public;
+revoke all on function public.find_enrolled_ids_by_name(text) from anon;
+revoke all on function public.find_enrolled_ids_by_name(text) from authenticated;
+grant execute on function public.find_enrolled_ids_by_name(text) to service_role;
 ```
 
 ## (b) Check it worked
@@ -69,7 +98,9 @@ select
   (select count(*) from information_schema.tables
     where table_schema = 'public' and table_name = 'public_lookup_hits') as notebook_table,
   (select count(*) from pg_proc
-    where proname = 'public_lookup_allow') as limit_function;
+    where proname = 'public_lookup_allow') as limit_function,
+  (select count(*) from pg_proc
+    where proname = 'find_enrolled_ids_by_name') as name_search_function;
 ```
 
-Expect one row with `1` and `1`. If any shows `0`, tell me which one.
+Expect one row with `1`, `1` and `1`. If any shows `0`, tell me which one.

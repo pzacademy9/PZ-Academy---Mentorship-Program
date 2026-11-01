@@ -109,79 +109,21 @@ export function cleanNameQuery(query: unknown): string | null {
 }
 
 /**
- * Public "find my ID" search for the progress page. Looks across ALL published or closed
- * batches, enrolled people only. The enrolled person ids are loaded first and the name filter is
- * applied only to those (in chunks), so a common name can never be cut off before enrolment is
- * checked. Returns at most 5 rows, first name only: never a surname, email or phone, so it cannot
- * be used to list everyone. Throws a plain error on a database failure.
+ * Public "find my ID" search for the progress page. The query is cleaned first (3-60 characters),
+ * then ONE database function does the whole search (enrolled people of published or closed batches
+ * only) and returns at most 5 rows: first name, PZ ID and batch title. It never returns an email,
+ * last name or full name, so it cannot be used to list everyone. Throws a plain error on a database failure.
  */
 export async function findIdsByName(query: string): Promise<MyIdRow[]> {
   const q = cleanNameQuery(query);
   if (!q) return [];
-  const supabase = createAdminSupabase();
-
-  const { data: pages, error: pageErr } = await supabase
-    .from("landing_pages")
-    .select("id, title")
-    .in("status", ["published", "closed"]);
-  if (pageErr || !pages) throw new Error(FIND_ERROR);
-  const titles = new Map<string, string>();
-  for (const p of pages as Array<{ id: string; title: string }>) titles.set(p.id, p.title);
-  if (titles.size === 0) return [];
-  const pageIds = Array.from(titles.keys());
-
-  // person id -> set of batch page ids where they are enrolled (paid/free, non-test).
-  const pagesOf = new Map<string, Set<string>>();
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("landing_registrations")
-      .select("person_id, page_id")
-      .in("page_id", pageIds)
-      .in("status", ["paid", "free"])
-      .eq("is_test", false)
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error || !data) throw new Error(FIND_ERROR);
-    for (const r of data as Array<{ person_id: string | null; page_id: string }>) {
-      if (!r.person_id) continue;
-      const set = pagesOf.get(r.person_id) ?? new Set<string>();
-      set.add(r.page_id);
-      pagesOf.set(r.person_id, set);
-    }
-    if (data.length < PAGE) break;
-  }
-
-  const ids = Array.from(pagesOf.keys());
-  const pattern = `%${escapeLike(q)}%`;
-  const people: Person[] = [];
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const { data, error } = await supabase
-      .from("pz_people")
-      .select("id, pz_id, display_name")
-      .in("id", ids.slice(i, i + CHUNK))
-      .ilike("display_name", pattern);
-    if (error || !data) throw new Error(FIND_ERROR);
-    people.push(...(data as Person[]));
-  }
-
-  const rows: Array<MyIdRow & { sortName: string }> = [];
-  for (const p of people) {
-    for (const pageId of Array.from(pagesOf.get(p.id) ?? [])) {
-      rows.push({
-        firstName: p.display_name.trim().split(/\s+/)[0] ?? "",
-        pzId: p.pz_id,
-        batchTitle: titles.get(pageId) ?? "",
-        sortName: p.display_name,
-      });
-    }
-  }
-  rows.sort(
-    (a, b) =>
-      a.sortName.localeCompare(b.sortName) ||
-      a.pzId.localeCompare(b.pzId) ||
-      a.batchTitle.localeCompare(b.batchTitle),
-  );
-  return rows.slice(0, MAX_ROWS).map(({ firstName, pzId, batchTitle }) => ({ firstName, pzId, batchTitle }));
+  const { data, error } = await createAdminSupabase().rpc("find_enrolled_ids_by_name", { p_query: q });
+  if (error || !Array.isArray(data)) throw new Error(FIND_ERROR);
+  return data.slice(0, MAX_ROWS).map((r) => ({
+    firstName: r.first_name,
+    pzId: r.pz_id,
+    batchTitle: r.batch_title,
+  }));
 }
 
 /** Admin-only list of every enrolled person of a batch (raw email; the caller guards). */

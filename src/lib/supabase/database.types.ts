@@ -4792,6 +4792,10 @@ export type Database = {
         Args: { p_file: string; p_max: number; p_rows: Json; p_session: string }
         Returns: number
       }
+      find_enrolled_ids_by_name: {
+        Args: { p_query: string }
+        Returns: { first_name: string; pz_id: string; batch_title: string }[]
+      }
       public_lookup_allow: {
         Args: { p_key: string; p_limit: number; p_window_secs: number }
         Returns: boolean
