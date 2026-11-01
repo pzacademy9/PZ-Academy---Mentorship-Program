@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { KahootRow } from "@/lib/quiz/kahoot-parse";
 import type { Choices, PersonInfo, Review, ReviewBase, ReviewItem } from "@/lib/quiz/review";
@@ -52,6 +53,37 @@ function Shell({ done, auto = false, guess = false, title, children }: { done: b
       </div>
       {children}
     </li>
+  );
+}
+
+/** Type part of a name or ID number to find a student of this batch (no scrolling a long list). */
+function StudentPicker({ id, people, onPick }: { id: string; people: PersonInfo[]; onPick: (personId: string) => void }) {
+  const [q, setQ] = useState("");
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = words.length === 0 ? [] : people.filter((p) => words.every((w) => `${p.name} ${p.pzId}`.toLowerCase().includes(w))).slice(0, 8);
+  return (
+    <div>
+      <label className={labelCls} htmlFor={id}>Find any student of this batch</label>
+      <input
+        id={id}
+        type="search"
+        autoComplete="off"
+        className={fieldCls}
+        placeholder="Type a name or the ID number"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      {words.length > 0 && matches.length === 0 && <p className="mt-1 text-xs text-pz-on-surface-variant">No student found. Try fewer letters.</p>}
+      {matches.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2" aria-label="Matching students">
+          {matches.map((p) => (
+            <li key={p.personId}>
+              <Toggle on={false} onClick={() => { onPick(p.personId); setQ(""); }}>{who(p)}</Toggle>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -133,23 +165,13 @@ export function QuizReview({ base, review, choices, onChoices }: Props) {
               </button>
             )}
           </div>
+          {base.ambiguous[String(item.row.line)] && !done && (
+            <p className="text-xs font-headline font-bold text-amber-700 dark:text-amber-300">
+              More than one student matches this. Pick the right one below, or search for them.
+            </p>
+          )}
           {item.suggestions.length === 0 && !done && <p className="text-xs text-pz-on-surface-variant">No close match found. Pick the student below, or skip.</p>}
-          <div>
-            <label className={labelCls} htmlFor={`pick-${item.row.line}`}>Pick any student of this batch</label>
-            <select
-              id={`pick-${item.row.line}`}
-              className={fieldCls}
-              value={chosen ? chosen.personId : ""}
-              onChange={(e) => e.target.value && setUnknown(item.row.line, { personId: e.target.value })}
-            >
-              <option value="">Choose a student...</option>
-              {batchPeople.map((p) => (
-                <option key={p.personId} value={p.personId}>
-                  {who(p)}
-                </option>
-              ))}
-            </select>
-          </div>
+          <StudentPicker id={`pick-${item.row.line}`} people={batchPeople} onPick={(personId) => setUnknown(item.row.line, { personId })} />
         </Shell>
       );
     }

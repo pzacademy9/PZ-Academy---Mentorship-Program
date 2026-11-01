@@ -37,6 +37,8 @@ export type ReviewBase = {
   auto: Choices;
   /** Best guesses the app is fairly sure about. Never applied alone: the admin accepts them all with one click (see acceptLikely). */
   likely: Choices;
+  /** Unknown rows (by line) where several students match about equally well. Never answered by the app: the admin is asked. */
+  ambiguous: Record<string, true>;
   questionCount: number | null;
 };
 
@@ -101,13 +103,23 @@ function tierOf(scored: Scored[]): "sure" | "fairly" | null {
   return null;
 }
 
-function suggest(row: KahootRow, batch: PersonInfo[], keysByPerson: Map<string, string[]>): string[] {
-  return scoreCandidates(row, batch, keysByPerson).map((s) => s.id);
+/** Two or more students match about equally well (for example the same first name): the app must not pick, the admin is asked. */
+function isAmbiguous(scored: Scored[]): boolean {
+  return scored.length >= 2 && scored[0].score >= FAIRLY_MIN && scored[0].score - scored[1].score < FAIRLY_GAP;
+}
+
+/** The number part of an ID: "Hamid-1069" gives "1069". Empty when the part after the dash is not all digits (e.g. "Sami-FUUAST89"). */
+function idNumber(pzId: string): string {
+  const tail = pzId.split("-").pop() ?? "";
+  return /^\d{3,}$/.test(tail) ? tail : "";
 }
 
 function scoreCandidates(row: KahootRow, batch: PersonInfo[], keysByPerson: Map<string, string[]>): Scored[] {
   const player = squash(row.player);
   const want = new Set([...tokens(row.player), ...tokens(row.hint)]);
+  // Students often type just the number part of their ID ("1069") or just their first name ("Hamid").
+  const typedNumbers = new Set(row.player.match(/\d{3,}/g) ?? []);
+  const playerWords = tokens(row.player);
   const scored: { id: string; score: number }[] = [];
   for (const p of batch) {
     const keys = [squash(p.pzId), ...(keysByPerson.get(p.personId) ?? [])].filter(Boolean);
@@ -118,7 +130,13 @@ function scoreCandidates(row: KahootRow, batch: PersonInfo[], keysByPerson: Map<
       const d = Math.min(...keys.map((k) => editDistance(k, player)));
       if (d <= 2) score = Math.max(score, 40 - d * 10);
     }
+    const number = idNumber(p.pzId);
+    if (number !== "" && typedNumbers.has(number)) score = Math.max(score, 95);
     const nameTokens = tokens(p.name);
+    // Only a first name typed alone counts as "the first name": two students with the same first name tie, so the admin is asked.
+    if (nameTokens.length > 0 && playerWords.length === 1 && /^[a-z]+$/.test(player) && playerWords[0] === nameTokens[0]) score = Math.max(score, 85);
+    // The whole real name typed, nothing more: as good as a first name alone, and ties (two students with one name) still make the admin choose.
+    if (nameTokens.length > 1 && playerWords.length === nameTokens.length && nameTokens.every((t) => playerWords.includes(t))) score = Math.max(score, 90);
     const overlap = nameTokens.filter((t) => want.has(t)).length;
     if (overlap > 0) score += 10 * overlap + (overlap === nameTokens.length && nameTokens.length > 1 ? 30 : 0);
     if (score > 0) scored.push({ id: p.personId, score });
@@ -183,6 +201,7 @@ export function buildBase(
     prior: { unknown: {}, duplicate: {}, notInBatch: {} },
     auto: { unknown: {}, duplicate: {}, notInBatch: {} },
     likely: { unknown: {}, duplicate: {}, notInBatch: {} },
+    ambiguous: {},
     questionCount,
   };
 
@@ -212,9 +231,10 @@ export function buildBase(
     if (match.kind !== "unknown" || base.prior.unknown[line]) continue;
     const scored = scoredByLine.get(row.line) ?? [];
     const tier = tierOf(scored);
+    if (isAmbiguous(scored)) base.ambiguous[line] = true;
     if (tier === "sure") base.auto.unknown[line] = { personId: scored[0].id };
     else if (tier === "fairly") base.likely.unknown[line] = { personId: scored[0].id };
-    else if (row.score === 0) base.auto.unknown[line] = "skip"; // nobody to match and no points: nothing to count
+    else if (row.score === 0 && !base.ambiguous[line]) base.auto.unknown[line] = "skip"; // nobody to match and no points: nothing to count
   }
   const sure: Choices = {
     unknown: { ...base.prior.unknown, ...base.auto.unknown },

@@ -206,7 +206,7 @@ describe("automatic matching", () => {
   });
 
   it("a fairly sure match is only a best guess until accepted, and accepting never changes an answer already given", () => {
-    const base = make([row("Hamid", 500), row("Sidra", 300)]);
+    const base = make([row("Hamid-482", 500), row("Sidra-KU4", 300)]);
     expect(base.likely.unknown).toEqual({ "4": { personId: "p-hamid" }, "5": { personId: "p-sidra" } });
     expect(base.auto.unknown).toEqual({});
     const start = initialChoices(base);
@@ -243,7 +243,7 @@ describe("automatic matching", () => {
   });
 
   it("a best guess that makes someone play twice has its duplicate answered in the same click", () => {
-    const base = make([row("Hamid-4821", 500), row("Hamid", 0)]);
+    const base = make([row("Hamid-4821", 500), row("Hamid-482", 0)]);
     expect(base.likely.unknown["5"]).toEqual({ personId: "p-hamid" });
     expect(base.likely.duplicate).toEqual({ "p-hamid": { keep: 4 } });
     expect(resolveReview(base, acceptLikely(base, initialChoices(base)))).toMatchObject({ ok: true, rows: [{ score: 500 }] });
@@ -254,5 +254,55 @@ describe("automatic matching", () => {
     const base = make([row("Sami_FUUAST89", 900)], [{ kind: "skip", key, choice: "", personId: null }]);
     expect(base.auto.unknown).toEqual({});
     expect(initialChoices(base).unknown).toEqual({ "4": "skip" });
+  });
+});
+
+describe("first names and ID numbers typed alone", () => {
+  const ali1 = person("p-ali1", "Ali-1069", "Ali Raza");
+  const ali2 = person("p-ali2", "Ali-2288", "Ali Hassan");
+  const noor = person("p-noor", "Noor-7345", "Noor Fatima");
+  const crowd = new Map([ali1, ali2, noor, hamid].map((p) => [p.personId, p]));
+  const crowdAliases: AliasMap = new Map([["ali-1069", "p-ali1"], ["ali-2288", "p-ali2"], ["noor-7345", "p-noor"], ["hamid-4821", "p-hamid"]]);
+  const build = (rows: KahootRow[]) => buildBase(rows, crowdAliases, crowd, [], null);
+
+  it("only the number of an ID typed (1069) is matched for you when one student has that number", () => {
+    const base = build([row("1069", 800)]);
+    expect(base.auto.unknown).toEqual({ "4": { personId: "p-ali1" } });
+    expect(resolveReview(base, initialChoices(base))).toMatchObject({ ok: true, rows: [{ personId: "p-ali1", score: 800 }] });
+  });
+
+  it("a first name typed alone is matched for you when only one student has it", () => {
+    const base = build([row("Noor", 400), row("hamid", 300)]);
+    expect(base.auto.unknown).toEqual({ "4": { personId: "p-noor" }, "5": { personId: "p-hamid" } });
+    expect(base.ambiguous).toEqual({});
+  });
+
+  it("two students with the same first name are never picked by the app: it asks, and offers both", () => {
+    const base = build([row("Ali", 500)]);
+    expect(base.auto.unknown).toEqual({});
+    expect(base.likely.unknown).toEqual({});
+    expect(base.ambiguous).toEqual({ "4": true });
+    expect(computeReview(base, initialChoices(base)).items[0]).toMatchObject({ type: "unknown", choice: null });
+    expect((base.suggestions["4"] ?? []).slice().sort()).toEqual(["p-ali1", "p-ali2"]);
+    expect(computeReview(base, initialChoices(base)).undecided).toBe(1);
+  });
+
+  it("an ambiguous player with no points is still asked, not silently skipped", () => {
+    const base = build([row("Ali", 0)]);
+    expect(base.auto.unknown).toEqual({});
+    expect(computeReview(base, initialChoices(base)).undecided).toBe(1);
+  });
+
+  it("a number that two students share is not matched for you", () => {
+    const twin = person("p-twin", "Zara-1069", "Zara Noor");
+    const base = buildBase([row("1069", 10)], new Map([["ali-1069", "p-ali1"], ["zara-1069", "p-twin"]]), new Map([ali1, twin].map((p) => [p.personId, p])), [], null);
+    expect(base.auto.unknown).toEqual({});
+    expect(base.ambiguous).toEqual({ "4": true });
+  });
+
+  it("a first name plus surname still works, and a first name does not match a different first name", () => {
+    const base = build([row("Ali Raza", 100), row("Alina", 50)]);
+    expect(base.auto.unknown["4"]).toEqual({ personId: "p-ali1" });
+    expect(base.auto.unknown["5"]).toBeUndefined();
   });
 });
