@@ -32,7 +32,7 @@ function chunks<T>(items: T[]): T[][] {
 
 type Person = { id: string; pz_id: string; display_name: string };
 type Reg = { page_id: string; mode: string; option_label: string };
-type Page = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; show_in_portal: boolean };
+type Page = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; show_in_portal: boolean | null };
 type SessionRow = {
   id: string;
   page_id: string;

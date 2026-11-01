@@ -17,14 +17,34 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe("PortalVisibilitySwitch", () => {
   it("shows the label and helper text, checked when the batch is shown", () => {
-    render(<PortalVisibilitySwitch pageId="p1" showInPortal={true} />);
+    render(<PortalVisibilitySwitch pageId="p1" status="published" showInPortal={true} />);
     const box = screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement;
     expect(box.checked).toBe(true);
     expect(screen.getByText(/Turn off to hide it/)).toBeTruthy();
   });
 
+  it("shows the effective state for automatic batches: published on, draft off with the private message", () => {
+    render(<PortalVisibilitySwitch pageId="p1" status="published" showInPortal={null} />);
+    expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(true);
+    cleanup();
+    render(<PortalVisibilitySwitch pageId="p1" status="draft" showInPortal={null} />);
+    expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText("This batch is still a draft, so it is private until you switch this on.")).toBeTruthy();
+    cleanup();
+    render(<PortalVisibilitySwitch pageId="p1" status="draft" showInPortal={true} />);
+    expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByText(/still a draft/)).toBeNull();
+  });
+
+  it("switching a draft on saves an explicit true", async () => {
+    render(<PortalVisibilitySwitch pageId="p1" status="draft" showInPortal={null} />);
+    fireEvent.click(screen.getByLabelText(/Show on public progress portal/));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ show: true });
+  });
+
   it("posts show false when turned off, then reports it", async () => {
-    render(<PortalVisibilitySwitch pageId="p1" showInPortal={true} />);
+    render(<PortalVisibilitySwitch pageId="p1" status="published" showInPortal={true} />);
     const box = screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement;
     fireEvent.click(box);
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -36,7 +56,7 @@ describe("PortalVisibilitySwitch", () => {
   });
 
   it("posts show true when turned on", async () => {
-    render(<PortalVisibilitySwitch pageId="p1" showInPortal={false} />);
+    render(<PortalVisibilitySwitch pageId="p1" status="published" showInPortal={false} />);
     fireEvent.click(screen.getByLabelText(/Show on public progress portal/));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ show: true });
@@ -45,7 +65,7 @@ describe("PortalVisibilitySwitch", () => {
 
   it("shows the failure and leaves the box unchanged", async () => {
     fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "Could not save. Try again." }) });
-    render(<PortalVisibilitySwitch pageId="p1" showInPortal={true} />);
+    render(<PortalVisibilitySwitch pageId="p1" status="published" showInPortal={true} />);
     const box = screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement;
     fireEvent.click(box);
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("Could not save. Try again."));

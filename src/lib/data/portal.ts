@@ -35,7 +35,7 @@ function chunks<T>(items: T[]): T[][] {
   return out;
 }
 
-type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null; show_in_portal: boolean; course_id: string | null };
+type PageRow = { id: string; title: string; slug: string; status: string; kind: string; attendance_min_pct: number; published: unknown; class_cover_url: string | null; show_in_portal: boolean | null; course_id: string | null };
 type SessionRow = { id: string; page_id: string; number: number; title: string; starts_at: string; audience: unknown; quiz_max_score: number | null };
 type RegRow = { page_id: string; person_id: string | null; mode: string; option_label: string };
 
@@ -53,12 +53,11 @@ function pickCover(p: PageRow): string | null {
   return safeHttp(p.class_cover_url);
 }
 
-/** Batches of a portal kind with the switch on, optionally just one slug. Draft batches are kept here; loadInputs drops the ones with no students. */
+/** Batches of a portal kind, optionally just one slug. loadInputs applies the visibility rule (hidden ones, private drafts). */
 async function readPages(slug?: string): Promise<PageRow[]> {
   let q = createAdminSupabase()
     .from("landing_pages")
     .select("id, title, slug, status, kind, attendance_min_pct, published, class_cover_url, show_in_portal, course_id")
-    .eq("show_in_portal", true)
     .in("kind", KINDS);
   if (slug !== undefined) q = q.eq("slug", slug);
   const { data, error } = await q;

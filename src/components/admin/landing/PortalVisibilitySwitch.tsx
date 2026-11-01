@@ -4,12 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { isPortalSwitchOn } from "@/lib/progress/visibility";
 
-/** Shows or hides a batch on the public progress portal (/progress). Saves on change. */
-export function PortalVisibilitySwitch({ pageId, showInPortal }: { pageId: string; showInPortal: boolean }) {
+/**
+ * Shows or hides a batch on the public progress portal (/progress). Saves on change.
+ * The box shows the EFFECTIVE state: automatic (never set) means on for published/closed, off for a draft.
+ * Toggling always saves an explicit true or false.
+ */
+export function PortalVisibilitySwitch({
+  pageId, status, showInPortal,
+}: { pageId: string; status: string; showInPortal: boolean | null }) {
   const router = useRouter();
-  const [show, setShow] = useState(showInPortal);
-  useEffect(() => { setShow(showInPortal); }, [showInPortal]);
+  const [show, setShow] = useState(isPortalSwitchOn(status, showInPortal));
+  useEffect(() => { setShow(isPortalSwitchOn(status, showInPortal)); }, [status, showInPortal]);
+  const draftPrivate = status === "draft" && !show;
 
   const { run: save, pending } = useAsyncAction(async (next: boolean) => {
     try {
@@ -42,7 +50,12 @@ export function PortalVisibilitySwitch({ pageId, showInPortal }: { pageId: strin
       />
       <span className="flex flex-col">
         <span className="font-medium text-pz-on-surface">Show on public progress portal</span>
-        <span>Students and visitors can see this batch&apos;s attendance and results at /progress. Turn off to hide it.</span>
+        <span>
+          {draftPrivate
+            ? "This batch is still a draft, so it is private until you switch this on."
+            : "Students and visitors can see this batch's attendance and results at /progress. Turn off to hide it."}
+        </span>
+        <span aria-live="polite">{show ? (status === "draft" ? "Switched on. It shows on the portal once it has students." : "Currently shown on the portal.") : "Currently hidden from the portal."}</span>
       </span>
     </label>
   );

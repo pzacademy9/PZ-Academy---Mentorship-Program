@@ -30,6 +30,8 @@ const seed = (): Store => ({
     { id: "pd", title: "Draft C", slug: "draft-c", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: true },
     { id: "pt", title: "Test Only D", slug: "test-d", status: "published", kind: "webinar", attendance_min_pct: 75, show_in_portal: true },
     { id: "ph", title: "Hidden E", slug: "hidden-e", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: false },
+    { id: "pn", title: "Auto Draft F", slug: "auto-draft-f", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: null },
+    { id: "pa", title: "Auto Pub G", slug: "auto-pub-g", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: null },
   ],
   landing_registrations: [
     { id: "r1", page_id: "pc", person_id: "me", status: "paid", is_test: false, option_label: "Live - Modules: M2", mode: "live", email: "me@example.com" },
@@ -39,6 +41,8 @@ const seed = (): Store => ({
     { id: "r5", page_id: "pd", person_id: "me", status: "paid", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
     { id: "r6", page_id: "pt", person_id: "me", status: "paid", is_test: true, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
     { id: "r8h", page_id: "ph", person_id: "me", status: "paid", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
+    { id: "r9n", page_id: "pn", person_id: "me", status: "paid", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
+    { id: "r9a", page_id: "pa", person_id: "me", status: "paid", is_test: false, option_label: "Live - Full Course", mode: "live", email: "me@example.com" },
     { id: "r7", page_id: "pw", person_id: "nobody", status: "pending", is_test: false, option_label: "Live - Full Course", mode: "live", email: "n@example.com" },
   ],
   batch_sessions: [
@@ -102,6 +106,8 @@ describe("getProgressByPzId", () => {
     expect(slugs).toContain("draft-c");
     expect(slugs).not.toContain("test-d");
     expect(slugs).not.toContain("hidden-e");
+    expect(slugs).not.toContain("auto-draft-f");
+    expect(slugs).toContain("auto-pub-g");
   });
 
   it("drops a batch whose portal switch is off, and shows it again when switched on", async () => {

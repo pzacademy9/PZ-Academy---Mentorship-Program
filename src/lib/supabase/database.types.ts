@@ -2111,7 +2111,7 @@ export type Database = {
           id: string
           kind: string
           is_main_page: boolean
-          show_in_portal: boolean
+          show_in_portal: boolean | null
           published: Json | null
           published_at: string | null
           ref_prefix: string | null
@@ -2144,7 +2144,7 @@ export type Database = {
           id?: string
           kind: string
           is_main_page?: boolean
-          show_in_portal?: boolean
+          show_in_portal?: boolean | null
           published?: Json | null
           published_at?: string | null
           ref_prefix?: string | null
@@ -2177,7 +2177,7 @@ export type Database = {
           id?: string
           kind?: string
           is_main_page?: boolean
-          show_in_portal?: boolean
+          show_in_portal?: boolean | null
           published?: Json | null
           published_at?: string | null
           ref_prefix?: string | null

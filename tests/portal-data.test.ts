@@ -35,6 +35,8 @@ const seed = (): Store => ({
     { id: "pe", title: "Empty Draft", slug: "empty-draft", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: true },
     { id: "ph", title: "Hidden By Switch", slug: "hidden", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: false },
     { id: "pq", title: "Hidden Draft", slug: "hidden-draft", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: false },
+    { id: "pn", title: "Auto Draft", slug: "auto-draft", status: "draft", kind: "course", attendance_min_pct: 75, show_in_portal: null },
+    { id: "pa", title: "Auto Published", slug: "auto-published", status: "published", kind: "course", attendance_min_pct: 75, show_in_portal: null },
   ],
   landing_registrations: [
     reg("r1", "pc", "me"),
@@ -47,6 +49,8 @@ const seed = (): Store => ({
     reg("r8", "pk", "me"),
     reg("r9", "ph", "me"),
     reg("r10", "pq", "me"),
+    reg("r11", "pn", "me"),
+    reg("r12", "pa", "me"),
   ],
   batch_sessions: [
     { id: "s1", page_id: "pc", number: 1, title: "Class one", starts_at: PAST, audience: null, quiz_max_score: 100 },
@@ -79,7 +83,7 @@ beforeEach(() => {
 describe("listPortalBatches", () => {
   it("shows a draft that has students, hides empty drafts, wrong kinds and switched-off batches", async () => {
     const cards = await listPortalBatches(NOW);
-    expect(cards.map((c) => c.slug).sort()).toEqual(["course-a", "draft-c"]);
+    expect(cards.map((c) => c.slug).sort()).toEqual(["auto-published", "course-a", "draft-c"]);
     const draft = cards.find((c) => c.slug === "draft-c")!;
     expect(draft).toMatchObject({ students: 1, state: "completed" });
   });
@@ -170,10 +174,15 @@ describe("getPortalBatch", () => {
   });
 
   it("returns null for unknown, empty-draft, wrong-kind and switched-off slugs", async () => {
-    for (const slug of ["nope", "empty-draft", "other-kind", "hidden", "hidden-draft"]) expect(await getPortalBatch(slug, NOW)).toBeNull();
+    for (const slug of ["nope", "empty-draft", "other-kind", "hidden", "hidden-draft", "auto-draft"]) expect(await getPortalBatch(slug, NOW)).toBeNull();
   });
 
-  it("opens a draft batch that has students", async () => {
+  it("an automatic draft stays private even with students; an automatic published batch is open", async () => {
+    expect(await getPortalBatch("auto-draft", NOW)).toBeNull();
+    expect(await getPortalBatch("auto-published", NOW)).not.toBeNull();
+  });
+
+  it("opens a draft batch that is switched on and has students", async () => {
     const view = (await getPortalBatch("draft-c", NOW))!;
     expect(view.attendance.map((r) => r.pzId)).toEqual(["Sample-0000"]);
   });

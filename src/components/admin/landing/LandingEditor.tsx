@@ -459,7 +459,7 @@ function EditorShell({
           <StatusBadge status={page.status} className="shrink-0" />
         </div>
         {courses && <CourseMainPicker pageId={page.id} courses={courses} courseId={page.courseId ?? null} isMainPage={page.isMainPage ?? false} />}
-        <PortalVisibilitySwitch pageId={page.id} showInPortal={page.showInPortal ?? true} />
+        <PortalVisibilitySwitch pageId={page.id} status={page.status} showInPortal={page.showInPortal ?? null} />
         {options.length > 0 && (
           <VariantSwitcher options={options} value={link.activeId} onChange={(id) => void link.switchTo(id)} />
         )}

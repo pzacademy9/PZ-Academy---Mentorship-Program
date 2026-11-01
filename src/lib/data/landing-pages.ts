@@ -24,7 +24,7 @@ export interface LandingPage {
   publishedAt: string | null; createdAt: string; updatedAt: string;
   courseId: string | null; isMainPage: boolean;
   /** Whether the batch may appear on the public progress portal (migration 0095). */
-  showInPortal?: boolean;
+  showInPortal?: boolean | null;
 }
 export interface LandingPageSummary {
   id: string; slug: string; kind: PageKind; title: string; status: PageStatus; revision: number;

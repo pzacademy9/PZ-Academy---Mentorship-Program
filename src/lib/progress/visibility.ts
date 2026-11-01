@@ -5,15 +5,29 @@ const KINDS: readonly string[] = ["course", "workshop", "webinar"];
 
 export type PortalVisibilityInput = {
   status: string;
-  showInPortal: boolean;
+  /** null = automatic (published/closed only), true = admin switched on, false = admin switched off. */
+  showInPortal: boolean | null;
   kind: string;
   /** True when the batch has at least one paid or free, non-test registration. */
   enrolled: boolean;
 };
 
-/** Switch on, a portal kind, and either published/closed or already holding enrolled students. */
+const isLive = (status: string) => status === "published" || status === "closed";
+
+/**
+ * A portal kind, switch not off, and: published/closed; or (admin switched on) already holding enrolled
+ * students. A draft stays private unless an admin switched it on AND it has students.
+ */
 export function isPortalVisible({ status, showInPortal, kind, enrolled }: PortalVisibilityInput): boolean {
-  if (showInPortal !== true) return false;
   if (!KINDS.includes(kind)) return false;
-  return status === "published" || status === "closed" || enrolled;
+  if (showInPortal === false) return false;
+  if (showInPortal === true) return isLive(status) || enrolled;
+  return isLive(status);
+}
+
+/** What the admin switch shows: on when switched on, or automatic and published/closed. */
+export function isPortalSwitchOn(status: string, showInPortal: boolean | null | undefined): boolean {
+  if (showInPortal === true) return true;
+  if (showInPortal === false) return false;
+  return isLive(status);
 }
