@@ -5,7 +5,7 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { listPortalBatches, getPortalBatch, getProgressForEmail, getProgressForUser } from "@/lib/data/portal";
+import { listPortalBatches, getPortalBatch, getProgressForUser } from "@/lib/data/portal";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 const PAST = "2026-10-01T10:00:00Z";
@@ -158,17 +158,6 @@ describe("getPortalBatch", () => {
   });
 });
 
-describe("getProgressForEmail", () => {
-  it("matches case-insensitively and returns that person's progress", async () => {
-    const out = await getProgressForEmail("  Me@Example.com ", NOW);
-    expect(out?.pzId).toBe("Sample-0000");
-    expect(out?.firstName).toBe("Sample");
-  });
-  it("returns null for an unknown email", async () => {
-    expect(await getProgressForEmail("nobody@example.com", NOW)).toBeNull();
-  });
-});
-
 describe("getProgressForUser", () => {
   it("is unconfirmed without a confirmed email and loads nothing", async () => {
     const calls = vi.fn();
@@ -179,10 +168,11 @@ describe("getProgressForUser", () => {
     expect(await getProgressForUser({}, NOW)).toEqual({ status: "unconfirmed" });
     expect(calls).not.toHaveBeenCalled();
   });
-  it("returns the progress for a confirmed email", async () => {
-    const out = await getProgressForUser({ email: "Me@Example.com", email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW);
+  it("returns the progress for a confirmed email, matched case-insensitively", async () => {
+    const out = await getProgressForUser({ email: "  Me@Example.com ", email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW);
     expect(out.status).toBe("ok");
     expect(out.status === "ok" && out.progress?.pzId).toBe("Sample-0000");
+    expect(out.status === "ok" && out.progress?.firstName).toBe("Sample");
   });
   it("is ok with null progress for an unknown confirmed email", async () => {
     expect(await getProgressForUser({ email: "nobody@example.com", email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW)).toEqual({ status: "ok", progress: null });

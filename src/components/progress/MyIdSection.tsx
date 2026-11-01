@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type RefObject } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, CircleAlert, Copy, Hourglass, LoaderCircle, Search } from "lucide-react";
 import type { FindMyIdByNameResult } from "@/app/progress/actions";
-import { StepHeading, btnFocus, inputClass } from "./ui";
+import { btnFocus, inputClass } from "./ui";
 
 const COPIED_MS = 2000;
 const FALLBACK_ERROR = "Something went wrong. Please try again in a minute.";
@@ -12,18 +12,13 @@ type CopyState = { key: string; status: "copied" | "failed" } | null;
 
 interface Props {
   findId: (query: string) => Promise<FindMyIdByNameResult>;
-  /** Old ID-entry step only. Without onFill the section works standalone (portal home). */
-  nameRef?: RefObject<HTMLInputElement>;
-  /** Put an ID into the step 2 box. `focus` moves the keyboard focus there. */
-  onFill?: (pzId: string, focus: boolean) => void;
 }
 
-export function MyIdSection({ findId, nameRef, onFill }: Props) {
+export function MyIdSection({ findId }: Props) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<FindMyIdByNameResult | null>(null);
   const [copy, setCopy] = useState<CopyState>(null);
   const [pending, startTransition] = useTransition();
-  const standalone = !onFill;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -48,7 +43,6 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
 
   async function onCopy(key: string, pzId: string) {
     if (timer.current) clearTimeout(timer.current);
-    onFill?.(pzId, false);
     let ok = false;
     try {
       if (navigator.clipboard?.writeText) {
@@ -66,20 +60,15 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
 
   return (
     <section aria-labelledby="find-id-heading" className="flex min-w-0 flex-col gap-3">
-      {standalone ? (
-        <h2 id="find-id-heading" className="font-headline text-lg font-bold text-pz-on-surface">
-          Find my ID
-        </h2>
-      ) : (
-        <StepHeading n={1} id="find-id-heading" title="Find My ID" note="Privacy-safe lookup" />
-      )}
+      <h2 id="find-id-heading" className="font-headline text-lg font-bold text-pz-on-surface">
+        Find my ID
+      </h2>
       <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-pz-surface-container-lowest p-4 shadow-sm ring-1 ring-pz-outline-variant/40">
         <form onSubmit={onSubmit} noValidate className="flex min-w-0 flex-col gap-3">
           <label htmlFor="progress-name" className="font-headline text-sm font-semibold text-pz-on-surface-variant">
             Type your full name
           </label>
           <input
-            ref={nameRef}
             id="progress-name"
             name="name"
             value={query}
@@ -115,13 +104,7 @@ export function MyIdSection({ findId, nameRef, onFill }: Props) {
         </p>
         <div className="min-w-0">
           {result && (
-            <IdResult
-              result={result}
-              copy={copy}
-              onCopy={onCopy}
-              onUse={onFill ? (id) => onFill(id, true) : undefined}
-              standalone={standalone}
-            />
+            <IdResult result={result} copy={copy} onCopy={onCopy} />
           )}
         </div>
       </div>
@@ -170,14 +153,10 @@ function IdResult({
   result,
   copy,
   onCopy,
-  onUse,
-  standalone,
 }: {
   result: FindMyIdByNameResult;
   copy: CopyState;
   onCopy: (key: string, pzId: string) => void;
-  onUse?: (pzId: string) => void;
-  standalone: boolean;
 }) {
   switch (result.status) {
     case "too_short":
@@ -217,7 +196,7 @@ function IdResult({
           </div>
           <CopyButton state={state} onClick={() => onCopy(key, r.pzId)} label={`Copy ID ${r.pzId}`} />
         </div>
-        <CopyMessage state={state} standalone={standalone} />
+        <CopyMessage state={state} />
       </div>
     );
   }
@@ -225,7 +204,7 @@ function IdResult({
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-lg bg-pz-surface-container-low p-3.5">
       <p className="font-headline text-sm font-bold text-pz-on-surface">{result.rows.length} matches found</p>
-      <p className="text-sm text-pz-on-surface-variant">{standalone ? "Pick the one with your batch, then tap Copy." : "Pick the one with your batch. Tap Use to put it in the box below."}</p>
+      <p className="text-sm text-pz-on-surface-variant">Pick the one with your batch, then tap Copy.</p>
       {result.more && (
         <p className="text-sm font-semibold text-pz-on-surface">More people match. Type your full name to narrow it down.</p>
       )}
@@ -242,22 +221,11 @@ function IdResult({
               </p>
               {r.batchTitle && <p className="break-words text-sm text-pz-on-surface-variant">Batch: {r.batchTitle}</p>}
             </div>
-            {onUse ? (
-            <button
-              type="button"
-              onClick={() => onUse(r.pzId)}
-              aria-label={`Use ID ${r.pzId}`}
-              className={`min-h-11 min-w-16 shrink-0 rounded-md bg-pz-surface-container-high px-4 font-headline text-sm font-bold text-pz-on-surface transition-colors hover:bg-pz-surface-container-highest motion-reduce:transition-none ${btnFocus}`}
-            >
-              Use
-            </button>
-            ) : (
               <CopyButton
                 state={copy?.key === `m-${i}-${r.pzId}` ? copy.status : null}
                 onClick={() => onCopy(`m-${i}-${r.pzId}`, r.pzId)}
                 label={`Copy ID ${r.pzId}`}
               />
-            )}
           </li>
         ))}
       </ul>
@@ -282,22 +250,12 @@ function CopyButton({ state, onClick, label }: { state: "copied" | "failed" | nu
   );
 }
 
-function CopyMessage({ state, standalone }: { state: "copied" | "failed" | null; standalone: boolean }) {
-  if (state === "copied") {
-    if (standalone) return <p className="text-sm text-pz-on-surface-variant">Copied.</p>;
-    return <p className="text-sm text-pz-on-surface-variant">Copied. We also put it in the box below, ready to use.</p>;
-  }
+function CopyMessage({ state }: { state: "copied" | "failed" | null }) {
+  if (state === "copied") return <p className="text-sm text-pz-on-surface-variant">Copied.</p>;
   if (state === "failed") {
-    if (standalone) {
-      return (
-        <p role="alert" className="text-sm font-semibold text-pz-academy-error">
-          Your phone did not let us copy it. Press and hold the ID to copy it yourself.
-        </p>
-      );
-    }
     return (
       <p role="alert" className="text-sm font-semibold text-pz-academy-error">
-        Your phone did not let us copy it. We put your ID in the box below, so just tap Show my progress. To keep it, press and hold the ID to copy it yourself.
+        Your phone did not let us copy it. Press and hold the ID to copy it yourself.
       </p>
     );
   }

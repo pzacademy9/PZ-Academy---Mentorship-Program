@@ -177,7 +177,7 @@ export async function getPortalBatch(slug: string, now: Date = new Date()): Prom
 }
 
 /** Progress of the person who owns this email (case-insensitive), or null when there is no such person. */
-export async function getProgressForEmail(email: string, now: Date = new Date()): Promise<Progress | null> {
+async function getProgressForEmail(email: string, now: Date = new Date()): Promise<Progress | null> {
   const normalized = (typeof email === "string" ? email : "").trim().toLowerCase();
   if (normalized.length === 0) return null;
   const admin = createAdminSupabase();

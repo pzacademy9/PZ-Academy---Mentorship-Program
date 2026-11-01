@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
-import { ProgressPage } from "@/components/progress/ProgressPage";
-import type { FindMyIdByNameResult, MyProgressResult } from "@/app/progress/actions";
+import { MyIdSection } from "@/components/progress/MyIdSection";
+import { ProgressSection } from "@/components/progress/ProgressSection";
+import type { FindMyIdByNameResult } from "@/app/progress/actions";
 import type { Progress, ProgressBatch } from "@/lib/progress/build";
 
 // Fake people only. Extra surname/email-shaped fields are smuggled in to prove they never render.
@@ -9,7 +10,6 @@ const SURNAME = "Fakesurnameson";
 const EMAIL = "sample.person@example.com";
 
 const findId = vi.fn<(q: string) => Promise<FindMyIdByNameResult>>();
-const getProgress = vi.fn<(id: string) => Promise<MyProgressResult>>();
 
 function row(firstName: string, pzId: string, batchTitle: string) {
   return { firstName, pzId, batchTitle, surname: SURNAME, email: EMAIL, displayName: `${firstName} ${SURNAME}` } as unknown as {
@@ -84,26 +84,22 @@ function progress(over: Partial<Progress> = {}): Progress {
 }
 
 function setup() {
-  return render(<ProgressPage findId={findId} getProgress={getProgress} />);
+  return render(<MyIdSection findId={findId} />);
+}
+
+function setupProgress(p: Progress = progress()) {
+  return render(<ProgressSection progress={p} />);
 }
 
 const nameBox = () => screen.getByLabelText("Type your full name") as HTMLInputElement;
-const idBox = () => screen.getByLabelText("Your PZ ID") as HTMLInputElement;
 
 async function searchName(q: string) {
   fireEvent.change(nameBox(), { target: { value: q } });
   fireEvent.click(screen.getByRole("button", { name: /^find my id$/i }));
 }
 
-async function showProgress(id: string) {
-  fireEvent.change(idBox(), { target: { value: id } });
-  fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
-  await screen.findByRole("heading", { name: /hello, sample/i });
-}
-
 beforeEach(() => {
   findId.mockReset();
-  getProgress.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -143,7 +139,7 @@ describe("Find My ID box", () => {
     expect(await screen.findByText("Something went wrong")).toBeTruthy();
   });
 
-  it("single match shows the big ID; Copy turns to Copied for 2 seconds and fills step 2", async () => {
+  it("single match shows the big ID; Copy turns to Copied for 2 seconds", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     setup();
@@ -158,8 +154,7 @@ describe("Find My ID box", () => {
     });
     expect(writeText).toHaveBeenCalledWith("Sample-0000");
     expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
-    expect(screen.getByText(/we also put it in the box below/i)).toBeTruthy();
-    expect(idBox().value).toBe("Sample-0000");
+    expect(screen.getByText("Copied.")).toBeTruthy();
 
     await act(async () => {
       vi.advanceTimersByTime(2100);
@@ -167,7 +162,7 @@ describe("Find My ID box", () => {
     expect(screen.getByRole("button", { name: /copy id sample-0000/i }).textContent).toContain("Copy");
   });
 
-  it("clipboard blocked: says so plainly and still fills the ID box", async () => {
+  it("clipboard blocked: says so plainly", async () => {
     const writeText = vi.fn().mockRejectedValue(new Error("blocked"));
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     setup();
@@ -177,10 +172,11 @@ describe("Find My ID box", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/did not let us copy/i);
     expect(screen.queryByRole("button", { name: "Copied" })).toBeNull();
-    expect(idBox().value).toBe("Sample-0000");
   });
 
-  it("multi match: Use fills the ID box and moves focus there", async () => {
+  it("multi match: each row has its own Copy button", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     setup();
     findId.mockResolvedValueOnce({
       status: "ok",
@@ -189,9 +185,8 @@ describe("Find My ID box", () => {
     });
     await searchName("Sample");
     expect(await screen.findByText("2 matches found")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Use ID Sample-1111" }));
-    expect(idBox().value).toBe("Sample-1111");
-    expect(document.activeElement).toBe(idBox());
+    fireEvent.click(screen.getByRole("button", { name: "Copy ID Sample-1111" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("Sample-1111"));
   });
 });
 
@@ -225,13 +220,13 @@ describe("Find My ID box: full name, long names, more matches, announcements", (
     findId.mockResolvedValueOnce({ status: "ok", rows, more: true });
     await searchName("Sample");
     expect(await screen.findByText("More people match. Type your full name to narrow it down.")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /^Use ID/ })).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: /^Copy ID/ })).toHaveLength(5);
     findId.mockResolvedValueOnce({ status: "ok", rows, more: false });
     await searchName("Sample Name");
     await waitFor(() => expect(screen.queryByText(/More people match/)).toBeNull());
   });
 
-  it("has exactly one polite live region in step 1 with a one-line summary, and no nested alert", async () => {
+  it("has exactly one polite live region with a one-line summary, and no nested alert", async () => {
     const { container } = setup();
     findId.mockResolvedValueOnce({
       status: "ok",
@@ -252,71 +247,15 @@ describe("Find My ID box: full name, long names, more matches, announcements", (
   });
 });
 
-describe("My Progress Tracker box", () => {
-  it("announces a step 2 error once: role=alert, with no live region around it", async () => {
-    const { container } = setup();
-    fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(container.querySelector("#progress-id-status")?.getAttribute("aria-live")).toBeNull();
-    expect(container.querySelector("[aria-live] [role='alert']")).toBeNull();
-  });
-
-  it("empty ID asks for the ID without calling the server", () => {
-    setup();
-    fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
-    expect(screen.getByRole("alert").textContent).toMatch(/type your pz id first/i);
-    expect(getProgress).not.toHaveBeenCalled();
-  });
-
-  it("wrong ID, rate limited and error states", async () => {
-    setup();
-    getProgress.mockResolvedValueOnce({ status: "not_found" });
-    fireEvent.change(idBox(), { target: { value: "Nope-1234" } });
-    fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
-    expect((await screen.findByRole("alert")).textContent).toMatch(/could not find that id/i);
-    expect(idBox().getAttribute("aria-invalid")).toBe("true");
-
-    getProgress.mockResolvedValueOnce({ status: "rate_limited" });
-    fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/too many tries/i));
-
-    getProgress.mockResolvedValueOnce({ status: "error", message: "Something went wrong. Please try again in a minute." });
-    fireEvent.click(screen.getByRole("button", { name: /show my progress/i }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/something went wrong/i));
-  });
-
-  it("Forgot your ID focuses the name box", () => {
-    setup();
-    fireEvent.click(screen.getByRole("button", { name: /forgot your id/i }));
-    expect(document.activeElement).toBe(nameBox());
-  });
-
-  it("shows greeting, PZ ID and moves focus to the greeting", async () => {
-    getProgress.mockResolvedValueOnce({ status: "ok", progress: progress() });
-    setup();
-    await showProgress("Sample-0000");
-    expect(getProgress).toHaveBeenCalledWith("Sample-0000");
-    const hello = screen.getByRole("heading", { name: "Hello, Sample" });
-    await waitFor(() => expect(document.activeElement).toBe(hello));
-  });
-
-  it("no classes yet message when there are no groups", async () => {
-    getProgress.mockResolvedValueOnce({ status: "ok", progress: progress({ groups: [] }) });
-    setup();
-    await showProgress("Sample-0000");
+describe("Progress view", () => {
+  it("no classes yet message when there are no groups", () => {
+    setupProgress(progress({ groups: [] }));
     expect(screen.getByText(/no classes to show yet/i)).toBeTruthy();
     expect(screen.queryByRole("tablist")).toBeNull();
   });
-});
-
-describe("Progress view", () => {
-  beforeEach(() => {
-    getProgress.mockResolvedValue({ status: "ok", progress: progress() });
-  });
 
   it("real tabs: switch with click and arrow keys", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     const [att, res] = screen.getAllByRole("tab");
     expect(screen.getByRole("tablist")).toBeTruthy();
     expect(att.getAttribute("aria-selected")).toBe("true");
@@ -336,16 +275,14 @@ describe("Progress view", () => {
   });
 
   it("category headings shown, empty groups hidden", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     expect(screen.getByRole("heading", { name: "Courses" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Workshops" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Webinars" })).toBeNull();
   });
 
   it("latest batch starts open, others closed; toggling works", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     const latest = screen.getByRole("button", { name: /sample batch 1/i });
     const old = screen.getByRole("button", { name: /old recorded batch/i });
     expect(latest.getAttribute("aria-expanded")).toBe("true");
@@ -360,8 +297,7 @@ describe("Progress view", () => {
   });
 
   it("attendance header, target tag and all session tags", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     expect(screen.getByText("Meets 75% target")).toBeTruthy();
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("75");
     expect(screen.getAllByText("Present (marked at check-in)")).toHaveLength(2);
@@ -373,15 +309,13 @@ describe("Progress view", () => {
   });
 
   it("below target is stated plainly", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     fireEvent.click(screen.getByRole("button", { name: /low workshop/i }));
     expect(screen.getByText("Below the 75% target")).toBeTruthy();
   });
 
   it("results: score / max, score alone when max is null, rank when present", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     fireEvent.click(screen.getByRole("tab", { name: /quiz results/i }));
     expect(screen.getByText("8 / 10")).toBeTruthy();
     expect(screen.getByText("Rank 4 of 52")).toBeTruthy();
@@ -392,8 +326,7 @@ describe("Progress view", () => {
   });
 
   it("recorded student sees the note and no rank", async () => {
-    setup();
-    await showProgress("Sample-0000");
+    setupProgress();
     fireEvent.click(screen.getByRole("button", { name: /old recorded batch/i }));
     expect(screen.getByText(/attendance is not tracked for recorded students/i)).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /quiz results/i }));
@@ -410,11 +343,14 @@ describe("privacy and layout", () => {
       rows: [row("Sample", "Sample-0000", "Sample Batch 1"), row("Sample", "Sample-1111", "Sample Batch 2")],
       more: false,
     });
-    getProgress.mockResolvedValue({ status: "ok", progress: progress() });
-    const { container } = setup();
+    const { container } = render(
+      <>
+        <MyIdSection findId={findId} />
+        <ProgressSection progress={progress()} />
+      </>,
+    );
     await searchName("Sample");
     await screen.findByText("2 matches found");
-    await showProgress("Sample-0000");
     // open every card in both tabs
     for (const tab of ["Attendance", "Quiz Results"]) {
       fireEvent.click(screen.getByRole("tab", { name: new RegExp(tab, "i") }));
@@ -427,19 +363,19 @@ describe("privacy and layout", () => {
     }
   });
 
-  it("no fixed widths that would force sideways scroll; inputs are 16px or larger", async () => {
-    getProgress.mockResolvedValue({ status: "ok", progress: progress() });
-    const { container } = setup();
-    await showProgress("Sample-0000");
+  it("no fixed widths that would force sideways scroll; inputs are 16px or larger", () => {
+    const { container } = render(
+      <>
+        <MyIdSection findId={findId} />
+        <ProgressSection progress={progress()} />
+      </>,
+    );
     const tooWide = /(?:^|\s)(?:min-)?w-\[(\d+)px\]/;
     for (const el of Array.from(container.querySelectorAll<HTMLElement>("[class]"))) {
       const m = tooWide.exec(el.getAttribute("class") ?? "");
       if (m) expect(Number(m[1])).toBeLessThanOrEqual(320);
       expect(el.getAttribute("class")).not.toMatch(/(?:^|\s)(?:min-)?w-(?:96|80|72)(?:\s|$)/);
     }
-    const root = container.firstElementChild as HTMLElement;
-    expect(root.className).toContain("w-full");
-    expect(root.className).toContain("min-w-0");
     for (const input of Array.from(container.querySelectorAll("input"))) {
       expect(input.className).toMatch(/(?:^|\s)text-(?:base|lg|xl|2xl)(?:\s|$)/);
     }
