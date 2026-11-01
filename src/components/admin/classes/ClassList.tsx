@@ -16,11 +16,11 @@ export function ClassList({
   onSelect: (id: string) => void;
 }) {
   return (
-    <ul className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+    <ul className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-1 lg:overflow-visible">
       {classes.map((c) => {
         const on = c.id === selectedId;
         return (
-          <li key={c.id}>
+          <li key={c.id} className="shrink-0 max-lg:w-36 lg:w-auto">
             <button
               type="button"
               aria-pressed={on}

@@ -380,3 +380,65 @@ describe("SessionsPanel", () => {
     expect((screen.getByLabelText(/Show on public progress portal/) as HTMLInputElement).checked).toBe(true);
   });
 });
+
+describe("phone-first Classes screen", () => {
+  const overview2 = (classes: ClassSummary[]): ClassOverview => ({
+    title: "Batch", classes, selectedId: classes[0]?.id ?? "",
+    batchFeedback: { totalResponses: 0, overallAvg: null, perClass: [] }, programId: null,
+  });
+
+  it("next step has one big button: a link to the quiz page when the quiz is missing", () => {
+    panel(summary());
+    const box = screen.getByRole("status");
+    const link = within(box).getByRole("link", { name: "Upload quiz results" });
+    expect(link.getAttribute("href")).toMatch(/\/sessions\/s1\/quiz$/);
+  });
+
+  it("for an upcoming class the button opens the Attendance fold", () => {
+    panel(summary({ status: "upcoming" }));
+    const fold = screen.getByRole("button", { name: /^Attendance/ });
+    expect(fold.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Open attendance link" }));
+    expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("attendance-card")).toBeTruthy();
+  });
+
+  it("opening one fold leaves the others as they were", () => {
+    panel(summary({ quiz: { saved: true, players: 5 } }));
+    fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Feedback/ }));
+    expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Quiz results/ }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("no next-step button when everything is done", () => {
+    panel(summary({ quiz: { saved: true, players: 54 }, feedbackCount: 12, feedbackAvg: 4.5 }));
+    const box = screen.getByRole("status");
+    expect(within(box).queryByRole("button")).toBeNull();
+    expect(within(box).queryByRole("link")).toBeNull();
+  });
+
+  it("each fold header shows its one-line status", () => {
+    panel(summary({ feedbackCount: 18, feedbackAvg: 4.6 }));
+    expect(screen.getByRole("button", { name: /^Attendance/ }).textContent).toContain("38 of 52 present");
+    expect(screen.getByRole("button", { name: /^Quiz results/ }).textContent).toContain("Not uploaded yet");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("18 answers · 4.6 average");
+  });
+
+  it("the day list scrolls sideways on a phone", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary(), summary({ id: "s2", number: 2 })])} sessions={[session(), session({ id: "s2", number: 2 })]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const strip = screen.getByRole("button", { name: /Day 2/ }).closest("ul")!;
+    expect(strip.className).toContain("overflow-x-auto");
+    expect(strip.className).toMatch(/\bflex\b/);
+  });
+
+  it("one Batch settings fold holds the pass mark and the portal switch", () => {
+    render(<SessionsPanel pageId={PAGE} overview={overview2([summary()])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
+    const folds = screen.getAllByText("Batch settings");
+    expect(folds).toHaveLength(1);
+    const details = folds[0].closest("details")!;
+    expect(within(details).getByLabelText(/Minimum attendance to pass/)).toBeTruthy();
+    expect(within(details).getByLabelText(/Show on public progress portal/)).toBeTruthy();
+  });
+});

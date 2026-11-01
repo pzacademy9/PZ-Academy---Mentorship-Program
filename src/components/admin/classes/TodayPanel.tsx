@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarClock, Pencil, Video } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { CalendarClock, FileUp, MessageSquareText, Pencil, Users, Video } from "lucide-react";
 import { formatPkt, isoToPktInput } from "@/lib/attendance/rules";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
@@ -10,7 +11,9 @@ import { AttendanceCard } from "./AttendanceCard";
 import { QuizCard } from "./QuizCard";
 import { FeedbackCard } from "./FeedbackCard";
 import { EditClassDialog } from "./EditClassDialog";
-import { cardCls, quietBtn } from "./styles";
+import { FoldCard } from "./FoldCard";
+import { attendanceStatus, feedbackStatus, nextAction, quizStatus } from "@/lib/classes/card-status";
+import { cardCls, primaryBtn, quietBtn } from "./styles";
 
 /** The single next step for a class. */
 export function nextStep(c: ClassSummary): { title: string; hint: string } {
@@ -51,7 +54,21 @@ export function TodayPanel({
   nowIso: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [openCard, setOpenCard] = useState<"attendance" | "quiz" | "feedback" | null>(null);
+  const [opened, setOpened] = useState<Record<"attendance" | "quiz" | "feedback", boolean>>({ attendance: false, quiz: false, feedback: false });
   const step = nextStep(cls);
+  const action = nextAction(cls);
+  const quizHref = `/dashboard/admin/enrollments/registrations/campaign/${pageId}/sessions/${cls.id}/quiz`;
+  const toggle = (k: "attendance" | "quiz" | "feedback") => setOpened((cur) => ({ ...cur, [k]: !cur[k] }));
+  function runAction() {
+    if (action.target === null || action.target === "quiz") return;
+    const k = action.target;
+    setOpened((cur) => ({ ...cur, [k]: true }));
+    setOpenCard(k);
+  }
+  useEffect(() => {
+    if (openCard) document.getElementById(`fold-${openCard}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [openCard]);
   return (
     <div className="space-y-4">
       <section className={`${cardCls} space-y-3`}>
@@ -87,12 +104,29 @@ export function TodayPanel({
         <div role="status" className="rounded-lg border border-pz-primary/40 bg-pz-primary/10 p-4">
           <p className="font-headline text-lg font-bold text-pz-on-surface">Next step: {step.title}</p>
           <p className="text-base text-pz-on-surface-variant">{step.hint}</p>
+          {action.target === "quiz" && (
+            <Link href={quizHref} className={`${primaryBtn} mt-3 w-full`}>
+              <FileUp className="size-5" aria-hidden />
+              {action.label}
+            </Link>
+          )}
+          {action.target !== null && action.target !== "quiz" && (
+            <button type="button" className={`${primaryBtn} mt-3 w-full`} onClick={runAction}>
+              {action.label}
+            </button>
+          )}
         </div>
       </section>
 
-      <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />
-      <QuizCard pageId={pageId} cls={cls} />
-      <FeedbackCard pageId={pageId} cls={cls} />
+      <FoldCard id="fold-attendance" icon={<Users className="size-5" />} title="Attendance" status={attendanceStatus(cls)} open={opened.attendance} onToggle={() => toggle("attendance")}>
+        <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />
+      </FoldCard>
+      <FoldCard id="fold-quiz" icon={<FileUp className="size-5" />} title="Quiz results" status={quizStatus(cls)} open={opened.quiz} onToggle={() => toggle("quiz")}>
+        <QuizCard pageId={pageId} cls={cls} />
+      </FoldCard>
+      <FoldCard id="fold-feedback" icon={<MessageSquareText className="size-5" />} title="Feedback" status={feedbackStatus(cls)} open={opened.feedback} onToggle={() => toggle("feedback")}>
+        <FeedbackCard pageId={pageId} cls={cls} />
+      </FoldCard>
 
       {editing && <EditClassDialog pageId={pageId} session={session} nextNumber={cls.number} sends={sends} onClose={() => setEditing(false)} />}
     </div>

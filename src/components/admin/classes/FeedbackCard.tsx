@@ -39,7 +39,7 @@ export function FeedbackCard({ pageId, cls }: { pageId: string; cls: ClassSummar
 
   return (
     <section data-testid="feedback-card" className={`${cardCls} space-y-4`}>
-      <h3 className="font-headline text-xl font-bold text-pz-on-surface">Feedback</h3>
+      <h3 className="font-headline text-xl font-bold text-pz-on-surface max-lg:hidden">Feedback</h3>
       {cls.feedbackLink && cls.feedbackSessionId ? (
         <>
           <p className="text-base text-pz-on-surface-variant">Share this link at the end of class so students can rate it.</p>

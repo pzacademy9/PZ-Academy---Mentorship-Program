@@ -9,7 +9,7 @@ export function QuizCard({ pageId, cls }: { pageId: string; cls: ClassSummary })
   return (
     <section data-testid="quiz-card" className={`${cardCls} space-y-4`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-headline text-xl font-bold text-pz-on-surface">Quiz results</h3>
+        <h3 className="font-headline text-xl font-bold text-pz-on-surface max-lg:hidden">Quiz results</h3>
         <span
           className={`rounded-full px-3 py-1 text-base font-headline font-bold ${
             saved

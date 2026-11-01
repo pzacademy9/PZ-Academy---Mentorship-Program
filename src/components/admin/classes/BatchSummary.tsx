@@ -1,12 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Award, ExternalLink, Star, Users } from "lucide-react";
 import { openProgramReport } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { summarizeAttendance, summarizeFeedback } from "@/lib/classes/summary";
 import type { GridRow } from "@/lib/data/attendance";
 import { cardCls, quietBtn } from "@/components/admin/classes/styles";
+import { FoldCard } from "@/components/admin/classes/FoldCard";
 
 export function BatchSummary({
   pageId, feedback, programId, rows, minPct,
@@ -19,6 +20,7 @@ export function BatchSummary({
   minPct: number;
 }) {
   const [busy, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
   function openReport() {
     startTransition(async () => {
       const res = await openProgramReport(pageId);
@@ -28,8 +30,13 @@ export function BatchSummary({
   }
   const att = summarizeAttendance(rows, minPct);
   const hasFeedback = feedback.overallAvg !== null;
+  const headline = [
+    att.averagePct === null ? "No classes held yet" : `${att.averagePct}% attendance`,
+    hasFeedback ? `${feedback.overallAvg!.toFixed(1)} feedback` : "No feedback yet",
+  ].join(" · ");
 
   return (
+    <FoldCard id="fold-batch" icon={<Award className="size-5" />} title="Batch results" status={{ line: headline, badge: null, tone: "idle" }} open={open} onToggle={() => setOpen((o) => !o)}>
     <div className="grid gap-4 md:grid-cols-2">
       <section className={`${cardCls} space-y-3`} aria-labelledby="batch-feedback-title">
         <h2 id="batch-feedback-title" className="flex items-center gap-2 font-headline text-lg font-bold text-pz-on-surface">
@@ -91,5 +98,6 @@ export function BatchSummary({
         )}
       </section>
     </div>
+    </FoldCard>
   );
 }

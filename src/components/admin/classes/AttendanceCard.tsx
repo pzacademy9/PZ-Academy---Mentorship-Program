@@ -87,7 +87,7 @@ export function AttendanceCard({
   return (
     <section data-testid="attendance-card" className={`${cardCls} space-y-4`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-headline text-xl font-bold text-pz-on-surface">Attendance</h3>
+        <h3 className="font-headline text-xl font-bold text-pz-on-surface max-lg:hidden">Attendance</h3>
         <span
           className={cn(
             "rounded-full px-3 py-1 text-base font-headline font-bold",
