@@ -1,6 +1,6 @@
 // src/lib/landing/content.ts
 import { z } from "zod";
-import { isSafeUrl } from "./simple-text";
+import { isHttpsUrl, isSafeUrl } from "./simple-text";
 import { validateSlug } from "./slug";
 import {
   normalizeRegistration, registrationConfigSchema, registrationProblems, type RegistrationConfig,
@@ -58,6 +58,7 @@ const DEFAULT_SETTINGS: LandingSettings = {
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
+const httpsUrlOrEmpty = z.string().max(1000).refine((v) => v === "" || isHttpsUrl(v), "Enter a full link starting with https://");
 const safeUrlOrEmpty = z.string().max(1000).refine((v) => v === "" || isSafeUrl(v), "Enter a full link starting with https://");
 
 const moduleSchema = z.object({
@@ -72,7 +73,7 @@ export const contentSchema = z
   .object({
     settings: z.object({
       registerUrl: safeUrlOrEmpty,
-      portalLink: safeUrlOrEmpty.optional(),
+      portalLink: httpsUrlOrEmpty.optional(),
       registerLabel: z.string().max(40),
       whatsappNumber: z.string().max(30),
       countdownTo: z.string().max(40),
@@ -137,7 +138,7 @@ export function normalizeContent(raw: unknown): LandingContent {
     countdownTo: str(s.countdownTo, "", 40),
     countdownLabel: str(s.countdownLabel, "", 80),
     batchStartsOn: str(s.batchStartsOn, "", 40),
-    portalLink: safeUrlOrEmpty.safeParse(s.portalLink ?? "").success ? str(s.portalLink, "", 1000) : "",
+    portalLink: httpsUrlOrEmpty.safeParse(s.portalLink ?? "").success ? str(s.portalLink, "", 1000).trim() : "",
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),

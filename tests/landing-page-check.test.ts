@@ -72,6 +72,12 @@ describe("runPageChecks", () => {
     const c = page({ modes: ["recorded"], portalLink: "https://portal.example.com/x" });
     expect(byId(c, "recorded-portal", { hasCourse: false })!.status).toBe("pass");
   });
+  it("recorded with a pasted http or relative link still fails recorded-portal", () => {
+    for (const bad of ["http://portal.example.com/x", "#x", "https://portal.example.com/a b"]) {
+      const c = page({ modes: ["recorded"], portalLink: bad });
+      expect(byId(c, "recorded-portal", { hasCourse: false })!.status).toBe("fail");
+    }
+  });
   it("live-only page has no recorded-portal item", () => {
     expect(byId(page(), "recorded-portal", { hasCourse: false })).toBeUndefined();
   });

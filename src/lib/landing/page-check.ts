@@ -3,7 +3,7 @@
 // No server imports. The builder shows the results; publish is blocked by failures and asks
 // for confirmation on warnings.
 import type { LandingContent } from "./content";
-import { isSafeUrl } from "./simple-text";
+import { isHttpsUrl } from "./simple-text";
 import { resolveVariant, emptyOverrides } from "./resolve-variant";
 import { isValidWaGroupUrl, selectWaGroups } from "./registration/wa-groups";
 import type { RegistrationConfig } from "./registration/config";
@@ -76,7 +76,7 @@ function recordedNoGroup(r: RegistrationConfig): PageCheck {
 
 function recordedPortal(c: LandingContent, ctx: { hasCourse: boolean }): PageCheck {
   const link = c.settings.portalLink.trim();
-  const ok = ctx.hasCourse || (link !== "" && isSafeUrl(link));
+  const ok = ctx.hasCourse || (link !== "" && isHttpsUrl(link));
   return ok
     ? { id: "recorded-portal", title: "Recorded students have a portal to open", status: "pass" }
     : {

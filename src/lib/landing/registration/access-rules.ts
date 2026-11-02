@@ -1,5 +1,5 @@
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
-import { isSafeUrl } from "@/lib/landing/simple-text";
+import { isHttpsUrl } from "@/lib/landing/simple-text";
 
 export type EnrollmentStatusWord = "active" | "pending" | "reserved";
 export interface AccessInput {
@@ -51,6 +51,6 @@ export function pickPortalUrl(i: {
   appUrl: string;
 }): string | undefined {
   if (i.hasAccount && i.courseSlug && emailGetsPortalLink(i.desired)) return `${i.appUrl}/portal/${i.courseSlug}`;
-  if (!i.courseSlug && i.mode === "recorded" && i.status === "paid" && isSafeUrl(i.pastedLink)) return i.pastedLink;
+  if (!i.courseSlug && i.mode === "recorded" && i.status === "paid" && isHttpsUrl(i.pastedLink)) return i.pastedLink.trim();
   return undefined;
 }

@@ -20,6 +20,12 @@ export function isSafeUrl(url: string): boolean {
   }
 }
 
+/** A clean absolute https link, the only kind the emails will show as a button. Trims first. */
+export function isHttpsUrl(url: string): boolean {
+  const v = url.trim();
+  return /^https:\/\/[^\s"<>]+$/.test(v) && isSafeUrl(v);
+}
+
 const YT_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export function youtubeId(url: string): string | null {

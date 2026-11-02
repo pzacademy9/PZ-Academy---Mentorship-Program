@@ -38,3 +38,17 @@ describe("portalLink setting", () => {
     expect(emptyContent("course").settings.portalLink).toBe("");
   });
 });
+
+describe("portal link must be a clean https link (what the email accepts)", () => {
+  it.each(["http://lms.example.com", "#x", "/portal", "mailto:a@b.com", "https://lms.example.com/a b"])(
+    "pickPortalUrl ignores %s", (bad) => {
+      expect(pickPortalUrl({ ...base, pastedLink: bad })).toBeUndefined();
+    });
+  it("pickPortalUrl returns the trimmed link when it has stray spaces", () => {
+    expect(pickPortalUrl({ ...base, pastedLink: "  https://portal.example.com/x\n" })).toBe("https://portal.example.com/x");
+  });
+  it("normalizeContent blanks a non-https portalLink and trims a good one", () => {
+    expect(normalizeContent({ settings: { portalLink: "http://a.example.com" } }).settings.portalLink).toBe("");
+    expect(normalizeContent({ settings: { portalLink: " https://a.example.com/p " } }).settings.portalLink).toBe("https://a.example.com/p");
+  });
+});
