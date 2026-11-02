@@ -6,9 +6,10 @@ import { resolveRegionAccountKeys } from "./landing-payment-countries";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
-  computeReadiness, hasUnpublishedChanges, normalizeContent,
+  hasUnpublishedChanges, normalizeContent,
   type LandingContent, type PageKind, type PageStatus, type Problem,
 } from "@/lib/landing/content";
+import { publishCheck } from "@/lib/landing/publish-gate";
 
 // COLUMNS selects only the page columns; the Phase 2 registration columns (0069) are not read here.
 type Row = Omit<
@@ -179,7 +180,7 @@ export async function publishLandingPage(userId: string, id: string): Promise<Pu
   }
   if (!page) return { ok: false, reason: "not-found" };
   // The server re-checks readiness: the disabled Publish button is not a security boundary.
-  const readiness = computeReadiness(page.draft, { title: page.title, slug: page.slug });
+  const readiness = publishCheck(page.draft, { title: page.title, slug: page.slug, hasCourse: page.courseId !== null });
   if (!readiness.ready) return { ok: false, reason: "not-ready", problems: readiness.problems };
   // A paid region with no payment account would show visitors an empty pay list. Strict check, publish only.
   const reg = page.draft.registration;
