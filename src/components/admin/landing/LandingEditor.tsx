@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Link2, Monitor, PanelLeft, Redo2, SlidersHorizontal, Undo2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Link2, Monitor, PanelLeft, Redo2, ShieldCheck, SlidersHorizontal, Undo2 } from "lucide-react";
 import { useContentHistory, historyKeyAction } from "@/hooks/useContentHistory";
+import { PageCheckSheet } from "./PageCheckPanel";
+import { runPageChecks } from "@/lib/landing/page-check";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -201,6 +203,10 @@ function EditorShell({
     const next = historyRedo(contentRef.current);
     if (next) applyWithoutHistory(next);
   }, [historyRedo, applyWithoutHistory]);
+  const hasCourse = page.courseId !== null;
+  const courseTitle = courses?.find((c) => c.id === page.courseId)?.title ?? null;
+  const pageChecks = useMemo(() => runPageChecks(content, { hasCourse }), [content, hasCourse]);
+  const [checkOpen, setCheckOpen] = useState(false);
   const onLinkNow = link.activeId !== null;
   useEffect(() => {
     if (onLinkNow) return;
@@ -532,6 +538,15 @@ function EditorShell({
             Preview
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
+          <button
+            type="button"
+            onClick={() => setCheckOpen(true)}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-semibold text-pz-on-surface hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <ShieldCheck className="h-4 w-4 text-pz-on-surface-variant" aria-hidden="true" />
+            Check this page
+          </button>
           <div className="inline-flex gap-1" role="group" aria-label="Undo and redo">
             {([
               { label: "Undo", Icon: Undo2, run: undoEdit, can: history.canUndo },
@@ -568,6 +583,14 @@ function EditorShell({
           )}
         </div>
       </header>
+
+      {checkOpen && (
+        <PageCheckSheet
+          checks={pageChecks}
+          onGoto={(id, field) => { setCheckOpen(false); gotoProblem(id, field); }}
+          onClose={() => setCheckOpen(false)}
+        />
+      )}
 
       {page.published && (
         <p className="border-b border-pz-outline-variant bg-pz-surface-container-low px-4 py-1 font-body text-xs text-pz-on-surface-variant">
@@ -708,6 +731,8 @@ function EditorShell({
                   seo={content.seo}
                   slug={page.slug}
                   pageTitle={title}
+                  hasCourse={hasCourse}
+                  courseTitle={courseTitle}
                   onSettings={() => {}}
                   onSeo={() => {}}
                   registration={content.registration}
@@ -725,6 +750,8 @@ function EditorShell({
               seo={content.seo}
               slug={page.slug}
               pageTitle={title}
+              hasCourse={hasCourse}
+              courseTitle={courseTitle}
               onSettings={(patch) => apply(updateSettings(contentRef.current, patch))}
               onSeo={(patch) => apply(updateSeo(contentRef.current, patch))}
               registration={content.registration}

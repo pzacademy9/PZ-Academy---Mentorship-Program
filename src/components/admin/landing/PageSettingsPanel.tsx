@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { CalendarDays, MessageCircle, MousePointerClick, Share2, Timer } from "lucide-react";
+import { CalendarDays, GraduationCap, MessageCircle, MousePointerClick, Share2, Timer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { LandingSeo, LandingSettings } from "@/lib/landing/content";
@@ -33,7 +33,8 @@ function pktToIso(local: string): string {
 const text = (key: string, label: string, o: Partial<FieldDef> = {}): FieldDef => ({ key, label, kind: "text", ...o });
 
 const REGISTER_URL = text("registerUrl", "Register button link", { kind: "url", help: "Where the Register button sends people, for example your registration form. Starts with https://" });
-const REGISTER_LABEL = text("registerLabel", "Register button text", { max: 40, example: "Register now" });
+const PORTAL_LINK = text("portalLink", "Portal link", { kind: "url", help: "Where recorded students open their lessons. Must start with https://." });
+const REGISTER_LABEL =text("registerLabel", "Register button text", { max: 40, example: "Register now" });
 const WHATSAPP = text("whatsappNumber", "WhatsApp number", { max: 20, example: "923001234567", help: "Include the country code without a leading zero (92 for Pakistan, 971 for UAE). Leave empty to hide the WhatsApp button." });
 const COUNTDOWN_LABEL = text("countdownLabel", "Countdown label", { max: 80, example: "Early Bird ends in", help: "Shown in the strip at the top of the page." });
 const SEO_TITLE = text("title", "Title", { max: 120, help: "The big line people see when the link is shared or found on Google. Leave empty to use the page name." });
@@ -55,7 +56,11 @@ function Card({ icon: Icon, title, children }: { icon: typeof Timer; title: stri
 export function PageSettingsPanel({
   settings, seo, slug, pageTitle, onSettings, onSeo,
   registration, registrationStep, onRegistrationStep, onRegistration, modules, courseModules, saveMessage, children,
+  hasCourse = false, courseTitle = null,
 }: {
+  /** Whether the page is linked to a course (recorded students then open that course's portal). */
+  hasCourse?: boolean;
+  courseTitle?: string | null;
   /** The Modules card (course and workshop pages only; omit it elsewhere). */
   modules?: ModulesEditorProps;
   /** The page's course modules for the registration options (null = no course). */
@@ -90,6 +95,16 @@ export function PageSettingsPanel({
         <FieldInput field={registration?.enabled ? { ...REGISTER_URL, help: "Only used when the built-in registration form is off." } : REGISTER_URL} value={settings.registerUrl} onChange={(v) => onSettings({ registerUrl: String(v) })} />
         <FieldInput field={REGISTER_LABEL} value={settings.registerLabel} onChange={(v) => onSettings({ registerLabel: String(v) })} />
       </Card>
+
+      {registration?.enabled && registration.modes.includes("recorded") && (
+        <Card icon={GraduationCap} title="Portal for recorded students">
+          {hasCourse ? (
+            <p className="font-body text-sm text-pz-on-surface">Recorded students get the portal for {courseTitle ?? "this page's course"}.</p>
+          ) : (
+            <FieldInput field={PORTAL_LINK} value={settings.portalLink} onChange={(v) => onSettings({ portalLink: String(v) })} />
+          )}
+        </Card>
+      )}
 
       {modules && <ModulesEditor {...modules} />}
 
