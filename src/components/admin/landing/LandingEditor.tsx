@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Link2, Monitor, PanelLeft, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Link2, Monitor, PanelLeft, Redo2, ShieldCheck, SlidersHorizontal, Undo2 } from "lucide-react";
+import { useContentHistory, historyKeyAction } from "@/hooks/useContentHistory";
+import { PageCheckSheet } from "./PageCheckPanel";
+import { runPageChecks } from "@/lib/landing/page-check";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -177,12 +180,49 @@ function EditorShell({
   // can finish seconds later and must not revert what was typed meanwhile.
   const contentRef = useRef(content);
   const [serverProblems, setServerProblems] = useState<Problem[] | null>(null);
-  const apply = useCallback((next: LandingContent) => {
+  const applyWithoutHistory = useCallback((next: LandingContent) => {
     contentRef.current = next;
     setContent(next);
     setServerProblems(null); // the server's list described the old content; the local check takes over again
     schedule(next);
   }, [schedule]);
+  // Undo/Redo cover the main page draft only. Every edit the admin makes records the content before it.
+  const history = useContentHistory();
+  const recordHistory = history.record;
+  const apply = useCallback((next: LandingContent) => {
+    recordHistory(contentRef.current);
+    applyWithoutHistory(next);
+  }, [recordHistory, applyWithoutHistory]);
+  const historyUndo = history.undo;
+  const historyRedo = history.redo;
+  const undoEdit = useCallback(() => {
+    const prev = historyUndo(contentRef.current);
+    if (prev) applyWithoutHistory(prev);
+  }, [historyUndo, applyWithoutHistory]);
+  const redoEdit = useCallback(() => {
+    const next = historyRedo(contentRef.current);
+    if (next) applyWithoutHistory(next);
+  }, [historyRedo, applyWithoutHistory]);
+  const hasCourse = page.courseId !== null;
+  const courseTitle = courses?.find((c) => c.id === page.courseId)?.title ?? null;
+  const pageChecks = useMemo(() => runPageChecks(content, { hasCourse }), [content, hasCourse]);
+  const [checkOpen, setCheckOpen] = useState(false);
+  const onLinkNow = link.activeId !== null;
+  useEffect(() => {
+    if (onLinkNow) return;
+    const onKey = (e: KeyboardEvent) => {
+      const action = historyKeyAction(e);
+      if (!action) return;
+      e.preventDefault();
+      if (action === "undo") undoEdit(); else redoEdit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onLinkNow, undoEdit, redoEdit]);
+  // After a conflict the draft is no longer ours to rewind; a restored version replaces it outright.
+  const historyClear = history.clear;
+  useEffect(() => { if (state === "conflict") historyClear(); }, [state, historyClear]);
+  const onRestoredClear = useCallback(() => { historyClear(); onRestored(); }, [historyClear, onRestored]);
 
   // Changing the page's course (router.refresh brings new modules) can leave option module ids that
   // are not in the new course; every later save would be refused. Re-prune and save the result.
@@ -192,8 +232,8 @@ function EditorShell({
     seenModules.current = courseModules;
     const cur = contentRef.current;
     const registration = pruneModuleIds(cur.registration, courseModules?.map((m) => m.id) ?? []);
-    if (registration !== cur.registration) apply({ ...cur, registration });
-  }, [courseModules, courseModulesFailed, apply]);
+    if (registration !== cur.registration) applyWithoutHistory({ ...cur, registration });
+  }, [courseModules, courseModulesFailed, applyWithoutHistory]);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -426,7 +466,7 @@ function EditorShell({
 
   const slotProps = {
     page, title, versions, content, saveState: state, saveNow,
-    onSelectSection: gotoProblem, serverProblems, onServerProblems: setServerProblems, onRestored,
+    onSelectSection: gotoProblem, serverProblems, onServerProblems: setServerProblems, onRestored: onRestoredClear,
     onKeepReview: (paths: string[]) => apply(clearReview(contentRef.current, paths)),
   };
 
@@ -498,6 +538,33 @@ function EditorShell({
             Preview
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
+          <button
+            type="button"
+            onClick={() => setCheckOpen(true)}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-semibold text-pz-on-surface hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <ShieldCheck className="h-4 w-4 text-pz-on-surface-variant" aria-hidden="true" />
+            Check this page
+          </button>
+          <div className="inline-flex gap-1" role="group" aria-label="Undo and redo">
+            {([
+              { label: "Undo", Icon: Undo2, run: undoEdit, can: history.canUndo },
+              { label: "Redo", Icon: Redo2, run: redoEdit, can: history.canRedo },
+            ] as const).map(({ label, Icon, run, can }) => (
+              <button
+                key={label}
+                type="button"
+                aria-label={label}
+                title={label}
+                disabled={!can || onLink}
+                onClick={run}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-pz-outline-variant text-pz-on-surface hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
           {link.active && linkProblems ? (
             <LinkPublishSlot
               key={link.active.id}
@@ -516,6 +583,20 @@ function EditorShell({
           )}
         </div>
       </header>
+
+      {checkOpen && (
+        <PageCheckSheet
+          checks={pageChecks}
+          onGoto={(id, field) => { setCheckOpen(false); gotoProblem(id, field); }}
+          onClose={() => setCheckOpen(false)}
+        />
+      )}
+
+      {page.published && (
+        <p className="border-b border-pz-outline-variant bg-pz-surface-container-low px-4 py-1 font-body text-xs text-pz-on-surface-variant">
+          Students see the last published version until you press Publish.
+        </p>
+      )}
 
       {state === "conflict" && (
         <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-pz-solid-danger/30 bg-pz-error-container px-4 py-2 text-pz-on-error-container">
@@ -650,6 +731,8 @@ function EditorShell({
                   seo={content.seo}
                   slug={page.slug}
                   pageTitle={title}
+                  hasCourse={hasCourse}
+                  courseTitle={courseTitle}
                   onSettings={() => {}}
                   onSeo={() => {}}
                   registration={content.registration}
@@ -667,6 +750,8 @@ function EditorShell({
               seo={content.seo}
               slug={page.slug}
               pageTitle={title}
+              hasCourse={hasCourse}
+              courseTitle={courseTitle}
               onSettings={(patch) => apply(updateSettings(contentRef.current, patch))}
               onSeo={(patch) => apply(updateSeo(contentRef.current, patch))}
               registration={content.registration}
