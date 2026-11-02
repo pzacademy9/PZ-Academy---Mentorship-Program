@@ -1,6 +1,8 @@
 // src/components/landing/LandingRenderer.tsx
 import { SECTION_DEFS, type SectionType } from "@/lib/landing/sections";
 import { normalizeContent, type LandingContent, type LandingSection, type PageKind, type PageStatus } from "@/lib/landing/content";
+import Image from "next/image";
+import { SITE_LOGO_ALT, SITE_LOGO_URL } from "@/lib/site-logo";
 import { Countdown } from "./Countdown";
 import { LandingFooter } from "./LandingFooter";
 import { MobileMenu, type NavItem } from "./MobileMenu";
@@ -79,8 +81,10 @@ export function LandingRenderer({
         <header className="relative border-b border-landing-border bg-landing-surface-container-lowest/95 backdrop-blur-md">
           <nav aria-label="Page" className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:h-20 md:px-6">
             <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-landing bg-landing-deep font-headline text-sm font-black text-landing-mint md:h-10 md:w-10 md:text-lg">PZ</span>
-              <span className="truncate font-headline text-base font-extrabold leading-tight tracking-tight text-landing-deep md:text-lg">{title || "PZ Academy"}</span>
+              <Image src={SITE_LOGO_URL} alt={SITE_LOGO_ALT} width={40} height={40} className="h-8 w-auto shrink-0 md:h-10" priority />
+              {title ? (
+                <span className="truncate font-headline text-base font-extrabold leading-tight tracking-tight text-landing-deep md:text-lg">{title}</span>
+              ) : null}
             </div>
             {navItems.length > 0 ? (
               <ul className="hidden items-center gap-8 text-sm font-semibold text-landing-near-black md:flex">
