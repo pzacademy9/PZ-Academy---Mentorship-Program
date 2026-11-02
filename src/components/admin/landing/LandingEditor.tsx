@@ -569,6 +569,12 @@ function EditorShell({
         </div>
       </header>
 
+      {page.published && (
+        <p className="border-b border-pz-outline-variant bg-pz-surface-container-low px-4 py-1 font-body text-xs text-pz-on-surface-variant">
+          Students see the last published version until you press Publish.
+        </p>
+      )}
+
       {state === "conflict" && (
         <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-pz-solid-danger/30 bg-pz-error-container px-4 py-2 text-pz-on-error-container">
           <p className="font-body text-sm font-semibold">

@@ -7,7 +7,9 @@ import { History, Rocket, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { LandingPage, LandingVersion } from "@/lib/data/landing-pages";
-import { computeReadiness, hasUnpublishedChanges, normalizeContent, type LandingContent, type Problem } from "@/lib/landing/content";
+import { hasUnpublishedChanges, normalizeContent, type LandingContent, type Problem } from "@/lib/landing/content";
+import { publishCheck } from "@/lib/landing/publish-gate";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { SaveState } from "@/hooks/useAutosaveDraft";
 import { ReadinessPanel } from "./ReadinessPanel";
 import { VersionsPanel } from "./VersionsPanel";
@@ -39,7 +41,8 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
   const router = useRouter();
   const [sheet, setSheet] = useState(false);
 
-  const local = computeReadiness(content, { title, slug: page.slug });
+  const confirm = useConfirm();
+  const local = publishCheck(content, { title, slug: page.slug, hasCourse: page.courseId !== null });
   const changed = page.published ? hasUnpublishedChanges(normalizeContent(content), normalizeContent(page.published)) : true;
   const closed = page.status === "closed";
   const upToDate = (page.status === "published" || closed) && !changed;
@@ -47,6 +50,16 @@ export function PublishSlot(props: EditorSlotProps): React.ReactNode {
   const serverBlocked = (props.serverProblems?.length ?? 0) > 0;
 
   const publish = useAsyncAction(async () => {
+    // Warnings never block, but the owner decides knowingly (for example two options on one WhatsApp group).
+    if (local.warnings.length > 0) {
+      const go = await confirm({
+        title: "Two options use the same WhatsApp group",
+        description: local.warnings.map((w) => w.detail ?? w.title).join(". ") + ". Students who buy either option join the same group. Publish anyway?",
+        confirmLabel: "Publish anyway",
+        cancelLabel: "Go back and fix",
+      });
+      if (!go) return;
+    }
     // Flush every edit first: the refresh below is only safe when nothing is left unsaved.
     const saved = await saveNow();
     if (!saved) {
@@ -184,6 +197,6 @@ export function VersionsSheet({ onClose, subtitle = "A snapshot is saved each ti
 
 /** The "Ready to publish?" checklist under the section list. */
 export function ReadinessSlot({ page, title, content, serverProblems, onSelectSection, onKeepReview }: EditorSlotProps): React.ReactNode {
-  const problems = serverProblems ?? computeReadiness(content, { title, slug: page.slug }).problems;
+  const problems = serverProblems ?? publishCheck(content, { title, slug: page.slug, hasCourse: page.courseId !== null }).problems;
   return <ReadinessPanel problems={problems} onGoto={(id, field) => onSelectSection?.(id, field)} onKeep={onKeepReview} />;
 }
