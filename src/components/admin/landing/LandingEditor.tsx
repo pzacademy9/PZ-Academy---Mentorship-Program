@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronRight, ExternalLink, LayoutList, Link2, Monitor, Pane
 import { useContentHistory, historyKeyAction } from "@/hooks/useContentHistory";
 import { PageCheckSheet } from "./PageCheckPanel";
 import { runPageChecks } from "@/lib/landing/page-check";
+import { settingsCardStatus } from "@/lib/landing/settings-cards";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -206,6 +207,7 @@ function EditorShell({
   const hasCourse = page.courseId !== null;
   const courseTitle = courses?.find((c) => c.id === page.courseId)?.title ?? null;
   const pageChecks = useMemo(() => runPageChecks(content, { hasCourse }), [content, hasCourse]);
+  const cardStatuses = useMemo(() => settingsCardStatus(content, { hasCourse }), [content, hasCourse]);
   const [checkOpen, setCheckOpen] = useState(false);
   const onLinkNow = link.activeId !== null;
   useEffect(() => {
@@ -735,6 +737,7 @@ function EditorShell({
                   pageTitle={title}
                   hasCourse={hasCourse}
                   courseTitle={courseTitle}
+                  statuses={cardStatuses}
                   onSettings={() => {}}
                   onSeo={() => {}}
                   registration={content.registration}
@@ -754,6 +757,7 @@ function EditorShell({
               pageTitle={title}
               hasCourse={hasCourse}
               courseTitle={courseTitle}
+              statuses={cardStatuses}
               onSettings={(patch) => apply(updateSettings(contentRef.current, patch))}
               onSeo={(patch) => apply(updateSeo(contentRef.current, patch))}
               registration={content.registration}

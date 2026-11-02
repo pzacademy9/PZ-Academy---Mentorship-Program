@@ -367,9 +367,9 @@ describe("PageSettingsPanel", () => {
 
   it("reports each settings edit as a patch", () => {
     const { onSettings, onSeo } = setup();
-    fireEvent.change(screen.getByLabelText("Register button link"), { target: { value: "https://forms.example.com/x" } });
+    fireEvent.change(screen.getByLabelText("What the button does"), { target: { value: "https://forms.example.com/x" } });
     expect(onSettings).toHaveBeenLastCalledWith({ registerUrl: "https://forms.example.com/x" });
-    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join now" } });
+    fireEvent.change(screen.getByLabelText("Button text"), { target: { value: "Join now" } });
     expect(onSettings).toHaveBeenLastCalledWith({ registerLabel: "Join now" });
     fireEvent.change(screen.getByLabelText("WhatsApp number"), { target: { value: "923001234567" } });
     expect(onSettings).toHaveBeenLastCalledWith({ whatsappNumber: "923001234567" });
@@ -504,7 +504,7 @@ describe("LandingEditor", () => {
   it("opens Page settings and routes edits into settings, not sections", () => {
     render(<LandingEditor page={page} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
-    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
+    fireEvent.change(screen.getByLabelText("Button text"), { target: { value: "Join" } });
     expect(autosave.schedule.mock.calls.at(-1)![0].settings.registerLabel).toBe("Join");
   });
   it("passes the save message through to the registration setup, on every step", async () => {
@@ -660,7 +660,7 @@ describe("LandingEditor fix round 1", () => {
     render(<LandingEditor page={page} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
     fireEvent.click(screen.getAllByRole("button", { name: "Fake pick file" })[0]);
-    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Join" } });
+    fireEvent.change(screen.getByLabelText("Button text"), { target: { value: "Join" } });
     act(() => uploads.pending[0]("https://img.example/share.webp"));
     const last = autosave.schedule.mock.calls.at(-1)![0];
     expect(last.settings.registerLabel).toBe("Join");
@@ -977,10 +977,10 @@ describe("LandingEditor fix round (closed, remount, conflict)", () => {
   it("does not remount when the refreshed revision is one this editor saved itself", () => {
     const { rerender } = render(<LandingEditor page={mk()} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
-    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Typed" } });
+    fireEvent.change(screen.getByLabelText("Button text"), { target: { value: "Typed" } });
     act(() => autosave.onRevision?.(5));
     rerender(<LandingEditor page={mk({ revision: 5 })} versions={[]} />);
-    expect((screen.getByLabelText("Register button text") as HTMLInputElement).value).toBe("Typed");
+    expect((screen.getByLabelText("Button text") as HTMLInputElement).value).toBe("Typed");
   });
   it("remounts onto the restored draft once this editor's restore succeeded and the refresh arrives", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonRes(200, { ok: true, version: 3 }));
@@ -1148,11 +1148,11 @@ describe("Editor polish (L3)", () => {
   it("a refresh carrying a revision from this editor's own in-flight save keeps the editor (no remount, no lost typing)", () => {
     const { rerender } = render(<LandingEditor page={mk()} versions={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
-    fireEvent.change(screen.getByLabelText("Register button text"), { target: { value: "Typed during publish" } });
+    fireEvent.change(screen.getByLabelText("Button text"), { target: { value: "Typed during publish" } });
     // Publish's router.refresh() rendered the page after the autosave committed revision 5 on the server,
     // but before that save's response reached this editor (onRevision has not been called yet).
     rerender(<LandingEditor page={mk({ revision: 5 })} versions={[]} />);
-    expect((screen.getByLabelText("Register button text") as HTMLInputElement).value).toBe("Typed during publish");
+    expect((screen.getByLabelText("Button text") as HTMLInputElement).value).toBe("Typed during publish");
   });
 });
 
