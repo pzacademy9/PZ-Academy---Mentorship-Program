@@ -50,6 +50,7 @@ export const MDC_BATCH_3: LandingContent = {
     whatsappNumber: "923700199429",
     countdownTo: "",
     batchStartsOn: "",
+    portalLink: "",
     countdownLabel: "",
   },
   seo: {

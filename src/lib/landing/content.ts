@@ -24,6 +24,8 @@ export interface LandingSettings {
   countdownLabel: string;
   /** ISO instant the batch starts, or "". Shown on the public website as "starts <date>". */
   batchStartsOn: string;
+  /** Link to the recorded-course portal, for pages with no course attached. Pasted in the Paid email. */
+  portalLink: string;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -52,7 +54,7 @@ export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
 };
 
 const DEFAULT_SETTINGS: LandingSettings = {
-  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "",
+  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "",
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
@@ -70,6 +72,7 @@ export const contentSchema = z
   .object({
     settings: z.object({
       registerUrl: safeUrlOrEmpty,
+      portalLink: safeUrlOrEmpty.optional(),
       registerLabel: z.string().max(40),
       whatsappNumber: z.string().max(30),
       countdownTo: z.string().max(40),
@@ -134,6 +137,7 @@ export function normalizeContent(raw: unknown): LandingContent {
     countdownTo: str(s.countdownTo, "", 40),
     countdownLabel: str(s.countdownLabel, "", 80),
     batchStartsOn: str(s.batchStartsOn, "", 40),
+    portalLink: safeUrlOrEmpty.safeParse(s.portalLink ?? "").success ? str(s.portalLink, "", 1000) : "",
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),

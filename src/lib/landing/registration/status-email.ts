@@ -10,7 +10,7 @@ import {
 } from "@/lib/emails/landing-registration";
 import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
 import { selectWaGroups } from "./wa-groups";
-import { emailGetsPortalLink } from "./access-rules";
+import { pickPortalUrl } from "./access-rules";
 import type { ManualEmailKind } from "./manual-kinds";
 
 export const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "https://pharmacozyme.com";
@@ -68,7 +68,10 @@ export async function buildStatusEmail(p: {
   if (!access) throw new Error("registration access could not be resolved");
   const { desired, courseId, courseSlug, hasAccount } = access;
   const isPaid = kind === "paid";
-  const portalUrl = hasAccount && courseSlug && emailGetsPortalLink(desired) ? `${appUrl()}/portal/${courseSlug}` : undefined;
+  const portalUrl = pickPortalUrl({
+    courseSlug, hasAccount, desired, mode: lead.mode, status: person.status,
+    pastedLink: page.content.settings.portalLink, appUrl: appUrl(),
+  });
   const ctx: LandingEmailContext = {
     ...base,
     name: person.name,

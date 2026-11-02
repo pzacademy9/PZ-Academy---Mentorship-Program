@@ -45,6 +45,7 @@ export const W20_DIABETES: LandingContent = {
     whatsappNumber: "923155614490",
     countdownTo: "",
     batchStartsOn: "",
+    portalLink: "",
     countdownLabel: "",
   },
   seo: {

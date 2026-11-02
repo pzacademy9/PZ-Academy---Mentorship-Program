@@ -1,4 +1,5 @@
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
+import { isSafeUrl } from "@/lib/landing/simple-text";
 
 export type EnrollmentStatusWord = "active" | "pending" | "reserved";
 export interface AccessInput {
@@ -35,3 +36,21 @@ export function desiredEnrollment(i: AccessInput): DesiredEnrollment {
 
 /** Portal link wanted in the Paid email: only when the portal is actually open. */
 export const emailGetsPortalLink = (d: DesiredEnrollment): boolean => d.action === "grant" && d.portalOpen;
+
+/**
+ * Portal link for the Paid email. A page with a course links to that course's portal (once open).
+ * A page with no course falls back to the link the owner pasted, for recorded paid buyers only.
+ */
+export function pickPortalUrl(i: {
+  courseSlug: string | null;
+  hasAccount: boolean;
+  desired: DesiredEnrollment;
+  mode: "live" | "recorded";
+  status: RegistrationStatus;
+  pastedLink: string;
+  appUrl: string;
+}): string | undefined {
+  if (i.hasAccount && i.courseSlug && emailGetsPortalLink(i.desired)) return `${i.appUrl}/portal/${i.courseSlug}`;
+  if (!i.courseSlug && i.mode === "recorded" && i.status === "paid" && isSafeUrl(i.pastedLink)) return i.pastedLink;
+  return undefined;
+}
