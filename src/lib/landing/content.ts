@@ -26,6 +26,8 @@ export interface LandingSettings {
   batchStartsOn: string;
   /** Link to the recorded-course portal, for pages with no course attached. Pasted in the Paid email. */
   portalLink: string;
+  /** Show the Create account prompt in the success message. Default true. */
+  showCreateAccount: boolean;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -54,7 +56,7 @@ export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
 };
 
 const DEFAULT_SETTINGS: LandingSettings = {
-  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "",
+  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true,
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
@@ -74,6 +76,7 @@ export const contentSchema = z
     settings: z.object({
       registerUrl: safeUrlOrEmpty,
       portalLink: httpsUrlOrEmpty.optional(),
+      showCreateAccount: z.boolean().optional(),
       registerLabel: z.string().max(40),
       whatsappNumber: z.string().max(30),
       countdownTo: z.string().max(40),
@@ -139,6 +142,7 @@ export function normalizeContent(raw: unknown): LandingContent {
     countdownLabel: str(s.countdownLabel, "", 80),
     batchStartsOn: str(s.batchStartsOn, "", 40),
     portalLink: httpsUrlOrEmpty.safeParse(s.portalLink ?? "").success ? str(s.portalLink, "", 1000).trim() : "",
+    showCreateAccount: typeof s.showCreateAccount === "boolean" ? s.showCreateAccount : true,
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),

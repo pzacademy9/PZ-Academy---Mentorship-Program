@@ -214,6 +214,7 @@ export function RegistrationFlow({ slug, variant, config: pc, me, testMode, trac
         isFree={isFree}
         testMode={testMode}
         isGuest={me === null}
+        showCreateAccount={pc.showCreateAccount}
         onClose={onClose}
       />
     );

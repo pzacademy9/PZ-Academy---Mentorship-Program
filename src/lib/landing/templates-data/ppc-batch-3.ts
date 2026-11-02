@@ -75,6 +75,7 @@ export const PPC_BATCH_3: LandingContent = {
     countdownTo: "",
     batchStartsOn: "",
     portalLink: "",
+    showCreateAccount: true,
     countdownLabel: "",
   },
   seo: {
