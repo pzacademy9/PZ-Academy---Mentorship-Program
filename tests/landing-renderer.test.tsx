@@ -9,6 +9,7 @@ import { SimpleText } from "@/components/landing/SimpleText";
 import { LandingImage } from "@/components/landing/LandingImage";
 import { Countdown } from "@/components/landing/Countdown";
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
+import { SITE_LOGO_URL } from "@/lib/site-logo";
 import { RegisterButton } from "@/components/landing/RegisterButton";
 import { Hero } from "@/components/landing/sections/Hero";
 import { emptyContent, updateSectionData, toggleSection, updateSettings, addSection } from "@/lib/landing/content";
@@ -238,7 +239,8 @@ describe("LandingRenderer top bar logo", () => {
     const img = nav.querySelector("img");
     expect(img).not.toBeNull();
     expect(img!.getAttribute("alt")).toBe("PZ Academy");
-    expect(decodeURIComponent(img!.getAttribute("src") ?? "")).toContain("PZ-Academy-logo");
+    // The host is not in next.config images, so it must be served as-is (unoptimized), like the marketing nav.
+    expect(img!.getAttribute("src")).toBe(SITE_LOGO_URL);
   });
   it("top bar no longer shows the PZ letter block", () => {
     render(<LandingRenderer content={content()} status="published" kind="webinar" pageTitle="Diabetes Webinar" />);

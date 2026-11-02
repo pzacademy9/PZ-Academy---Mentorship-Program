@@ -18,7 +18,8 @@ export function buildLinksText(i: {
 }): string {
   const lines: string[] = [];
   if (i.mainLive) lines.push(`• Main page: ${publicLinkUrl(i.origin, i.slug, "")}`);
-  for (const r of i.rows) {
+  // A link only opens while the main page is live, so with the main page down nothing is listed.
+  for (const r of i.mainLive ? i.rows : []) {
     if (r.enabled && r.published) lines.push(`• ${r.label}: ${publicLinkUrl(i.origin, i.slug, r.path)}`);
   }
   return [i.pageTitle, ...(lines.length > 0 ? lines : ["No links are live yet."])].join("\n");

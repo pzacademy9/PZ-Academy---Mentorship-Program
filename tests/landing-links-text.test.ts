@@ -18,14 +18,17 @@ describe("buildLinksText", () => {
       "• Pakistan: https://app.example.com/e/ppc/pk",
     ]);
   });
-  it("omits the main page when it is not live", () => {
+  it("omits the main page and every other link when the main page is not live", () => {
     const text = buildLinksText({ ...input, mainLive: false });
     expect(text).not.toContain("Main page");
-    expect(text).toContain("• Pakistan:");
-  });
-  it("says no links are live yet when nothing is published and the main page is not live", () => {
-    const text = buildLinksText({ ...input, mainLive: false, rows: rows.slice(1) });
+    expect(text).not.toContain("Pakistan");
     expect(text.split("\n")).toEqual(["PPC Batch 3", "No links are live yet."]);
+  });
+  it("says no links are live yet when nothing is published", () => {
+    const text = buildLinksText({ ...input, rows: rows.slice(1) });
+    expect(text.split("\n")).toEqual(["PPC Batch 3", "• Main page: https://app.example.com/e/ppc"]);
+    const none = buildLinksText({ ...input, mainLive: false, rows: rows.slice(1) });
+    expect(none.split("\n")).toEqual(["PPC Batch 3", "No links are live yet."]);
   });
 });
 

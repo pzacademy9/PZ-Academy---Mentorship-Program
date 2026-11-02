@@ -78,7 +78,7 @@ export function LinksPanel({
     else toast.error("Could not copy. Select the link and copy it yourself.");
   }
 
-  const allText = buildLinksText({ pageTitle, origin, slug, mainLive, rows: grid });
+  const allText = buildLinksText({ pageTitle, origin, slug, mainLive, rows: grid.filter((r) => !blockedBy(r)) });
   async function copyAll() {
     if (await copyText(allText, host.current)) toast.success("Links copied");
     else toast.error("Could not copy. Select the text and copy it yourself.");

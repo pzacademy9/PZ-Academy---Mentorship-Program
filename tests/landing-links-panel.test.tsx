@@ -21,7 +21,7 @@ const checks: PageCheck[] = [
   { id: "country-AE", title: "UAE link", status: "fail", detail: "The UAE link would show prices from another country." },
 ];
 
-function mount() {
+function mount(blockedBy: (r: VariantGridRow) => string | null = () => null) {
   const c = emptyContent("course");
   c.registration.regions = [
     { key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] },
@@ -30,7 +30,7 @@ function mount() {
   return render(
     <LinksPanel
       slug="ppc" pageTitle="PPC Batch 3" grid={grid} content={c} centralRegionKeys={[]} mainLive
-      blockedBy={() => null} problems={{}} checks={checks}
+      blockedBy={blockedBy} problems={{}} checks={checks}
       onSwitch={async () => null} onPublish={async () => ({ ok: true })} onAddCountry={() => {}}
     />,
   );
@@ -49,6 +49,13 @@ describe("Links panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy text" }));
     await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
     expect(copyText.mock.calls[0][0]).toBe(expected);
+  });
+  it("Copy all links leaves out a link that is waiting for the main page", () => {
+    mount((r) => (r.path === "ae" ? "Waiting for the main page" : null));
+    fireEvent.click(screen.getByRole("button", { name: "Copy all links" }));
+    const text = screen.getByLabelText("Text that will be copied").textContent ?? "";
+    expect(text).toContain("• Pakistan:");
+    expect(text).not.toContain("UAE");
   });
   it("a passing check shows a tick and a failing check shows its message on the row", () => {
     mount();

@@ -81,7 +81,7 @@ export function LandingRenderer({
         <header className="relative border-b border-landing-border bg-landing-surface-container-lowest/95 backdrop-blur-md">
           <nav aria-label="Page" className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:h-20 md:px-6">
             <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
-              <Image src={SITE_LOGO_URL} alt={SITE_LOGO_ALT} width={40} height={40} className="h-8 w-auto shrink-0 md:h-10" priority />
+              <Image src={SITE_LOGO_URL} alt={SITE_LOGO_ALT} width={40} height={40} className="h-8 w-auto shrink-0 md:h-10" priority unoptimized />
               {title ? (
                 <span className="truncate font-headline text-base font-extrabold leading-tight tracking-tight text-landing-deep md:text-lg">{title}</span>
               ) : null}
