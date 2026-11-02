@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Globe2, Link2, Rocket } from "lucide-react";
+import { CheckCircle2, ClipboardList, Copy, Globe2, Link2, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
@@ -10,14 +10,13 @@ import type { VariantGridRow } from "@/lib/landing/variant-grid";
 import type { LandingContent, Problem } from "@/lib/landing/content";
 import type { PriceCell, RegionDef } from "@/lib/landing/registration/config";
 import { copyText } from "../copy-text";
+import { buildLinksText, publicLinkUrl, rowCheck } from "@/lib/landing/links-text";
+import type { PageCheck } from "@/lib/landing/page-check";
 import { AddCountryDialog } from "./AddCountryDialog";
 import { MAIN_FIRST } from "./LinkPublishSlot";
 import type { PublishOutcome } from "./useLinkEditing";
 
-/** The page's public web address for a link: https://<host>/e/<slug>/<path>. */
-export function publicLinkUrl(origin: string, slug: string, path: string): string {
-  return `${origin}/e/${slug}${path ? `/${path}` : ""}`;
-}
+export { publicLinkUrl };
 
 function Status({ row, waiting }: { row: VariantGridRow; waiting: boolean }) {
   const [text, tone] = !row.enabled
@@ -35,8 +34,12 @@ function Status({ row, waiting }: { row: VariantGridRow; waiting: boolean }) {
  * off until switched on, with its web address, Publish button and whether it is live.
  */
 export function LinksPanel({
-  slug, grid, content, centralRegionKeys, mainLive, blockedBy, problems, onSwitch, onPublish, onAddCountry,
+  slug, pageTitle, checks, grid, content, centralRegionKeys, mainLive, blockedBy, problems, onSwitch, onPublish, onAddCountry,
 }: {
+  /** The page name, first line of the Copy all links text. */
+  pageTitle: string;
+  /** Results of Check this page; country and module rows show theirs. */
+  checks: PageCheck[];
   /** Why the live main page can't carry this link yet, or null (see linkMissingFromLive). */
   blockedBy: (row: VariantGridRow) => string | null;
   slug: string;
@@ -52,6 +55,7 @@ export function LinksPanel({
   onAddCountry: (region: RegionDef, prices: Record<string, PriceCell>) => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const host = useRef<HTMLElement>(null);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const few = content.registration.regions.length <= 1 && content.modules.length === 0;
@@ -74,6 +78,12 @@ export function LinksPanel({
     else toast.error("Could not copy. Select the link and copy it yourself.");
   }
 
+  const allText = buildLinksText({ pageTitle, origin, slug, mainLive, rows: grid });
+  async function copyAll() {
+    if (await copyText(allText, host.current)) toast.success("Links copied");
+    else toast.error("Could not copy. Select the text and copy it yourself.");
+  }
+
   return (
     <section ref={host} aria-label="Links" className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -83,11 +93,28 @@ export function LinksPanel({
             Give each country or module its own web address. Visitors on a country link see only that country&apos;s prices; on a module link, only that module.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
-          <Globe2 aria-hidden="true" />
-          Add a country
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" aria-expanded={previewing} onClick={() => setPreviewing((p) => !p)} className="bg-pz-solid-forest text-white hover:bg-pz-solid-forest/90">
+            <ClipboardList aria-hidden="true" />
+            Copy all links
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
+            <Globe2 aria-hidden="true" />
+            Add a country
+          </Button>
+        </div>
       </div>
+
+      {previewing && (
+        <div className="space-y-2 rounded-xl border border-pz-outline-variant bg-pz-surface-container-low p-3">
+          <p className="font-body text-xs text-pz-on-surface-variant">This is what will be copied for your sales team. Only live links are included.</p>
+          <pre aria-label="Text that will be copied" className="whitespace-pre-wrap break-all rounded-lg bg-pz-surface-container-lowest p-3 font-mono text-xs text-pz-on-surface">{allText}</pre>
+          <Button type="button" size="sm" variant="outline" onClick={() => void copyAll()}>
+            <Copy aria-hidden="true" />
+            Copy text
+          </Button>
+        </div>
+      )}
 
       {!mainLive && !few && (
         <p role="note" className="rounded-lg border border-pz-outline-variant bg-pz-surface-container-low px-3 py-2 font-body text-sm text-pz-on-surface">
@@ -107,6 +134,7 @@ export function LinksPanel({
             const url = publicLinkUrl(origin, slug, row.path);
             const rowProblems = row.variantId ? problems[row.variantId] ?? [] : [];
             const blocked = blockedBy(row);
+            const check = rowCheck(row, checks);
             const publishTitle = blocked ?? (!row.enabled ? "Turn this link on first" : undefined);
             return (
               <li key={row.path} aria-label={row.label} className="space-y-2 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-3">
@@ -132,6 +160,7 @@ export function LinksPanel({
                     />
                   </button>
                   <span className="min-w-0 flex-1 font-body text-sm font-semibold text-pz-on-surface">{row.label}</span>
+                  {check?.status === "pass" && <CheckCircle2 role="img" aria-label="Checked" className="h-4 w-4 shrink-0 text-pz-success" />}
                   <Status row={row} waiting={!!blocked && row.published} />
                   <Button
                     type="button"
@@ -158,6 +187,9 @@ export function LinksPanel({
                     Copy
                   </button>
                 </div>
+                {check && check.status !== "pass" && (
+                  <p className="rounded-lg border border-pz-warning/30 bg-pz-warning/10 px-2 py-1 font-body text-xs text-pz-on-surface">{check.detail ?? check.title}</p>
+                )}
                 {rowProblems.length > 0 && (
                   <ul aria-label={`What to fix before publishing ${row.label}`} className="space-y-1">
                     {rowProblems.map((p, i) => (

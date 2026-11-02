@@ -710,6 +710,8 @@ function EditorShell({
           {showLinks ? (
             <LinksPanel
               slug={page.slug}
+              pageTitle={title}
+              checks={pageChecks}
               grid={grid}
               content={content}
               centralRegionKeys={centralRegionKeys}
