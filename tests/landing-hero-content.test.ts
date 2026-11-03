@@ -14,11 +14,11 @@ describe("hero content model", () => {
   });
   it("old second button is a link; unknown values fall back", () => {
     expect(normalizeSectionData("hero", { secondaryCtaLabel: "Go", secondaryCtaUrl: "https://x.com" }).secondaryCtaType).toBe("link");
-    expect(normalizeSectionData("hero", { heroStyle: "weird" }).heroStyle).toBe("photo");
+    expect(normalizeSectionData("hero", { heroStyle: "weird" }).heroStyle).toBe("fade");
     expect(normalizeSectionData("hero", { textSize: "huge" }).textSize).toBe("normal");
   });
-  it("default is photo", () => {
-    expect(defaultSectionData("hero").heroStyle).toBe("photo");
+  it("default is fade", () => {
+    expect(defaultSectionData("hero").heroStyle).toBe("fade");
   });
   it("whatsapp field validates digits", () => {
     const s = sectionDataSchema("hero");

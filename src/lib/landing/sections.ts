@@ -37,7 +37,7 @@ export interface FieldDef {
   /** For kind "choice": the allowed values and their plain-word labels. */
   options?: { value: string; label: string }[];
   /** Show this field in the editor only while another field of the same section has this value. */
-  showWhen?: { key: string; equals: string };
+  showWhen?: { key: string; equals: string } | { key: string; oneOf: string[] };
   /** Soft recommended maximum length; the editor warns but never blocks. */
   hintLength?: number;
 }
@@ -73,13 +73,21 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
       text("headline", "Headline", { required: true, max: 120, example: "Master Diabetes Pharmacotherapy", hintLength: 70 }),
       area("subheadline", "Short description", { max: 400, help: "One or two sentences under the headline.", hintLength: 220 }),
       choice("heroStyle", "Hero style", [
-        { value: "photo", label: "Photo with text on top" },
+        { value: "fade", label: "Style 1: photo behind the text, with a fade" },
+        { value: "split", label: "Style 2: text and portrait side by side" },
+        { value: "editorial", label: "Style 3: big headline on green, wide photo below" },
+        { value: "photo", label: "Photo with text on top (old)" },
         { value: "poster", label: "Finished poster" },
         { value: "classic", label: "Picture beside text (old style)" },
-      ], "photo"),
+      ], "fade"),
+      choice("heroFade", "Photo fade", [
+        { value: "light", label: "Light" },
+        { value: "medium", label: "Medium" },
+        { value: "strong", label: "Strong" },
+      ], "medium", { help: "How strongly the green fade covers the photo. Light shows more of the photo.", showWhen: { key: "heroStyle", equals: "fade" } }),
       image("imagePc", "Picture for computers (wide, 16:9)", { help: "Best at least 1600 px wide." }),
       image("imagePhone", "Picture for phones (tall, 9:16)", { help: "Best at least 900 px wide." }),
-      image("image", "Picture", { help: "Best at least 1200 px wide. It is resized for phones automatically.", showWhen: { key: "heroStyle", equals: "classic" } }),
+      image("image", "Picture", { help: "Best at least 1200 px wide. It is resized for phones automatically.", showWhen: { key: "heroStyle", oneOf: ["classic", "split"] } }),
       text("primaryCtaLabel", "Main button text", { max: 40, example: "Register now", help: "Leave empty to use the Register button text from Page settings." }),
       text("secondaryCtaLabel", "Second button text (optional)", { max: 40, example: "Watch preview" }),
       choice("secondaryCtaType", "Second button does", [
@@ -313,8 +321,18 @@ export function normalizeSectionData(type: SectionType, raw: unknown): Record<st
   if (type === "hero") {
     const src = isRecord(raw) ? raw : {};
     // Pages saved before hero styles existed: keep their picture-beside-text look and link button.
-    if (!("heroStyle" in src) && typeof src.image === "string" && src.image !== "") out.heroStyle = "classic";
+    // The default is now the fade style, so the old fallback must be explicit.
+    if (!("heroStyle" in src)) out.heroStyle = typeof src.image === "string" && src.image !== "" ? "classic" : "photo";
     if (!("secondaryCtaType" in src) && typeof src.secondaryCtaUrl === "string" && src.secondaryCtaUrl !== "") out.secondaryCtaType = "link";
   }
   return out;
+}
+
+/** A field with a showWhen rule is shown only while the controlling field has the matching value (its default counts when empty). */
+export function fieldVisible(f: FieldDef, data: Record<string, unknown>, all: FieldDef[]): boolean {
+  const rule = f.showWhen;
+  if (!rule) return true;
+  const raw = data[rule.key];
+  const current = typeof raw === "string" && raw !== "" ? raw : (all.find((x) => x.key === rule.key)?.defaultValue ?? "");
+  return "oneOf" in rule ? rule.oneOf.includes(current) : current === rule.equals;
 }
