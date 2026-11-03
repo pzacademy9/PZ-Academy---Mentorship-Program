@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildRegistration } from "@/lib/landing/import/build-registration";
 import { computeQuote } from "@/lib/landing/registration/pricing";
-import { MAX_GROUP_SIZE } from "@/lib/landing/registration/config";
+import { DEFAULT_DISCOVERY_OPTIONS, MAX_GROUP_SIZE } from "@/lib/landing/registration/config";
 
 const base = () => ({
   registration: {
@@ -249,5 +249,16 @@ describe("whole-number prices and open-ended groups", () => {
     expect(r.registration.tiers[0]).toMatchObject({ minSize: 5, maxSize: MAX_GROUP_SIZE });
     const q = computeQuote({ config: r.registration, regionKey: "UAE", mode: "live", optionKeys: ["full"], tierKey: "g5", groupSize: 6, now: new Date("2026-11-01T00:00:00Z") });
     expect(q.ok && q.total).toBe(900); // 200 less 25% = 150 each
+  });
+});
+
+describe("buildRegistration: how did you hear about us", () => {
+  it("a file with no discovery list gets the usual choices; an explicit empty list stays empty", () => {
+    const missing = base();
+    delete (missing.registration as { discovery?: unknown }).discovery;
+    expect(buildRegistration(missing).registration.discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
+    const empty = base();
+    empty.registration.discovery = [];
+    expect(buildRegistration(empty).registration.discoveryOptions).toEqual([]);
   });
 });

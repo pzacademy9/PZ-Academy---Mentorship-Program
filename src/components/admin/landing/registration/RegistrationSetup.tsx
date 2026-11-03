@@ -1,7 +1,7 @@
 // src/components/admin/landing/registration/RegistrationSetup.tsx
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -401,20 +401,24 @@ function LinesField({ label, help, value, onChange, suggest }: { label: string; 
     if (lines(text).join("\n") !== value.join("\n")) setText(value.join("\n"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
-  const box = (
-    <label className="block space-y-1">
-      <span className={LABEL}>{label}</span>
-      <span className={`block ${HELP}`}>{help}</span>
-      <textarea aria-label={label} rows={4} className={CONTROL} value={text} onChange={(e) => { setText(e.target.value); onChange(lines(e.target.value).slice(0, FIELD_MAX.listCount).map((l) => l.slice(0, FIELD_MAX.listItem))); }} />
-    </label>
-  );
-  if (!suggest || value.length > 0) return box;
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  // The wrapper is always the same element, so typing the first choice (which removes the button) never replaces the text box.
   return (
     <div className="space-y-2">
-      {box}
-      <button type="button" onClick={() => onChange([...suggest])} className="rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-sm font-semibold text-pz-on-surface hover:bg-pz-surface-container-high max-md:min-h-11">
-        Use the usual choices
-      </button>
+      <label className="block space-y-1">
+        <span className={LABEL}>{label}</span>
+        <span className={`block ${HELP}`}>{help}</span>
+        <textarea ref={areaRef} aria-label={label} rows={4} className={CONTROL} value={text} onChange={(e) => { setText(e.target.value); onChange(lines(e.target.value).slice(0, FIELD_MAX.listCount).map((l) => l.slice(0, FIELD_MAX.listItem))); }} />
+      </label>
+      {suggest && value.length === 0 && (
+        <button
+          type="button"
+          onClick={() => { onChange([...suggest]); areaRef.current?.focus(); }}
+          className="rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-sm font-semibold text-pz-on-surface hover:bg-pz-surface-container-high max-md:min-h-11"
+        >
+          Use the usual choices
+        </button>
+      )}
     </div>
   );
 }

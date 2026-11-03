@@ -5,6 +5,7 @@ import { computeQuote } from "@/lib/landing/registration/pricing";
 import { formatMoney } from "@/lib/landing/registration/format";
 import { INDIVIDUAL, type FieldErrors, type FormState } from "@/lib/landing/registration/form-state";
 import type { Mode, RegistrationView } from "@/lib/landing/registration/config";
+import { publicRegionLabel } from "@/lib/landing/registration/region-label";
 import { R_CHOICE, R_ERROR, R_HINT, R_INPUT, R_LABEL } from "./ui";
 
 const LEGEND = "font-headline text-base font-bold text-landing-near-black";
@@ -14,7 +15,7 @@ const LEGEND = "font-headline text-base font-bold text-landing-near-black";
  * "Other" and always last, so a visitor from anywhere else knows it is for them.
  */
 function countryChoices<T extends { key: string; label: string }>(regions: T[]): T[] {
-  const named = regions.map((r) => (r.key === "INTL" ? { ...r, label: "Other" } : r));
+  const named = regions.map((r) => ({ ...r, label: publicRegionLabel(r) }));
   return [...named.filter((r) => r.key !== "INTL"), ...named.filter((r) => r.key === "INTL")];
 }
 

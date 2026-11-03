@@ -10,6 +10,7 @@ import {
 } from "@/lib/emails/landing-registration";
 import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
 import { selectWaGroups } from "./wa-groups";
+import { publicRegionLabel } from "./region-label";
 import { pickPortalUrl } from "./access-rules";
 import type { ManualEmailKind } from "./manual-kinds";
 
@@ -32,7 +33,7 @@ export async function emailContext(lead: RegistrationRecord, page: RegistrablePa
     currency: lead.currency,
     amount: lead.expectedAmount ?? 0,
     groupSize: lead.groupSize,
-    region: region ? { label: region.label, classTime: region.classTime, timezoneLabel: region.timezoneLabel } : null,
+    region: region ? { label: publicRegionLabel(region), classTime: region.classTime, timezoneLabel: region.timezoneLabel } : null,
     startsOn: formatStartsOn(page.content.settings.countdownTo),
     accounts,
     waGroups: selectWaGroups(cfg, lead.optionKeys, lead.mode),

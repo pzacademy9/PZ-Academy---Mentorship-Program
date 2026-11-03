@@ -11,7 +11,8 @@ import { SuccessScreen, type SuccessScreenProps } from "@/components/landing/reg
 import { RegistrationSetup } from "@/components/admin/landing/registration/RegistrationSetup";
 import { R_BTN_WHATSAPP } from "@/components/landing/registration/ui";
 import { initialState } from "@/lib/landing/registration/form-state";
-import { DEFAULT_DISCOVERY_OPTIONS, type RegistrationConfig } from "@/lib/landing/registration/config";
+import { DEFAULT_DISCOVERY_OPTIONS, normalizeRegistration, type RegistrationConfig } from "@/lib/landing/registration/config";
+import { publicRegionLabel } from "@/lib/landing/registration/region-label";
 import { emptyContent } from "@/lib/landing/content";
 import { ppcConfig, publicConfig } from "./fixtures/registration-fixtures";
 import type { RegisterSuccess } from "@/components/landing/registration/types";
@@ -91,5 +92,68 @@ describe("How did you hear about us? choices", () => {
   it("a page that already has choices shows no such button", () => {
     render(<Harness initial={{ ...ppcConfig, discoveryOptions: ["Friends"] }} spy={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /use the usual choices/i })).toBeNull();
+  });
+});
+
+describe("one public name for the International country", () => {
+  it("only the stock International name becomes Other, only for the INTL key", () => {
+    expect(publicRegionLabel({ key: "INTL", label: "International" })).toBe("Other");
+    expect(publicRegionLabel({ key: "INTL", label: "  international " })).toBe("Other");
+    expect(publicRegionLabel({ key: "INTL", label: "" })).toBe("Other");
+    expect(publicRegionLabel({ key: "INTL", label: "Rest of world" })).toBe("Rest of world");
+    expect(publicRegionLabel({ key: "UAE", label: "International" })).toBe("International");
+    expect(publicRegionLabel({ key: "PK", label: "Pakistan" })).toBe("Pakistan");
+  });
+  it("a stored empty discovery list stays empty, a missing one gets the usual choices", () => {
+    expect(normalizeRegistration({ discoveryOptions: [] }).discoveryOptions).toEqual([]);
+    expect(normalizeRegistration({}).discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
+  });
+  it("a country the admin named something else keeps that name in the picker", () => {
+    const view = publicConfig(ppcConfig).registration;
+    const regions = view.regions.map((r) => (r.key === "INTL" ? { ...r, label: "Rest of world" } : r));
+    render(
+      <StepChoose
+        config={{ ...view, regions }} state={initialState(view, { country: "PK", me: null })} errors={{}} notice={null} isFree={false}
+        onRegion={() => {}} onMode={() => {}} onToggleOption={() => {}} onTier={() => {}} onGroupSize={() => {}}
+      />,
+    );
+    expect(screen.getByText("Rest of world")).toBeTruthy();
+  });
+});
+
+describe("the discovery box keeps focus", () => {
+  function Harness({ initial }: { initial: RegistrationConfig }) {
+    const [r, setR] = useState(initial);
+    return <RegistrationSetup registration={r} step="details" onStep={() => {}} onChange={setR} />;
+  }
+  const box = () => screen.getByRole("textbox", { name: /how did you hear about us/i }) as HTMLTextAreaElement;
+  it("typing the first choice keeps the same text box (so the cursor stays in it)", () => {
+    render(<Harness initial={{ ...ppcConfig, discoveryOptions: [] }} />);
+    const before = box();
+    fireEvent.change(before, { target: { value: "Friends" } });
+    expect(box()).toBe(before);
+  });
+  it("after 'Use the usual choices' the text box has the cursor", () => {
+    render(<Harness initial={{ ...ppcConfig, discoveryOptions: [] }} />);
+    fireEvent.click(screen.getByRole("button", { name: /use the usual choices/i }));
+    expect(document.activeElement).toBe(box());
+    expect(box().value).toContain("Instagram");
+  });
+});
+
+describe("success screen layout", () => {
+  const paid: RegisterSuccess = { refId: "PZA-1", total: 0, currency: "PKR", waGroups: [], verifyMessage: "" };
+  const props: SuccessScreenProps = {
+    slug: "ppc", config: publicConfig(ppcConfig).registration, result: paid, lead: { name: "Sara", email: "s@x.com" },
+    mode: "live", isFree: true, testMode: false, isGuest: false, onClose: () => {},
+  };
+  it("the footer sits at the bottom even when the page is short, and focus is not hidden behind it", () => {
+    const { container } = render(<SuccessScreen {...props} />);
+    const root = container.querySelector('[data-testid="registration-done"]') as HTMLElement;
+    expect(root.className).toContain("flex-col");
+    expect(root.className).toContain("scroll-pb-24");
+    const content = root.querySelector(".max-w-xl") as HTMLElement;
+    expect(content.className).toContain("flex-1");
+    expect(content.className).not.toContain("safe-area-inset-bottom");
   });
 });

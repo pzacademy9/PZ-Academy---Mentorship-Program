@@ -3,6 +3,7 @@
 // "Class time" line above the schedule entries: the visitor's country time, picked from their device clock, changeable.
 import { useEffect, useId, useState } from "react";
 import { regionFromTimeZone } from "@/lib/landing/registration/class-time";
+import { publicRegionLabel } from "@/lib/landing/registration/region-label";
 
 export interface ClassTimeRegion { key: string; label: string; classTime: string; timezoneLabel: string }
 
@@ -29,7 +30,7 @@ export function ScheduleClassTime({ regions, defaultKey }: { regions: ClassTimeR
             onChange={(e) => setKey(e.target.value)}
             className="min-h-[44px] rounded-landing border border-landing-border bg-landing-surface px-3 text-sm font-semibold text-landing-deep"
           >
-            {regions.map((g) => <option key={g.key} value={g.key}>{g.label || g.key}</option>)}
+            {regions.map((g) => <option key={g.key} value={g.key}>{publicRegionLabel(g) || g.key}</option>)}
           </select>
         </>
       ) : null}

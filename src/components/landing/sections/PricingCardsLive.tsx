@@ -5,6 +5,7 @@
 // Imports only pure modules so the registration modal stays out of the page bundle.
 import { useEffect, useId, useState } from "react";
 import type { RegistrationConfig } from "@/lib/landing/registration/types";
+import { publicRegionLabel } from "@/lib/landing/registration/region-label";
 import { cardPrice, type CardPrice } from "@/lib/landing/registration/card-price";
 import { RegisterButton, type Register } from "../RegisterButton";
 import { CheckList } from "./util";
@@ -65,7 +66,7 @@ export function PricingCardsLive({ heading, note, cards, registration, nowIso, r
               onChange={(e) => setRegion(e.target.value)}
               className="min-h-[44px] rounded-landing border border-landing-border bg-landing-surface px-3 text-sm font-semibold text-landing-deep"
             >
-              {regions.map((g) => <option key={g.key} value={g.key}>{g.label || g.key}</option>)}
+              {regions.map((g) => <option key={g.key} value={g.key}>{publicRegionLabel(g) || g.key}</option>)}
             </select>
           </div>
         ) : null}
