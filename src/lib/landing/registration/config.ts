@@ -24,6 +24,9 @@ export const MAX_CAPACITY = 100_000;
 /** Text limits enforced by the schema below; the admin inputs read the same numbers. */
 export const FIELD_MAX = { regionKey: 6, name: 80, optionLabel: 120, optionKey: 32, waUrl: 200, waNumber: 20, pixel: 20, listItem: 80, listCount: 30 } as const;
 
+/** The "How did you hear about us?" choices a new page starts with. An empty list hides the question. */
+export const DEFAULT_DISCOVERY_OPTIONS = ["Instagram", "Facebook", "WhatsApp", "Friend or colleague", "Other"] as const;
+
 export const DEFAULT_REGISTRATION: RegistrationConfig = {
   enabled: false,
   modes: ["live"],
@@ -41,7 +44,7 @@ export const DEFAULT_REGISTRATION: RegistrationConfig = {
   eventLabel: "",
   refPrefix: "",
   professions: [],
-  discoveryOptions: [],
+  discoveryOptions: [...DEFAULT_DISCOVERY_OPTIONS],
   pixelId: "",
 };
 
@@ -194,7 +197,8 @@ export function normalizeRegistration(raw: unknown): RegistrationConfig {
     eventLabel: str(r.eventLabel, 80),
     refPrefix: str(r.refPrefix, 6),
     professions: strList(r.professions, 30, 80),
-    discoveryOptions: strList(r.discoveryOptions, 30, 80),
+    // A page saved with an empty list keeps it empty (the question is hidden on purpose); only a missing list gets the usual choices.
+    discoveryOptions: Array.isArray(r.discoveryOptions) ? strList(r.discoveryOptions, 30, 80) : [...DEFAULT_DISCOVERY_OPTIONS],
     pixelId: typeof r.pixelId === "string" && PIXEL_RE.test(r.pixelId) ? r.pixelId : "",
   };
 }

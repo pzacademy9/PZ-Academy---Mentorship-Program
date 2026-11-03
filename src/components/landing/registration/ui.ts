@@ -13,4 +13,4 @@ export const R_BTN_PRIMARY =
 export const R_BTN_SECONDARY =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-landing border-2 border-landing-primary px-5 font-headline text-base font-bold text-landing-primary hover:bg-landing-mint-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-landing-mint disabled:opacity-60";
 export const R_BTN_WHATSAPP =
-  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-landing bg-landing-whatsapp px-5 font-headline text-base font-bold text-landing-near-black shadow-landing-soft hover:bg-landing-whatsapp-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-landing-deep motion-safe:active:scale-95";
+  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-landing bg-landing-whatsapp px-5 py-3 text-center leading-snug font-headline text-base font-bold text-landing-near-black shadow-landing-soft hover:bg-landing-whatsapp-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-landing-deep motion-safe:active:scale-95";

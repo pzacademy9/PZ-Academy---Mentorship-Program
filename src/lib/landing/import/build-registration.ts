@@ -2,7 +2,7 @@
 // Maps the front-matter `registration` and `modules` of a pz-landing/1 file to the stored shapes.
 // Pure module. Messages are plain words (country / module / option), never internal terms.
 import {
-  ITEM_KEY_RE, MAX_GROUP_SIZE, REGION_KEY_RE, normalizeRegistration, registrationProblems,
+  DEFAULT_DISCOVERY_OPTIONS, ITEM_KEY_RE, MAX_GROUP_SIZE, REGION_KEY_RE, normalizeRegistration, registrationProblems,
   type OptionDef, type PriceCell, type RegionDef, type RegistrationConfig, type TierDef,
 } from "../registration/config";
 import { MODULE_KEY_RE, type ModuleDef } from "../variants";
@@ -212,7 +212,8 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     eventLabel: text(reg.event_label),
     refPrefix: text(reg.ref_prefix),
     professions: strings(reg.professions),
-    discoveryOptions: strings(reg.discovery),
+    // No "discovery" list in the file = the usual choices; an explicit empty list hides the question.
+    discoveryOptions: Array.isArray(reg.discovery) ? strings(reg.discovery) : [...DEFAULT_DISCOVERY_OPTIONS],
   });
 
   // Readiness-style findings never block the import.

@@ -42,7 +42,7 @@ export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMo
   const statusHref = `/e/${encodeURIComponent(slug)}/status?ref=${encodeURIComponent(result.refId)}`;
 
   return (
-    <div data-testid="registration-done" className="min-h-0 flex-1 overflow-y-auto">
+    <div data-testid="registration-done" className="flex min-h-0 flex-1 scroll-pb-24 flex-col overflow-y-auto">
       {testMode && (
         <div data-testid="success-test-banner" role="note" className="flex items-start gap-2 border-b border-landing-outline-variant bg-landing-test-banner px-4 py-2 font-landing-body text-sm text-landing-on-test-banner">
           <FlaskConical aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
@@ -50,7 +50,7 @@ export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMo
         </div>
       )}
 
-      <div className="mx-auto max-w-xl space-y-5 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6 md:py-8">
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-5 px-4 py-6 pb-6 md:px-6 md:py-8">
         <div className="text-center">
           <CheckCircle2 aria-hidden="true" className="mx-auto h-12 w-12 text-landing-primary" />
           <h2 ref={headingRef} tabIndex={-1} className="mt-3 font-headline text-2xl font-black text-landing-deep focus:outline-none">{title}</h2>
@@ -89,7 +89,7 @@ export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMo
             <p className={R_HINT}>Session links, reminders and updates are shared only in the group.</p>
             {groups.map((g) => (
               <a key={g.url} href={g.url} target="_blank" rel="noopener noreferrer" className={R_BTN_WHATSAPP}>
-                <MessageCircle aria-hidden="true" className="h-5 w-5" />
+                <MessageCircle aria-hidden="true" className="h-5 w-5 shrink-0" />
                 {`Join the ${g.label} WhatsApp group`}
               </a>
             ))}
@@ -119,14 +119,16 @@ export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMo
         )}
 
         {!testMode && (
-          <p className="text-center">
-            <a href={statusHref} className="inline-flex min-h-11 items-center font-landing-body text-base font-semibold text-landing-primary underline underline-offset-2">
-              Check your registration status
-            </a>
-          </p>
+          <a href={statusHref} className={`${R_BTN_SECONDARY} w-full text-center`}>
+            Check your registration status
+          </a>
         )}
 
-        <button type="button" onClick={onClose} className={`${R_BTN_PRIMARY} w-full`}>Done</button>
+      </div>
+
+      {/* Stays at the bottom of the screen, so Done is always in reach on a phone however long the page is. */}
+      <div className="sticky bottom-0 border-t border-landing-border bg-landing-surface-container-lowest/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+        <button type="button" onClick={onClose} className={`${R_BTN_PRIMARY} mx-auto flex w-full max-w-xl`}>Done</button>
       </div>
     </div>
   );
