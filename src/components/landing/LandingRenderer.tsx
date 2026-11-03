@@ -17,6 +17,7 @@ import { PricingCards } from "./sections/PricingCards";
 import { Schedule } from "./sections/Schedule";
 import { VideoReviews } from "./sections/VideoReviews";
 import { Testimonials } from "./sections/Testimonials";
+import { DemoVideo } from "./sections/DemoVideo";
 import { Faq } from "./sections/Faq";
 import { FinalCta } from "./sections/FinalCta";
 import type { SectionProps } from "./sections/types";
@@ -28,7 +29,7 @@ export type { SectionProps };
 
 const SECTION_COMPONENTS: Record<SectionType, (p: SectionProps) => React.ReactNode> = {
   hero: Hero, stats: Stats, rich_text: RichText, feature_cards: FeatureCards, curriculum: Curriculum,
-  instructors: Instructors, pricing_cards: PricingCards, schedule: Schedule, video_reviews: VideoReviews,
+  instructors: Instructors, pricing_cards: PricingCards, schedule: Schedule, video_reviews: VideoReviews, demo_video: DemoVideo,
   testimonials: Testimonials, faq: Faq, final_cta: FinalCta,
 };
 

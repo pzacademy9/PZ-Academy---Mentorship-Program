@@ -8,8 +8,14 @@ import { useState } from "react";
  * so a landing page never loads YouTube's scripts or sets its cookies until the visitor asks for it.
  * `id` is validated upstream by youtubeId() (11 chars of [A-Za-z0-9_-]).
  */
-export function YouTubeFacade({ id, title, short }: { id: string; title: string; short: boolean }) {
-  const [playing, setPlaying] = useState(false);
+export function YouTubeFacade({ id, title, short, onPlay, autoStart = false }: {
+  id: string; title: string; short: boolean;
+  /** When given, a click calls this instead of starting the plain player (the parent runs its own player). */
+  onPlay?: () => void;
+  /** Start the plain player at once (a parent that could not run its own player falls back to this). */
+  autoStart?: boolean;
+}) {
+  const [playing, setPlaying] = useState(autoStart);
   const aspect = short ? "aspect-[9/16]" : "aspect-video";
 
   if (playing) {
@@ -30,7 +36,7 @@ export function YouTubeFacade({ id, title, short }: { id: string; title: string;
   return (
     <button
       type="button"
-      onClick={() => setPlaying(true)}
+      onClick={() => (onPlay ? onPlay() : setPlaying(true))}
       aria-label={`Play video: ${title}`}
       className={`group relative ${aspect} w-full overflow-hidden rounded-landing border-2 border-landing-border bg-landing-deep shadow-landing-soft-lg transition hover:border-landing-primary`}
     >
