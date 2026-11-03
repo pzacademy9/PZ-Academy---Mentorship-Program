@@ -74,6 +74,13 @@ describe("fieldVisible", () => {
     expect(fieldVisible(f, { heroStyle: "editorial" }, fields)).toBe(false);
   });
 
+  it("the computer and phone picture boxes are hidden for split and classic, shown for the others", () => {
+    for (const k of ["imagePc", "imagePhone"]) {
+      for (const v of ["fade", "editorial", "photo", "poster"]) expect(fieldVisible(field(k), { heroStyle: v }, fields)).toBe(true);
+      for (const v of ["split", "classic"]) expect(fieldVisible(field(k), { heroStyle: v }, fields)).toBe(false);
+    }
+  });
+
   it("a field with no rule is always visible and equals still works", () => {
     expect(fieldVisible(field("headline"), {}, fields)).toBe(true);
     expect(fieldVisible(field("secondaryCtaUrl"), { secondaryCtaType: "link" }, fields)).toBe(true);

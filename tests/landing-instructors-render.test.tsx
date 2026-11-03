@@ -101,6 +101,11 @@ describe("all new layouts", () => {
       expect(o).toContain("break-words");
       expect(o).not.toMatch(/truncate|line-clamp/);
     });
+    it(`${layout}: with two people the text column cannot grow wider than the card`, () => {
+      const o = html({ layout, items: [person(1, { name: "N".repeat(150) }), person(2)] });
+      expect(o).toMatch(/<div class="min-w-0 max-w-full">/);
+      expect(o).toMatch(/<h3[^>]*max-w-full/);
+    });
     it(`${layout}: no people renders nothing`, () => {
       expect(html({ layout, items: [] })).toBe("");
     });

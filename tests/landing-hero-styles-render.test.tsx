@@ -96,6 +96,10 @@ describe("all new styles", () => {
       const o = html({ ...base, headline: "W".repeat(200), heroStyle: s, imagePc: PC, imagePhone: PH, image: PORTRAIT });
       expect(o).toMatch(/<h1[^>]*break-words/);
     });
+    it(`${s}: headline and text cannot grow wider than the screen`, () => {
+      const o = html({ ...base, headline: "W".repeat(200), heroStyle: s, imagePc: PC, imagePhone: PH, image: PORTRAIT });
+      expect(o).toMatch(/<h1[^>]*max-w-full/);
+    });
     it(`${s}: the second button shows only with a label and a safe target`, () => {
       const withBtn = html({ ...base, heroStyle: s, secondaryCtaLabel: "Watch preview", secondaryCtaType: "link", secondaryCtaUrl: "https://example.com/p" });
       expect(withBtn).toContain("Watch preview");

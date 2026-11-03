@@ -101,8 +101,8 @@ function NewInstructors({ heading, items, dark }: { heading: string; items: Pers
                 {it.photo ? (
                   <LandingImage src={it.photo} alt={it.name} width={128} height={160} className="h-40 w-32 shrink-0 rounded-2xl border-4 border-landing-mint/30 object-cover shadow-landing-soft" />
                 ) : null}
-                <div className="min-w-0">
-                  {it.name ? <h3 className="break-words font-headline text-lg font-bold text-landing-primary md:text-xl">{it.name}</h3> : null}
+                <div className="min-w-0 max-w-full">
+                  {it.name ? <h3 className="max-w-full break-words font-headline text-lg font-bold text-landing-primary md:text-xl">{it.name}</h3> : null}
                   {it.role ? <p className="mt-1 break-words text-xs font-bold uppercase tracking-wider text-landing-muted">{it.role}</p> : null}
                   {it.bio ? <SimpleText text={it.bio} className="mt-3 break-words text-sm leading-relaxed text-landing-on-surface" /> : null}
                   <Credentials lines={it.credentials} dark={false} />

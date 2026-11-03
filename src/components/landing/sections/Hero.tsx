@@ -248,7 +248,7 @@ function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc
       <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-16 text-white md:px-6 lg:py-20">
         <div className="flex max-w-3xl flex-col items-start">
           {eyebrow ? <Eyebrow text={eyebrow} dark /> : null}
-          {headline ? <h1 className="mb-3 break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
+          {headline ? <h1 className="mb-3 max-w-full break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
           {sub ? <p className="mb-4 max-w-2xl break-words text-base leading-relaxed text-white/90 md:mb-6 lg:text-lg">{sub}</p> : null}
           {dateLine ? <DateLine text={dateLine} onDark /> : null}
           <div className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-6">
@@ -287,7 +287,7 @@ function SplitHero({ data, register, sectionIds }: SectionProps) {
         <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-14">
           <div className={`flex min-w-0 flex-col items-start ${image ? "lg:col-span-7" : "lg:col-span-12"}`}>
             {eyebrow ? <Eyebrow text={eyebrow} /> : null}
-            {headline ? <h1 className="mb-3 break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-landing-deep sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
+            {headline ? <h1 className="mb-3 max-w-full break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-landing-deep sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
             {sub ? <p className="mb-4 max-w-2xl break-words text-base leading-relaxed text-landing-on-surface md:mb-6 lg:text-lg">{sub}</p> : null}
             {dateLine ? <DateLine text={dateLine} /> : null}
             <div className="mb-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
@@ -330,13 +330,13 @@ function EditorialHero({ data, register, sectionIds, pc, phone }: SectionProps &
     <div className="border-b border-landing-border bg-landing-deep text-white">
       <div className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-10 pt-12 text-center md:px-6 lg:pb-16 lg:pt-20">
         {eyebrow ? <Eyebrow text={eyebrow} dark /> : null}
-        {headline ? <h1 className="mb-4 break-words font-serif text-3xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">{headline}</h1> : null}
-        {sub ? <p className="mb-6 max-w-2xl break-words text-base leading-relaxed text-white/90 lg:text-lg">{sub}</p> : null}
+        {headline ? <h1 className="mb-4 max-w-full break-words font-serif text-3xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">{headline}</h1> : null}
+        {sub ? <p className="mb-6 max-w-full break-words text-base leading-relaxed text-white/90 lg:max-w-2xl lg:text-lg">{sub}</p> : null}
         <div className="mb-6 flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
           <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
           {target ? <SecondaryButton target={target} label={secondaryLabel} onDark /> : null}
         </div>
-        {dateLine ? <p className="mb-4 break-words text-sm font-semibold text-white/90">{dateLine}</p> : null}
+        {dateLine ? <p className="mb-4 max-w-full break-words text-sm font-semibold text-white/90">{dateLine}</p> : null}
         {badges.length > 0 ? (
           <ul className="mb-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-white/90">
             {badges.map((b, i) => (
