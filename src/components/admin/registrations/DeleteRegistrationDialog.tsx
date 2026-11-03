@@ -56,9 +56,10 @@ export function DeleteRegistrationDialog({ row, onClose }: { row: RegistrationLi
             <ul className="list-disc pl-4 space-y-0.5 text-pz-on-surface-variant">
               <li>The registration and its history are removed.</li>
               {members > 0 && <li>{members === 1 ? "1 group member" : `${members} group members`} are removed with it.</li>}
-              <li>The course access this registration gave is removed.</li>
+              <li>The course access this registration gave is removed, unless the same student has another paid registration for that course. Then they keep it.</li>
               <li>Their sign-in account, PZ ID and voucher file stay. Emails already sent cannot be taken back.</li>
-              <li>The row in your Google Sheet stays. Delete it there too if you want it gone.</li>
+              <li>The row in your Google Sheet stays, and Sheet sync will list it as &quot;Row not recognised&quot; until you delete it there.</li>
+              <li>If this batch copies from a sheet, delete their row in that sheet first. Otherwise they come back within 15 minutes.</li>
             </ul>
           </div>
         </div>

@@ -34,15 +34,16 @@ describe("DELETE /api/admin/registrations/[id]", () => {
     expect(await res.json()).toEqual({ ok: true, removedMembers: 2 });
     expect(del).toHaveBeenCalledWith({ registrationId: "00000000-0000-4000-8000-000000000001" });
   });
+  it("answers 404 for an id that is not a UUID, without touching the database", async () => {
+    const res = await DELETE(new Request("http://x", { method: "DELETE" }) as never, { params: Promise.resolve({ id: "not-a-uuid" }) });
+    expect(res.status).toBe(404);
+    expect(del).not.toHaveBeenCalled();
+  });
   it("maps the refusals to plain answers", async () => {
     del.mockResolvedValue({ ok: false, reason: "not-found" });
     expect((await call()).status).toBe(404);
     del.mockResolvedValue({ ok: false, reason: "member-row" });
     expect((await call()).status).toBe(404);
-    del.mockResolvedValue({ ok: false, reason: "mirrored" });
-    const res = await call();
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as { error: string }).error).toMatch(/sheet/i);
     del.mockResolvedValue({ ok: false, reason: "db-error" });
     expect((await call()).status).toBe(500);
   });
