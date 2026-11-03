@@ -85,11 +85,12 @@ begin
     -- the newest registration frees its number and the next person gets it. The lock keeps two
     -- registrations (even on different pages that share a prefix) from reading the same highest number.
     perform pg_advisory_xact_lock(hashtextextended('ref-prefix:' || v_prefix, 0));
-    select coalesce(max((substring(r.ref_id from '^PZA-' || v_prefix || '-(\d+)$'))::integer), 0)
+    select coalesce(max((substring(upper(r.ref_id) from '^PZA-' || v_prefix || '-(\d{1,9})$'))::integer), 0)
       into v_max
       from public.landing_registrations r
-     where r.ref_id like 'PZA-' || v_prefix || '-%';
+     where upper(r.ref_id) like 'PZA-' || v_prefix || '-%';
     v_n := v_max + 1;
+    -- Only up to 9 digits count, and case is ignored, so an odd value typed into a sheet cannot break this.
     -- The counter table keeps a record of the last number handed out.
     insert into public.landing_ref_counters as c (prefix, last_number, updated_at)
     values (v_prefix, v_n, now())

@@ -21,8 +21,14 @@ describe("0098: the next reference number follows the last registration that sti
 
   it("works out the next number from the highest number still in use for the prefix, across all pages", () => {
     expect(sql).toMatch(/max\(/i);
-    expect(sql).toMatch(/from public\.landing_registrations r\s+where r\.ref_id like 'PZA-' \|\| v_prefix \|\| '-%'/i);
+    expect(sql).toMatch(/from public\.landing_registrations r\s+where upper\(r\.ref_id\) like 'PZA-' \|\| v_prefix \|\| '-%'/i);
     expect(sql).toMatch(/v_n := v_max \+ 1/i);
+  });
+
+  it("ignores numbers longer than 9 digits and matches in upper case (a typed-in phone number or a lower-case ref cannot break or fool it)", () => {
+    expect(sql).toContain("(\\d{1,9})$");
+    expect(sql).toMatch(/substring\(upper\(r\.ref_id\) from /);
+    expect(sql).toMatch(/where upper\(r\.ref_id\) like 'PZA-'/);
   });
 
   it("no longer simply adds one to a counter that never goes down", () => {
