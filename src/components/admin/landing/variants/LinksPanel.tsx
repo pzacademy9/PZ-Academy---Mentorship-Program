@@ -78,6 +78,21 @@ export function LinksPanel({
     else toast.error("Could not copy. Select the link and copy it yourself.");
   }
 
+  // Publish all: every link that is switched on and allowed to go live, one after another (they share the page's data, so never at once).
+  const ready = grid.filter((r) => r.enabled && !!r.variantId && !blockedBy(r));
+  const publishAll = useAsyncAction(async () => {
+    let done = 0;
+    let failed = 0;
+    for (const row of ready) {
+      if (!row.variantId) continue;
+      const r = await onPublish(row.variantId);
+      if (r.ok) done += 1;
+      else failed += 1;
+    }
+    if (failed === 0) toast.success(`${done} ${done === 1 ? "link" : "links"} published`);
+    else toast.error(`${done} published, ${failed} could not be published. See the notes under each link.`);
+  });
+
   const allText = buildLinksText({ pageTitle, origin, slug, mainLive, rows: grid.filter((r) => !blockedBy(r)) });
   async function copyAll() {
     if (await copyText(allText, host.current)) toast.success("Links copied");
@@ -97,6 +112,18 @@ export function LinksPanel({
           <Button type="button" size="sm" aria-expanded={previewing} onClick={() => setPreviewing((p) => !p)} className="bg-pz-solid-forest text-white hover:bg-pz-solid-forest/90">
             <ClipboardList aria-hidden="true" />
             Copy all links
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={ready.length === 0}
+            loading={publishAll.pending}
+            title={ready.length === 0 ? "Turn a link on first (and publish the main page)" : undefined}
+            onClick={() => void publishAll.run()}
+            className="bg-pz-solid-forest text-white hover:bg-pz-solid-forest/90"
+          >
+            <Rocket aria-hidden="true" />
+            {`Publish all (${ready.length})`}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
             <Globe2 aria-hidden="true" />

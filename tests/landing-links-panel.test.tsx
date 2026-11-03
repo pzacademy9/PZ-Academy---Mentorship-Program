@@ -21,7 +21,11 @@ const checks: PageCheck[] = [
   { id: "country-AE", title: "UAE link", status: "fail", detail: "The UAE link would show prices from another country." },
 ];
 
-function mount(blockedBy: (r: VariantGridRow) => string | null = () => null) {
+function mount(
+  blockedBy: (r: VariantGridRow) => string | null = () => null,
+  onPublish: (id: string) => Promise<{ ok: boolean }> = async () => ({ ok: true }),
+  rows: VariantGridRow[] = grid,
+) {
   const c = emptyContent("course");
   c.registration.regions = [
     { key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] },
@@ -29,9 +33,9 @@ function mount(blockedBy: (r: VariantGridRow) => string | null = () => null) {
   ];
   return render(
     <LinksPanel
-      slug="ppc" pageTitle="PPC Batch 3" grid={grid} content={c} centralRegionKeys={[]} mainLive
+      slug="ppc" pageTitle="PPC Batch 3" grid={rows} content={c} centralRegionKeys={[]} mainLive
       blockedBy={blockedBy} problems={{}} checks={checks}
-      onSwitch={async () => null} onPublish={async () => ({ ok: true })} onAddCountry={() => {}}
+      onSwitch={async () => null} onPublish={onPublish} onAddCountry={() => {}}
     />,
   );
 }
@@ -56,6 +60,22 @@ describe("Links panel", () => {
     const text = screen.getByLabelText("Text that will be copied").textContent ?? "";
     expect(text).toContain("• Pakistan:");
     expect(text).not.toContain("UAE");
+  });
+  it("Publish all publishes every ready link in turn and skips links that are off or waiting", async () => {
+    const rows: VariantGridRow[] = [
+      { ref: { regionKey: "PK", moduleKey: null }, label: "Pakistan", path: "pk", variantId: "v1", enabled: true, published: false },
+      { ref: { regionKey: "AE", moduleKey: null }, label: "UAE", path: "ae", variantId: "v2", enabled: true, published: false },
+      { ref: { regionKey: "IN", moduleKey: null }, label: "India", path: "in", variantId: "v3", enabled: false, published: false },
+      { ref: { regionKey: "SA", moduleKey: null }, label: "Saudi Arabia", path: "ksa", variantId: "v4", enabled: true, published: false },
+    ];
+    const order: string[] = [];
+    mount((r) => (r.path === "ksa" ? "Waiting for the main page" : null), async (id) => { order.push(id); return { ok: true }; }, rows);
+    fireEvent.click(screen.getByRole("button", { name: "Publish all (2)" }));
+    await waitFor(() => expect(order).toEqual(["v1", "v2"]));
+  });
+  it("Publish all is disabled when no link is ready", () => {
+    mount(() => "Waiting for the main page");
+    expect((screen.getByRole("button", { name: "Publish all (0)" }) as HTMLButtonElement).disabled).toBe(true);
   });
   it("a passing check shows a tick and a failing check shows its message on the row", () => {
     mount();
