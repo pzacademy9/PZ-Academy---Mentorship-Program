@@ -233,6 +233,8 @@ items:
   video_reviews: () => `heading: What students say
 items:
   - { url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", caption: "A student shares their result" }`,
+  demo_video: () => `heading: Watch a demo session
+url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ"`,
   testimonials: () => `heading: Loved by pharmacists
 items:
   - { quote: "A very clear, practical course.", name: Sample Student, role: Pharmacist }`,

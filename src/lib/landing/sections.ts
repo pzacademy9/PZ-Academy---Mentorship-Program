@@ -15,7 +15,7 @@ import { MODULE_ITEM_SECTIONS } from "./variants";
 
 export const SECTION_TYPES = [
   "hero", "stats", "rich_text", "feature_cards", "curriculum", "instructors",
-  "pricing_cards", "schedule", "video_reviews", "testimonials", "faq", "final_cta",
+  "pricing_cards", "schedule", "video_reviews", "demo_video", "testimonials", "faq", "final_cta",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -188,6 +188,22 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
         { key: "url", label: "YouTube link", kind: "youtube", required: true, help: "Paste the YouTube or Shorts link." },
         text("caption", "Caption (optional)", { max: 120 }),
       ], { required: true, itemLabel: "Video", maxItems: 12 }),
+    ],
+  },
+  demo_video: {
+    type: "demo_video", label: "Watch a demo session", description: "A lecture video visitors can try. It pauses every few seconds with a Register popup.",
+    navLabel: "Demo",
+    fields: [
+      text("heading", "Heading", { defaultValue: "Watch a demo session" }),
+      text("subheading", "Line under the heading (optional)", { max: 200, example: "See how the course is taught" }),
+      { key: "url", label: "YouTube link", kind: "youtube", help: "Paste the YouTube link of a lecture." },
+      choice("pauseEvery", "Pause the video and show the Register popup", [
+        { value: "15", label: "Every 15 seconds" },
+        { value: "20", label: "Every 20 seconds" },
+        { value: "30", label: "Every 30 seconds" },
+      ], "20"),
+      text("popupTitle", "Popup title", { max: 80, defaultValue: "Enjoying the session?" }),
+      text("popupText", "Popup text", { max: 200, defaultValue: "Register now to join the full course." }),
     ],
   },
   testimonials: {
