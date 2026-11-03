@@ -257,9 +257,10 @@ function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc
           </div>
         </div>
         {badges.length > 0 ? (
-          <ul className="mt-2 grid w-full grid-cols-1 gap-3 rounded-landing border border-white/20 bg-white/10 p-4 backdrop-blur-sm sm:grid-cols-3 sm:gap-4">
+          // Phones: plain ticked lines, no box. From sm up: the frosted box.
+          <ul className="mt-1 grid w-full grid-cols-1 gap-1.5 sm:mt-2 sm:grid-cols-3 sm:gap-4 sm:rounded-landing sm:border sm:border-white/20 sm:bg-white/10 sm:p-4 sm:backdrop-blur-sm">
             {badges.map((b, i) => (
-              <li key={i} className="flex items-start gap-2.5 break-words text-sm font-medium text-white">
+              <li key={i} className="flex items-start gap-2 break-words text-xs font-medium text-white sm:gap-2.5 sm:text-sm">
                 <Check />
                 <span className="min-w-0 break-words">{b}</span>
               </li>
