@@ -4,18 +4,30 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("server-only", () => ({}));
 
-type Opts = { host?: string; videoId?: string; playerVars?: Record<string, unknown> };
+type Opts = { host?: string; videoId?: string; playerVars?: Record<string, unknown>; events?: { onReady?: () => void } };
 class FakePlayer {
   static last: FakePlayer | null = null;
+  /** The real player has no methods until its iframe is ready; false lets a test stay in that state. */
+  static autoReady = true;
   state = 1;
   opts: Opts;
   paused = 0;
   played = 0;
   destroyed = false;
-  constructor(_el: HTMLElement, opts: Opts) { this.opts = opts; FakePlayer.last = this; }
-  getPlayerState() { return this.state; }
-  pauseVideo() { this.state = 2; this.paused += 1; }
-  playVideo() { this.state = 1; this.played += 1; }
+  getPlayerState!: () => number;
+  pauseVideo!: () => void;
+  playVideo!: () => void;
+  constructor(_el: HTMLElement, opts: Opts) {
+    this.opts = opts;
+    FakePlayer.last = this;
+    if (FakePlayer.autoReady) this.becomeReady();
+  }
+  becomeReady() {
+    this.getPlayerState = () => this.state;
+    this.pauseVideo = () => { this.state = 2; this.paused += 1; };
+    this.playVideo = () => { this.state = 1; this.played += 1; };
+    this.opts.events?.onReady?.();
+  }
   destroy() { this.destroyed = true; }
 }
 const api = vi.hoisted(() => ({ loader: vi.fn() }));
@@ -41,6 +53,7 @@ const watch = async (seconds: number) => { await act(async () => { await vi.adva
 beforeEach(() => {
   vi.useFakeTimers();
   FakePlayer.last = null;
+  FakePlayer.autoReady = true;
   api.loader.mockReset();
   api.loader.mockResolvedValue({ Player: FakePlayer });
 });
@@ -165,6 +178,59 @@ describe("DemoPlayer", () => {
     const card = screen.getByRole("dialog");
     expect(card.className).toMatch(/max-h-\[/);
     expect(card.className).toContain("overflow-y-auto");
+  });
+
+  it("does not touch the player before it is ready, then counts from ready", async () => {
+    FakePlayer.autoReady = false;
+    const errors: unknown[] = [];
+    const onErr = (e: ErrorEvent) => { errors.push(e.error); e.preventDefault(); };
+    window.addEventListener("error", onErr);
+    await start();
+    await watch(30);
+    expect(errors).toEqual([]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    act(() => { FakePlayer.last!.becomeReady(); });
+    await watch(19);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await watch(2);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    window.removeEventListener("error", onErr);
+  });
+
+  it("re-rendering while the popup is open does not pull focus back into it", async () => {
+    const { rerender } = render(<><input aria-label="other" />{player()}</>);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /play video/i })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await watch(21);
+    const other = screen.getByLabelText("other") as HTMLInputElement;
+    other.focus();
+    expect(document.activeElement).toBe(other);
+    rerender(<><input aria-label="other" />{player({ popupText: "Changed text" })}</>);
+    expect(document.activeElement).toBe(other);
+  });
+
+  it("the popup sits above the phone bottom bar and the WhatsApp button", async () => {
+    await start();
+    await watch(21);
+    expect(screen.getByRole("dialog").parentElement!.className).toContain("z-[45]");
+  });
+
+  it("the Live / Recorded menu opens upward so the popup card does not clip it", async () => {
+    await start({ register: { ...register, builtIn: true, modes: ["live", "recorded"] } });
+    await watch(21);
+    const trigger = screen.getByRole("dialog").querySelector("button[aria-haspopup]") as HTMLElement;
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog").innerHTML).toContain("bottom-full");
+  });
+
+  it("opening registration from elsewhere pauses the video, so no popup waits under the form", async () => {
+    await start();
+    await watch(5);
+    act(() => { openRegistration(null); });
+    expect(FakePlayer.last!.paused).toBe(1);
+    expect(FakePlayer.last!.state).toBe(2);
+    await watch(60);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("stops the timer and destroys the player when removed", async () => {

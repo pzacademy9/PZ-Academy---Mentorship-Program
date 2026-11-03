@@ -8,7 +8,7 @@ export interface YTPlayer {
   destroy(): void;
 }
 export interface YTApi {
-  Player: new (el: HTMLElement, opts: { host?: string; videoId: string; playerVars?: Record<string, unknown> }) => YTPlayer;
+  Player: new (el: HTMLElement, opts: { host?: string; videoId: string; playerVars?: Record<string, unknown>; events?: { onReady?: () => void } }) => YTPlayer;
 }
 
 declare global {
