@@ -1,6 +1,6 @@
 // tests/landing-class-time-convert.test.ts
 import { describe, it, expect } from "vitest";
-import { convertClassTime, applyPakistanClassTime } from "@/lib/landing/registration/class-time";
+import { convertClassTime, applyPakistanClassTime, regionFromTimeZone } from "@/lib/landing/registration/class-time";
 import { REGION_PRESETS, addRegion } from "@/lib/landing/registration/admin-edit";
 import { ppcConfig } from "./fixtures/registration-fixtures";
 
@@ -26,6 +26,22 @@ describe("convertClassTime", () => {
     expect(convertClassTime("19:30", "20:30", "US")).toBeNull();
     expect(convertClassTime("", "", "PK")).toBeNull();
     expect(convertClassTime("25:00", "", "PK")).toBeNull();
+  });
+});
+
+describe("regionFromTimeZone", () => {
+  const regions = ["PK", "UAE", "KSA", "PH", "IN", "INTL"].map((key) => ({ key }));
+  it("maps a visitor's clock to a page country", () => {
+    expect(regionFromTimeZone("Asia/Karachi", regions, "PK")).toBe("PK");
+    expect(regionFromTimeZone("Asia/Dubai", regions, "PK")).toBe("UAE");
+    expect(regionFromTimeZone("Asia/Riyadh", regions, "PK")).toBe("KSA");
+    expect(regionFromTimeZone("Asia/Manila", regions, "PK")).toBe("PH");
+    expect(regionFromTimeZone("Asia/Calcutta", regions, "PK")).toBe("IN");
+  });
+  it("falls back to International, then the default", () => {
+    expect(regionFromTimeZone("Europe/London", regions, "PK")).toBe("INTL");
+    expect(regionFromTimeZone("Europe/London", regions.slice(0, 5), "PK")).toBe("PK");
+    expect(regionFromTimeZone("Asia/Dubai", regions.slice(0, 1), "PK")).toBe("PK");
   });
 });
 

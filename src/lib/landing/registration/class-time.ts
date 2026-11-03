@@ -38,6 +38,21 @@ export function convertClassTime(startPk: string, endPk: string, regionKey: stri
   return end === null ? format(start + shift) : `${format(start + shift)} – ${format(end + shift)}`;
 }
 
+const TZ_TO_REGION: Record<string, string> = {
+  "Asia/Karachi": "PK", "Asia/Dubai": "UAE", "Asia/Muscat": "UAE", "Asia/Riyadh": "KSA",
+  "Asia/Manila": "PH", "Asia/Calcutta": "IN", "Asia/Kolkata": "IN",
+};
+
+/** Which of the page's countries matches the visitor's clock (their IANA time zone): that country, else International, else the default, else the first. */
+export function regionFromTimeZone(timeZone: string, regions: { key: string }[], defaultKey: string): string {
+  const has = (k: string) => regions.some((g) => g.key === k);
+  const mapped = TZ_TO_REGION[timeZone];
+  if (mapped && has(mapped)) return mapped;
+  if (!mapped && has("INTL")) return "INTL";
+  if (has(defaultKey)) return defaultKey;
+  return regions[0]?.key ?? "";
+}
+
 /** Writes the converted time into every country of the page. International shows the Pakistan time with "PKT". Countries it cannot convert are left as they are. */
 export function applyPakistanClassTime(r: RegistrationConfig, startPk: string, endPk: string): RegistrationConfig {
   const pk = convertClassTime(startPk, endPk, "PK");

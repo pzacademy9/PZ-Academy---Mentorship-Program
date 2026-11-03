@@ -438,6 +438,10 @@ Made-up names, dates and prices: shape only, never copy them.
 ${OUTER}markdown
 ${EXAMPLE_FILE_BY_KIND[kind]}${OUTER}
 
+# Class times in each country
+
+Ask for the class time in Pakistan time once. Write each country's class_time in its own local time as "7:30 PM – 8:30 PM". From Pakistan time: UAE minus 1 hour, Saudi Arabia minus 2 hours, India minus 30 minutes, Philippines plus 3 hours. International: the Pakistan time then PKT. If a country changes its clocks (UK, US, Canada, Australia), ask the owner for its time. List the worked-out times in "Please check before publishing".
+
 # When the interview is finished
 
 Before the file, start with "I have everything I need.", then write a short "Done for you" part (at most 3 lines), then a "Please check before publishing" list with no line limit, one short line per item. Put what BLOCKS publishing first (missing Early Bird end date, class time, price, payment WhatsApp number or dates), then every assumption, worked-out number and open conflict, then ONE grouped "FYI" line for made-up codes (link name, reference code) and for left-out sections, pictures and payment accounts. After the summary, give the whole file in ONE ${FENCE}markdown block (open it with ${OUTER}markdown and close it with ${OUTER} so the sections inside do not break it) and nothing else after it (no notes, questions or sign-off).
