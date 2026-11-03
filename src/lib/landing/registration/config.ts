@@ -24,7 +24,7 @@ export const MAX_CAPACITY = 100_000;
 /** Text limits enforced by the schema below; the admin inputs read the same numbers. */
 export const FIELD_MAX = { regionKey: 6, name: 80, optionLabel: 120, optionKey: 32, waUrl: 200, waNumber: 20, pixel: 20, listItem: 80, listCount: 30 } as const;
 
-/** The "How did you hear about us?" choices a new page starts with. An empty list hides the question. */
+/** The "How did you hear about us?" choices a new page starts with, and what an empty list falls back to. */
 export const DEFAULT_DISCOVERY_OPTIONS = ["Instagram", "Facebook", "WhatsApp", "Friend or colleague", "Other"] as const;
 const usualIfEmpty = (list: string[]): string[] => (list.length > 0 ? list : [...DEFAULT_DISCOVERY_OPTIONS]);
 

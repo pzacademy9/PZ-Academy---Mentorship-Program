@@ -87,6 +87,23 @@ describe("a module link shows the module's own title", () => {
   });
 });
 
+describe("the outline rename is careful", () => {
+  it("leaves several items for one module alone (their own titles are meant)", () => {
+    const c = build();
+    const cur = c.sections.find((x) => x.id === "cur1")!;
+    (cur.data.items as object[]).push({ title: "Day 2 - Reactions", subtitle: "", points: "", module: "module-1" });
+    const r = resolveVariant(c, { regionKey: null, moduleKey: "module-1" }, emptyOverrides());
+    expect(titles(r)).toEqual(["Overview of the course", "Module 1: National and Global Pharmacovigilance System", "Day 2 - Reactions"]);
+  });
+  it("does not overwrite items the admin edited on the link itself", () => {
+    const ov = { ...emptyOverrides(), sections: { cur1: { fields: { items: [
+      { title: "My own heading for this link", subtitle: "", points: "", module: "module-1" },
+    ] } } } };
+    const r = resolveVariant(build(), { regionKey: null, moduleKey: "module-1" }, ov);
+    expect(titles(r)).toEqual(["My own heading for this link"]);
+  });
+});
+
 describe("the form shows the module title to the visitor", () => {
   const first = ppcConfig.options[0];
   const config = { ...ppcConfig, options: ppcConfig.options.map((o) => ({ ...o, displayLabel: o.key === first.key ? "The module's real title" : undefined })) };
