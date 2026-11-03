@@ -3,12 +3,13 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { Mode } from "@/lib/landing/registration/config";
 import { onOpenRegistration } from "./registration-bus";
+import { TermsLinkProvider } from "./terms-link";
 
 const RegistrationModal = lazy(() => import("./RegistrationModal"));
 
 /** Mounted once per public page. Loads the modal code on the first open and keeps it mounted so a closed-then-reopened form keeps its answers. */
 // `variant` is the variant path of a country / module link; the modal sends it as `?v=` on config, quote and register.
-export function RegistrationHost({ slug, variant, tracking = true }: { slug: string; tracking?: boolean; variant?: string }) {
+export function RegistrationHost({ slug, variant, tracking = true, termsHref }: { slug: string; tracking?: boolean; variant?: string; termsHref?: string }) {
   const [everOpened, setEverOpened] = useState(false);
   const [open, setOpen] = useState(false);
   // The last mode a Register menu picked; a plain Register click leaves it alone.
@@ -17,11 +18,13 @@ export function RegistrationHost({ slug, variant, tracking = true }: { slug: str
   useEffect(() => onOpenRegistration((o) => { if (o.mode) setMode(o.mode); setEverOpened(true); setOpen(true); }), []);
   return (
     <div ref={setContainer} className="font-landing-body">
+      <TermsLinkProvider href={termsHref}>
       {everOpened && (
         <Suspense fallback={<OpeningNotice />}>
           <RegistrationModal slug={slug} variant={variant} open={open} initialMode={mode} onClose={() => setOpen(false)} tracking={tracking} portalContainer={container} />
         </Suspense>
       )}
+      </TermsLinkProvider>
     </div>
   );
 }

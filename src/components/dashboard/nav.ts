@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp,
+  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp, ScrollText,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
@@ -47,6 +47,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Media Library", shortLabel: "Media", href: "/dashboard/admin/landing-media", icon: Images, roles: ["admin", "super_admin"] },
   { label: "Promo Codes", shortLabel: "Promos", href: "/dashboard/admin/landing-promo-codes", icon: TicketPercent, roles: ["admin", "super_admin"] },
   { label: "Payment Accounts", shortLabel: "Payments", href: "/dashboard/admin/payment-accounts", icon: Landmark, roles: ["admin", "super_admin"] },
+  { label: "Terms and Conditions", shortLabel: "Terms", href: "/dashboard/admin/terms", icon: ScrollText, roles: ["admin", "super_admin"] },
   { label: "Agent Leaderboard", shortLabel: "Leaders", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, roles: ["admin", "super_admin"] },
   { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "super_admin"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },

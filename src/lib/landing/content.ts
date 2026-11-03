@@ -11,7 +11,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
-import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, type ModuleDef } from "./variants";
+import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, isReservedSegment, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
 export type PageStatus = "draft" | "published" | "closed";
@@ -28,6 +28,8 @@ export interface LandingSettings {
   portalLink: string;
   /** Show the Create account prompt in the success message. Default true. */
   showCreateAccount: boolean;
+  /** This page's own Terms and Conditions text (plain text); "" means use the general Terms. */
+  terms?: string;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -56,7 +58,7 @@ export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
 };
 
 const DEFAULT_SETTINGS: LandingSettings = {
-  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true,
+  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true, terms: "",
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
@@ -82,6 +84,7 @@ export const contentSchema = z
       countdownTo: z.string().max(40),
       countdownLabel: z.string().max(80),
       batchStartsOn: z.string().max(40).optional(),
+      terms: z.string().max(20000).optional(),
     }),
     seo: z.object({
       title: z.string().max(120),
@@ -143,6 +146,7 @@ export function normalizeContent(raw: unknown): LandingContent {
     batchStartsOn: str(s.batchStartsOn, "", 40),
     portalLink: httpsUrlOrEmpty.safeParse(s.portalLink ?? "").success ? str(s.portalLink, "", 1000).trim() : "",
     showCreateAccount: typeof s.showCreateAccount === "boolean" ? s.showCreateAccount : true,
+    terms: str(s.terms, "", 20000),
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),
@@ -389,7 +393,7 @@ function moduleProblems(c: LandingContent, out: Problem[]) {
   const moduleKeys = new Set((c.modules ?? []).map((m) => m.key.toLowerCase()));
   for (const g of c.registration.regions) {
     const k = g.key.toLowerCase();
-    if (k === "status") out.push({ message: `The country code "${g.key}" cannot be used because it is reserved for the registration status page. Rename it.` });
+    if (isReservedSegment(k)) out.push({ message: `The country code "${g.key}" cannot be used because it is reserved for a built-in page (registration status or Terms). Rename it.` });
     else if (moduleKeys.has(k)) out.push({ message: `The country code "${g.key}" is the same as a module code, so their links would clash. Rename the country code.` });
   }
   const seen = new Set<string>();

@@ -34,11 +34,12 @@ const SECTION_COMPONENTS: Record<SectionType, (p: SectionProps) => React.ReactNo
 };
 
 export function LandingRenderer({
-  content, status, kind: _kind, pageTitle, slug, variant,
+  content, status, kind: _kind, pageTitle, slug, variant, termsHref,
 }: {
   content: LandingContent; status: PageStatus; kind: PageKind; pageTitle?: string;
   /** Only the public /e/[slug] routes pass this. */ slug?: string;
   /** The variant path ("uae/module-2") on a country / module link; omitted on the main page. */ variant?: string;
+  /** Where this page's Terms and Conditions are, when it has any (its own text or the general text). */ termsHref?: string;
 }) {
   // Re-normalize so a damaged snapshot can never crash the page (Review Focus 1).
   const c = normalizeContent(content);
@@ -115,7 +116,7 @@ export function LandingRenderer({
         ))}
       </main>
 
-      <LandingFooter title={title} items={navItems} whatsapp={wa} />
+      <LandingFooter title={title} items={navItems} whatsapp={wa} termsHref={termsHref} />
 
       {wa ? (
         <a
@@ -138,7 +139,7 @@ export function LandingRenderer({
 
       {slug ? <AttributionCapture slug={slug} /> : null}
       {slug ? <PixelLoader pixelId={pixelId} contentName={c.registration.eventLabel || title || slug} /> : null}
-      {builtIn && slug ? <RegistrationHost slug={slug} variant={variant} /> : null}
+      {builtIn && slug ? <RegistrationHost slug={slug} variant={variant} termsHref={termsHref} /> : null}
     </div>
   );
 }

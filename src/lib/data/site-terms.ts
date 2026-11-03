@@ -1,0 +1,30 @@
+// src/lib/data/site-terms.ts
+import "server-only";
+import { createAdminSupabase } from "@/lib/supabase/admin";
+
+const KEY = "general";
+
+/** The general Terms and Conditions text; "" when none is saved. Throws on a database error. */
+export async function getGeneralTerms(): Promise<string> {
+  const { data, error } = await createAdminSupabase().from("site_terms").select("body").eq("key", KEY).maybeSingle();
+  if (error) throw error;
+  return typeof data?.body === "string" ? data.body : "";
+}
+
+/** For public pages: a missing table (the SQL not pasted yet) means "no general Terms", never a broken page. */
+export async function getGeneralTermsOrEmpty(): Promise<string> {
+  try {
+    return await getGeneralTerms();
+  } catch (e) {
+    // Only "the table is not there yet" means no Terms. Any other failure is thrown so a cached page keeps its last good version.
+    const code = typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined;
+    if (code === "PGRST205" || code === "42P01") return "";
+    throw e;
+  }
+}
+
+/** Saves the general Terms and Conditions text. Throws on a database error. */
+export async function saveGeneralTerms(body: string): Promise<void> {
+  const { error } = await createAdminSupabase().from("site_terms").upsert({ key: KEY, body, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw error;
+}

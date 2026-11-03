@@ -28,7 +28,7 @@ export interface VariantRef {
   moduleKey: string | null;
 }
 
-const RESERVED_SEGMENTS = ["status"];
+const RESERVED_SEGMENTS = ["status", "terms"];
 
 export function isReservedSegment(s: string): boolean {
   return RESERVED_SEGMENTS.includes(s);

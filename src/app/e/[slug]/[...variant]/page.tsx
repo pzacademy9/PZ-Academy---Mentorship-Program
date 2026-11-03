@@ -7,6 +7,8 @@ import { getPublishedVariantPage } from "@/lib/data/landing-variants";
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
 import type { PageKind } from "@/lib/landing/content";
 import { variantPath } from "@/lib/landing/variants";
+import { getGeneralTermsOrEmpty } from "@/lib/data/site-terms";
+import { resolveTerms } from "@/lib/landing/terms";
 
 // Static + cached, exactly like /e/[slug]: this route must NOT read the cookie or header APIs.
 export const revalidate = 3600;
@@ -34,6 +36,7 @@ export default async function LandingVariantPage({ params }: Params) {
   const { slug, variant } = await params;
   const found = await getPublishedVariantPage(slug, variant);
   if (!found) notFound();
+  const termsHref = resolveTerms(found.content.settings.terms, await getGeneralTermsOrEmpty()) ? `/e/${found.page.slug}/terms` : undefined;
   return (
     <LandingRenderer
       content={found.content}
@@ -42,6 +45,7 @@ export default async function LandingVariantPage({ params }: Params) {
       pageTitle={found.page.title}
       slug={found.page.slug}
       variant={variantPath(found.ref)}
+      termsHref={termsHref}
     />
   );
 }

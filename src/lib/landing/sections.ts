@@ -40,6 +40,8 @@ export interface FieldDef {
   showWhen?: { key: string; equals: string } | { key: string; oneOf: string[] };
   /** Soft recommended maximum length; the editor warns but never blocks. */
   hintLength?: number;
+  /** For kind "textarea": a plain box. Pasted 1. 2. 3. numbering is kept, not turned into bullets. */
+  plain?: boolean;
 }
 
 export interface SectionDef {
