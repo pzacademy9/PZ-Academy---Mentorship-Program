@@ -385,7 +385,7 @@ function DetailsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Reg
         <input type="number" inputMode="numeric" min={0} aria-label="Seat limit" className={`${CONTROL} w-28`} value={String(r.capacity)} onChange={(e) => onChange({ ...r, capacity: whole(e.target.value, 0, MAX_CAPACITY) })} />
       </label>
       <LinesField label="Professions" help="One per line." value={r.professions} onChange={(v) => onChange({ ...r, professions: v })} />
-      <LinesField label="How did you hear about us? choices" help="One per line. Leave empty to hide the question." value={r.discoveryOptions} suggest={DEFAULT_DISCOVERY_OPTIONS} onChange={(v) => onChange({ ...r, discoveryOptions: v })} />
+      <LinesField label="How did you hear about us? choices" help="One per line. Leave empty to use the usual choices (Instagram, Facebook, WhatsApp, Friend or colleague, Other)." value={r.discoveryOptions} suggest={DEFAULT_DISCOVERY_OPTIONS} onChange={(v) => onChange({ ...r, discoveryOptions: v })} />
       <label className="block space-y-1">
         <span className={LABEL}>Meta Pixel ID (optional)</span>
         <span className={`block ${HELP}`}>Leave empty to use the academy&apos;s main Pixel.</span>

@@ -212,8 +212,8 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     eventLabel: text(reg.event_label),
     refPrefix: text(reg.ref_prefix),
     professions: strings(reg.professions),
-    // No "discovery" list in the file = the usual choices; an explicit empty list hides the question.
-    discoveryOptions: Array.isArray(reg.discovery) ? strings(reg.discovery) : [...DEFAULT_DISCOVERY_OPTIONS],
+    // No "discovery" list in the file, or an empty one = the usual choices.
+    discoveryOptions: Array.isArray(reg.discovery) && strings(reg.discovery).length > 0 ? strings(reg.discovery) : [...DEFAULT_DISCOVERY_OPTIONS],
   });
 
   // Readiness-style findings never block the import.
