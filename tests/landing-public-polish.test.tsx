@@ -54,6 +54,8 @@ describe("closed page notices", () => {
     c = updateSettings(c, { registerUrl: "https://pharmacozyme.com/register" });
     render(<LandingRenderer content={c} status="closed" kind="webinar" />);
     expect(screen.getAllByText("Registration is closed").length).toBeGreaterThan(2);
-    expect(screen.getAllByRole("status")).toHaveLength(1);
+    // One live region per screen size (the header one shows from md up, a screen-reader-only one on phones),
+    // so a reader hears the notice once at any width.
+    expect(screen.getAllByRole("status")).toHaveLength(2);
   });
 });
