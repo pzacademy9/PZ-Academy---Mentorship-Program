@@ -245,8 +245,12 @@ describe("FieldInput validation messages", () => {
     expect(screen.queryByText(/starting with https/i)).toBeNull();
     rerender(<FieldInput field={urlField} value="not a link" onChange={onChange} />);
     expect(screen.getByText(/starting with https/i)).toBeTruthy();
+    // Unfinished text stays in the box (it is not lost) and is only passed on once it is a usable link.
     fireEvent.change(screen.getByLabelText(urlField.label), { target: { value: "still not" } });
-    expect(onChange).toHaveBeenCalledWith("still not");
+    expect((screen.getByLabelText(urlField.label) as HTMLInputElement).value).toBe("still not");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(urlField.label), { target: { value: "https://example.com/ok" } });
+    expect(onChange).toHaveBeenCalledWith("https://example.com/ok");
   });
   it("explains a bad YouTube link in plain words and accepts a good one", () => {
     const { rerender } = render(<FieldInput field={yt} value="https://example.com/x" onChange={() => {}} />);

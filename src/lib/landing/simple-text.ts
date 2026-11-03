@@ -42,7 +42,7 @@ export function youtubeId(url: string): string | null {
   else if (host === "youtube.com" || host === "m.youtube.com") {
     if (u.pathname === "/watch") id = u.searchParams.get("v");
     else {
-      const m = u.pathname.match(/^\/(?:shorts|embed)\/([^/]+)/);
+      const m = u.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/);
       id = m ? m[1] : null;
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { normalizeBullets } from "@/lib/landing/import/bullets";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -81,6 +81,40 @@ function BulletTextarea({ value, onValueChange, ...rest }: { value: string; onVa
 }
 
 /** `path` locates the control for the checklist's Fix button: "headline", or "items.0.q" inside a list. */
+/**
+ * A link box (web address or YouTube). What you type stays in the box, with a plain message while it is
+ * not a usable link yet; the page only receives the link once it is usable (or empty). Otherwise the
+ * editor's clean-up of every edit would erase unfinished or unrecognised text as fast as you type it.
+ */
+function LinkBox({ field, id, value, helpId, errId, path, onChange }: {
+  field: FieldDef; id: string; value: string; helpId?: string; errId: string; path?: string; onChange: (v: unknown) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  // A change that did not come from this box (undo, restore) wins over unfinished text.
+  useEffect(() => { setDraft(null); }, [value]);
+  const shown = draft ?? value;
+  const problem = problemFor(field, shown);
+  return (
+    <>
+      <Input
+        id={id}
+        type="url"
+        value={shown}
+        placeholder={field.example}
+        aria-describedby={[helpId, problem ? errId : null].filter(Boolean).join(" ") || undefined}
+        aria-invalid={problem ? true : undefined}
+        data-field-path={path}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "" || problemFor(field, v) === null) { setDraft(null); onChange(v); } else setDraft(v);
+        }}
+        className={cn(CONTROL, "h-auto")}
+      />
+      {problem && <p id={errId} role="alert" className={ERROR}>{problem}</p>}
+    </>
+  );
+}
+
 export function FieldInput({ field, value, onChange, path, modules, sections, registration }: { field: FieldDef; value: unknown; onChange: (v: unknown) => void; path?: string; modules?: ModuleDef[]; sections?: SectionOption[]; registration?: RegistrationConfig }) {
   const id = useId();
   const helpId = `${id}-help`;
@@ -145,6 +179,7 @@ export function FieldInput({ field, value, onChange, path, modules, sections, re
     return <WhatsappNumberField label={field.label} help={field.help} path={path} value={typeof value === "string" ? value : ""} onChange={onChange} />;
   }
 
+  const isLink = field.kind === "url" || field.kind === "youtube";
   const str = typeof value === "string" ? value : "";
   const problem = field.kind === "image" ? null : problemFor(field, str);
   const describedBy = [field.help ? helpId : null, problem ? errId : null].filter(Boolean).join(" ") || undefined;
@@ -179,10 +214,12 @@ export function FieldInput({ field, value, onChange, path, modules, sections, re
           data-field-path={path}
           onValueChange={onChange}
         />
+      ) : isLink ? (
+        <LinkBox field={field} id={id} value={str} helpId={field.help ? helpId : undefined} errId={errId} path={path} onChange={onChange} />
       ) : (
         <Input
           id={id}
-          type={field.kind === "url" || field.kind === "youtube" ? "url" : "text"}
+          type="text"
           value={str}
           placeholder={field.example}
           aria-describedby={describedBy}
@@ -192,7 +229,7 @@ export function FieldInput({ field, value, onChange, path, modules, sections, re
           className={cn(CONTROL, "h-auto")}
         />
       )}
-      {problem && <p id={errId} role="alert" className={ERROR}>{problem}</p>}
+      {!isLink && problem && <p id={errId} role="alert" className={ERROR}>{problem}</p>}
       {!problem && field.hintLength && (field.kind === "text" || field.kind === "textarea") && (
         <p className={HELP}>
           {str.length > field.hintLength
