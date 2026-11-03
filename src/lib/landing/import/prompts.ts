@@ -87,9 +87,9 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "which countries should get their own link, and which modules should get their own link with its own top title",
     ],
     notes: [
-      "A course has modules. List every module in modules, with one option per module (kind: module) and one for the full course (kind: bundle), each module pointing to its option. If students may mix modules, enable module_mix with the full-course option as bundle.",
+      "A course has modules. List every module in modules, with one option per module (kind: module) and one for the full course (kind: bundle), each module pointing to its option. If students may mix modules, enable module_mix with the full-course option as bundle. Give each module a real name as its title (like \"Therapeutics\"), never just \"Module 1\": a module's own link shows it to visitors.",
       "In the outline write one entry per module, titled \"Module N: name\", with that module's days as \"- Day N: topic\" lines in its points. In the schedule, give entries that belong to one module that module's code.",
-      "Give each module link its own hero_title (for example \"Module 2: Therapeutics\") when the teammate wants one; ask. If the document is silent on mixing modules or on which links to switch on, leave module_mix and links out; list them under \"Please check\".",
+      "Give each module link its own hero_title (for example \"Therapeutics\") when the teammate wants one; ask. If the document is silent on mixing modules or on which links to switch on, leave module_mix and links out; list them under \"Please check\".",
       "Add video reviews or testimonials only if the teammate gives real YouTube links or quotes.",
     ],
     frontExtra: `modules:
@@ -297,7 +297,7 @@ function exampleFront(kind: PageKind): string {
   const links = kind === "course"
     ? `links:
   - { country: UAE, on: true }
-  - { module: module-2, on: true, hero_title: "Module 2: Therapeutics", hero_subtitle: "Choose the right drug for the patient" }
+  - { module: module-2, on: true, hero_title: "Therapeutics", hero_subtitle: "Choose the right drug for the patient" }
   - { country: UAE, module: module-2, on: true }
 `
     : `links:
@@ -348,7 +348,7 @@ function formatGuide(kind: PageKind, info: KindInfo): string {
     ? "    - { key: full, name: Full Course, kind: bundle }\n    - { key: m1, name: Module 1, kind: module }"
     : `    - { key: full, name: ${kind === "webinar" ? "Webinar Seat" : "Workshop Seat"}, kind: bundle }`;
   const mix = hasModules ? "\n  module_mix: { enabled: true, bundle: full }   # only if modules can be mixed" : "";
-  const linkLines = "  - { country: UAE, on: true }" + (hasModules ? '\n  - { module: module-1, on: true, hero_title: "Module 1: Foundations", hero_subtitle: "..." }\n  - { country: UAE, module: module-1, on: true }' : "");
+  const linkLines = "  - { country: UAE, on: true }" + (hasModules ? '\n  - { module: module-1, on: true, hero_title: "Foundations", hero_subtitle: "..." }\n  - { country: UAE, module: module-1, on: true }' : "");
   return `# The file you must write
 
 The file opens with a top part between two lines of three dashes (--- ... ---), written as key: value lines (indent with spaces, never tabs). The page sections follow.
