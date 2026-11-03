@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { FIELD_MAX, MAX_MONEY, type PriceCell, type RegistrationConfig } from "@/lib/landing/registration/config";
 import { REGION_PRESETS, addRegion, copyPriceRow, removeRegion, setGroupTotal, setPriceCell, updateRegion } from "@/lib/landing/registration/admin-edit";
+import { applyPakistanClassTime } from "@/lib/landing/registration/class-time";
 import { CONTROL, HELP, LABEL, ICON_BTN } from "./styles";
 
 /** "" -> null; anything else -> a whole number >= 0 (fractions are rounded, money is always whole), or null if it is not a number. */
@@ -17,7 +18,9 @@ function toAmount(v: string): number | null {
 export function PricesStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void }) {
   const unused = REGION_PRESETS.filter((p) => !r.regions.some((g) => g.key === p.key));
   const [toAdd, setToAdd] = useState(unused[0]?.key ?? "");
-  const fixedTiers = r.tiers.filter((t) => t.minSize === t.maxSize);
+  const [pkStart, setPkStart] = useState("");
+  const [pkEnd, setPkEnd] = useState("");
+  const fixedTiers =r.tiers.filter((t) => t.minSize === t.maxSize);
   // Raw text of a Regular price while it is empty: the cell (and its Early Bird / group totals) is only
   // removed when the field loses focus empty, so backspacing to retype never destroys other data.
   const [emptied, setEmptied] = useState<Record<string, boolean>>({});
@@ -51,6 +54,28 @@ export function PricesStep({ r, onChange }: { r: RegistrationConfig; onChange: (
       <section aria-labelledby="countries-h" className="space-y-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-low p-4">
         <h4 id="countries-h" className={LABEL}>Countries</h4>
         <p className={HELP}>Each country has its own currency, class time and payment accounts. The page guesses the visitor&apos;s country and they can change it in one tap.</p>
+        <div className="space-y-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-3">
+          <span className={LABEL}>Class time in Pakistan</span>
+          <span className={`block ${HELP}`}>Set the time once in Pakistan time. We fill in every country&apos;s local time for you (countries whose clocks change, like the UK or US, are left for you to type).</span>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="space-y-1">
+              <span className={HELP}>Starts</span>
+              <input type="time" aria-label="Class start time in Pakistan" className={CONTROL} value={pkStart} onChange={(e) => setPkStart(e.target.value)} />
+            </label>
+            <label className="space-y-1">
+              <span className={HELP}>Ends (optional)</span>
+              <input type="time" aria-label="Class end time in Pakistan" className={CONTROL} value={pkEnd} onChange={(e) => setPkEnd(e.target.value)} />
+            </label>
+            <button
+              type="button"
+              disabled={pkStart === ""}
+              className="rounded-lg border border-pz-outline-variant px-3 py-2 font-body text-sm font-semibold text-pz-on-surface hover:bg-pz-surface-container-high disabled:opacity-50 max-md:min-h-11"
+              onClick={() => onChange(applyPakistanClassTime(r, pkStart, pkEnd))}
+            >
+              Fill all countries
+            </button>
+          </div>
+        </div>
         <ul className="space-y-2">
           {r.regions.map((g) => (
             <li key={g.key} className="grid grid-cols-2 gap-2 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-2 lg:grid-cols-[1.4fr_0.6fr_1fr_1fr_auto]">
