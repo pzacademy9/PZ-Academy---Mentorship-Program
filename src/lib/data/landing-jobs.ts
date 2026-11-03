@@ -102,13 +102,14 @@ export async function enqueueSheetDetails(registrationId: string): Promise<boole
  * Status side effects (enrollment sync + status email + Meta Purchase): upsert ALL jobs back to pending with a fresh budget.
  * Handlers read the current status, so flip-flops coalesce safely. Never throws; true only when the upsert succeeded.
  */
-export async function enqueueStatusEffects(registrationId: string): Promise<boolean> {
+export async function enqueueStatusEffects(registrationId: string, opts: { email?: boolean } = {}): Promise<boolean> {
   try {
     const now = new Date().toISOString();
+    const types = opts.email === false ? (["enrollment_sync", "meta_purchase"] as const) : (["enrollment_sync", "email_status", "meta_purchase"] as const);
     const { error } = await createAdminSupabase()
       .from("landing_jobs")
       .upsert(
-        (["enrollment_sync", "email_status", "meta_purchase"] as const).map((type) => ({ registration_id: registrationId, type, status: "pending", attempts: 0, next_run_at: now, last_error: null })),
+        types.map((type) => ({ registration_id: registrationId, type, status: "pending", attempts: 0, next_run_at: now, last_error: null })),
         { onConflict: "registration_id,type" },
       );
     if (error) {
@@ -119,6 +120,25 @@ export async function enqueueStatusEffects(registrationId: string): Promise<bool
   } catch {
     console.error("[landing-jobs] enqueue status effects crashed");
     return false;
+  }
+}
+
+/**
+ * A change made without emailing the student: close any status email that is still waiting or failed for this
+ * registration, so a retry, the cron or a later "Retry failed" cannot send it now (it would describe the new status).
+ * Never throws.
+ */
+export async function cancelEmailStatus(registrationId: string): Promise<void> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .update({ status: "done", last_error: null })
+      .eq("registration_id", registrationId)
+      .eq("type", "email_status")
+      .in("status", ["pending", "failed"]);
+    if (error) console.error("[landing-jobs] cancel email_status failed:", error.code);
+  } catch {
+    console.error("[landing-jobs] cancel email_status crashed");
   }
 }
 

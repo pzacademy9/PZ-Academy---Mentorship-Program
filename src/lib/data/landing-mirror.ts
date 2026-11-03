@@ -236,7 +236,7 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
     if (a.to === "free") { problem("Free is not a status the app can set from the sheet"); return; }
     const check = checkStatusChange({
       rowType: rec.row_type as AppRowLite["rowType"], from: a.from, to: a.to as ChangeableStatus,
-      expectedAmount: rec.expected_amount === null ? null : Number(rec.expected_amount), amount: a.amount,
+      expectedAmount: rec.expected_amount === null ? null : Number(rec.expected_amount), amount: a.amount, currency: rec.currency ?? undefined,
     });
     if (!check.ok) {
       if (check.reason === "already-in-status") res.skipped++;

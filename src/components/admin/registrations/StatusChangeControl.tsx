@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Info, RefreshCw, Wallet } from "lucide-react";
+import { AlertTriangle, ChevronDown, Info, RefreshCw, Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,8 +29,11 @@ const OPTION_HELP: Record<ChangeableStatus, string> = {
   pending: "Waiting for the payment to be checked.",
   reserved: "Seat held for now.",
   underpaid: "Paid less than the price. Enter the amount received.",
-  paid: "Payment received in full.",
+  paid: "Payment received in full. Enter the amount received.",
 };
+
+/** Paid and Underpaid both ask for the amount actually received, in PKR. */
+const needsAmount = (s: ChangeableStatus) => s === "paid" || s === "underpaid";
 
 /** How long to wait for the refreshed page to show the saved status before falling back to a full reload. */
 const REFRESH_GRACE_MS = 2500;
@@ -50,6 +53,7 @@ export function StatusChangeControl({
   currency,
   studentName,
   groupSize = 1,
+  trigger = "button",
 }: {
   registrationId: string;
   endpoint: string;
@@ -58,11 +62,14 @@ export function StatusChangeControl({
   currency: string;
   studentName: string;
   groupSize?: number;
+  /** "badge" = the status badge itself is the button (used in the lists). */
+  trigger?: "button" | "badge";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState<ChangeableStatus | null>(null);
   const [amount, setAmount] = useState("");
+  const [sendEmail, setSendEmail] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
 
@@ -84,16 +91,16 @@ export function StatusChangeControl({
 
   const { run: submit, pending } = useAsyncAction(async () => {
     if (!choice) return;
-    const typed = choice === "underpaid" && amount.trim() !== "" ? Number(amount) : null;
-    const check = checkStatusChange({ rowType: "individual", from: status, to: choice, expectedAmount, amount: typed });
+    const typed = needsAmount(choice) && amount.trim() !== "" ? Number(amount) : null;
+    const check = checkStatusChange({ rowType: "individual", from: status, to: choice, expectedAmount, amount: typed, currency, requireAmount: true });
     if (!check.ok) {
       setError(STATUS_CHANGE_MESSAGES[check.reason]);
       return;
     }
     setError(null);
 
-    const body: { status: ChangeableStatus; from: RegistrationStatus; amount?: number } = { status: choice, from: status };
-    if (choice === "underpaid" && typed !== null) body.amount = typed;
+    const body: { status: ChangeableStatus; from: RegistrationStatus; amount?: number; sendEmail: boolean } = { status: choice, from: status, sendEmail };
+    if (needsAmount(choice) && typed !== null) body.amount = typed;
 
     let res: Response;
     try {
@@ -136,6 +143,7 @@ export function StatusChangeControl({
     if (next) {
       setChoice(null);
       setAmount("");
+      setSendEmail(true);
       setError(null);
       setConflict(false);
     }
@@ -145,14 +153,27 @@ export function StatusChangeControl({
 
   return (
     <>
-      <button
-        type="button"
-        data-registration-id={registrationId}
-        onClick={() => onOpenChange(true)}
-        className="inline-flex items-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-bold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors"
-      >
-        Change status
-      </button>
+      {trigger === "badge" ? (
+        <button
+          type="button"
+          data-registration-id={registrationId}
+          aria-label={`Change status for ${studentName} (now ${REGISTRATION_STATUS_LABELS[status]})`}
+          onClick={() => onOpenChange(true)}
+          className="inline-flex items-center rounded-full max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary hover:opacity-80 transition-opacity"
+        >
+          <RegistrationStatusBadge status={status} />
+          <ChevronDown className="-ml-1.5 mr-0.5 h-3.5 w-3.5 text-pz-on-surface-variant" aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          data-registration-id={registrationId}
+          onClick={() => onOpenChange(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-bold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors"
+        >
+          Change status
+        </button>
+      )}
 
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg">
@@ -213,6 +234,8 @@ export function StatusChangeControl({
                   onChange={() => {
                     setChoice(s);
                     setError(null);
+                    // A PKR price is already in the right unit, so Paid starts with the full price filled in.
+                    if (s === "paid" && amount.trim() === "" && currency.toUpperCase() === "PKR" && expectedAmount !== null) setAmount(String(expectedAmount));
                   }}
                   className="mt-1 accent-pz-primary"
                 />
@@ -224,14 +247,14 @@ export function StatusChangeControl({
             ))}
           </fieldset>
 
-          {choice === "underpaid" && (
+          {choice !== null && needsAmount(choice) && (
             <div className="space-y-1.5 rounded-lg bg-pz-surface-container p-3">
               <p className="flex items-center gap-2 font-headline font-bold text-sm text-pz-on-surface">
-                <Wallet className="w-4 h-4" aria-hidden="true" /> Amount received
+                <Wallet className="w-4 h-4" aria-hidden="true" /> Amount received (in PKR)
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest overflow-hidden">
-                  <span className="px-3 text-sm font-headline font-semibold text-pz-on-surface-variant">{currency}</span>
+                  <span className="px-3 text-sm font-headline font-semibold text-pz-on-surface-variant">PKR</span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -253,6 +276,30 @@ export function StatusChangeControl({
                 </span>
               </div>
             </div>
+          )}
+
+          {choice !== null && (
+            <label className="flex items-start gap-3 rounded-lg border border-pz-outline-variant/60 px-3 py-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                disabled={locked}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="mt-1 accent-pz-primary"
+              />
+              <span className="min-w-0">
+                <span className="block font-headline font-bold text-sm text-pz-on-surface">Send {studentName} an email about this</span>
+                <span className="block font-body text-xs text-pz-on-surface-variant">Untick to change the status without telling them.</span>
+              </span>
+            </label>
+          )}
+
+          {choice !== null && (
+            <p className="rounded-lg bg-pz-surface-container p-3 font-body text-sm text-pz-on-surface">
+              {`${REGISTRATION_STATUS_LABELS[status]} → ${REGISTRATION_STATUS_LABELS[choice]}`}
+              {needsAmount(choice) && amount.trim() !== "" ? `, ${formatMoney(Number(amount), "PKR")} received` : ""}
+              {sendEmail ? ". An email will be sent." : ". No email will be sent."}
+            </p>
           )}
 
           {error && (

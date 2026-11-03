@@ -137,7 +137,7 @@ export async function applySheetChanges(pageId: string, changes: PlannedChange[]
         if (to === null || to === "free") { done("rejected", "That status is not one the app can set"); continue; }
         const paired = changes.find((c) => c.registrationId === change.registrationId && c.field === "amount");
         const pairedAmount = paired && typeof paired.sheetValue === "number" ? paired.sheetValue : null;
-        const check = checkStatusChange({ rowType: rec.rowType, from: rec.status, to: to as ChangeableStatus, expectedAmount: rec.expectedAmount, amount: pairedAmount });
+        const check = checkStatusChange({ rowType: rec.rowType, from: rec.status, to: to as ChangeableStatus, expectedAmount: rec.expectedAmount, amount: pairedAmount, currency: rec.currency });
         if (!check.ok) {
           if (check.reason === "already-in-status") done("skipped", "Already in that status");
           else done("rejected", STATUS_REJECTIONS[check.reason] ?? "Not allowed");
@@ -313,6 +313,7 @@ export async function runScan(sheetId: string, rows: SheetScanRow[]): Promise<Sc
       name: m.name, email: m.email, whatsapp: m.whatsapp,
       status: m.status, amountReceived: m.amountReceived,
       expectedAmount: m.expectedAmount ?? 0,
+      currency: m.currency,
       isTest: m.isTest,
     };
   });

@@ -8,7 +8,7 @@ import { getMetaPurchase } from "@/lib/data/landing-meta-events";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
-import { enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
+import { cancelEmailStatus, enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
 import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
@@ -554,6 +554,8 @@ export async function changeRegistrationStatus(p: {
   to: ChangeableStatus;
   expectedFrom: RegistrationStatus;
   amount?: number | null;
+  /** false = do not email the student about this change. Default: send. */
+  sendEmail?: boolean;
   actor: Actor;
 }): Promise<ChangeStatusResult> {
   // Agents act only on their own rows; admins see test rows too.
@@ -576,6 +578,8 @@ export async function changeRegistrationStatus(p: {
     to: p.to,
     expectedAmount: rec.expectedAmount,
     amount: p.amount ?? null,
+    currency: rec.currency,
+    requireAmount: true, // the pop-up always sends it; a direct call without one must not store the price as received
   });
   if (!check.ok) return { ok: false, reason: check.reason };
 
@@ -603,7 +607,7 @@ export async function changeRegistrationStatus(p: {
     return { ok: false, reason: "db-error" };
   }
 
-  await queueStatusFollowUps(rec.id);
+  await queueStatusFollowUps(rec.id, { sendEmail: p.sendEmail !== false });
   const warning = await lookupPaidWarning(rec, p.to);
   return { ok: true, id: rec.id, status: p.to, rowsChanged: Number(out.changed ?? 0), ...(warning ? { warning } : {}) };
 }
@@ -624,15 +628,17 @@ async function lookupPaidWarning(rec: RegistrationRecord, to: ChangeableStatus):
  * Push the new status to the event sheet and queue enrollment/email. A problem here never fails the change: the job row is
  * the durable record and the cron drain retries it.
  */
-export async function queueStatusFollowUps(registrationId: string): Promise<void> {
+export async function queueStatusFollowUps(registrationId: string, opts: { sendEmail?: boolean } = {}): Promise<void> {
+  const email = opts.sendEmail !== false;
   try {
+    if (!email) await cancelEmailStatus(registrationId);
     // The sheet push and the enrollment/email jobs are independent groups: each is enqueued on its
     // own, the outbox drain runs whichever enqueued, and a group that failed to enqueue runs directly.
     const sheetQueued = await enqueueSheetStatus(registrationId).catch(() => false);
-    const effectsQueued = await enqueueStatusEffects(registrationId).catch(() => false);
+    const effectsQueued = await (email ? enqueueStatusEffects(registrationId) : enqueueStatusEffects(registrationId, { email: false })).catch(() => false);
     if (sheetQueued || effectsQueued) runInBackground(runJobsFor(registrationId));
     if (!sheetQueued) runInBackground(runJobsDirect(registrationId, ["sheet_status"]));
-    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, ["enrollment_sync", "email_status", "meta_purchase"]));
+    if (!effectsQueued) runInBackground(runJobsDirect(registrationId, email ? ["enrollment_sync", "email_status", "meta_purchase"] : ["enrollment_sync", "meta_purchase"]));
   } catch {
     console.error("[landing-registration-admin] sheet status push crashed");
   }

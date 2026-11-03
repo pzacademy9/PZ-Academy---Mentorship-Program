@@ -7,5 +7,7 @@ export const statusChangeBodySchema = z
     status: z.enum(CHANGEABLE_STATUSES),
     from: z.enum([...CHANGEABLE_STATUSES, "free"]),
     amount: z.number().nullable().optional(),
+    /** false = change the status without emailing the student. Missing = send, as before. */
+    sendEmail: z.boolean().optional(),
   })
   .strict();

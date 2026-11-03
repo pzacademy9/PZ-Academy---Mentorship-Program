@@ -16,12 +16,23 @@ export const STATUS_CHANGE_MESSAGES: Record<Exclude<StatusChangeCheck, { ok: tru
   "already-in-status": "This registration is already in that status.",
 };
 
+/** True when the price is in a currency other than PKR. An empty or missing currency counts as unknown, not foreign. */
+const foreignCurrency = (c: string | undefined): boolean => {
+  const v = (c ?? "").trim().toUpperCase();
+  return v !== "" && v !== "PKR";
+};
+
 export function checkStatusChange(i: {
   rowType: "individual" | "lead" | "member";
   from: RegistrationStatus;
   to: ChangeableStatus;
   expectedAmount: number | null;
+  /** Amount received, always in PKR (the sheet and the bank statement are in PKR). */
   amount: number | null;
+  /** The currency of expectedAmount. When it is given and is not PKR, received is not compared with the full price. */
+  currency?: string;
+  /** The status pop-up always asks for the amount, also for Paid. Sheet sync leaves this off. */
+  requireAmount?: boolean;
 }): StatusChangeCheck {
   if (i.rowType === "member") return { ok: false, reason: "member-row" };
   if (i.from === "free") return { ok: false, reason: "free-row" };
@@ -31,7 +42,8 @@ export function checkStatusChange(i: {
   if (i.to === "underpaid") {
     if (i.amount === null) return { ok: false, reason: "amount-required" };
     if (!Number.isFinite(i.amount) || i.amount <= 0) return { ok: false, reason: "amount-invalid" };
-    if (i.expectedAmount !== null && i.amount >= i.expectedAmount) return { ok: false, reason: "amount-invalid" };
+    const sameCurrency = !foreignCurrency(i.currency);
+    if (sameCurrency && i.expectedAmount !== null && i.amount >= i.expectedAmount) return { ok: false, reason: "amount-invalid" };
     return { ok: true, amountReceived: i.amount };
   }
   if (i.to === "paid") {
@@ -39,6 +51,9 @@ export function checkStatusChange(i: {
       if (!Number.isFinite(i.amount) || i.amount <= 0) return { ok: false, reason: "amount-invalid" };
       return { ok: true, amountReceived: i.amount };
     }
+    if (i.requireAmount) return { ok: false, reason: "amount-required" };
+    // The price is in another currency: never store it as if it were PKR. Leave the amount empty.
+    if (foreignCurrency(i.currency)) return { ok: true, amountReceived: null };
     return { ok: true, amountReceived: i.expectedAmount };
   }
   return { ok: true, amountReceived: null };

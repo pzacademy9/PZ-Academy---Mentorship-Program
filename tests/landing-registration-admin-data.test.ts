@@ -4,8 +4,8 @@ import { createSupabaseMock, filterValue, memoryHandler, type Store } from "./he
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
-const jobs = vi.hoisted(() => ({ enqueueSheetStatus: vi.fn(), enqueueStatusEffects: vi.fn(), runJobsFor: vi.fn(), runJobsDirect: vi.fn(), runInBackground: vi.fn() }));
-vi.mock("@/lib/data/landing-jobs", () => ({ enqueueSheetStatus: jobs.enqueueSheetStatus, enqueueStatusEffects: jobs.enqueueStatusEffects, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
+const jobs = vi.hoisted(() => ({ cancelEmailStatus: vi.fn(), enqueueSheetStatus: vi.fn(), enqueueStatusEffects: vi.fn(), runJobsFor: vi.fn(), runJobsDirect: vi.fn(), runInBackground: vi.fn() }));
+vi.mock("@/lib/data/landing-jobs", () => ({ cancelEmailStatus: jobs.cancelEmailStatus, enqueueSheetStatus: jobs.enqueueSheetStatus, enqueueStatusEffects: jobs.enqueueStatusEffects, runJobsFor: jobs.runJobsFor, runJobsDirect: jobs.runJobsDirect }));
 vi.mock("@/lib/landing/registration/background", () => ({ runInBackground: jobs.runInBackground }));
 
 const enr = vi.hoisted(() => ({ resolveAccess: vi.fn(), listEmailLog: vi.fn() }));
@@ -385,7 +385,7 @@ describe("change", () => {
   const writes = () => db.state.ops.filter((o) => o.op === "update" || o.op === "insert");
 
   it("change: member id returns member-row and calls no rpc", async () => {
-    const r = await changeRegistrationStatus({ registrationId: "m1", to: "paid", expectedFrom: "underpaid", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "m1", to: "paid", expectedFrom: "underpaid", amount: 5000, actor: admin });
     expect(r).toEqual({ ok: false, reason: "member-row" });
     expect(rpcs()).toHaveLength(0);
   });
@@ -395,7 +395,7 @@ describe("change", () => {
     expect(rpcs()).toHaveLength(0);
   });
   it("change: free row returns free-row", async () => {
-    const r = await changeRegistrationStatus({ registrationId: "f", to: "paid", expectedFrom: "free", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "f", to: "paid", expectedFrom: "free", amount: 5000, actor: admin });
     expect(r).toEqual({ ok: false, reason: "free-row" });
   });
   it("change: underpaid without amount returns amount-required and calls no rpc", async () => {
@@ -412,29 +412,34 @@ describe("change", () => {
       p_registration_id: "a", p_to_status: "underpaid", p_expected_from: "pending", p_amount: 2000, p_actor: "ag1", p_source: "app",
     });
   });
-  it("change: paid without an amount passes the expected amount", async () => {
-    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
-    expect(rpcs()[0].payload).toMatchObject({ p_amount: 5000, p_to_status: "paid" });
+  it("change: paid without an amount is refused (the amount received is always asked for)", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    expect(r).toEqual({ ok: false, reason: "amount-required" });
+    expect(rpcs()).toHaveLength(0);
+  });
+  it("change: paid with an amount stores that amount", async () => {
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 4800, actor: admin });
+    expect(rpcs()[0].payload).toMatchObject({ p_amount: 4800, p_to_status: "paid" });
   });
   it("change: expectedFrom that differs from the current status returns stale without a second write", async () => {
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "reserved", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "reserved", amount: 5000, actor: admin });
     expect(r).toEqual({ ok: false, reason: "stale" });
     expect(rpcs()).toHaveLength(0);
     expect(writes()).toHaveLength(0);
   });
   it("change: rpc stale becomes stale", async () => {
     rpcResult = { data: { ok: false, reason: "stale" }, error: null };
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r).toEqual({ ok: false, reason: "stale" });
   });
   it("change: rpc not-found becomes not-found", async () => {
     rpcResult = { data: { ok: false, reason: "not-found" }, error: null };
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r).toEqual({ ok: false, reason: "not-found" });
   });
   it("change: rpc error becomes db-error", async () => {
     rpcResult = { data: null, error: { code: "XX000", message: "boom" } };
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r).toEqual({ ok: false, reason: "db-error" });
   });
   it("change: same status returns already-in-status", async () => {
@@ -443,50 +448,50 @@ describe("change", () => {
     expect(rpcs()).toHaveLength(0);
   });
   it("change: an agent with an empty id gets not-found and no rpc", async () => {
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: agent("") });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: agent("") });
     expect(r).toEqual({ ok: false, reason: "not-found" });
     expect(rpcs()).toHaveLength(0);
   });
   it("change: rpc free-row and already-in-status are mapped, not db-error", async () => {
     rpcResult = { data: { ok: false, reason: "free-row" }, error: null };
-    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).toEqual({ ok: false, reason: "free-row" });
+    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin })).toEqual({ ok: false, reason: "free-row" });
     rpcResult = { data: { ok: false, reason: "already-in-status" }, error: null };
-    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).toEqual({ ok: false, reason: "already-in-status" });
+    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin })).toEqual({ ok: false, reason: "already-in-status" });
   });
   it("change: an unmapped rpc reason becomes db-error and is logged", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     rpcResult = { data: { ok: false, reason: "weird" }, error: null };
-    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).toEqual({ ok: false, reason: "db-error" });
+    expect(await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin })).toEqual({ ok: false, reason: "db-error" });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("weird"));
     warn.mockRestore();
   });
   it("change: an agent cannot change a test row, an admin can", async () => {
-    expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", actor: agent("ag1") })).ok).toBe(false);
-    expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", actor: admin })).ok).toBe(true);
+    expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", amount: 5000, actor: agent("ag1") })).ok).toBe(false);
+    expect((await changeRegistrationStatus({ registrationId: "t", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin })).ok).toBe(true);
   });
   it("change: the read is scoped to the agent's own rows", async () => {
-    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: agent("ag1") });
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: agent("ag1") });
     expect(filterValue(regReads()[0], "eq", "agent_id")).toBe("ag1");
   });
 
   it("change calls enqueueSheetStatus once after success and not on failure", async () => {
-    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(jobs.enqueueSheetStatus).toHaveBeenCalledTimes(1);
     expect(jobs.enqueueSheetStatus).toHaveBeenCalledWith("a");
     expect(jobs.runInBackground).toHaveBeenCalledTimes(1);
     jobs.enqueueSheetStatus.mockClear();
     rpcResult = { data: { ok: false, reason: "stale" }, error: null };
-    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     rpcResult = { data: null, error: { code: "XX000" } };
-    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(jobs.enqueueSheetStatus).not.toHaveBeenCalled();
   });
   it("change falls back to running the job directly when the outbox is unavailable", async () => {
     jobs.enqueueSheetStatus.mockResolvedValue(false);
-    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["sheet_status"]);
   });
-  const paid = () => changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+  const paid = () => changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
   it("a Paid change enqueues sheet and status effects and runs the jobs once", async () => {
     expect((await paid()).ok).toBe(true);
     expect(jobs.enqueueSheetStatus).toHaveBeenCalledWith("a");
@@ -517,6 +522,17 @@ describe("change", () => {
     expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
     expect(jobs.runJobsFor).not.toHaveBeenCalled();
   });
+  it("sendEmail false still queues sheet and enrollment but leaves out the status email", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, sendEmail: false, actor: admin });
+    expect(r.ok).toBe(true);
+    expect(jobs.enqueueStatusEffects).toHaveBeenCalledWith("a", { email: false });
+    expect(jobs.cancelEmailStatus).toHaveBeenCalledWith("a");
+  });
+  it("sendEmail false with the outbox down runs only enrollment and Meta directly", async () => {
+    jobs.enqueueStatusEffects.mockResolvedValue(false);
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, sendEmail: false, actor: admin });
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "meta_purchase"]);
+  });
   it("an enqueue that throws still returns ok", async () => {
     jobs.enqueueStatusEffects.mockRejectedValue(new Error("boom"));
     expect((await paid()).ok).toBe(true);
@@ -524,11 +540,11 @@ describe("change", () => {
   });
   it("a failing sheet call does not fail the status change", async () => {
     jobs.enqueueSheetStatus.mockRejectedValue(new Error("boom"));
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r.ok).toBe(true);
     jobs.enqueueSheetStatus.mockResolvedValue(true);
     jobs.runInBackground.mockImplementation(() => { throw new Error("bg"); });
-    expect((await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin })).ok).toBe(true);
+    expect((await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin })).ok).toBe(true);
   });
 });
 
@@ -625,13 +641,13 @@ describe("changeRegistrationStatus Paid group-link warning", () => {
 
   it("warns for a live Paid change when no group link applies", async () => {
     setRow("a", { option_keys: ["unknown-key"] });
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r).toMatchObject({ ok: true, warning: WARNING });
     expect(pub.getRegistrablePageById).toHaveBeenCalledWith("pg1");
   });
   it("does not warn for a recorded student", async () => {
     setRow("a", { mode: "recorded", option_keys: ["unknown-key"] });
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r.ok).toBe(true);
     expect(r).not.toHaveProperty("warning");
   });
@@ -652,20 +668,20 @@ describe("changeRegistrationStatus Paid group-link warning", () => {
   it("does not warn, and still succeeds, when the lookup throws", async () => {
     setRow("a", { option_keys: ["unknown-key"] });
     pub.getRegistrablePageById.mockRejectedValue(new Error("boom"));
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r.ok).toBe(true);
     expect(r).not.toHaveProperty("warning");
   });
   it("does not warn when the page is not found", async () => {
     setRow("a", { option_keys: ["unknown-key"] });
     pub.getRegistrablePageById.mockResolvedValue(null);
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r.ok).toBe(true);
     expect(r).not.toHaveProperty("warning");
   });
   it("does not warn when a valid group link applies", async () => {
     setRow("a", { option_keys: ["full"] });
-    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", actor: admin });
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", amount: 5000, actor: admin });
     expect(r.ok).toBe(true);
     expect(r).not.toHaveProperty("warning");
   });

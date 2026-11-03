@@ -5,7 +5,7 @@ import { STATUS_LABELS } from "./sheet-row";
 import { checkStatusChange, type ChangeableStatus } from "./status-rules";
 
 export interface SheetScanRow { rowNumber: number; refId: string; email: string; name: string; whatsapp: string; status: string; amount: string; rowType: string }
-export interface AppReg { id: string; refId: string | null; leadRefId: string; rowType: "individual" | "lead" | "member"; name: string; email: string; whatsapp: string; status: RegistrationStatus; amountReceived: number | null; expectedAmount: number; isTest: boolean }
+export interface AppReg { id: string; refId: string | null; leadRefId: string; rowType: "individual" | "lead" | "member"; name: string; email: string; whatsapp: string; status: RegistrationStatus; amountReceived: number | null; expectedAmount: number; /** Currency of expectedAmount; received is always PKR. */ currency?: string; isTest: boolean }
 export interface Snapshot { registrationId: string; status: RegistrationStatus; amountReceived: number | null; name: string; email: string; whatsapp: string }
 export type SyncField = "status" | "amount" | "name" | "email" | "whatsapp";
 export type RejectReason = "bad-status" | "bad-amount" | "member-status" | "free-row" | "test-row" | "bad-email" | "bad-name" | "bad-whatsapp" | "amount-required";
@@ -142,7 +142,7 @@ function planPair(row: SheetScanRow, reg: AppReg, emailFix: boolean, dup: boolea
     if (status === null || status === "free") { reject("status", "bad-status", row.status); return; }
     if (amount === "invalid") { reject("status", "bad-amount", row.amount); return; }
     const check = checkStatusChange({
-      rowType: reg.rowType, from: reg.status, to: status as ChangeableStatus, expectedAmount: reg.expectedAmount, amount,
+      rowType: reg.rowType, from: reg.status, to: status as ChangeableStatus, expectedAmount: reg.expectedAmount, amount, currency: reg.currency,
     });
     if (!check.ok) {
       if (check.reason === "amount-required") reject("status", "amount-required", row.status);
