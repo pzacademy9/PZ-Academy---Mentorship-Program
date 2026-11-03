@@ -16,8 +16,10 @@ const STEP_MS = 500;
  * Nothing from YouTube loads until the thumbnail is clicked. If YouTube's script cannot load, the plain
  * video plays without popups (a dead box would be worse than a missing popup).
  */
-export function DemoPlayer({ id, title, seconds, popupTitle, popupText, register }: {
+export function DemoPlayer({ id, title, seconds, popupTitle, popupText, register, start = 0 }: {
   id: string; title: string; seconds: PauseSeconds; popupTitle: string; popupText: string; register: Register;
+  /** Second to start the video at (0 = the beginning). */
+  start?: number;
 }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "playing" | "plain">("idle");
   const [popup, setPopup] = useState(false);
@@ -60,7 +62,7 @@ export function DemoPlayer({ id, title, seconds, popupTitle, popupText, register
       }, STEP_MS);
     };
     const p = new apiRef.current.Player(el, {
-      host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, rel: 0, playsinline: 1 },
+      host: "https://www.youtube-nocookie.com", videoId: id, playerVars: { autoplay: 1, rel: 0, playsinline: 1, ...(start > 0 ? { start } : {}) },
       events: { onReady: startClock },
     });
     player.current = p;
@@ -69,7 +71,7 @@ export function DemoPlayer({ id, title, seconds, popupTitle, popupText, register
       p.destroy();
       player.current = null;
     };
-  }, [phase, id, seconds]);
+  }, [phase, id, seconds, start]);
 
   // The registration form takes over: the popup steps aside and the video stays paused.
   useEffect(() => onOpenRegistration(() => {
@@ -89,7 +91,7 @@ export function DemoPlayer({ id, title, seconds, popupTitle, popupText, register
   };
 
   if (phase === "idle") return <YouTubeFacade id={id} title={title} short={false} onPlay={() => setPhase("loading")} />;
-  if (phase === "plain") return <YouTubeFacade id={id} title={title} short={false} autoStart />;
+  if (phase === "plain") return <YouTubeFacade id={id} title={title} short={false} autoStart start={start} />;
 
   return (
     <>

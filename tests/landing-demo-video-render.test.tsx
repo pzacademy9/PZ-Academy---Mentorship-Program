@@ -240,3 +240,20 @@ describe("DemoPlayer", () => {
     expect(p.destroyed).toBe(true);
   });
 });
+
+describe("start time", () => {
+  it("the player starts at the chosen second", async () => {
+    await start({ start: 90 });
+    expect(FakePlayer.last!.opts.playerVars?.start).toBe(90);
+  });
+  it("no start time sends no start value", async () => {
+    await start();
+    expect(FakePlayer.last!.opts.playerVars).not.toHaveProperty("start");
+  });
+  it("the demo section reads its Start at box", async () => {
+    render(<>{DemoVideo({ data: { url: `https://youtu.be/${ID}`, startAt: "1:30" }, register })}</>);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /play video/i })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(FakePlayer.last!.opts.playerVars?.start).toBe(90);
+  });
+});

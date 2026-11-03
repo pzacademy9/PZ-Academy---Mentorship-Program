@@ -189,6 +189,7 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
       list("items", "Videos", [
         { key: "url", label: "YouTube link", kind: "youtube", required: true, help: "Paste the YouTube or Shorts link." },
         text("caption", "Caption (optional)", { max: 120 }),
+        text("startAt", "Start at (optional)", { max: 12, example: "1:30", help: "Where the video begins, like 1:30 or 90. Leave empty to start from the beginning." }),
       ], { required: true, itemLabel: "Video", maxItems: 12 }),
     ],
   },
@@ -199,6 +200,7 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
       text("heading", "Heading", { defaultValue: "Watch a demo session" }),
       text("subheading", "Line under the heading (optional)", { max: 200, example: "See how the course is taught" }),
       { key: "url", label: "YouTube link", kind: "youtube", help: "Paste the YouTube link of a lecture." },
+      text("startAt", "Start at (optional)", { max: 12, example: "1:30", help: "Where the video begins, like 1:30 or 90. Leave empty to start from the beginning." }),
       choice("pauseEvery", "Pause the video and show the Register popup", [
         { value: "15", label: "Every 15 seconds" },
         { value: "20", label: "Every 20 seconds" },

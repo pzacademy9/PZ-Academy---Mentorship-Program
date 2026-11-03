@@ -1,6 +1,7 @@
 // src/components/landing/sections/DemoVideo.tsx
 import { youtubeId } from "@/lib/landing/simple-text";
 import { pauseSeconds } from "@/lib/landing/demo-watch";
+import { startSeconds } from "@/lib/landing/video-start";
 import { DemoPlayer } from "./DemoPlayer";
 import { SectionHeader, str } from "./util";
 import type { SectionProps } from "./types";
@@ -18,6 +19,7 @@ export function DemoVideo({ data, register }: SectionProps) {
             id={id}
             title={heading || "Demo session"}
             seconds={pauseSeconds(str(data, "pauseEvery"))}
+            start={startSeconds(str(data, "startAt"))}
             popupTitle={str(data, "popupTitle")}
             popupText={str(data, "popupText")}
             register={register}
