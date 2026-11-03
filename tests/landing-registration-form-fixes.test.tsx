@@ -104,8 +104,9 @@ describe("one public name for the International country", () => {
     expect(publicRegionLabel({ key: "UAE", label: "International" })).toBe("International");
     expect(publicRegionLabel({ key: "PK", label: "Pakistan" })).toBe("Pakistan");
   });
-  it("a stored empty discovery list stays empty, a missing one gets the usual choices", () => {
-    expect(normalizeRegistration({ discoveryOptions: [] }).discoveryOptions).toEqual([]);
+  it("an empty or missing discovery list gets the usual choices, a typed one is kept", () => {
+    expect(normalizeRegistration({ discoveryOptions: [] }).discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
+    expect(normalizeRegistration({ discoveryOptions: ["Friends"] }).discoveryOptions).toEqual(["Friends"]);
     expect(normalizeRegistration({}).discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
   });
   it("a country the admin named something else keeps that name in the picker", () => {

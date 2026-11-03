@@ -253,12 +253,12 @@ describe("whole-number prices and open-ended groups", () => {
 });
 
 describe("buildRegistration: how did you hear about us", () => {
-  it("a file with no discovery list gets the usual choices; an explicit empty list stays empty", () => {
+  it("a file with no discovery list, or an empty one, gets the usual choices", () => {
     const missing = base();
     delete (missing.registration as { discovery?: unknown }).discovery;
     expect(buildRegistration(missing).registration.discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
     const empty = base();
     empty.registration.discovery = [];
-    expect(buildRegistration(empty).registration.discoveryOptions).toEqual([]);
+    expect(buildRegistration(empty).registration.discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
   });
 });

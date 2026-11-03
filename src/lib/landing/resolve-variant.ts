@@ -41,7 +41,7 @@ function applyOverrides(sections: LandingSection[], overrides: VariantOverrides)
   return [...listed, ...out.filter((s) => !rank.has(s.id))];
 }
 
-function filterModule(sections: LandingSection[], moduleKey: string): LandingSection[] {
+function filterModule(sections: LandingSection[], moduleKey: string, moduleTitle: string, editedHere: Set<string>): LandingSection[] {
   return sections.map((s) => {
     if (!MODULE_ITEM_SECTIONS.includes(s.type)) return s;
     let data = s.data;
@@ -58,7 +58,20 @@ function filterModule(sections: LandingSection[], moduleKey: string): LandingSec
       if (kept.length === 0 && f.required) emptied = true;
     }
     return data === s.data ? s : { ...s, data, enabled: emptied ? false : s.enabled };
-  });
+  }).map((s) => (s.type === "curriculum" && !editedHere.has(s.id) ? withModuleTitle(s, moduleKey, moduleTitle) : s));
+}
+
+/**
+ * On a module link the outline item for that module is headed with the module's own title (not "Module 1: ...").
+ * Only when exactly one item belongs to the module: several items mean their own titles are meant (for example one per day).
+ */
+function withModuleTitle(s: LandingSection, moduleKey: string, moduleTitle: string): LandingSection {
+  const title = moduleTitle.trim();
+  const items = s.data.items;
+  if (title === "" || !Array.isArray(items)) return s;
+  if (items.filter((it) => (it as { module?: unknown } | null)?.module === moduleKey).length !== 1) return s;
+  const next = items.map((it) => ((it as { module?: unknown } | null)?.module === moduleKey ? { ...(it as object), title } : it));
+  return { ...s, data: { ...s.data, items: next } };
 }
 
 function narrowRegion(r: RegistrationConfig, regionKey: string): RegistrationConfig {
@@ -79,7 +92,7 @@ function narrowRegion(r: RegistrationConfig, regionKey: string): RegistrationCon
   };
 }
 
-function narrowModule(r: RegistrationConfig, optionKey: string, original: RegistrationConfig): RegistrationConfig {
+function narrowModule(r: RegistrationConfig, optionKey: string, original: RegistrationConfig, moduleTitle: string): RegistrationConfig {
   const option = optionKey === "" ? undefined : r.options.find((o) => o.key === optionKey && o.kind === "module");
   if (!option) return { ...r, enabled: false, options: [], prices: {}, tiers: [], moduleMix: { enabled: false, bundleOptionKey: "" } };
   const prices: RegistrationConfig["prices"] = own(r.prices, option.key) ? { [option.key]: r.prices[option.key] } : {};
@@ -101,7 +114,8 @@ function narrowModule(r: RegistrationConfig, optionKey: string, original: Regist
     enabled: regions.length > 0 ? r.enabled : false,
     regions,
     defaultRegionKey,
-    options: [option],
+    // The visitor sees the module title; the saved label (sheet, emails, class matching) is untouched.
+    options: [moduleTitle.trim() !== "" ? { ...option, displayLabel: moduleTitle.trim() } : option],
     prices,
     moduleMix: { enabled: false, bundleOptionKey: "" },
     tiers: r.tiers.filter((t) => !usedAnywhere.has(t.key) || usedHere.has(t.key)),
@@ -115,11 +129,14 @@ export function resolveVariant(main: LandingContent, ref: VariantRef, overrides:
   let registration = base.registration;
   let modules = base.modules ?? [];
 
-  if (ref.moduleKey) sections = filterModule(sections, ref.moduleKey);
+  const moduleTitle = ref.moduleKey ? (modules.find((m) => m.key === ref.moduleKey)?.title ?? "") : "";
+  // A link whose own edits set a section's items keeps those titles exactly as the admin wrote them.
+  const editedHere = new Set(Object.entries(ov.sections).filter(([, v]) => v.fields !== undefined && own(v.fields, "items")).map(([id]) => id));
+  if (ref.moduleKey) sections = filterModule(sections, ref.moduleKey, moduleTitle, editedHere);
   if (ref.regionKey) registration = narrowRegion(registration, ref.regionKey);
   if (ref.moduleKey) {
     const mod = modules.find((m) => m.key === ref.moduleKey);
-    registration = narrowModule(registration, mod?.optionKey ?? "", base.registration);
+    registration = narrowModule(registration, mod?.optionKey ?? "", base.registration, mod?.title ?? "");
     modules = mod ? [mod] : [];
   }
   return {

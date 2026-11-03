@@ -106,7 +106,7 @@ describe("resolveVariant", () => {
   });
   it("filters curriculum to module-2 plus untagged items", () => {
     const r = resolveVariant(build(), M2, emptyOverrides());
-    expect(items(r, "cur1").map((i) => i.title)).toEqual(["Intro", "M2 topic"]);
+    expect(items(r, "cur1").map((i) => i.title)).toEqual(["Intro", "Two"]); // the module link heads its item with the module title
   });
   it("filters schedule", () => {
     const r = resolveVariant(build(), M2, emptyOverrides());

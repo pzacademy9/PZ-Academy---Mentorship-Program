@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { computeQuote } from "@/lib/landing/registration/pricing";
 import { formatMoney } from "@/lib/landing/registration/format";
+import { optionShownName } from "@/lib/landing/registration/types";
 import { INDIVIDUAL, type FieldErrors, type FormState } from "@/lib/landing/registration/form-state";
 import type { Mode, RegistrationView } from "@/lib/landing/registration/config";
 import { publicRegionLabel } from "@/lib/landing/registration/region-label";
@@ -87,7 +88,7 @@ export function StepChoose({
                   onChange={() => onToggleOption(o.key)}
                 />
                 <span className="flex flex-1 flex-wrap items-baseline justify-between gap-x-3">
-                  <span className="font-headline text-base font-bold text-landing-near-black">{o.label}</span>
+                  <span className="font-headline text-base font-bold text-landing-near-black">{optionShownName(o)}</span>
                   {q && (
                     <span className="font-landing-body text-base text-landing-on-surface">
                       {q.isFree ? "Free" : formatMoney(q.perPerson, q.currency)}
