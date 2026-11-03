@@ -199,3 +199,18 @@ describe("length limits in the format guide", () => {
     expect(p).toContain("FAQ question 200, FAQ answer 1500");
   });
 });
+
+describe("module titles in the course prompt", () => {
+  const prompt = masterPrompt("course");
+  it("tells the AI the module title is what visitors see on a module link", () => {
+    expect(prompt).toMatch(/real name as its title/);
+    expect(prompt).toMatch(/never just "Module 1"/);
+    expect(prompt).toMatch(/module's own link/);
+  });
+  it("shows a module link headline as the module name only", () => {
+    expect(prompt).not.toContain('hero_title (for example "Module 2: Therapeutics")');
+    expect(prompt).toContain('hero_title (for example "Therapeutics")');
+    expect(EXAMPLE_FILE_BY_KIND.course).toContain('hero_title: "Therapeutics"');
+    expect(EXAMPLE_FILE_BY_KIND.course).not.toContain('hero_title: "Module 2: Therapeutics"');
+  });
+});
