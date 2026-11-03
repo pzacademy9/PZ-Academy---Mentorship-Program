@@ -8,6 +8,7 @@ import { LandingFooter } from "./LandingFooter";
 import { MobileMenu, type NavItem } from "./MobileMenu";
 import { PageLoader } from "./PageLoader";
 import { PhoneScrollReveal } from "./PhoneScrollReveal";
+import { heroPicture } from "./sections/Hero";
 import { RegisterButton, ctaLabel } from "./RegisterButton";
 import { Hero } from "./sections/Hero";
 import { Stats } from "./sections/Stats";
@@ -78,7 +79,7 @@ export function LandingRenderer({
   const heroSection = rendered.find((r) => r.section.type === "hero")?.section;
   const heroId = heroSection?.id;
   // The loading screen is for public pages whose hero has a picture to wait for (not the admin preview).
-  const heroHasPicture = !!heroSection && ["imagePc", "imagePhone", "image"].some((k) => typeof heroSection.data[k] === "string" && (heroSection.data[k] as string).trim() !== "");
+  const heroHasPicture = !!heroSection && heroPicture(heroSection.data);
 
   return (
     <div

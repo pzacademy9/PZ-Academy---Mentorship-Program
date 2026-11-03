@@ -11,7 +11,7 @@ export function startSeconds(raw: unknown): number {
   let total = 0;
   if (/^\d+$/.test(v)) {
     total = Number(v);
-  } else if (/^\d{1,2}(:\d{1,2}){1,2}$/.test(v)) {
+  } else if (/^\d+(:\d{1,2}){1,2}$/.test(v)) {
     const parts = v.split(":").map(Number);
     if (parts.slice(1).some((n) => n > 59)) return 0;
     total = parts.reduce((acc, n) => acc * 60 + n, 0);

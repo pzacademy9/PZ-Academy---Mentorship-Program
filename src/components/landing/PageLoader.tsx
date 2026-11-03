@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { SITE_LOGO_ALT, SITE_LOGO_URL } from "@/lib/site-logo";
 
-const MIN_MS = 600;
+const MIN_MS = 300;
 const MAX_MS = 3000;
 
 /**

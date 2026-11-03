@@ -9,7 +9,7 @@ import { startSeconds } from "@/lib/landing/video-start";
 import { SECTION_DEFS } from "@/lib/landing/sections";
 import { YouTubeFacade } from "@/components/landing/sections/YouTubeFacade";
 import { VideoReviews } from "@/components/landing/sections/VideoReviews";
-import { Hero } from "@/components/landing/sections/Hero";
+import { Hero, heroPicture } from "@/components/landing/sections/Hero";
 import { PageLoader } from "@/components/landing/PageLoader";
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
 import { emptyContent, normalizeContent, type LandingContent } from "@/lib/landing/content";
@@ -28,6 +28,9 @@ describe("startSeconds", () => {
   });
   it("gives 0 (start from the beginning) for empty or unreadable entries", () => {
     for (const v of ["", "abc", "1:2:3:4", "-5", "1:99", "0", undefined, null, 12]) expect(startSeconds(v)).toBe(0);
+  });
+  it("accepts minutes over 99", () => {
+    expect(startSeconds("100:00")).toBe(6000);
   });
   it("caps absurdly long times", () => {
     expect(startSeconds("99999999")).toBe(0);
@@ -142,5 +145,25 @@ describe("the loader on the public page", () => {
   });
   it("is skipped in the admin preview (no slug)", () => {
     expect(out(page({ heroStyle: "fade", imagePc: "https://drive.google.com/uc?export=view&id=pcfile1" }))).not.toContain('aria-label="Loading page"');
+  });
+});
+
+describe("heroPicture follows the hero style", () => {
+  const P = "https://drive.google.com/uc?export=view&id=pcfile1";
+  it("classic and split use only the single picture", () => {
+    expect(heroPicture({ heroStyle: "classic", imagePc: P })).toBe(false);
+    expect(heroPicture({ heroStyle: "split", imagePc: P })).toBe(false);
+    expect(heroPicture({ heroStyle: "split", image: P })).toBe(true);
+    expect(heroPicture({ image: P })).toBe(true);
+  });
+  it("fade, editorial, photo and poster use the computer or phone picture", () => {
+    for (const heroStyle of ["fade", "editorial", "photo", "poster"]) {
+      if (heroStyle !== "poster") expect(heroPicture({ heroStyle, image: P })).toBe(false);
+      expect(heroPicture({ heroStyle, imagePhone: P })).toBe(true);
+      expect(heroPicture({ heroStyle, imagePc: P })).toBe(true);
+    }
+  });
+  it("a poster with no picture falls back to classic, which uses the single picture", () => {
+    expect(heroPicture({ heroStyle: "poster", image: P })).toBe(true);
   });
 });

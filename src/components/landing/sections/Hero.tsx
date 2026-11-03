@@ -54,6 +54,15 @@ function DateLine({ text, onDark }: { text: string; onDark?: boolean }) {
   );
 }
 
+/** Whether the hero shows a picture, following the same style branches as Hero() (old pictures from another style stay in the data but are not shown). */
+export function heroPicture(data: Record<string, unknown>): boolean {
+  const style = str(data, "heroStyle");
+  const wide = str(data, "imagePc") !== "" || str(data, "imagePhone") !== "";
+  if (style === "fade" || style === "editorial" || style === "photo") return wide;
+  if (style === "poster") return wide || str(data, "image") !== "";
+  return str(data, "image") !== "";
+}
+
 export function Hero({ data, register, sectionIds }: SectionProps) {
   const style = str(data, "heroStyle");
   const pc = str(data, "imagePc");
@@ -108,7 +117,7 @@ function PhotoHero({ data, register, sectionIds, pc, phone }: SectionProps & { p
           {badges.length > 0 ? (
             <ul className={`flex w-full flex-wrap gap-x-4 gap-y-2 border-t pt-5 sm:grid sm:grid-cols-3 sm:gap-4 ${hasImage ? "border-white/30" : "border-landing-border"}`}>
               {badges.map((b, i) => (
-                <li key={i} className={`flex items-center gap-2.5 break-words text-xs font-medium ${hasImage ? "text-white" : "text-landing-deep"}`}>
+                <li key={i} className={`flex min-w-0 max-w-full items-center gap-2.5 break-words text-xs font-medium ${hasImage ? "text-white" : "text-landing-deep"}`}>
                   <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-mint/30 text-xs font-bold text-landing-primary">✓</span>
                   <span>{b}</span>
                 </li>
@@ -260,7 +269,7 @@ function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc
           // Phones: plain ticked lines, no box. From sm up: the frosted box.
           <ul className="mt-1 flex w-full flex-wrap gap-x-4 gap-y-1.5 sm:mt-2 sm:grid sm:grid-cols-3 sm:gap-4 sm:rounded-landing sm:border sm:border-white/20 sm:bg-white/10 sm:p-4 sm:backdrop-blur-sm">
             {badges.map((b, i) => (
-              <li key={i} className="flex items-start gap-2 break-words text-xs font-medium text-white sm:gap-2.5 sm:text-sm">
+              <li key={i} className="flex min-w-0 max-w-full items-start gap-2 break-words text-xs font-medium text-white sm:gap-2.5 sm:text-sm">
                 <Check />
                 <span className="min-w-0 break-words">{b}</span>
               </li>
@@ -298,7 +307,7 @@ function SplitHero({ data, register, sectionIds }: SectionProps) {
             {badges.length > 0 ? (
               <ul className="flex w-full flex-wrap gap-2 sm:grid sm:grid-cols-3 sm:gap-3">
                 {badges.map((b, i) => (
-                  <li key={i} className="flex items-start gap-2 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-2 text-xs font-medium sm:gap-2.5 sm:p-3 sm:text-sm text-landing-deep shadow-landing-soft-lg">
+                  <li key={i} className="flex min-w-0 max-w-full items-start gap-2 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-2 text-xs font-medium sm:gap-2.5 sm:p-3 sm:text-sm text-landing-deep shadow-landing-soft-lg">
                     <Check />
                     <span className="min-w-0 break-words">{b}</span>
                   </li>
