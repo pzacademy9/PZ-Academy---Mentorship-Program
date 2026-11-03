@@ -204,6 +204,18 @@ export function FieldInput({ field, value, onChange, path, modules, sections, re
           path={path}
           want={field.key === "imagePc" ? "wide" : field.key === "imagePhone" ? "tall" : undefined}
         />
+      ) : field.kind === "textarea" && field.plain ? (
+        <textarea
+          id={id}
+          rows={14}
+          value={str}
+          placeholder={field.example}
+          aria-describedby={describedBy}
+          aria-invalid={problem ? true : undefined}
+          data-field-path={path}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(CONTROL, "min-h-[6rem] resize-y")}
+        />
       ) : field.kind === "textarea" ? (
         <BulletTextarea
           id={id}

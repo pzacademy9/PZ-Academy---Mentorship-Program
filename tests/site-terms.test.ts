@@ -42,9 +42,13 @@ describe("general terms data", () => {
     await expect(getGeneralTerms()).rejects.toBeTruthy();
   });
 
-  it("the public pages read it safely: a missing table or a failed read gives an empty text, never an error", async () => {
-    db.state.handler = () => ({ data: null, error: { message: 'relation "site_terms" does not exist' } });
-    await expect(getGeneralTermsOrEmpty()).resolves.toBe("");
+  it("the public pages treat only a missing table as no Terms; any other failure still throws so a cached page is not replaced", async () => {
+    for (const code of ["PGRST205", "42P01"]) {
+      db.state.handler = () => ({ data: null, error: { code, message: 'relation "site_terms" does not exist' } });
+      await expect(getGeneralTermsOrEmpty()).resolves.toBe("");
+    }
+    db.state.handler = () => ({ data: null, error: { code: "57014", message: "timeout" } });
+    await expect(getGeneralTermsOrEmpty()).rejects.toBeTruthy();
     db.state.handler = () => ({ data: { body: "1. Fake rule" }, error: null });
     await expect(getGeneralTermsOrEmpty()).resolves.toBe("1. Fake rule");
   });

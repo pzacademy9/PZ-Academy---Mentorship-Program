@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contentSchema, emptyContent, hasUnpublishedChanges, normalizeContent } from "@/lib/landing/content";
 import { resolveTerms, termsBlocks } from "@/lib/landing/terms";
+import { isReservedSegment, parseVariantPath } from "@/lib/landing/variants";
 
 describe("resolveTerms", () => {
   it("prefers page text, then general text, then null", () => {
@@ -38,6 +39,14 @@ describe("termsBlocks", () => {
       { kind: "p", text: "Body\nline two" },
     ]);
     expect(termsBlocks("   \n\n ")).toEqual([]);
+  });
+});
+
+describe("the terms address is reserved", () => {
+  it("a country or module link can not be called terms", () => {
+    expect(isReservedSegment("terms")).toBe(true);
+    expect(isReservedSegment("status")).toBe(true);
+    expect(parseVariantPath(["terms"], emptyContent("course"))).toBeNull();
   });
 });
 

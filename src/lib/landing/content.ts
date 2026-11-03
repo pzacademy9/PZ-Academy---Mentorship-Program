@@ -11,7 +11,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
-import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, type ModuleDef } from "./variants";
+import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, isReservedSegment, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
 export type PageStatus = "draft" | "published" | "closed";
@@ -393,7 +393,7 @@ function moduleProblems(c: LandingContent, out: Problem[]) {
   const moduleKeys = new Set((c.modules ?? []).map((m) => m.key.toLowerCase()));
   for (const g of c.registration.regions) {
     const k = g.key.toLowerCase();
-    if (k === "status") out.push({ message: `The country code "${g.key}" cannot be used because it is reserved for the registration status page. Rename it.` });
+    if (isReservedSegment(k)) out.push({ message: `The country code "${g.key}" cannot be used because it is reserved for a built-in page (registration status or Terms). Rename it.` });
     else if (moduleKeys.has(k)) out.push({ message: `The country code "${g.key}" is the same as a module code, so their links would clash. Rename the country code.` });
   }
   const seen = new Set<string>();

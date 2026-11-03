@@ -11,12 +11,15 @@ export async function getGeneralTerms(): Promise<string> {
   return typeof data?.body === "string" ? data.body : "";
 }
 
-/** For public pages: any failure (for example the table is not created yet) means "no general Terms", never a broken page. */
+/** For public pages: a missing table (the SQL not pasted yet) means "no general Terms", never a broken page. */
 export async function getGeneralTermsOrEmpty(): Promise<string> {
   try {
     return await getGeneralTerms();
-  } catch {
-    return "";
+  } catch (e) {
+    // Only "the table is not there yet" means no Terms. Any other failure is thrown so a cached page keeps its last good version.
+    const code = typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined;
+    if (code === "PGRST205" || code === "42P01") return "";
+    throw e;
   }
 }
 

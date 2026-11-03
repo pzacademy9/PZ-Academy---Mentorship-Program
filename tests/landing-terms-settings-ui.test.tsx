@@ -34,6 +34,21 @@ describe("Terms and Conditions card in Page settings", () => {
     expect(runPageChecks(without, { hasCourse: false }).map((k) => k.status)).toEqual(runPageChecks(filled, { hasCourse: false }).map((k) => k.status));
   });
 
+  it("pasting numbered Terms keeps the 1. 2. 3. numbering (it is not turned into bullets)", () => {
+    const { onSettings } = panel("");
+    const box = within(screen.getByRole("region", { name: "Terms and Conditions" })).getByLabelText("Terms and Conditions for this page");
+    fireEvent.paste(box, { clipboardData: { getData: () => "1. Payment and refunds\n\n2. Access" } });
+    const sent = onSettings.mock.calls.flatMap((c) => String((c[0] as { terms?: string }).terms ?? ""));
+    expect(sent.some((t) => t.includes("- Payment"))).toBe(false);
+  });
+
+  it("the link to the general Terms opens in a new tab so unsaved page edits are never lost", () => {
+    panel("");
+    const link = screen.getByRole("link", { name: /edit the general terms/i });
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+  });
+
   it("the card explains the general Terms and links to their screen", () => {
     panel("");
     const card = screen.getByRole("region", { name: "Terms and Conditions" });

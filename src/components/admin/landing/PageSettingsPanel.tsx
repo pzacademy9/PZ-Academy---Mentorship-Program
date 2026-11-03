@@ -44,7 +44,7 @@ const PORTAL_LINK = text("portalLink", "Portal link", { kind: "url", help: "Wher
 const BUTTON_TEXT = text("registerLabel", "Button text", { max: 40, example: "Register now" });
 const WHATSAPP = text("whatsappNumber", "WhatsApp number", { max: 20, example: "923001234567", help: "Include the country code without a leading zero (92 for Pakistan, 971 for UAE). Leave empty to hide the WhatsApp button." });
 const COUNTDOWN_LABEL = text("countdownLabel", "Countdown label", { max: 80, example: "Early Bird ends in", help: "Shown in the strip at the top of the page." });
-const TERMS_BOX: FieldDef = { key: "terms", label: "Terms and Conditions for this page", kind: "textarea", max: 20000, help: "Plain text. Start each part with 1. 2. 3. and a short title on its own line." };
+const TERMS_BOX: FieldDef = { key: "terms", label: "Terms and Conditions for this page", kind: "textarea", plain: true, max: 20000, help: "Plain text. Start each part with 1. 2. 3. and a short title on its own line." };
 const SEO_TITLE = text("title", "Title", { max: 120, help: "The big line people see when the link is shared or found on Google. Leave empty to use the page name." });
 const SEO_DESC: FieldDef = { key: "description", label: "Description", kind: "textarea", max: 300, help: "One or two sentences shown under the title." };
 const SEO_IMAGE: FieldDef = { key: "ogImage", label: "Share image", kind: "image", help: "The picture shown when the link is shared. Best at 1200 x 630 px." };
@@ -201,7 +201,7 @@ export function PageSettingsPanel({
       {/* Optional, so it is not one of the five counted steps. */}
       <StepCard number={6} title="Terms and Conditions" blurb="Optional. The rules students agree to. If you leave it empty, the general Terms are used." status="ready">
         <FieldInput field={TERMS_BOX} value={settings.terms ?? ""} onChange={(v) => onSettings({ terms: String(v) })} />
-        <Link href="/dashboard/admin/terms" className="font-body text-sm font-semibold text-pz-secondary underline underline-offset-2">Edit the general Terms</Link>
+        <Link href="/dashboard/admin/terms" target="_blank" rel="noopener noreferrer" className="font-body text-sm font-semibold text-pz-secondary underline underline-offset-2">Edit the general Terms</Link>
       </StepCard>
 
       {modules && <ModulesEditor {...modules} />}
