@@ -58,6 +58,9 @@ export function Hero({ data, register, sectionIds }: SectionProps) {
   const style = str(data, "heroStyle");
   const pc = str(data, "imagePc");
   const phone = str(data, "imagePhone");
+  if (style === "fade") return <FadeHero data={data} register={register} sectionIds={sectionIds} pc={pc} phone={phone} />;
+  if (style === "split") return <SplitHero data={data} register={register} sectionIds={sectionIds} />;
+  if (style === "editorial") return <EditorialHero data={data} register={register} sectionIds={sectionIds} pc={pc} phone={phone} />;
   if (style === "photo") return <PhotoHero data={data} register={register} sectionIds={sectionIds} pc={pc} phone={phone} />;
   if (style === "poster" && (pc || phone)) return <PosterHero data={data} register={register} sectionIds={sectionIds} pc={pc} phone={phone} />;
   return <ClassicHero data={data} register={register} sectionIds={sectionIds} />;
@@ -197,6 +200,158 @@ function ClassicHero({ data, register, sectionIds }: SectionProps) {
             </div>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Green fade over the photo for Style 1; an unknown value gives the medium fade. Bottom-up on phones, left-to-right from md. */
+export function fadeOverlayClass(fade: string): string {
+  const dir = "bg-gradient-to-t md:bg-gradient-to-r";
+  if (fade === "light") return `${dir} from-landing-deep/80 via-landing-deep/40 to-transparent`;
+  if (fade === "strong") return `${dir} from-landing-deep via-landing-deep/85 to-landing-deep/50`;
+  return `${dir} from-landing-deep/90 via-landing-deep/65 to-landing-deep/20`;
+}
+
+function Eyebrow({ text, dark }: { text: string; dark?: boolean }) {
+  return (
+    <div className={`mb-3 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider md:mb-6 md:px-3 md:py-1.5 md:text-xs ${dark ? "border-white/30 bg-white/10 text-white" : "border-landing-mint/40 bg-landing-mint-light text-landing-deep"}`}>
+      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dark ? "bg-landing-mint" : "bg-landing-primary"}`} />
+      {text}
+    </div>
+  );
+}
+
+function Check() {
+  return <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-mint/30 text-xs font-bold text-landing-primary">✓</span>;
+}
+
+// Style 1: the photo fills the hero behind the text; a green fade (Light / Medium / Strong) keeps the words readable.
+function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc: string; phone: string }) {
+  const eyebrow = str(data, "eyebrow");
+  const headline = str(data, "headline");
+  const sub = str(data, "subheadline");
+  const dateLine = str(data, "dateLine");
+  const secondaryLabel = str(data, "secondaryCtaLabel");
+  const target = secondaryTarget(data, sectionIds);
+  const badges = rows(data, "badges").map((b) => str(b, "text")).filter(Boolean);
+  const hasImage = pc !== "" || phone !== "";
+  return (
+    <div className="relative isolate flex min-h-[34rem] flex-col justify-end border-b border-landing-border bg-landing-deep md:min-h-[32rem]">
+      {hasImage ? (
+        // Only the picture layer is clipped, so the Register menu can open past the hero edge.
+        <div aria-hidden="true" className="absolute inset-0 -z-10 overflow-hidden">
+          <LandingPicture pc={pc} phone={phone} alt="" fit="cover" priority className="!absolute inset-0 !aspect-auto md:!aspect-auto" />
+          <div className={`absolute inset-0 ${fadeOverlayClass(str(data, "heroFade"))}`} />
+        </div>
+      ) : null}
+      <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-16 text-white md:px-6 lg:py-20">
+        <div className="flex max-w-3xl flex-col items-start">
+          {eyebrow ? <Eyebrow text={eyebrow} dark /> : null}
+          {headline ? <h1 className="mb-3 break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
+          {sub ? <p className="mb-4 max-w-2xl break-words text-base leading-relaxed text-white/90 md:mb-6 lg:text-lg">{sub}</p> : null}
+          {dateLine ? <DateLine text={dateLine} onDark /> : null}
+          <div className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-6">
+            <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
+            {target ? <SecondaryButton target={target} label={secondaryLabel} onDark /> : null}
+          </div>
+        </div>
+        {badges.length > 0 ? (
+          <ul className="mt-2 grid w-full grid-cols-1 gap-3 rounded-landing border border-white/20 bg-white/10 p-4 backdrop-blur-sm sm:grid-cols-3 sm:gap-4">
+            {badges.map((b, i) => (
+              <li key={i} className="flex items-start gap-2.5 break-words text-sm font-medium text-white">
+                <Check />
+                <span className="min-w-0 break-words">{b}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// Style 2: light page, text on the left, a framed portrait on the right (text first on phones).
+function SplitHero({ data, register, sectionIds }: SectionProps) {
+  const eyebrow = str(data, "eyebrow");
+  const headline = str(data, "headline");
+  const sub = str(data, "subheadline");
+  const image = str(data, "image");
+  const dateLine = str(data, "dateLine");
+  const secondaryLabel = str(data, "secondaryCtaLabel");
+  const target = secondaryTarget(data, sectionIds);
+  const badges = rows(data, "badges").map((b) => str(b, "text")).filter(Boolean);
+  return (
+    <div className="border-b border-landing-border bg-gradient-to-b from-landing-surface-container-lowest to-landing-surface">
+      <div className="mx-auto max-w-7xl px-4 pb-10 pt-8 md:px-6 lg:py-16">
+        <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-14">
+          <div className={`flex min-w-0 flex-col items-start ${image ? "lg:col-span-7" : "lg:col-span-12"}`}>
+            {eyebrow ? <Eyebrow text={eyebrow} /> : null}
+            {headline ? <h1 className="mb-3 break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-landing-deep sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
+            {sub ? <p className="mb-4 max-w-2xl break-words text-base leading-relaxed text-landing-on-surface md:mb-6 lg:text-lg">{sub}</p> : null}
+            {dateLine ? <DateLine text={dateLine} /> : null}
+            <div className="mb-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
+              <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
+              {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
+            </div>
+            {badges.length > 0 ? (
+              <ul className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+                {badges.map((b, i) => (
+                  <li key={i} className="flex items-start gap-2.5 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-3 text-sm font-medium text-landing-deep shadow-landing-soft-lg">
+                    <Check />
+                    <span className="min-w-0 break-words">{b}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          {image ? (
+            <div className="mx-auto w-full max-w-md overflow-hidden rounded-3xl border-4 border-landing-mint/50 bg-landing-surface-container-lowest shadow-landing-soft-lg lg:col-span-5 lg:max-w-none">
+              <LandingImage src={image} alt={headline} width={800} height={1000} priority className="h-full w-full object-cover" />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Style 3: flat green, centred serif headline, then a wide framed photo below the text.
+function EditorialHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc: string; phone: string }) {
+  const eyebrow = str(data, "eyebrow");
+  const headline = str(data, "headline");
+  const sub = str(data, "subheadline");
+  const dateLine = str(data, "dateLine");
+  const secondaryLabel = str(data, "secondaryCtaLabel");
+  const target = secondaryTarget(data, sectionIds);
+  const badges = rows(data, "badges").map((b) => str(b, "text")).filter(Boolean);
+  const hasImage = pc !== "" || phone !== "";
+  return (
+    <div className="border-b border-landing-border bg-landing-deep text-white">
+      <div className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-10 pt-12 text-center md:px-6 lg:pb-16 lg:pt-20">
+        {eyebrow ? <Eyebrow text={eyebrow} dark /> : null}
+        {headline ? <h1 className="mb-4 break-words font-serif text-3xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">{headline}</h1> : null}
+        {sub ? <p className="mb-6 max-w-2xl break-words text-base leading-relaxed text-white/90 lg:text-lg">{sub}</p> : null}
+        <div className="mb-6 flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
+          {target ? <SecondaryButton target={target} label={secondaryLabel} onDark /> : null}
+        </div>
+        {dateLine ? <p className="mb-4 break-words text-sm font-semibold text-white/90">{dateLine}</p> : null}
+        {badges.length > 0 ? (
+          <ul className="mb-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-white/90">
+            {badges.map((b, i) => (
+              <li key={i} className="flex items-center gap-3 break-words">
+                {i > 0 ? <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-white/60 sm:inline-block" /> : null}
+                <span className="min-w-0 break-words">{b}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {hasImage ? (
+          <div className="w-full max-w-4xl overflow-hidden rounded-landing border border-white/20 shadow-landing-soft-lg">
+            <LandingPicture pc={pc} phone={phone} alt={headline} fit="cover" priority />
+          </div>
+        ) : null}
       </div>
     </div>
   );
