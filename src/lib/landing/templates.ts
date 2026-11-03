@@ -1,5 +1,6 @@
 // src/lib/landing/templates.ts
 import { emptyContent, type LandingContent, type PageKind } from "@/lib/landing/content";
+import { normalizeSectionData } from "@/lib/landing/sections";
 import { PPC_BATCH_3 } from "@/lib/landing/templates-data/ppc-batch-3";
 import { MDC_BATCH_3 } from "@/lib/landing/templates-data/mdc-batch-3";
 import { W20_DIABETES } from "@/lib/landing/templates-data/w20-diabetes";
@@ -25,7 +26,8 @@ function fresh(c: LandingContent): LandingContent {
   copy.sections = copy.sections.map((s) => {
     const id = globalThis.crypto.randomUUID();
     ids.set(s.id, id);
-    return { ...s, id };
+    // Normalizing fills the newer fields (hero fade, instructor layout) with the old look these copies have.
+    return { ...s, id, data: normalizeSectionData(s.type, s.data) };
   });
   // Flags are written against the template's short section ids; point them at the new ids.
   copy.needsReview = copy.needsReview.flatMap((p) => {

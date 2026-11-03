@@ -35,7 +35,7 @@ describe("hero form showWhen", () => {
     render(<Hero initial={{ heroStyle: "photo" }} />);
     const sel = screen.getByLabelText("Hero style") as HTMLSelectElement;
     expect(sel.tagName).toBe("SELECT");
-    expect(Array.from(sel.options).map((o) => o.text)).toEqual(["Photo with text on top", "Finished poster", "Picture beside text (old style)"]);
+    expect(Array.from(sel.options).map((o) => o.text)).toEqual(["Style 1: photo behind the text, with a fade", "Style 2: text and portrait side by side", "Style 3: big headline on green, wide photo below", "Photo with text on top (old)", "Finished poster", "Picture beside text (old style)"]);
   });
   it("second button type 'section' shows only the section dropdown", () => {
     render(<Hero initial={{ secondaryCtaType: "section" }} />);
