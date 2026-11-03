@@ -8,7 +8,7 @@ import { getMetaPurchase } from "@/lib/data/landing-meta-events";
 import type { Database } from "@/lib/supabase/database.types";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
-import { enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
+import { cancelEmailStatus, enqueueSheetStatus, enqueueStatusEffects, runJobsDirect, runJobsFor } from "@/lib/data/landing-jobs";
 import { runInBackground } from "@/lib/landing/registration/background";
 import { mapRecord, type RegistrationRecord } from "@/lib/data/landing-registrations";
 import { listEmailLog, type EmailLogKind } from "@/lib/data/landing-email-log";
@@ -579,6 +579,7 @@ export async function changeRegistrationStatus(p: {
     expectedAmount: rec.expectedAmount,
     amount: p.amount ?? null,
     currency: rec.currency,
+    requireAmount: true, // the pop-up always sends it; a direct call without one must not store the price as received
   });
   if (!check.ok) return { ok: false, reason: check.reason };
 
@@ -630,6 +631,7 @@ async function lookupPaidWarning(rec: RegistrationRecord, to: ChangeableStatus):
 export async function queueStatusFollowUps(registrationId: string, opts: { sendEmail?: boolean } = {}): Promise<void> {
   const email = opts.sendEmail !== false;
   try {
+    if (!email) await cancelEmailStatus(registrationId);
     // The sheet push and the enrollment/email jobs are independent groups: each is enqueued on its
     // own, the outbox drain runs whichever enqueued, and a group that failed to enqueue runs directly.
     const sheetQueued = await enqueueSheetStatus(registrationId).catch(() => false);

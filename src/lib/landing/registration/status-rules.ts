@@ -16,6 +16,12 @@ export const STATUS_CHANGE_MESSAGES: Record<Exclude<StatusChangeCheck, { ok: tru
   "already-in-status": "This registration is already in that status.",
 };
 
+/** True when the price is in a currency other than PKR. An empty or missing currency counts as unknown, not foreign. */
+const foreignCurrency = (c: string | undefined): boolean => {
+  const v = (c ?? "").trim().toUpperCase();
+  return v !== "" && v !== "PKR";
+};
+
 export function checkStatusChange(i: {
   rowType: "individual" | "lead" | "member";
   from: RegistrationStatus;
@@ -36,7 +42,7 @@ export function checkStatusChange(i: {
   if (i.to === "underpaid") {
     if (i.amount === null) return { ok: false, reason: "amount-required" };
     if (!Number.isFinite(i.amount) || i.amount <= 0) return { ok: false, reason: "amount-invalid" };
-    const sameCurrency = i.currency === undefined || i.currency.toUpperCase() === "PKR";
+    const sameCurrency = !foreignCurrency(i.currency);
     if (sameCurrency && i.expectedAmount !== null && i.amount >= i.expectedAmount) return { ok: false, reason: "amount-invalid" };
     return { ok: true, amountReceived: i.amount };
   }
@@ -46,6 +52,8 @@ export function checkStatusChange(i: {
       return { ok: true, amountReceived: i.amount };
     }
     if (i.requireAmount) return { ok: false, reason: "amount-required" };
+    // The price is in another currency: never store it as if it were PKR. Leave the amount empty.
+    if (foreignCurrency(i.currency)) return { ok: true, amountReceived: null };
     return { ok: true, amountReceived: i.expectedAmount };
   }
   return { ok: true, amountReceived: null };

@@ -123,6 +123,25 @@ export async function enqueueStatusEffects(registrationId: string, opts: { email
   }
 }
 
+/**
+ * A change made without emailing the student: close any status email that is still waiting or failed for this
+ * registration, so a retry, the cron or a later "Retry failed" cannot send it now (it would describe the new status).
+ * Never throws.
+ */
+export async function cancelEmailStatus(registrationId: string): Promise<void> {
+  try {
+    const { error } = await createAdminSupabase()
+      .from("landing_jobs")
+      .update({ status: "done", last_error: null })
+      .eq("registration_id", registrationId)
+      .eq("type", "email_status")
+      .in("status", ["pending", "failed"]);
+    if (error) console.error("[landing-jobs] cancel email_status failed:", error.code);
+  } catch {
+    console.error("[landing-jobs] cancel email_status crashed");
+  }
+}
+
 /** One email_status job: upsert back to pending with a fresh budget. Never throws; true only when the upsert succeeded. */
 export async function enqueueEmailStatus(registrationId: string): Promise<boolean> {
   try {

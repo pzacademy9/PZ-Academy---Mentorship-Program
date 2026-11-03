@@ -127,10 +127,12 @@ export function RegistrationsTable({
         mobile={{
           href,
           actions: rowActions,
-          footer: rowActions
+          // The card's text is one big link, so anything you can tap (status, picture) sits below it, outside the link.
+          footer: rowActions || statusCell
             ? (r) => (
                 <div className="px-3 pb-3 flex items-center gap-2">
-                  <VoucherThumb url={r.voucherUrl} variant="card" />
+                  {statusCell ? statusCell(r) : null}
+                  {rowActions ? <VoucherThumb url={r.voucherUrl} variant="card" /> : null}
                 </div>
               )
             : undefined,
@@ -148,7 +150,7 @@ export function RegistrationsTable({
             `${r.region} · ${r.mode === "live" ? "Live" : "Recorded"} · ${formatMoney(r.expectedAmount, r.currency)}`,
             ...(r.sheetUpdateWaiting ? [<WaitingTag key="waiting" row={r} />] : []),
             <span key="status" className="inline-flex items-center gap-2">
-              {statusCell ? statusCell(r) : <RegistrationStatusBadge status={r.status} />}
+              {statusCell ? null : <RegistrationStatusBadge status={r.status} />}
               <span>{formatDatePkt(r.createdAt)}</span>
             </span>,
             ...(showAgentColumn ? [`Agent: ${r.agentName ?? "None"}`] : []),
