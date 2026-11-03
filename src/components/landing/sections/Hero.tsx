@@ -106,7 +106,7 @@ function PhotoHero({ data, register, sectionIds, pc, phone }: SectionProps & { p
             {target ? <SecondaryButton target={target} label={secondaryLabel} onDark={hasImage} /> : null}
           </div>
           {badges.length > 0 ? (
-            <ul className={`grid w-full grid-cols-1 gap-2 border-t pt-5 sm:grid-cols-3 sm:gap-4 ${hasImage ? "border-white/30" : "border-landing-border"}`}>
+            <ul className={`flex w-full flex-wrap gap-x-4 gap-y-2 border-t pt-5 sm:grid sm:grid-cols-3 sm:gap-4 ${hasImage ? "border-white/30" : "border-landing-border"}`}>
               {badges.map((b, i) => (
                 <li key={i} className={`flex items-center gap-2.5 break-words text-xs font-medium ${hasImage ? "text-white" : "text-landing-deep"}`}>
                   <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-mint/30 text-xs font-bold text-landing-primary">✓</span>
@@ -175,7 +175,7 @@ function ClassicHero({ data, register, sectionIds }: SectionProps) {
               {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
             </div>
             {badges.length > 0 ? (
-              <ul className="grid w-full grid-cols-1 gap-2 border-t border-landing-border pt-5 sm:grid-cols-3 sm:gap-4">
+              <ul className="flex w-full flex-wrap gap-x-4 gap-y-2 border-t border-landing-border pt-5 sm:grid sm:grid-cols-3 sm:gap-4">
                 {badges.map((b, i) => (
                   <li key={i} className="flex items-center gap-2.5 text-xs font-medium text-landing-deep md:text-landing-on-surface">
                     <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-mint/30 text-xs font-bold text-landing-primary">✓</span>
@@ -258,7 +258,7 @@ function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc
         </div>
         {badges.length > 0 ? (
           // Phones: plain ticked lines, no box. From sm up: the frosted box.
-          <ul className="mt-1 grid w-full grid-cols-1 gap-1.5 sm:mt-2 sm:grid-cols-3 sm:gap-4 sm:rounded-landing sm:border sm:border-white/20 sm:bg-white/10 sm:p-4 sm:backdrop-blur-sm">
+          <ul className="mt-1 flex w-full flex-wrap gap-x-4 gap-y-1.5 sm:mt-2 sm:grid sm:grid-cols-3 sm:gap-4 sm:rounded-landing sm:border sm:border-white/20 sm:bg-white/10 sm:p-4 sm:backdrop-blur-sm">
             {badges.map((b, i) => (
               <li key={i} className="flex items-start gap-2 break-words text-xs font-medium text-white sm:gap-2.5 sm:text-sm">
                 <Check />
@@ -296,9 +296,9 @@ function SplitHero({ data, register, sectionIds }: SectionProps) {
               {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
             </div>
             {badges.length > 0 ? (
-              <ul className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+              <ul className="flex w-full flex-wrap gap-2 sm:grid sm:grid-cols-3 sm:gap-3">
                 {badges.map((b, i) => (
-                  <li key={i} className="flex items-start gap-2.5 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-3 text-sm font-medium text-landing-deep shadow-landing-soft-lg">
+                  <li key={i} className="flex items-start gap-2 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-2 text-xs font-medium sm:gap-2.5 sm:p-3 sm:text-sm text-landing-deep shadow-landing-soft-lg">
                     <Check />
                     <span className="min-w-0 break-words">{b}</span>
                   </li>

@@ -8,12 +8,14 @@ import { useState } from "react";
  * so a landing page never loads YouTube's scripts or sets its cookies until the visitor asks for it.
  * `id` is validated upstream by youtubeId() (11 chars of [A-Za-z0-9_-]).
  */
-export function YouTubeFacade({ id, title, short, onPlay, autoStart = false }: {
+export function YouTubeFacade({ id, title, short, onPlay, autoStart = false, start = 0 }: {
   id: string; title: string; short: boolean;
   /** When given, a click calls this instead of starting the plain player (the parent runs its own player). */
   onPlay?: () => void;
   /** Start the plain player at once (a parent that could not run its own player falls back to this). */
   autoStart?: boolean;
+  /** Second to start the video at (0 = the beginning). */
+  start?: number;
 }) {
   const [playing, setPlaying] = useState(autoStart);
   const aspect = short ? "aspect-[9/16]" : "aspect-video";
@@ -22,7 +24,7 @@ export function YouTubeFacade({ id, title, short, onPlay, autoStart = false }: {
     return (
       <div className={`${aspect} w-full overflow-hidden rounded-landing bg-landing-near-black shadow-landing-soft-lg`}>
         <iframe
-          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0${start > 0 ? `&start=${start}` : ""}`}
           title={title}
           className="h-full w-full"
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"

@@ -6,6 +6,7 @@ import { SITE_LOGO_ALT, SITE_LOGO_URL } from "@/lib/site-logo";
 import { Countdown } from "./Countdown";
 import { LandingFooter } from "./LandingFooter";
 import { MobileMenu, type NavItem } from "./MobileMenu";
+import { PageLoader } from "./PageLoader";
 import { PhoneScrollReveal } from "./PhoneScrollReveal";
 import { RegisterButton, ctaLabel } from "./RegisterButton";
 import { Hero } from "./sections/Hero";
@@ -74,13 +75,17 @@ export function LandingRenderer({
   }
   const title = (pageTitle ?? "").trim();
   // On phones the floating WhatsApp bubble and the bottom Register bar wait until the hero has scrolled away.
-  const heroId = rendered.find((r) => r.section.type === "hero")?.section.id;
+  const heroSection = rendered.find((r) => r.section.type === "hero")?.section;
+  const heroId = heroSection?.id;
+  // The loading screen is for public pages whose hero has a picture to wait for (not the admin preview).
+  const heroHasPicture = !!heroSection && ["imagePc", "imagePhone", "image"].some((k) => typeof heroSection.data[k] === "string" && (heroSection.data[k] as string).trim() !== "");
 
   return (
     <div
       className="landing-root bg-landing-surface font-landing-body text-landing-on-surface antialiased selection:bg-landing-mint selection:text-landing-deep pb-24 md:pb-0"
       style={{ colorScheme: "light" }}
     >
+      {slug && heroId && heroHasPicture ? <PageLoader heroId={heroId} /> : null}
       <div className="sticky top-0 z-40">
         {!closed && c.settings.countdownTo ? <Countdown to={c.settings.countdownTo} label={c.settings.countdownLabel} /> : null}
         <header className="relative border-b border-landing-border bg-landing-surface-container-lowest/95 backdrop-blur-md">
