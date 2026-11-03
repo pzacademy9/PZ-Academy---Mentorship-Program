@@ -101,7 +101,7 @@ function PhotoHero({ data, register, sectionIds, pc, phone }: SectionProps & { p
           ) : null}
           {sub ? <p className={`mb-4 max-w-2xl break-words text-base leading-relaxed md:mb-6 lg:text-lg ${hasImage ? "text-white/90" : "text-landing-on-surface"}`}>{sub}</p> : null}
           {dateLine ? <DateLine text={dateLine} onDark={hasImage} /> : null}
-          <div className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-6">
+          <div data-hero-cta className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-6">
             <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
             {target ? <SecondaryButton target={target} label={secondaryLabel} onDark={hasImage} /> : null}
           </div>
@@ -133,7 +133,7 @@ function PosterHero({ data, register, sectionIds, pc, phone }: SectionProps & { 
       <LandingPicture pc={pc} phone={phone} alt={headline} fit="contain" priority className="mx-auto max-w-7xl bg-landing-surface-container-lowest" />
       <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-6 md:px-6 md:py-8">
         {dateLine ? <DateLine text={dateLine} /> : null}
-        <div className="flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
+        <div data-hero-cta className="flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
           <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
           {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
         </div>
@@ -170,7 +170,7 @@ function ClassicHero({ data, register, sectionIds }: SectionProps) {
             ) : null}
             {sub ? <p className="mb-4 max-w-2xl text-base leading-relaxed text-landing-on-surface md:mb-6 lg:text-lg">{sub}</p> : null}
             {dateLine ? <DateLine text={dateLine} /> : null}
-            <div className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
+            <div data-hero-cta className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
               <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
               {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
             </div>
@@ -251,7 +251,7 @@ function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc
           {headline ? <h1 className="mb-3 max-w-full break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
           {sub ? <p className="mb-4 max-w-2xl break-words text-base leading-relaxed text-white/90 md:mb-6 lg:text-lg">{sub}</p> : null}
           {dateLine ? <DateLine text={dateLine} onDark /> : null}
-          <div className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-6">
+          <div data-hero-cta className="mb-5 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-6">
             <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
             {target ? <SecondaryButton target={target} label={secondaryLabel} onDark /> : null}
           </div>
@@ -291,7 +291,7 @@ function SplitHero({ data, register, sectionIds }: SectionProps) {
             {headline ? <h1 className="mb-3 max-w-full break-words font-headline text-2xl font-extrabold leading-tight tracking-tight text-landing-deep sm:text-4xl md:mb-6 lg:text-[52px] lg:leading-[1.15]">{headline}</h1> : null}
             {sub ? <p className="mb-4 max-w-2xl break-words text-base leading-relaxed text-landing-on-surface md:mb-6 lg:text-lg">{sub}</p> : null}
             {dateLine ? <DateLine text={dateLine} /> : null}
-            <div className="mb-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
+            <div data-hero-cta className="mb-6 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center md:mb-8">
               <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
               {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
             </div>
@@ -333,7 +333,7 @@ function EditorialHero({ data, register, sectionIds, pc, phone }: SectionProps &
         {eyebrow ? <Eyebrow text={eyebrow} dark /> : null}
         {headline ? <h1 className="mb-4 max-w-full break-words font-serif text-3xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">{headline}</h1> : null}
         {sub ? <p className="mb-6 max-w-full break-words text-base leading-relaxed text-white/90 lg:max-w-2xl lg:text-lg">{sub}</p> : null}
-        <div className="mb-6 flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
+        <div data-hero-cta className="mb-6 flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
           <RegisterButton register={register} label={ctaLabel(str(data, "primaryCtaLabel"), register.label)} size="lg" arrow className="w-full sm:w-auto" />
           {target ? <SecondaryButton target={target} label={secondaryLabel} onDark /> : null}
         </div>

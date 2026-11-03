@@ -109,6 +109,9 @@ export function LandingRenderer({
         </header>
       </div>
 
+      {/* Phones hide the header button, so a closed page keeps its one screen-reader notice here. */}
+      {closed ? <span role="status" className="sr-only md:hidden">Registration is closed</span> : null}
+
       <main>
         {rendered.map(({ section, node }) => (
           <section
