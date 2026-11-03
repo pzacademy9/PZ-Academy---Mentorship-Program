@@ -142,26 +142,19 @@ export function RegistrationSetup({
 
 function BuyStep({ r, onChange, courseModules }: { r: RegistrationConfig; onChange: (n: RegistrationConfig) => void; courseModules: CourseModule[] | null }) {
   const ordered = courseModules ? [...courseModules].sort((a, b) => a.order_index - b.order_index) : null;
-  const toggleMode = (m: Mode) => onChange({ ...r, modes: r.modes.includes(m) ? r.modes.filter((x) => x !== m) : [...r.modes, m] });
   const bundles = r.options.filter((o) => o.kind === "bundle");
   return (
     <div className="space-y-4">
-      <fieldset className={CARD}>
-        <legend className={LABEL}>How people take part</legend>
-        <label className="flex items-center gap-2 font-body text-sm text-pz-on-surface">
-          <input type="checkbox" checked={r.modes.includes("live")} onChange={() => toggleMode("live")} /> Live sessions
-        </label>
-        <label className="flex items-center gap-2 font-body text-sm text-pz-on-surface">
-          <input type="checkbox" checked={r.modes.includes("recorded")} onChange={() => toggleMode("recorded")} /> Recorded lectures
-        </label>
-        {r.modes.includes("recorded") && (
+      {r.modes.includes("recorded") && (
+        <fieldset className={CARD}>
+          <legend className={LABEL}>Recorded price</legend>
           <label className="block space-y-1">
             <span className={LABEL}>Recorded price, % of the regular price</span>
             <span className={`block ${HELP}`}>85 means recorded costs 85% of the regular (not Early Bird) price. 100 means the same price.</span>
             <input type="number" inputMode="numeric" min={1} max={100} aria-label="Recorded price, % of the regular price" className={`${CONTROL} w-28`} value={String(r.recordedPercentOfRegular)} onChange={(e) => onChange({ ...r, recordedPercentOfRegular: Math.min(100, whole(e.target.value, 1)) })} />
           </label>
-        )}
-      </fieldset>
+        </fieldset>
+      )}
 
       <section className={CARD} aria-label="Options people can buy">
         <p className={HELP}>A package is chosen on its own (for example Full Course, or Free / Pro). Modules can be combined.</p>

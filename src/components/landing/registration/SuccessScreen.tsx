@@ -20,12 +20,14 @@ export interface SuccessScreenProps {
   isFree: boolean;
   testMode: boolean;
   isGuest: boolean;
+  /** Show the Create account card for a guest. Missing = true. */
+  showCreateAccount?: boolean;
   onClose: () => void;
 }
 
 const H3 = "font-headline text-base font-bold text-landing-near-black";
 
-export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMode, isGuest, onClose }: SuccessScreenProps) {
+export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMode, isGuest, showCreateAccount = true, onClose }: SuccessScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Screen-reader and keyboard users land on the outcome, not on a button that no longer exists.
   useEffect(() => { headingRef.current?.focus(); }, []);
@@ -103,7 +105,7 @@ export function SuccessScreen({ slug, config, result, lead, mode, isFree, testMo
           </div>
         )}
 
-        {isGuest && !testMode && (
+        {isGuest && !testMode && showCreateAccount && (
           <section aria-labelledby="success-acct-h" className={R_CARD}>
             <h3 id="success-acct-h" className={H3}>See this registration in your account</h3>
             <p className="mt-1 font-landing-body text-base text-landing-on-surface">

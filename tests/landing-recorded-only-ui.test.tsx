@@ -11,8 +11,6 @@ describe("recorded-only landing page UI", () => {
   it("(g) the admin shows the recorded percent input while live is off", () => {
     render(<RegistrationSetup registration={recordedOnly} step="buy" onStep={vi.fn()} onChange={vi.fn()} />);
     expect((screen.getByLabelText("Recorded price, % of the regular price") as HTMLInputElement).value).toBe("80");
-    expect((screen.getByRole("checkbox", { name: /live sessions/i }) as HTMLInputElement).checked).toBe(false);
-    expect((screen.getByRole("checkbox", { name: /recorded lectures/i }) as HTMLInputElement).checked).toBe(true);
   });
   it("(d) the visitor form shows no mode selector with one mode", () => {
     const state = initialState(recordedOnly, { country: "PK", me: null });

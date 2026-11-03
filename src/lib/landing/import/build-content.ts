@@ -96,6 +96,7 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
       countdownLabel: text(settings.countdown_label),
       batchStartsOn: "",
       portalLink: "",
+      showCreateAccount: true,
     },
     seo: { title: text(seoIn.title), description: text(seoIn.description), ogImage: "" },
     registration: reg.registration,

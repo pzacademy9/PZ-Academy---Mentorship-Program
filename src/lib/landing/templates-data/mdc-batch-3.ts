@@ -51,6 +51,7 @@ export const MDC_BATCH_3: LandingContent = {
     countdownTo: "",
     batchStartsOn: "",
     portalLink: "",
+    showCreateAccount: true,
     countdownLabel: "",
   },
   seo: {

@@ -46,6 +46,7 @@ export const W20_DIABETES: LandingContent = {
     countdownTo: "",
     batchStartsOn: "",
     portalLink: "",
+    showCreateAccount: true,
     countdownLabel: "",
   },
   seo: {

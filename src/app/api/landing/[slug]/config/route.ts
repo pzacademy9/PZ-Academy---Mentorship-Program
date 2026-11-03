@@ -36,6 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     status: page.status,
     registration: toPublicRegistration(registration, new Date()),
     accounts,
+    showCreateAccount: page.content.settings.showCreateAccount,
     country: COUNTRY_RE.test(country) ? country : null,
   });
 }

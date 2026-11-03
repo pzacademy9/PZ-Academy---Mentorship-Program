@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { X, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SITE_LOGO_ALT, SITE_LOGO_URL } from "@/lib/site-logo";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import { roleHome, type Role } from "@/lib/roles";
 
@@ -54,8 +55,8 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2.5 z-10 shrink-0">
         <Image
-          src="https://pharmacozyme.com/wp-content/uploads/2026/04/PZ-Academy-logo.png"
-          alt="PZ Academy"
+          src={SITE_LOGO_URL}
+          alt={SITE_LOGO_ALT}
           width={52}
           height={52}
           className="h-[52px] w-auto"

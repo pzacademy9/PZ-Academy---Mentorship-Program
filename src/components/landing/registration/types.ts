@@ -13,6 +13,8 @@ export interface PublicConfig {
   registration: PublicRegistration;
   accounts: PaymentAccount[];
   country: string | null;
+  /** Show the Create account prompt in the success message (missing = true). */
+  showCreateAccount?: boolean;
 }
 /** GET /api/landing/me (null for guests) */
 export interface MeProfile { name: string; email: string; whatsapp: string; profession: string }

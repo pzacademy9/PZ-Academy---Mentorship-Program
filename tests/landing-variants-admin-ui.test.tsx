@@ -168,7 +168,7 @@ describe("LandingEditor with links", () => {
     fireEvent.click(screen.getByRole("button", { name: /page settings/i }));
     expect(screen.getByText("These apply to all links. Edit them on the main page.")).toBeTruthy();
     // Inside a disabled fieldset: the browser disables every control in it.
-    expect((screen.getByLabelText("Register button text") as HTMLInputElement).matches(":disabled")).toBe(true);
+    expect((screen.getByLabelText("Button text") as HTMLInputElement).matches(":disabled")).toBe(true);
   });
 
   it("lists edits that no longer apply and removes them", async () => {

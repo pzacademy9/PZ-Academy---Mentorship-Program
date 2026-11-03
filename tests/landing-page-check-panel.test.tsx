@@ -58,20 +58,20 @@ function settingsPanel(opts: { modes: ("live" | "recorded")[]; hasCourse: boolea
 describe("PageSettingsPanel portal card", () => {
   it("shows the portal field only when recorded is offered and the page has no course", () => {
     const { unmount } = settingsPanel({ modes: ["recorded"], hasCourse: false });
-    expect(screen.getByText("Portal for recorded students")).toBeTruthy();
-    expect(screen.getByLabelText(/portal link/i)).toBeTruthy();
+    expect(screen.getByText("Which portal they get")).toBeTruthy();
+    expect(screen.getByLabelText("Portal link")).toBeTruthy();
     unmount();
     const b = settingsPanel({ modes: ["live"], hasCourse: false });
-    expect(screen.queryByText("Portal for recorded students")).toBeNull();
+    expect(screen.queryByText("Which portal they get")).toBeNull();
     b.unmount();
     settingsPanel({ modes: ["recorded"], hasCourse: true });
     expect(screen.getByText("Recorded students get the portal for Demo Course.")).toBeTruthy();
-    expect(screen.queryByLabelText(/portal link/i)).toBeNull();
+    expect(screen.queryByLabelText("Portal link")).toBeNull();
   });
   it("typing a portal link updates settings.portalLink", () => {
     const onSettings = vi.fn();
     settingsPanel({ modes: ["recorded"], hasCourse: false, onSettings });
-    fireEvent.change(screen.getByLabelText(/portal link/i), { target: { value: "https://portal.example.com/x" } });
+    fireEvent.change(screen.getByLabelText("Portal link"), { target: { value: "https://portal.example.com/x" } });
     expect(onSettings).toHaveBeenCalledWith({ portalLink: "https://portal.example.com/x" });
   });
 });
