@@ -3697,6 +3697,24 @@ export type Database = {
           },
         ]
       }
+      site_terms: {
+        Row: {
+          body: string
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_accounts: {
         Row: {
           active: boolean
