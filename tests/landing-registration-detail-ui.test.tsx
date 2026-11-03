@@ -83,7 +83,7 @@ describe("StatusChangeControl", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/admin/registrations/r1");
-    expect(JSON.parse(init.body)).toEqual({ status: "paid", from: "pending" });
+    expect(JSON.parse(init.body)).toEqual({ status: "paid", from: "pending", amount: 5000, sendEmail: true });
     expect(toast.success).toHaveBeenCalled();
   });
 
@@ -143,15 +143,46 @@ describe("RegistrationDetailView", () => {
 });
 
 describe("status dialog edge cases", () => {
-  it("a leftover amount does not block Paid after switching away from Underpaid", async () => {
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "r1", status: "paid" }) });
+  it("Paid asks for the amount received in PKR and refuses 0", async () => {
     openControl();
-    fireEvent.click(screen.getByRole("radio", { name: /underpaid/i }));
-    fireEvent.change(screen.getByLabelText("Amount received"), { target: { value: "0" } });
     fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
+    expect(screen.getByText(/Amount received \(in PKR\)/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Amount received"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    expect(await screen.findByText(STATUS_CHANGE_MESSAGES["amount-invalid"])).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Paid on a non-PKR price starts empty and needs the PKR amount", async () => {
+    render(<StatusChangeControl registrationId="r1" endpoint="/api/admin/registrations/r1" status="pending" expectedAmount={39} currency="AED" studentName="Sara Ali" />);
+    fireEvent.click(screen.getByRole("button", { name: /change status/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^paid/i }));
+    expect((screen.getByLabelText("Amount received") as HTMLInputElement).value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    expect(await screen.findByText(STATUS_CHANGE_MESSAGES["amount-required"])).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Amount received"), { target: { value: "2936" } });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "r1", status: "paid" }) });
     fireEvent.click(screen.getByRole("button", { name: /save status/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ status: "paid", from: "pending" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ status: "paid", from: "pending", amount: 2936, sendEmail: true });
+  });
+
+  it("unticking the email box sends sendEmail false, and the summary says so", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "r1", status: "reserved" }) });
+    openControl();
+    fireEvent.click(screen.getByRole("radio", { name: /reserved/i }));
+    expect(screen.getByText(/An email will be sent/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /email about this/i }));
+    expect(screen.getByText(/No email will be sent/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /save status/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ status: "reserved", from: "pending", sendEmail: false });
+  });
+
+  it("in a list the status badge itself opens the pop-up", () => {
+    render(<StatusChangeControl trigger="badge" registrationId="r1" endpoint="/api/admin/registrations/r1" status="pending" expectedAmount={5000} currency="PKR" studentName="Sara Ali" />);
+    fireEvent.click(screen.getByRole("button", { name: /change status for sara ali/i }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("Reload in the conflict state refreshes and closes the dialog", async () => {

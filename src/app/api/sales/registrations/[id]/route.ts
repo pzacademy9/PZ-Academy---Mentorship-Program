@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     to: parsed.data.status,
     expectedFrom: parsed.data.from,
     amount: parsed.data.amount ?? null,
+    sendEmail: parsed.data.sendEmail,
     actor: { userId: auth.user.id, role },
   });
   return statusChangeResponse(result);

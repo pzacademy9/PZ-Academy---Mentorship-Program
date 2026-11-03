@@ -57,8 +57,8 @@ function Amount({ row }: { row: RegistrationListRow }) {
   return (
     <>
       <span className="font-headline font-bold text-pz-on-surface tabular-nums">{formatMoney(row.expectedAmount, row.currency)}</span>
-      {row.amountReceived !== null && row.amountReceived !== row.expectedAmount && (
-        <p className="text-[10px] text-pz-on-surface-variant tabular-nums">Received {formatMoney(row.amountReceived, row.currency)}</p>
+      {row.amountReceived !== null && (row.currency.toUpperCase() !== "PKR" || row.amountReceived !== row.expectedAmount) && (
+        <p className="text-[10px] text-pz-on-surface-variant tabular-nums">Received {formatMoney(row.amountReceived, "PKR")}</p>
       )}
     </>
   );
@@ -83,6 +83,7 @@ export function RegistrationsTable({
   showPzId = false,
   selectable,
   rowActions,
+  statusCell,
 }: {
   rows: RegistrationListRow[];
   total: number;
@@ -100,6 +101,8 @@ export function RegistrationsTable({
   };
   /** Admin lists only: renders the row menu, and turns on the voucher picture. */
   rowActions?: (row: RegistrationListRow) => ReactNode;
+  /** Admin lists only: replaces the plain status badge (a clickable one that opens the change-status pop-up). */
+  statusCell?: (row: RegistrationListRow) => ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -145,7 +148,7 @@ export function RegistrationsTable({
             `${r.region} · ${r.mode === "live" ? "Live" : "Recorded"} · ${formatMoney(r.expectedAmount, r.currency)}`,
             ...(r.sheetUpdateWaiting ? [<WaitingTag key="waiting" row={r} />] : []),
             <span key="status" className="inline-flex items-center gap-2">
-              <RegistrationStatusBadge status={r.status} />
+              {statusCell ? statusCell(r) : <RegistrationStatusBadge status={r.status} />}
               <span>{formatDatePkt(r.createdAt)}</span>
             </span>,
             ...(showAgentColumn ? [`Agent: ${r.agentName ?? "None"}`] : []),
@@ -234,7 +237,7 @@ export function RegistrationsTable({
                       <td className="py-4 px-3 min-w-[9rem] font-headline font-medium">{r.optionLabel}</td>
                       <td className="py-4 px-3 whitespace-nowrap"><ModeChip mode={r.mode} /></td>
                       <td className="py-4 px-3 text-right whitespace-nowrap"><Amount row={r} /></td>
-                      <td className="py-4 px-3 whitespace-nowrap"><RegistrationStatusBadge status={r.status} /></td>
+                      <td className="py-4 px-3 whitespace-nowrap">{statusCell ? statusCell(r) : <RegistrationStatusBadge status={r.status} />}</td>
                       {rowActions && <td className="py-4 px-3 whitespace-nowrap"><VoucherThumb url={r.voucherUrl} /></td>}
                       {showAgentColumn && (
                         <td className="py-4 px-3 whitespace-nowrap">

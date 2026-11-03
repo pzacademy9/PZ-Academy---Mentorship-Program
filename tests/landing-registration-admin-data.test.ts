@@ -517,6 +517,16 @@ describe("change", () => {
     expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "email_status", "meta_purchase"]);
     expect(jobs.runJobsFor).not.toHaveBeenCalled();
   });
+  it("sendEmail false still queues sheet and enrollment but leaves out the status email", async () => {
+    const r = await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", sendEmail: false, actor: admin });
+    expect(r.ok).toBe(true);
+    expect(jobs.enqueueStatusEffects).toHaveBeenCalledWith("a", { email: false });
+  });
+  it("sendEmail false with the outbox down runs only enrollment and Meta directly", async () => {
+    jobs.enqueueStatusEffects.mockResolvedValue(false);
+    await changeRegistrationStatus({ registrationId: "a", to: "paid", expectedFrom: "pending", sendEmail: false, actor: admin });
+    expect(jobs.runJobsDirect).toHaveBeenCalledWith("a", ["enrollment_sync", "meta_purchase"]);
+  });
   it("an enqueue that throws still returns ok", async () => {
     jobs.enqueueStatusEffects.mockRejectedValue(new Error("boom"));
     expect((await paid()).ok).toBe(true);

@@ -10,6 +10,7 @@ import { RegistrationsTable } from "./RegistrationsTable";
 import type { RegistrationQuery } from "./query";
 import { MessageBuilder } from "./MessageBuilder";
 import { RowActions } from "./RowActions";
+import { RowStatusCell } from "./RowStatusCell";
 import { getSelectionIdList } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/id-actions";
 
 /** Either the ticked rows on this page, or everyone matching the current filters. Never both. */
@@ -256,6 +257,7 @@ export function CampaignRegistrations({
         showAgentColumn={false}
         showPzId
         rowActions={(r) => <RowActions row={r} onOpenBuilder={openForRow} />}
+        statusCell={(r) => <RowStatusCell row={r} />}
         selectable={{ isSelected, onToggle: toggleRow, allOnPageSelected: allOnPage || allInFilter, onTogglePage: togglePage }}
       />
 

@@ -172,9 +172,9 @@ export function RegistrationDetailView({
               </Field>
               <Field label="Promo code">{lead.promoCodeText || <Missing>None used</Missing>}</Field>
               <Field label="Amount received">
-                <span className="font-headline font-semibold tabular-nums">{formatMoney(lead.amountReceived, lead.currency)}</span>
-                {balance !== null && (
-                  <span className="block text-xs text-pz-on-surface-variant tabular-nums">Still to pay: {formatMoney(balance, lead.currency)}</span>
+                <span className="font-headline font-semibold tabular-nums">{formatMoney(lead.amountReceived, "PKR")}</span>
+                {balance !== null && lead.currency.toUpperCase() === "PKR" && (
+                  <span className="block text-xs text-pz-on-surface-variant tabular-nums">Still to pay: {formatMoney(balance, "PKR")}</span>
                 )}
               </Field>
               <Field label="Payment method">{lead.paymentMethod ?? <Missing />}</Field>
