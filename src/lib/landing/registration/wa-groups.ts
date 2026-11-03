@@ -2,6 +2,7 @@
 // Which WhatsApp group buttons a registration gets (success screen and emails).
 import { WA_GROUP_URL_RE, type Mode, type OptionView, type RegistrationView } from "./config";
 import { resolveOptionKeys } from "./pricing";
+import { optionShownName } from "./types";
 import type { ChangeableStatus } from "./status-rules";
 
 export interface WaGroupButton { label: string; url: string }
@@ -28,5 +29,5 @@ export function selectWaGroups(config: RegistrationView, optionKeys: string[], m
   const shown = bundles.length > 0 ? bundles : chosen;
   return shown
     .filter((o) => isValidWaGroupUrl(o.waGroupUrl))
-    .map((o) => ({ label: o.label, url: o.waGroupUrl.trim() }));
+    .map((o) => ({ label: optionShownName(o), url: o.waGroupUrl.trim() }));
 }

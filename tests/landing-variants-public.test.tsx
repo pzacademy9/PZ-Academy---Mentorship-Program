@@ -64,7 +64,9 @@ describe("public variant page", () => {
     render(await VariantPage(params(["uae", "module-2"])));
     expect(getPublishedVariantPage).toHaveBeenCalledWith("ppc-b4", ["uae", "module-2"]);
     expect(screen.getAllByText("UAE Module 2 headline").length).toBeGreaterThan(0);
-    expect(screen.getByText("Module Two Topic")).toBeTruthy();
+    // The module link heads its outline item with the module title ("Two"), not the main page wording.
+    expect(screen.getAllByText("Two").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Module Two Topic")).toBeNull();
     expect(screen.getByText("Shared Topic")).toBeTruthy();
     expect(screen.queryByText("Module One Topic")).toBeNull();
     expect(screen.getByTestId("host").getAttribute("data-variant")).toBe("uae/module-2");

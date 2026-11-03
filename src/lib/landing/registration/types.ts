@@ -5,7 +5,9 @@
 export type Mode = "live" | "recorded";
 export interface RegionDef { key: string; label: string; currency: string; classTime: string; timezoneLabel: string; accountKeys: string[] }
 // key: short upper-case code such as "PK" | "UAE" | "KSA" | "PH" | "IN" | "INTL"; currency ISO code such as "PKR"
-export interface OptionDef { key: string; label: string; kind: "bundle" | "module"; free: boolean; waGroupUrl: string; moduleIds: string[] }
+export interface OptionDef { key: string; label: string; kind: "bundle" | "module"; free: boolean; waGroupUrl: string; moduleIds: string[]; /** Set only on a module link: what the visitor sees instead of label. Never stored, never saved with a registration. */ displayLabel?: string }
+/** The name a visitor sees for an option (a module link shows the module title; everywhere else it is the label). */
+export function optionShownName(o: { label: string; displayLabel?: string }): string { return o.displayLabel && o.displayLabel.trim() !== "" ? o.displayLabel : o.label; }
 // moduleIds: course module ids this option grants ([] = whole course or none). waGroupUrl: "" or https://chat.whatsapp.com/<code>. An option is offered in a region only when prices[option][region] exists.
 /** An option as the browser sees it: the public routes never send which course modules it unlocks. */
 export type OptionView = Omit<OptionDef, "moduleIds">;
