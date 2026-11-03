@@ -82,6 +82,10 @@ describe("editorial hero (Style 3)", () => {
     expect(o).toContain("<picture");
     expect(o.indexOf("A fake headline")).toBeLessThan(o.indexOf("<picture"));
   });
+  it("the wide picture is a wide box on phones too, not a tall one", () => {
+    const o = html({ ...base, heroStyle: "editorial", imagePc: PC, imagePhone: PH });
+    expect(o).toContain("!aspect-[4/3]");
+  });
   it("renders no picture box without one", () => {
     const o = html({ ...base, heroStyle: "editorial" });
     expect(o).not.toContain("<picture");

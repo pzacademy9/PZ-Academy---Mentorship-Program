@@ -349,7 +349,7 @@ function EditorialHero({ data, register, sectionIds, pc, phone }: SectionProps &
         ) : null}
         {hasImage ? (
           <div className="w-full max-w-4xl overflow-hidden rounded-landing border border-white/20 shadow-landing-soft-lg">
-            <LandingPicture pc={pc} phone={phone} alt={headline} fit="cover" priority />
+            <LandingPicture pc={pc} phone={phone} alt={headline} fit="cover" priority className="!aspect-[4/3] md:!aspect-[16/9]" />
           </div>
         ) : null}
       </div>
