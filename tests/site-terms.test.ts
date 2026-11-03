@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 const gate = vi.hoisted(() => ({ result: null as unknown }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: async () => gate.result }));
 
-import { getGeneralTerms, saveGeneralTerms } from "@/lib/data/site-terms";
+import { getGeneralTerms, getGeneralTermsOrEmpty, saveGeneralTerms } from "@/lib/data/site-terms";
 import { siteTermsSchema } from "@/lib/validations/site-terms";
 import { GET, PUT } from "@/app/api/admin/site-terms/route";
 
@@ -40,6 +40,13 @@ describe("general terms data", () => {
   it("throws on a database error so a page never silently drops its Terms", async () => {
     db.state.handler = () => ({ data: null, error: { message: "boom" } });
     await expect(getGeneralTerms()).rejects.toBeTruthy();
+  });
+
+  it("the public pages read it safely: a missing table or a failed read gives an empty text, never an error", async () => {
+    db.state.handler = () => ({ data: null, error: { message: 'relation "site_terms" does not exist' } });
+    await expect(getGeneralTermsOrEmpty()).resolves.toBe("");
+    db.state.handler = () => ({ data: { body: "1. Fake rule" }, error: null });
+    await expect(getGeneralTermsOrEmpty()).resolves.toBe("1. Fake rule");
   });
 
   it("saving stores the text under the key general", async () => {

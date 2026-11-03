@@ -11,6 +11,15 @@ export async function getGeneralTerms(): Promise<string> {
   return typeof data?.body === "string" ? data.body : "";
 }
 
+/** For public pages: any failure (for example the table is not created yet) means "no general Terms", never a broken page. */
+export async function getGeneralTermsOrEmpty(): Promise<string> {
+  try {
+    return await getGeneralTerms();
+  } catch {
+    return "";
+  }
+}
+
 /** Saves the general Terms and Conditions text. Throws on a database error. */
 export async function saveGeneralTerms(body: string): Promise<void> {
   const { error } = await createAdminSupabase().from("site_terms").upsert({ key: KEY, body, updated_at: new Date().toISOString() }, { onConflict: "key" });

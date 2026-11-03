@@ -8,6 +8,7 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 const notFound = vi.fn(() => { throw new Error("NEXT_NOT_FOUND"); });
 vi.mock("next/navigation", () => ({ notFound: () => notFound() }));
 const getPublishedVariantPage = vi.fn();
+vi.mock("@/lib/data/site-terms", () => ({ getGeneralTermsOrEmpty: async () => "" }));
 vi.mock("@/lib/data/landing-variants", () => ({ getPublishedVariantPage: (...a: unknown[]) => getPublishedVariantPage(...a) }));
 vi.mock("@/components/landing/registration/RegistrationHost", () => ({
   RegistrationHost: ({ slug, variant }: { slug: string; variant?: string }) => <div data-testid="host" data-slug={slug} data-variant={variant ?? ""} />,

@@ -8,7 +8,7 @@ import type { NavItem } from "./MobileMenu";
 
 const CONTACT_EMAIL = "pz.academy9@gmail.com";
 
-export function LandingFooter({ title, items, whatsapp }: { title: string; items: NavItem[]; whatsapp: string }) {
+export function LandingFooter({ title, items, whatsapp, termsHref }: { title: string; items: NavItem[]; whatsapp: string; termsHref?: string }) {
   return (
     <footer className="border-t border-landing-on-primary/10 bg-landing-near-black px-4 pb-8 pt-10 text-xs text-landing-on-primary/70 md:px-6 md:pt-16">
       <div className="mx-auto max-w-7xl">
@@ -46,6 +46,7 @@ export function LandingFooter({ title, items, whatsapp }: { title: string; items
                 </li>
               ) : null}
               <li><a href={`mailto:${CONTACT_EMAIL}`} className="break-all transition-colors hover:text-landing-on-primary">{CONTACT_EMAIL}</a></li>
+              {termsHref ? <li><a href={termsHref} className="transition-colors hover:text-landing-on-primary">Terms and Conditions</a></li> : null}
             </ul>
           </div>
         </div>

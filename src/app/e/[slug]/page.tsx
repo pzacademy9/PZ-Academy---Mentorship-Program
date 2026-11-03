@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublishedLandingPage } from "@/lib/data/landing-pages";
 import { LandingRenderer } from "@/components/landing/LandingRenderer";
+import { getGeneralTermsOrEmpty } from "@/lib/data/site-terms";
+import { resolveTerms } from "@/lib/landing/terms";
 
 // Static + cached: this route must NOT read the cookie or header APIs, or it becomes dynamic. The
 // registration modal fetches the visitor's profile, country and prices client-side after it opens.
@@ -30,5 +32,6 @@ export default async function LandingPublicPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const found = await getPublishedLandingPage(slug);
   if (!found) notFound();
-  return <LandingRenderer content={found.content} status={found.page.status} kind={found.page.kind} pageTitle={found.page.title} slug={found.page.slug} />;
+  const termsHref = resolveTerms(found.content.settings.terms, await getGeneralTermsOrEmpty()) ? `/e/${found.page.slug}/terms` : undefined;
+  return <LandingRenderer content={found.content} status={found.page.status} kind={found.page.kind} pageTitle={found.page.title} slug={found.page.slug} termsHref={termsHref} />;
 }
