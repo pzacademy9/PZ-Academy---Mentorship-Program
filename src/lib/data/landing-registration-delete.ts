@@ -1,9 +1,10 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { deleteRegistrationRows } from "@/lib/gas/event-sheet-client";
 
 export type DeleteRegistrationResult =
   | { ok: true; removedMembers: number }
-  | { ok: false; reason: "not-found" | "member-row" | "db-error" };
+  | { ok: false; reason: "not-found" | "member-row" | "sheet-error" | "db-error" };
 
 type Admin = ReturnType<typeof createAdminSupabase>;
 
@@ -25,7 +26,36 @@ async function otherPaidRegistration(db: Admin, studentId: string, courseId: str
 }
 
 /**
+ * Removes the lead's and members' rows from the page's Google Sheet. The row is found by the LEAD's Ref ID and the
+ * email the sheet shows now (the remembered snapshot email when there is one, else the current email), the same way
+ * the status and details pushes find it. Returns true when the sheet could not be updated.
+ */
+async function removeSheetRows(
+  db: Admin,
+  lead: { id: unknown; page_id: unknown; ref_id: unknown; email: unknown; is_test: unknown },
+  members: { id: string; email: string }[],
+): Promise<boolean> {
+  if (lead.is_test === true || !lead.ref_id) return false;
+  const { data: page, error: pErr } = await db.from("landing_pages").select("id, sheet_id").eq("id", lead.page_id as string).maybeSingle();
+  if (pErr) throw new Error(pErr.code);
+  const sheetId = (page?.sheet_id as string | null | undefined) ?? "";
+  if (!sheetId) return false;
+  const people = [{ id: lead.id as string, email: lead.email as string }, ...members];
+  const { data: snaps, error: sErr } = await db.from("landing_sheet_snapshots").select("registration_id, email").in("registration_id", people.map((x) => x.id));
+  if (sErr) throw new Error(sErr.code);
+  const snapEmail = new Map<string, string>();
+  for (const sn of (snaps ?? []) as { registration_id: string; email: string | null }[]) {
+    const e = sn.email?.trim();
+    if (e) snapEmail.set(sn.registration_id, e);
+  }
+  const res = await deleteRegistrationRows(sheetId, people.map((x) => ({ refId: lead.ref_id as string, email: snapEmail.get(x.id) ?? x.email })));
+  if (!res.ok) console.error("[landing-registration-delete] sheet rows not removed:", res.message);
+  return !res.ok;
+}
+
+/**
  * Delete one registration for good (admin only; the route gates that). A group lead takes its members with it.
+ * Its row (and its members' rows) in the page's Google Sheet are removed first.
  * The registration's own records (status history, emails sent, sheet-sync notes, jobs, messages, mirror memory) go
  * with it by the database's cascade rules.
  *
@@ -39,15 +69,20 @@ async function otherPaidRegistration(db: Admin, studentId: string, courseId: str
 export async function deleteRegistration(p: { registrationId: string }): Promise<DeleteRegistrationResult> {
   const db = createAdminSupabase();
   try {
-    const { data: row, error } = await db.from("landing_registrations").select("id, row_type").eq("id", p.registrationId).maybeSingle();
+    const { data: row, error } = await db.from("landing_registrations").select("id, row_type, page_id, ref_id, email, is_test").eq("id", p.registrationId).maybeSingle();
     if (error) { console.error("[landing-registration-delete] read failed:", error.code); return { ok: false, reason: "db-error" }; }
     if (!row) return { ok: false, reason: "not-found" };
     if (row.row_type === "member") return { ok: false, reason: "member-row" };
 
-    const { data: memberRows, error: mErr } = await db.from("landing_registrations").select("id").eq("lead_registration_id", row.id);
+    const { data: memberRows, error: mErr } = await db.from("landing_registrations").select("id, email").eq("lead_registration_id", row.id);
     if (mErr) { console.error("[landing-registration-delete] members read failed:", mErr.code); return { ok: false, reason: "db-error" }; }
     const memberIds = (memberRows ?? []).map((m) => m.id as string);
     const ids = [row.id as string, ...memberIds];
+
+    // The sheet first: if it cannot be reached nothing is deleted, so the app and the sheet never disagree.
+    // A test row is never written to the sheet, and a page without a sheet has nothing to remove.
+    const sheetProblem = await removeSheetRows(db, row, (memberRows ?? []) as { id: string; email: string }[]);
+    if (sheetProblem) return { ok: false, reason: "sheet-error" };
 
     const { data: owned, error: oErr } = await db.from("enrollments").select("id, student_id, course_id").in("landing_registration_id", ids);
     if (oErr) { console.error("[landing-registration-delete] enrollments read failed:", oErr.code); return { ok: false, reason: "db-error" }; }

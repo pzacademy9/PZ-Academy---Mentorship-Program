@@ -44,6 +44,10 @@ describe("DELETE /api/admin/registrations/[id]", () => {
     expect((await call()).status).toBe(404);
     del.mockResolvedValue({ ok: false, reason: "member-row" });
     expect((await call()).status).toBe(404);
+    del.mockResolvedValue({ ok: false, reason: "sheet-error" });
+    const sheetRes = await call();
+    expect(sheetRes.status).toBe(502);
+    expect(((await sheetRes.json()) as { error: string }).error).toMatch(/sheet/i);
     del.mockResolvedValue({ ok: false, reason: "db-error" });
     expect((await call()).status).toBe(500);
   });

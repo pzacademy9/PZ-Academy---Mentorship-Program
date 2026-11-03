@@ -4,6 +4,8 @@ import { createSupabaseMock, filterValue, type Op, type Res } from "./helpers/su
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
+const sheet = vi.hoisted(() => ({ deleteRegistrationRows: vi.fn() }));
+vi.mock("@/lib/gas/event-sheet-client", () => sheet);
 
 import { deleteRegistration } from "@/lib/data/landing-registration-delete";
 
@@ -21,22 +23,31 @@ function script(rows: Rows, over: Partial<Record<string, Res>> = {}) {
       }
       const landing = filterValue(op, "in", "landing_registration_id") as string[] | undefined;
       if (landing) hit = hit.filter((r) => landing.includes(r.landing_registration_id as string));
+      const regIds = filterValue(op, "in", "registration_id") as string[] | undefined;
+      if (regIds) hit = hit.filter((r) => regIds.includes(r.registration_id as string));
       return { data: op.single ? hit[0] ?? null : hit, error: null };
     }
     return { data: null, error: null };
   };
 }
 
-beforeEach(() => db.reset());
+beforeEach(() => {
+  db.reset();
+  sheet.deleteRegistrationRows.mockReset().mockResolvedValue({ ok: true, deleted: 0, missing: [] });
+});
 
-const lead = { id: "lead-1", row_type: "lead", page_id: "p1" };
-const members = [{ id: "m1", lead_registration_id: "lead-1" }, { id: "m2", lead_registration_id: "lead-1" }];
+const lead = { id: "lead-1", row_type: "lead", page_id: "p1", ref_id: "PZA-1", email: "lead@x.com", is_test: false };
+const members = [
+  { id: "m1", lead_registration_id: "lead-1", email: "m1@x.com" },
+  { id: "m2", lead_registration_id: "lead-1", email: "m2@x.com" },
+];
+const page = { id: "p1", sheet_id: "sheet-1" };
 const enrollment = { id: "e1", student_id: "s1", course_id: "c1", landing_registration_id: "lead-1" };
 const writes = () => db.state.ops.filter((o) => o.op === "delete" || o.op === "update");
 
 describe("deleteRegistration", () => {
   it("removes the course access it gave, then the registration (members go with it)", async () => {
-    script({ landing_registrations: [lead, ...members], enrollments: [enrollment] });
+    script({ landing_registrations: [lead, ...members], enrollments: [enrollment], landing_pages: [page] });
     const r = await deleteRegistration({ registrationId: "lead-1" });
     expect(r).toEqual({ ok: true, removedMembers: 2 });
     const del = db.state.ops.filter((o) => o.op === "delete");
@@ -71,6 +82,37 @@ describe("deleteRegistration", () => {
     });
     await deleteRegistration({ registrationId: "lead-1" });
     expect(db.state.ops.some((o) => o.table === "enrollments" && o.op === "delete")).toBe(true);
+  });
+  it("deletes the sheet rows first: the lead and each member, found by the lead's Ref ID and the email the sheet shows", async () => {
+    script({
+      landing_registrations: [lead, ...members], landing_pages: [page],
+      landing_sheet_snapshots: [{ registration_id: "m1", email: "old-m1@x.com" }],
+    });
+    let deletesBeforeSheet = -1;
+    sheet.deleteRegistrationRows.mockImplementation(async () => {
+      deletesBeforeSheet = db.state.ops.filter((o) => o.op === "delete").length;
+      return { ok: true, deleted: 3, missing: [] };
+    });
+    await deleteRegistration({ registrationId: "lead-1" });
+    expect(deletesBeforeSheet).toBe(0);
+    expect(sheet.deleteRegistrationRows).toHaveBeenCalledWith("sheet-1", [
+      { refId: "PZA-1", email: "lead@x.com" },
+      { refId: "PZA-1", email: "old-m1@x.com" },
+      { refId: "PZA-1", email: "m2@x.com" },
+    ]);
+  });
+  it("leaves the sheet alone for a test row or a page with no sheet", async () => {
+    script({ landing_registrations: [{ ...lead, is_test: true }], landing_pages: [page] });
+    await deleteRegistration({ registrationId: "lead-1" });
+    script({ landing_registrations: [lead], landing_pages: [{ id: "p1", sheet_id: null }] });
+    await deleteRegistration({ registrationId: "lead-1" });
+    expect(sheet.deleteRegistrationRows).not.toHaveBeenCalled();
+  });
+  it("deletes nothing when the sheet cannot be reached, so the app and the sheet never disagree", async () => {
+    sheet.deleteRegistrationRows.mockResolvedValue({ ok: false, deleted: 0, missing: [], message: "Apps Script timed out." });
+    script({ landing_registrations: [lead], landing_pages: [page], enrollments: [enrollment] });
+    expect(await deleteRegistration({ registrationId: "lead-1" })).toEqual({ ok: false, reason: "sheet-error" });
+    expect(writes()).toHaveLength(0);
   });
   it("refuses a group member (its group's main registration owns it)", async () => {
     script({ landing_registrations: [{ id: "m1", row_type: "member", page_id: "p1", lead_registration_id: "lead-1" }] });
