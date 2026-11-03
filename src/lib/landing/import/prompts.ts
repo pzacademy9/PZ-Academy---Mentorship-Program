@@ -43,6 +43,7 @@ function fieldLine(f: FieldDef, kind: PageKind): string {
   if (f.kind === "youtube") return `${f.key}${req}: full YouTube link`;
   if (f.kind === "url") return `${f.key}${req}: https:// link`;
   if (f.kind === "textarea") return `${f.key}${req}${lim}: text`;
+  if (f.kind === "choice" && f.options) return `${f.key}${req}: one of ${f.options.map((o) => o.value).join(" / ")}`;
   return `${f.key}${req}${lim}`;
 }
 

@@ -37,6 +37,17 @@ describe("masterPrompt", () => {
         }
       });
 
+      it("gives the allowed values of every choice field", () => {
+        for (const t of KIND_SECTIONS[kind]) {
+          for (const f of SECTION_DEFS[t].fields) {
+            if (f.kind !== "choice") continue;
+            const line = prompt.split(/\r?\n/).find((l) => l.startsWith(`- ${f.key}`));
+            expect(line, `${t}.${f.key}`).toBeDefined();
+            for (const o of f.options ?? []) expect(line, `${t}.${f.key}=${o.value}`).toContain(o.value);
+          }
+        }
+      });
+
       it("contains the interview rules", () => {
         const p = prompt.toLowerCase();
         expect(p).toContain("one question at a time");
@@ -57,7 +68,7 @@ describe("masterPrompt", () => {
       });
 
       it("stays a sane length", () => {
-        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(12000);
+        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(13000);
       });
 
       it("keeps the rules section (before the section list) short", () => {
