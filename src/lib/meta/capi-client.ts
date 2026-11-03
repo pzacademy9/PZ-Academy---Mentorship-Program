@@ -1,6 +1,6 @@
 import type { MetaEvent } from "./capi-payload";
 
-const GRAPH_VERSION = "v21.0";
+const GRAPH_VERSION = "v26.0";
 const TIMEOUT_MS = 10_000;
 
 export async function sendMetaEvent(

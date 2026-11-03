@@ -37,7 +37,7 @@ describe("sendMetaEvent", () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200 });
     await sendMetaEvent("999", event);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toMatch(/^https:\/\/graph\.facebook\.com\/v[\d.]+\/999\/events$/);
+    expect(String(url)).toBe("https://graph.facebook.com/v26.0/999/events");
     expect(String(url)).not.toContain(TOKEN);
     expect(init.method).toBe("POST");
     const body = JSON.parse(init.body);
