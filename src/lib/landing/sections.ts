@@ -137,10 +137,16 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
     navLabel: "Instructor",
     fields: [
       text("heading", "Heading", { defaultValue: "Meet your instructor" }),
+      choice("layout", "Look", [
+        { value: "a", label: "Portrait and text" },
+        { value: "b", label: "Dark green band" },
+        { value: "classic", label: "Cards (old style)" },
+      ], "a"),
       list("items", "People", [
         text("name", "Name", { required: true, max: 80 }),
         text("role", "Title / credentials", { max: 160 }),
         area("bio", "Short bio", { max: 1200, help: MARKUP_HELP }),
+        area("credentials", "Credentials list (optional)", { max: 600, help: "One per line, starting with -. Shown as a short list under the bio." }),
         image("photo", "Photo"),
       ], { required: true, itemLabel: "Person", maxItems: 8 }),
     ],
@@ -324,6 +330,10 @@ export function normalizeSectionData(type: SectionType, raw: unknown): Record<st
     // The default is now the fade style, so the old fallback must be explicit.
     if (!("heroStyle" in src)) out.heroStyle = typeof src.image === "string" && src.image !== "" ? "classic" : "photo";
     if (!("secondaryCtaType" in src) && typeof src.secondaryCtaUrl === "string" && src.secondaryCtaUrl !== "") out.secondaryCtaType = "link";
+  }
+  if (type === "instructors") {
+    // Pages saved before the new looks existed keep their old cards.
+    if (!(isRecord(raw) && "layout" in raw)) out.layout = "classic";
   }
   return out;
 }
