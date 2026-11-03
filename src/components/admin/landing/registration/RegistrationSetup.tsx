@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CourseModule } from "@/lib/data/landing-course-modules";
-import { FIELD_MAX, MAX_CAPACITY, MAX_GROUP_SIZE, registrationProblems, type Mode, type RegistrationConfig } from "@/lib/landing/registration/config";
+import { DEFAULT_DISCOVERY_OPTIONS, FIELD_MAX, MAX_CAPACITY, MAX_GROUP_SIZE, registrationProblems, type Mode, type RegistrationConfig } from "@/lib/landing/registration/config";
 import { isValidWaGroupUrl } from "@/lib/landing/registration/wa-groups";
 import { REG_STEPS, type RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import {
@@ -385,7 +385,7 @@ function DetailsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Reg
         <input type="number" inputMode="numeric" min={0} aria-label="Seat limit" className={`${CONTROL} w-28`} value={String(r.capacity)} onChange={(e) => onChange({ ...r, capacity: whole(e.target.value, 0, MAX_CAPACITY) })} />
       </label>
       <LinesField label="Professions" help="One per line." value={r.professions} onChange={(v) => onChange({ ...r, professions: v })} />
-      <LinesField label="How did you hear about us? choices" help="One per line. Leave empty to hide the question." value={r.discoveryOptions} onChange={(v) => onChange({ ...r, discoveryOptions: v })} />
+      <LinesField label="How did you hear about us? choices" help="One per line. Leave empty to hide the question." value={r.discoveryOptions} suggest={DEFAULT_DISCOVERY_OPTIONS} onChange={(v) => onChange({ ...r, discoveryOptions: v })} />
       <label className="block space-y-1">
         <span className={LABEL}>Meta Pixel ID (optional)</span>
         <span className={`block ${HELP}`}>Leave empty to use the academy&apos;s main Pixel.</span>
@@ -395,17 +395,26 @@ function DetailsStep({ r, onChange }: { r: RegistrationConfig; onChange: (n: Reg
   );
 }
 
-function LinesField({ label, help, value, onChange }: { label: string; help: string; value: string[]; onChange: (v: string[]) => void }) {
+function LinesField({ label, help, value, onChange, suggest }: { label: string; help: string; value: string[]; onChange: (v: string[]) => void; suggest?: readonly string[] }) {
   const [text, setText] = useState(value.join("\n"));
   useEffect(() => {
     if (lines(text).join("\n") !== value.join("\n")) setText(value.join("\n"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
-  return (
+  const box = (
     <label className="block space-y-1">
       <span className={LABEL}>{label}</span>
       <span className={`block ${HELP}`}>{help}</span>
       <textarea aria-label={label} rows={4} className={CONTROL} value={text} onChange={(e) => { setText(e.target.value); onChange(lines(e.target.value).slice(0, FIELD_MAX.listCount).map((l) => l.slice(0, FIELD_MAX.listItem))); }} />
     </label>
+  );
+  if (!suggest || value.length > 0) return box;
+  return (
+    <div className="space-y-2">
+      {box}
+      <button type="button" onClick={() => onChange([...suggest])} className="rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-sm font-semibold text-pz-on-surface hover:bg-pz-surface-container-high max-md:min-h-11">
+        Use the usual choices
+      </button>
+    </div>
   );
 }

@@ -9,6 +9,15 @@ import { R_CHOICE, R_ERROR, R_HINT, R_INPUT, R_LABEL } from "./ui";
 
 const LEGEND = "font-headline text-base font-bold text-landing-near-black";
 
+/**
+ * The countries to pick from. The International region (everyone not listed, paying the international way) is shown as
+ * "Other" and always last, so a visitor from anywhere else knows it is for them.
+ */
+function countryChoices<T extends { key: string; label: string }>(regions: T[]): T[] {
+  const named = regions.map((r) => (r.key === "INTL" ? { ...r, label: "Other" } : r));
+  return [...named.filter((r) => r.key !== "INTL"), ...named.filter((r) => r.key === "INTL")];
+}
+
 export function StepChoose({
   config, state, errors, notice, isFree, onRegion, onMode, onToggleOption, onTier, onGroupSize, modeLocked = false,
 }: {
@@ -30,7 +39,7 @@ export function StepChoose({
         <fieldset aria-describedby={errors.regionKey ? "err-region" : undefined}>
           <legend className={LEGEND}>Registering from</legend>
           <div className="mt-2 flex flex-wrap gap-2">
-            {config.regions.map((r) => (
+            {countryChoices(config.regions).map((r) => (
               <label key={r.key} className="inline-flex min-h-11 cursor-pointer items-center rounded-full border-2 border-landing-border bg-landing-surface-container-lowest px-4 font-landing-body text-base font-semibold text-landing-on-surface has-[:checked]:border-landing-primary has-[:checked]:bg-landing-mint-light has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-landing-mint">
                 <input type="radio" name="region" className="sr-only" checked={state.regionKey === r.key} onChange={() => onRegion(r.key)} />
                 {r.label}
