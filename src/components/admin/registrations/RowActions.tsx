@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, MailCheck, MessageCircle, MoreVertical, Pencil } from "lucide-react";
+import { Mail, MailCheck, MessageCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { RegistrationListRow } from "@/lib/data/landing-registration-admin";
 import type { OpenBuilder } from "./CampaignRegistrations";
 import { phoneProblemWord } from "./WhatsAppSendList";
 import { EditDetailsDialog } from "./EditDetailsDialog";
 import { StatusEmailDialog } from "./StatusEmailDialog";
+import { DeleteRegistrationDialog } from "./DeleteRegistrationDialog";
 
 const ITEM =
   "gap-3 px-3 py-2.5 max-md:min-h-11 rounded-lg text-sm font-headline font-semibold text-pz-on-surface focus:bg-pz-surface-container focus:text-pz-on-surface max-md:flex-col max-md:items-start max-md:gap-1 max-md:bg-pz-surface-container-low";
@@ -15,7 +16,7 @@ const ICON = "w-4 h-4 text-pz-primary shrink-0";
 
 /** The row menu: Edit details, Status email, Send email, Send WhatsApp. Group members get their own row, so the Status email dialog is told the row type. */
 export function RowActions({ row, onOpenBuilder }: { row: RegistrationListRow; onOpenBuilder: OpenBuilder }) {
-  const [dialog, setDialog] = useState<"edit" | "status" | null>(null);
+  const [dialog, setDialog] = useState<"edit" | "status" | "delete" | null>(null);
   const waProblem = phoneProblemWord(row.whatsapp);
 
   function openBuilder(channel: "email" | "whatsapp") {
@@ -62,9 +63,17 @@ export function RowActions({ row, onOpenBuilder }: { row: RegistrationListRow; o
             <span>Send WhatsApp</span>
             {waProblem && <span className="text-[11px] font-normal text-pz-error md:ml-auto">{waProblem}</span>}
           </DropdownMenuItem>
+          {row.rowType !== "member" && (
+            <DropdownMenuItem className={`${ITEM} text-pz-danger focus:text-pz-danger`} onSelect={() => setDialog("delete")}>
+              <Trash2 className="w-4 h-4 text-pz-danger shrink-0" aria-hidden="true" />
+              <span>Delete</span>
+              <span className="md:hidden text-[11px] font-normal text-pz-on-surface-variant">Remove for good</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {dialog === "delete" && <DeleteRegistrationDialog row={row} onClose={() => setDialog(null)} />}
       {dialog === "edit" && <EditDetailsDialog row={row} onClose={() => setDialog(null)} />}
       {dialog === "status" && <StatusEmailDialog row={row} rowType={row.rowType} onClose={() => setDialog(null)} />}
     </>
