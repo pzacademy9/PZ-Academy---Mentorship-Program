@@ -20,6 +20,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     case "not-found":
     case "member-row":
       return NextResponse.json({ error: "Registration not found" }, { status: 404 });
+    case "sheet-error":
+      return NextResponse.json({ error: "Could not remove the row from the Google Sheet, so nothing was deleted. Try again in a minute." }, { status: 502 });
     default:
       return NextResponse.json({ error: "Could not delete this registration. Try again." }, { status: 500 });
   }

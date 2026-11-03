@@ -212,6 +212,10 @@ function doPost(e) {
     return handleApplyRegistrationDetails_(body);
   }
 
+  if (body.action === "deleteRegistrationRows") {
+    return handleDeleteRegistrationRows_(body);
+  }
+
   if (body.action === "scanLandingSheet") {
     return handleScanLandingSheet_(body);
   }
@@ -862,6 +866,64 @@ function handleApplyRegistrationDetails_(body) {
       updated++;
     }
     return jsonResponse_({ status: "success", ok: true, updated: updated, missing: missing });
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Deletes registration rows after an admin deletes the person in the app.
+ * Each row is found by Ref ID + email (landingRowKey_), never by row number. Rows are removed from the bottom up
+ * so the row numbers found earlier stay correct. Rows not in the sheet are reported in `missing`, not an error.
+ * The header row is never touched, and nothing else in the sheet changes.
+ */
+function handleDeleteRegistrationRows_(body) {
+  if (!body.sheetId || !Array.isArray(body.rows)) {
+    return jsonResponse_({ status: "error", message: "Missing sheetId or rows" });
+  }
+  for (const r of body.rows) {
+    if (!r || !r.refId || !r.email) {
+      return jsonResponse_({ status: "error", message: "Invalid row" });
+    }
+  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return jsonResponse_({ status: "error", message: "Sheet is busy, try again" });
+  }
+  try {
+    const ss = SpreadsheetApp.openById(body.sheetId);
+    const sheet = ss.getSheetByName(LANDING_TAB_NAME) || ss.getSheets()[0];
+    const lastRow = sheet.getLastRow();
+
+    const index = {};
+    if (lastRow >= 2) {
+      const emails = sheet.getRange(2, LANDING_COL.EMAIL, lastRow - 1, 1).getDisplayValues();
+      const refs = sheet.getRange(2, LANDING_COL.REF, lastRow - 1, 1).getDisplayValues();
+      for (let i = 0; i < emails.length; i++) {
+        const key = landingRowKey_(refs[i][0], emails[i][0]);
+        if (!(key in index)) index[key] = i + 2;
+      }
+    }
+
+    const missing = [];
+    const found = {};
+    for (const r of body.rows) {
+      const key = landingRowKey_(r.refId, r.email);
+      const rowNum = index[key];
+      if (rowNum === undefined) {
+        missing.push(key);
+        continue;
+      }
+      found[rowNum] = true;
+    }
+
+    const rowNums = Object.keys(found).map(Number).sort((a, b) => b - a);
+    for (const rowNum of rowNums) sheet.deleteRow(rowNum);
+    return jsonResponse_({ status: "success", ok: true, deleted: rowNums.length, missing: missing });
   } catch (err) {
     return jsonResponse_({ status: "error", message: String(err) });
   } finally {

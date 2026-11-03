@@ -86,6 +86,27 @@ export async function applyRegistrationDetails(sheetId: string, rows: DetailsShe
   return { ok: true, missing: Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [] };
 }
 
+export interface DeleteSheetRow { refId: string; email: string }
+
+/**
+ * Removes registration rows from a landing sheet after the person is deleted in the app. A row is found by Ref ID +
+ * the email the sheet shows now. `missing` lists rows that were already gone (not an error). `ok: false` also covers
+ * an Apps Script version that does not know this action yet.
+ */
+export async function deleteRegistrationRows(sheetId: string, rows: DeleteSheetRow[]): Promise<{ ok: boolean; deleted: number; missing: string[]; message?: string }> {
+  if (rows.length === 0) return { ok: true, deleted: 0, missing: [] };
+  const token = process.env.SHEETS_SYNC_SECRET;
+  if (!token) return { ok: false, deleted: 0, missing: [], message: "SHEETS_SYNC_SECRET is not configured." };
+  const r = await postToGas({ token, action: "deleteRegistrationRows", sheetId, rows });
+  if (!r.ok) return { ok: false, deleted: 0, missing: [], message: r.message };
+  const raw = r.data.missing;
+  return {
+    ok: true,
+    deleted: typeof r.data.deleted === "number" ? r.data.deleted : 0,
+    missing: Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [],
+  };
+}
+
 /** Asks Apps Script to scan one landing sheet now and send its rows to the app. */
 export async function requestSheetScan(sheetId: string): Promise<{ ok: boolean; message?: string }> {
   const token = process.env.SHEETS_SYNC_SECRET;
