@@ -1,14 +1,17 @@
 // src/components/landing/sections/Schedule.tsx
 import { SectionHeader, rows, str } from "./util";
 import type { SectionProps } from "./types";
+import { ScheduleClassTime } from "./ScheduleClassTime";
 
-export function Schedule({ data }: SectionProps) {
+export function Schedule({ data, registration }: SectionProps) {
+  const times = (registration?.regions ?? []).filter((g) => g.classTime.trim() !== "").map((g) => ({ key: g.key, label: g.label, classTime: g.classTime, timezoneLabel: g.timezoneLabel }));
   const items = rows(data, "items").map((i) => ({ when: str(i, "when"), title: str(i, "title"), detail: str(i, "detail") })).filter((i) => i.when || i.title);
   if (items.length === 0) return null;
   return (
     <div className="border-b border-landing-border bg-landing-surface px-4 py-10 md:px-6 md:py-20">
       <div className="mx-auto max-w-4xl">
         <SectionHeader heading={str(data, "heading")} />
+        {times.length > 0 ? <ScheduleClassTime regions={times} defaultKey={registration?.defaultRegionKey ?? ""} /> : null}
         <ol className="space-y-3 md:space-y-4">
           {items.map((it, i) => (
             <li key={i} className="flex flex-col gap-3 rounded-landing border border-landing-border bg-landing-surface-container-lowest p-4 transition-colors hover:border-landing-primary/40 md:flex-row md:items-center md:gap-6 md:p-6">
