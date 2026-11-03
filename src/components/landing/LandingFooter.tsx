@@ -2,7 +2,11 @@
 // Built from the Stitch footer rather than reusing MarketingFooter: that component is the app's
 // dark-mode-aware marketing chrome (pz-* tokens, next/image, raw rgba values, links to app routes)
 // and does not match the landing brand.
+import Image from "next/image";
+import { SITE_LOGO_ALT, SITE_LOGO_URL } from "@/lib/site-logo";
 import type { NavItem } from "./MobileMenu";
+
+const CONTACT_EMAIL = "pz.academy9@gmail.com";
 
 export function LandingFooter({ title, items, whatsapp }: { title: string; items: NavItem[]; whatsapp: string }) {
   return (
@@ -11,7 +15,10 @@ export function LandingFooter({ title, items, whatsapp }: { title: string; items
         <div className="grid grid-cols-1 gap-8 border-b border-landing-on-primary/10 pb-8 md:grid-cols-2 md:gap-10 md:pb-12 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <div className="mb-3 flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-landing bg-landing-primary font-headline text-sm font-black text-landing-mint md:h-9 md:w-9 md:text-base">PZ</span>
+              {/* A light chip keeps the logo readable on the dark footer. */}
+              <span className="flex shrink-0 items-center rounded-landing bg-white px-2 py-1">
+                <Image src={SITE_LOGO_URL} alt={SITE_LOGO_ALT} width={40} height={40} className="h-7 w-auto md:h-9" unoptimized />
+              </span>
               <span className="font-headline text-sm font-extrabold text-landing-on-primary md:text-lg">{title || "PZ Academy"}</span>
             </div>
             <p className="max-w-sm leading-relaxed text-landing-on-primary/60">
@@ -38,7 +45,7 @@ export function LandingFooter({ title, items, whatsapp }: { title: string; items
                   </a>
                 </li>
               ) : null}
-              <li><a href="mailto:info@pharmacozyme.com" className="transition-colors hover:text-landing-on-primary">info@pharmacozyme.com</a></li>
+              <li><a href={`mailto:${CONTACT_EMAIL}`} className="break-all transition-colors hover:text-landing-on-primary">{CONTACT_EMAIL}</a></li>
             </ul>
           </div>
         </div>
