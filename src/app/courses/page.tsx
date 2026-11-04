@@ -56,6 +56,7 @@ export default async function CoursesPage() {
 
       {/* ─── COURSES ─── */}
       <div id="courses" className="scroll-mt-20 max-w-[1280px] mx-auto px-6 md:px-16 py-12">
+        <h2 className="sr-only">All courses</h2>
         <CourseCatalogGrid
           courses={courses}
           promo={promo}

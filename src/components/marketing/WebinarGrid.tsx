@@ -4,9 +4,8 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { Play, CheckCircle } from "lucide-react";
 import type { CourseCard } from "@/lib/data/lms";
-import type { Promo } from "@/lib/marketing/promo";
+import { PROMO_AFTER, type Promo } from "@/lib/marketing/promo";
 import { PromoSlot } from "./PromoSlot";
-import { PROMO_AFTER } from "./CourseCatalogGrid";
 
 type Filter = "all" | "past" | "upcoming";
 
@@ -34,6 +33,8 @@ export function WebinarGrid({ webinars, promo = null }: { webinars: CourseCard[]
     if (filter === "all") return true;
     return filter === "past" ? w.status === "closed" : w.status === "open";
   });
+  // Promo only in the full list — a filtered view stays exactly what was asked for.
+  const promoAt = promo && filter === "all" ? Math.min(PROMO_AFTER, visible.length) : -1;
 
   return (
     <>
@@ -64,6 +65,7 @@ export function WebinarGrid({ webinars, promo = null }: { webinars: CourseCard[]
             return (
               <Fragment key={w.id}>
               <div
+                data-grid-item={w.id}
                 className="bg-white rounded-2xl border-[1.5px] border-pz-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card-lg hover:border-transparent"
               >
                 {/* Card top */}
@@ -116,7 +118,11 @@ export function WebinarGrid({ webinars, promo = null }: { webinars: CourseCard[]
                   )}
                 </div>
               </div>
-              {promo && i === Math.min(PROMO_AFTER, visible.length) - 1 && <PromoSlot promo={promo} variant="card" />}
+              {i === promoAt - 1 && (
+                <div data-grid-item="promo" className="contents">
+                  <PromoSlot promo={promo} variant="card" />
+                </div>
+              )}
               </Fragment>
             );
           })}

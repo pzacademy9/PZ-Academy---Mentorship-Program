@@ -6,10 +6,7 @@ import { Search } from "lucide-react";
 import { CourseCard } from "./CourseCard";
 import { PromoSlot } from "./PromoSlot";
 import type { CourseCard as CourseCardData } from "@/lib/data/lms";
-import type { Promo } from "@/lib/marketing/promo";
-
-/** Where the in-feed promo card goes: after the 3rd program, or last if fewer. */
-export const PROMO_AFTER = 3;
+import { PROMO_AFTER, type Promo } from "@/lib/marketing/promo";
 
 /**
  * Search + grid for a single-type catalog (used by /courses, /workshops, and

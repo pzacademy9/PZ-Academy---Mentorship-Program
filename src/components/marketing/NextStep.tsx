@@ -13,10 +13,10 @@ const HEX_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg
  */
 export function NextStep({ title, text, primary, next }: { title: ReactNode; text: string; primary: StepLink; next: StepLink }) {
   return (
-    <section aria-label="Your next step" className="py-20 md:py-24 px-6 bg-gradient-to-br from-pz-solid-deep to-[#1a4a2e] text-center relative overflow-hidden z-10">
+    <section aria-labelledby="next-step-title" className="py-20 md:py-24 px-6 bg-gradient-to-br from-pz-solid-deep to-[#1a4a2e] text-center relative overflow-hidden z-10">
       <div aria-hidden="true" className="absolute inset-0" style={{ backgroundImage: HEX_BG, backgroundSize: "60px 104px" }} />
       <div className="relative z-10 max-w-[660px] mx-auto">
-        <span className="text-pz-bright text-[.75rem] font-semibold tracking-[.13em] uppercase font-poppins">Your next step</span>
+        <span id="next-step-title" className="text-pz-bright text-[.75rem] font-semibold tracking-[.13em] uppercase font-poppins">Your next step</span>
         <h2 className="font-montserrat text-[clamp(1.9rem,3.5vw,2.8rem)] font-extrabold text-white leading-[1.15] tracking-[-0.015em] mt-3 mb-4">{title}</h2>
         <p className="text-[rgba(255,255,255,.75)] text-[.97rem] leading-[1.8] mb-10 font-poppins">{text}</p>
         <div className="flex gap-4 justify-center flex-wrap">

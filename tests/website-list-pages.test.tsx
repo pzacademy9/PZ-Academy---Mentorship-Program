@@ -26,7 +26,7 @@ const card = (n: number, extra: Partial<CourseCardData> = {}): CourseCardData =>
   mentorTitle: null, mentorAvatarUrl: null, publicVideoUrl: null, ...extra,
 });
 const promo = { headline: "Fake Promo", detail: null, ctaText: "See it", href: "/e/promo", imageUrl: null };
-const promoRegion = () => screen.queryByRole("complementary", { name: /^Featured/ });
+const promoRegion = () => screen.queryByRole("article", { name: /^Featured/ });
 
 beforeEach(() => {
   data.courses = [];
@@ -49,8 +49,16 @@ describe("CourseCatalogGrid", () => {
 
   it("hides the promo while the visitor is searching", () => {
     render(<CourseCatalogGrid courses={[card(1), card(2)]} promo={promo} />);
+    expect(promoRegion()).toBeTruthy();
     fireEvent.change(screen.getByRole("searchbox", { name: /search/i }), { target: { value: "Program 1" } });
     expect(promoRegion()).toBeNull();
+  });
+
+  it("a search with no match hides the promo and says so", () => {
+    render(<CourseCatalogGrid courses={[card(1)]} promo={promo} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: /search/i }), { target: { value: "zzz" } });
+    expect(promoRegion()).toBeNull();
+    expect(screen.getByText(/no courses match your search/i)).toBeTruthy();
   });
 
   it("an empty catalog points to the next thing to do, not a dead end", () => {
@@ -85,9 +93,19 @@ describe("WebinarGrid", () => {
     expect(all.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("shows the promo card inside the grid", () => {
-    render(<WebinarGrid webinars={webinars} promo={promo} />);
-    expect(promoRegion()).toBeTruthy();
+  it("puts the promo card after the third webinar in the full list only", () => {
+    const many = [1, 2, 3, 4].map((n) => card(n, { type: "webinar", status: n === 4 ? "closed" : "open" }));
+    const { container } = render(<WebinarGrid webinars={many} promo={promo} />);
+    const items = () => Array.from(container.querySelectorAll("[data-grid-item]")).map((el) => el.getAttribute("data-grid-item"));
+    expect(items()).toEqual(["c1", "c2", "c3", "promo", "c4"]);
+    fireEvent.click(screen.getByRole("button", { name: "Past" }));
+    expect(items()).toEqual(["c4"]);
+    expect(promoRegion()).toBeNull();
+  });
+
+  it("puts the promo last when there are fewer than three webinars", () => {
+    const { container } = render(<WebinarGrid webinars={webinars} promo={promo} />);
+    expect(Array.from(container.querySelectorAll("[data-grid-item]")).map((el) => el.getAttribute("data-grid-item"))).toEqual(["c1", "c2", "promo"]);
   });
 });
 
@@ -102,6 +120,7 @@ describe("list pages", () => {
     data.courses = [card(1)];
     render(await Page());
     expect(heroOf().className).not.toMatch(/min-h-screen/);
+    expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0);
     const step = screen.getByRole("region", { name: /next step/i });
     expect(within(step).getAllByRole("link").map((a) => a.getAttribute("href"))).toContain(next);
   });
@@ -115,7 +134,7 @@ describe("list pages", () => {
     data.courses = [card(1)];
     data.banners = [{ id: "b1", slot: "sidebar", imageUrl: null, headline: "Fake Sidebar Promo", ctaText: "Go", ctaLink: "/e/x" }];
     render(await WorkshopsPage());
-    expect(screen.getByRole("complementary", { name: "Featured: Fake Sidebar Promo" })).toBeTruthy();
+    expect(screen.getByRole("article", { name: "Featured: Fake Sidebar Promo" })).toBeTruthy();
   });
 
   it("falls back to an open batch, but not one already listed on the page", async () => {
@@ -125,8 +144,8 @@ describe("list pages", () => {
       ["c9", { courseId: "c9", slug: "other", title: "Other Batch", startsOn: "2 Dec", href: "/e/other" }],
     ]);
     render(await CoursesPage());
-    expect(screen.getByRole("complementary", { name: "Featured: Other Batch" })).toBeTruthy();
-    expect(screen.queryByRole("complementary", { name: "Featured: Listed Batch" })).toBeNull();
+    expect(screen.getByRole("article", { name: "Featured: Other Batch" })).toBeTruthy();
+    expect(screen.queryByRole("article", { name: "Featured: Listed Batch" })).toBeNull();
   });
 
   it("an empty Workshops page sends people to free webinars", async () => {
