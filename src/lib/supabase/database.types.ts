@@ -4155,6 +4155,33 @@ export type Database = {
           },
         ]
       }
+      team_access: {
+        Row: {
+          active: boolean
+          extra_areas: string[]
+          previous_role: Database["public"]["Enums"]["user_role"] | null
+          removed_areas: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          extra_areas?: string[]
+          previous_role?: Database["public"]["Enums"]["user_role"] | null
+          removed_areas?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          extra_areas?: string[]
+          previous_role?: Database["public"]["Enums"]["user_role"] | null
+          removed_areas?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       webinars: {
         Row: {
           created_at: string
@@ -4892,7 +4919,7 @@ export type Database = {
         | "cv_review"
         | "interview_prep"
         | "career_guidance"
-      user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent"
+      user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent" | "manager"
       whatsapp_send_status: "pending" | "sent" | "skipped" | "blocked"
     }
     CompositeTypes: {
@@ -5049,7 +5076,7 @@ export const Constants = {
         "interview_prep",
         "career_guidance",
       ],
-      user_role: ["student", "mentor", "admin", "super_admin", "sales_agent"],
+      user_role: ["student", "mentor", "admin", "super_admin", "sales_agent", "manager"],
     },
   },
 } as const

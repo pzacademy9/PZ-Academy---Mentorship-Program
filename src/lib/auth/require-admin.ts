@@ -82,3 +82,33 @@ export async function requireAdminPage(): Promise<{ user: User; supabase: Server
 
   return { user, supabase };
 }
+
+/** Super admin gate for ROUTE HANDLERS (the Team screen's API). Same shape as requireAdmin. */
+export async function requireSuperAdmin(): Promise<
+  { ok: true; user: User; supabase: ServerSupabase } | { ok: false; response: NextResponse }
+> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, response: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "super_admin") {
+    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+  return { ok: true, user, supabase };
+}
+
+/** Super admin gate for SERVER COMPONENT PAGES. Redirects anyone else. */
+export async function requireSuperAdminPage(): Promise<{ user: User; supabase: ServerSupabase }> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "super_admin") redirect("/dashboard");
+  return { user, supabase };
+}

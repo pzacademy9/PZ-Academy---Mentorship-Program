@@ -48,8 +48,8 @@ describe("database.types.ts hand edits", () => {
   const types = readFileSync(join(process.cwd(), "src", "lib", "supabase", "database.types.ts"), "utf8");
 
   it("lists sales_agent in the user_role union and the constants array", () => {
-    expect(types).toContain('user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent"');
-    expect(types).toContain('user_role: ["student", "mentor", "admin", "super_admin", "sales_agent"]');
+    expect(types).toContain('user_role: "student" | "mentor" | "admin" | "super_admin" | "sales_agent" | "manager"');
+    expect(types).toContain('user_role: ["student", "mentor", "admin", "super_admin", "sales_agent", "manager"]');
   });
 
   it("adds owner_id and claimed_at to contacts Row, Insert and Update", () => {

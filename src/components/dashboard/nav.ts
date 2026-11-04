@@ -54,6 +54,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
   { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "super_admin"] },
   { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "super_admin"] },
+  { label: "Team", href: "/dashboard/admin/team", icon: ShieldCheck, roles: ["super_admin"] },
   { label: "Analytics", href: "/dashboard/admin", icon: BarChart3, roles: ["admin", "super_admin"] },
   { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "super_admin", "sales_agent"] },
   { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["student", "mentor", "admin", "super_admin", "sales_agent"] },
