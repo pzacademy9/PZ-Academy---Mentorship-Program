@@ -27,7 +27,9 @@ const areas = (v: unknown): Area[] => (Array.isArray(v) ? v.filter(isArea) : [])
 
 export async function getCustomAccess(userId: string): Promise<CustomAccess | null> {
   const admin = createAdminSupabase();
-  const { data } = await admin.from("team_access").select("extra_areas, removed_areas, active").eq("user_id", userId).maybeSingle();
+  const { data, error } = await admin.from("team_access").select("extra_areas, removed_areas, active").eq("user_id", userId).maybeSingle();
+  // A failed read must never look like "no custom rules": callers (access guards) rely on the throw to deny.
+  if (error) throw new Error("Could not read team access");
   if (!data || data.active === false) return null;
   return { extra: areas(data.extra_areas), removed: areas(data.removed_areas) };
 }
@@ -75,15 +77,21 @@ export async function saveTeamMember(input: { userId: string; role: "admin" | "m
   const decision = decideTeamChange((profile?.role ?? null) as Role | null);
   if (decision !== "ok") return { ok: false, reason: decision };
 
-  const { error: roleError } = await admin.from("profiles").update({ role: input.role }).eq("id", input.userId);
-  if (roleError) return { ok: false, reason: "db-error" };
+  // Guarded on the role we just evaluated, so a concurrent change (for example to super_admin) is never overwritten.
+  const { data: updated, error: roleError } = await admin
+    .from("profiles").update({ role: input.role }).eq("id", input.userId).eq("role", profile!.role).select("id");
+  if (roleError || !updated || updated.length === 0) return { ok: false, reason: "db-error" };
 
   const c = cleanCustom(input.custom);
   const { error } = await admin.from("team_access").upsert({
     user_id: input.userId, extra_areas: c.extra, removed_areas: c.removed, active: true, previous_role: null,
     updated_at: new Date().toISOString(),
   });
-  if (error) return { ok: false, reason: "db-error" };
+  if (error) {
+    // Do not leave a granted role without its custom lists: put the role back.
+    await admin.from("profiles").update({ role: profile!.role }).eq("id", input.userId).eq("role", input.role);
+    return { ok: false, reason: "db-error" };
+  }
   return { ok: true };
 }
 
@@ -95,8 +103,10 @@ export async function switchOffTeamMember(userId: string): Promise<TeamResult> {
   if (profile.role === "super_admin") return { ok: false, reason: "is-super-admin" };
   if (profile.role !== "admin" && profile.role !== "manager") return { ok: false, reason: "not-team-member" };
 
-  const { error: roleError } = await admin.from("profiles").update({ role: "student" }).eq("id", userId).eq("role", profile.role);
+  const { data: updated, error: roleError } = await admin
+    .from("profiles").update({ role: "student" }).eq("id", userId).eq("role", profile.role).select("id");
   if (roleError) return { ok: false, reason: "db-error" };
+  if (!updated || updated.length === 0) return { ok: false, reason: "not-team-member" };
   const { error } = await admin.from("team_access").upsert({
     user_id: userId, active: false, previous_role: profile.role, updated_at: new Date().toISOString(),
   });

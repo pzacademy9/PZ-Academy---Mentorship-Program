@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 type Row = Record<string, unknown>;
-const db: { profiles: Row[]; team_access: Row[]; writes: { table: string; op: string; values: Row }[] } = {
-  profiles: [], team_access: [], writes: [],
+const db: { profiles: Row[]; team_access: Row[]; writes: { table: string; op: string; values: Row }[]; flipAfterRead: boolean; failSelect: string | null } = {
+  profiles: [], team_access: [], writes: [], flipAfterRead: false, failSelect: null,
 };
 
 function from(table: "profiles" | "team_access") {
@@ -14,12 +14,23 @@ function from(table: "profiles" | "team_access") {
   const b: Record<string, unknown> = {
     select: () => b,
     eq: (k: string, v: unknown) => { filters.push([k, v]); return b; },
-    maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
+    maybeSingle: async () => {
+      if (db.failSelect === table) return { data: null, error: { message: "boom" } };
+      const row = rows()[0] ?? null;
+      const copy = row ? { ...row } : null;
+      if (db.flipAfterRead && row && table === "profiles") row.role = "mentor";
+      return { data: copy, error: null };
+    },
     update: (values: Row) => { pending = { op: "update", values }; return b; },
     upsert: async (values: Row) => { db.writes.push({ table, op: "upsert", values }); return { error: null }; },
     then: (resolve: (v: unknown) => void) => {
-      if (pending) db.writes.push({ table, op: pending.op, values: pending.values });
-      resolve({ data: pending ? [{ id: "x" }] : rows(), error: null });
+      const matched = rows();
+      if (pending?.op === "update") {
+        if (matched.length > 0) db.writes.push({ table, op: "update", values: pending.values });
+        resolve({ data: matched.map((r) => ({ id: r.id })), error: null });
+        return;
+      }
+      resolve({ data: matched, error: null });
     },
   };
   return b;
@@ -28,9 +39,9 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from, aut
 vi.mock("@/lib/data/mentor-accounts", () => ({ findAccountIdByEmail: async () => null }));
 
 import { cleanCustom, decideTeamChange, isStaffRole } from "@/lib/team/rules";
-import { saveTeamMember, switchOffTeamMember } from "@/lib/data/team-access";
+import { getCustomAccess, saveTeamMember, switchOffTeamMember } from "@/lib/data/team-access";
 
-beforeEach(() => { db.profiles = []; db.team_access = []; db.writes = []; });
+beforeEach(() => { db.profiles = []; db.team_access = []; db.writes = []; db.flipAfterRead = false; db.failSelect = null; });
 
 describe("decideTeamChange", () => {
   it("allows admin, manager and plain students, refuses everyone else", () => {
@@ -98,5 +109,29 @@ describe("switchOffTeamMember", () => {
   it("refuses someone who is not on the team", async () => {
     db.profiles = [{ id: "u6", role: "student" }];
     expect(await switchOffTeamMember("u6")).toEqual({ ok: false, reason: "not-team-member" });
+  });
+});
+
+describe("races and read failures", () => {
+  it("saveTeamMember writes nothing when the role changed after it was read", async () => {
+    db.profiles = [{ id: "u7", role: "student" }];
+    db.flipAfterRead = true;
+    const r = await saveTeamMember({ userId: "u7", role: "manager", custom: { extra: [], removed: [] } });
+    expect(r).toEqual({ ok: false, reason: "db-error" });
+    expect(db.writes).toEqual([]);
+  });
+  it("switchOffTeamMember writes nothing when the role changed after it was read", async () => {
+    db.profiles = [{ id: "u8", role: "manager" }];
+    db.flipAfterRead = true;
+    const r = await switchOffTeamMember("u8");
+    expect(r.ok).toBe(false);
+    expect(db.writes).toEqual([]);
+  });
+  it("getCustomAccess throws when the read fails, so a guard cannot treat it as no access rules", async () => {
+    db.failSelect = "team_access";
+    await expect(getCustomAccess("u9")).rejects.toThrow();
+  });
+  it("getCustomAccess returns null for a person with no active row", async () => {
+    expect(await getCustomAccess("nobody")).toBeNull();
   });
 });
