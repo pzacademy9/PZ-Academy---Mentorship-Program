@@ -15,6 +15,8 @@ import { normalizeSections } from "@/lib/marketing/course-sections";
 const start = (): PublicPageValue => ({
   publicVideoUrl: "",
   certificateImageUrl: "",
+  topic: "",
+  startsAt: "",
   outcomes: ["Fake outcome A", "Fake outcome B"],
   features: [],
   faqs: [{ question: "Fake Q?", answer: "Fake A." }],
@@ -93,5 +95,33 @@ describe("PublicPageEditor", () => {
   it("the certificate picture uses the library, in the misc folder", () => {
     const s = readFileSync("src/components/admin/program/PublicPageEditor.tsx", "utf8");
     expect(s).toMatch(/<LibraryImageField[\s\S]*?folder="misc"/);
+  });
+});
+
+describe("PublicPageEditor: topic and webinar date", () => {
+  it("edits the topic and offers used topics", () => {
+    render(<PublicPageEditor value={{ ...start(), topic: "" }} onChange={(v) => (latest = v)} courseSlug="fake" courseType="course" topicOptions={["Fake Topic A", "Fake Topic B"]} />);
+    const box = screen.getByLabelText("Topic") as HTMLInputElement;
+    expect(box.getAttribute("list")).toBe("course-topic-options");
+    expect(document.querySelectorAll("#course-topic-options option")).toHaveLength(2);
+    fireEvent.change(box, { target: { value: "Fake Topic A" } });
+    expect(latest.topic).toBe("Fake Topic A");
+    expect(screen.queryByLabelText(/webinar date/i)).toBeNull();
+  });
+  it("a webinar's date is typed in Pakistan time and kept as UTC", () => {
+    render(<Harness type="webinar" />);
+    const box = screen.getByLabelText(/webinar date and time/i) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: "2026-11-10T19:00" } });
+    expect(latest.startsAt).toBe("2026-11-10T14:00:00.000Z");
+    expect(box.value).toBe("2026-11-10T19:00");
+    fireEvent.change(box, { target: { value: "" } });
+    expect(latest.startsAt).toBe("");
+  });
+});
+
+describe("PublicPageEditor: topic only where lists have topic buttons", () => {
+  it("hides Topic for a webinar", () => {
+    render(<Harness type="webinar" />);
+    expect(screen.queryByLabelText("Topic")).toBeNull();
   });
 });

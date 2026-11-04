@@ -2,9 +2,25 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { normalizeContent } from "@/lib/landing/content";
 import { formatStartsOn } from "@/lib/emails/landing-registration";
+import { batchEarlyBird, seatsLeft, startsAtLabel, type BatchEarlyBird } from "@/lib/marketing/batch-facts";
 
 /** An open Live batch a course can advertise on the public website. */
-export type OpenLiveBatch = { courseId: string; slug: string; title: string; startsOn: string; href: string };
+export type OpenLiveBatch = {
+  courseId: string;
+  slug: string;
+  title: string;
+  /** "12 December 2026", or "" when unset or past. */
+  startsOn: string;
+  /** UTC ISO start, or "" when unset, invalid or past. */
+  startsAt: string;
+  /** Date and Pakistan time, e.g. "Sat 12 December 2026, 7:00 pm PKT"; "" with startsAt "". */
+  startsAtLabel: string;
+  /** Seats left when the batch has a limit and few remain (see SEATS_SHOWN_AT), else null. */
+  seatsLeft: number | null;
+  /** Early Bird price in the batch's main country while it runs, else null. */
+  earlyBird: BatchEarlyBird | null;
+  href: string;
+};
 
 export function isBatchOpen(a: {
   status: string; hasPublished: boolean; enabled: boolean; modes: string[]; capacity: number; taken: number; finished: boolean;
@@ -20,6 +36,13 @@ function upcomingStartsOn(iso: string): string {
   return formatStartsOn(iso);
 }
 
+/** The start as UTC ISO, or "" when unset, invalid or already past. */
+function upcomingStartsAt(iso: string): string {
+  const t = Date.parse(iso);
+  if (!iso.trim() || Number.isNaN(t) || t < Date.now()) return "";
+  return new Date(t).toISOString();
+}
+
 const ROW_CAP = 1000;
 interface PageRow { id: string; course_id: string | null; slug: string; title: string; status: string; published: unknown }
 
@@ -27,6 +50,7 @@ interface PageRow { id: string; course_id: string | null; slug: string; title: s
 export async function getOpenLiveBatches(): Promise<Map<string, OpenLiveBatch>> {
   const out = new Map<string, OpenLiveBatch>();
   try {
+    const now = new Date();
     const admin = createAdminSupabase();
     const { data: pagesData, error: pErr } = await admin
       .from("landing_pages").select("id, course_id, slug, title, status, published").eq("is_main_page", true).eq("status", "published");
@@ -89,11 +113,16 @@ export async function getOpenLiveBatches(): Promise<Map<string, OpenLiveBatch>> 
         finished: false,
       });
       if (!open || out.has(courseId)) return;
+      const startsAt = upcomingStartsAt(content.settings.batchStartsOn ?? "");
       out.set(courseId, {
         courseId,
         slug: p.slug,
         title: content.seo.title.trim() || p.title,
         startsOn: upcomingStartsOn(content.settings.batchStartsOn ?? ""),
+        startsAt,
+        startsAtLabel: startsAt ? startsAtLabel(startsAt) : "",
+        seatsLeft: seatsLeft(content.registration.capacity, taken[i]),
+        earlyBird: batchEarlyBird(content.registration, now),
         href: `/e/${p.slug}?src=website`,
       });
     });

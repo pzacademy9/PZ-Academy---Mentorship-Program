@@ -6,6 +6,8 @@ import { ArrowRight, Clock, Play, Search } from "lucide-react";
 import type { CourseCard } from "@/lib/data/lms";
 import { PROMO_AFTER, type Promo } from "@/lib/marketing/promo";
 import { youtubeThumb } from "@/lib/marketing/youtube-thumb";
+import { isUpcomingWebinar } from "@/lib/marketing/webinar-time";
+import { startsAtLabel } from "@/lib/marketing/batch-facts";
 import { PromoSlot } from "./PromoSlot";
 import { MarketingHero } from "./MarketingHero";
 import type { CatalogHero } from "./CourseCatalogGrid";
@@ -38,6 +40,8 @@ function Avatar({ w, className }: { w: CourseCard; className: string }) {
 
 function UpcomingRow({ w }: { w: CourseCard }) {
   const free = w.pricePkr <= 0;
+  // The exact date (course editor) wins over the free-text timings.
+  const when = (w.startsAt && startsAtLabel(w.startsAt)) || w.timings;
   return (
     <article className="rounded-[24px] border border-pz-border bg-pz-surface-container-lowest p-6 shadow-[0_8px_30px_rgba(25,100,50,0.05)] transition-shadow hover:shadow-[0_12px_40px_rgba(25,100,50,0.12)] lg:p-8">
       <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center lg:gap-10">
@@ -50,10 +54,10 @@ function UpcomingRow({ w }: { w: CourseCard }) {
           </div>
           <div className="min-w-0 flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              {w.timings && (
+              {when && (
                 <span className="inline-flex max-w-full items-center gap-1.5 break-words rounded-full bg-pz-solid-deep px-3 py-1 font-poppins text-xs font-bold text-pz-bright">
-                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                  {w.timings}
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {when}
                 </span>
               )}
               <span className="rounded-full border border-pz-border bg-pz-web-surface px-2.5 py-1 font-poppins text-xs font-semibold text-pz-deep">
@@ -129,10 +133,21 @@ const TABS: { key: Filter; label: string }[] = [
 
 /**
  * /webinars list (Stitch "Webinars List"). `open` webinars are upcoming
- * (wide rows with Register), `closed` ones are recordings (video cards with
+ * (wide rows with Register) until a few hours after their date, the rest are recordings (video cards with
  * the YouTube still). Every webinar's full detail lives at /courses/[slug].
  */
-export function WebinarGrid({ webinars, promo = null, hero }: { webinars: CourseCard[]; promo?: Promo | null; hero?: CatalogHero }) {
+export function WebinarGrid({
+  webinars,
+  promo = null,
+  hero,
+  nowMs,
+}: {
+  webinars: CourseCard[];
+  promo?: Promo | null;
+  hero?: CatalogHero;
+  /** Server time of this request, so the page and the browser agree on what is upcoming. */
+  nowMs: number;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -146,9 +161,10 @@ export function WebinarGrid({ webinars, promo = null, hero }: { webinars: Course
         : webinars,
     [webinars, q],
   );
-  const upcoming = matching.filter((w) => w.status === "open");
-  // Anything not open (closed, or an older archived row) is a recording, as on the old page.
-  const recorded = matching.filter((w) => w.status !== "open");
+  // Open and not yet RECORDED_AFTER_HOURS past its date. Anything else (closed by
+  // hand, an older archived row, or a dated one that has happened) is a recording.
+  const upcoming = matching.filter((w) => isUpcomingWebinar(w, nowMs));
+  const recorded = matching.filter((w) => !isUpcomingWebinar(w, nowMs));
   const counts: Record<Filter, number> = {
     all: upcoming.length + recorded.length,
     upcoming: upcoming.length,

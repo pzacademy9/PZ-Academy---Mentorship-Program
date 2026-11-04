@@ -3,7 +3,7 @@
 export type WindowOverride = "auto" | "open" | "closed";
 export type WindowState = "before" | "open" | "closed";
 
-const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // PKT is a fixed UTC+5
+export const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // PKT is a fixed UTC+5
 const WINDOW_MS = 15 * 60 * 1000;
 
 export function checkinWindow(

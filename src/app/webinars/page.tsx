@@ -31,6 +31,7 @@ export default async function WebinarsPage() {
         <WebinarGrid
           webinars={webinars}
           promo={promo}
+          nowMs={Date.now()}
           hero={{
             kicker: "Webinar Series",
             title: <>Expert insights, <span className="text-pz-bright">free</span>.</>,

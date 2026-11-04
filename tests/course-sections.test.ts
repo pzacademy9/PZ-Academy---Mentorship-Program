@@ -68,7 +68,7 @@ describe("courseConfigSchema new fields", () => {
 import { changedPageFields } from "@/lib/marketing/course-sections";
 
 describe("changedPageFields (the editor only sends what changed)", () => {
-  const v = { publicVideoUrl: "", certificateImageUrl: "", outcomes: ["A"], features: [], faqs: [], pageSections: normalizeSections(null) };
+  const v = { publicVideoUrl: "", certificateImageUrl: "", outcomes: ["A"], features: [], faqs: [], pageSections: normalizeSections(null), topic: "", startsAt: "" };
   it("nothing changed: nothing sent, so a page saved before the database step still saves", () => {
     expect(changedPageFields(v, structuredClone(v))).toEqual({});
   });

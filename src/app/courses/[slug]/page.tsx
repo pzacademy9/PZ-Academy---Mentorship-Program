@@ -29,6 +29,11 @@ import { stickyEnrollAction } from "@/lib/marketing/sticky-cta";
 import { PromoSlot } from "@/components/marketing/PromoSlot";
 import { StickyEnrollBar } from "@/components/courses/StickyEnrollBar";
 import { LiveBatchBanner } from "@/components/marketing/LiveBatchBanner";
+import { WebinarDateBanner } from "@/components/marketing/WebinarDateBanner";
+import { seatsLeftText, startsAtLabel } from "@/lib/marketing/batch-facts";
+import { courseCalendarEvent, googleCalendarUrl } from "@/lib/marketing/calendar";
+import { isUpcomingWebinar } from "@/lib/marketing/webinar-time";
+import { siteOrigin } from "@/lib/marketing/site-origin";
 import { toEmbedUrl } from "@/lib/video-embed";
 import { PROGRAM_COPY } from "@/lib/program-copy";
 import { normalizeSections, sectionTitle, type SectionKey } from "@/lib/marketing/course-sections";
@@ -104,6 +109,12 @@ export default async function CourseDetailPage({
     getActiveBanners("mid_page").catch(() => []),
   ]);
   const liveBatch = openBatches.get(course.id) ?? null;
+  const nowMs = Date.now();
+  const webinarUpcoming = course.type === "webinar" && isUpcomingWebinar(course, nowMs);
+  const webinarWhen = course.type === "webinar" && course.startsAt ? startsAtLabel(course.startsAt) : "";
+  const calendarEvent = courseCalendarEvent({ course, batch: liveBatch, origin: siteOrigin(), nowMs, webinarUpcoming });
+  const googleUrl = calendarEvent ? googleCalendarUrl(calendarEvent) : null;
+  const calendar = googleUrl ? { google: googleUrl, ics: `/courses/${course.slug}/calendar.ics` } : null;
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -120,6 +131,7 @@ export default async function CourseDetailPage({
   const outcomes = course.outcomes ?? [];
   const faqs = (course.faqs ?? []).filter((f) => f.question && f.answer);
   const facts = [
+    webinarWhen && { icon: CalendarDays, label: "Date", value: webinarWhen },
     course.durationLabel && { icon: CalendarDays, label: "Duration", value: course.durationLabel },
     course.level && { icon: BarChart3, label: "Level", value: course.level },
     course.timings && { icon: Clock, label: "Timings", value: course.timings },
@@ -245,6 +257,11 @@ export default async function CourseDetailPage({
                     Live batch open
                   </span>
                 )}
+                {liveBatch?.seatsLeft != null && (
+                  <span className="rounded-full bg-white px-3 py-1 font-poppins text-xs font-bold uppercase tracking-wider text-pz-danger">
+                    {seatsLeftText(liveBatch.seatsLeft)}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -280,7 +297,20 @@ export default async function CourseDetailPage({
         <div className="mx-auto max-w-[1320px] px-5 py-10 md:px-6 md:py-14">
           {liveBatch && (
             <div className="mb-8">
-              <LiveBatchBanner title={liveBatch.title} startsOn={liveBatch.startsOn} href={liveBatch.href} />
+              <LiveBatchBanner
+                title={liveBatch.title}
+                startsOn={liveBatch.startsOn}
+                startsAtLabel={liveBatch.startsAtLabel}
+                href={liveBatch.href}
+                seatsLeft={liveBatch.seatsLeft}
+                earlyBird={liveBatch.earlyBird}
+                calendar={calendar}
+              />
+            </div>
+          )}
+          {!liveBatch && webinarUpcoming && webinarWhen && (
+            <div className="mb-8">
+              <WebinarDateBanner when={webinarWhen} calendar={calendar} />
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, CalendarDays, Wrench, Video } from "lucide-react";
 import type { CourseCard as CourseCardData } from "@/lib/data/lms";
+import { seatsLeftText } from "@/lib/marketing/batch-facts";
 
 const TYPE_LABEL: Record<CourseCardData["type"], string> = {
   course: "Course",
@@ -116,15 +117,24 @@ export function CourseCard({ course, layout = "home" }: { course: CourseCardData
   );
 }
 
+const CHIP_LOOK = {
+  plain: "bg-pz-web-surface-low text-pz-ink",
+  strong: "bg-pz-web-surface-high text-pz-deep",
+  gold: "bg-pz-gold/15 text-pz-deep ring-1 ring-pz-gold/40",
+  alert: "bg-pz-solid-danger/10 text-pz-danger",
+} as const;
+
 function ListCard({ course }: { course: CourseCardData }) {
   const Icon = TYPE_ICON[course.type];
   const timingsOnImage = course.type === "workshop" && !!course.timings;
   const chips = [
     course.level && { text: course.level, strong: false },
     course.durationLabel && { text: course.durationLabel, strong: false },
-    course.liveBatch && { text: `Starts ${course.liveBatch.startsOn}`, strong: true },
+    course.liveBatch?.startsOn && { text: `Starts ${course.liveBatch.startsOn}`, strong: true },
+    course.liveBatch?.earlyBird && { text: "Early Bird", strong: true, tone: "gold" as const },
+    course.liveBatch?.seatsLeft != null && { text: seatsLeftText(course.liveBatch.seatsLeft), strong: true, tone: "alert" as const },
     !timingsOnImage && course.timings && { text: course.timings, strong: true },
-  ].filter(Boolean) as { text: string; strong: boolean }[];
+  ].filter(Boolean) as { text: string; strong: boolean; tone?: "gold" | "alert" }[];
 
   return (
     <article className="group flex h-full flex-col justify-between rounded-3xl bg-pz-surface-container-lowest p-5 shadow-[0_8px_30px_rgba(15,61,34,0.05)] transition-shadow hover:shadow-xl">
@@ -176,7 +186,7 @@ function ListCard({ course }: { course: CourseCardData }) {
             {chips.map((c, i) => (
               <span
                 key={`${i}-${c.text}`}
-                className={`max-w-full break-words rounded-full px-2.5 py-1 font-poppins text-[13px] font-semibold ${c.strong ? "bg-pz-web-surface-high text-pz-deep" : "bg-pz-web-surface-low text-pz-ink"}`}
+                className={`max-w-full break-words rounded-full px-2.5 py-1 font-poppins text-[13px] font-semibold ${CHIP_LOOK[c.tone ?? (c.strong ? "strong" : "plain")]}`}
               >
                 {c.text}
               </span>
