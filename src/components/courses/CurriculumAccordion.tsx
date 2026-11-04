@@ -15,31 +15,36 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {modules.map((mod, i) => (
         <div
           key={mod.moduleId}
-          className="border border-pz-outline-variant/50 rounded-xl overflow-hidden bg-pz-surface-container-lowest shadow-sm"
+          className={cn(
+            "overflow-hidden rounded-2xl transition-colors",
+            open === i ? "bg-pz-web-surface-high" : "bg-pz-web-surface-low",
+          )}
         >
           <button
+            type="button"
             onClick={() => setOpen(open === i ? null : i)}
-            className="w-full flex items-center justify-between p-5 hover:bg-pz-surface-container-low transition-colors"
+            className="flex min-h-11 w-full items-center justify-between gap-4 p-4 text-left md:p-5"
             aria-expanded={open === i}
           >
             <div className="flex items-center gap-4">
-              <span className="w-8 h-8 shrink-0 rounded-full bg-pz-primary/10 text-pz-primary flex items-center justify-center font-headline font-bold text-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pz-solid-deep font-montserrat text-sm font-bold text-pz-bright">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="text-left">
-                <h4 className="font-headline font-bold text-pz-on-surface">{mod.title}</h4>
-                <p className="text-xs text-pz-on-surface-variant font-body">
+                <h3 className="font-montserrat text-base font-bold text-pz-deep md:text-lg">{mod.title}</h3>
+                <p className="font-poppins text-xs text-pz-muted">
                   {mod.lessons.length} lesson{mod.lessons.length === 1 ? "" : "s"}
                 </p>
               </div>
             </div>
             <ChevronDown
+              aria-hidden="true"
               className={cn(
-                "w-5 h-5 shrink-0 text-pz-on-surface-variant transition-transform duration-300",
+                "h-6 w-6 shrink-0 text-pz-deep transition-transform duration-300",
                 open === i && "rotate-180",
               )}
             />
@@ -50,27 +55,27 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
               open === i ? "max-h-[1000px]" : "max-h-0",
             )}
           >
-            <ul className="px-5 pb-5 space-y-3">
+            <ul className="space-y-2 px-4 pb-4 md:px-5 md:pb-5">
               {mod.lessons.map((lesson) => {
                 const Icon = CONTENT_ICON[lesson.contentType];
                 const locked = lesson.status === "locked";
                 return (
                   <li
                     key={lesson.lessonId}
-                    className="flex items-center justify-between py-2 border-b border-pz-outline-variant/20 last:border-b-0"
+                    className="flex items-center justify-between rounded-xl bg-pz-surface-container-lowest px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
                       {locked ? (
-                        <Lock className="w-4 h-4 shrink-0 text-pz-on-surface-variant" />
+                        <Lock className="h-4 w-4 shrink-0 text-pz-muted" aria-hidden="true" />
                       ) : lesson.status === "completed" ? (
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-pz-primary" />
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-pz-mid" aria-hidden="true" />
                       ) : (
-                        <Icon className="w-4 h-4 shrink-0 text-pz-on-surface-variant" />
+                        <Icon className="h-4 w-4 shrink-0 text-pz-mid" aria-hidden="true" />
                       )}
                       <span
                         className={cn(
-                          "text-sm font-body",
-                          locked ? "text-pz-on-surface-variant/70 dark:text-pz-on-surface-variant/80" : "text-pz-on-surface font-medium",
+                          "font-poppins text-sm",
+                          locked ? "text-pz-muted" : "font-medium text-pz-ink",
                         )}
                       >
                         {lesson.title}
@@ -84,7 +89,7 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
         </div>
       ))}
       {modules.length === 0 && (
-        <p className="text-sm text-pz-on-surface-variant font-body text-center py-8">
+        <p className="py-8 text-center font-poppins text-sm text-pz-muted">
           Curriculum coming soon.
         </p>
       )}

@@ -9,8 +9,12 @@ interface FaqItem {
   a: string;
 }
 
-/** White question cards that open one at a time (Stitch FAQ accordion). `a` is our own fixed copy, never admin text. */
-export function FaqAccordion({ items }: { items: FaqItem[] }) {
+/**
+ * White question cards that open one at a time (Stitch FAQ accordion).
+ * Default: `a` is our own fixed copy with simple HTML. Pass `plainText` for
+ * admin-typed answers: they are shown as text, never as markup.
+ */
+export function FaqAccordion({ items, plainText = false, onCard = false }: { items: FaqItem[]; plainText?: boolean; /** Mint items, for use inside a white card. */ onCard?: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
   const base = useId();
 
@@ -20,7 +24,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
         const isOpen = open === i;
         const panelId = `${base}-faq-${i}`;
         return (
-          <div key={i} className="rounded-2xl bg-pz-surface-container-lowest px-5 shadow-sm">
+          <div key={i} className={cn("rounded-2xl px-5", onCard ? "bg-pz-web-surface-low" : "bg-pz-surface-container-lowest shadow-sm")}>
             <button
               type="button"
               className="flex min-h-11 w-full items-center justify-between gap-4 py-5 text-left font-montserrat text-lg font-bold text-pz-deep md:text-xl"
@@ -32,7 +36,11 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
               <ChevronDown aria-hidden="true" className={cn("h-6 w-6 shrink-0 text-pz-deep transition-transform duration-200", isOpen && "rotate-180")} />
             </button>
             <div id={panelId} hidden={!isOpen} className="border-t border-pz-border pb-5 pt-3">
-              <p className="font-poppins text-[15px] leading-relaxed text-pz-muted" dangerouslySetInnerHTML={{ __html: item.a }} />
+              {plainText ? (
+                <p className="whitespace-pre-line font-poppins text-[15px] leading-relaxed text-pz-muted">{item.a}</p>
+              ) : (
+                <p className="font-poppins text-[15px] leading-relaxed text-pz-muted" dangerouslySetInnerHTML={{ __html: item.a }} />
+              )}
             </div>
           </div>
         );
