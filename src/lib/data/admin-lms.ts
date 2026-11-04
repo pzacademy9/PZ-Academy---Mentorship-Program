@@ -12,6 +12,7 @@ import {
   type LessonContentType,
 } from "@/lib/validations/admin-lms";
 import type { courseConfigSchema } from "@/lib/validations/admin-lms";
+import { normalizeSections, pageFieldsPatch, type PageSection } from "@/lib/marketing/course-sections";
 import type { z } from "zod";
 import { sanitizeLessonHtml } from "@/lib/sanitize-html";
 import {
@@ -146,6 +147,9 @@ export interface CourseConfigDetail {
   features: string[];
   outcomes: string[];
   faqs: { question: string; answer: string }[];
+  publicVideoUrl: string;
+  certificateImageUrl: string;
+  pageSections: PageSection[];
   registerUrl: string;
   gasWebappUrl: string;
   thumbnailUrl: string;
@@ -233,6 +237,10 @@ export async function getCourseConfig(id: string): Promise<CourseConfigDetail | 
     features: course.features ?? [],
     outcomes: course.outcomes ?? [],
     faqs: (course.faqs as { question: string; answer: string }[] | null) ?? [],
+    // Read through "*", so these are simply missing until migration 0101 is run.
+    publicVideoUrl: course.public_video_url ?? "",
+    certificateImageUrl: course.certificate_image_url ?? "",
+    pageSections: normalizeSections(course.page_sections),
     registerUrl: course.register_url ?? "",
     gasWebappUrl: course.gas_webapp_url ?? "",
     thumbnailUrl: course.thumbnail_url ?? "",
@@ -348,6 +356,8 @@ export async function updateCourseConfig(
   if (input.features !== undefined) patch.features = input.features;
   if (input.outcomes !== undefined) patch.outcomes = input.outcomes;
   if (input.faqs !== undefined) patch.faqs = input.faqs;
+  // Public-page fields (migration 0101): only what the editor sent.
+  Object.assign(patch, pageFieldsPatch(input));
 
   // Switching into a flat type needs its hidden module to exist the moment
   // the Builder is opened next.

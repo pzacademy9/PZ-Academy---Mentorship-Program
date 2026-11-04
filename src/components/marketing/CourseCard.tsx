@@ -95,7 +95,7 @@ export function CourseCard({ course, layout = "home" }: { course: CourseCardData
           </div>
         )}
 
-        <h3 className="font-montserrat text-xl font-bold leading-tight tracking-[-0.015em] text-pz-deep md:text-2xl">{course.title}</h3>
+        <h3 className="break-words font-montserrat text-xl font-bold leading-tight tracking-[-0.015em] text-pz-deep md:text-2xl">{course.title}</h3>
         {course.tagline && <p className="-mt-2 line-clamp-2 font-poppins text-sm text-pz-muted">{course.tagline}</p>}
 
         <Mentor course={course} boxed={false} />
@@ -146,7 +146,7 @@ function ListCard({ course }: { course: CourseCardData }) {
           )}
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5 pr-3">
             {timingsOnImage ? (
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-pz-solid-deep/95 px-3 py-1 font-poppins text-xs font-bold text-white shadow-sm">
+              <span className="inline-flex max-w-full items-center gap-1.5 break-words rounded-full bg-pz-solid-deep/95 px-3 py-1 font-poppins text-xs font-bold text-white shadow-sm">
                 <CalendarDays className="h-3.5 w-3.5 shrink-0 text-pz-bright" aria-hidden="true" />
                 {course.timings}
               </span>
@@ -164,8 +164,8 @@ function ListCard({ course }: { course: CourseCardData }) {
           </div>
         </div>
 
-        <h3 className="font-montserrat text-xl font-bold leading-snug tracking-[-0.01em] text-pz-deep">{course.title}</h3>
-        {course.tagline && <p className="mt-2 line-clamp-2 font-poppins text-[15px] text-pz-muted">{course.tagline}</p>}
+        <h3 className="break-words font-montserrat text-xl font-bold leading-snug tracking-[-0.01em] text-pz-deep">{course.title}</h3>
+        {course.tagline && <p className="mt-2 line-clamp-2 break-words font-poppins text-[15px] text-pz-muted">{course.tagline}</p>}
 
         <div className="mt-4">
           <Mentor course={course} boxed />
@@ -176,7 +176,7 @@ function ListCard({ course }: { course: CourseCardData }) {
             {chips.map((c, i) => (
               <span
                 key={`${i}-${c.text}`}
-                className={`rounded-full px-2.5 py-1 font-poppins text-[13px] font-semibold ${c.strong ? "bg-pz-web-surface-high text-pz-deep" : "bg-pz-web-surface-low text-pz-ink"}`}
+                className={`max-w-full break-words rounded-full px-2.5 py-1 font-poppins text-[13px] font-semibold ${c.strong ? "bg-pz-web-surface-high text-pz-deep" : "bg-pz-web-surface-low text-pz-ink"}`}
               >
                 {c.text}
               </span>

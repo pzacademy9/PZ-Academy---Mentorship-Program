@@ -32,12 +32,12 @@ export function FaqAccordion({ items, plainText = false, onCard = false }: { ite
               aria-expanded={isOpen}
               aria-controls={panelId}
             >
-              <span>{item.q}</span>
+              <span className="min-w-0 break-words">{item.q}</span>
               <ChevronDown aria-hidden="true" className={cn("h-6 w-6 shrink-0 text-pz-deep transition-transform duration-200", isOpen && "rotate-180")} />
             </button>
             <div id={panelId} hidden={!isOpen} className="border-t border-pz-border pb-5 pt-3">
               {plainText ? (
-                <p className="whitespace-pre-line font-poppins text-[15px] leading-relaxed text-pz-muted">{item.a}</p>
+                <p className="whitespace-pre-line break-words font-poppins text-[15px] leading-relaxed text-pz-muted">{item.a}</p>
               ) : (
                 <p className="font-poppins text-[15px] leading-relaxed text-pz-muted" dangerouslySetInnerHTML={{ __html: item.a }} />
               )}

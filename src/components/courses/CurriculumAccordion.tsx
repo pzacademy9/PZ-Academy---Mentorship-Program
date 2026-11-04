@@ -30,12 +30,12 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
             className="flex min-h-11 w-full items-center justify-between gap-4 p-4 text-left md:p-5"
             aria-expanded={open === i}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pz-solid-deep font-montserrat text-sm font-bold text-pz-bright">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <div className="text-left">
-                <h3 className="font-montserrat text-base font-bold text-pz-deep md:text-lg">{mod.title}</h3>
+              <div className="min-w-0 text-left">
+                <h3 className="break-words font-montserrat text-base font-bold text-pz-deep md:text-lg">{mod.title}</h3>
                 <p className="font-poppins text-xs text-pz-muted">
                   {mod.lessons.length} lesson{mod.lessons.length === 1 ? "" : "s"}
                 </p>
@@ -64,7 +64,7 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
                     key={lesson.lessonId}
                     className="flex items-center justify-between rounded-xl bg-pz-surface-container-lowest px-4 py-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       {locked ? (
                         <Lock className="h-4 w-4 shrink-0 text-pz-muted" aria-hidden="true" />
                       ) : lesson.status === "completed" ? (
@@ -74,7 +74,7 @@ export function CurriculumAccordion({ modules }: { modules: CurriculumModule[] }
                       )}
                       <span
                         className={cn(
-                          "font-poppins text-sm",
+                          "min-w-0 break-words font-poppins text-sm",
                           locked ? "text-pz-muted" : "font-medium text-pz-ink",
                         )}
                       >

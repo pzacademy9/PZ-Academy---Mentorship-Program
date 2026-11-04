@@ -5,9 +5,9 @@ import { CalendarDays } from "lucide-react";
 export function LiveBatchBanner({ title, startsOn, href }: { title: string; startsOn: string; href: string }) {
   return (
     <section aria-label="Live batch" className="flex flex-col gap-4 rounded-3xl bg-pz-surface-container-lowest px-6 py-5 shadow-[0_8px_30px_rgba(15,61,34,0.05)] sm:flex-row sm:items-center sm:justify-between">
-      <div>
+      <div className="min-w-0">
         <p className="flex items-center gap-2 font-montserrat text-lg font-bold text-pz-deep"><span aria-hidden="true" className="h-2.5 w-2.5 animate-pulse rounded-full bg-pz-solid-mid" />Live batch open</p>
-        <p className="font-poppins text-sm text-pz-muted">{title}</p>
+        <p className="break-words font-poppins text-sm text-pz-muted">{title}</p>
         {startsOn && (
           <p className="mt-1 flex items-center gap-1.5 font-poppins text-sm font-semibold text-pz-deep">
             <CalendarDays className="h-4 w-4" aria-hidden="true" />

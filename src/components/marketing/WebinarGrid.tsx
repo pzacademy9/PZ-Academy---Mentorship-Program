@@ -41,17 +41,17 @@ function UpcomingRow({ w }: { w: CourseCard }) {
   return (
     <article className="rounded-[24px] border border-pz-border bg-pz-surface-container-lowest p-6 shadow-[0_8px_30px_rgba(25,100,50,0.05)] transition-shadow hover:shadow-[0_12px_40px_rgba(25,100,50,0.12)] lg:p-8">
       <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center lg:gap-10">
-        <div className="flex flex-1 flex-col items-start gap-6 sm:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-6 sm:flex-row">
           <div className="relative shrink-0">
             <Avatar w={w} className="h-24 w-24 rounded-[20px] border-2 border-pz-border text-2xl sm:h-28 sm:w-28" />
             <span className="absolute -bottom-2 -right-2 rounded-full bg-pz-solid-deep px-2 py-0.5 font-poppins text-[10px] font-bold tracking-wider text-pz-bright">
               SPEAKER
             </span>
           </div>
-          <div className="flex-1 space-y-3">
+          <div className="min-w-0 flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {w.timings && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-pz-solid-deep px-3 py-1 font-poppins text-xs font-bold text-pz-bright">
+                <span className="inline-flex max-w-full items-center gap-1.5 break-words rounded-full bg-pz-solid-deep px-3 py-1 font-poppins text-xs font-bold text-pz-bright">
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                   {w.timings}
                 </span>
@@ -61,10 +61,10 @@ function UpcomingRow({ w }: { w: CourseCard }) {
               </span>
               <span className="rounded-full border border-pz-border bg-pz-web-surface px-2.5 py-1 font-poppins text-xs font-medium text-pz-muted">Live</span>
             </div>
-            <h3 className="font-montserrat text-xl font-extrabold leading-tight text-pz-ink lg:text-2xl">{w.title}</h3>
+            <h3 className="break-words font-montserrat text-xl font-extrabold leading-tight text-pz-ink lg:text-2xl">{w.title}</h3>
             {w.tagline && <p className="max-w-3xl font-poppins text-sm leading-relaxed text-pz-muted">{w.tagline}</p>}
             {w.mentorName && (
-              <p className="pt-1 font-poppins text-xs text-pz-ink">
+              <p className="break-words pt-1 font-poppins text-xs text-pz-ink">
                 <span className="font-bold">{w.mentorName}</span>
                 {w.mentorTitle && <span className="text-pz-muted"> — {w.mentorTitle}</span>}
               </p>
@@ -106,7 +106,7 @@ function RecordingCard({ w }: { w: CourseCard }) {
             <span className="truncate font-poppins text-xs text-pz-muted">{w.mentorName}</span>
           </div>
         )}
-        <h3 className="font-montserrat text-lg font-bold leading-snug text-pz-ink">{w.title}</h3>
+        <h3 className="break-words font-montserrat text-lg font-bold leading-snug text-pz-ink">{w.title}</h3>
         {w.tagline && <p className="mt-2 line-clamp-2 font-poppins text-[13px] leading-relaxed text-pz-muted">{w.tagline}</p>}
         <div className="mt-auto pt-4"><div className="border-t border-pz-border pt-3">
           <Link
