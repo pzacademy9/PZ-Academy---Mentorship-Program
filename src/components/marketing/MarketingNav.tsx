@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { X, Menu } from "lucide-react";
@@ -20,6 +20,9 @@ const NAV_LINKS = [
 export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } = {}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
   // null = not logged in / not yet known; a Role once resolved. Marketing
   // pages (mentorship, booking, thank-you, courses) sit outside /dashboard,
   // so this is the only nav a logged-in student sees while booking or
@@ -45,6 +48,25 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  // Phone menu keyboard care: a closed menu is out of the tab order (inert;
+  // React 18 has no inert prop), opening moves focus into it, Escape closes
+  // it, and closing hands focus back to the menu button.
+  useEffect(() => {
+    const menu = menuRef.current as (HTMLDivElement & { inert?: boolean }) | null;
+    if (menu) menu.inert = !open;
+    if (open) {
+      menu?.querySelector<HTMLElement>("a, button")?.focus();
+      const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+      document.addEventListener("keydown", onKey);
+      wasOpen.current = true;
+      return () => document.removeEventListener("keydown", onKey);
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      buttonRef.current?.focus();
+    }
   }, [open]);
 
   return (
@@ -92,7 +114,10 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
 
       {/* Mobile hamburger */}
       <button
-        className="md:hidden relative z-10 p-2 text-white"
+        ref={buttonRef}
+        type="button"
+        className="md:hidden relative z-[200] min-h-11 min-w-11 flex items-center justify-center text-white"
+        aria-controls="marketing-mobile-menu"
         onClick={() => setOpen(!open)}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
@@ -101,9 +126,13 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
       </button>
 
       {/* Mobile menu overlay */}
-      <div className={cn(
-        "md:hidden fixed inset-0 z-[199] bg-[rgba(10,28,17,0.98)] backdrop-blur-2xl flex flex-col justify-start items-center pt-24 gap-0 transition-transform duration-400",
-        open ? "translate-x-0" : "translate-x-full"
+      <div
+        id="marketing-mobile-menu"
+        ref={menuRef}
+        aria-hidden={open ? undefined : true}
+        className={cn(
+        "md:hidden fixed inset-0 z-[199] bg-[rgba(10,28,17,0.98)] backdrop-blur-2xl flex flex-col justify-start items-center pt-24 gap-0 transition-[transform,visibility] duration-400",
+        open ? "translate-x-0" : "translate-x-full invisible"
       )}>
         {NAV_LINKS.map((l) => (
           <Link

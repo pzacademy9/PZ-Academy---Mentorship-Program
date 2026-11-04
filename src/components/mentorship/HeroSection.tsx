@@ -118,11 +118,11 @@ function MobileCTAs() {
           className="btn-shimmer-container"
           style={{
             display: "inline-flex", alignItems: "center", justifyContent: "space-between",
-            gap: 12, width: "100%",
+            gap: 12, width: "100%", minHeight: 48,
             background: "linear-gradient(135deg,#C9A84C 0%,#E8C97A 50%,#C9A84C 100%)",
             backgroundSize: "200% 100%", color: "#1A4D2E",
             fontFamily: "var(--font-montserrat),'Montserrat',sans-serif",
-            fontWeight: 800, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase",
+            fontWeight: 800, fontSize: "12px", letterSpacing: "0.12em", textTransform: "uppercase",
             padding: "13px 18px", borderRadius: "6px", textDecoration: "none",
             boxShadow: "0 4px 20px rgba(201,168,76,0.45),inset 0 1px 0 rgba(255,255,255,0.25)",
             position: "relative", overflow: "hidden",
@@ -149,9 +149,9 @@ function MobileCTAs() {
           href="/mentorship#how-it-works"
           style={{
             display: "inline-flex", alignItems: "center", justifyContent: "space-between",
-            gap: 8, width: "100%",
+            gap: 8, width: "100%", minHeight: 48,
             fontFamily: "var(--font-montserrat),'Montserrat',sans-serif",
-            fontWeight: 700, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase",
+            fontWeight: 700, fontSize: "12px", letterSpacing: "0.12em", textTransform: "uppercase",
             color: "#1A4D2E",
             background: "rgba(255,255,255,0.72)", backdropFilter: "blur(14px)",
             border: "1.5px solid rgba(26,77,46,0.25)",

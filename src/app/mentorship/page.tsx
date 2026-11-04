@@ -9,6 +9,10 @@ import { getPublishedMentors, type Mentor } from "@/lib/data/mentors";
 import { getMentorReviewSummaries, type MentorReviewSummary } from "@/lib/data/mentor-reviews";
 import { partitionByFeaturedTier, shouldRenderFeaturedStrip } from "@/lib/mentor-tier";
 import TopMentorsStrip from "@/components/mentorship/TopMentorsStrip";
+import { PromoSlot } from "@/components/marketing/PromoSlot";
+import { getActiveBanners } from "@/lib/data/marketing";
+import { getOpenLiveBatches } from "@/lib/data/landing-website";
+import { pickPromo } from "@/lib/marketing/promo";
 
 export const metadata: Metadata = {
   title: "PZ Academy Mentorship – Find Your Expert Mentor",
@@ -17,8 +21,15 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const mentors = await getPublishedMentors();
+  const [mentors, footerBanners, openBatches] = await Promise.all([
+    getPublishedMentors(),
+    // The promo is optional: a failed read must never break the mentorship page.
+    getActiveBanners("footer").catch(() => []),
+    getOpenLiveBatches(),
+  ]);
   const ratingSummaries = await getMentorReviewSummaries(mentors.map((m) => m.id));
+  // Above the footer: an admin Footer banner, else an open course batch.
+  const promo = pickPromo({ banners: footerBanners, batches: Array.from(openBatches.values()) });
 
   // getPublishedMentors already sorts tier DESC, order_index ASC, so featured/rest
   // both preserve that order. On day one every mentor is 'standard', so featured is
@@ -38,6 +49,7 @@ export default async function HomePage() {
         <MentorsSection mentors={gridMentors} ratingSummaries={ratingSummaries} />
         <HowItWorksSection />
         <RecruitmentForm />
+        <PromoSlot promo={promo} />
       </main>
       <MarketingFooter />
     </>
