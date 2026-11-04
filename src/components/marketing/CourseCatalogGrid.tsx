@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { CourseCard } from "./CourseCard";
+import { PromoSlot } from "./PromoSlot";
 import type { CourseCard as CourseCardData } from "@/lib/data/lms";
+import type { Promo } from "@/lib/marketing/promo";
+
+/** Where the in-feed promo card goes: after the 3rd program, or last if fewer. */
+export const PROMO_AFTER = 3;
 
 /**
  * Search + grid for a single-type catalog (used by /courses, /workshops, and
@@ -13,7 +19,19 @@ import type { CourseCard as CourseCardData } from "@/lib/data/lms";
  * caller already passes one type, so an "all courses / workshops / webinars"
  * tab set would always resolve to a single, redundant option.
  */
-export function CourseCatalogGrid({ courses, noun = "Course" }: { courses: CourseCardData[]; noun?: string }) {
+export function CourseCatalogGrid({
+  courses,
+  noun = "Course",
+  promo = null,
+  emptyNext,
+}: {
+  courses: CourseCardData[];
+  noun?: string;
+  /** In-feed "Featured" card; hidden while searching. */
+  promo?: Promo | null;
+  /** Shown when nothing at all is listed, so the page is never a dead end. */
+  emptyNext?: { label: string; href: string };
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -24,6 +42,22 @@ export function CourseCatalogGrid({ courses, noun = "Course" }: { courses: Cours
     );
   }, [courses, query]);
 
+  if (courses.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-pz-muted font-poppins mb-6">No {noun.toLowerCase()}s are open right now — check back soon.</p>
+        {emptyNext && (
+          <Link href={emptyNext.href} className="inline-flex min-h-11 items-center rounded-full bg-pz-solid-forest px-6 py-3 font-poppins text-sm font-bold text-white transition-colors hover:bg-pz-solid-mid">
+            {emptyNext.label}
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  const showPromo = promo !== null && !query.trim() && filtered.length > 0;
+  const promoAt = Math.min(PROMO_AFTER, filtered.length);
+
   return (
     <div>
       {/* Search */}
@@ -32,7 +66,8 @@ export function CourseCatalogGrid({ courses, noun = "Course" }: { courses: Cours
           <Search className="w-5 h-5 text-pz-outline group-focus-within:text-pz-primary transition-colors" />
         </div>
         <input
-          type="text"
+          type="search"
+          aria-label={`Search ${noun.toLowerCase()}s`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`Search ${noun.toLowerCase()}s...`}
@@ -48,8 +83,17 @@ export function CourseCatalogGrid({ courses, noun = "Course" }: { courses: Cours
       {/* Grid */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filtered.map((course) => (
-            <CourseCard key={course.id} course={course} />
+          {filtered.map((course, i) => (
+            <Fragment key={course.id}>
+              <div data-grid-item={course.id} className="contents">
+                <CourseCard course={course} />
+              </div>
+              {showPromo && i === promoAt - 1 && (
+                <div data-grid-item="promo" className="contents">
+                  <PromoSlot promo={promo} variant="card" />
+                </div>
+              )}
+            </Fragment>
           ))}
         </div>
       ) : (

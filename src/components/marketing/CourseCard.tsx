@@ -75,7 +75,7 @@ export function CourseCard({ course }: { course: CourseCardData }) {
           </div>
           <Link
             href={`/courses/${course.slug}`}
-            className="bg-pz-primary text-pz-on-primary font-bold px-5 py-2.5 rounded-lg hover:bg-pz-on-primary-container transition-colors font-headline text-sm"
+            className="inline-flex min-h-11 items-center bg-pz-primary text-pz-on-primary font-bold px-5 py-2.5 rounded-lg hover:bg-pz-on-primary-container transition-colors font-headline text-sm"
           >
             View Details
           </Link>

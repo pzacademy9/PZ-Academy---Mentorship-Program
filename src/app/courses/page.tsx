@@ -3,6 +3,10 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { FaqAccordion } from "@/components/marketing/FaqAccordion";
 import { CourseCatalogGrid } from "@/components/marketing/CourseCatalogGrid";
+import { MarketingHero, HERO_BUTTON } from "@/components/marketing/MarketingHero";
+import { NextStep } from "@/components/marketing/NextStep";
+import { getActiveBanners } from "@/lib/data/marketing";
+import { batchesNotListed, pickPromo } from "@/lib/marketing/promo";
 import { getPublishedCourses } from "@/lib/data/lms";
 import { getOpenLiveBatches } from "@/lib/data/landing-website";
 import { attachLiveBatches } from "@/lib/data/live-batch-merge";
@@ -26,29 +30,37 @@ const FAQS = [
 ];
 
 export default async function CoursesPage() {
-  const [published, openBatches] = await Promise.all([getPublishedCourses("course"), getOpenLiveBatches()]);
+  const [published, openBatches, banners] = await Promise.all([
+    getPublishedCourses("course"),
+    getOpenLiveBatches(),
+    getActiveBanners("sidebar"),
+  ]);
   const courses = attachLiveBatches(published, openBatches);
+  const promo = pickPromo({ banners, batches: batchesNotListed(openBatches.values(), published.map((c) => c.id)) });
 
   return (
     <>
       <MarketingNav />
 
-      {/* ─── HERO ─── */}
-      <section className="bg-pz-surface-container-lowest py-16 md:py-24 border-b border-pz-surface-variant/30">
-        <div className="max-w-[1280px] mx-auto px-8 md:px-16">
-          <h1 className="font-headline text-5xl md:text-6xl font-black text-pz-on-surface mb-6 tracking-tight">
-            Explore Our <span className="text-pz-primary">Courses</span>
-          </h1>
-          <p className="font-body text-xl text-pz-on-surface-variant max-w-2xl leading-relaxed">
-            Advance your clinical knowledge with our expert-led pharmacy modules. Stay ahead of
-            the curve with peer-reviewed curriculum and certified mastery.
-          </p>
-        </div>
-      </section>
+      <main>
+      <MarketingHero
+        kicker="Certified Courses"
+        title={<>Explore Our <em className="not-italic text-pz-bright">Courses</em></>}
+        text="Advance your clinical knowledge with our expert-led pharmacy modules. Stay ahead of the curve with peer-reviewed curriculum and certified mastery."
+        action={
+          <a href="#courses" className={HERO_BUTTON}>
+            <BookOpen className="w-[17px] h-[17px]" aria-hidden="true" /> See all courses
+          </a>
+        }
+      />
 
       {/* ─── COURSES ─── */}
-      <div id="courses" className="max-w-[1280px] mx-auto px-8 md:px-16 py-12">
-        <CourseCatalogGrid courses={courses} />
+      <div id="courses" className="scroll-mt-20 max-w-[1280px] mx-auto px-6 md:px-16 py-12">
+        <CourseCatalogGrid
+          courses={courses}
+          promo={promo}
+          emptyNext={{ label: "Watch a free webinar meanwhile", href: "/webinars" }}
+        />
       </div>
 
       {/* ─── BENEFITS ─── */}
@@ -85,20 +97,13 @@ export default async function CoursesPage() {
         </div>
       </section>
 
-      {/* ─── CTA ─── */}
-      <section className="py-24 px-6 bg-gradient-to-br from-pz-solid-deep to-[#1a4a2e] text-center relative overflow-hidden z-10">
-        <div className="absolute inset-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpolygon fill='none' stroke='rgba(255%2C255%2C255%2C0.03)' stroke-width='1.2' points='30%2C3 57%2C18 57%2C48 30%2C63 3%2C48 3%2C18'/%3E%3C/svg%3E")`, backgroundSize: "60px 104px" }} />
-        <div className="relative z-10 max-w-[660px] mx-auto">
-          <span className="text-pz-bright text-[.7rem] font-semibold tracking-[.13em] uppercase font-poppins">Take the Next Step</span>
-          <h2 className="font-montserrat text-[clamp(1.9rem,3.5vw,2.8rem)] font-extrabold text-white leading-[1.15] tracking-[-0.015em] mt-3 mb-4">Ready to <em className="not-italic text-pz-bright">Elevate</em> Your<br />Pharmacology Expertise?</h2>
-          <p className="text-[rgba(255,255,255,.65)] text-[.97rem] leading-[1.8] mb-10 font-poppins">Secure your spot in the upcoming batch and begin a learning experience that goes far beyond the classroom.</p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <a href="#courses" className="inline-flex items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold px-8 py-4 rounded-full text-base transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.3)]">
-              <BookOpen className="w-5 h-5" /> Explore Courses
-            </a>
-          </div>
-        </div>
-      </section>
+      <NextStep
+        title={<>Ready to <em className="not-italic text-pz-bright">Elevate</em> Your<br />Pharmacology Expertise?</>}
+        text="Secure your spot in the upcoming batch. Want someone to guide you 1-on-1 along the way? Book a mentor."
+        primary={{ href: "#courses", label: "Explore Courses" }}
+        next={{ href: "/mentorship#mentors", label: "Next: 1-on-1 Mentorship" }}
+      />
+      </main>
 
       <MarketingFooter />
     </>

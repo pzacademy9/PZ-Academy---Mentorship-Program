@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
-import { Calendar, Play, CheckCircle } from "lucide-react";
+import { Play, CheckCircle } from "lucide-react";
 import type { CourseCard } from "@/lib/data/lms";
+import type { Promo } from "@/lib/marketing/promo";
+import { PromoSlot } from "./PromoSlot";
+import { PROMO_AFTER } from "./CourseCatalogGrid";
 
 type Filter = "all" | "past" | "upcoming";
 
@@ -24,7 +27,7 @@ function initials(name: string): string {
  * /courses/[slug], which embeds the free public_video_url and (separately)
  * gates quizzes/notes/certificate behind enrollment — see that page.
  */
-export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
+export function WebinarGrid({ webinars, promo = null }: { webinars: CourseCard[]; promo?: Promo | null }) {
   const [filter, setFilter] = useState<Filter>("all");
 
   const visible = webinars.filter((w) => {
@@ -39,8 +42,10 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
         {(["all", "upcoming", "past"] as Filter[]).map((f) => (
           <button
             key={f}
+            type="button"
             onClick={() => setFilter(f)}
-            className={`px-5 py-2 rounded-full text-sm font-semibold font-poppins border transition-all duration-200 capitalize ${
+            aria-pressed={filter === f}
+            className={`min-h-11 px-5 py-2 rounded-full text-sm font-semibold font-poppins border transition-all duration-200 capitalize ${
               filter === f
                 ? "bg-pz-solid-forest text-white border-pz-solid-forest"
                 : "bg-white text-pz-muted border-pz-border hover:border-pz-solid-mid hover:text-pz-forest"
@@ -54,11 +59,11 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
       {/* Grid */}
       {visible.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {visible.map((w) => {
+          {visible.map((w, i) => {
             const isUpcoming = w.status === "open";
             return (
+              <Fragment key={w.id}>
               <div
-                key={w.id}
                 className="bg-white rounded-2xl border-[1.5px] border-pz-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card-lg hover:border-transparent"
               >
                 {/* Card top */}
@@ -88,10 +93,6 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
                     {w.mentorName ?? "PZ Academy Faculty"}
                   </div>
                   <div className="text-pz-muted text-[.83rem] font-poppins leading-snug">{w.title}</div>
-                  <div className="flex items-center gap-1.5 text-pz-muted text-[.76rem] font-poppins mt-1">
-                    <Calendar className="w-3.5 h-3.5 text-pz-mid" />
-                    Date TBD
-                  </div>
                 </div>
 
                 {/* Footer */}
@@ -99,7 +100,7 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
                   {isUpcoming ? (
                     <Link
                       href={`/courses/${w.slug}`}
-                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-pz-bright text-pz-forest text-[.84rem] font-semibold font-poppins transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(126,217,87,.35)]"
+                      className="flex min-h-11 items-center justify-center gap-2 w-full py-2.5 rounded-full bg-pz-bright text-pz-forest text-[.84rem] font-semibold font-poppins transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(126,217,87,.35)]"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       Register Now
@@ -107,7 +108,7 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
                   ) : (
                     <Link
                       href={`/courses/${w.slug}`}
-                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-pz-solid-forest text-white text-[.84rem] font-semibold font-poppins transition-all duration-200 hover:bg-pz-solid-mid hover:-translate-y-0.5 hover:shadow-card"
+                      className="flex min-h-11 items-center justify-center gap-2 w-full py-2.5 rounded-full bg-pz-solid-forest text-white text-[.84rem] font-semibold font-poppins transition-all duration-200 hover:bg-pz-solid-mid hover:-translate-y-0.5 hover:shadow-card"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       Watch Recording
@@ -115,6 +116,8 @@ export function WebinarGrid({ webinars }: { webinars: CourseCard[] }) {
                   )}
                 </div>
               </div>
+              {promo && i === Math.min(PROMO_AFTER, visible.length) - 1 && <PromoSlot promo={promo} variant="card" />}
+              </Fragment>
             );
           })}
         </div>
