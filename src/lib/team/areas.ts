@@ -44,7 +44,9 @@ export function canAccessArea(role: Role, custom: CustomAccess | null, area: Are
   return effectiveAreas(role, custom).includes(area);
 }
 
-const MEDIA: Area[] = ["landing_pages", "courses", "mentors", "marketing"];
+/** Areas that use the shared media library and image uploads: any one of them is enough. */
+export const MEDIA_AREAS: readonly Area[] = ["landing_pages", "courses", "mentors", "marketing"];
+const MEDIA: Area[] = [...MEDIA_AREAS];
 
 /**
  * Path rules, most specific first. A route may belong to several areas (access to any one is enough).

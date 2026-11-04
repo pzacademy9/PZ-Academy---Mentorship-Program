@@ -19,7 +19,7 @@ vi.mock("@/lib/data/team-access", () => ({
 }));
 
 import { AREAS, mayOpen, isAdminHomePath } from "@/lib/team/areas";
-import { requireAdmin, requireAdminPage, requireAdminHomePage } from "@/lib/auth/require-admin";
+import { requireAdmin, requireAdminPage, requireAdminHomePage, requireImageUploader } from "@/lib/auth/require-admin";
 
 const status = (g: { ok: boolean; response?: unknown }) => (g.ok ? 200 : (g.response as NextResponse).status);
 
@@ -112,5 +112,28 @@ describe("requireAdminHomePage()", () => {
   });
   it("redirects a manager to the normal dashboard", async () => {
     await expect(requireAdminHomePage()).rejects.toThrow("redirect:/dashboard");
+  });
+});
+
+describe("requireImageUploader() (mentors upload their photo, staff upload through their media areas)", () => {
+  it("lets a mentor in", async () => {
+    role = "mentor";
+    expect(status(await requireImageUploader())).toBe(200);
+  });
+  it("lets a plain manager in (courses and landing pages are media areas)", async () => {
+    expect(status(await requireImageUploader())).toBe(200);
+  });
+  it("refuses an admin who has every media area removed", async () => {
+    role = "admin"; custom = { extra: [], removed: ["landing_pages", "courses", "mentors", "marketing"] };
+    expect(status(await requireImageUploader())).toBe(403);
+  });
+  it("refuses sales agents and students, and signed-out people with 401", async () => {
+    for (const r of ["sales_agent", "student"]) { role = r; expect(status(await requireImageUploader())).toBe(403); }
+    role = "signed-out";
+    expect(status(await requireImageUploader())).toBe(401);
+  });
+  it("fails closed when custom access cannot be read", async () => {
+    role = "admin"; customFails = true;
+    expect(status(await requireImageUploader())).toBe(403);
   });
 });

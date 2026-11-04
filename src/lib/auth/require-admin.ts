@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Role } from "@/lib/roles";
-import { mayOpen, type Area } from "@/lib/team/areas";
+import { mayOpen, MEDIA_AREAS, type Area } from "@/lib/team/areas";
 
 type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
 
@@ -146,4 +146,23 @@ export async function requireSuperAdminPage(): Promise<{ user: User; supabase: S
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "super_admin") redirect("/dashboard");
   return { user, supabase };
+}
+
+/**
+ * Gate for the shared image upload route. Mentors upload their own photo; staff upload through the
+ * media areas (landing pages, programs, mentors, marketing). Anyone else, or anything unclear, is refused.
+ */
+export async function requireImageUploader(): Promise<
+  { ok: true; user: User; supabase: ServerSupabase } | { ok: false; response: NextResponse }
+> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, response: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const role = profile?.role as Role | undefined;
+  if (role === "mentor" || (await mayAccess(role, user.id, MEDIA_AREAS))) return { ok: true, user, supabase };
+  return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
 }
