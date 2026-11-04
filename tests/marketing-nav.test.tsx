@@ -35,6 +35,37 @@ describe("MarketingNav phone menu", () => {
     expect(document.activeElement).toBe(menuButton());
   });
 
+  it("never steals focus when the page loads", () => {
+    const before = document.activeElement;
+    render(<MarketingNav />);
+    expect(document.activeElement).toBe(before);
+  });
+
+  it("closed menu is invisible, so it is out of the tab order even before scripts run", () => {
+    render(<MarketingNav />);
+    expect(overlay().className).toMatch(/\binvisible\b/);
+    fireEvent.click(menuButton());
+    expect(overlay().className).not.toMatch(/\binvisible\b/);
+  });
+
+  it("tapping a link closes the menu without pulling focus back to the button", () => {
+    render(<MarketingNav />);
+    fireEvent.click(menuButton());
+    const link = overlay().querySelector('a[href="/courses"]') as HTMLElement;
+    link.focus();
+    fireEvent.click(link);
+    expect(overlay().getAttribute("aria-hidden")).toBe("true");
+    expect(document.activeElement).not.toBe(menuButton());
+  });
+
+  it("the open menu is never clipped by a blurred bar (alwaysSolid pages)", () => {
+    const { container } = render(<MarketingNav alwaysSolid />);
+    const nav = container.querySelector("nav")!;
+    expect(nav.className).toMatch(/backdrop-blur-xl/);
+    fireEvent.click(menuButton());
+    expect(nav.className).not.toMatch(/backdrop-blur/);
+  });
+
   it("menu lists every program", () => {
     render(<MarketingNav />);
     fireEvent.click(menuButton());
