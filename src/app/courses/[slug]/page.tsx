@@ -81,7 +81,7 @@ export default async function CourseDetailPage({
     <>
       <MarketingNav />
 
-      <main className="max-w-[1280px] mx-auto px-6 md:px-16 py-8">
+      <main className="max-w-[1280px] mx-auto px-6 md:px-16 pt-28 pb-8">
         {liveBatch && <LiveBatchBanner title={liveBatch.title} startsOn={liveBatch.startsOn} href={liveBatch.href} />}
         {/* Hero */}
         <section className="mb-12">

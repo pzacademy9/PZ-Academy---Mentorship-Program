@@ -41,7 +41,7 @@ export default async function MentorPage({ params }: Props) {
 
   return (
     <>
-      <MarketingNav alwaysSolid />
+      <MarketingNav />
       <main>
         <MentorProfileClient mentor={mentor} reviewSummary={reviewSummary} reviews={reviews} />
       </main>
