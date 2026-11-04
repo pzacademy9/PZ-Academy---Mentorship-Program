@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { type Role } from "@/lib/roles";
+import { effectiveAreas, type Area } from "@/lib/team/areas";
+import { getCustomAccess } from "@/lib/data/team-access";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { getNotificationSummary } from "@/lib/data/notifications";
@@ -25,11 +27,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const role = (profile?.role ?? "student") as Role;
   const fullName = profile?.full_name ?? user.email ?? "User";
+
+  // Which admin entries this person may see. Super admin sees all (undefined). If their custom access
+  // cannot be read they see no admin entries, never extra ones.
+  let areas: Area[] | undefined;
+  if (role === "admin" || role === "manager") {
+    try {
+      areas = effectiveAreas(role, await getCustomAccess(user.id));
+    } catch {
+      areas = [];
+    }
+  }
   const { items, unreadCount } = await getNotificationSummary(user.id);
 
   return (
     <div className="flex min-h-screen bg-pz-surface dark:bg-pz-surface">
-      <Sidebar role={role} />
+      <Sidebar role={role} areas={areas} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
           fullName={fullName}

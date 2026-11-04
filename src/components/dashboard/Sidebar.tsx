@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
+import type { Area } from "@/lib/team/areas";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { isSalesHubPath } from "@/lib/crm/sales-hub-routes";
@@ -14,12 +15,14 @@ const HUB_GROUPS: HubGroup[] = ["Overview", "Audience", "Outreach", "Team"];
 
 interface SidebarProps {
   role: Role;
+  /** The admin areas this person may open (admin and manager); undefined for everyone else and the super admin. */
+  areas?: readonly Area[];
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, areas }: SidebarProps) {
   const pathname = usePathname();
   const hubMode = (role === "admin" || role === "super_admin") && isSalesHubPath(pathname);
-  const items: NavItem[] = hubMode ? [...SALES_HUB_ITEMS, SALES_HUB_BACK] : navForRole(role);
+  const items: NavItem[] = hubMode ? [...SALES_HUB_ITEMS, SALES_HUB_BACK] : navForRole(role, areas);
   const activeHref = activeHrefFor(items, pathname);
   const { bar, more, moreActive } = splitMobileNav(items, activeHref);
   const [moreOpen, setMoreOpen] = useState(false);
