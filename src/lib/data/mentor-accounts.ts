@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { isAdminRole } from "@/lib/auth/require-admin";
+import { isStaffRole } from "@/lib/team/rules";
+import type { Role } from "@/lib/roles";
 
 /**
  * Admin-facing mentor account linking (subsystem B). Mirrors the
@@ -108,7 +109,7 @@ export async function confirmLinkExistingAccount(mentorId: string, email: string
 
   if (account?.role === "sales_agent") return { ok: false, reason: "is-sales-agent" };
 
-  if (!isAdminRole(account?.role)) {
+  if (!isStaffRole(account?.role as Role | null | undefined)) {
     const { error: profileError } = await admin.from("profiles").update({ role: "mentor" }).eq("id", accountId);
     if (profileError) return { ok: false, reason: "db-error" };
   }

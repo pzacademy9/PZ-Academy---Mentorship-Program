@@ -27,7 +27,7 @@ function from(table: "profiles" | "team_access") {
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from, auth: { admin: { getUserById: async () => ({ data: { user: { email: "a@test.dev" } } }) } } }) }));
 vi.mock("@/lib/data/mentor-accounts", () => ({ findAccountIdByEmail: async () => null }));
 
-import { cleanCustom, decideTeamChange } from "@/lib/team/rules";
+import { cleanCustom, decideTeamChange, isStaffRole } from "@/lib/team/rules";
 import { saveTeamMember, switchOffTeamMember } from "@/lib/data/team-access";
 
 beforeEach(() => { db.profiles = []; db.team_access = []; db.writes = []; });
@@ -41,6 +41,14 @@ describe("decideTeamChange", () => {
     expect(decideTeamChange("mentor")).toBe("is-mentor");
     expect(decideTeamChange("sales_agent")).toBe("is-sales-agent");
     expect(decideTeamChange(null)).toBe("not-found");
+  });
+});
+
+describe("isStaffRole", () => {
+  it("is true for admin, super admin and manager only", () => {
+    for (const r of ["admin", "super_admin", "manager"] as const) expect(isStaffRole(r)).toBe(true);
+    for (const r of ["student", "mentor", "sales_agent"] as const) expect(isStaffRole(r)).toBe(false);
+    expect(isStaffRole(null)).toBe(false);
   });
 });
 

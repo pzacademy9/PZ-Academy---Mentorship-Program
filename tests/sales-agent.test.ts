@@ -28,6 +28,7 @@ describe("decidePromotion", () => {
   it("never demotes an admin or super_admin", () => {
     expect(decidePromotion("admin")).toBe("refuse-admin");
     expect(decidePromotion("super_admin")).toBe("refuse-admin");
+    expect(decidePromotion("manager")).toBe("refuse-admin");
   });
   it("never converts a mentor, who would lose mentor access", () => {
     expect(decidePromotion("mentor")).toBe("refuse-mentor");

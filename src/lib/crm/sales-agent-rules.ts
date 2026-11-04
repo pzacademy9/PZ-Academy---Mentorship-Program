@@ -9,7 +9,7 @@ export type PromotionDecision = "promote" | "already-sales-agent" | "refuse-admi
  * with no in-app way back (the same reasons data/mentor-accounts.ts protects admins).
  */
 export function decidePromotion(currentRole: Role | null | undefined): PromotionDecision {
-  if (currentRole === "admin" || currentRole === "super_admin") return "refuse-admin";
+  if (currentRole === "admin" || currentRole === "super_admin" || currentRole === "manager") return "refuse-admin";
   if (currentRole === "mentor") return "refuse-mentor";
   if (currentRole === "sales_agent") return "already-sales-agent";
   return "promote";
