@@ -10,6 +10,8 @@ vi.mock("@/lib/data/marketing", () => ({
   getFeaturedItems: async () => [],
 }));
 vi.mock("@/lib/data/landing-website", () => ({ getOpenLiveBatches: async () => batches }));
+vi.mock("@/lib/data/lms", () => ({ getPublishedCourses: async () => [] }));
+vi.mock("@/lib/data/mentors", () => ({ getPublishedMentors: async () => [] }));
 
 import HomePage from "@/app/page";
 
