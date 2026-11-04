@@ -31,12 +31,12 @@ export function PromoSlot({ promo, variant = "banner" }: { promo: Promo | null; 
 
   if (variant === "card") {
     return (
-      <aside aria-label={`Featured: ${promo.headline}`} className="flex flex-col gap-4 rounded-2xl bg-pz-solid-forest p-6 text-white">
+      <article aria-label={`Featured: ${promo.headline}`} className="flex flex-col gap-4 rounded-2xl bg-pz-solid-forest p-6 text-white">
         {label}
         <h3 className="font-montserrat text-lg font-bold leading-snug">{promo.headline}</h3>
         {promo.detail && <p className="font-poppins text-sm text-[rgba(255,255,255,.8)]">{promo.detail}</p>}
         <div className="mt-auto">{button}</div>
-      </aside>
+      </article>
     );
   }
 

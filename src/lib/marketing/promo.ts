@@ -20,6 +20,15 @@ export function isSafeHref(href: string): boolean {
   return (h.startsWith("/") && !h.startsWith("//")) || /^https?:\/\//i.test(h);
 }
 
+/** In a program grid, the Featured card goes after this many programs (or last, if fewer). */
+export const PROMO_AFTER = 3;
+
+/** Open batches not already listed on this page (by course id) — for the list-page promo. */
+export function batchesNotListed<T extends { courseId: string }>(batches: Iterable<T>, listedIds: Iterable<string>): T[] {
+  const listed = new Set(listedIds);
+  return Array.from(batches).filter((b) => !listed.has(b.courseId));
+}
+
 type PromoBanner = { headline: string; ctaText: string; ctaLink: string; imageUrl: string | null };
 type PromoBatch = { title: string; startsOn: string; href: string };
 
