@@ -125,6 +125,12 @@ describe("LandingRenderer", () => {
     c = toggleSection(c, faq.id);
     expect(render(<LandingRenderer content={c} status="published" kind="webinar" />).container.textContent).not.toContain("UNIQUE-FAQ-HEADING");
   });
+  it("marks the page when box shadows are switched off, and leaves them on by default", () => {
+    const on = render(<LandingRenderer content={base()} status="published" kind="webinar" />).container.querySelector(".landing-root");
+    expect(on?.getAttribute("data-shadows")).toBeNull();
+    const off = render(<LandingRenderer content={updateSettings(base(), { boxShadows: false })} status="published" kind="webinar" />).container.querySelector(".landing-root");
+    expect(off?.getAttribute("data-shadows")).toBe("off");
+  });
   it("points the Register buttons at the configured link", () => {
     const { container } = render(<LandingRenderer content={base()} status="published" kind="webinar" />);
     const links = Array.from(container.querySelectorAll("a")).filter((a) => a.getAttribute("href") === "https://pharmacozyme.com/register");

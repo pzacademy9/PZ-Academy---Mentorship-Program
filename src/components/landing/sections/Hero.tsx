@@ -316,7 +316,7 @@ function SplitHero({ data, register, sectionIds }: SectionProps) {
             {badges.length > 0 ? (
               <ul className={`w-full ${badgeGridClass(badges.length)}`}>
                 {badges.map((b, i) => (
-                  <li key={i} className="flex min-w-0 max-w-full items-start gap-2 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-2 text-xs font-medium sm:gap-2.5 sm:p-3 sm:text-sm text-landing-deep">
+                  <li key={i} className="flex min-w-0 max-w-full items-start gap-2 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-2 text-xs font-medium sm:gap-2.5 sm:p-3 sm:text-sm text-landing-deep shadow-landing-soft-lg">
                     <Check />
                     <span className="min-w-0 break-words">{b}</span>
                   </li>
