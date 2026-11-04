@@ -1,10 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
-import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Quote } from "lucide-react";
+import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Quote, MessageCircle } from "lucide-react";
 import { getActiveBanners, getFeaturedItems } from "@/lib/data/marketing";
 import { getOpenLiveBatches } from "@/lib/data/landing-website";
 import { OpenBatchStrip } from "@/components/marketing/OpenBatchStrip";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { PromoSlot } from "@/components/marketing/PromoSlot";
+import { pickPromo } from "@/lib/marketing/promo";
 
 const STATS = [
   { icon: Video,    number: "12+",  label: "Live Webinars",     badge: null },
@@ -13,14 +16,16 @@ const STATS = [
   { icon: Award,    number: "SECP", label: "Certified Program", badge: "✓ Accredited" },
 ];
 
+// The ladder: cheapest / easiest first, then step up. Order matters — it is the
+// path the home page guides every visitor along.
 const SERVICES = [
-  { icon: BookOpen, title: "Courses",    cta: "Explore Courses", href: "/courses",  external: false,
-    desc: "Enroll in structured pharmaceutical modules — build a strong foundation in pharmacology, drug mechanisms, and clinical applications at your own pace." },
-  { icon: Video,    title: "Webinars",   cta: "Join a Webinar",  href: "/webinars", external: false,
+  { icon: Video,    step: "Start free",    title: "Webinars",   cta: "Watch free webinars", href: "/webinars",
     desc: "Join live expert-led webinars exploring the science behind modern medicines, innovative pharmaceutical practices, and current industry trends." },
-  { icon: Wrench,   title: "Workshops",  cta: "View Workshops",  href: "/workshops",external: false,
+  { icon: Wrench,   step: "Build a skill", title: "Workshops",  cta: "View Workshops",      href: "/workshops",
     desc: "Hands-on workshops covering innovative pharma concepts, practical approaches, and real-world problem solving guided by industry professionals." },
-  { icon: UserCheck,title: "Mentorship", cta: "Find a Mentor",   href: "https://pz-academy.pharmacozyme.com/mentorship?type=mentor#apply", external: true,
+  { icon: BookOpen, step: "Get certified", title: "Courses",    cta: "Explore Courses",     href: "/courses",
+    desc: "Enroll in structured pharmaceutical modules — build a strong foundation in pharmacology, drug mechanisms, and clinical applications at your own pace." },
+  { icon: UserCheck,step: "1-on-1 help",   title: "Mentorship", cta: "Find a Mentor",       href: "/mentorship#mentors",
     desc: "Connect 1-on-1 with pharmaceutical experts and practitioners who'll guide your academic journey and help you navigate clinical challenges." },
 ];
 
@@ -35,12 +40,20 @@ const FEATURED_FALLBACK = [
 ];
 
 const REVIEWS = [
-  { text: '"Passed my pharmacology board exam on the first attempt. The dose calc course is brilliant."', author: "Sara A.", role: "Pharm.D Student",    initials: "SA", side: "left" },
-  { text: '"MED-Q tournaments kept me motivated every week. Best pharma community in Pakistan."',         author: "M. Kamran", role: "Final Year Student", initials: "MK", side: "right" },
+  { text: '"Passed my pharmacology board exam on the first attempt. The dose calc course is brilliant."', author: "Sara A.", role: "Pharm.D Student",    initials: "SA" },
+  { text: '"MED-Q tournaments kept me motivated every week. Best pharma community in Pakistan."',         author: "M. Kamran", role: "Final Year Student", initials: "MK" },
 ];
 
 export default async function HomePage() {
-  const [heroBanners, featuredCards, openBatches] = await Promise.all([getActiveBanners("hero"), getFeaturedItems(), getOpenLiveBatches()]);
+  const [heroBanners, midBanners, featuredCards, openBatches] = await Promise.all([
+    getActiveBanners("hero"),
+    getActiveBanners("mid_page"),
+    getFeaturedItems(),
+    getOpenLiveBatches(),
+  ]);
+  // Open batches already have their own strip on this page, so the mid-page
+  // promo only shows an admin banner (no duplicate batch box).
+  const midPromo = pickPromo({ banners: midBanners, batches: [] });
   const heroBanner = heroBanners[0] ?? null;
   const featured =
     featuredCards.length > 0
@@ -71,24 +84,6 @@ export default async function HomePage() {
         <div className="absolute pointer-events-none rounded-full" style={{ width:450,height:450,bottom:-80,left:-80,background:"#196432",opacity:.13,filter:"blur(90px)",animation:"orbFloat2 15s ease-in-out infinite" }} />
         <div className="absolute pointer-events-none rounded-full" style={{ width:300,height:300,bottom:"20%",right:"15%",background:"#7ED957",opacity:.06,filter:"blur(90px)",animation:"orbFloat3 10s ease-in-out infinite" }} />
 
-        {/* Floating reviews (desktop only) */}
-        {REVIEWS.map((r) => (
-          <div key={r.initials} className={`absolute hidden xl:block max-w-[210px] z-[3] pointer-events-none ${r.side === "left" ? "left-[3%] top-[30%]" : "right-[3%] top-[40%]"}`}
-            style={{ background:"rgba(255,255,255,.09)", backdropFilter:"blur(18px)", border:"1px solid rgba(255,255,255,.14)", borderRadius:16, padding:"0.9rem 1.1rem",
-              animation: r.side === "left" ? "reviewLeft 11s ease-in-out infinite" : "reviewRight 13s 2s ease-in-out infinite" }}>
-            {/* Was 5 hardcoded filled stars, implying a perfect verified rating —
-                the live project has zero real public reviews right now, so any
-                star claim here would be fabricated. A quote mark just marks
-                this as a testimonial, no rating asserted. */}
-            <Quote className="w-3.5 h-3.5 text-pz-bright mb-1.5" aria-hidden="true" />
-            <p className="text-[.72rem] text-[rgba(255,255,255,.82)] italic leading-relaxed mb-2">{r.text}</p>
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[.6rem] font-bold text-white" style={{background:"linear-gradient(135deg,#7ED957,#196432)"}}>{r.initials}</div>
-              <span className="text-[.67rem] text-[rgba(255,255,255,.6)] font-poppins">{r.author} — {r.role}</span>
-            </div>
-          </div>
-        ))}
-
         {/* Hero content */}
         <div className="relative z-[2] max-w-[840px] px-6 pt-28 pb-20">
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-pz-bright text-xs font-poppins font-semibold tracking-widest uppercase"
@@ -109,22 +104,64 @@ export default async function HomePage() {
             PZ Academy by Pharmacozyme — combining innovation, research, and real-world learning to shape the next generation of pharmaceutical leaders.
           </p>
           <div className="flex gap-3.5 justify-center flex-wrap">
-            <Link href={heroBanner?.ctaLink ?? "/courses"} className="inline-flex items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
-              <BookOpen className="w-4 h-4" /> {heroBanner?.ctaText ?? "Explore Courses"}
-            </Link>
-            <Link href="https://pz-academy.pharmacozyme.com/mentorship?type=mentor#apply"
-              className="inline-flex items-center gap-2 font-poppins font-semibold text-sm text-white px-7 py-3.5 rounded-full border border-[rgba(255,255,255,.32)] transition-all duration-200 hover:border-pz-bright hover:text-pz-bright hover:-translate-y-0.5">
-              <UserCheck className="w-4 h-4" /> Find a Mentor
+            {heroBanner ? (
+              <Link href={heroBanner.ctaLink} className="inline-flex min-h-11 items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
+                <BookOpen className="w-4 h-4" aria-hidden="true" /> {heroBanner.ctaText}
+              </Link>
+            ) : (
+              <Link href="#paths" className="inline-flex min-h-11 items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
+                Find your program <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </Link>
+            )}
+            <Link href="/webinars"
+              className="inline-flex min-h-11 items-center gap-2 font-poppins font-semibold text-sm text-white px-7 py-3.5 rounded-full border border-[rgba(255,255,255,.32)] transition-all duration-200 hover:border-pz-bright hover:text-pz-bright hover:-translate-y-0.5">
+              <Video className="w-4 h-4" aria-hidden="true" /> Free webinars
             </Link>
           </div>
         </div>
 
         {/* Scroll cue */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 text-[rgba(255,255,255,.3)] pointer-events-none">
+        <div aria-hidden="true" className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:flex flex-col items-center gap-1.5 text-[rgba(255,255,255,.5)] pointer-events-none">
           <div className="w-px h-10 bg-gradient-to-b from-[rgba(255,255,255,.35)] to-transparent" style={{animation:"scrollLine 1.6s ease-in-out infinite"}} />
           <span className="text-[.68rem] tracking-[.12em] uppercase font-poppins">Scroll</span>
         </div>
       </section>
+
+      {/* ─── SERVICES ─────────────────────────────────────────────────────── */}
+      <section id="paths" aria-label="Find your program" className="bg-pz-offwhite py-16 md:py-24 px-6 scroll-mt-20">
+        <div className="max-w-[1060px] mx-auto">
+          <div className="text-center mb-14">
+            <span className="font-poppins text-[.75rem] font-semibold tracking-[.13em] uppercase text-pz-mid mb-3 block">Find your program</span>
+            <h2 className="font-montserrat font-extrabold text-pz-forest leading-tight mb-4" style={{fontSize:"clamp(1.7rem,3vw,2.5rem)",letterSpacing:"-.015em"}}>
+              Pharma Made Simple,<br /><em className="not-italic text-pz-mid">Learning Made Effective</em>
+            </h2>
+            <p className="font-poppins text-pz-muted text-[.97rem] max-w-[520px] mx-auto leading-relaxed">
+              From formulation to patient care — every concept made clear, memorable, and clinically relevant.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {SERVICES.map((s) => (
+              <Link key={s.title} href={s.href}
+                className="group bg-white rounded-xl p-7 border-[1.5px] border-pz-border flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-solid-mid relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 right-0 h-[3px] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-350"
+                  style={{background:"linear-gradient(90deg,#194B32,#7ED957)"}} />
+                <div className="w-12 h-12 rounded-[14px] flex items-center justify-center mb-5 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-250"
+                  style={{background:"linear-gradient(135deg,#0F3D22,#196432)"}}>
+                  <s.icon className="w-5 h-5 text-pz-bright stroke-[1.8]" />
+                </div>
+                <span className="font-poppins text-[.75rem] font-bold uppercase tracking-[.1em] text-pz-mid mb-1">{s.step}</span>
+                <h3 className="font-montserrat font-bold text-pz-forest text-lg mb-3">{s.title}</h3>
+                <p className="font-poppins text-pz-muted text-sm leading-relaxed flex-1">{s.desc}</p>
+                <div className="mt-5 flex items-center gap-1.5 text-pz-forest text-sm font-poppins font-semibold group-hover:gap-3 transition-all duration-200">
+                  {s.cta} <ArrowRight className="w-4 h-4" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <OpenBatchStrip batches={Array.from(openBatches.values())} />
 
       {/* ─── STATS ────────────────────────────────────────────────────────── */}
       <section className="bg-white border-b border-pz-border">
@@ -148,40 +185,30 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ─── SERVICES ─────────────────────────────────────────────────────── */}
-      <section className="bg-pz-offwhite py-24 px-6">
+      {/* ─── REVIEWS ──────────────────────────────────────────────────────── */}
+      <section aria-labelledby="home-reviews" className="bg-pz-offwhite py-16 px-6">
         <div className="max-w-[1060px] mx-auto">
-          <div className="text-center mb-14">
-            <span className="font-poppins text-[.7rem] font-semibold tracking-[.13em] uppercase text-pz-mid mb-3 block">What We Offer</span>
-            <h2 className="font-montserrat font-extrabold text-pz-forest leading-tight mb-4" style={{fontSize:"clamp(1.7rem,3vw,2.5rem)",letterSpacing:"-.015em"}}>
-              Pharma Made Simple,<br /><em className="not-italic text-pz-mid">Learning Made Effective</em>
-            </h2>
-            <p className="font-poppins text-pz-muted text-[.97rem] max-w-[520px] mx-auto leading-relaxed">
-              From formulation to patient care — every concept made clear, memorable, and clinically relevant.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {SERVICES.map((s) => (
-              <Link key={s.title} href={s.href} target={s.external?"_blank":undefined} rel={s.external?"noopener noreferrer":undefined}
-                className="group bg-white rounded-xl p-7 border-[1.5px] border-pz-border flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-pz-solid-mid relative overflow-hidden">
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-350"
-                  style={{background:"linear-gradient(90deg,#194B32,#7ED957)"}} />
-                <div className="w-12 h-12 rounded-[14px] flex items-center justify-center mb-5 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-250"
-                  style={{background:"linear-gradient(135deg,#0F3D22,#196432)"}}>
-                  <s.icon className="w-5 h-5 text-pz-bright stroke-[1.8]" />
+          <h2 id="home-reviews" className="font-montserrat font-extrabold text-pz-forest text-center mb-8" style={{fontSize:"clamp(1.4rem,2.5vw,2rem)"}}>
+            What students say
+          </h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {REVIEWS.map((r) => (
+              <li key={r.initials} className="bg-white rounded-xl border-[1.5px] border-pz-border p-6">
+                {/* No star rating: there are no verified public ratings yet. */}
+                <Quote className="w-4 h-4 text-pz-mid mb-2" aria-hidden="true" />
+                <p className="font-poppins text-pz-forest italic leading-relaxed mb-4">{r.text}</p>
+                <div className="flex items-center gap-2.5">
+                  <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white" style={{background:"linear-gradient(135deg,#7ED957,#196432)"}}>{r.initials}</div>
+                  <span className="font-poppins text-sm text-pz-muted">{r.author} — {r.role}</span>
                 </div>
-                <h3 className="font-montserrat font-bold text-pz-forest text-lg mb-3">{s.title}</h3>
-                <p className="font-poppins text-pz-muted text-sm leading-relaxed flex-1">{s.desc}</p>
-                <div className="mt-5 flex items-center gap-1.5 text-pz-forest text-sm font-poppins font-semibold group-hover:gap-3 transition-all duration-200">
-                  {s.cta} <ArrowRight className="w-4 h-4" />
-                </div>
-              </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </section>
 
-      <OpenBatchStrip batches={Array.from(openBatches.values())} />
+      <PromoSlot promo={midPromo} />
+
 
       {/* ─── FEATURED PROGRAMS ────────────────────────────────────────────── */}
       <section className="bg-white py-24 px-6">
@@ -237,62 +264,17 @@ export default async function HomePage() {
             Join thousands of medical and health sciences professionals growing with PZ Academy — evidence-based, expert-led, results-driven.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link href="/register" className="inline-flex items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold px-8 py-3.5 rounded-full transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-gold">
-              Create Free Account
+            <Link href="#paths" className="inline-flex min-h-11 items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold px-8 py-3.5 rounded-full transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-gold">
+              Find your program <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
-            <Link href="/courses" className="inline-flex items-center gap-2 text-white font-poppins font-semibold px-8 py-3.5 rounded-full border border-[rgba(255,255,255,.3)] transition-all duration-200 hover:border-pz-bright hover:text-pz-bright">
-              Browse Courses
+            <Link href="https://wa.me/923700199429" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-white font-poppins font-semibold px-8 py-3.5 rounded-full border border-[rgba(255,255,255,.3)] transition-all duration-200 hover:border-pz-bright hover:text-pz-bright">
+              <MessageCircle className="w-4 h-4" aria-hidden="true" /> Ask us on WhatsApp
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ─── FOOTER ───────────────────────────────────────────────────────── */}
-      <footer className="bg-pz-ink text-[rgba(255,255,255,.7)] py-16 px-6">
-        <div className="max-w-[1060px] mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 pb-10 border-b border-[rgba(255,255,255,.07)] mb-8">
-            <div>
-              <Image src="https://pharmacozyme.com/wp-content/uploads/2026/04/PZ-Academy-logo.png" alt="PZ Academy" width={52} height={52} className="h-[52px] w-auto mb-4 opacity-90" unoptimized />
-              <p className="font-poppins text-[.845rem] text-[rgba(255,255,255,.48)] leading-relaxed mb-5">
-                PZ Academy is the education platform of Pharmacozyme — empowering medical and health sciences professionals with innovation-led learning.
-              </p>
-              <div className="flex gap-2">
-                {["Instagram","Facebook"].map(s=>(
-                  <a key={s} href="#" className="w-9 h-9 rounded-full flex items-center justify-center bg-[rgba(255,255,255,.06)] hover:bg-pz-solid-mid hover:-translate-y-1 transition-all duration-200 text-[rgba(255,255,255,.68)] text-xs font-poppins font-bold">{s[0]}</a>
-                ))}
-              </div>
-            </div>
-            <div>
-              <h4 className="font-poppins text-[.72rem] font-semibold tracking-[.12em] uppercase text-[rgba(255,255,255,.35)] mb-5">Programs</h4>
-              <ul className="space-y-2.5">
-                {["Courses","Webinars","Workshops","Mentorship"].map(item=>(
-                  <li key={item}><Link href={`/${item.toLowerCase()}`} className="font-poppins text-[.845rem] text-[rgba(255,255,255,.58)] hover:text-pz-bright hover:pl-1 transition-all inline-block">{item}</Link></li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-poppins text-[.72rem] font-semibold tracking-[.12em] uppercase text-[rgba(255,255,255,.35)] mb-5">Platform</h4>
-              <ul className="space-y-2.5">
-                {[{label:"Sign In",href:"/login"},{label:"Create Account",href:"/register"},{label:"Dashboard",href:"/dashboard"},{label:"Certificates",href:"https://cert.pharmacozyme.com"}].map(item=>(
-                  <li key={item.label}><Link href={item.href} className="font-poppins text-[.845rem] text-[rgba(255,255,255,.58)] hover:text-pz-bright hover:pl-1 transition-all inline-block">{item.label}</Link></li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-poppins text-[.72rem] font-semibold tracking-[.12em] uppercase text-[rgba(255,255,255,.35)] mb-5">Contact</h4>
-              <ul className="space-y-2.5">
-                <li><a href="https://wa.me/923700199429" className="font-poppins text-[.845rem] text-[rgba(255,255,255,.58)] hover:text-pz-bright transition-colors">WhatsApp: +92 370 019 9429</a></li>
-                <li><a href="https://pharmacozyme.com" className="font-poppins text-[.845rem] text-[rgba(255,255,255,.58)] hover:text-pz-bright transition-colors">pharmacozyme.com</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <p className="font-poppins text-[.775rem] text-[rgba(255,255,255,.28)]">© 2026 Pharmacozyme. PZ Academy. All rights reserved.</p>
-            <p className="font-poppins text-[.775rem] text-[rgba(255,255,255,.28)]">#PZAcademy · #MedEd · #HealthEducation</p>
-          </div>
-        </div>
-      </footer>
-
+      <MarketingFooter />
     </>
   );
 }
