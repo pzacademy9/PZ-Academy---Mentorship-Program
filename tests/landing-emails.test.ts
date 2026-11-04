@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReceivedEmail, buildMemberReceivedEmail, buildFreeJoiningEmail, buildAdminAlertEmail,
-  buildVoucherResubmittedEmail, buildPaidEmail, buildUnderpaidEmail, buildReservedEmail, buildPortalLinkEmail, withTestPrefix, esc, firstName, money, formatStartsOn,
+  buildVoucherResubmittedEmail, buildPaidEmail, buildUnderpaidEmail, buildReservedEmail, buildPortalLinkEmail, withTestPrefix, esc, firstName, money, formatStartsOn, startsOnFromSettings,
   type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
 
@@ -22,6 +22,8 @@ describe("helpers", () => {
     expect(firstName("")).toBe("there");
     expect(money("PKR", 11500)).toBe("PKR 11,500");
     expect(formatStartsOn("2026-10-30T14:30:00Z")).toBe("30 October 2026");
+    expect(startsOnFromSettings({ countdownTo: "2026-11-08T18:59:00Z", batchStartsOn: "2026-11-16T14:30:00Z" })).toBe("16 November 2026");
+    expect(startsOnFromSettings({ countdownTo: "2026-11-08T18:59:00Z", batchStartsOn: "" })).toBe("");
     expect(formatStartsOn("nope")).toBe("");
     expect(formatStartsOn("")).toBe("");
   });

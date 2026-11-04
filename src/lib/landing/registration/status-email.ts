@@ -6,7 +6,7 @@ import type { RegistrablePage } from "@/lib/data/landing-public";
 import { resolveAccess, type ResolvedAccess } from "@/lib/data/landing-enrollment";
 import {
   buildFreeJoiningEmail, buildMemberReceivedEmail, buildPaidEmail, buildReceivedEmail, buildReservedEmail, buildUnderpaidEmail,
-  formatStartsOn, type BuiltEmail, type LandingEmailContext,
+  startsOnFromSettings, type BuiltEmail, type LandingEmailContext,
 } from "@/lib/emails/landing-registration";
 import { buildVerifyMessage, whatsappVerifyUrl } from "./labels";
 import { selectWaGroups } from "./wa-groups";
@@ -34,7 +34,7 @@ export async function emailContext(lead: RegistrationRecord, page: RegistrablePa
     amount: lead.expectedAmount ?? 0,
     groupSize: lead.groupSize,
     region: region ? { label: publicRegionLabel(region), classTime: region.classTime, timezoneLabel: region.timezoneLabel } : null,
-    startsOn: formatStartsOn(page.content.settings.countdownTo),
+    startsOn: startsOnFromSettings(page.content.settings),
     accounts,
     waGroups: selectWaGroups(cfg, lead.optionKeys, lead.mode),
     verifyUrl: verifyMessage ? whatsappVerifyUrl(cfg.whatsappVerifyNumber, verifyMessage) : "",
