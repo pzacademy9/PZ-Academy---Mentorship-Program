@@ -61,7 +61,7 @@ export function CourseCatalogGrid({
         aria-label={`Search ${word}s`}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={`Search ${word}s by name or teacher`}
+        placeholder={`Search ${word}s`}
         className="min-h-11 w-full min-w-0 bg-transparent font-poppins text-base text-pz-on-surface placeholder:text-pz-outline focus:outline-none"
       />
       <button

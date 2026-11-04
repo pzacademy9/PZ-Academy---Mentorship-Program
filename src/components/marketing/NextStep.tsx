@@ -28,7 +28,7 @@ export function NextStep({
       <div className="relative mx-auto flex max-w-[1320px] flex-col items-start justify-between gap-8 md:flex-row md:items-center">
         <div className="flex max-w-2xl flex-col">
           <span className="mb-2 font-poppins text-xs font-bold uppercase tracking-wider text-pz-bright">{kicker}</span>
-          <h2 className="font-montserrat text-[28px] font-extrabold leading-tight tracking-[-0.025em] text-white md:text-[40px]">{title}</h2>
+          <h2 className="break-words font-montserrat text-[28px] font-extrabold leading-tight tracking-[-0.025em] text-white md:text-[40px]">{title}</h2>
           <p className="mt-2 font-poppins text-base leading-relaxed text-white/80 md:text-lg">{text}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-4">

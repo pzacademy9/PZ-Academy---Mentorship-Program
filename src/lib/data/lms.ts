@@ -1,4 +1,5 @@
 import "server-only";
+import { normalizeSections, type PageSection } from "@/lib/marketing/course-sections";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -56,6 +57,10 @@ export interface CourseDetail extends CourseCard {
   mentorBio: string | null;
   faqs: CourseFaq[];
   isPublished: boolean;
+  /** Admin's order / show-hide / headings for the page sections (migration 0101). */
+  pageSections?: PageSection[];
+  /** Picture of the real certificate (migration 0101). */
+  certificateImageUrl?: string | null;
 }
 
 /** duration_text is the admin-editable field; duration_weeks is a read-only fallback for rows not yet re-saved since migration 0022. */
@@ -168,6 +173,7 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     .maybeSingle();
 
   if (!data) return null;
+  const page = await getCoursePageSettings(supabase, data.id);
   return {
     id: data.id,
     slug: data.slug,
@@ -192,7 +198,30 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     faqs: (data.faqs as unknown as CourseFaq[] | null) ?? [],
     isPublished: data.is_published,
     publicVideoUrl: data.public_video_url,
+    ...page,
   };
+}
+
+/**
+ * The admin's page settings, read on their own so the course page keeps
+ * working (normal layout, sample certificate) if migration 0101 has not been
+ * run yet or the read fails.
+ */
+async function getCoursePageSettings(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  courseId: string,
+): Promise<{ pageSections: PageSection[]; certificateImageUrl: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("page_sections, certificate_image_url")
+      .eq("id", courseId)
+      .maybeSingle();
+    if (error || !data) return { pageSections: normalizeSections(null), certificateImageUrl: null };
+    return { pageSections: normalizeSections(data.page_sections), certificateImageUrl: data.certificate_image_url };
+  } catch {
+    return { pageSections: normalizeSections(null), certificateImageUrl: null };
+  }
 }
 
 /**

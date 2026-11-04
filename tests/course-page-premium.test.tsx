@@ -156,3 +156,60 @@ describe("course page body", () => {
     expect(container.querySelector(".line-through")).toBeNull();
   });
 });
+
+describe("course page follows the admin's section settings", () => {
+  const order = () =>
+    Array.from(document.querySelectorAll("[data-course-section]")).map((el) => el.getAttribute("data-course-section"));
+
+  it("nothing set: the normal order", async () => {
+    await renderPage();
+    expect(order()).toEqual(["about", "learn", "curriculum", "teacher", "certificate", "faq"]);
+  });
+
+  it("uses the saved order, hides hidden sections and shows custom headings", async () => {
+    h.course = base({
+      pageSections: [
+        { key: "faq", visible: true, title: "Fake custom questions" },
+        { key: "about", visible: false },
+        { key: "curriculum", visible: true },
+      ],
+    }) as unknown as Record<string, unknown>;
+    await renderPage();
+    expect(order()).toEqual(["faq", "curriculum", "learn", "teacher", "certificate"]);
+    expect(screen.getByRole("heading", { level: 2, name: "Fake custom questions" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /about this course/i })).toBeNull();
+  });
+
+  it("an uploaded certificate picture replaces the sample", async () => {
+    h.course = base({ certificateImageUrl: "https://fake.example/cert.png" }) as unknown as Record<string, unknown>;
+    await renderPage();
+    const cert = screen.getByRole("region", { name: /certificate/i });
+    const img = within(cert).getByRole("img");
+    expect(img.getAttribute("src")).toBe("https://fake.example/cert.png");
+    expect(img.getAttribute("alt")).toMatch(/certificate/i);
+    expect(cert.textContent).not.toContain("Your name here");
+  });
+
+  it("a webinar never shows the certificate, even if one is uploaded", async () => {
+    h.course = base({ type: "webinar", certificateImageUrl: "https://fake.example/cert.png" }) as unknown as Record<string, unknown>;
+    await renderPage();
+    expect(screen.queryByRole("region", { name: /certificate/i })).toBeNull();
+  });
+});
+
+describe("course page on small phones", () => {
+  it("long words and names wrap inside their boxes instead of running off the screen", async () => {
+    h.course = base({
+      title: "Pharmacovigilanceandpharmacoepidemiologymasterclass",
+      mentorName: "Dr Fakenamewithaverylongsurnameforlayouttesting",
+      timings: "Saturdays and Sundays 7:00 PM to 9:30 PM Pakistan Standard Time",
+    }) as unknown as Record<string, unknown>;
+    await renderPage();
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.className).toMatch(/break-words/);
+    for (const dd of Array.from(hero().querySelectorAll("dd"))) expect(dd.className).toMatch(/break-words/);
+    const crumb = within(hero()).getByRole("navigation", { name: /breadcrumb/i });
+    expect(crumb.querySelector("[aria-current]")!.className).toMatch(/min-w-0/);
+  });
+});
+

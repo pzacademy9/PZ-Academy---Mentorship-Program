@@ -29,8 +29,8 @@ export function MarketingHero({
           <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-pz-bright" />
           <span className="font-poppins text-xs font-bold uppercase tracking-wider text-pz-bright">{kicker}</span>
         </div>
-        <h1 className="max-w-3xl font-montserrat text-[32px] font-extrabold leading-[1.15] tracking-[-0.025em] text-white md:text-[48px]">{title}</h1>
-        <p className={`mt-3 max-w-2xl font-poppins text-base leading-relaxed text-white/80 md:text-lg ${centred ? "mx-auto" : ""}`}>{text}</p>
+        <h1 className="max-w-3xl break-words font-montserrat text-[28px] sm:text-[32px] font-extrabold leading-[1.15] tracking-[-0.025em] text-white md:text-[48px]">{title}</h1>
+        <p className={`mt-3 max-w-2xl break-words font-poppins text-base leading-relaxed text-white/80 md:text-lg ${centred ? "mx-auto" : ""}`}>{text}</p>
         {children && <div className="mt-8 w-full">{children}</div>}
       </div>
     </section>
