@@ -29,6 +29,16 @@ export function batchesNotListed<T extends { courseId: string }>(batches: Iterab
   return Array.from(batches).filter((b) => !listed.has(b.courseId));
 }
 
+/** Compare links by path only: "/courses/x/", "/courses/x?utm=1" and "https://site/courses/x" are the same page. */
+function pathOf(href: string): string {
+  try {
+    const path = new URL(href.trim(), "https://local.invalid").pathname;
+    return path.length > 1 ? path.replace(/\/+$/, "") : path;
+  } catch {
+    return href.trim();
+  }
+}
+
 type PromoBanner = { headline: string; ctaText: string; ctaLink: string; imageUrl: string | null };
 type PromoBatch = { title: string; startsOn: string; href: string };
 
@@ -42,9 +52,9 @@ export function pickPromo({
   /** Links the visitor is already on — never promote those. */
   exclude?: string[];
 }): Promo | null {
-  const skip = new Set(exclude);
+  const skip = new Set(exclude.map(pathOf));
 
-  const banner = banners.find((b) => b.headline.trim() && isSafeHref(b.ctaLink) && !skip.has(b.ctaLink));
+  const banner = banners.find((b) => b.headline.trim() && isSafeHref(b.ctaLink) && !skip.has(pathOf(b.ctaLink)));
   if (banner) {
     return {
       headline: banner.headline.trim(),
@@ -55,7 +65,7 @@ export function pickPromo({
     };
   }
 
-  const batch = batches.find((b) => b.title.trim() && isSafeHref(b.href) && !skip.has(b.href));
+  const batch = batches.find((b) => b.title.trim() && isSafeHref(b.href) && !skip.has(pathOf(b.href)));
   if (batch) {
     return {
       headline: batch.title.trim(),

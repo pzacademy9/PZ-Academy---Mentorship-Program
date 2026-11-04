@@ -3,8 +3,8 @@ import Link from "next/link";
 /**
  * Phone-only bar fixed to the bottom of a course page: price + the one main
  * button, so buying never needs a long scroll. Hidden on large screens, where
- * the sticky side box does the same job. The page adds bottom padding (pb-28)
- * so the bar never covers content.
+ * the sticky side box does the same job. The page adds a phone-only spacer
+ * after the footer so the bar never covers content.
  */
 export function StickyEnrollBar({ priceLabel, price, action }: { priceLabel: string; price: string; action: { href: string; label: string } }) {
   return (

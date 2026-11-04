@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { stickyEnrollAction } from "@/lib/marketing/sticky-cta";
+import { EnrollCta, type EnrollCtaStatus } from "@/components/courses/EnrollCta";
 
 const h = vi.hoisted(() => ({
   user: null as { id: string } | null,
@@ -21,7 +22,6 @@ vi.mock("@/lib/data/lms", () => ({
 vi.mock("@/lib/data/marketing", () => ({ getActiveBanners: async (slot: string) => (slot === "mid_page" ? h.banners : []) }));
 vi.mock("@/lib/data/landing-website", () => ({
   getOpenLiveBatches: async () => h.batches,
-  getOpenLiveBatch: async (id: string) => h.batches.get(id) ?? null,
 }));
 vi.mock("@/components/marketing/MarketingNav", () => ({ MarketingNav: () => null }));
 vi.mock("@/components/marketing/MarketingFooter", () => ({ MarketingFooter: () => null }));
@@ -50,6 +50,23 @@ describe("stickyEnrollAction", () => {
   it("seat reserved: finish paying", () => {
     expect(stickyEnrollAction({ ...base, signedIn: true, status: "reserved" })).toEqual({ href: "/enroll/s", label: "Complete Payment" });
   });
+  it.each([null, "reserved", "rejected", "expired", "active", "pending", "portal_closed"] as (EnrollCtaStatus | null)[])(
+    "agrees with the full enroll box for status %s",
+    (status) => {
+      for (const signedIn of [true, false]) {
+        const { container, unmount } = render(<EnrollCta signedIn={signedIn} slug="s" status={status} ctaVerb="Enroll" />);
+        const boxLink = container.querySelector("a");
+        const action = stickyEnrollAction({ ...base, signedIn, status });
+        if (boxLink && boxLink.getAttribute("href") !== "/portal/s") {
+          expect(action).toEqual({ href: boxLink.getAttribute("href"), label: boxLink.textContent?.trim() });
+        } else {
+          expect(action).toBeNull();
+        }
+        unmount();
+      }
+    },
+  );
+
   it("already enrolled or waiting: no bar", () => {
     for (const status of ["active", "pending", "portal_closed"] as const) {
       expect(stickyEnrollAction({ ...base, signedIn: true, status })).toBeNull();
@@ -72,9 +89,11 @@ describe("course page on a phone", () => {
     expect(link.className).toMatch(/min-h-11/);
   });
 
-  it("leaves room at the bottom so the bar never hides content", async () => {
-    await renderPage();
-    expect(screen.getByRole("main").className).toMatch(/pb-28/);
+  it("leaves room after the footer so the bar never hides content", async () => {
+    const { container } = await renderPage();
+    const spacer = container.querySelector("[data-enroll-bar-spacer]")!;
+    expect(spacer.className).toMatch(/lg:hidden/);
+    expect(spacer.className).toMatch(/h-28/);
   });
 
   it("no bar for a student who is already enrolled", async () => {
@@ -82,7 +101,7 @@ describe("course page on a phone", () => {
     h.enrollment = { status: "active", portal_open: true };
     await renderPage();
     expect(bar()).toBeNull();
-    expect(screen.getByRole("main").className).not.toMatch(/pb-28/);
+    expect(document.querySelector("[data-enroll-bar-spacer]")).toBeNull();
   });
 
   it("the full enroll box can be jumped to", async () => {
@@ -101,6 +120,15 @@ describe("course page next-step promo", () => {
   it("never promotes this same course", async () => {
     h.banners = [{ id: "b1", slot: "mid_page", imageUrl: null, headline: "Self", ctaText: "Go", ctaLink: "/courses/fake-course" }];
     h.batches = new Map([["c1", { courseId: "c1", slug: "fake", title: "This Course Batch", startsOn: "", href: "/e/fake?src=website" }]]);
+    await renderPage();
+    expect(screen.queryByRole("region", { name: /^Featured/ })).toBeNull();
+  });
+
+  it("never promotes this course even through a link with a slash, query or full address", async () => {
+    h.banners = [
+      { id: "b1", slot: "mid_page", imageUrl: null, headline: "Self 1", ctaText: "Go", ctaLink: "/courses/fake-course/" },
+      { id: "b2", slot: "mid_page", imageUrl: null, headline: "Self 2", ctaText: "Go", ctaLink: "https://example.com/courses/fake-course?utm=x" },
+    ];
     await renderPage();
     expect(screen.queryByRole("region", { name: /^Featured/ })).toBeNull();
   });

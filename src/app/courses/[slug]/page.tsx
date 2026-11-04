@@ -81,7 +81,7 @@ export default async function CourseDetailPage({
     <>
       <MarketingNav />
 
-      <main className={`max-w-[1280px] mx-auto px-6 md:px-16 pt-8 ${barAction ? "pb-28 lg:pb-8" : "pb-8"}`}>
+      <main className="max-w-[1280px] mx-auto px-6 md:px-16 py-8">
         {liveBatch && <LiveBatchBanner title={liveBatch.title} startsOn={liveBatch.startsOn} href={liveBatch.href} />}
         {/* Hero */}
         <section className="mb-12">
@@ -289,9 +289,16 @@ export default async function CourseDetailPage({
         <PromoSlot promo={promo} />
       </main>
 
-      {barAction && <StickyEnrollBar priceLabel={copy.priceLabel} price={price} action={barAction} />}
 
       <MarketingFooter />
+
+      {barAction && (
+        <>
+          {/* Room under the footer so the fixed phone bar never covers it. */}
+          <div aria-hidden="true" data-enroll-bar-spacer className="lg:hidden h-28" />
+          <StickyEnrollBar priceLabel={copy.priceLabel} price={price} action={barAction} />
+        </>
+      )}
     </>
   );
 }
