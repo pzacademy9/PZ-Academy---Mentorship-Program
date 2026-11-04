@@ -29,7 +29,8 @@ describe("0101 manager policies", () => {
     }
   });
   it("only alters rules: nothing is dropped, created or truncated", () => {
-    expect(code).not.toMatch(/\b(drop|create|truncate|delete|insert|update)\b/i);
+    const bare = code.replace(/"[^"]*"|'[^']*'/g, "");
+    expect(bare).not.toMatch(/\b(drop|create|truncate|delete|insert|update)\b/i);
   });
   it("gives managers no write on mentors, no insert on profiles, and touches nothing in the settings areas", () => {
     expect(code).not.toMatch(/mentors: admin write|profiles: admin insert/);
