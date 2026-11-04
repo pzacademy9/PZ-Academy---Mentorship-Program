@@ -17,7 +17,12 @@ import { EnrollCta } from "@/components/courses/EnrollCta";
 import { CurriculumAccordion } from "@/components/courses/CurriculumAccordion";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getCourseBySlug, getCurriculum, getEnrollment } from "@/lib/data/lms";
-import { getOpenLiveBatch } from "@/lib/data/landing-website";
+import { getOpenLiveBatches } from "@/lib/data/landing-website";
+import { getActiveBanners } from "@/lib/data/marketing";
+import { batchesNotListed, pickPromo } from "@/lib/marketing/promo";
+import { stickyEnrollAction } from "@/lib/marketing/sticky-cta";
+import { PromoSlot } from "@/components/marketing/PromoSlot";
+import { StickyEnrollBar } from "@/components/courses/StickyEnrollBar";
 import { LiveBatchBanner } from "@/components/marketing/LiveBatchBanner";
 import { toEmbedUrl } from "@/lib/video-embed";
 import { PROGRAM_COPY } from "@/lib/program-copy";
@@ -46,11 +51,31 @@ export default async function CourseDetailPage({
   if (!course || !course.isPublished) notFound();
   const copy = PROGRAM_COPY[course.type];
 
-  const [modules, supabase, liveBatch] = await Promise.all([getCurriculum(course.id), createServerSupabase(), getOpenLiveBatch(course.id)]);
+  const [modules, supabase, openBatches, midBanners] = await Promise.all([
+    getCurriculum(course.id),
+    createServerSupabase(),
+    getOpenLiveBatches(),
+    // The promo is optional: a failed read must never break the course page.
+    getActiveBanners("mid_page").catch(() => []),
+  ]);
+  const liveBatch = openBatches.get(course.id) ?? null;
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const enrollment = user ? await getEnrollment(course.id, user.id) : null;
+  const ctaStatus = !enrollment
+    ? null
+    : enrollment.status === "active" && !enrollment.portal_open
+      ? "portal_closed"
+      : enrollment.status;
+  const barAction = stickyEnrollAction({ signedIn: Boolean(user), status: ctaStatus, slug: course.slug, ctaVerb: copy.ctaVerb });
+  const price = `PKR ${course.pricePkr.toLocaleString()}`;
+  // "Your next step": an admin Mid Page banner, else another course's open batch — never this course.
+  const promo = pickPromo({
+    banners: midBanners,
+    batches: batchesNotListed(openBatches.values(), [course.id]),
+    exclude: [`/courses/${course.slug}`, ...(liveBatch ? [liveBatch.href] : [])],
+  });
 
   return (
     <>
@@ -204,7 +229,7 @@ export default async function CourseDetailPage({
           </div>
 
           {/* Right column: sticky sidebar */}
-          <aside className="lg:col-span-4">
+          <aside id="enroll" className="lg:col-span-4 scroll-mt-20">
             <div className="sticky top-20 bg-pz-surface-container-lowest border-2 border-pz-primary/20 rounded-2xl p-6 shadow-xl space-y-6">
               <div>
                 <p className="text-pz-on-surface-variant font-medium font-body mb-1">
@@ -218,13 +243,7 @@ export default async function CourseDetailPage({
               <EnrollCta
                 signedIn={Boolean(user)}
                 slug={course.slug}
-                status={
-                  !enrollment
-                    ? null
-                    : enrollment.status === "active" && !enrollment.portal_open
-                      ? "portal_closed"
-                      : enrollment.status
-                }
+                status={ctaStatus}
                 ctaVerb={copy.ctaVerb}
               />
 
@@ -266,9 +285,20 @@ export default async function CourseDetailPage({
             </div>
           </aside>
         </div>
+
+        <PromoSlot promo={promo} />
       </main>
 
+
       <MarketingFooter />
+
+      {barAction && (
+        <>
+          {/* Room under the footer so the fixed phone bar never covers it. */}
+          <div aria-hidden="true" data-enroll-bar-spacer className="lg:hidden h-28" />
+          <StickyEnrollBar priceLabel={copy.priceLabel} price={price} action={barAction} />
+        </>
+      )}
     </>
   );
 }
