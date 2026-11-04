@@ -26,7 +26,7 @@ function SessionThumb({ coverUrl }: { coverUrl: string | null }) {
 export const metadata = { title: "Feedback Sessions — PZ Academy" };
 
 export default async function AdminFeedbackPage() {
-  await requireAdminPage();
+  await requireAdminPage("feedback");
 
   const [sessions, programs] = await Promise.all([listFeedbackSessions(), listFeedbackPrograms()]);
   const programNameById = new Map(programs.map((p) => [p.id, p.name]));

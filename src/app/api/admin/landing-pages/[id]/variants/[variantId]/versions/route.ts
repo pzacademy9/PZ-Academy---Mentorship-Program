@@ -6,7 +6,7 @@ import { listVariantVersions } from "@/lib/data/landing-variants";
 import { getOwnedVariant } from "@/lib/landing/variant-guard";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string; variantId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id, variantId } = await params;
   const owned = await getOwnedVariant(id, variantId);

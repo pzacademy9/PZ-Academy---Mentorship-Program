@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { removeFeaturedItem } from "@/lib/data/admin-marketing";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("marketing");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

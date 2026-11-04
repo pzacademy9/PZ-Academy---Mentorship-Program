@@ -169,7 +169,7 @@ async function classesWithData(classes: ClassRow[]): Promise<Set<string>> {
 }
 
 export async function loadSetup(pageId: string): Promise<SetupState | null> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok || !isUuid(pageId)) return null;
   const page = await readPage(pageId);
   if (!page) return null;
@@ -230,7 +230,7 @@ function listWords(labels: string[]): string {
 }
 
 export async function saveSetup(pageId: string, form: SetupForm): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const bad = checkDefaults(form.defaults);
@@ -365,7 +365,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
 }
 
 export async function saveDefaults(pageId: string, defaults: ClassDefaults): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const bad = checkDefaults(defaults);
@@ -391,7 +391,7 @@ export async function saveDefaults(pageId: string, defaults: ClassDefaults): Pro
 }
 
 export async function createMissingFeedbackAction(pageId: string): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   try {

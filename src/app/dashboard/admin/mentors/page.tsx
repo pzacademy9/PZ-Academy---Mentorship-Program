@@ -5,7 +5,7 @@ import { MentorRegistryTable } from "@/components/admin/mentors/MentorRegistryTa
 export const metadata = { title: "Mentors — PZ Academy" };
 
 export default async function AdminMentorsPage() {
-  await requireAdminPage();
+  await requireAdminPage("mentors");
   const { rows, stats } = await listMentorsForAdmin();
 
   return (

@@ -17,7 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function AdminSheetSyncPage({ params }: { params: Promise<{ pageId: string }> }) {
   // Admin only: sales agents never reach this screen.
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
 
   const { pageId } = await params;
   if (!UUID.test(pageId)) notFound();

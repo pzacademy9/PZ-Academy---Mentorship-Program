@@ -17,7 +17,7 @@ const MAX_RECIPIENTS = 5000;
  * the only writers are security-definer triggers and this route.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("notifications");
   if (!auth.ok) return auth.response;
 
   const body = await req.json().catch(() => null);

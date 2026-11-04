@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function CohortDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const { id } = await params;
   const cohort = await getCohortDetail(id);
   if (!cohort) notFound();

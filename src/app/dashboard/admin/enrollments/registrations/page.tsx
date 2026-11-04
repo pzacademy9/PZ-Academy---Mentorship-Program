@@ -11,7 +11,7 @@ export const fetchCache = "force-no-store";
 
 export default async function AdminRegistrationsCampaignsPage() {
   // Duplicates the middleware role gate on purpose: defence-in-depth for every admin page.
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
   const campaigns = await listCampaigns();
 
   return (

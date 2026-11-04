@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { roleHome, type Role } from "@/lib/roles";
-import { salesAgentRedirect } from "@/lib/access";
+import { salesAgentRedirect, mayEnterAdminSpace } from "@/lib/access";
 
 /**
  * Pre-launch gate: students (the only role with no other reason to be in the
@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(salesRedirect, request.url));
     }
 
-    if (path.startsWith("/dashboard/admin") && role !== "admin" && role !== "super_admin") {
+    if (path.startsWith("/dashboard/admin") && !mayEnterAdminSpace(role)) {
       return NextResponse.redirect(new URL(roleHome(role), request.url));
     }
 

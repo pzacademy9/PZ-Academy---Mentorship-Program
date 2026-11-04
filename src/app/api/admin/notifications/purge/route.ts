@@ -12,7 +12,7 @@ import { purgeNotificationsSchema } from "@/lib/validations/notification";
  * which 0041's own-row DELETE policy deliberately does not allow.
  */
 export async function DELETE(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("notifications");
   if (!auth.ok) return auth.response;
 
   const body = await req.json().catch(() => ({}));

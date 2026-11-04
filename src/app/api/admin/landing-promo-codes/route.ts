@@ -8,7 +8,7 @@ import { firstIssue, promoCreateSchema } from "@/lib/validations/landing-promo";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   try {
     return NextResponse.json({ promoCodes: await listPromoCodes() });
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const parsed = promoCreateSchema.safeParse(await req.json().catch(() => null));

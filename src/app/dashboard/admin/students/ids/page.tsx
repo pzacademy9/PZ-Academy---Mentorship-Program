@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPeoplePage() {
   // Duplicates the middleware role gate on purpose: defence-in-depth for every admin page.
-  await requireAdminPage();
+  await requireAdminPage("students");
   return (
     <div className="space-y-6">
       <StudentsTabs active="ids" />

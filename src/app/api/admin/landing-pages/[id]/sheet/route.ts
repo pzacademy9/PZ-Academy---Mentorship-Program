@@ -17,7 +17,7 @@ const PREFIX_RE = /^[A-Z0-9]{2,8}$/;
  * Refuses when the page already has a sheet, so a retry never makes a second one.
  */
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   // Part 0 L2: a malformed id is "not found" after the auth gate, before any query.

@@ -9,7 +9,7 @@ const failed = () => NextResponse.json({ error: "Something went wrong. Please tr
 
 /** Mark a module (or the whole course) finished and open it for Paid Live buyers (admin). middleware does not cover /api, so gate here. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const parsed = finishBatchBodySchema.safeParse(await req.json().catch(() => null));
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
 /** Per-module batch status for the admin screen (admin). */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const parsed = batchOverviewQuerySchema.safeParse({ pageId: new URL(req.url).searchParams.get("pageId") });

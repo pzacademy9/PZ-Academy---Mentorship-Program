@@ -7,7 +7,7 @@ export const maxDuration = 60;
 
 /** Sync now, or preview it (admin). middleware does not cover /api, so gate here. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const parsed = mirrorSyncBodySchema.safeParse(await req.json().catch(() => null));

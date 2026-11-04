@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Role } from "@/lib/roles";
+import { mayOpen, type Area } from "@/lib/team/areas";
 
 type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
 
@@ -13,8 +14,28 @@ export function isAdminRole(role: Role | null | undefined): boolean {
   return role != null && ADMIN_ROLES.includes(role);
 }
 
+type AreaArg = Area | readonly Area[];
+const toList = (a: AreaArg): readonly Area[] => (typeof a === "string" ? [a] : a);
+
 /**
- * Admin gate for ROUTE HANDLERS.
+ * Does this role, with this person's custom access, open a route in these areas?
+ * Reading the custom access can fail: that is a "no", never a "yes".
+ */
+async function mayAccess(role: Role | null | undefined, userId: string, areas: AreaArg): Promise<boolean> {
+  if (role == null) return false;
+  if (role === "super_admin") return true;
+  if (role !== "admin" && role !== "manager") return false;
+  try {
+    const { getCustomAccess } = await import("@/lib/data/team-access");
+    return mayOpen(role, await getCustomAccess(userId), toList(areas));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Admin gate for ROUTE HANDLERS. Name the area the route belongs to (or a list, when
+ * a shared route serves several areas: any one is enough).
  *
  * middleware.ts only applies its role check under /dashboard, so an
  * /api/admin/* route gets no enforcement from it — every admin route must
@@ -22,10 +43,10 @@ export function isAdminRole(role: Role | null | undefined): boolean {
  * callers stay in the codebase's existing "return NextResponse.json(...)"
  * idiom:
  *
- *   const auth = await requireAdmin();
+ *   const auth = await requireAdmin("courses");
  *   if (!auth.ok) return auth.response;
  */
-export async function requireAdmin(): Promise<
+export async function requireAdmin(area: AreaArg): Promise<
   { ok: true; user: User; supabase: ServerSupabase } | { ok: false; response: NextResponse }
 > {
   const supabase = await createServerSupabase();
@@ -46,7 +67,7 @@ export async function requireAdmin(): Promise<
     .eq("id", user.id)
     .single();
 
-  if (!isAdminRole(profile?.role)) {
+  if (!(await mayAccess(profile?.role as Role | undefined, user.id, area))) {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
@@ -57,14 +78,15 @@ export async function requireAdmin(): Promise<
 }
 
 /**
- * Admin gate for SERVER COMPONENT PAGES.
+ * Admin gate for SERVER COMPONENT PAGES and server actions.
  *
- * Redirects instead of returning a status code, matching what the admin and
- * mentor pages already do by hand. This duplicates the middleware check on
- * purpose — the codebase's defence-in-depth convention, so a middleware
- * matcher change can never silently expose a page.
+ * Redirects instead of returning a status code. A person who is signed in but may not
+ * open this area goes to /dashboard (a page that never sends them back), so there is no
+ * redirect loop. This duplicates the middleware check on purpose — the codebase's
+ * defence-in-depth convention, so a middleware matcher change can never silently
+ * expose a page.
  */
-export async function requireAdminPage(): Promise<{ user: User; supabase: ServerSupabase }> {
+export async function requireAdminPage(area: AreaArg): Promise<{ user: User; supabase: ServerSupabase }> {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -78,8 +100,21 @@ export async function requireAdminPage(): Promise<{ user: User; supabase: Server
     .eq("id", user.id)
     .single();
 
-  if (!isAdminRole(profile?.role)) redirect("/dashboard");
+  if (!(await mayAccess(profile?.role as Role | undefined, user.id, area))) redirect("/dashboard");
 
+  return { user, supabase };
+}
+
+/** The Analytics home page: admin and super admin only. A manager never sees it, whatever areas they have. */
+export async function requireAdminHomePage(): Promise<{ user: User; supabase: ServerSupabase }> {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (!isAdminRole(profile?.role as Role | undefined)) redirect("/dashboard");
   return { user, supabase };
 }
 

@@ -11,7 +11,7 @@ const NO_PERMISSION = "You do not have permission to do this.";
 
 /** Admin only: look up people by PZ ID, old ID, email or name. */
 export async function findPeopleAction(query: string): Promise<FindPeopleResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("students");
   if (!auth.ok) return { ok: false, message: NO_PERMISSION };
   try {
     const { people, truncated } = await findPeople(String(query ?? ""));
@@ -26,7 +26,7 @@ export async function mergePeopleAction(
   keepId: string,
   dropId: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("students");
   if (!auth.ok) return { ok: false, message: NO_PERMISSION };
   return mergePeople(String(keepId ?? ""), String(dropId ?? ""));
 }

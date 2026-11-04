@@ -10,7 +10,7 @@ const notFound = () => NextResponse.json({ error: "Link not found" }, { status: 
 const failed = (msg: string) => NextResponse.json({ error: msg }, { status: 500 });
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id, variantId } = await params;
   const owned = await getOwnedVariant(id, variantId);
@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id, variantId } = await params;
   const owned = await getOwnedVariant(id, variantId);

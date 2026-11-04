@@ -6,7 +6,7 @@ import { isUuid, markSentBodySchema } from "@/lib/validations/participants";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; recipientId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
   const { id, recipientId } = await params;
   if (!isUuid(id) || !isUuid(recipientId)) return NextResponse.json({ error: "Recipient not found" }, { status: 404 });

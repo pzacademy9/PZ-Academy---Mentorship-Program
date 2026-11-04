@@ -19,7 +19,7 @@ const bodySchema = z.object({
  * codebase uses rather than widening the RLS policy itself.
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

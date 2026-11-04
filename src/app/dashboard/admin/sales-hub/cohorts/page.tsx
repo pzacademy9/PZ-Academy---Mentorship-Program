@@ -5,7 +5,7 @@ import { CohortsPanel } from "@/components/admin/crm/CohortsPanel";
 export const metadata = { title: "Cohorts — Sales Hub — PZ Academy" };
 
 export default async function SalesHubCohortsPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const cohorts = await listCohorts();
   return (
     <div className="space-y-6">

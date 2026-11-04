@@ -7,7 +7,7 @@ import { runInBackground } from "@/lib/landing/registration/background";
 export const maxDuration = 60;
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   // Part 0 L2: a malformed id is "not found" after the auth gate, before any query.

@@ -5,7 +5,7 @@ import { MakeWithAi } from "@/components/admin/landing/MakeWithAi";
 export const metadata = { title: "Make a page with AI — PZ Academy" };
 
 export default async function MakeWithAiPage() {
-  await requireAdminPage();
+  await requireAdminPage("landing_pages");
   const prompts = {
     course: masterPrompt("course"),
     workshop: masterPrompt("workshop"),

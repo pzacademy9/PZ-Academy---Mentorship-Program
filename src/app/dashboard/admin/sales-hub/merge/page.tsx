@@ -5,7 +5,7 @@ import { MergeReviewPanel } from "@/components/admin/crm/MergeReviewPanel";
 export const metadata = { title: "Merge Review — Sales Hub — PZ Academy" };
 
 export default async function SalesHubMergePage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const mergeCandidates = await listMergeCandidates();
   return (
     <div className="space-y-6">

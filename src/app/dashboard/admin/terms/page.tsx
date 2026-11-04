@@ -6,7 +6,7 @@ export const metadata = { title: "Terms and Conditions — PZ Academy" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminTermsPage() {
-  await requireAdminPage();
+  await requireAdminPage("terms");
   const body = await getGeneralTerms();
 
   return (

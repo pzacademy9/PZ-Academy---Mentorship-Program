@@ -4,7 +4,7 @@ import { setFeedbackSessionCover } from "@/lib/data/feedback-sessions";
 import { uploadFeedbackCover } from "@/lib/gas/feedback-upload-client";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const form = await req.formData();
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   try {

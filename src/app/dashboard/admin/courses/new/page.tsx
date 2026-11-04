@@ -4,7 +4,7 @@ import { NewCourseForm } from "@/components/admin/program/NewCourseForm";
 export const metadata = { title: "New Program — PZ Academy" };
 
 export default async function NewCoursePage() {
-  await requireAdminPage();
+  await requireAdminPage("courses");
 
   return (
     <div className="max-w-xl space-y-6">

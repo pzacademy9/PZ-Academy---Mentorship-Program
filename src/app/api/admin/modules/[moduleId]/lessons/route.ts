@@ -4,7 +4,7 @@ import { createLesson } from "@/lib/data/admin-lms";
 import { lessonCreateSchema } from "@/lib/validations/admin-lms";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;

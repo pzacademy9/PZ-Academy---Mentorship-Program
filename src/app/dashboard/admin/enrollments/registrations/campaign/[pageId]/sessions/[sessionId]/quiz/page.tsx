@@ -17,7 +17,7 @@ const BASE = "/dashboard/admin/enrollments/registrations";
 
 export default async function AdminQuizPage({ params }: { params: Promise<{ pageId: string; sessionId: string }> }) {
   // Duplicates the middleware role gate on purpose: defence-in-depth for every admin page.
-  await requireAdminPage();
+  await requireAdminPage("classes");
 
   const { pageId, sessionId } = await params;
   if (!UUID.test(pageId) || !UUID.test(sessionId)) notFound();

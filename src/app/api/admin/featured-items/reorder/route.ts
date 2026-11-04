@@ -5,7 +5,7 @@ import { reorderSchema } from "@/lib/validations/admin-lms";
 
 /** Takes the complete ordered array of featured_item IDs and rewrites order_index to 0..n-1. */
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("marketing");
   if (!auth.ok) return auth.response;
 
   const parsed = reorderSchema.safeParse(await req.json().catch(() => null));

@@ -77,3 +77,15 @@ export function areaForPath(path: string): Area[] | null {
   if (path === "/dashboard/admin" || path === "/dashboard/admin/") return [...AREAS];
   return RULES.find((r) => r.test.test(path))?.areas.slice() ?? null;
 }
+
+/** May this person open a route that belongs to any one of these areas? Super admin always may. Anything unclear is no. */
+export function mayOpen(role: Role, custom: CustomAccess | null, areas: readonly Area[]): boolean {
+  if (role === "super_admin") return true;
+  const mine = effectiveAreas(role, custom);
+  return areas.some((a) => mine.includes(a));
+}
+
+/** The Analytics home (`/dashboard/admin` exactly). Open to admin and super admin only; never to a manager. */
+export function isAdminHomePath(path: string): boolean {
+  return path === "/dashboard/admin" || path === "/dashboard/admin/";
+}

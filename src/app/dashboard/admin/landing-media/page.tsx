@@ -5,7 +5,7 @@ import { MediaLibrary } from "@/components/admin/landing/MediaLibrary";
 export const metadata = { title: "Media Library — PZ Academy" };
 
 export default async function AdminLandingMediaPage() {
-  await requireAdminPage();
+  await requireAdminPage(["landing_pages", "courses", "mentors", "marketing"]);
   const items = await listMedia();
 
   return (

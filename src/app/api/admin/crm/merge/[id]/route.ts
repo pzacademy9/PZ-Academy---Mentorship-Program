@@ -4,7 +4,7 @@ import { resolveMergeCandidate } from "@/lib/data/admin-crm-contacts";
 import { mergeResolveSchema } from "@/lib/validations/crm";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("crm");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

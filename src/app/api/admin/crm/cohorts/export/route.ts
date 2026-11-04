@@ -7,7 +7,7 @@ const MAX_IDS = 20;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("crm");
   if (!auth.ok) return auth.response;
 
   const raw = new URL(request.url).searchParams.get("ids") ?? "";

@@ -4,7 +4,7 @@ import { listTemplates, createTemplate, type TemplateChannel } from "@/lib/data/
 import { templateCreateSchema } from "@/lib/validations/crm";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("crm");
   if (!auth.ok) return auth.response;
 
   const channel = req.nextUrl.searchParams.get("channel");
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("crm");
   if (!auth.ok) return auth.response;
 
   const parsed = templateCreateSchema.safeParse(await req.json().catch(() => null));

@@ -28,7 +28,7 @@ function refresh(pageId: string) {
 
 /** Admin check, ids shape check, and "this session belongs to this batch". */
 async function guard(pageId: string, sessionId: string): Promise<{ ok: true; adminId: string } | { ok: false; message: string }> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId) || !isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   const session = await getSessionById(sessionId);

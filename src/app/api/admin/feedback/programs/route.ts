@@ -11,13 +11,13 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   return NextResponse.json({ programs: await listFeedbackPrograms() });
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });

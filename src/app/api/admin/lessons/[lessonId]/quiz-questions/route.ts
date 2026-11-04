@@ -4,7 +4,7 @@ import { createQuizQuestion } from "@/lib/data/admin-lms";
 import { quizQuestionCreateSchema } from "@/lib/validations/admin-lms";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { lessonId } = await params;

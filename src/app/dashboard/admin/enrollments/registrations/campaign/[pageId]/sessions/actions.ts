@@ -98,7 +98,7 @@ function parseForm(f: SessionForm): { ok: true; input: SessionInput } | { ok: fa
 }
 
 export async function addSession(pageId: string, form: SessionForm): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const parsed = parseForm(form);
@@ -114,7 +114,7 @@ export async function addSession(pageId: string, form: SessionForm): Promise<Act
 }
 
 export async function saveSession(sessionId: string, form: SessionForm): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   const parsed = parseForm(form);
@@ -140,7 +140,7 @@ export async function saveSession(sessionId: string, form: SessionForm): Promise
 }
 
 export async function removeSession(sessionId: string): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
@@ -155,7 +155,7 @@ export async function removeSession(sessionId: string): Promise<ActionResult> {
 }
 
 export async function setOverride(sessionId: string, value: WindowOverride): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   if (!OVERRIDES.includes(value)) return { ok: false, message: SAVE_FAILED };
@@ -172,7 +172,7 @@ export async function setOverride(sessionId: string, value: WindowOverride): Pro
 
 /** Admin writes ignore the window and the start time, but only people live on this batch can be marked. */
 export async function toggleMark(sessionId: string, personId: string, present: boolean): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   if (!isUuid(personId)) return { ok: false, message: "That student was not found" };
@@ -195,7 +195,7 @@ export async function toggleMark(sessionId: string, personId: string, present: b
 }
 
 export async function markEveryonePresent(sessionId: string): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
@@ -210,7 +210,7 @@ export async function markEveryonePresent(sessionId: string): Promise<ActionResu
 }
 
 export async function saveMinPct(pageId: string, pct: number): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   try {
@@ -225,7 +225,7 @@ export async function saveMinPct(pageId: string, pct: number): Promise<ActionRes
 
 /** Creates (or reuses) the public link to the batch's combined feedback report. Only runs on an admin click. */
 export async function openProgramReport(pageId: string): Promise<{ ok: boolean; path?: string; message?: string }> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   try {
@@ -239,7 +239,7 @@ export async function openProgramReport(pageId: string): Promise<{ ok: boolean; 
 }
 
 async function sendNow(sessionId: string, kind: "reminder" | "update" | "feedback", opts?: { resend?: boolean }): Promise<ActionResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
   try {
@@ -305,7 +305,7 @@ async function sessionOfPage(pageId: string, sessionId: string): Promise<boolean
 
 /** Chooses who gets this class's emails. */
 export async function saveClassAudience(pageId: string, sessionId: string, audience: Audience): Promise<{ ok: true } | { ok: false; message: string }> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   const clean = cleanAudience(audience);
   if (!clean) return { ok: false, message: "Choose who gets this email" };
@@ -321,7 +321,7 @@ export async function saveClassAudience(pageId: string, sessionId: string, audie
 
 /** Who would get a class email with this audience, and who would not and why. */
 export async function previewClassAudience(pageId: string, sessionId: string, audience: Audience): Promise<RecipientPreview> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("classes");
   if (!auth.ok) throw new Error(NOT_ALLOWED);
   const clean = cleanAudience(audience);
   if (!clean) throw new Error("Choose who gets this email");

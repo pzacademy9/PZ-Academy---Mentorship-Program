@@ -25,7 +25,7 @@ const ACTION_EMAIL = {
  * — this route's only job is turning a review action into that call's params.
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

@@ -6,7 +6,7 @@ import { firstIssue } from "@/lib/validations/landing-promo";
 
 /** Replaces a country's ordered account list (at least one account). */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ regionKey: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("payment_accounts");
   if (!auth.ok) return auth.response;
   const { regionKey } = await params;
 

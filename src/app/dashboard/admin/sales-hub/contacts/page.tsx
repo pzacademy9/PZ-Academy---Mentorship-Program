@@ -5,7 +5,7 @@ import { ContactsPanel } from "@/components/admin/crm/ContactsPanel";
 export const metadata = { title: "Contacts — Sales Hub — PZ Academy" };
 
 export default async function SalesHubContactsPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const contacts = await listContacts({ limit: 50, offset: 0 });
   return (
     <div className="space-y-6">

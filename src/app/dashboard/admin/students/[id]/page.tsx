@@ -13,7 +13,7 @@ export default async function AdminStudentRecordPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string | string[] }>;
 }) {
-  await requireAdminPage();
+  await requireAdminPage("students");
   const { id } = await params;
   const sp = await searchParams;
   // A failed load throws a plain Error; this route's error boundary shows it.

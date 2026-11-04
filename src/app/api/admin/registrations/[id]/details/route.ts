@@ -11,7 +11,7 @@ const bodySchema = z
 
 /** Edit one person's name, email and WhatsApp (admin). Never changes status, payment or access. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

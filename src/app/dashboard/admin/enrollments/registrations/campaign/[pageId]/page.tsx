@@ -38,7 +38,7 @@ export default async function AdminCampaignRegistrationsPage({
   searchParams: Promise<Params>;
 }) {
   // Duplicates the middleware role gate on purpose: defence-in-depth for every admin page.
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
 
   const { pageId } = await params;
   if (!UUID.test(pageId)) notFound();

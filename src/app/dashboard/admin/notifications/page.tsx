@@ -5,7 +5,7 @@ import { PurgeNotificationsCard } from "@/components/admin/PurgeNotificationsCar
 export const metadata = { title: "Send Notice — PZ Academy" };
 
 export default async function AdminNotificationsPage() {
-  const { supabase } = await requireAdminPage();
+  const { supabase } = await requireAdminPage("notifications");
 
   // Both lists are small and admin-readable under existing RLS (0002).
   const [{ data: courses }, { data: students }] = await Promise.all([

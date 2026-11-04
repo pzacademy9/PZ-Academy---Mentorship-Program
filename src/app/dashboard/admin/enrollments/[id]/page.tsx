@@ -26,7 +26,7 @@ export default async function AdminEnrollmentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
 
   const { id } = await params;
   const enrollment = await getEnrollmentForReview(id);

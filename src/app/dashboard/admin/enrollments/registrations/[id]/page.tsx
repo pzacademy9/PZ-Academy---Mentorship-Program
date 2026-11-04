@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function AdminRegistrationDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
 
   const { id } = await params;
   const detail = await getRegistrationDetail(id, { kind: "all" });

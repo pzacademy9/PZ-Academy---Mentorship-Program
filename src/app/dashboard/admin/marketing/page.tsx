@@ -16,7 +16,7 @@ export default async function AdminMarketingPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  await requireAdminPage();
+  await requireAdminPage("marketing");
   const { tab: tabParam } = await searchParams;
   const tab = parseTab(tabParam);
 

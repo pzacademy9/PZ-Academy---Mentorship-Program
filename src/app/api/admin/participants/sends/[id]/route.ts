@@ -6,7 +6,7 @@ import { isUuid } from "@/lib/validations/participants";
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "Send not found" }, { status: 404 });

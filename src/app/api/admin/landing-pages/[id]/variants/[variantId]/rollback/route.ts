@@ -6,7 +6,7 @@ import { getOwnedVariant } from "@/lib/landing/variant-guard";
 import { rollbackVariantSchema } from "@/lib/validations/landing-variants";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; variantId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id, variantId } = await params;
   const owned = await getOwnedVariant(id, variantId);

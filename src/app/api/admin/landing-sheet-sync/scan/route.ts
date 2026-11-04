@@ -12,7 +12,7 @@ const REQUESTED = "Scan requested. Results appear in a minute.";
 
 /** Asks Google Sheets to check this page's sheet now. A slow reply still counts: the check carries on there. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sheet_sync");
   if (!auth.ok) return auth.response;
   const body = z.object({ pageId: z.string() }).safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "That request was not understood. Refresh the page and try again." }, { status: 400 });

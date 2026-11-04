@@ -5,7 +5,7 @@ import { AuditLogClient } from "./AuditLogClient";
 export const metadata = { title: "Audit Log — PZ Academy" };
 
 export default async function AdminAuditLogPage() {
-  await requireAdminPage();
+  await requireAdminPage("feedback");
   const entries = await listFeedbackAuditLog();
   return <AuditLogClient entries={entries} />;
 }

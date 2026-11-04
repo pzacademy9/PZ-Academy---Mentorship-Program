@@ -39,7 +39,7 @@ function parseFilters(sp: Params): RegistrationListFilters {
 
 export default async function AdminAllRegistrationsPage({ searchParams }: { searchParams: Promise<Params> }) {
   // Duplicates the middleware role gate on purpose: defence-in-depth for every admin page.
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
 
   const filters = parseFilters(await searchParams);
   const [list, pageOptions, agentOptions] = await Promise.all([

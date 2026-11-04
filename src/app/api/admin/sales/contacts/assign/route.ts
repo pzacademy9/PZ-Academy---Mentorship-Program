@@ -5,7 +5,7 @@ import { assignSchema } from "@/lib/validations/sales";
 import { statusForReason } from "@/lib/api/sales-http";
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   const parsed = assignSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

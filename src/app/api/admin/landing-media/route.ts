@@ -10,7 +10,7 @@ const asNumber = (n: unknown): number | null =>
   typeof n === "number" && Number.isFinite(n) ? n : null;
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["landing_pages", "courses", "mentors", "marketing"]);
   if (!auth.ok) return auth.response;
   const params = new URL(req.url).searchParams;
   try {
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["landing_pages", "courses", "mentors", "marketing"]);
   if (!auth.ok) return auth.response;
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;

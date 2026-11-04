@@ -5,7 +5,7 @@ import { numberUpdateSchema } from "@/lib/validations/sales";
 import { statusForReason } from "@/lib/api/sales-http";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   const parsed = numberUpdateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

@@ -7,7 +7,7 @@ import { AssignListsPanel } from "@/components/admin/sales/AssignListsPanel";
 export const metadata = { title: "Assign Lists — PZ Academy" };
 
 export default async function AdminAssignListsPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const [cohorts, agents, counts] = await Promise.all([
     listCohorts(),
     listSalesAgents(),

@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function WhatsAppBatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const { id } = await params;
   const detail = await getWhatsAppBatchDetail(id);
   if (!detail) notFound();

@@ -6,13 +6,13 @@ import { getAgentsCanClaim, setAgentsCanClaim } from "@/lib/data/sales-assignmen
 const bodySchema = z.object({ value: z.boolean() });
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   return NextResponse.json({ value: await getAgentsCanClaim() });
 }
 
 export async function PUT(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

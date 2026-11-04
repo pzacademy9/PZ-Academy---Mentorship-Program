@@ -5,7 +5,7 @@ import { listWhatsappNumbers, addWhatsappNumber } from "@/lib/data/landing-whats
 import { cleanWhatsappNumber } from "@/lib/landing/whatsapp";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   try {
     return NextResponse.json({ numbers: await listWhatsappNumbers() });
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const body = (await req.json().catch(() => null)) as { label?: unknown; number?: unknown } | null;
