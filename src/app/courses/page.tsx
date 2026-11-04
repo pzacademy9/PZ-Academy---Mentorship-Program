@@ -1,23 +1,20 @@
-import { Users, Award, BookOpen, Shield, Monitor } from "lucide-react";
+import { Stethoscope, Pill, ShieldCheck } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { FaqAccordion } from "@/components/marketing/FaqAccordion";
 import { CourseCatalogGrid } from "@/components/marketing/CourseCatalogGrid";
-import { MarketingHero, HERO_BUTTON } from "@/components/marketing/MarketingHero";
 import { NextStep } from "@/components/marketing/NextStep";
+import { WhyCards } from "@/components/marketing/kit/WhyCards";
 import { getActiveBanners } from "@/lib/data/marketing";
 import { batchesNotListed, pickPromo } from "@/lib/marketing/promo";
 import { getPublishedCourses } from "@/lib/data/lms";
 import { getOpenLiveBatches } from "@/lib/data/landing-website";
 import { attachLiveBatches } from "@/lib/data/live-batch-merge";
 
-const BENEFITS = [
-  { icon: Users,       title: "Expert-Led Faculty",          desc: "Learn directly from board-certified pharmacists, clinical specialists, and industry veterans with decades of real-world experience." },
-  { icon: Shield,      title: "Clinically Relevant Content", desc: "Every module is built around real patient scenarios, live case studies, and evidence-based guidelines — not just textbook theory." },
-  { icon: Monitor,     title: "Flexible Online Learning",    desc: "Study on your own schedule from anywhere in the world. Access recorded sessions, notes, and MCQ banks 24/7 on any device." },
-  { icon: Award,       title: "SECP Accredited Certificate", desc: "Receive an officially recognised certificate on completion — valued by healthcare employers across Pakistan, UAE, and KSA." },
-  { icon: Users,       title: "Peer Community Access",       desc: "Join our 100K+ student network on MED-Q — compete in weekly quizzes, exchange knowledge, and grow alongside your peers." },
-  { icon: BookOpen,    title: "Board Exam Ready",            desc: "Our structured MCQ banks, timed practice papers, and board-focused summaries give you everything needed to ace your licensing exams." },
+const WHY = [
+  { icon: Stethoscope, title: "Expert-led faculty", text: "Learn directly from practising pharmacists and clinical specialists who teach the cases they see." },
+  { icon: Pill, title: "Clinically relevant", text: "Every module is built around real patient cases and dose calculation drills, not just textbook theory." },
+  { icon: ShieldCheck, title: "SECP certificate", text: "Receive an officially recognised certificate on completion, valued by employers across Pakistan, UAE and KSA." },
 ];
 
 const FAQS = [
@@ -42,68 +39,42 @@ export default async function CoursesPage() {
     <>
       <MarketingNav />
 
-      <main>
-      <MarketingHero
-        kicker="Certified Courses"
-        title={<>Explore Our <em className="not-italic text-pz-bright">Courses</em></>}
-        text="Advance your clinical knowledge with our expert-led pharmacy modules. Stay ahead of the curve with peer-reviewed curriculum and certified mastery."
-        action={
-          <a href="#courses" className={HERO_BUTTON}>
-            <BookOpen className="w-[17px] h-[17px]" aria-hidden="true" /> See all courses
-          </a>
-        }
-      />
-
-      {/* ─── COURSES ─── */}
-      <div id="courses" className="scroll-mt-20 max-w-[1280px] mx-auto px-6 md:px-16 py-12">
-        <h2 className="sr-only">All courses</h2>
+      <main className="bg-pz-web-surface">
         <CourseCatalogGrid
           courses={courses}
           promo={promo}
+          gridId="courses"
           emptyNext={{ label: "Watch a free webinar meanwhile", href: "/webinars" }}
+          hero={{
+            kicker: "Certified Courses",
+            title: <>Explore Our <span className="text-pz-bright">Courses</span></>,
+            text: "Expert-led pharmacy modules with a certificate on completion.",
+          }}
         />
-      </div>
 
-      {/* ─── BENEFITS ─── */}
-      <section className="py-24 px-6 bg-white relative z-10">
-        <div className="max-w-[1060px] mx-auto">
-          <div className="text-center mb-14">
-            <span className="text-[.7rem] font-semibold tracking-[.13em] uppercase text-pz-mid font-poppins">Why Choose Us</span>
-            <h2 className="font-montserrat text-[clamp(1.7rem,3vw,2.5rem)] font-extrabold text-pz-deep leading-[1.18] mt-2 mb-3">Built By Pharmacists,<br /><em className="not-italic text-pz-mid">For Pharmacists</em></h2>
-            <p className="text-[.97rem] text-pz-muted max-w-[520px] mx-auto leading-[1.75] font-poppins">Every program is designed to deliver real clinical impact, not just certificates.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {BENEFITS.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="group p-8 rounded-2xl border-[1.5px] border-pz-border relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg hover:border-transparent hover:bg-pz-offwhite after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:bg-gradient-to-r after:from-pz-solid-forest after:to-pz-bright after:scale-x-0 after:origin-left after:transition-transform after:duration-[350ms] hover:after:scale-x-100">
-                <div className="w-[52px] h-[52px] rounded-[14px] bg-gradient-to-br from-pz-solid-forest to-pz-solid-mid flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-[5deg] group-hover:shadow-[0_8px_20px_rgba(25,75,50,.3)]">
-                  <Icon className="w-6 h-6 text-white" strokeWidth={1.9} />
-                </div>
-                <h3 className="font-montserrat text-[1.08rem] font-bold text-pz-deep mb-2 transition-colors duration-200 group-hover:text-pz-forest">{title}</h3>
-                <p className="text-[.855rem] text-pz-muted leading-[1.7] font-poppins">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        <WhyCards
+          title="Why study with PZ Academy?"
+          text="Built by pharmacists, for pharmacists: real clinical skills, not just certificates."
+          cards={WHY}
+        />
 
-      {/* ─── FAQ ─── */}
-      <section className="py-24 px-6 bg-pz-offwhite relative z-10">
-        <div className="max-w-[760px] mx-auto">
-          <div className="text-center mb-14">
-            <span className="text-[.7rem] font-semibold tracking-[.13em] uppercase text-pz-mid font-poppins">Got Questions?</span>
-            <h2 className="font-montserrat text-[clamp(1.7rem,3vw,2.5rem)] font-extrabold text-pz-deep leading-[1.18] mt-2 mb-3">Frequently Asked <em className="not-italic text-pz-mid">Questions</em></h2>
-            <p className="text-[.97rem] text-pz-muted max-w-[520px] mx-auto leading-[1.75] font-poppins">Everything you need to know before you enroll.</p>
+        <section aria-labelledby="faq-title" className="w-full bg-pz-web-surface px-5 py-16 md:px-6">
+          <div className="mx-auto flex max-w-[880px] flex-col gap-8">
+            <div className="text-center">
+              <h2 id="faq-title" className="font-montserrat text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-pz-deep md:text-[30px]">Frequently Asked Questions</h2>
+              <p className="mt-2 font-poppins text-base text-pz-muted">Everything you need to know before you enroll.</p>
+            </div>
+            <FaqAccordion items={FAQS} />
           </div>
-          <FaqAccordion items={FAQS} />
-        </div>
-      </section>
+        </section>
 
-      <NextStep
-        title={<>Ready to <em className="not-italic text-pz-bright">Elevate</em> Your<br />Pharmacology Expertise?</>}
-        text="Secure your spot in the upcoming batch. Want someone to guide you 1-on-1 along the way? Book a mentor."
-        primary={{ href: "#courses", label: "Explore Courses" }}
-        next={{ href: "/mentorship#mentors", label: "Next: 1-on-1 Mentorship" }}
-      />
+        <NextStep
+          kicker="Personal career support"
+          title="Want 1-on-1 guidance too?"
+          text="Secure your spot in the upcoming batch. Want someone to guide you along the way? Book a mentor."
+          primary={{ href: "#courses", label: "Explore courses" }}
+          next={{ href: "/mentorship#mentors", label: "Next: 1-on-1 Mentorship" }}
+        />
       </main>
 
       <MarketingFooter />

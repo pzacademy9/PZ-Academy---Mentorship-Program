@@ -1,26 +1,29 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { CourseCard } from "./CourseCard";
 import { PromoSlot } from "./PromoSlot";
+import { MarketingHero } from "./MarketingHero";
 import type { CourseCard as CourseCardData } from "@/lib/data/lms";
 import { PROMO_AFTER, type Promo } from "@/lib/marketing/promo";
 
+export type CatalogHero = { kicker: ReactNode; title: ReactNode; text: ReactNode };
+
 /**
- * Search + grid for a single-type catalog (used by /courses, /workshops, and
- * /webinars, each server-filtering to its own CourseType via
- * getPublishedCourses(type)). No longer has a type-filter tab row — that was
- * only useful back when /courses received every type unfiltered; now each
- * caller already passes one type, so an "all courses / workshops / webinars"
- * tab set would always resolve to a single, redundant option.
+ * Hero search + count bar + card grid for one program type (/courses and
+ * /workshops; Stitch "Courses List" / "Workshops List"). Each page passes its
+ * own type's rows. The design's topic chips and Level / Price / Sort menus
+ * are left out on purpose: there is no data behind them yet.
  */
 export function CourseCatalogGrid({
   courses,
   noun = "Course",
   promo = null,
   emptyNext,
+  hero,
+  gridId,
 }: {
   courses: CourseCardData[];
   noun?: string;
@@ -28,76 +31,106 @@ export function CourseCatalogGrid({
   promo?: Promo | null;
   /** Shown when nothing at all is listed, so the page is never a dead end. */
   emptyNext?: { label: string; href: string };
+  /** The dark top band. When given, the search box sits inside it. */
+  hero?: CatalogHero;
+  /** id for the grid section, so "Explore" links can jump to it. */
+  gridId?: string;
 }) {
   const [query, setQuery] = useState("");
+  const gridRef = useRef<HTMLElement>(null);
+  const word = noun.toLowerCase();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return courses;
     return courses.filter(
-      (c) => c.title.toLowerCase().includes(q) || c.tagline?.toLowerCase().includes(q),
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.tagline?.toLowerCase().includes(q) ||
+        c.mentorName?.toLowerCase().includes(q),
     );
   }, [courses, query]);
 
-  if (courses.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <p className="text-pz-muted font-poppins mb-6">No {noun.toLowerCase()}s are open right now — check back soon.</p>
-        {emptyNext && (
-          <Link href={emptyNext.href} className="inline-flex min-h-11 items-center rounded-full bg-pz-solid-forest px-6 py-3 font-poppins text-sm font-bold text-white transition-colors hover:bg-pz-solid-mid">
-            {emptyNext.label}
-          </Link>
-        )}
-      </div>
-    );
-  }
+  const empty = courses.length === 0;
+
+  const search = empty ? null : (
+    <div role="search" className="mx-auto flex w-full max-w-2xl items-center rounded-full bg-pz-surface-container-lowest p-1.5 shadow-xl">
+      <Search className="ml-4 mr-2 h-5 w-5 shrink-0 text-pz-outline" aria-hidden="true" />
+      <input
+        type="search"
+        aria-label={`Search ${word}s`}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={`Search ${word}s by name or teacher`}
+        className="min-h-11 w-full min-w-0 bg-transparent font-poppins text-base text-pz-on-surface placeholder:text-pz-outline focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-pz-bright px-5 font-montserrat text-[15px] font-bold text-pz-solid-deep shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-bright"
+      >
+        Search <ArrowRight className="hidden h-4 w-4 sm:block" aria-hidden="true" />
+      </button>
+    </div>
+  );
 
   const showPromo = promo !== null && !query.trim() && filtered.length > 0;
   const promoAt = Math.min(PROMO_AFTER, filtered.length);
+  const count = filtered.length;
 
   return (
-    <div>
-      {/* Search */}
-      <div className="w-full max-w-xl mx-auto mb-8 group relative">
-        <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
-          <Search className="w-5 h-5 text-pz-outline group-focus-within:text-pz-primary transition-colors" />
-        </div>
-        <input
-          type="search"
-          aria-label={`Search ${noun.toLowerCase()}s`}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Search ${noun.toLowerCase()}s...`}
-          className="w-full bg-pz-surface-container-lowest border border-pz-outline-variant rounded-full py-4 pl-14 pr-6 text-sm max-md:text-base text-pz-on-surface placeholder:text-pz-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary transition-all shadow-sm font-body"
-        />
-      </div>
-
-      <p className="font-label text-pz-secondary text-lg mb-8 text-right">
-        {filtered.length} {noun}
-        {filtered.length === 1 ? "" : "s"} Found
-      </p>
-
-      {/* Grid */}
-      {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filtered.map((course, i) => (
-            <Fragment key={course.id}>
-              <div data-grid-item={course.id} className="contents">
-                <CourseCard course={course} />
-              </div>
-              {showPromo && i === promoAt - 1 && (
-                <div data-grid-item="promo" className="contents">
-                  <PromoSlot promo={promo} variant="card" />
-                </div>
-              )}
-            </Fragment>
-          ))}
-        </div>
-      ) : (
-        <p className="text-center text-pz-on-surface-variant font-body py-16">
-          No {noun.toLowerCase()}s match your search.
-        </p>
+    <>
+      {hero && (
+        <MarketingHero kicker={hero.kicker} title={hero.title} text={hero.text}>
+          {search}
+        </MarketingHero>
       )}
-    </div>
+
+      {!empty && (
+        <div className="w-full bg-pz-surface-container-lowest px-5 py-3.5 shadow-sm md:px-6">
+          <div className="mx-auto flex max-w-[1320px] items-center justify-end gap-2">
+            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-pz-solid-mid" />
+            <p aria-live="polite" className="font-montserrat text-[15px] font-bold text-pz-deep">
+              {count} {word}
+              {count === 1 ? "" : "s"} available
+            </p>
+          </div>
+        </div>
+      )}
+
+      <section ref={gridRef} id={gridId} aria-label={`All ${word}s`} className="w-full scroll-mt-24 bg-pz-web-surface px-5 py-12 md:px-6">
+        <div className="mx-auto max-w-[1320px]">
+          {!hero && search && <div className="mb-8">{search}</div>}
+
+          {empty ? (
+            <div className="py-16 text-center">
+              <p className="mb-6 font-poppins text-pz-muted">No {word}s are open right now — check back soon.</p>
+              {emptyNext && (
+                <Link href={emptyNext.href} className="inline-flex min-h-11 items-center rounded-full bg-pz-solid-forest px-6 py-3 font-poppins text-sm font-bold text-white transition-colors hover:bg-pz-solid-mid">
+                  {emptyNext.label}
+                </Link>
+              )}
+            </div>
+          ) : filtered.length > 0 ? (
+            <div className="grid grid-cols-1 gap-7 md:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((course, i) => (
+                <Fragment key={course.id}>
+                  <div data-grid-item={course.id} className="contents">
+                    <CourseCard course={course} layout="list" />
+                  </div>
+                  {showPromo && i === promoAt - 1 && (
+                    <div data-grid-item="promo" className="contents">
+                      <PromoSlot promo={promo} variant="card" />
+                    </div>
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            <p className="py-16 text-center font-poppins text-pz-muted">No {word}s match your search.</p>
+          )}
+        </div>
+      </section>
+    </>
   );
 }

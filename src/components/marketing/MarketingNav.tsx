@@ -2,23 +2,31 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { X, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SITE_LOGO_ALT, SITE_LOGO_URL } from "@/lib/site-logo";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import { roleHome, type Role } from "@/lib/roles";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Courses", href: "/courses" },
-  { label: "Webinars", href: "/webinars" },
   { label: "Workshops", href: "/workshops" },
+  { label: "Webinars", href: "/webinars" },
   { label: "Mentorship", href: "/mentorship" },
 ];
 
-export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } = {}) {
-  const [scrolled, setScrolled] = useState(false);
+const FIND_ID = { label: "Find my ID", href: "/progress" };
+
+/** Is this menu link the page the visitor is on? Program detail pages live under /courses/. */
+function isCurrent(href: string, path: string): boolean {
+  if (href === "/") return path === "/";
+  return path === href || path.startsWith(`${href}/`);
+}
+
+/** Light top bar of the public website (Stitch "PZ Academy Platform 2"). */
+export function MarketingNav() {
+  const path = usePathname() ?? "";
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -46,12 +54,6 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
@@ -76,93 +78,111 @@ export function MarketingNav({ alwaysSolid = false }: { alwaysSolid?: boolean } 
     }
   }, [open]);
 
+  const ctaHref = homeHref ?? "/login";
+  const ctaLabel = homeHref ? "Go to Portal" : "Start Learning";
+
   return (
-    <nav className={cn(
-      "fixed inset-x-0 top-0 z-50 h-[68px] flex items-center justify-between px-6 md:px-10 transition-all duration-300",
-      // No backdrop blur while the phone menu is open: a backdrop filter makes the
-      // nav the containing block of the fixed overlay and clips it to 68px.
-      (alwaysSolid || (scrolled && !open)) && "bg-[rgba(10,28,17,0.96)] shadow-[0_2px_24px_rgba(0,0,0,.25)]",
-      (alwaysSolid || scrolled) && !open && "backdrop-blur-xl"
-    )}>
-      {/* Logo */}
-      <Link href="/" className="flex items-center gap-2.5 z-10 shrink-0">
-        <Image
-          src={SITE_LOGO_URL}
-          alt={SITE_LOGO_ALT}
-          width={52}
-          height={52}
-          className="h-[52px] w-auto"
-          priority
-          unoptimized
-        />
-      </Link>
+    <nav
+      aria-label="Main"
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 h-20 bg-pz-web-surface/90 shadow-[0_1px_8px_rgba(15,61,34,0.06)]",
+        // No backdrop blur while the phone menu is open: a backdrop filter makes the
+        // nav the containing block of the fixed overlay and clips it to the bar.
+        !open && "backdrop-blur-xl",
+      )}
+    >
+      <div className="mx-auto flex h-full max-w-[1320px] items-center justify-between gap-4 px-5 md:px-6">
+        {/* Wordmark */}
+        <Link href="/" aria-label="PZ Academy home" className="relative z-[200] flex shrink-0 flex-col leading-none">
+          <span className="font-montserrat text-xl font-extrabold tracking-tight text-pz-deep">PZ ACADEMY</span>
+          <span className="mt-1 font-poppins text-[11px] font-semibold uppercase tracking-wide text-pz-muted">by Pharmacozyme</span>
+        </Link>
 
-      {/* Desktop links */}
-      <ul className="hidden md:flex items-center gap-7">
-        {NAV_LINKS.map((l) => (
-          <li key={l.href}>
-            <Link
-              href={l.href}
-              className="relative text-[rgba(255,255,255,.78)] text-sm font-medium font-poppins hover:text-pz-bright transition-colors duration-200
-                after:absolute after:bottom-[-3px] after:left-0 after:right-0 after:h-[1.5px] after:bg-pz-bright
-                after:scale-x-0 after:origin-left after:transition-transform after:duration-[250ms]
-                hover:after:scale-x-100"
-            >
-              {l.label}
-            </Link>
-          </li>
-        ))}
-        <li>
+        {/* Desktop links */}
+        <ul className="hidden items-center gap-1 lg:flex">
+          {NAV_LINKS.map((l) => {
+            const current = isCurrent(l.href, path);
+            return (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  aria-current={current ? "page" : undefined}
+                  className={cn(
+                    "inline-flex min-h-11 items-center rounded-full px-4 font-montserrat text-[15px] font-bold transition-colors",
+                    current ? "bg-pz-solid-forest text-white" : "text-pz-muted hover:text-pz-deep",
+                  )}
+                >
+                  {l.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="flex shrink-0 items-center gap-2 md:gap-4">
           <Link
-            href={homeHref ?? "/login"}
-            className="bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-5 py-2 rounded-full transition-all duration-200 hover:bg-pz-pale hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(126,217,87,.35)]"
+            href={FIND_ID.href}
+            aria-current={isCurrent(FIND_ID.href, path) ? "page" : undefined}
+            className="hidden min-h-11 items-center font-montserrat text-[15px] font-bold text-pz-deep transition-colors hover:text-pz-mid sm:inline-flex"
           >
-            {homeHref ? "Go to Portal" : "Start Learning"}
+            {FIND_ID.label}
           </Link>
-        </li>
-      </ul>
+          <Link
+            href={ctaHref}
+            className="hidden min-h-11 items-center justify-center rounded-full bg-pz-bright px-6 font-montserrat text-[15px] font-bold text-pz-solid-deep shadow-[0_8px_30px_rgba(15,61,34,0.05)] transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid sm:inline-flex"
+          >
+            {ctaLabel}
+          </Link>
 
-      {/* Mobile hamburger */}
-      <button
-        ref={buttonRef}
-        type="button"
-        className="md:hidden relative z-[200] min-h-11 min-w-11 flex items-center justify-center text-white"
-        aria-controls="marketing-mobile-menu"
-        onClick={() => setOpen(!open)}
-        aria-label={open ? "Close menu" : "Open menu"}
-        aria-expanded={open}
-      >
-        {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-      </button>
+          {/* Phone / tablet menu button */}
+          <button
+            ref={buttonRef}
+            type="button"
+            className="relative z-[200] flex min-h-11 min-w-11 items-center justify-center rounded-full text-pz-deep lg:hidden"
+            aria-controls="marketing-mobile-menu"
+            onClick={() => setOpen(!open)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
+      </div>
 
-      {/* Mobile menu overlay */}
+      {/* Phone menu overlay */}
       <div
         id="marketing-mobile-menu"
         ref={menuRef}
         aria-hidden={open ? undefined : true}
         className={cn(
-        "md:hidden fixed inset-0 z-[199] bg-[rgba(10,28,17,0.98)] backdrop-blur-2xl flex flex-col justify-start items-center pt-24 gap-0 transition-[transform,visibility] duration-[400ms]",
-        open ? "translate-x-0" : "translate-x-full invisible"
-      )}>
-        {NAV_LINKS.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            onClick={closeByLink}
-            className="w-full text-center text-[rgba(255,255,255,.85)] text-lg font-poppins font-medium py-4 border-b border-[rgba(255,255,255,.06)] hover:text-pz-bright hover:pl-5 transition-all"
-          >
-            {l.label}
-          </Link>
-        ))}
-        <div className="mt-6">
-          <Link
-            href={homeHref ?? "/login"}
-            onClick={closeByLink}
-            className="bg-pz-bright text-pz-forest font-poppins font-bold px-10 py-3 rounded-full text-base"
-          >
-            {homeHref ? "Go to Portal" : "Start Learning"}
-          </Link>
-        </div>
+          "fixed inset-0 z-[199] flex flex-col items-stretch gap-1 overflow-y-auto bg-pz-web-surface px-5 pb-10 pt-24 transition-[transform,visibility] duration-[400ms] lg:hidden",
+          open ? "translate-x-0" : "invisible translate-x-full",
+        )}
+      >
+        {[...NAV_LINKS, FIND_ID].map((l) => {
+          const current = isCurrent(l.href, path);
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={closeByLink}
+              aria-current={current ? "page" : undefined}
+              className={cn(
+                "flex min-h-12 items-center rounded-2xl px-5 font-montserrat text-lg font-bold transition-colors",
+                current ? "bg-pz-solid-forest text-white" : "text-pz-deep hover:bg-pz-web-surface-high",
+              )}
+            >
+              {l.label}
+            </Link>
+          );
+        })}
+        <Link
+          href={ctaHref}
+          onClick={closeByLink}
+          className="mt-6 flex min-h-12 items-center justify-center rounded-full bg-pz-bright px-10 font-montserrat text-base font-bold text-pz-solid-deep"
+        >
+          {ctaLabel}
+        </Link>
       </div>
     </nav>
   );

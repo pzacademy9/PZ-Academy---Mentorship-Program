@@ -76,7 +76,7 @@ export default function MentorProfileClient({
     <>
       {/* ── Hero ── */}
       <section
-        className="relative bg-white border-b border-gray-100 pt-20 overflow-hidden"
+        className="relative bg-white border-b border-gray-100 pt-24 overflow-hidden"
         aria-label={`${mentor.name} profile`}
       >
         {/* Background gradient */}

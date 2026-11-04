@@ -36,6 +36,8 @@ export interface CourseCard {
   mentorAvatarUrl: string | null;
   /** Freely watchable preview/recording video — see the comment on courses.public_video_url. */
   publicVideoUrl: string | null;
+  /** Free-text schedule, e.g. "Sat 30 Nov, 7 PM PKT" — courses.timings. Shown as typed, never parsed. */
+  timings?: string | null;
   /** Set by website pages when a live batch is open for this course (not by getPublishedCourses). */
   liveBatch?: { startsOn: string; href: string };
 }
@@ -54,7 +56,6 @@ export interface CourseDetail extends CourseCard {
   mentorBio: string | null;
   faqs: CourseFaq[];
   isPublished: boolean;
-  timings: string | null;
 }
 
 /** duration_text is the admin-editable field; duration_weeks is a read-only fallback for rows not yet re-saved since migration 0022. */
@@ -205,7 +206,7 @@ export async function getPublishedCourses(type?: CourseType): Promise<CourseCard
   let query = supabase
     .from("courses")
     .select(
-      "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url",
+      "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url, timings",
     )
     .eq("is_published", true);
   if (type) query = query.eq("type", type);
@@ -227,6 +228,7 @@ export async function getPublishedCourses(type?: CourseType): Promise<CourseCard
     mentorTitle: c.mentor_title,
     mentorAvatarUrl: c.mentor_avatar_url,
     publicVideoUrl: c.public_video_url,
+    timings: c.timings,
   }));
 }
 
