@@ -17,6 +17,8 @@ export type TeamMember = {
   role: Role;
   custom: CustomAccess;
   active: boolean;
+  /** For a switched-off person: the role they had, so "Add back" starts from it. */
+  previousRole?: "admin" | "manager" | null;
 };
 
 export type TeamResult =
@@ -36,16 +38,18 @@ export async function getCustomAccess(userId: string): Promise<CustomAccess | nu
 
 export async function listTeam(): Promise<TeamMember[]> {
   const admin = createAdminSupabase();
-  const { data: profiles } = await admin
+  const { data: profiles, error: profilesError } = await admin
     .from("profiles")
     .select("id, full_name, role")
     .in("role", ["admin", "manager", "super_admin"])
     .order("created_at", { ascending: true });
-  const { data: off } = await admin
+  const { data: off, error: offError } = await admin
     .from("team_access")
-    .select("user_id, extra_areas, removed_areas")
+    .select("user_id, extra_areas, removed_areas, previous_role")
     .eq("active", false);
-  const { data: access } = await admin.from("team_access").select("user_id, extra_areas, removed_areas").eq("active", true);
+  const { data: access, error: accessError } = await admin.from("team_access").select("user_id, extra_areas, removed_areas").eq("active", true);
+  // Never show a partial team: a failed read must not look like "no custom areas" (a Save would then wipe them).
+  if (profilesError || offError || accessError) throw new Error("Could not read the team");
 
   const custom = new Map<string, CustomAccess>();
   for (const a of access ?? []) custom.set(a.user_id, { extra: areas(a.extra_areas), removed: areas(a.removed_areas) });
@@ -65,6 +69,7 @@ export async function listTeam(): Promise<TeamMember[]> {
     rows.push({
       id: p.id, fullName: p.full_name, email: u?.user?.email ?? "", role: "student",
       custom: { extra: areas(o.extra_areas), removed: areas(o.removed_areas) }, active: false,
+      previousRole: o.previous_role === "admin" || o.previous_role === "manager" ? o.previous_role : null,
     });
   }
   return rows;

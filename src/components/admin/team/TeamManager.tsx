@@ -113,7 +113,7 @@ function AddPerson({ onDone }: { onDone: () => void }) {
 }
 
 function Editor({ member, onDone, onCancel }: { member: TeamMember; onDone: () => void; onCancel: () => void }) {
-  const startRole: TeamRole = member.role === "admin" ? "admin" : "manager";
+  const startRole: TeamRole = (member.active ? member.role : member.previousRole) === "admin" ? "admin" : "manager";
   const [role, setRole] = useState<TeamRole>(startRole);
   const [ticked, setTicked] = useState<Area[]>(effectiveAreas(startRole, member.custom));
 

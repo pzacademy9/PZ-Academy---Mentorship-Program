@@ -9,10 +9,13 @@ const db: { profiles: Row[]; team_access: Row[]; writes: { table: string; op: st
 
 function from(table: "profiles" | "team_access") {
   let filters: [string, unknown][] = [];
+  let inFilter: [string, unknown[]] | null = null;
   let pending: { op: "update" | "upsert"; values: Row } | null = null;
-  const rows = () => db[table].filter((r) => filters.every(([k, v]) => r[k] === v));
+  const rows = () => db[table].filter((r) => filters.every(([k, v]) => r[k] === v) && (!inFilter || inFilter[1].includes(r[inFilter[0]])));
   const b: Record<string, unknown> = {
     select: () => b,
+    in: (k: string, vals: unknown[]) => { inFilter = [k, vals]; return b; },
+    order: () => b,
     eq: (k: string, v: unknown) => { filters.push([k, v]); return b; },
     maybeSingle: async () => {
       if (db.failSelect === table) return { data: null, error: { message: "boom" } };
@@ -24,6 +27,7 @@ function from(table: "profiles" | "team_access") {
     update: (values: Row) => { pending = { op: "update", values }; return b; },
     upsert: async (values: Row) => { db.writes.push({ table, op: "upsert", values }); return { error: null }; },
     then: (resolve: (v: unknown) => void) => {
+      if (db.failSelect === table && !pending) { resolve({ data: null, error: { message: "boom" } }); return; }
       const matched = rows();
       if (pending?.op === "update") {
         if (matched.length > 0) db.writes.push({ table, op: "update", values: pending.values });
@@ -39,7 +43,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from, aut
 vi.mock("@/lib/data/mentor-accounts", () => ({ findAccountIdByEmail: async () => null }));
 
 import { cleanCustom, decideTeamChange, isStaffRole } from "@/lib/team/rules";
-import { getCustomAccess, saveTeamMember, switchOffTeamMember } from "@/lib/data/team-access";
+import { getCustomAccess, listTeam, saveTeamMember, switchOffTeamMember } from "@/lib/data/team-access";
 
 beforeEach(() => { db.profiles = []; db.team_access = []; db.writes = []; db.flipAfterRead = false; db.failSelect = null; });
 
@@ -133,5 +137,23 @@ describe("races and read failures", () => {
   });
   it("getCustomAccess returns null for a person with no active row", async () => {
     expect(await getCustomAccess("nobody")).toBeNull();
+  });
+});
+
+describe("listTeam", () => {
+  it("throws when the team_access read fails, so the screen cannot show people without their custom areas", async () => {
+    db.profiles = [{ id: "u1", role: "manager", full_name: "Mia" }];
+    db.failSelect = "team_access";
+    await expect(listTeam()).rejects.toThrow();
+  });
+  it("throws when the profiles read fails, instead of showing an empty team", async () => {
+    db.failSelect = "profiles";
+    await expect(listTeam()).rejects.toThrow();
+  });
+  it("tells the screen which role a switched-off person had", async () => {
+    db.profiles = [{ id: "u2", role: "student", full_name: "Sam" }];
+    db.team_access = [{ user_id: "u2", active: false, previous_role: "admin", extra_areas: ["crm"], removed_areas: [] }];
+    const m = (await listTeam()).find((x) => x.id === "u2");
+    expect(m).toMatchObject({ active: false, previousRole: "admin", custom: { extra: ["crm"], removed: [] } });
   });
 });

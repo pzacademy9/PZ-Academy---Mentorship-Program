@@ -15,7 +15,7 @@ const members: TeamMember[] = [
   { id: "owner", email: "owner@test.dev", fullName: "Owner Test", role: "super_admin", custom: none, active: true },
   { id: "m1", email: "mia@test.dev", fullName: "Mia Manager", role: "manager", custom: { extra: ["marketing"], removed: ["landing_pages"] }, active: true },
   { id: "a1", email: "ali@test.dev", fullName: "Ali Admin", role: "admin", custom: none, active: true },
-  { id: "x1", email: "sam@test.dev", fullName: "Sam Off", role: "student", custom: { extra: [], removed: [] }, active: false },
+  { id: "x1", email: "sam@test.dev", fullName: "Sam Off", role: "student", custom: { extra: ["payment_accounts"], removed: [] }, active: false, previousRole: "admin" },
 ];
 
 describe("accessSummary", () => {
@@ -78,6 +78,17 @@ describe("TeamManager", () => {
     expect(url).toBe("/api/admin/team/a1");
     expect((init as RequestInit).method).toBe("PATCH");
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({ role: "admin", extra: [], removed: ["landing_pages"] });
+  });
+  it("adds a switched-off Admin back as an Admin with their saved areas, not as a Manager", async () => {
+    render(<TeamManager members={members} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add back Sam Off" }));
+    const row = within(screen.getByText("Sam Off").closest("li")!);
+    expect((row.getByLabelText("Role") as HTMLSelectElement).value).toBe("admin");
+    expect((row.getByLabelText("Payment accounts") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(row.getByRole("button", { name: "Save access" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ role: "admin", extra: ["payment_accounts"], removed: [] });
   });
   it("offers Add back for a switched-off person and links sales agents to Sales Hub", () => {
     render(<TeamManager members={members} />);
