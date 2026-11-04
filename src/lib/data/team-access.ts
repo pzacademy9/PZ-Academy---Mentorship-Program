@@ -123,7 +123,7 @@ export async function getSwitchedOffRole(userId: string): Promise<"admin" | "man
 }
 
 export type InviteTeamResult =
-  | { status: "invited"; email: string }
+  | { status: "invited"; email: string; userId: string }
   | { status: "existing"; email: string }
   | { status: "error"; reason: "invite-failed" | "db-error" };
 
@@ -133,7 +133,7 @@ export async function inviteOrCheckTeamMember(email: string, fullName: string, r
   if (await findAccountIdByEmail(email)) return { status: "existing", email };
   const { data: invited, error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { full_name: fullName } });
   if (error || !invited?.user) return { status: "error", reason: "invite-failed" };
-  return { status: "invited", email };
+  return { status: "invited", email, userId: invited.user.id };
 }
 
 export async function findTeamCandidateId(email: string): Promise<string | null> {
