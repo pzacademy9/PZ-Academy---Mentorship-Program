@@ -8,8 +8,8 @@ export function OpenBatchStrip({ batches }: { batches: StripBatch[] }) {
   const shown = batches.slice(0, 3);
   if (shown.length === 0) return null;
   return (
-    <section aria-labelledby="open-batches" className="bg-pz-offwhite px-6 pb-4 pt-12">
-      <div className="mx-auto max-w-[1120px] rounded-[28px] bg-pz-solid-forest p-6 md:p-8">
+    <section aria-labelledby="open-batches" className="bg-pz-web-surface px-5 pb-12 md:px-12 md:pb-20">
+      <div className="mx-auto max-w-[1344px] rounded-[24px] bg-pz-solid-forest p-6 md:p-8">
         <h2 id="open-batches" className="mb-5 flex items-center gap-2.5 font-montserrat text-xl font-extrabold text-white">
           <span aria-hidden="true" className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pz-bright opacity-60" />

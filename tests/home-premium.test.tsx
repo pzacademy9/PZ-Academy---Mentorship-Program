@@ -48,13 +48,13 @@ describe("home page hero", () => {
   it("shows the next open batch with its start date and register link", async () => {
     data.batches = new Map([["c1", { courseId: "c1", slug: "s1", title: "Fake Batch", startsOn: "30 October 2026", href: "/e/s1?src=website" }]]);
     render(await HomePage());
-    expect(within(hero()).getByText(/Starts 30 October 2026/)).toBeTruthy();
+    expect(within(hero()).getByText(/starts 30 October 2026/i)).toBeTruthy();
     expect(within(hero()).getByRole("link", { name: /fake batch/i }).getAttribute("href")).toBe("/e/s1?src=website");
   });
 
   it("shows no start date when no batch is open", async () => {
     render(await HomePage());
-    expect(within(hero()).queryByText(/Starts/)).toBeNull();
+    expect(within(hero()).queryByText(/starts/i)).toBeNull();
   });
 });
 

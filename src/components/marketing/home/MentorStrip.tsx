@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import type { Mentor } from "@/lib/data/mentors";
 import { SectionHeader } from "@/components/marketing/kit/SectionHeader";
-import { BTN_SOLID } from "@/components/marketing/kit/buttons";
 
 export type StripMentor = Pick<Mentor, "id" | "slug" | "name" | "title" | "photo">;
 
@@ -20,40 +18,44 @@ export function MentorStrip({ mentors }: { mentors: StripMentor[] }) {
   const shown = mentors.slice(0, 6);
   if (shown.length === 0) return null;
   return (
-    <section aria-labelledby="home-mentors" className="bg-pz-surface-container-lowest px-6 py-16 md:py-24">
-      <div className="mx-auto max-w-[1120px]">
+    <section aria-labelledby="home-mentors" className="w-full bg-pz-web-surface-low px-5 py-12 md:px-12 md:py-20">
+      <div className="mx-auto max-w-[1344px]">
         <SectionHeader
-          kicker="1-on-1 help"
-          title={<>Meet your <em className="not-italic text-pz-mid">mentors</em></>}
+          kicker="Faculty leadership"
+          title="Meet your mentors"
           titleId="home-mentors"
           text="Pharmacists, doctors and researchers who have walked the path you are on — and now guide others along it."
+          align="center"
         />
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-6">
           {shown.map((m) => (
             <li key={m.id}>
               <Link
                 href={`/mentorship/mentors/${m.slug}`}
-                className="group flex h-full flex-col items-center rounded-3xl border border-pz-border bg-pz-offwhite p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-pz-solid-mid hover:shadow-card-lg"
+                className="flex h-full flex-col items-center rounded-2xl bg-pz-surface-container-lowest p-4 text-center shadow-[0_8px_30px_rgba(15,61,34,0.04)] transition-shadow hover:shadow-md"
               >
-                <span className="relative mb-3 block h-20 w-20 overflow-hidden rounded-full bg-gradient-to-br from-pz-solid-forest to-pz-solid-mid ring-4 ring-pz-bright/25 transition-transform duration-300 group-hover:scale-105">
+                <span className="mb-3 block h-20 w-20 overflow-hidden rounded-full bg-pz-web-surface-high md:h-24 md:w-24">
                   {m.photo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={m.photo} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover object-top" />
                   ) : (
-                    <span aria-hidden="true" className="flex h-full w-full items-center justify-center font-montserrat text-xl font-bold text-pz-bright">
+                    <span aria-hidden="true" className="flex h-full w-full items-center justify-center font-montserrat text-xl font-bold text-pz-deep">
                       {initials(m.name)}
                     </span>
                   )}
                 </span>
-                <span className="font-montserrat text-sm font-bold leading-snug text-pz-deep group-hover:text-pz-mid">{m.name}</span>
+                <span className="font-poppins text-sm font-bold leading-snug text-pz-deep md:text-base">{m.name}</span>
                 {m.title && <span className="mt-1 line-clamp-2 font-poppins text-xs leading-snug text-pz-muted">{m.title}</span>}
               </Link>
             </li>
           ))}
         </ul>
-        <div className="mt-10 flex justify-center">
-          <Link href="/mentorship#mentors" className={BTN_SOLID}>
-            See all mentors <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        <div className="mt-8 flex justify-center md:mt-10">
+          <Link
+            href="/mentorship#mentors"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-pz-surface-container-lowest px-8 font-montserrat text-[15px] font-bold text-pz-deep shadow-sm transition-colors hover:bg-pz-web-surface-high sm:w-auto"
+          >
+            See all mentors
           </Link>
         </div>
       </div>
