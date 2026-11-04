@@ -31,7 +31,7 @@ export function PromoSlot({ promo, variant = "banner" }: { promo: Promo | null; 
 
   if (variant === "card") {
     return (
-      <aside aria-label="Featured" className="flex flex-col gap-4 rounded-2xl bg-pz-solid-forest p-6 text-white">
+      <aside aria-label={`Featured: ${promo.headline}`} className="flex flex-col gap-4 rounded-2xl bg-pz-solid-forest p-6 text-white">
         {label}
         <h3 className="font-montserrat text-lg font-bold leading-snug">{promo.headline}</h3>
         {promo.detail && <p className="font-poppins text-sm text-[rgba(255,255,255,.8)]">{promo.detail}</p>}
@@ -41,7 +41,7 @@ export function PromoSlot({ promo, variant = "banner" }: { promo: Promo | null; 
   }
 
   return (
-    <section aria-label="Featured" className="bg-white px-6 py-12">
+    <section aria-label={`Featured: ${promo.headline}`} className="bg-white px-6 py-12">
       <div className="relative mx-auto flex max-w-[1060px] flex-col gap-4 overflow-hidden rounded-2xl bg-pz-solid-forest p-7 text-white md:flex-row md:items-center md:justify-between md:p-10">
         {promo.imageUrl && (
           <>

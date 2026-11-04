@@ -6,6 +6,7 @@ type FooterLink = { label: string; href: string };
 // Only links that lead somewhere real. Add social / blog / policy links here
 // once they exist — never a "#" placeholder.
 const PROGRAM_LINKS: FooterLink[] = [
+  { label: "Home", href: "/" },
   { label: "Webinars", href: "/webinars" },
   { label: "Workshops", href: "/workshops" },
   { label: "Courses", href: "/courses" },
@@ -15,6 +16,7 @@ const PROGRAM_LINKS: FooterLink[] = [
 const ACCOUNT_LINKS: FooterLink[] = [
   { label: "Sign In", href: "/login" },
   { label: "Create Account", href: "/register" },
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Certificates", href: "https://cert.pharmacozyme.com" },
 ];
 
@@ -26,8 +28,8 @@ const CONTACT_LINKS: FooterLink[] = [
 
 function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) {
   return (
-    <div>
-      <h4 className="text-[.75rem] font-semibold tracking-[.12em] uppercase text-[rgba(255,255,255,.62)] mb-3 font-montserrat">{title}</h4>
+    <nav aria-label={title}>
+      <h2 className="text-[.75rem] font-semibold tracking-[.12em] uppercase text-[rgba(255,255,255,.62)] mb-3 font-montserrat">{title}</h2>
       <ul className="flex flex-col">
         {links.map(({ label, href }) => {
           const external = /^https?:\/\//.test(href);
@@ -44,7 +46,7 @@ function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) 
           );
         })}
       </ul>
-    </div>
+    </nav>
   );
 }
 

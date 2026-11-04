@@ -17,6 +17,7 @@ describe("PromoSlot", () => {
     expect(link.getAttribute("href")).toBe("/e/s1");
     expect(link.className).toMatch(/min-h-11/);
     expect(screen.getByRole("heading", { name: "Fake Batch 1" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Featured: Fake Batch 1" })).toBeTruthy();
   });
 
   it("opens an outside link in a new tab safely", () => {

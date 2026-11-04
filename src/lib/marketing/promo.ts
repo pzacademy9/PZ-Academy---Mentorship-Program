@@ -14,6 +14,12 @@ export interface Promo {
   imageUrl: string | null;
 }
 
+/** Only same-site paths ("/x", not "//x") or http(s) links — never javascript: or data:. */
+export function isSafeHref(href: string): boolean {
+  const h = href.trim();
+  return (h.startsWith("/") && !h.startsWith("//")) || /^https?:\/\//i.test(h);
+}
+
 type PromoBanner = { headline: string; ctaText: string; ctaLink: string; imageUrl: string | null };
 type PromoBatch = { title: string; startsOn: string; href: string };
 
@@ -29,7 +35,7 @@ export function pickPromo({
 }): Promo | null {
   const skip = new Set(exclude);
 
-  const banner = banners.find((b) => b.headline.trim() && b.ctaLink.trim() && !skip.has(b.ctaLink));
+  const banner = banners.find((b) => b.headline.trim() && isSafeHref(b.ctaLink) && !skip.has(b.ctaLink));
   if (banner) {
     return {
       headline: banner.headline.trim(),
@@ -40,7 +46,7 @@ export function pickPromo({
     };
   }
 
-  const batch = batches.find((b) => b.title.trim() && b.href && !skip.has(b.href));
+  const batch = batches.find((b) => b.title.trim() && isSafeHref(b.href) && !skip.has(b.href));
   if (batch) {
     return {
       headline: batch.title.trim(),

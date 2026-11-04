@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickPromo } from "@/lib/marketing/promo";
+import { isSafeHref, pickPromo } from "@/lib/marketing/promo";
 
 const banner = (n: string, link = `/courses/b${n}`) => ({
   id: n, slot: "mid_page" as const, imageUrl: null, headline: `Banner ${n}`, ctaText: "Open", ctaLink: link,
@@ -31,6 +31,13 @@ describe("pickPromo", () => {
   it("skips a banner with no link or headline", () => {
     const p = pickPromo({ banners: [{ ...banner("1"), ctaLink: "" }, { ...banner("2"), headline: " " }], batches: [] });
     expect(p).toBeNull();
+  });
+
+  it("refuses unsafe or protocol-relative links", () => {
+    const bad = ["javascript:alert(1)", " JavaScript:alert(1)", "data:text/html,x", "//evil.example", "mailto:"];
+    for (const link of bad) expect(pickPromo({ banners: [banner("1", link)], batches: [] })).toBeNull();
+    expect(isSafeHref("/courses/x")).toBe(true);
+    expect(isSafeHref("https://wa.me/1")).toBe(true);
   });
 
   it("gives a batch without a start date no date line", () => {

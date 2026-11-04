@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { BookOpen, Video, Wrench, UserCheck, ArrowRight, Clock, Users, Award, Quote, MessageCircle } from "lucide-react";
 import { getActiveBanners, getFeaturedItems } from "@/lib/data/marketing";
@@ -7,7 +6,7 @@ import { getOpenLiveBatches } from "@/lib/data/landing-website";
 import { OpenBatchStrip } from "@/components/marketing/OpenBatchStrip";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { PromoSlot } from "@/components/marketing/PromoSlot";
-import { pickPromo } from "@/lib/marketing/promo";
+import { isSafeHref, pickPromo } from "@/lib/marketing/promo";
 
 const STATS = [
   { icon: Video,    number: "12+",  label: "Live Webinars",     badge: null },
@@ -55,6 +54,7 @@ export default async function HomePage() {
   // promo only shows an admin banner (no duplicate batch box).
   const midPromo = pickPromo({ banners: midBanners, batches: [] });
   const heroBanner = heroBanners[0] ?? null;
+  const heroCta = heroBanner && isSafeHref(heroBanner.ctaLink) ? heroBanner : null;
   const featured =
     featuredCards.length > 0
       ? featuredCards.map((f) => ({ ...f, live: false, enrolled: null as string | null }))
@@ -63,6 +63,7 @@ export default async function HomePage() {
   return (
     <>
       <MarketingNav />
+      <main>
 
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-pz-solid-deep">
@@ -104,9 +105,9 @@ export default async function HomePage() {
             PZ Academy by Pharmacozyme — combining innovation, research, and real-world learning to shape the next generation of pharmaceutical leaders.
           </p>
           <div className="flex gap-3.5 justify-center flex-wrap">
-            {heroBanner ? (
-              <Link href={heroBanner.ctaLink} className="inline-flex min-h-11 items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
-                <BookOpen className="w-4 h-4" aria-hidden="true" /> {heroBanner.ctaText}
+            {heroCta ? (
+              <Link href={heroCta.ctaLink} className="inline-flex min-h-11 items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
+                <BookOpen className="w-4 h-4" aria-hidden="true" /> {heroCta.ctaText}
               </Link>
             ) : (
               <Link href="#paths" className="inline-flex min-h-11 items-center gap-2 bg-pz-bright text-pz-forest font-poppins font-bold text-sm px-7 py-3.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(126,217,87,.35)]">
@@ -128,10 +129,10 @@ export default async function HomePage() {
       </section>
 
       {/* ─── SERVICES ─────────────────────────────────────────────────────── */}
-      <section id="paths" aria-label="Find your program" className="bg-pz-offwhite py-16 md:py-24 px-6 scroll-mt-20">
+      <section id="paths" aria-labelledby="paths-title" className="bg-pz-offwhite py-16 md:py-24 px-6 scroll-mt-20">
         <div className="max-w-[1060px] mx-auto">
           <div className="text-center mb-14">
-            <span className="font-poppins text-[.75rem] font-semibold tracking-[.13em] uppercase text-pz-mid mb-3 block">Find your program</span>
+            <span id="paths-title" className="font-poppins text-[.75rem] font-semibold tracking-[.13em] uppercase text-pz-mid mb-3 block">Find your program</span>
             <h2 className="font-montserrat font-extrabold text-pz-forest leading-tight mb-4" style={{fontSize:"clamp(1.7rem,3vw,2.5rem)",letterSpacing:"-.015em"}}>
               Pharma Made Simple,<br /><em className="not-italic text-pz-mid">Learning Made Effective</em>
             </h2>
@@ -274,6 +275,7 @@ export default async function HomePage() {
         </div>
       </section>
 
+      </main>
       <MarketingFooter />
     </>
   );

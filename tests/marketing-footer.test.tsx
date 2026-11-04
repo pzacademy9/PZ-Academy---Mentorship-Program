@@ -7,7 +7,7 @@ describe("MarketingFooter", () => {
     const { container } = render(<MarketingFooter />);
     const hrefs = Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"));
     expect(hrefs.length).toBeGreaterThan(0);
-    for (const h of hrefs) expect(h === "#" || h === "" || h === null).toBe(false);
+    for (const h of hrefs) expect(h === "#" || h === "" || h === null || /^javascript:/i.test(h ?? "")).toBe(false);
   });
 
   it("every link is a big enough tap target", () => {
@@ -20,10 +20,11 @@ describe("MarketingFooter", () => {
     for (const [name, href] of [["Courses", "/courses"], ["Webinars", "/webinars"], ["Workshops", "/workshops"], ["Mentorship", "/mentorship"]]) {
       expect(screen.getAllByRole("link", { name }).some((a) => a.getAttribute("href") === href)).toBe(true);
     }
+    expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/dashboard");
     expect(screen.getByRole("link", { name: /WhatsApp/ }).getAttribute("href")).toMatch(/^https:\/\/wa\.me\//);
   });
 
-  it("does not use near-invisible text", () => {
+  it("does not use the old near-invisible white text (.2x/.3x)", () => {
     const { container } = render(<MarketingFooter />);
     expect(container.innerHTML).not.toMatch(/rgba\(255,255,255,\.(2|3)\d?\)/);
   });
