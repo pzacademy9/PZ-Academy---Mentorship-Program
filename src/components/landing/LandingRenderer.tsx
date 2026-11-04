@@ -85,6 +85,7 @@ export function LandingRenderer({
     <div
       className="landing-root bg-landing-surface font-landing-body text-landing-on-surface antialiased selection:bg-landing-mint selection:text-landing-deep pb-24 md:pb-0"
       style={{ colorScheme: "light" }}
+      data-shadows={c.settings.boxShadows === false ? "off" : undefined}
     >
       {slug && heroId && heroHasPicture ? <PageLoader heroId={heroId} /> : null}
       <div className="sticky top-0 z-40">

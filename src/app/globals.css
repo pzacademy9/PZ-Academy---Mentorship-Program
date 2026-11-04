@@ -164,3 +164,6 @@
 .landing-root [data-text-size="small"] li:not([class*="text-xs"]),
 .landing-root [data-text-size="small"] summary:not([class*="text-xs"]),
 .landing-root [data-text-size="small"] blockquote:not([class*="text-xs"]) { font-size: 0.875rem; }
+
+/* Landing pages: "Soft shadows behind boxes" switched off in Page settings removes every box shadow on the page. */
+.landing-root[data-shadows="off"] [class*="shadow-"] { box-shadow: none !important; }

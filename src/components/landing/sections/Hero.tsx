@@ -54,6 +54,15 @@ function DateLine({ text, onDark }: { text: string; onDark?: boolean }) {
   );
 }
 
+/** Column layout for the highlight list so the rows always fill evenly (4 = 2x2 then one row of 4, 3 = one row of 3). */
+export function badgeGridClass(count: number): string {
+  if (count >= 5) return "grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 sm:gap-4";
+  if (count === 4) return "grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-4 lg:grid-cols-4";
+  if (count === 3) return "grid grid-cols-1 gap-y-2 sm:grid-cols-3 sm:gap-4";
+  if (count === 2) return "grid grid-cols-1 gap-y-2 sm:grid-cols-2 sm:gap-4";
+  return "grid grid-cols-1 gap-y-2";
+}
+
 /** Whether the hero shows a picture, following the same style branches as Hero() (old pictures from another style stay in the data but are not shown). */
 export function heroPicture(data: Record<string, unknown>): boolean {
   const style = str(data, "heroStyle");
@@ -115,7 +124,7 @@ function PhotoHero({ data, register, sectionIds, pc, phone }: SectionProps & { p
             {target ? <SecondaryButton target={target} label={secondaryLabel} onDark={hasImage} /> : null}
           </div>
           {badges.length > 0 ? (
-            <ul className={`flex w-full flex-wrap gap-x-4 gap-y-2 border-t pt-5 sm:grid sm:grid-cols-3 sm:gap-4 ${hasImage ? "border-white/30" : "border-landing-border"}`}>
+            <ul className={`w-full border-t pt-5 ${badgeGridClass(badges.length)} ${hasImage ? "border-white/30" : "border-landing-border"}`}>
               {badges.map((b, i) => (
                 <li key={i} className={`flex min-w-0 max-w-full items-center gap-2.5 break-words text-xs font-medium ${hasImage ? "text-white" : "text-landing-deep"}`}>
                   <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-mint/30 text-xs font-bold text-landing-primary">✓</span>
@@ -184,7 +193,7 @@ function ClassicHero({ data, register, sectionIds }: SectionProps) {
               {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
             </div>
             {badges.length > 0 ? (
-              <ul className="flex w-full flex-wrap gap-x-4 gap-y-2 border-t border-landing-border pt-5 sm:grid sm:grid-cols-3 sm:gap-4">
+              <ul className={`w-full border-t border-landing-border pt-5 ${badgeGridClass(badges.length)}`}>
                 {badges.map((b, i) => (
                   <li key={i} className="flex items-center gap-2.5 text-xs font-medium text-landing-deep md:text-landing-on-surface">
                     <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-mint/30 text-xs font-bold text-landing-primary">✓</span>
@@ -267,7 +276,7 @@ function FadeHero({ data, register, sectionIds, pc, phone }: SectionProps & { pc
         </div>
         {badges.length > 0 ? (
           // Phones: plain ticked lines, no box. From sm up: the frosted box.
-          <ul className="mt-1 flex w-full flex-wrap gap-x-4 gap-y-1.5 sm:mt-2 sm:grid sm:grid-cols-3 sm:gap-4 sm:rounded-landing sm:border sm:border-white/20 sm:bg-white/10 sm:p-4 sm:backdrop-blur-sm">
+          <ul className={`mt-1 w-full ${badgeGridClass(badges.length)} sm:mt-2 sm:rounded-landing sm:border sm:border-white/20 sm:bg-white/10 sm:p-4 sm:backdrop-blur-sm`}>
             {badges.map((b, i) => (
               <li key={i} className="flex min-w-0 max-w-full items-start gap-2 break-words text-xs font-medium text-white sm:gap-2.5 sm:text-sm">
                 <Check />
@@ -305,7 +314,7 @@ function SplitHero({ data, register, sectionIds }: SectionProps) {
               {target ? <SecondaryButton target={target} label={secondaryLabel} /> : null}
             </div>
             {badges.length > 0 ? (
-              <ul className="flex w-full flex-wrap gap-2 sm:grid sm:grid-cols-3 sm:gap-3">
+              <ul className={`w-full ${badgeGridClass(badges.length)}`}>
                 {badges.map((b, i) => (
                   <li key={i} className="flex min-w-0 max-w-full items-start gap-2 break-words rounded-landing border border-landing-border bg-landing-surface-container-lowest p-2 text-xs font-medium sm:gap-2.5 sm:p-3 sm:text-sm text-landing-deep shadow-landing-soft-lg">
                     <Check />

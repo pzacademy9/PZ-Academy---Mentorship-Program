@@ -204,6 +204,26 @@ export function PageSettingsPanel({
         <Link href="/dashboard/admin/terms" target="_blank" rel="noopener noreferrer" className="font-body text-sm font-semibold text-pz-secondary underline underline-offset-2">Edit the general Terms</Link>
       </StepCard>
 
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-low p-4">
+        <div className="min-w-0">
+          <p className="font-headline text-sm font-bold text-pz-on-surface">Soft shadows behind boxes</p>
+          <p className="font-body text-xs text-pz-on-surface-variant">Turn off to remove the shadow from every box on this page.</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={settings.boxShadows !== false}
+          aria-label="Soft shadows behind boxes"
+          onClick={() => onSettings({ boxShadows: settings.boxShadows === false })}
+          className={cn(
+            "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-md:h-8 max-md:w-14",
+            settings.boxShadows !== false ? "bg-pz-solid-forest" : "bg-pz-outline-variant",
+          )}
+        >
+          <span aria-hidden="true" className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-pz-surface-container-lowest shadow transition-transform max-md:h-7 max-md:w-7", settings.boxShadows !== false ? "translate-x-5 max-md:translate-x-6" : "translate-x-0.5")} />
+        </button>
+      </div>
+
       {modules && <ModulesEditor {...modules} />}
 
       {registration && onRegistration && onRegistrationStep && (

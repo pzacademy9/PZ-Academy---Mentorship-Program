@@ -83,6 +83,10 @@ export function formatStartsOn(iso: string): string {
   if (Number.isNaN(t)) return "";
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Karachi" }).format(new Date(t));
 }
+/** The "Starts" date for emails comes from "Batch starts", never from the countdown (which is the Early Bird end). */
+export function startsOnFromSettings(s: { batchStartsOn?: string; countdownTo?: string }): string {
+  return formatStartsOn(s.batchStartsOn ?? "");
+}
 const digits = (s: string) => s.replace(/\D/g, "");
 const httpsHref = (url: string): string | null => (/^https:\/\/[^\s"<>]+$/.test(url) ? url : null);
 
