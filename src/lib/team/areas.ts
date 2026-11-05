@@ -53,7 +53,7 @@ const MEDIA: Area[] = [...MEDIA_AREAS];
  * Both page paths (`/dashboard/admin/...`) and API paths (`/api/admin/...`) are covered.
  */
 const RULES: { test: RegExp; areas: Area[] }[] = [
-  { test: /^\/dashboard\/admin\/enrollments\/registrations\/campaign\/[^/]+\/sessions(\/|$)/, areas: ["classes"] },
+  { test: /^\/dashboard\/admin\/enrollments\/registrations\/campaign\/[^/]+\/(sessions|reports)(\/|$)/, areas: ["classes"] },
   { test: /^\/(dashboard|api)\/admin\/(landing-media|uploads)(\/|$)/, areas: MEDIA },
   { test: /^\/(dashboard|api)\/admin\/(payment-accounts|payment-countries)(\/|$)/, areas: ["payment_accounts"] },
   { test: /^\/api\/admin\/courses\/[^/]+\/connect-sheet(\/|$)/, areas: ["sheet_sync"] },
