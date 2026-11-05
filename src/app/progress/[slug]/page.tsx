@@ -42,8 +42,8 @@ export default async function BatchRoute({ params }: { params: Promise<{ slug: s
   if (result.status === "missing") notFound();
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-pz-surface px-4 pb-10 pt-4 sm:pt-8">
-      <div className="mx-auto mb-4 flex w-full min-w-0 max-w-3xl items-center justify-between gap-3">
+    <main className="min-h-screen overflow-x-hidden bg-pz-surface pb-10 pt-2 sm:pt-6">
+      <div className="mx-auto mb-2 flex w-full min-w-0 max-w-5xl items-center justify-between gap-3 px-4 sm:mb-4">
         <Link
           href="/"
           className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary"
@@ -63,7 +63,7 @@ export default async function BatchRoute({ params }: { params: Promise<{ slug: s
       {result.status === "ok" ? (
         <BatchPortal view={result.view} />
       ) : (
-        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4">
+        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-4">
           <h1 className="font-headline text-2xl font-black text-pz-on-surface">Batch progress</h1>
           <p role="alert" className="rounded-xl bg-pz-error-container p-4 text-base text-pz-on-error-container">
             {result.status === "limited" ? RATE_LIMITED : GENERIC_ERROR}
