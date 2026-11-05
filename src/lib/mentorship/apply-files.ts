@@ -1,3 +1,14 @@
+// Plain data for the mentor application, shared by the server page and the
+// browser form. It must NOT live in the "use client" form file: a server page
+// cannot read plain values exported from a client file (the build fails).
+
+export const APPLY_STEPS = ["Basic information", "Professional background", "Your role", "Short answers", "Documents"] as const;
+
+export const APPLY_ROLES = [
+  { id: "mentor", label: "Mentor & Consultant", desc: "1-on-1 online mentorship and consultation sessions" },
+  { id: "instructor", label: "Instructor", desc: "Teaching courses, workshops, seminars or webinars" },
+] as const;
+
 // File rules for the mentor application. The CV and photo travel inside one
 // request, and the host refuses requests over about 4.5 MB (files grow by a
 // third when encoded), so the two files together must stay well under that.
