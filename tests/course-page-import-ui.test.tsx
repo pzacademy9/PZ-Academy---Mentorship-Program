@@ -111,6 +111,6 @@ describe("AI help page", () => {
   });
   it("the page is admin only", () => {
     const src = readFileSync("src/app/dashboard/admin/courses/ai/page.tsx", "utf8");
-    expect(src).toMatch(/await requireAdminPage\(\)/);
+    expect(src).toMatch(/await requireAdminPage\("courses"\)/);
   });
 });
