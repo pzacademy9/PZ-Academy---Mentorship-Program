@@ -4,6 +4,9 @@ import { ArrowDown, ArrowUp, Award, Globe, Plus, Trash2 } from "lucide-react";
 import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
 import type { CourseType } from "@/lib/data/lms";
 import { PROGRAM_COPY } from "@/lib/program-copy";
+import { TOPIC_MAX } from "@/lib/marketing/topics";
+import { RECORDED_AFTER_HOURS } from "@/lib/marketing/webinar-time";
+import { isoToPktInput, pktToIso } from "@/lib/attendance/rules";
 import {
   SECTION_LABEL,
   SECTION_TITLE_MAX,
@@ -97,11 +100,14 @@ export function PublicPageEditor({
   onChange,
   courseSlug,
   courseType,
+  topicOptions = [],
 }: {
   value: PublicPageValue;
   onChange: (next: PublicPageValue) => void;
   courseSlug: string;
   courseType: CourseType;
+  /** Topics already used on other courses, offered as suggestions. */
+  topicOptions?: string[];
 }) {
   const copy = PROGRAM_COPY[courseType];
   const set = <K extends keyof PublicPageValue>(key: K, v: PublicPageValue[K]) => onChange({ ...value, [key]: v });
@@ -119,6 +125,46 @@ export function PublicPageEditor({
       </h3>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        {/* Topic buttons exist on the Courses and Workshops lists only. */}
+        {(courseType === "course" || courseType === "workshop") && (
+          <div className="sm:col-span-2">
+            <label htmlFor="course-topic" className={labelClass}>Topic</label>
+            <input
+              id="course-topic"
+              type="text"
+              list="course-topic-options"
+              placeholder="e.g. Clinical Pharmacy"
+              value={value.topic}
+              maxLength={TOPIC_MAX}
+              onChange={(e) => set("topic", e.target.value)}
+              className={inputClass}
+            />
+            <datalist id="course-topic-options">
+              {topicOptions.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+            <p className={helpClass}>Shown as a button on the {copy.noun} list, so visitors can pick a topic. Use the same spelling for courses of the same topic. Leave empty for none.</p>
+          </div>
+        )}
+
+        {courseType === "webinar" && (
+          <div className="sm:col-span-2">
+            <label htmlFor="webinar-starts" className={labelClass}>Webinar date and time (Pakistan time)</label>
+            <input
+              id="webinar-starts"
+              type="datetime-local"
+              value={value.startsAt ? isoToPktInput(value.startsAt) : ""}
+              onChange={(e) => set("startsAt", e.target.value ? pktToIso(e.target.value) ?? "" : "")}
+              className={inputClass}
+            />
+            <p className={helpClass}>
+              Shows the date and an Add to calendar button. {RECORDED_AFTER_HOURS} hours after it starts, the webinar moves to
+              Recorded by itself. Leave empty to keep using Timings.
+            </p>
+          </div>
+        )}
+
         <div className="sm:col-span-2">
           <label htmlFor="public-video" className={labelClass}>Preview video link</label>
           <input

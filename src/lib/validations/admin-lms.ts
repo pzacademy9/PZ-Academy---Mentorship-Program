@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SECTION_KEYS, SECTION_TITLE_MAX } from "@/lib/marketing/course-sections";
+import { TOPIC_MAX } from "@/lib/marketing/topics";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type CourseType = Database["public"]["Enums"]["course_type"];
@@ -129,6 +130,14 @@ export const courseConfigSchema = z.object({
       }),
     )
     .max(SECTION_KEYS.length)
+    .optional(),
+  /** Topic for the list-page buttons (migration 0102); "" clears it. */
+  topic: z.string().trim().max(TOPIC_MAX).optional(),
+  /** Webinar date and time as a full ISO time with zone (migration 0102); "" clears it. */
+  startsAt: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && /(Z|[+-]\d{2}:\d{2})$/.test(v) && !Number.isNaN(Date.parse(v))), "Must be a full date and time")
     .optional(),
 });
 

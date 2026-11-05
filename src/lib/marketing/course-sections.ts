@@ -1,6 +1,7 @@
 import type { CourseType } from "@/lib/data/lms";
 import type { Json } from "@/lib/supabase/database.types";
 import { PROGRAM_COPY } from "@/lib/program-copy";
+import { cleanTopic } from "@/lib/marketing/topics";
 
 /** The movable sections of the course page's main column, in their normal order. */
 export const SECTION_KEYS = ["about", "learn", "curriculum", "teacher", "certificate", "faq"] as const;
@@ -70,22 +71,32 @@ export type PageFieldsInput = {
   publicVideoUrl?: string;
   certificateImageUrl?: string;
   pageSections?: PageSection[];
+  /** Migration 0102. */
+  topic?: string;
+  /** Migration 0102: UTC ISO, "" = no date. */
+  startsAt?: string;
+};
+
+type PagePatch = {
+  public_video_url?: string | null;
+  certificate_image_url?: string | null;
+  page_sections?: Json;
+  topic?: string | null;
+  starts_at?: string | null;
 };
 
 /**
  * Database columns for the public-page fields the admin actually sent.
- * Left out = leave alone (so a save before migration 0101 still works);
- * "" = clear the link.
+ * Left out = leave alone (so a save before migrations 0101 / 0102 still works);
+ * "" = clear it.
  */
-export function pageFieldsPatch(input: PageFieldsInput): {
-  public_video_url?: string | null;
-  certificate_image_url?: string | null;
-  page_sections?: Json;
-} {
-  const patch: { public_video_url?: string | null; certificate_image_url?: string | null; page_sections?: Json } = {};
+export function pageFieldsPatch(input: PageFieldsInput): PagePatch {
+  const patch: PagePatch = {};
   if (input.publicVideoUrl !== undefined) patch.public_video_url = input.publicVideoUrl || null;
   if (input.certificateImageUrl !== undefined) patch.certificate_image_url = input.certificateImageUrl || null;
   if (input.pageSections !== undefined) patch.page_sections = normalizeSections(input.pageSections) as unknown as Json;
+  if (input.topic !== undefined) patch.topic = cleanTopic(input.topic) || null;
+  if (input.startsAt !== undefined) patch.starts_at = input.startsAt ? new Date(input.startsAt).toISOString() : null;
   return patch;
 }
 
@@ -96,6 +107,10 @@ export type PublicPageFields = {
   features: string[];
   faqs: { question: string; answer: string }[];
   pageSections: PageSection[];
+  /** Topic for the list-page buttons; "" = none. */
+  topic: string;
+  /** Webinar date and time, UTC ISO; "" = none. */
+  startsAt: string;
 };
 
 const cleanLines = (lines: string[]) => lines.map((l) => l.trim()).filter(Boolean);
@@ -116,5 +131,15 @@ export function changedPageFields(before: PublicPageFields, now: PublicPageField
   if (!same(cleanLines(now.features), cleanLines(before.features))) out.features = cleanLines(now.features);
   if (!same(cleanFaqs(now.faqs), cleanFaqs(before.faqs))) out.faqs = cleanFaqs(now.faqs);
   if (!same(normalizeSections(now.pageSections), normalizeSections(before.pageSections))) out.pageSections = normalizeSections(now.pageSections);
+  if (cleanTopic(now.topic) !== cleanTopic(before.topic)) out.topic = cleanTopic(now.topic);
+  if (sameInstant(now.startsAt, before.startsAt) === false) out.startsAt = now.startsAt.trim();
   return out;
+}
+
+/** Two ISO times (or "") mean the same moment. */
+function sameInstant(a: string, b: string): boolean {
+  const ta = a.trim() ? Date.parse(a) : NaN;
+  const tb = b.trim() ? Date.parse(b) : NaN;
+  if (Number.isNaN(ta) && Number.isNaN(tb)) return true;
+  return ta === tb;
 }

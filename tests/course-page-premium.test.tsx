@@ -213,3 +213,35 @@ describe("course page on small phones", () => {
   });
 });
 
+
+describe("course page real details", () => {
+  const batch = {
+    courseId: "c1", slug: "fake-batch", title: "Fake Batch", startsOn: "12 December 2099",
+    startsAt: "2099-12-12T14:00:00.000Z", startsAtLabel: "Sat 12 December 2099, 7:00 pm PKT",
+    seatsLeft: 6, earlyBird: { price: "PKR 7,000", was: "PKR 9,000", until: "1 December 2099" }, href: "/e/fake-batch?src=website",
+  };
+  it("shows seats left in the hero, and the batch strip with Early Bird and Add to calendar; the main price stays", async () => {
+    h.batches = new Map([["c1", batch]]);
+    await renderPage();
+    expect(within(hero()).getByText("6 seats left")).toBeTruthy();
+    const strip = screen.getByRole("region", { name: "Live batch" });
+    expect(within(strip).getByText("Starts Sat 12 December 2099, 7:00 pm PKT")).toBeTruthy();
+    expect(within(strip).getByText("PKR 9,000").tagName).toBe("S");
+    const cal = within(strip).getByRole("group", { name: "Add to calendar" });
+    expect(within(cal).getByRole("link", { name: /Phone or Outlook/ }).getAttribute("href")).toBe("/courses/fake-course/calendar.ics");
+    expect(within(enrollBox()).getByText("PKR 9,000")).toBeTruthy();
+  });
+  it("an upcoming webinar with a date shows the date strip and the Date fact", async () => {
+    h.course = base({ type: "webinar", pricePkr: 0, startsAt: "2099-11-10T14:00:00.000Z" }) as unknown as Record<string, unknown>;
+    await renderPage();
+    const strip = screen.getByRole("region", { name: "Webinar date" });
+    expect(within(strip).getByText("Tue 10 November 2099, 7:00 pm PKT")).toBeTruthy();
+    expect(within(strip).getByRole("group", { name: "Add to calendar" })).toBeTruthy();
+    expect(within(hero()).getByText("Tue 10 November 2099, 7:00 pm PKT")).toBeTruthy();
+  });
+  it("a webinar long past shows no date strip", async () => {
+    h.course = base({ type: "webinar", pricePkr: 0, startsAt: "2020-11-10T14:00:00.000Z" }) as unknown as Record<string, unknown>;
+    await renderPage();
+    expect(screen.queryByRole("region", { name: "Webinar date" })).toBeNull();
+  });
+});

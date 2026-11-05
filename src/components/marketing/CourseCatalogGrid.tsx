@@ -8,14 +8,16 @@ import { PromoSlot } from "./PromoSlot";
 import { MarketingHero } from "./MarketingHero";
 import type { CourseCard as CourseCardData } from "@/lib/data/lms";
 import { PROMO_AFTER, type Promo } from "@/lib/marketing/promo";
+import { hasTopic, topicsOf } from "@/lib/marketing/topics";
 
 export type CatalogHero = { kicker: ReactNode; title: ReactNode; text: ReactNode };
 
 /**
  * Hero search + count bar + card grid for one program type (/courses and
  * /workshops; Stitch "Courses List" / "Workshops List"). Each page passes its
- * own type's rows. The design's topic chips and Level / Price / Sort menus
- * are left out on purpose: there is no data behind them yet.
+ * own type's rows. Topic buttons come from courses.topic (migration 0102) and
+ * only list topics that have a course here. The design's Level / Price / Sort
+ * menus are left out on purpose: there is no data behind them yet.
  */
 export function CourseCatalogGrid({
   courses,
@@ -37,19 +39,24 @@ export function CourseCatalogGrid({
   gridId?: string;
 }) {
   const [query, setQuery] = useState("");
+  const [topic, setTopic] = useState<string | null>(null);
   const gridRef = useRef<HTMLElement>(null);
   const word = noun.toLowerCase();
+  const topics = useMemo(() => topicsOf(courses), [courses]);
+  const activeTopic = topic !== null && topics.some((t) => t === topic) ? topic : null;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return courses;
-    return courses.filter(
+    const byTopic = activeTopic === null ? courses : courses.filter((c) => hasTopic(c, activeTopic));
+    if (!q) return byTopic;
+    return byTopic.filter(
       (c) =>
         c.title.toLowerCase().includes(q) ||
         c.tagline?.toLowerCase().includes(q) ||
-        c.mentorName?.toLowerCase().includes(q),
+        c.mentorName?.toLowerCase().includes(q) ||
+        c.topic?.toLowerCase().includes(q),
     );
-  }, [courses, query]);
+  }, [courses, query, activeTopic]);
 
   const empty = courses.length === 0;
 
@@ -74,7 +81,7 @@ export function CourseCatalogGrid({
     </div>
   );
 
-  const showPromo = promo !== null && !query.trim() && filtered.length > 0;
+  const showPromo = promo !== null && !query.trim() && activeTopic === null && filtered.length > 0;
   const promoAt = Math.min(PROMO_AFTER, filtered.length);
   const count = filtered.length;
 
@@ -88,12 +95,36 @@ export function CourseCatalogGrid({
 
       {!empty && (
         <div className="w-full bg-pz-surface-container-lowest px-5 py-3.5 shadow-sm md:px-6">
-          <div className="mx-auto flex max-w-[1320px] items-center justify-end gap-2">
-            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-pz-solid-mid" />
-            <p aria-live="polite" className="font-montserrat text-[15px] font-bold text-pz-deep">
-              {count} {word}
-              {count === 1 ? "" : "s"} available
-            </p>
+          <div className="mx-auto flex max-w-[1320px] flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            {topics.length > 0 ? (
+              <div role="group" aria-label="Topics" className="flex min-w-0 flex-wrap gap-2">
+                {[null, ...topics].map((t) => {
+                  const on = t === activeTopic;
+                  return (
+                    <button
+                      key={t ?? "__all"}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setTopic(t)}
+                      className={`min-h-11 max-w-full break-words rounded-full px-4 font-poppins text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid ${
+                        on ? "bg-pz-solid-deep font-semibold text-white" : "bg-pz-web-surface-low font-medium text-pz-deep hover:bg-pz-web-surface-high"
+                      }`}
+                    >
+                      {t ?? "All"}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <span />
+            )}
+            <div className="flex shrink-0 items-center justify-end gap-2">
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-pz-solid-mid" />
+              <p aria-live="polite" className="font-montserrat text-[15px] font-bold text-pz-deep">
+                {count} {word}
+                {count === 1 ? "" : "s"} available
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -127,7 +158,9 @@ export function CourseCatalogGrid({
               ))}
             </div>
           ) : (
-            <p className="py-16 text-center font-poppins text-pz-muted">No {word}s match your search.</p>
+            <p className="py-16 text-center font-poppins text-pz-muted">
+              {query.trim() ? `No ${word}s match your search.` : `No ${word}s in this topic yet.`}
+            </p>
           )}
         </div>
       </section>

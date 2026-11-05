@@ -921,10 +921,12 @@ export type Database = {
           register_url: string | null
           sheet_id: string | null
           slug: string
+          starts_at: string | null
           status: Database["public"]["Enums"]["course_status"]
           tagline: string | null
           thumbnail_url: string | null
           timings: string | null
+          topic: string | null
           title: string
           type: Database["public"]["Enums"]["course_type"]
         }
@@ -954,10 +956,12 @@ export type Database = {
           register_url?: string | null
           sheet_id?: string | null
           slug: string
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
           thumbnail_url?: string | null
           timings?: string | null
+          topic?: string | null
           title: string
           type?: Database["public"]["Enums"]["course_type"]
         }
@@ -987,10 +991,12 @@ export type Database = {
           register_url?: string | null
           sheet_id?: string | null
           slug?: string
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
           thumbnail_url?: string | null
           timings?: string | null
+          topic?: string | null
           title?: string
           type?: Database["public"]["Enums"]["course_type"]
         }

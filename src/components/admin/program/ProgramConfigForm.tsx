@@ -29,6 +29,8 @@ function toPageState(course: CourseConfigDetail): PublicPageFields {
     features: [...course.features],
     faqs: course.faqs.map((f) => ({ ...f })),
     pageSections: course.pageSections.map((s) => ({ ...s })),
+    topic: course.topic,
+    startsAt: course.startsAt,
   };
 }
 
@@ -401,7 +403,7 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
         </div>
       </section>
 
-      <PublicPageEditor value={page} onChange={setPage} courseSlug={course.slug} courseType={form.type} />
+      <PublicPageEditor value={page} onChange={setPage} courseSlug={course.slug} courseType={form.type} topicOptions={course.topicOptions} />
 
       <div className="md:hidden max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
         <Button

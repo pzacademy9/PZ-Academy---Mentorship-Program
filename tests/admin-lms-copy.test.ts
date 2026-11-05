@@ -119,6 +119,43 @@ describe("copyCourse", () => {
     expect(store.lessons.filter((l) => l.module_id === mods[0].id)).toHaveLength(2);
   });
 
+  it("copies the page sections, certificate picture, topic and webinar date", async () => {
+    seed("webinar");
+    Object.assign(store.courses[0], {
+      page_sections: [{ key: "faq", visible: true }], certificate_image_url: "https://fake.example/cert.png",
+      topic: "Fake Topic", starts_at: "2026-12-01T14:00:00Z",
+    });
+    const res = await copyCourse("c-1");
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(store.courses.find((x) => x.id === res.id)).toMatchObject({
+      page_sections: [{ key: "faq", visible: true }], certificate_image_url: "https://fake.example/cert.png",
+      topic: "Fake Topic", starts_at: "2026-12-01T14:00:00Z",
+    });
+  });
+
+  it("still copies, with the 0101 parts, before migration 0102 is run", async () => {
+    seed();
+    Object.assign(store.courses[0], { page_sections: [{ key: "faq", visible: false }], certificate_image_url: "https://fake.example/c.png", topic: "Only after 0102" });
+    const mem = memoryHandler(store);
+    // Single-row reads of the source: 1 = main fields, 2 = 0101 parts, 3 = 0102 parts (fails: no column yet).
+    let sourceReads = 0;
+    admin.state.handler = (op: Op): Res => {
+      if (op.table === "courses" && op.op === "select" && op.single && op.filters.some(([k, f, v]) => k === "eq" && f === "id" && v === "c-1")) {
+        sourceReads++;
+        if (sourceReads === 3) return { data: null, error: { message: "column courses.topic does not exist" } };
+      }
+      return mem(op);
+    };
+    const res = await copyCourse("c-1");
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(sourceReads).toBe(3);
+    const c = store.courses.find((x) => x.id === res.id)!;
+    expect(c).toMatchObject({ page_sections: [{ key: "faq", visible: false }], certificate_image_url: "https://fake.example/c.png" });
+    expect(c.topic).toBeUndefined();
+  });
+
   it("picks -copy-2 when -copy exists", async () => {
     seed();
     store.courses.push({ id: "c-2", slug: "demo-copy", title: "x", type: "course" });
