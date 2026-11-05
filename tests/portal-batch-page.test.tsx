@@ -14,6 +14,9 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("@/components/marketing/MarketingNav", () => ({ MarketingNav: () => null }));
+vi.mock("@/components/marketing/MarketingFooter", () => ({ MarketingFooter: () => null }));
+
 import BatchRoute, { generateMetadata } from "@/app/progress/[slug]/page";
 
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });

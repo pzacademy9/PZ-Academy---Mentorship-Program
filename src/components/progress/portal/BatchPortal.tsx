@@ -4,16 +4,15 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { ChevronLeft, Info, ListChecks, LocateFixed, Search, Trophy } from "lucide-react";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
-import { podium, resolvePodiumPick, rowsFor } from "@/lib/progress/leaderboard";
+import { rowsFor } from "@/lib/progress/leaderboard";
 import type { PortalBatchView } from "@/lib/progress/portal-build";
 import { btnFocus, inputClass } from "../ui";
 import { AttendanceList } from "./AttendanceList";
 import { FindMe } from "./FindMe";
 import { Leaderboard } from "./Leaderboard";
-import { SharePodium } from "./SharePodium";
 
 const STATE_CHIP = {
-  live: { text: "Live", cls: "bg-pz-primary-container text-pz-on-primary-fixed" },
+  live: { text: "Live", cls: "bg-pz-bright text-pz-solid-deep" },
   completed: { text: "Completed", cls: "bg-pz-secondary-fixed text-pz-on-secondary-fixed" },
   recorded: { text: "Recorded", cls: "bg-white/15 text-white" },
 } as const;
@@ -55,49 +54,44 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
   };
 
   const rows = rowsFor(view, pick);
-  const canShare = podium(rows).length > 0;
-  const pickLabel = resolvePodiumPick(view, pick)?.label ?? "Overall";
   const chip = STATE_CHIP[view.state];
 
   return (
     <div className="flex w-full min-w-0 flex-col">
-      <header className="relative isolate z-10 rounded-b-2xl bg-pz-solid-deep text-white shadow-md sm:mx-4 sm:rounded-2xl lg:mx-auto lg:w-full lg:max-w-5xl">
-        {/* Only the backdrop is clipped, so the Share podium menu can hang below the header. */}
-        <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+      <header className="relative isolate overflow-hidden bg-pz-solid-deep text-white">
+        <div aria-hidden className="absolute inset-0 -z-10">
           {view.coverUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- Drive covers go through /api/cover; decorative backdrop
             <img src={coverProxyUrl(view.coverUrl)} alt="" decoding="async" className="h-full w-full object-cover opacity-20" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-pz-solid-deep/60 to-pz-solid-deep" />
+          <div className="absolute inset-0 bg-gradient-to-b from-pz-solid-deep/70 via-pz-solid-deep/90 to-pz-solid-deep" />
+          <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-pz-bright/15 blur-3xl" />
+          <div className="absolute -bottom-24 -left-16 h-80 w-80 rounded-full bg-pz-solid-mid/30 blur-3xl" />
         </div>
-        <div className="flex min-w-0 flex-col gap-3 px-4 pb-5 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <Link
-              href="/progress"
-              className={`-ml-2 inline-flex min-h-11 min-w-0 items-center gap-1 rounded-lg px-2 font-headline text-sm font-bold text-pz-tertiary-fixed hover:bg-white/10 ${btnFocus}`}
-            >
-              <ChevronLeft aria-hidden className="h-5 w-5 shrink-0" />
-              <span className="truncate">Progress Portal</span>
-            </Link>
-            {canShare && <SharePodium slug={view.slug} title={view.title} pick={pick} label={pickLabel} />}
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-            <h1 className="min-w-0 break-words font-headline text-2xl font-black leading-tight tracking-tight text-white sm:text-4xl">{view.title}</h1>
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-headline text-xs font-black uppercase tracking-wide ${chip.cls}`}>
-              {view.state === "live" && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-pz-primary motion-safe:animate-pulse" />}
+        <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-4 px-5 pb-6 pt-[6.25rem] md:px-6 md:pb-8 md:pt-[7.5rem]">
+          <Link
+            href="/progress"
+            className={`-ml-2 inline-flex min-h-11 w-fit min-w-0 items-center gap-1 rounded-full px-2 font-poppins text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white ${btnFocus}`}
+          >
+            <ChevronLeft aria-hidden className="h-5 w-5 shrink-0" />
+            <span className="truncate">Progress Portal</span>
+          </Link>
+          <div className="flex min-w-0 flex-col gap-3">
+            <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-poppins text-xs font-bold uppercase tracking-wider ${chip.cls}`}>
+              {view.state === "live" && <span aria-hidden className="h-2 w-2 rounded-full bg-pz-solid-mid motion-safe:animate-pulse" />}
               {chip.text}
             </span>
+            <h1 className="min-w-0 break-words font-montserrat text-[28px] font-extrabold leading-[1.15] tracking-[-0.025em] text-white sm:text-4xl md:text-[44px]">{view.title}</h1>
+            <p className="flex min-w-0 flex-wrap gap-2 font-poppins text-sm text-white/85">
+              <span className="rounded-full bg-white/10 px-3 py-1">
+                {view.classesHeld} {view.classesHeld === 1 ? "class" : "classes"} held
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-1">
+                {view.students} {view.students === 1 ? "student" : "students"}
+              </span>
+            </p>
           </div>
-          <p className="flex min-w-0 flex-wrap gap-x-2 text-sm text-pz-secondary-fixed">
-            <span>
-              {view.classesHeld} {view.classesHeld === 1 ? "class" : "classes"} held
-            </span>
-            <span aria-hidden>·</span>
-            <span>
-              {view.students} {view.students === 1 ? "student" : "students"}
-            </span>
-          </p>
-          <div role="tablist" aria-label="Batch lists" onKeyDown={onTabKey} className="mt-1 flex min-w-0 gap-1 rounded-xl bg-white/10 p-1 sm:max-w-xl">
+          <div role="tablist" aria-label="Batch lists" onKeyDown={onTabKey} className="mt-1 grid min-w-0 grid-cols-3 gap-1 rounded-2xl bg-white/10 p-1 sm:max-w-xl">
             {TABS.map(({ id, label, Icon }, i) => (
               <button
                 key={id}
@@ -111,12 +105,12 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
                 tabIndex={tab === id ? 0 : -1}
                 aria-controls={tab === id ? `panel-${id}` : undefined}
                 onClick={() => setTab(id)}
-                className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-1.5 font-headline text-xs font-bold transition-colors motion-reduce:transition-none sm:text-sm ${btnFocus} ${
-                  tab === id ? "bg-pz-primary-container text-pz-on-primary-fixed shadow-sm" : "text-pz-tertiary-fixed hover:bg-white/10"
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 font-montserrat text-[13px] font-bold transition-colors motion-reduce:transition-none sm:min-h-12 sm:flex-row sm:gap-2 sm:text-sm ${btnFocus} ${
+                  tab === id ? "bg-pz-bright text-pz-solid-deep shadow-sm" : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <Icon aria-hidden className="h-4 w-4 shrink-0 max-[379px]:hidden" />
-                <span className="truncate">{label}</span>
+                <Icon aria-hidden className="h-4 w-4 shrink-0" />
+                <span className="whitespace-nowrap">{label}</span>
               </button>
             ))}
           </div>
@@ -127,7 +121,7 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
         id={`panel-${tab}`}
         role="tabpanel"
         aria-labelledby={`tab-${tab}`}
-        className="mx-auto mt-4 flex w-full min-w-0 max-w-5xl flex-col gap-4 px-4 sm:px-8 lg:px-4"
+        className="mx-auto mt-6 flex w-full min-w-0 max-w-5xl flex-col gap-5 px-4 sm:px-6"
       >
         {tab === "leaderboard" && <Leaderboard view={view} pick={pick} onPick={setPick} rows={rows} highlight={highlight} />}
         {tab === "attendance" && (

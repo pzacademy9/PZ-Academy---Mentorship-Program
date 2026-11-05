@@ -74,9 +74,9 @@ export function SharePodium({ slug, title, pick, label }: { slug: string; title:
           prepare();
           setOpen(true);
         }}
-        className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-headline text-sm font-bold text-pz-tertiary-fixed ring-1 ring-white/20 transition-colors hover:bg-white/20 motion-reduce:transition-none ${btnFocus}`}
+        className={`inline-flex min-h-11 items-center gap-2 rounded-full bg-pz-solid-deep px-4 font-montserrat text-sm font-bold text-white shadow-md transition-colors hover:bg-pz-solid-forest motion-reduce:transition-none ${btnFocus}`}
       >
-        <Share aria-hidden className="h-4 w-4" />
+        <Share aria-hidden className="h-4 w-4 text-pz-bright" />
         Share podium
       </button>
       {open && (
@@ -86,7 +86,7 @@ export function SharePodium({ slug, title, pick, label }: { slug: string; title:
           role="group"
           aria-label="Share podium picture"
           tabIndex={-1}
-          className="absolute right-0 top-full z-20 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-xl bg-pz-surface-container-lowest p-2 shadow-lg outline-none ring-1 ring-pz-outline-variant/60"
+          className="absolute right-0 top-full z-30 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-xl bg-pz-surface-container-lowest p-2 shadow-lg outline-none ring-1 ring-pz-outline-variant/60"
         >
           <p className="px-2 pb-1 pt-1 text-xs text-pz-on-surface-variant">Top three, {label}</p>
           {CHOICES.map(({ size, title: choice, hint, Icon }) => {
