@@ -44,12 +44,15 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
 
   return (
     <div className="flex w-full min-w-0 flex-col">
-      <header className="relative isolate overflow-hidden rounded-b-2xl bg-pz-solid-deep text-white shadow-md sm:mx-4 sm:rounded-2xl lg:mx-auto lg:w-full lg:max-w-5xl">
-        {view.coverUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- Drive covers go through /api/cover; decorative backdrop
-          <img src={coverProxyUrl(view.coverUrl)} alt="" decoding="async" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-20" />
-        )}
-        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-pz-solid-deep/60 to-pz-solid-deep" />
+      <header className="relative isolate z-10 rounded-b-2xl bg-pz-solid-deep text-white shadow-md sm:mx-4 sm:rounded-2xl lg:mx-auto lg:w-full lg:max-w-5xl">
+        {/* Only the backdrop is clipped, so the Share podium menu can hang below the header. */}
+        <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+          {view.coverUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- Drive covers go through /api/cover; decorative backdrop
+            <img src={coverProxyUrl(view.coverUrl)} alt="" decoding="async" className="h-full w-full object-cover opacity-20" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-pz-solid-deep/60 to-pz-solid-deep" />
+        </div>
         <div className="flex min-w-0 flex-col gap-3 px-4 pb-5 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <Link
