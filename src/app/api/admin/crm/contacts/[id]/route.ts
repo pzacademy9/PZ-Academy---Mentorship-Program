@@ -4,7 +4,7 @@ import { getContactDetail, updateContactPhone } from "@/lib/data/admin-crm-conta
 import { contactPhoneUpdateSchema } from "@/lib/validations/crm";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

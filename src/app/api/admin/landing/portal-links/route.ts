@@ -7,7 +7,7 @@ export const maxDuration = 60;
 
 /** Email the portal link to Paid buyers whose portal is open (admin). middleware does not cover /api, so gate here. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin("landing_pages");
+  const auth = await requireAdmin(["enrollments", "landing_pages"]);
   if (!auth.ok) return auth.response;
 
   const parsed = portalLinksBodySchema.safeParse(await req.json().catch(() => null));

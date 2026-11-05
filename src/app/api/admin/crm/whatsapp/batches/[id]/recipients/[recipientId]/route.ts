@@ -7,7 +7,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; recipientId: string }> },
 ) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id, recipientId } = await params;

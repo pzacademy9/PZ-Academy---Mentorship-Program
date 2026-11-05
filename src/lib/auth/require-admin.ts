@@ -21,7 +21,7 @@ const toList = (a: AreaArg): readonly Area[] => (typeof a === "string" ? [a] : a
  * Does this role, with this person's custom access, open a route in these areas?
  * Reading the custom access can fail: that is a "no", never a "yes".
  */
-async function mayAccess(role: Role | null | undefined, userId: string, areas: AreaArg): Promise<boolean> {
+export async function mayAccess(role: Role | null | undefined, userId: string, areas: AreaArg): Promise<boolean> {
   if (role == null) return false;
   if (role === "super_admin") return true;
   if (role !== "admin" && role !== "manager") return false;

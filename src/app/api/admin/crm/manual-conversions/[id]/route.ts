@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { deleteManualConversion } from "@/lib/data/admin-crm-manual-conversions";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

@@ -4,7 +4,7 @@ import { sendTestEmail } from "@/lib/data/admin-crm-campaigns";
 import { campaignTestSchema } from "@/lib/validations/crm";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

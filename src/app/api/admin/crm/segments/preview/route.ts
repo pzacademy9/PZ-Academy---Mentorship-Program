@@ -4,7 +4,7 @@ import { resolveSegment, resolveWhatsAppSegment } from "@/lib/data/admin-crm-seg
 import { segmentPreviewSchema } from "@/lib/validations/crm";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const parsed = segmentPreviewSchema.safeParse(await req.json().catch(() => null));

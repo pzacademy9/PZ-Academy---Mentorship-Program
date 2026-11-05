@@ -4,8 +4,19 @@ import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { isSalesRole, type Role } from "@/lib/roles";
+import { mayAccess } from "@/lib/auth/require-admin";
 
 type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
+
+/**
+ * Sales agents and the super admin pass on role alone. Admins and managers pass only when
+ * the Sales Hub area is open to them (custom access can switch it off or on). A failed
+ * custom-access read is a no.
+ */
+async function mayUseSales(role: Role, userId: string): Promise<boolean> {
+  if (role === "admin" || role === "manager") return mayAccess(role, userId, "sales_hub");
+  return isSalesRole(role);
+}
 
 /**
  * Sales gate for ROUTE HANDLERS under /api/sales/*. Mirrors requireMentor()
@@ -30,7 +41,7 @@ export async function requireSalesAgent(): Promise<
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   const role = (profile?.role ?? "student") as Role;
 
-  if (!isSalesRole(role)) {
+  if (!(await mayUseSales(role, user.id))) {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
@@ -52,7 +63,7 @@ export async function requireSalesAgentPage(): Promise<{ user: User; supabase: S
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   const role = (profile?.role ?? "student") as Role;
 
-  if (!isSalesRole(role)) redirect("/dashboard");
+  if (!(await mayUseSales(role, user.id))) redirect("/dashboard");
 
   return { user, supabase, role };
 }

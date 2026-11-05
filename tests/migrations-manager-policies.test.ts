@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const sql = readFileSync(join(process.cwd(), "supabase", "migrations", "0101_manager_policies.sql"), "utf8");
+const sql = readFileSync(join(process.cwd(), "supabase", "migrations", "0103_manager_policies.sql"), "utf8");
 const code = sql.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
 
 const EXPECTED: [string, string][] = [
@@ -13,10 +13,12 @@ const EXPECTED: [string, string][] = [
   ["mentors", "mentors: public read published"],
   ["sessions", "sessions: mentor or admin update"],
   ["sessions", "sessions: student own or mentor own or admin"],
+  ["lessons", "lessons: read if unlocked or admin"],
+  ["module_notes", "module_notes: read if enrolled or admin"],
 ];
 
-describe("0101 manager policies", () => {
-  it("changes exactly the seven rules a manager's pages need, by name", () => {
+describe("0103 manager policies", () => {
+  it("changes exactly the nine rules a manager's pages need, by name", () => {
     const stmts = code.split(";").map((s) => s.trim()).filter(Boolean);
     expect(stmts).toHaveLength(EXPECTED.length);
     EXPECTED.forEach(([table, name], i) => {

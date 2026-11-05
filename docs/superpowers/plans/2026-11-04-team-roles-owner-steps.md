@@ -8,6 +8,6 @@ Do these in order, in the Supabase SQL editor, after the Team branch is merged a
 
 Checked on 2026-11-04 (read-only): the database had exactly one admin and no super admin, so step 2 promotes the right account. If a second admin is ever added before you paste, step 2 does nothing by design; tell Claude and it will give you a one-line fix.
 
-4. Open `supabase/migrations/0101_manager_policies.sql`, paste it, run it. It lets the Manager role use the pages in its areas (it keeps every existing rule and only adds Manager to seven of them). Run it only after steps 1 and 2.
+4. Open `supabase/migrations/0103_manager_policies.sql`, paste it, run it. It lets the Manager role use the pages in its areas (it keeps every existing rule and only adds Manager to nine of them). Run it only after steps 1 and 2.
 
 After this, "Team" appears in your admin menu. Nobody else can see it.

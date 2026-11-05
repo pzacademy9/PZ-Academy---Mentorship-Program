@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { deleteTemplate } from "@/lib/data/admin-crm-templates";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin("crm");
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
