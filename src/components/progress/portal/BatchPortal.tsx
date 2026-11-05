@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { ChevronLeft, Info, ListChecks, LocateFixed, Trophy } from "lucide-react";
+import { ChevronLeft, Info, ListChecks, LocateFixed, Search, Trophy } from "lucide-react";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
 import { podium, resolvePodiumPick, rowsFor } from "@/lib/progress/leaderboard";
 import type { PortalBatchView } from "@/lib/progress/portal-build";
-import { btnFocus } from "../ui";
+import { btnFocus, inputClass } from "../ui";
 import { AttendanceList } from "./AttendanceList";
 import { FindMe } from "./FindMe";
 import { Leaderboard } from "./Leaderboard";
@@ -27,15 +27,32 @@ type Tab = (typeof TABS)[number]["id"];
 
 /** Lower-case and drop spaces so "sample 0001" and "Sample-0001" style typing both work. */
 const squash = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+const matching = <T extends { name: string; pzId: string }>(rows: T[], term: string): T[] => {
+  const needle = squash(term);
+  return needle === "" ? rows : rows.filter((r) => squash(r.name).includes(needle) || squash(r.pzId).includes(needle));
+};
 
 export function BatchPortal({ view }: { view: PortalBatchView }) {
   const [tab, setTab] = useState<Tab>("leaderboard");
   const [term, setTerm] = useState("");
   const [pick, setPick] = useState("overall");
+  const [attTerm, setAttTerm] = useState("");
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const needle = squash(term);
-  const matches = needle === "" ? view.attendance : view.attendance.filter((r) => squash(r.name).includes(needle) || squash(r.pzId).includes(needle));
-  const highlight = needle !== "" && matches.length === 1 ? matches[0].pzId : null;
+  const matches = matching(view.attendance, term);
+  const highlight = squash(term) !== "" && matches.length === 1 ? matches[0].pzId : null;
+  const attendance = matching(view.attendance, attTerm);
+
+  // Tabs pattern: arrows move between tabs (wrapping), Home/End jump to the ends; the moved-to tab is shown.
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = TABS.findIndex((t) => t.id === tab);
+    const next =
+      e.key === "ArrowRight" ? (at + 1) % TABS.length : e.key === "ArrowLeft" ? (at - 1 + TABS.length) % TABS.length : e.key === "Home" ? 0 : e.key === "End" ? TABS.length - 1 : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    setTab(TABS[next].id);
+    tabRefs.current[next]?.focus();
+  };
 
   const rows = rowsFor(view, pick);
   const canShare = podium(rows).length > 0;
@@ -80,15 +97,19 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
               {view.students} {view.students === 1 ? "student" : "students"}
             </span>
           </p>
-          <div role="tablist" aria-label="Batch lists" className="mt-1 flex min-w-0 gap-1 rounded-xl bg-white/10 p-1 sm:max-w-xl">
-            {TABS.map(({ id, label, Icon }) => (
+          <div role="tablist" aria-label="Batch lists" onKeyDown={onTabKey} className="mt-1 flex min-w-0 gap-1 rounded-xl bg-white/10 p-1 sm:max-w-xl">
+            {TABS.map(({ id, label, Icon }, i) => (
               <button
                 key={id}
+                ref={(el) => {
+                  tabRefs.current[i] = el;
+                }}
                 id={`tab-${id}`}
                 type="button"
                 role="tab"
                 aria-selected={tab === id}
-                aria-controls={`panel-${id}`}
+                tabIndex={tab === id ? 0 : -1}
+                aria-controls={tab === id ? `panel-${id}` : undefined}
                 onClick={() => setTab(id)}
                 className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-1.5 font-headline text-xs font-bold transition-colors motion-reduce:transition-none sm:text-sm ${btnFocus} ${
                   tab === id ? "bg-pz-primary-container text-pz-on-primary-fixed shadow-sm" : "text-pz-tertiary-fixed hover:bg-white/10"
@@ -118,7 +139,27 @@ export function BatchPortal({ view }: { view: PortalBatchView }) {
             {view.attendance.length === 0 ? (
               <p className="rounded-xl bg-pz-surface-container-low p-4 text-base text-pz-on-surface-variant">No students yet</p>
             ) : (
-              <AttendanceList rows={view.attendance} minPct={view.minPct} />
+              <>
+                <div className="relative min-w-0">
+                  <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-pz-outline" />
+                  <input
+                    type="search"
+                    value={attTerm}
+                    onChange={(e) => setAttTerm(e.target.value)}
+                    aria-label="Search by name or PZ ID"
+                    placeholder="Search by name or PZ ID"
+                    className={`${inputClass} pl-11`}
+                  />
+                </div>
+                <p role="status" aria-live="polite" className="-mt-2 text-sm text-pz-on-surface-variant">
+                  Showing {attendance.length} of {view.attendance.length}
+                </p>
+                {attendance.length === 0 ? (
+                  <p className="rounded-xl bg-pz-surface-container-low p-4 text-base text-pz-on-surface-variant">No one matches</p>
+                ) : (
+                  <AttendanceList rows={attendance} minPct={view.minPct} />
+                )}
+              </>
             )}
           </>
         )}
