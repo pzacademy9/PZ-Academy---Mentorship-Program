@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import type { PersonResult } from "@/lib/data/pz-people-admin";
+import { PersonFixPanel, type FixActions } from "./PersonFixPanel";
 
 type SearchResult = { ok: true; people: PersonResult[]; truncated?: boolean } | { ok: false; message: string };
 type MergeResult = { ok: true } | { ok: false; message: string };
@@ -9,9 +10,13 @@ type MergeResult = { ok: true } | { ok: false; message: string };
 interface Props {
   search: (query: string) => Promise<SearchResult>;
   merge: (keepId: string, dropId: string) => Promise<MergeResult>;
+  /** Fix tools (name, new ID, emails, ID email). Optional so the list also works without them. */
+  fix?: FixActions;
 }
 
-export function PeopleLookup({ search, merge }: Props) {
+export function PeopleLookup({ search, merge, fix }: Props) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [lastQuery, setLastQuery] = useState("");
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<PersonResult[] | null>(null);
   const [truncated, setTruncated] = useState(false);
@@ -45,6 +50,8 @@ export function PeopleLookup({ search, merge }: Props) {
       setError("Type at least 3 characters.");
       return;
     }
+    setOpenId(null);
+    setLastQuery(query);
     startTransition(async () => {
       try {
         await runSearch(query);
@@ -138,19 +145,19 @@ export function PeopleLookup({ search, merge }: Props) {
               Showing the first 20 matches. Type more of the name to narrow it down.
             </p>
           )}
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {people.map((p) => {
               const isSel = selected.includes(p.id);
               return (
+                <Fragment key={p.id}>
                 <li
-                  key={p.id}
-                  className={`rounded-xl border p-5 bg-pz-surface-container-lowest ${
+                  className={`min-w-0 rounded-xl border p-5 bg-pz-surface-container-lowest ${
                     isSel ? "border-pz-primary" : "border-pz-outline-variant"
                   }`}
                 >
-                  <p className="font-headline text-2xl font-bold text-pz-on-surface">{p.pzId}</p>
-                  <p className="mt-1 font-semibold text-pz-on-surface">{p.name}</p>
-                  <p className="mt-2 text-sm text-pz-on-surface-variant">
+                  <p className="break-words font-headline text-2xl font-bold text-pz-on-surface">{p.pzId}</p>
+                  <p className="mt-1 break-words font-semibold text-pz-on-surface">{p.name}</p>
+                  <p className="mt-2 break-all text-sm text-pz-on-surface-variant">
                     {p.emails.length > 0 ? p.emails.join(", ") : "No email on file"}
                   </p>
                   <p className="mt-1 text-sm text-pz-on-surface-variant">
@@ -175,8 +182,31 @@ export function PeopleLookup({ search, merge }: Props) {
                         Merge into this person
                       </button>
                     )}
+                    {fix && (
+                      <button
+                        type="button"
+                        aria-expanded={openId === p.id}
+                        onClick={() => setOpenId(openId === p.id ? null : p.id)}
+                        className="rounded-lg border border-pz-outline-variant px-3 py-1.5 text-sm font-bold text-pz-on-surface hover:bg-pz-surface-container max-md:min-h-11"
+                      >
+                        {openId === p.id ? "Close" : `Fix or view ${p.pzId}`}
+                      </button>
+                    )}
                   </div>
                 </li>
+                {fix && openId === p.id && (
+                  <li className="min-w-0 md:col-span-2">
+                    <PersonFixPanel
+                      personId={p.id}
+                      actions={fix}
+                      onClose={() => setOpenId(null)}
+                      onChanged={() => {
+                        void runSearch(lastQuery).catch(() => undefined);
+                      }}
+                    />
+                  </li>
+                )}
+                </Fragment>
               );
             })}
           </ul>
