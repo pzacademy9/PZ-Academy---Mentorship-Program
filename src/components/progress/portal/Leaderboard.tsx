@@ -18,7 +18,7 @@ export function BoardPicker({ view, pick, onPick }: { view: PortalBatchView; pic
       <div
         role="group"
         aria-label="Show results for"
-        className="-mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 py-1 pr-12 [scrollbar-width:none] sm:mx-0 sm:px-0 sm:pr-12 [&::-webkit-scrollbar]:hidden"
+        className="flex min-w-0 gap-2 overflow-x-auto py-1 pr-12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {options.map((o) => (
           <button
@@ -37,7 +37,7 @@ export function BoardPicker({ view, pick, onPick }: { view: PortalBatchView; pic
         ))}
       </div>
       {/* Soft fade on the right edge hints that more classes scroll in. */}
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-12 bg-gradient-to-l from-pz-web-surface to-transparent sm:right-0" />
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-pz-web-surface to-transparent" />
     </div>
   );
 }

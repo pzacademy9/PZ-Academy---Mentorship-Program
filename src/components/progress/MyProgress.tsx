@@ -136,7 +136,7 @@ export function MyProgress({ progress, standings = {}, nameAs = "h2" }: Props) {
             </div>
           </div>
           {rank && (
-            <p className="flex shrink-0 flex-col items-center justify-center rounded-2xl bg-pz-bright px-5 py-2.5 text-pz-solid-deep shadow-[0_8px_24px_rgba(126,217,87,0.35)]">
+            <p className="flex w-full shrink-0 items-baseline justify-center gap-2 rounded-2xl bg-pz-bright px-5 py-2.5 text-pz-solid-deep shadow-[0_8px_24px_rgba(126,217,87,0.35)] sm:w-auto sm:flex-col sm:items-center sm:gap-0">
               <span className="font-poppins text-[11px] font-bold uppercase tracking-wider">Batch rank</span>
               <span className="font-montserrat text-3xl font-black leading-none">
                 <span className="sr-only">Rank </span>#{rank.rank}
@@ -366,7 +366,7 @@ function LedgerItem({ row, isNext }: { row: LedgerRow; isNext: boolean }) {
   const upcoming = row.state === "upcoming";
   return (
     <li
-      className={`flex min-w-0 items-center gap-3 rounded-[20px] p-3.5 sm:gap-4 sm:px-5 ${
+      className={`flex min-w-0 items-center gap-2.5 rounded-[20px] p-3 sm:gap-4 sm:p-3.5 sm:px-5 ${
         isNext
           ? "bg-pz-surface-container-lowest ring-2 ring-pz-bright"
           : upcoming
@@ -375,11 +375,11 @@ function LedgerItem({ row, isNext }: { row: LedgerRow; isNext: boolean }) {
       }`}
     >
       {s ? (
-        <span aria-hidden className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${s.dot}`}>
-          <s.Icon className="h-5 w-5" />
+        <span aria-hidden className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 ${s.dot}`}>
+          <s.Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
       ) : (
-        <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pz-web-surface-high font-montserrat text-sm font-black text-pz-deep">
+        <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pz-web-surface-high font-montserrat text-sm font-black text-pz-deep sm:h-10 sm:w-10">
           {row.number}
         </span>
       )}
@@ -420,23 +420,23 @@ function ShareRow({ batch }: { batch: ProgressBatch }) {
     window.open(href, "_blank", "noopener,noreferrer");
   };
   return (
-    <div className={`${CARD} flex min-w-0 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}>
+    <div className={`${CARD} flex min-w-0 flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between`}>
       <div className="min-w-0">
         <p className="font-montserrat text-base font-bold text-pz-deep">Share your batch</p>
         <p className="font-poppins text-sm text-pz-muted">Sends the batch leaderboard link only. Your ID and scores are not included.</p>
       </div>
-      <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row">
+      <div className="flex min-w-0 shrink-0 flex-col gap-2.5 sm:flex-row">
         <button
           type="button"
           onClick={onShare}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-pz-bright px-6 font-montserrat text-[15px] font-bold text-pz-solid-deep shadow-[0_8px_24px_rgba(126,217,87,0.3)] transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid motion-reduce:transition-none motion-reduce:hover:scale-100"
+          className="inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-pz-bright px-6 font-montserrat text-[15px] font-bold text-pz-solid-deep shadow-[0_8px_24px_rgba(126,217,87,0.3)] transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid motion-reduce:transition-none motion-reduce:hover:scale-100"
         >
           <Share2 aria-hidden className="h-4 w-4" />
           Share on WhatsApp
         </button>
         <Link
           href={`/progress/${encodeURIComponent(batch.slug)}`}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-pz-web-surface-low px-6 font-montserrat text-[15px] font-bold text-pz-deep transition-colors hover:bg-pz-web-surface-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid"
+          className="inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-pz-web-surface-low px-6 font-montserrat text-[15px] font-bold text-pz-deep transition-colors hover:bg-pz-web-surface-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid"
         >
           See batch leaderboard
           <ArrowRight aria-hidden className="h-4 w-4" />

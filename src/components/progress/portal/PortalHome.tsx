@@ -184,7 +184,7 @@ export function PortalHome({ groups, findId, checkId, failed = false }: Props) {
             </div>
           )}
 
-          <p className="flex min-w-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 font-poppins text-sm text-white/85">
+          <p className="flex min-w-0 items-center justify-center gap-2 text-center font-poppins text-sm text-white/75">
             <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-pz-bright" />
             <span>Names and IDs only. No phone or email shown.</span>
           </p>
