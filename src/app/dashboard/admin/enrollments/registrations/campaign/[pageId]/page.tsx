@@ -101,6 +101,12 @@ export default async function AdminCampaignRegistrationsPage({
         >
           Student IDs
         </Link>
+        <Link
+          href={`${DETAIL_BASE}/campaign/${pageId}/reports`}
+          className="ml-4 inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+        >
+          Progress reports
+        </Link>
       </div>
       <CampaignRegistrations
         // A new page of results or a new filter starts with nothing ticked.

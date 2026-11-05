@@ -40,6 +40,12 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         </div>
         <div className="flex flex-wrap items-center gap-x-5">
           <Link
+            href={`${BASE}/campaign/${pageId}/reports`}
+            className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+          >
+            Progress reports
+          </Link>
+          <Link
             href={`${BASE}/campaign/${pageId}/ids`}
             className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
           >
