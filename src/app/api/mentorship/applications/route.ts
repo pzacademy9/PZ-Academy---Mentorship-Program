@@ -4,6 +4,7 @@ import { findStudentIdByEmail } from "@/lib/data/sheet-sync";
 import { insertApplication } from "@/lib/data/mentorship-applications";
 import { sendMentorshipEmail } from "@/lib/emails/mentorship";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { imageMime } from "@/lib/mentorship/apply-files";
 
 // GAS_WEBAPP_URL is reserved for the feedback system in production; this
 // bridge (shared with sheets-sync per gas/sheets-sync/Code.gs) lives at
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
   const cvUrl = await uploadMentorshipFile("application/octet-stream", input.cvBase64, input.cvFileName);
   const photoUrls: string[] = [];
   for (const photo of input.photos) {
-    const url = await uploadMentorshipFile("image/jpeg", photo.base64, photo.name);
+    const url = await uploadMentorshipFile(imageMime(photo.name), photo.base64, photo.name);
     if (url) photoUrls.push(url);
   }
 

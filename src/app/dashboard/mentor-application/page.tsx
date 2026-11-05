@@ -29,7 +29,7 @@ export default async function MyMentorApplicationPage() {
         <div className="bg-pz-surface-container rounded-2xl border border-pz-outline-variant/40 p-10 flex flex-col items-center text-center">
           <UserCheck className="w-10 h-10 text-pz-outline-variant mb-3" />
           <p className="font-body text-pz-on-surface-variant text-sm">You haven&apos;t applied to become a mentor yet.</p>
-          <a href="/mentorship#apply" className="mt-3 font-label text-pz-primary text-sm font-bold hover:underline">
+          <a href="/mentorship/apply" className="mt-3 font-label text-pz-primary text-sm font-bold hover:underline">
             Apply now →
           </a>
         </div>
