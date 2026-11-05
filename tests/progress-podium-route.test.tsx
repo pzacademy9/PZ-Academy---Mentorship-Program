@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   getPortalBatch: vi.fn(),
   callerAllowed: vi.fn(),
   images: [] as { element: unknown; options: { width: number; height: number } }[],
+  drawFails: false,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -13,10 +14,13 @@ vi.mock("@/lib/data/portal", () => ({ getPortalBatch: (...a: unknown[]) => h.get
 vi.mock("@/lib/pzid/caller-allowed", () => ({ portalCallerAllowed: () => h.callerAllowed() }));
 vi.mock("next/og", () => ({
   ImageResponse: class {
-    body: string;
     constructor(element: unknown, options: { width: number; height: number }) {
       h.images.push({ element, options });
-      this.body = "png-bytes";
+    }
+    // Like the real ImageResponse, drawing happens while the body is read.
+    async arrayBuffer() {
+      if (h.drawFails) throw new Error("satori exploded");
+      return new TextEncoder().encode("png-bytes").buffer;
     }
   },
 }));
@@ -59,6 +63,7 @@ const lastMarkup = () => renderToStaticMarkup(h.images[h.images.length - 1].elem
 
 beforeEach(() => {
   h.images.length = 0;
+  h.drawFails = false;
   h.getPortalBatch.mockReset().mockResolvedValue(sample());
   h.callerAllowed.mockReset().mockResolvedValue(true);
 });
@@ -68,6 +73,8 @@ describe("GET /api/progress-podium/[slug]", () => {
     const res = await call();
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.text()).toBe("png-bytes");
     expect(h.getPortalBatch).toHaveBeenCalledWith("sample-batch");
     expect(h.images[0].options).toEqual({ width: 1080, height: 1080 });
     const html = lastMarkup();
@@ -120,6 +127,14 @@ describe("GET /api/progress-podium/[slug]", () => {
     h.callerAllowed.mockResolvedValue(false);
     expect((await call()).status).toBe(429);
     expect(h.getPortalBatch).not.toHaveBeenCalled();
+  });
+
+  it("a drawing failure gives the generic 500, not a broken image", async () => {
+    h.drawFails = true;
+    const res = await call();
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).not.toBe("image/png");
+    expect(await res.text()).not.toContain("satori");
   });
 
   it("a loader error gives a generic 500 without details", async () => {

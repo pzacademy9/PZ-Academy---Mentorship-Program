@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { BatchPortal } from "@/components/progress/portal/BatchPortal";
 import { buildPortalBatch, type PortalBatchView, type PortalResultRow } from "@/lib/progress/portal-build";
@@ -128,14 +128,40 @@ describe("BatchPortal attendance tab", () => {
     open();
     const btn = screen.getByRole("button", { name: /Sample-0001/ });
     expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText(/Class 3 - Topic 3/)).toBeNull();
     fireEvent.click(btn);
     expect(btn.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("Class 1 - Topic 1")).toBeTruthy();
     expect(screen.getByText("Present (check-in)")).toBeTruthy();
     expect(screen.getByText("Present (by admin)")).toBeTruthy();
     expect(screen.getByText("Absent")).toBeTruthy();
+    expect(screen.getAllByText("Upcoming").length).toBeGreaterThan(0);
     fireEvent.click(btn);
     expect(screen.queryByText(/Class 3 - Topic 3/)).toBeNull();
+  });
+
+  it("search matches name or PZ ID, ignoring case and spaces", () => {
+    open();
+    const box = screen.getByRole("searchbox", { name: "Search by name or PZ ID" });
+    expect(screen.getByRole("status").textContent).toBe("Showing 4 of 4");
+    fireEvent.change(box, { target: { value: " SAMPLE " } });
+    expect(screen.getByRole("button", { name: /Sample-0001/ })).toBeTruthy();
+    expect(screen.queryByText("Faro-0002")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe("Showing 1 of 4");
+    fireEvent.change(box, { target: { value: "faro-0002" } });
+    expect(screen.queryByText("Sample-0001")).toBeNull();
+    expect(screen.getByText("Faro-0002")).toBeTruthy();
+    fireEvent.change(box, { target: { value: "zzz" } });
+    expect(screen.getByText("No one matches")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Showing 0 of 4");
+  });
+
+  it("search finds a surname part", () => {
+    const row = (name: string, pzId: string) => ({ name, pzId, mode: "live" as const, attended: 1, held: 1, pct: 100, meetsMin: true, classes: [cls(1, "present", "check-in")] });
+    open(view({ attendance: [row("Sample Longname", "Sample-0001"), row("Faro Other", "Faro-0002")] }));
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "LONG name" } });
+    expect(screen.getByText("Sample Longname")).toBeTruthy();
+    expect(screen.queryByText("Faro Other")).toBeNull();
   });
 
   it("no students says so", () => {
@@ -165,9 +191,10 @@ describe("BatchPortal attendance tab", () => {
       marks: [], scores: [], now: new Date("2026-03-10T12:00:00Z"),
     });
     open(built);
-    const a = screen.getByText("Zed-0002");
-    const b = screen.getByText("Aaa-0001");
-    expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const before = () => screen.getByText("Zed-0002").compareDocumentPosition(screen.getByText("Aaa-0001")) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(before()).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "-000" } });
+    expect(before()).toBeTruthy();
   });
 });
 
@@ -241,18 +268,98 @@ describe("BatchPortal leaderboard", () => {
 });
 
 describe("BatchPortal share podium", () => {
-  it("offers a square and a story picture for the chosen board", () => {
+  const png = () => new Response(new Blob(["png"], { type: "image/png" }), { status: 200, headers: { "Content-Type": "image/png" } });
+  const created: Blob[] = [];
+  const setup = (fetchImpl: (u: string) => Promise<Response> = async () => png()) => {
+    const fetchMock = vi.fn(fetchImpl);
+    vi.stubGlobal("fetch", fetchMock);
+    created.length = 0;
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      created.push(b);
+      return "blob:fake";
+    }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    return fetchMock;
+  };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("fetches both pictures for the chosen board when the menu opens", async () => {
+    const fetchMock = setup();
     render(<BatchPortal view={view()} />);
     const btn = screen.getByRole("button", { name: /Share podium/ });
     expect(btn.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(btn);
     expect(btn.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("link", { name: /Square/ }).getAttribute("href")).toBe("/api/progress-podium/sample-batch?size=square");
-    expect(screen.getByRole("link", { name: /Story/ }).getAttribute("href")).toBe("/api/progress-podium/sample-batch?size=story");
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      "/api/progress-podium/sample-batch?size=square",
+      "/api/progress-podium/sample-batch?size=story",
+    ]);
+    expect((screen.getByRole("button", { name: /Square/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText("Preparing…").length).toBe(2);
+    await screen.findByText("1080 x 1080, for posts");
+    expect((screen.getByRole("button", { name: /Square/ }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(btn);
     fireEvent.click(screen.getByRole("button", { name: "Class 1" }));
     fireEvent.click(btn);
-    expect(screen.getByRole("link", { name: /Story/ }).getAttribute("href")).toBe("/api/progress-podium/sample-batch?size=story&class=s1");
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/progress-podium/sample-batch?size=story&class=s1");
+  });
+
+  it("without file sharing, saves the already-fetched picture (no second request)", async () => {
+    const fetchMock = setup();
+    render(<BatchPortal view={view()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Share podium/ }));
+    await screen.findByText("1080 x 1080, for posts");
+    fireEvent.click(screen.getByRole("button", { name: /Square/ }));
+    expect(created).toHaveLength(1);
+    expect(created[0].type).toBe("image/png");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("a failed or non-PNG picture shows an error and is not saved", async () => {
+    setup(async (u) => (u.includes("square") ? new Response("nope", { status: 500 }) : new Response("<html>", { status: 200, headers: { "Content-Type": "text/html" } })));
+    render(<BatchPortal view={view()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Share podium/ }));
+    expect((await screen.findAllByText("Could not make this picture. Please try again later.")).length).toBe(2);
+    expect((screen.getByRole("button", { name: /Square/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(created).toHaveLength(0);
+  });
+
+  it("moves focus into the menu and back to the button on Escape", async () => {
+    setup();
+    render(<BatchPortal view={view()} />);
+    const btn = screen.getByRole("button", { name: /Share podium/ });
+    btn.focus();
+    fireEvent.click(btn);
+    const menu = screen.getByRole("group", { name: "Share podium picture" });
+    expect(menu.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(btn);
+    await screen.findByRole("button", { name: /Share podium/ });
+  });
+});
+
+describe("BatchPortal tabs keyboard", () => {
+  it("roving tabindex with arrows, Home and End; aria-controls only on the shown panel", () => {
+    render(<BatchPortal view={view()} />);
+    const tabs = () => screen.getAllByRole("tab");
+    expect(tabs().map((t) => t.getAttribute("tabindex"))).toEqual(["0", "-1", "-1"]);
+    expect(tabs().map((t) => t.hasAttribute("aria-controls"))).toEqual([true, false, false]);
+    expect(document.getElementById(tabs()[0].getAttribute("aria-controls")!)).not.toBeNull();
+    tabs()[0].focus();
+    fireEvent.keyDown(tabs()[0], { key: "ArrowRight" });
+    expect(tabs()[1].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs()[1]);
+    expect(tabs().map((t) => t.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
+    fireEvent.keyDown(tabs()[1], { key: "End" });
+    expect(document.activeElement).toBe(tabs()[2]);
+    fireEvent.keyDown(tabs()[2], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(tabs()[0]);
+    fireEvent.keyDown(tabs()[0], { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(tabs()[2]);
+    fireEvent.keyDown(tabs()[2], { key: "Home" });
+    expect(tabs()[0].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs()[0]);
   });
 });
 

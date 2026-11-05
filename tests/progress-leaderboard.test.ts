@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   gapAbove,
   initials,
+  isLatinText,
+  podiumImageEntry,
+  podiumImageTitle,
   podium,
   podiumImageUrl,
   parsePodiumSize,
@@ -157,5 +160,31 @@ describe("image size and url", () => {
   it("builds the image url, leaving out the class for Overall", () => {
     expect(podiumImageUrl("sample-batch", "square", "overall")).toBe("/api/progress-podium/sample-batch?size=square");
     expect(podiumImageUrl("a b", "story", "s1")).toBe("/api/progress-podium/a%20b?size=story&class=s1");
+  });
+});
+
+describe("picture text", () => {
+  it("keeps Latin and accented names, shortened to 16 characters", () => {
+    expect(podiumImageEntry({ name: "José Müller", rank: 1, score: 5 })).toEqual({ name: "José Müller", initials: "JM", rank: 1, score: 5 });
+    expect(podiumImageEntry({ name: "Sample Firstperson Longname", rank: 2, score: 4 }).name).toBe("Sample…");
+    const long = podiumImageEntry({ name: "Abcdefghijklmnopqrstuvwxyz", rank: 3, score: 1 }).name;
+    expect(long).toBe("Abcdefghijklmno…");
+    expect(long.length).toBeLessThanOrEqual(16);
+  });
+
+  it("names with other scripts become Student #rank, initials too", () => {
+    expect(podiumImageEntry({ name: "علی احمد", rank: 2, score: 9 })).toEqual({ name: "Student #2", initials: "#2", rank: 2, score: 9 });
+    expect(podiumImageEntry({ name: "Sample علی", rank: 1, score: 9 }).name).toBe("Student #1");
+    expect(isLatinText("Dr. O'Neil-Smith (PZ)")).toBe(true);
+    expect(isLatinText("中文")).toBe(false);
+  });
+
+  it("cuts the title to 40 characters for square and 60 for story", () => {
+    const title = "Sample Pharmacology Course Batch Number Nine With Extra Words Here";
+    expect(podiumImageTitle(title, "square").length).toBeLessThanOrEqual(40);
+    expect(podiumImageTitle(title, "square").endsWith("…")).toBe(true);
+    expect(podiumImageTitle(title, "story").length).toBeLessThanOrEqual(60);
+    expect(podiumImageTitle("Short", "square")).toBe("Short");
+    expect(podiumImageTitle("دورہ", "square")).toBe("Batch leaderboard");
   });
 });

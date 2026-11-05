@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { canShareFiles, sharePodiumImage } from "@/lib/progress/share-podium";
+import { canShareFiles, fetchPodiumBlob, saveBlobViaLink, sharePodiumBlob } from "@/lib/progress/share-podium";
 
-const okFetch = () => vi.fn(async () => new Response(new Blob(["png"], { type: "image/png" }), { status: 200 }));
+const pngBlob = () => new Blob(["png"], { type: "image/png" });
 
 describe("canShareFiles", () => {
   it("is true only when both share and canShare exist", () => {
@@ -11,42 +11,70 @@ describe("canShareFiles", () => {
   });
 });
 
-describe("sharePodiumImage", () => {
-  it("shares the picture as a file when the phone can", async () => {
+describe("fetchPodiumBlob", () => {
+  it("returns the PNG blob for a good response", async () => {
+    const f = vi.fn(async () => new Response(pngBlob(), { status: 200, headers: { "Content-Type": "image/png" } }));
+    const blob = await fetchPodiumBlob("/api/x", f);
+    expect(blob?.type).toBe("image/png");
+    expect(f).toHaveBeenCalledWith("/api/x");
+  });
+
+  it("returns null for an error status, a non-PNG answer or a network failure", async () => {
+    expect(await fetchPodiumBlob("/x", async () => new Response("no", { status: 404 }))).toBeNull();
+    expect(await fetchPodiumBlob("/x", async () => new Response("<html>", { status: 200, headers: { "Content-Type": "text/html" } }))).toBeNull();
+    expect(await fetchPodiumBlob("/x", async () => { throw new Error("offline"); })).toBeNull();
+  });
+});
+
+describe("sharePodiumBlob", () => {
+  it("calls share straight away (no wait before it) with the picture as a file", async () => {
     const share = vi.fn(async () => undefined);
     const nav = { share, canShare: vi.fn(() => true) } as unknown as Navigator;
-    const download = vi.fn();
-    const out = await sharePodiumImage("/api/x", "pod.png", "Sample", { fetch: okFetch(), navigator: nav, download });
-    expect(out).toBe("shared");
+    const save = vi.fn();
+    const pending = sharePodiumBlob(pngBlob(), "pod.png", "Sample", { navigator: nav, save });
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(await pending).toBe("shared");
     const arg = (share.mock.calls[0] as unknown as [{ files: File[]; title: string }])[0];
     expect(arg.files[0].name).toBe("pod.png");
+    expect(arg.files[0].type).toBe("image/png");
     expect(arg.title).toBe("Sample");
-    expect(download).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
   });
 
-  it("downloads when sharing files is not possible", async () => {
-    const download = vi.fn();
-    expect(await sharePodiumImage("/api/x", "pod.png", "S", { fetch: okFetch(), navigator: undefined, download })).toBe("downloaded");
-    expect(download).toHaveBeenCalledWith("/api/x", "pod.png");
-
+  it("saves the same blob when file sharing is not possible", async () => {
+    const blob = pngBlob();
+    const save = vi.fn();
+    expect(await sharePodiumBlob(blob, "pod.png", "S", { navigator: undefined, save })).toBe("downloaded");
+    expect(save).toHaveBeenCalledWith(blob, "pod.png");
     const nav = { share: vi.fn(), canShare: vi.fn(() => false) } as unknown as Navigator;
-    expect(await sharePodiumImage("/api/x", "pod.png", "S", { fetch: okFetch(), navigator: nav, download })).toBe("downloaded");
+    expect(await sharePodiumBlob(blob, "pod.png", "S", { navigator: nav, save })).toBe("downloaded");
+    expect(nav.share).not.toHaveBeenCalled();
   });
 
-  it("downloads when the image request fails or share throws", async () => {
-    const download = vi.fn();
-    const nav = { share: vi.fn(async () => { throw new Error("NotAllowed"); }), canShare: vi.fn(() => true) } as unknown as Navigator;
-    expect(await sharePodiumImage("/api/x", "p.png", "S", { fetch: okFetch(), navigator: nav, download })).toBe("downloaded");
-    const bad = vi.fn(async () => new Response("no", { status: 404 }));
-    expect(await sharePodiumImage("/api/x", "p.png", "S", { fetch: bad, navigator: nav, download })).toBe("downloaded");
-    expect(download).toHaveBeenCalledTimes(2);
-  });
-
-  it("does nothing more when the person cancels the share sheet", async () => {
-    const download = vi.fn();
+  it("saves the blob when share throws, but not when the person cancels", async () => {
+    const save = vi.fn();
+    const failing = { share: vi.fn(async () => { throw new Error("NotAllowed"); }), canShare: vi.fn(() => true) } as unknown as Navigator;
+    expect(await sharePodiumBlob(pngBlob(), "p.png", "S", { navigator: failing, save })).toBe("downloaded");
+    expect(save).toHaveBeenCalledTimes(1);
     const abort = Object.assign(new Error("cancel"), { name: "AbortError" });
-    const nav = { share: vi.fn(async () => { throw abort; }), canShare: vi.fn(() => true) } as unknown as Navigator;
-    expect(await sharePodiumImage("/api/x", "p.png", "S", { fetch: okFetch(), navigator: nav, download })).toBe("cancelled");
-    expect(download).not.toHaveBeenCalled();
+    const cancelling = { share: vi.fn(async () => { throw abort; }), canShare: vi.fn(() => true) } as unknown as Navigator;
+    expect(await sharePodiumBlob(pngBlob(), "p.png", "S", { navigator: cancelling, save })).toBe("cancelled");
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("saveBlobViaLink", () => {
+  it("downloads through an object URL of the blob, no network", () => {
+    const blob = pngBlob();
+    URL.createObjectURL = vi.fn(() => "blob:fake") as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    saveBlobViaLink(blob, "pod.png");
+    expect(URL.createObjectURL).toHaveBeenCalledWith(blob);
+    expect(click).toHaveBeenCalledTimes(1);
+    const a = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(a.download).toBe("pod.png");
+    expect(a.getAttribute("href")).toBe("blob:fake");
+    click.mockRestore();
   });
 });
