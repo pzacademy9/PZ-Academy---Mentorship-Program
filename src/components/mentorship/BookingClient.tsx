@@ -157,7 +157,7 @@ export default function BookingClient({ mentor }: { mentor: Mentor }) {
   const selectedPackage = mentor.packages.find((p) => p.name === form.package);
 
   return (
-    <div className="min-h-screen bg-[#F0FAF4] pt-20">
+    <div className="min-h-screen bg-[#F0FAF4] pt-24">
       {/* Page Header */}
       <section className="bg-brand-green section-padding !py-14 relative overflow-hidden">
         <div className="absolute inset-0 hero-bg-pattern opacity-60" aria-hidden="true" />

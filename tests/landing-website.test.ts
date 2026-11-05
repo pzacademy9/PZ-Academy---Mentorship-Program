@@ -45,7 +45,33 @@ describe("getOpenLiveBatches", () => {
     store.landing_pages.push(page("p1"));
     const m = await getOpenLiveBatches();
     expect(m.size).toBe(1);
-    expect(m.get("c1")).toEqual({ courseId: "c1", slug: "slug-p1", title: "Title p1", startsOn: "1 November 2099", href: "/e/slug-p1?src=website" });
+    expect(m.get("c1")).toEqual({
+      courseId: "c1", slug: "slug-p1", title: "Title p1", startsOn: "1 November 2099",
+      startsAt: "2099-11-01T00:00:00.000Z", startsAtLabel: "Sun 1 November 2099, 5:00 am PKT",
+      seatsLeft: null, earlyBird: null, href: "/e/slug-p1?src=website",
+    });
+  });
+  it("shows seats left only for a limited batch close to full", async () => {
+    store.landing_pages.push(page("p1", { published: content({ capacity: 25 }) }), page("p2", { course_id: "c2", published: content({ capacity: 100 }) }));
+    for (let i = 0; i < 10; i++) store.landing_registrations.push({ page_id: "p1", is_test: false }, { page_id: "p2", is_test: false });
+    store.landing_registrations.push({ page_id: "p1", is_test: true });
+    const m = await getOpenLiveBatches();
+    expect(m.get("c1")?.seatsLeft).toBe(15);
+    expect(m.get("c2")?.seatsLeft).toBeNull();
+  });
+  it("carries the Early Bird price while it runs, from the published registration", async () => {
+    const reg = {
+      regions: [{ key: "PK", label: "Pakistan", currency: "PKR", classTime: "", timezoneLabel: "", accountKeys: [] }],
+      defaultRegionKey: "PK",
+      options: [{ key: "full", label: "Complete course", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] }],
+      prices: { full: { PK: { amount: 4000, earlyAmount: 3200 } } },
+      earlyBirdEndsAt: "2099-09-24T23:59:00+05:00",
+    };
+    store.landing_pages.push(page("p1", { published: content(reg) }));
+    const e = (await getOpenLiveBatches()).get("c1")?.earlyBird;
+    expect(e?.price).toContain("3,200");
+    expect(e?.was).toContain("4,000");
+    expect(e?.until).toBe("24 September 2099");
   });
   it("leaves startsOn empty when unset", async () => {
     store.landing_pages.push(page("p1", { published: content({}, "") }));

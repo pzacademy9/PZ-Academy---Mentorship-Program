@@ -97,6 +97,8 @@
 @keyframes orbFloat3  { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-15px,15px)} }
 @keyframes reviewLeft { 0%,100%{transform:translateY(0) rotate(-2deg)} 40%{transform:translateY(-14px) rotate(1deg)} 70%{transform:translateY(-6px) rotate(-1deg)} }
 @keyframes reviewRight{ 0%,100%{transform:translateY(0) rotate(2deg)}  40%{transform:translateY(-10px) rotate(-1deg)} 70%{transform:translateY(-5px) rotate(.5deg)} }
+@keyframes floatY     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes popIn      { 0%{opacity:0;transform:scale(.96) translateY(4px)} 100%{opacity:1;transform:none} }
 @keyframes scrollLine { 0%{transform:scaleY(0);transform-origin:top} 49%{transform:scaleY(1);transform-origin:top} 50%{transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
 
 /* ── Quiz FX (QuizModal) ──────────────────────────────── */
@@ -164,3 +166,6 @@
 .landing-root [data-text-size="small"] li:not([class*="text-xs"]),
 .landing-root [data-text-size="small"] summary:not([class*="text-xs"]),
 .landing-root [data-text-size="small"] blockquote:not([class*="text-xs"]) { font-size: 0.875rem; }
+
+/* Landing pages: "Soft shadows behind boxes" switched off in Page settings removes every box shadow on the page. */
+.landing-root[data-shadows="off"] [class*="shadow-"] { box-shadow: none !important; }

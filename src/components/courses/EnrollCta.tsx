@@ -8,10 +8,10 @@ export type EnrollCtaStatus =
   | "portal_closed";
 
 const CTA_PRIMARY =
-  "block text-center w-full bg-pz-primary text-pz-on-primary py-4 rounded-lg font-bold text-lg hover:bg-pz-on-primary-container active:scale-95 transition-all shadow-lg shadow-pz-primary/20 font-headline";
+  "flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-pz-bright py-3.5 text-center font-montserrat text-base font-bold text-pz-solid-deep shadow-md transition-transform hover:scale-[1.01] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid";
 const CTA_DISABLED =
-  "w-full bg-pz-surface-container-high text-pz-on-surface-variant py-4 rounded-lg font-bold text-lg cursor-not-allowed font-headline";
-const CTA_HELPER = "text-xs text-pz-on-surface-variant text-center mt-2 font-body";
+  "min-h-12 w-full cursor-not-allowed rounded-full bg-pz-web-surface-high py-3.5 font-montserrat text-base font-bold text-pz-muted";
+const CTA_HELPER = "mt-2 text-center font-poppins text-xs text-pz-muted";
 
 /**
  * The sidebar call-to-action. Extracted from the sticky card because it now
@@ -59,7 +59,7 @@ export function EnrollCta({
       return (
         <Link
           href={`/portal/${slug}`}
-          className={`${CTA_PRIMARY} flex items-center justify-center gap-2`}
+          className={CTA_PRIMARY}
         >
           <BookOpen className="w-5 h-5" /> Continue Learning
         </Link>

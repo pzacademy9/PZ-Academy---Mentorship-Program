@@ -16,6 +16,10 @@ export const PROGRAM_COPY: Record<
     accessPerkDesc: string;
     ctaVerb: "Enroll" | "Register";
     showCertificate: boolean;
+    /** Lower-case name used in sentences ("This workshop includes"). */
+    noun: string;
+    /** The list page a visitor came from, for the "back" trail. */
+    list: { label: string; href: string };
   }
 > = {
   course: {
@@ -26,6 +30,8 @@ export const PROGRAM_COPY: Record<
     accessPerkDesc: "Watch lessons anywhere, anytime forever.",
     ctaVerb: "Enroll",
     showCertificate: true,
+    noun: "course",
+    list: { label: "Courses", href: "/courses" },
   },
   workshop: {
     priceLabel: "Workshop Fee",
@@ -35,6 +41,8 @@ export const PROGRAM_COPY: Record<
     accessPerkDesc: "Revisit every session recording anytime, anywhere.",
     ctaVerb: "Register",
     showCertificate: true,
+    noun: "workshop",
+    list: { label: "Workshops", href: "/workshops" },
   },
   webinar: {
     priceLabel: "Registration",
@@ -44,6 +52,8 @@ export const PROGRAM_COPY: Record<
     accessPerkDesc: "Watch the recording anytime after the session.",
     ctaVerb: "Register",
     showCertificate: false,
+    noun: "webinar",
+    list: { label: "Webinars", href: "/webinars" },
   },
   mentorship: {
     priceLabel: "Fee",
@@ -53,5 +63,7 @@ export const PROGRAM_COPY: Record<
     accessPerkDesc: "Watch lessons anywhere, anytime forever.",
     ctaVerb: "Enroll",
     showCertificate: true,
+    noun: "program",
+    list: { label: "Mentorship", href: "/mentorship" },
   },
 };

@@ -10,16 +10,16 @@ export function StickyEnrollBar({ priceLabel, price, action }: { priceLabel: str
   return (
     <section
       aria-label="Enroll bar"
-      className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-pz-outline-variant/40 bg-pz-surface-container-lowest/95 backdrop-blur px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgba(0,0,0,.12)]"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-pz-border bg-pz-surface-container-lowest/95 backdrop-blur px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgba(15,61,34,.12)]"
     >
       <div className="mx-auto flex max-w-[640px] items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs text-pz-on-surface-variant font-body">{priceLabel}</p>
-          <p className="truncate text-lg font-black text-pz-deep font-headline">{price}</p>
+          <p className="font-poppins text-[11px] font-bold uppercase tracking-wider text-pz-muted">{priceLabel}</p>
+          <p className="truncate font-montserrat text-lg font-extrabold text-pz-deep">{price}</p>
         </div>
         <Link
           href={action.href}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-pz-primary px-5 py-3 text-sm font-bold text-pz-on-primary font-headline transition-colors hover:bg-pz-on-primary-container"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-pz-bright px-6 py-3 font-montserrat text-sm font-bold text-pz-solid-deep shadow-md transition-transform hover:scale-[1.02]"
         >
           {action.label}
         </Link>

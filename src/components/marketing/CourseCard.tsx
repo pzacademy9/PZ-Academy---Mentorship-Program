@@ -1,86 +1,211 @@
 import Link from "next/link";
-import { BookOpen, BarChart3, Calendar } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Wrench, Video } from "lucide-react";
 import type { CourseCard as CourseCardData } from "@/lib/data/lms";
+import { seatsLeftText } from "@/lib/marketing/batch-facts";
 
-const TYPE_BADGE: Record<CourseCardData["type"], string> = {
-  course: "bg-pz-secondary text-pz-on-secondary",
-  workshop: "bg-pz-primary text-pz-on-primary",
-  webinar: "bg-pz-tertiary text-pz-on-tertiary",
-  mentorship: "bg-pz-tertiary text-pz-on-tertiary",
+const TYPE_LABEL: Record<CourseCardData["type"], string> = {
+  course: "Course",
+  workshop: "Workshop",
+  webinar: "Webinar",
+  mentorship: "Mentorship",
 };
 
-export function CourseCard({ course }: { course: CourseCardData }) {
+const TYPE_ICON = { course: BookOpen, workshop: Wrench, webinar: Video, mentorship: BookOpen } as const;
+
+function initials(name: string): string {
+  return name
+    .replace(/^(dr|mr|ms|mrs)\.?\s+/i, "")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function priceText(pricePkr: number): string {
+  return pricePkr > 0 ? `PKR ${pricePkr.toLocaleString()}` : "Free";
+}
+
+function Mentor({ course, boxed }: { course: CourseCardData; boxed: boolean }) {
+  if (!course.mentorName) return null;
   return (
-    <div className="group bg-pz-surface-container-lowest rounded-xl overflow-hidden shadow-card hover:shadow-card-lg hover:-translate-y-1 transition-all duration-300">
-      <div className="aspect-video relative overflow-hidden bg-pz-primary/5">
-        {course.thumbnailUrl ? (
+    <div className={`flex items-center gap-3 ${boxed ? "rounded-xl bg-pz-web-surface-low p-2.5" : ""}`}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pz-solid-forest font-montserrat text-xs font-bold text-pz-bright">
+        {course.mentorAvatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={course.thumbnailUrl}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
+          <img src={course.mentorAvatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <BookOpen className="w-10 h-10 text-pz-primary/30" />
-          </div>
+          <span aria-hidden="true">{initials(course.mentorName)}</span>
         )}
-        <div className="absolute top-4 left-4">
-          <span
-            className={`px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase font-headline ${TYPE_BADGE[course.type]}`}
-          >
-            {course.type}
-          </span>
-        </div>
-        {course.liveBatch && (
-          <div className="absolute top-4 right-4">
-            <span className="px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase font-headline bg-pz-primary-container text-pz-on-primary-container">
-              Live batch open
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="p-6">
-        <h3 className="font-headline text-xl font-bold text-pz-on-surface mb-2 group-hover:text-pz-primary transition-colors">
-          {course.title}
-        </h3>
-        {course.tagline && (
-          <p className="font-body text-pz-on-surface-variant text-sm mb-4 line-clamp-2">
-            {course.tagline}
-          </p>
-        )}
-        <div className="flex items-center justify-between py-4 border-y border-pz-surface-variant mb-6">
-          {course.level && (
-            <div className="flex items-center gap-1 text-xs text-pz-on-surface-variant font-medium">
-              <BarChart3 className="w-4 h-4" />
-              {course.level}
-            </div>
-          )}
-          {course.durationLabel && (
-            <div className="flex items-center gap-1 text-xs text-pz-on-surface-variant font-medium">
-              <Calendar className="w-4 h-4" />
-              {course.durationLabel}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase font-bold text-pz-outline tracking-wider">
-              Tuition
-            </span>
-            <span className="text-lg font-headline font-black text-pz-on-surface">
-              PKR {course.pricePkr.toLocaleString()}
-            </span>
-          </div>
-          <Link
-            href={`/courses/${course.slug}`}
-            className="inline-flex min-h-11 items-center bg-pz-primary text-pz-on-primary font-bold px-5 py-2.5 rounded-lg hover:bg-pz-on-primary-container transition-colors font-headline text-sm"
-          >
-            View Details
-          </Link>
-        </div>
-      </div>
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-poppins text-sm font-bold text-pz-ink">{course.mentorName}</span>
+        {course.mentorTitle && <span className="truncate font-poppins text-[11px] text-pz-muted">{course.mentorTitle}</span>}
+      </span>
     </div>
+  );
+}
+
+/**
+ * The program card. "home" (default): the home page "Popular programs" card.
+ * "list": the Courses / Workshops list card (Stitch list screens) with the
+ * schedule text, a tinted teacher row and a full-width View details button.
+ */
+export function CourseCard({ course, layout = "home" }: { course: CourseCardData; layout?: "home" | "list" }) {
+  if (layout === "list") return <ListCard course={course} />;
+  const Icon = TYPE_ICON[course.type];
+  return (
+    <article className="group flex h-full flex-col justify-between gap-5 rounded-[24px] bg-pz-surface-container-lowest p-5 shadow-[0_8px_30px_rgba(15,61,34,0.06)] transition-shadow duration-200 hover:shadow-lg md:p-6">
+      <div className="flex flex-col gap-4">
+        <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[16px] bg-pz-web-surface-high">
+          {course.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={course.thumbnailUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Icon className="h-10 w-10 text-pz-mid/50" strokeWidth={1.5} aria-hidden="true" />
+            </div>
+          )}
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            {course.liveBatch ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-pz-bright px-3 py-1 font-poppins text-[11px] font-bold text-pz-solid-deep shadow-sm">
+                <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-pz-solid-mid" />
+                Live batch open
+              </span>
+            ) : (
+              <span className="rounded-full bg-white/90 px-3 py-1 font-poppins text-[11px] font-bold text-pz-solid-deep shadow-sm">
+                {TYPE_LABEL[course.type]}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {(course.level || course.durationLabel) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {course.level && (
+              <span className="rounded-full bg-pz-web-surface-high px-3 py-1 font-poppins text-xs font-bold text-pz-deep">{course.level}</span>
+            )}
+            {course.durationLabel && (
+              <span className="rounded-full bg-pz-web-surface-low px-3 py-1 font-poppins text-xs font-bold text-pz-muted">{course.durationLabel}</span>
+            )}
+          </div>
+        )}
+
+        <h3 className="break-words font-montserrat text-xl font-bold leading-tight tracking-[-0.015em] text-pz-deep md:text-2xl">{course.title}</h3>
+        {course.tagline && <p className="-mt-2 line-clamp-2 font-poppins text-sm text-pz-muted">{course.tagline}</p>}
+
+        <Mentor course={course} boxed={false} />
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-montserrat text-xl font-bold text-pz-deep md:text-2xl">
+          {priceText(course.pricePkr)}
+        </span>
+        <Link
+          href={`/courses/${course.slug}`}
+          className="inline-flex min-h-11 items-center justify-center rounded-full bg-pz-solid-deep px-5 font-montserrat text-[15px] font-bold text-white transition-colors hover:bg-pz-solid-forest"
+        >
+          View details
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+const CHIP_LOOK = {
+  plain: "bg-pz-web-surface-low text-pz-ink",
+  strong: "bg-pz-web-surface-high text-pz-deep",
+  gold: "bg-pz-gold/15 text-pz-deep ring-1 ring-pz-gold/40",
+  alert: "bg-pz-solid-danger/10 text-pz-danger",
+} as const;
+
+function ListCard({ course }: { course: CourseCardData }) {
+  const Icon = TYPE_ICON[course.type];
+  const timingsOnImage = course.type === "workshop" && !!course.timings;
+  const chips = [
+    course.level && { text: course.level, strong: false },
+    course.durationLabel && { text: course.durationLabel, strong: false },
+    course.liveBatch?.startsOn && { text: `Starts ${course.liveBatch.startsOn}`, strong: true },
+    course.liveBatch?.earlyBird && { text: "Early Bird", strong: true, tone: "gold" as const },
+    course.liveBatch?.seatsLeft != null && { text: seatsLeftText(course.liveBatch.seatsLeft), strong: true, tone: "alert" as const },
+    !timingsOnImage && course.timings && { text: course.timings, strong: true },
+  ].filter(Boolean) as { text: string; strong: boolean; tone?: "gold" | "alert" }[];
+
+  return (
+    <article className="group flex h-full flex-col justify-between rounded-3xl bg-pz-surface-container-lowest p-5 shadow-[0_8px_30px_rgba(15,61,34,0.05)] transition-shadow hover:shadow-xl">
+      <div>
+        <div className="relative mb-4 aspect-[16/10] w-full overflow-hidden rounded-2xl bg-pz-web-surface-high">
+          {course.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={course.thumbnailUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Icon className="h-10 w-10 text-pz-mid/50" strokeWidth={1.5} aria-hidden="true" />
+            </div>
+          )}
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5 pr-3">
+            {timingsOnImage ? (
+              <span className="inline-flex max-w-full items-center gap-1.5 break-words rounded-full bg-pz-solid-deep/95 px-3 py-1 font-poppins text-xs font-bold text-white shadow-sm">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-pz-bright" aria-hidden="true" />
+                {course.timings}
+              </span>
+            ) : (
+              <span className="rounded-full bg-white/90 px-2.5 py-1 font-poppins text-xs font-bold text-pz-solid-deep shadow-sm">
+                {TYPE_LABEL[course.type]}
+              </span>
+            )}
+            {course.liveBatch && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-pz-bright px-2.5 py-1 font-poppins text-xs font-bold text-pz-solid-deep shadow-sm">
+                <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-pz-solid-mid" />
+                Live batch open
+              </span>
+            )}
+          </div>
+        </div>
+
+        <h3 className="break-words font-montserrat text-xl font-bold leading-snug tracking-[-0.01em] text-pz-deep">{course.title}</h3>
+        {course.tagline && <p className="mt-2 line-clamp-2 break-words font-poppins text-[15px] text-pz-muted">{course.tagline}</p>}
+
+        <div className="mt-4">
+          <Mentor course={course} boxed />
+        </div>
+
+        {chips.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {chips.map((c, i) => (
+              <span
+                key={`${i}-${c.text}`}
+                className={`max-w-full break-words rounded-full px-2.5 py-1 font-poppins text-[13px] font-semibold ${CHIP_LOOK[c.tone ?? (c.strong ? "strong" : "plain")]}`}
+              >
+                {c.text}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 flex flex-col gap-3 pt-2">
+        <div className="flex items-center justify-end">
+          <span className="font-montserrat text-xl font-extrabold text-pz-deep">{priceText(course.pricePkr)}</span>
+        </div>
+        <Link
+          href={`/courses/${course.slug}`}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-pz-bright py-3 font-montserrat text-[15px] font-bold text-pz-solid-deep shadow-sm transition-transform hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid"
+        >
+          View details <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </div>
+    </article>
   );
 }

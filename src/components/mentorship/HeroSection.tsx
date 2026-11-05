@@ -7,7 +7,7 @@ import { ArrowRight, Star, Users, BadgeCheck, ChevronRight } from "lucide-react"
 import { useSearchParams } from "next/navigation";
 
 /* ─── Config ─────────────────────────────────────────────── */
-const NAV_HEIGHT = 72;
+const NAV_HEIGHT = 80;
 
 /*
  * "Avg Rating" used to hardcode a fabricated "4.9★" — the live Supabase

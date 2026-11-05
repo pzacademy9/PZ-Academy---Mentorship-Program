@@ -49,7 +49,7 @@ describe("CourseCatalogGrid", () => {
 describe("attachLiveBatches", () => {
   it("attaches by course id and leaves others alone", () => {
     const out = attachLiveBatches([course(), course({ id: "c2" })], new Map([["c1", batch("c1")]]));
-    expect(out[0].liveBatch).toEqual({ startsOn: "30 October 2026", href: "/e/s-c1?src=website" });
+    expect(out[0].liveBatch).toEqual({ startsOn: "30 October 2026", href: "/e/s-c1?src=website", seatsLeft: null, earlyBird: false });
     expect(out[1].liveBatch).toBeUndefined();
   });
   it("returns courses unchanged for an empty map", () => {

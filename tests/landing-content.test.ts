@@ -21,6 +21,14 @@ describe("emptyContent", () => {
   });
 });
 
+describe("normalizeContent box shadows", () => {
+  it("keeps shadows on unless explicitly switched off", () => {
+    expect(normalizeContent({ settings: {} }).settings.boxShadows).toBe(true);
+    expect(normalizeContent({ settings: { boxShadows: false } }).settings.boxShadows).toBe(false);
+    expect(normalizeContent({ settings: { boxShadows: "no" } }).settings.boxShadows).toBe(true);
+  });
+});
+
 describe("normalizeContent", () => {
   it("drops unknown section types and fills defaults", () => {
     const c = normalizeContent({ sections: [{ id: "a", type: "nope", enabled: true, data: {} }, { id: "b", type: "faq", enabled: true, data: { heading: "H" } }] });

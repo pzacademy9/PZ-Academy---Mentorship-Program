@@ -30,6 +30,8 @@ export interface LandingSettings {
   showCreateAccount: boolean;
   /** This page's own Terms and Conditions text (plain text); "" means use the general Terms. */
   terms?: string;
+  /** Soft shadows behind boxes on the public page. Default true; false turns them all off. */
+  boxShadows?: boolean;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -85,6 +87,7 @@ export const contentSchema = z
       countdownLabel: z.string().max(80),
       batchStartsOn: z.string().max(40).optional(),
       terms: z.string().max(20000).optional(),
+      boxShadows: z.boolean().optional(),
     }),
     seo: z.object({
       title: z.string().max(120),
@@ -147,6 +150,7 @@ export function normalizeContent(raw: unknown): LandingContent {
     portalLink: httpsUrlOrEmpty.safeParse(s.portalLink ?? "").success ? str(s.portalLink, "", 1000).trim() : "",
     showCreateAccount: typeof s.showCreateAccount === "boolean" ? s.showCreateAccount : true,
     terms: str(s.terms, "", 20000),
+    boxShadows: typeof s.boxShadows === "boolean" ? s.boxShadows : true,
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),

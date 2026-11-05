@@ -12,6 +12,8 @@ import {
   type LessonContentType,
 } from "@/lib/validations/admin-lms";
 import type { courseConfigSchema } from "@/lib/validations/admin-lms";
+import { normalizeSections, pageFieldsPatch, type PageSection } from "@/lib/marketing/course-sections";
+import { cleanTopic, topicsOf } from "@/lib/marketing/topics";
 import type { z } from "zod";
 import { sanitizeLessonHtml } from "@/lib/sanitize-html";
 import {
@@ -146,6 +148,15 @@ export interface CourseConfigDetail {
   features: string[];
   outcomes: string[];
   faqs: { question: string; answer: string }[];
+  publicVideoUrl: string;
+  certificateImageUrl: string;
+  pageSections: PageSection[];
+  /** Migration 0102: "" until it is run. */
+  topic: string;
+  /** Migration 0102: webinar date, UTC ISO; "" when unset or until it is run. */
+  startsAt: string;
+  /** Topics already used on any course, for the editor's suggestions. */
+  topicOptions: string[];
   registerUrl: string;
   gasWebappUrl: string;
   thumbnailUrl: string;
@@ -187,14 +198,26 @@ export async function ensureDefaultModule(courseId: string): Promise<string> {
   return data.id;
 }
 
+/** Every topic in use on any course (migration 0102); [] if the column is not there yet. */
+async function getTopicOptions(admin: ReturnType<typeof createAdminSupabase>): Promise<string[]> {
+  try {
+    const { data, error } = await admin.from("courses").select("topic").not("topic", "is", null).limit(1000);
+    if (error || !data) return [];
+    return topicsOf(data);
+  } catch {
+    return [];
+  }
+}
+
 /** Full detail for the Configuration page: course fields + counts, nothing else. */
 export async function getCourseConfig(id: string): Promise<CourseConfigDetail | null> {
   const admin = createAdminSupabase();
 
-  const [{ data: course }, { data: modules }, { data: enrollments }] = await Promise.all([
+  const [{ data: course }, { data: modules }, { data: enrollments }, topicOptions] = await Promise.all([
     admin.from("courses").select("*").eq("id", id).maybeSingle(),
     admin.from("modules").select("id").eq("course_id", id),
     admin.from("enrollments").select("status").eq("course_id", id),
+    getTopicOptions(admin),
   ]);
   if (!course) return null;
 
@@ -233,6 +256,13 @@ export async function getCourseConfig(id: string): Promise<CourseConfigDetail | 
     features: course.features ?? [],
     outcomes: course.outcomes ?? [],
     faqs: (course.faqs as { question: string; answer: string }[] | null) ?? [],
+    // Read through "*", so these are simply missing until migration 0101 is run.
+    publicVideoUrl: course.public_video_url ?? "",
+    certificateImageUrl: course.certificate_image_url ?? "",
+    pageSections: normalizeSections(course.page_sections),
+    topic: cleanTopic(course.topic),
+    startsAt: course.starts_at && !Number.isNaN(Date.parse(course.starts_at)) ? new Date(course.starts_at).toISOString() : "",
+    topicOptions,
     registerUrl: course.register_url ?? "",
     gasWebappUrl: course.gas_webapp_url ?? "",
     thumbnailUrl: course.thumbnail_url ?? "",
@@ -348,6 +378,8 @@ export async function updateCourseConfig(
   if (input.features !== undefined) patch.features = input.features;
   if (input.outcomes !== undefined) patch.outcomes = input.outcomes;
   if (input.faqs !== undefined) patch.faqs = input.faqs;
+  // Public-page fields (migration 0101): only what the editor sent.
+  Object.assign(patch, pageFieldsPatch(input));
 
   // Switching into a flat type needs its hidden module to exist the moment
   // the Builder is opened next.
@@ -1304,6 +1336,40 @@ export async function copyModule(
   return { ok: true, id: created.id, filesToReupload: skipped };
 }
 
+/**
+ * Public-page settings a copy keeps (migrations 0101 and 0102), each read on
+ * its own so a copy still works before a migration is run. Never fails the copy.
+ * The certificate picture is a plain link that no save ever sends to the bin
+ * (unlike the thumbnail, banner and mentor photo), so sharing it is safe.
+ */
+async function copyPageExtras(admin: ReturnType<typeof createAdminSupabase>, fromId: string, toId: string): Promise<void> {
+  const patch: Database["public"]["Tables"]["courses"]["Update"] = {};
+  try {
+    const { data, error } = await admin.from("courses").select("page_sections, certificate_image_url").eq("id", fromId).maybeSingle();
+    if (!error && data) {
+      patch.page_sections = data.page_sections;
+      patch.certificate_image_url = data.certificate_image_url;
+    }
+  } catch {
+    // Migration 0101 not run: nothing to copy.
+  }
+  try {
+    const { data, error } = await admin.from("courses").select("topic, starts_at").eq("id", fromId).maybeSingle();
+    if (!error && data) {
+      patch.topic = data.topic;
+      patch.starts_at = data.starts_at;
+    }
+  } catch {
+    // Migration 0102 not run: nothing to copy.
+  }
+  if (Object.keys(patch).length === 0) return;
+  try {
+    await admin.from("courses").update(patch).eq("id", toId);
+  } catch {
+    // The copy itself is fine without these.
+  }
+}
+
 export type CopyCourseResult =
   | { ok: true; id: string; slug: string; filesToReupload: number }
   | { ok: false; reason: "not-found" | "db-error" };
@@ -1311,7 +1377,7 @@ export type CopyCourseResult =
 export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
   const admin = createAdminSupabase();
 
-  // Marketing text only. Never: images, mentor photo, portal/GAS/sheet links,
+  // Marketing text only (plus the public-page settings, see copyPageExtras). Never: images, mentor photo, portal/GAS/sheet links,
   // public promo video, created_by, counters. Slug/status/is_published are set below.
   const { data: src } = await admin
     .from("courses")
@@ -1354,6 +1420,7 @@ export async function copyCourse(courseId: string): Promise<CopyCourseResult> {
   }
   if (!created) return { ok: false, reason: "db-error" };
   const newCourse = created;
+  await copyPageExtras(admin, courseId, newCourse.id);
 
   const rollback = async (): Promise<CopyCourseResult> => {
     await admin.from("courses").delete().eq("id", newCourse.id);

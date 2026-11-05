@@ -897,6 +897,7 @@ export type Database = {
       courses: {
         Row: {
           banner_url: string | null
+          certificate_image_url: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -913,21 +914,25 @@ export type Database = {
           mentor_name: string | null
           mentor_title: string | null
           outcomes: string[]
+          page_sections: Json
           portal_url: string | null
           price_pkr: number
           public_video_url: string | null
           register_url: string | null
           sheet_id: string | null
           slug: string
+          starts_at: string | null
           status: Database["public"]["Enums"]["course_status"]
           tagline: string | null
           thumbnail_url: string | null
           timings: string | null
+          topic: string | null
           title: string
           type: Database["public"]["Enums"]["course_type"]
         }
         Insert: {
           banner_url?: string | null
+          certificate_image_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -944,21 +949,25 @@ export type Database = {
           mentor_name?: string | null
           mentor_title?: string | null
           outcomes?: string[]
+          page_sections?: Json
           portal_url?: string | null
           price_pkr?: number
           public_video_url?: string | null
           register_url?: string | null
           sheet_id?: string | null
           slug: string
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
           thumbnail_url?: string | null
           timings?: string | null
+          topic?: string | null
           title: string
           type?: Database["public"]["Enums"]["course_type"]
         }
         Update: {
           banner_url?: string | null
+          certificate_image_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -975,16 +984,19 @@ export type Database = {
           mentor_name?: string | null
           mentor_title?: string | null
           outcomes?: string[]
+          page_sections?: Json
           portal_url?: string | null
           price_pkr?: number
           public_video_url?: string | null
           register_url?: string | null
           sheet_id?: string | null
           slug?: string
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["course_status"]
           tagline?: string | null
           thumbnail_url?: string | null
           timings?: string | null
+          topic?: string | null
           title?: string
           type?: Database["public"]["Enums"]["course_type"]
         }

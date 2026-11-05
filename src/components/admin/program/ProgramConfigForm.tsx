@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -18,6 +18,21 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { COURSE_TYPES, COURSE_STATUSES } from "@/lib/validations/admin-lms";
 import type { CourseConfigDetail } from "@/lib/data/admin-lms";
 import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
+import { PublicPageEditor } from "@/components/admin/program/PublicPageEditor";
+import { changedPageFields, type PublicPageFields } from "@/lib/marketing/course-sections";
+
+function toPageState(course: CourseConfigDetail): PublicPageFields {
+  return {
+    publicVideoUrl: course.publicVideoUrl,
+    certificateImageUrl: course.certificateImageUrl,
+    outcomes: [...course.outcomes],
+    features: [...course.features],
+    faqs: course.faqs.map((f) => ({ ...f })),
+    pageSections: course.pageSections.map((s) => ({ ...s })),
+    topic: course.topic,
+    startsAt: course.startsAt,
+  };
+}
 
 type FormState = {
   title: string;
@@ -69,6 +84,10 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
   const router = useRouter();
   const [isNavigating, startTransition] = useTransition();
   const [form, setForm] = useState<FormState>(() => toFormState(course));
+  // Public page card. Only the parts that changed since the last save are sent,
+  // so untouched copy is never rewritten.
+  const [page, setPage] = useState<PublicPageFields>(() => toPageState(course));
+  const savedPage = useRef<PublicPageFields>(toPageState(course));
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -98,6 +117,7 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
           mentorTitle: form.mentorTitle.trim() || undefined,
           mentorBio: form.mentorBio.trim() || undefined,
           mentorAvatarUrl: form.mentorAvatarUrl.trim() || undefined,
+          ...changedPageFields(savedPage.current, page),
         }),
       });
 
@@ -109,6 +129,7 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
 
       const payload = (await res.json().catch(() => null)) as { warning?: string | null } | null;
       if (payload?.warning) toast.warning(payload.warning);
+      savedPage.current = structuredClone(page);
       toast.success("Changes saved.");
       startTransition(() => router.refresh());
     } catch {
@@ -381,6 +402,8 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
           </div>
         </div>
       </section>
+
+      <PublicPageEditor value={page} onChange={setPage} courseSlug={course.slug} courseType={form.type} topicOptions={course.topicOptions} />
 
       <div className="md:hidden max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
         <Button

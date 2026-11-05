@@ -1,4 +1,6 @@
 import "server-only";
+import { normalizeSections, type PageSection } from "@/lib/marketing/course-sections";
+import { cleanTopic } from "@/lib/marketing/topics";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -36,8 +38,23 @@ export interface CourseCard {
   mentorAvatarUrl: string | null;
   /** Freely watchable preview/recording video — see the comment on courses.public_video_url. */
   publicVideoUrl: string | null;
+  /** Free-text schedule, e.g. "Sat 30 Nov, 7 PM PKT" — courses.timings. Shown as typed, never parsed. */
+  timings?: string | null;
   /** Set by website pages when a live batch is open for this course (not by getPublishedCourses). */
-  liveBatch?: { startsOn: string; href: string };
+  liveBatch?: LiveBatchOnCard;
+  /** Topic for the list-page buttons (migration 0102); null when unset or not yet migrated. */
+  topic?: string | null;
+  /** Webinar date and time, UTC ISO (migration 0102); null when unset or not yet migrated. */
+  startsAt?: string | null;
+}
+
+export interface LiveBatchOnCard {
+  startsOn: string;
+  href: string;
+  /** Few seats left (see SEATS_SHOWN_AT); null/absent = do not show. */
+  seatsLeft?: number | null;
+  /** True while the batch's Early Bird price runs. */
+  earlyBird?: boolean;
 }
 
 export interface CourseFaq {
@@ -54,7 +71,10 @@ export interface CourseDetail extends CourseCard {
   mentorBio: string | null;
   faqs: CourseFaq[];
   isPublished: boolean;
-  timings: string | null;
+  /** Admin's order / show-hide / headings for the page sections (migration 0101). */
+  pageSections?: PageSection[];
+  /** Picture of the real certificate (migration 0101). */
+  certificateImageUrl?: string | null;
 }
 
 /** duration_text is the admin-editable field; duration_weeks is a read-only fallback for rows not yet re-saved since migration 0022. */
@@ -167,6 +187,7 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     .maybeSingle();
 
   if (!data) return null;
+  const [page, extras] = await Promise.all([getCoursePageSettings(supabase, data.id), getCourseExtras(supabase, [data.id])]);
   return {
     id: data.id,
     slug: data.slug,
@@ -191,7 +212,55 @@ export async function getCourseBySlug(slug: string): Promise<CourseDetail | null
     faqs: (data.faqs as unknown as CourseFaq[] | null) ?? [],
     isPublished: data.is_published,
     publicVideoUrl: data.public_video_url,
+    topic: extras.get(data.id)?.topic ?? null,
+    startsAt: extras.get(data.id)?.startsAt ?? null,
+    ...page,
   };
+}
+
+type CourseExtras = { topic: string | null; startsAt: string | null };
+
+/**
+ * Topic and webinar date (migration 0102), read on their own so every page
+ * keeps working, without them, if the migration has not been run yet or the
+ * read fails.
+ */
+async function getCourseExtras(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  ids: string[],
+): Promise<Map<string, CourseExtras>> {
+  const out = new Map<string, CourseExtras>();
+  if (ids.length === 0) return out;
+  try {
+    const { data, error } = await supabase.from("courses").select("id, topic, starts_at").in("id", ids);
+    if (error || !data) return out;
+    for (const r of data) out.set(r.id, { topic: cleanTopic(r.topic) || null, startsAt: r.starts_at ?? null });
+  } catch {
+    // Leave the extras out.
+  }
+  return out;
+}
+
+/**
+ * The admin's page settings, read on their own so the course page keeps
+ * working (normal layout, sample certificate) if migration 0101 has not been
+ * run yet or the read fails.
+ */
+async function getCoursePageSettings(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  courseId: string,
+): Promise<{ pageSections: PageSection[]; certificateImageUrl: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("page_sections, certificate_image_url")
+      .eq("id", courseId)
+      .maybeSingle();
+    if (error || !data) return { pageSections: normalizeSections(null), certificateImageUrl: null };
+    return { pageSections: normalizeSections(data.page_sections), certificateImageUrl: data.certificate_image_url };
+  } catch {
+    return { pageSections: normalizeSections(null), certificateImageUrl: null };
+  }
 }
 
 /**
@@ -205,13 +274,14 @@ export async function getPublishedCourses(type?: CourseType): Promise<CourseCard
   let query = supabase
     .from("courses")
     .select(
-      "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url",
+      "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url, timings",
     )
     .eq("is_published", true);
   if (type) query = query.eq("type", type);
   const { data } = await query.order("created_at", { ascending: true });
 
   if (!data) return [];
+  const extras = await getCourseExtras(supabase, data.map((c) => c.id));
   return data.map((c) => ({
     id: c.id,
     slug: c.slug,
@@ -227,6 +297,9 @@ export async function getPublishedCourses(type?: CourseType): Promise<CourseCard
     mentorTitle: c.mentor_title,
     mentorAvatarUrl: c.mentor_avatar_url,
     publicVideoUrl: c.public_video_url,
+    timings: c.timings,
+    topic: extras.get(c.id)?.topic ?? null,
+    startsAt: extras.get(c.id)?.startsAt ?? null,
   }));
 }
 

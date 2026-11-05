@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,43 +9,42 @@ interface FaqItem {
   a: string;
 }
 
-export function FaqAccordion({ items }: { items: FaqItem[] }) {
+/**
+ * White question cards that open one at a time (Stitch FAQ accordion).
+ * Default: `a` is our own fixed copy with simple HTML. Pass `plainText` for
+ * admin-typed answers: they are shown as text, never as markup.
+ */
+export function FaqAccordion({ items, plainText = false, onCard = false }: { items: FaqItem[]; plainText?: boolean; /** Mint items, for use inside a white card. */ onCard?: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
+  const base = useId();
 
   return (
     <div className="flex flex-col gap-3">
-      {items.map((item, i) => (
-        <div
-          key={i}
-          className={cn(
-            "bg-white rounded-2xl border-[1.5px] overflow-hidden transition-all duration-250",
-            open === i ? "border-pz-bright shadow-[0_4px_20px_rgba(126,217,87,.1)]" : "border-pz-border hover:border-pz-solid-mid"
-          )}
-        >
-          <button
-            className="w-full flex items-center justify-between px-6 py-5 text-left font-semibold text-[.94rem] text-pz-deep font-poppins gap-4 transition-colors duration-200 hover:text-pz-forest"
-            onClick={() => setOpen(open === i ? null : i)}
-            aria-expanded={open === i}
-          >
-            <span>{item.q}</span>
-            <span className={cn(
-              "w-[22px] h-[22px] shrink-0 rounded-full flex items-center justify-center transition-all duration-300",
-              open === i ? "bg-pz-bright rotate-180" : "bg-pz-offwhite"
-            )}>
-              <ChevronDown className={cn("w-[13px] h-[13px] transition-colors duration-200", open === i ? "text-pz-forest" : "text-pz-mid")} />
-            </span>
-          </button>
-          <div className={cn(
-            "overflow-hidden transition-all duration-[380ms] ease-[cubic-bezier(.23,1,.32,1)]",
-            open === i ? "max-h-[300px]" : "max-h-0"
-          )}>
-            <p
-              className="px-6 pb-5 text-[.88rem] text-pz-muted leading-[1.78] font-poppins"
-              dangerouslySetInnerHTML={{ __html: item.a }}
-            />
+      {items.map((item, i) => {
+        const isOpen = open === i;
+        const panelId = `${base}-faq-${i}`;
+        return (
+          <div key={i} className={cn("rounded-2xl px-5", onCard ? "bg-pz-web-surface-low" : "bg-pz-surface-container-lowest shadow-sm")}>
+            <button
+              type="button"
+              className="flex min-h-11 w-full items-center justify-between gap-4 py-5 text-left font-montserrat text-lg font-bold text-pz-deep md:text-xl"
+              onClick={() => setOpen(isOpen ? null : i)}
+              aria-expanded={isOpen}
+              aria-controls={panelId}
+            >
+              <span className="min-w-0 break-words">{item.q}</span>
+              <ChevronDown aria-hidden="true" className={cn("h-6 w-6 shrink-0 text-pz-deep transition-transform duration-200", isOpen && "rotate-180")} />
+            </button>
+            <div id={panelId} hidden={!isOpen} className="border-t border-pz-border pb-5 pt-3">
+              {plainText ? (
+                <p className="whitespace-pre-line break-words font-poppins text-[15px] leading-relaxed text-pz-muted">{item.a}</p>
+              ) : (
+                <p className="font-poppins text-[15px] leading-relaxed text-pz-muted" dangerouslySetInnerHTML={{ __html: item.a }} />
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

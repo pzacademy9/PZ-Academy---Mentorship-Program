@@ -28,4 +28,21 @@ describe("MarketingFooter", () => {
     const { container } = render(<MarketingFooter />);
     expect(container.innerHTML).not.toMatch(/rgba\(255,255,255,\.(2|3)\d?\)/);
   });
+
+  it("has the Help links from the design that lead somewhere real", () => {
+    render(<MarketingFooter />);
+    expect(screen.getByRole("link", { name: "Find my ID" }).getAttribute("href")).toBe("/progress");
+    expect(screen.getByRole("link", { name: /certificate/i }).getAttribute("href")).toMatch(/^https:\/\/cert\.pharmacozyme\.com/);
+  });
+
+  it("is the deep green band from the design, with a plain copyright line", () => {
+    const { container } = render(<MarketingFooter />);
+    expect(container.querySelector("footer")!.className).toMatch(/bg-pz-solid-deep/);
+    expect(container.textContent).toMatch(/PZ Academy by Pharmacozyme\. All rights reserved\./);
+  });
+
+  it("never copies made-up design text", () => {
+    const { container } = render(<MarketingFooter />);
+    expect(container.textContent).not.toMatch(/Karachi|Dubai|Riyadh|Academic Calendar|Fellowship|Terms of Service|Privacy Policy/);
+  });
 });

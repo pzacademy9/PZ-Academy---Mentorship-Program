@@ -34,6 +34,11 @@ export const PZ_TOKENS: Record<string, PzToken> = {
   warning: { light: "#F59E0B" },
   danger: { light: "#EF4444", dark: "#ffb4ab" },
   "solid-danger": { light: "#EF4444" },
+  // Public website surfaces (Stitch "PZ Academy Platform 2"): soft mint page
+  // backgrounds behind white cards.
+  "web-surface": { light: "#EAFFEA", dark: "#0C140D" },
+  "web-surface-low": { light: "#E1FAE3", dark: "#111B12" },
+  "web-surface-high": { light: "#D6EFD7", dark: "#1A281B" },
 
   // Stitch semantic tokens.
   primary: { light: "#246d00", dark: "#99f670" },
