@@ -96,7 +96,7 @@ describe("POST /api/admin/courses/import", () => {
   });
 
   it("creates from re-analysed text and returns 201", async () => {
-    m.createCourseFromPlan.mockResolvedValue({ ok: true, id: "c1", slug: "test-course" });
+    m.createCourseFromPlan.mockResolvedValue({ ok: true, id: "c1", slug: "test-course", notes: [] });
     const res = await create(req({ text: GOOD, plan: { title: "evil" } }));
     expect(res.status).toBe(201);
     const body = await res.json();

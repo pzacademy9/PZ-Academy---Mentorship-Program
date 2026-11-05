@@ -1,10 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp, Award, Globe, Plus, Trash2 } from "lucide-react";
 import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
 import type { CourseType } from "@/lib/data/lms";
 import { PROGRAM_COPY } from "@/lib/program-copy";
 import { TOPIC_MAX } from "@/lib/marketing/topics";
+import { PAGE_LIMITS } from "@/lib/marketing/page-limits";
 import { RECORDED_AFTER_HOURS } from "@/lib/marketing/webinar-time";
 import { isoToPktInput, pktToIso } from "@/lib/attendance/rules";
 import {
@@ -27,8 +29,8 @@ const iconBtn =
 const addBtn =
   "inline-flex min-h-11 items-center gap-2 rounded-lg border border-dashed border-pz-outline-variant px-4 font-headline text-sm font-bold text-pz-primary transition-colors hover:bg-pz-surface-container-low disabled:opacity-40";
 
-const MAX_LINES = 20;
-const MAX_FAQS = 30;
+const MAX_LINES = PAGE_LIMITS.maxLines;
+const MAX_FAQS = PAGE_LIMITS.maxFaqs;
 
 function move<T>(list: T[], from: number, to: number): T[] {
   if (to < 0 || to >= list.length) return list;
@@ -69,7 +71,7 @@ function LineList({ legend, help, lines, onChange }: { legend: string; help: str
               type="text"
               aria-label={`${legend}, line ${i + 1}`}
               value={line}
-              maxLength={200}
+              maxLength={PAGE_LIMITS.maxLine}
               onChange={(e) => onChange(lines.map((l, j) => (j === i ? e.target.value : l)))}
               className={inputClass}
             />
@@ -101,6 +103,7 @@ export function PublicPageEditor({
   courseSlug,
   courseType,
   topicOptions = [],
+  toolbar = null,
 }: {
   value: PublicPageValue;
   onChange: (next: PublicPageValue) => void;
@@ -108,6 +111,8 @@ export function PublicPageEditor({
   courseType: CourseType;
   /** Topics already used on other courses, offered as suggestions. */
   topicOptions?: string[];
+  /** Buttons under the card heading (import / download / AI help). */
+  toolbar?: ReactNode;
 }) {
   const copy = PROGRAM_COPY[courseType];
   const set = <K extends keyof PublicPageValue>(key: K, v: PublicPageValue[K]) => onChange({ ...value, [key]: v });
@@ -123,6 +128,7 @@ export function PublicPageEditor({
         <Globe className="w-5 h-5 text-pz-primary" />
         Public Page
       </h3>
+      {toolbar}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {/* Topic buttons exist on the Courses and Workshops lists only. */}
@@ -226,7 +232,7 @@ export function PublicPageEditor({
                   aria-label={`Question ${i + 1}`}
                   placeholder="Question"
                   value={f.question}
-                  maxLength={300}
+                  maxLength={PAGE_LIMITS.maxQuestion}
                   onChange={(e) => set("faqs", value.faqs.map((x, j) => (j === i ? { ...x, question: e.target.value } : x)))}
                   className={inputClass}
                 />
@@ -243,7 +249,7 @@ export function PublicPageEditor({
                 placeholder="Answer"
                 rows={3}
                 value={f.answer}
-                maxLength={2000}
+                maxLength={PAGE_LIMITS.maxAnswer}
                 onChange={(e) => set("faqs", value.faqs.map((x, j) => (j === i ? { ...x, answer: e.target.value } : x)))}
                 className={inputClass}
               />

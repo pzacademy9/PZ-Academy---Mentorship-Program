@@ -218,3 +218,37 @@ describe("createCourseFromPlan", () => {
     expect(store.courses).toHaveLength(0);
   });
 });
+
+describe("createCourseFromPlan: public page parts", () => {
+  const page = {
+    pricePkr: 7500, topic: "Fake Topic", startsAt: "2026-11-10T14:00:00.000Z", publicVideoUrl: "https://youtu.be/DDDDDDDDDDD",
+    outcomes: ["Fake skill"], features: ["Fake include"], faqs: [{ question: "Fake Q?", answer: "Fake A" }],
+    pageSections: [{ key: "faq" as const, visible: false }],
+  };
+  it("saves every part; the webinar date only on a webinar", async () => {
+    const res = await createCourseFromPlan({ ...coursePlan(), page });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.notes).toEqual([]);
+    const c = store.courses.find((x) => x.id === res.id)!;
+    expect(c).toMatchObject({
+      price_pkr: 7500, topic: "Fake Topic", public_video_url: "https://youtu.be/DDDDDDDDDDD",
+      outcomes: ["Fake skill"], features: ["Fake include"], faqs: [{ question: "Fake Q?", answer: "Fake A" }],
+    });
+    expect((c.page_sections as { key: string }[])[0]).toEqual({ key: "faq", visible: false });
+    expect(c.starts_at).toBeUndefined();
+  });
+  it("still creates the course when the topic and date cannot be saved (SQL not pasted), and says so", async () => {
+    const mem = memoryHandler(store);
+    admin.state.handler = (op: Op): Res => {
+      const p = op.payload as Record<string, unknown> | undefined;
+      if (op.table === "courses" && op.op === "update" && p && "topic" in p) return { data: null, error: { message: "column courses.topic does not exist" } };
+      return mem(op);
+    };
+    const res = await createCourseFromPlan({ ...coursePlan(), page });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.notes).toEqual(["The topic and webinar date could not be saved. Add them in the course editor."]);
+    expect(store.courses.find((x) => x.id === res.id)).toMatchObject({ price_pkr: 7500 });
+  });
+});

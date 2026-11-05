@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const created = await createCourseFromPlan(analysis.plan);
     if (!created.ok) return NextResponse.json(FAILED, { status: 500 });
     return NextResponse.json(
-      { id: created.id, slug: created.slug, warnings: analysis.warnings, summary: analysis.summary },
+      { id: created.id, slug: created.slug, warnings: [...analysis.warnings, ...(created.notes ?? [])], summary: analysis.summary },
       { status: 201 },
     );
   } catch {

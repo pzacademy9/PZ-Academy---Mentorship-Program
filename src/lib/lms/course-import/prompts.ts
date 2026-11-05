@@ -2,14 +2,17 @@
 // Numbers come from COURSE_IMPORT_LIMITS and the quiz layout from
 // QUIZ_PASTE_EXAMPLE, so the prompt cannot drift from the checker.
 import { QUIZ_PASTE_EXAMPLE } from "@/lib/lms/quiz-paste";
-import { COURSE_DETAIL_FIELDS, COURSE_IMPORT_FORMAT_ID, COURSE_IMPORT_LIMITS } from "./format";
+import { PAGE_LIMITS } from "@/lib/marketing/page-limits";
+import { TOPIC_MAX } from "@/lib/marketing/topics";
+import { SECTION_KEYS, SECTION_LABEL, SECTION_TITLE_MAX } from "@/lib/marketing/course-sections";
+import { COURSE_DETAIL_FIELDS, COURSE_IMPORT_FORMAT_ID, COURSE_IMPORT_LIMITS, PAGE_LIST_HEADINGS } from "./format";
 
 const FENCE = "```";
 
+const max = (key: string) => COURSE_DETAIL_FIELDS.find((f) => f.key === key)!.max.toLocaleString("en-US");
+
 export function masterPrompt(): string {
   const L = COURSE_IMPORT_LIMITS;
-  const n = (v: number) => v.toLocaleString("en-US");
-  const max = (key: string) => n(COURSE_DETAIL_FIELDS.find((f) => f.key === key)!.max);
 
   return `You are helping me turn my course material into one text file that I will upload to my course platform. I will attach some or all of these: course information files, a list of YouTube links with the lecture name or day beside each one, a quiz file (Word or PDF, with the correct answers marked), and links to notes on Google Drive.
 
@@ -33,6 +36,11 @@ timings: 6:30 PM - 7:30 PM (UAE Time), live sessions
 mentor_name: Dr Example Name
 mentor_title: Clinical Pharmacist
 mentor_bio: Dr Example Name has worked as a clinical pharmacist and teaches medicine safety.
+price: 9000
+topic: Pharmacology
+preview_video: https://youtu.be/DDDDDDDDDDD
+
+${PAGE_LISTS_EXAMPLE}
 
 ## Module: Foundations of Pharmacology
 notes: Module 1 slides | https://drive.google.com/example-module-notes
@@ -62,7 +70,7 @@ What each line means:
 - format: always exactly ${COURSE_IMPORT_FORMAT_ID}, on the very first line.
 - title: the course name.
 - type: course, workshop or webinar.
-- tagline, description, level, duration, timings, mentor_name, mentor_title, mentor_bio: the course details. They go in the top part of the file, before the first ## line, and every one of them is optional. Write description and mentor_bio as ONE paragraph on a single line, and never start a line inside them with a word followed by a colon. Do not put any other text in the top part.
+- tagline, description, level, duration, timings, mentor_name, mentor_title, mentor_bio, price, topic, webinar_date, preview_video: the course details. They go in the top part of the file, before the first ## line, and every one of them is optional. Write description and mentor_bio as ONE paragraph on a single line, and never start a line inside them with a word followed by a colon. Do not put any other text in the top part.
 - ## Module: starts a module (courses only).
 - ### Session: starts a session (a lecture or a day).
 - video: the main video link for the session. video2: an optional second video link.
@@ -81,6 +89,8 @@ Fill the course details from the course information files (the database files). 
 - timings: short text such as "6:30 PM - 7:30 PM (UAE Time), live sessions", only from the files (at most ${max("timings")} characters).
 - mentor_name, mentor_title (the designation) and mentor_bio: only from the instructor section of the files. Never invent a mentor, a qualification or a biography (names and designation at most ${max("mentor_name")} characters, bio at most ${max("mentor_bio")} characters).
 
+${pagePartsHelp()}
+
 THE RULES
 
 1. Take the course title, the module names, the session names and their order from the course information files.
@@ -93,4 +103,142 @@ THE RULES
 8. Give me the whole file in one code block, starting with the format line, with nothing else inside the block.
 
 Start by asking me to attach my files, and ask me anything you need to know before you begin.`;
+}
+
+const n = (v: number) => v.toLocaleString("en-US");
+
+/** The page lists as they look in a file (shared by every prompt and the example file). */
+const PAGE_LISTS_EXAMPLE = `${PAGE_LIST_HEADINGS.learn}
+- Work out doses for children and adults step by step
+- Spot common medicine mistakes before they happen
+
+${PAGE_LIST_HEADINGS.includes}
+- 8 live classes
+- Notes for every class
+- Certificate on completion
+
+${PAGE_LIST_HEADINGS.faqs}
+Q: Do I need any experience?
+A: No. The course starts from the basics.
+Q: Are the classes recorded?
+A: Yes. You can watch every class again in the portal.
+
+${PAGE_LIST_HEADINGS.sections}
+about | show
+learn | show | Skills you will build
+curriculum | show
+teacher | show
+certificate | show
+faq | show`;
+
+/** The part of every prompt that explains the public page lines. Numbers come from the shared limit tables. */
+function pagePartsHelp(): string {
+  const sectionNames = SECTION_KEYS.map((k) => `${k} (${SECTION_LABEL[k]})`).join(", ");
+  return `THE PUBLIC PAGE PARTS
+
+These fill the course's page on the website. Every one is optional: leave out anything my files do not say.
+- price: the course fee in Pakistani rupees, a whole number only, for example 9000. Write Free for a free course. At most ${n(PAGE_LIMITS.maxPricePkr)}.
+- topic: one short subject name, for example Pharmacology or Clinical Pharmacy (at most ${TOPIC_MAX} characters). Use the same spelling for courses of the same subject.
+- webinar_date: only for a webinar. The date and start time in Pakistan time, written exactly like 2026-11-10 19:00.
+- preview_video: one YouTube or Vimeo link anyone may watch, starting with https://. Never one of the paid lecture videos unless I say it is free to show.
+- ${PAGE_LIST_HEADINGS.learn}: one skill per line, each line starting with "- " (at most ${n(PAGE_LIMITS.maxLines)} lines, ${n(PAGE_LIMITS.maxLine)} characters each).
+- ${PAGE_LIST_HEADINGS.includes}: what the student gets, one item per line starting with "- ", for example "- 8 live classes" (same limits).
+- ${PAGE_LIST_HEADINGS.faqs}: each question on a line starting with "Q: " and its answer on the next line starting with "A: " (at most ${n(PAGE_LIMITS.maxFaqs)} questions; a question at most ${n(PAGE_LIMITS.maxQuestion)} characters, an answer at most ${n(PAGE_LIMITS.maxAnswer)}).
+- ${PAGE_LIST_HEADINGS.sections}: the order of the sections on the page, one per line, written as name | show or hide | heading. The heading is optional (at most ${SECTION_TITLE_MAX} characters); leave it out to use the normal one. The names are: ${sectionNames}. Only add this list if I ask to change the order, hide a section or change a heading.
+
+Never invent a number, a price, a date, a student review, a rating, a result or a teacher's name. If my files do not say it, leave it out.`;
+}
+
+/**
+ * "Page only": turns a WhatsApp post, poster text or brochure into the page
+ * parts of a course file, for "Import page from a file" in the course editor.
+ */
+export function pagePrompt(): string {
+  return `You are helping me fill in the page of one course on my academy's website. I will paste a WhatsApp post, the text of a poster, or a brochure about the course.
+
+Turn it into ONE text file in the exact layout below, and give me the whole file in a single code block.
+
+${FENCE}
+format: ${COURSE_IMPORT_FORMAT_ID}
+tagline: One short line about the course
+description: One plain paragraph about the course, on a single line.
+level: Beginner
+duration: 4 Weeks
+timings: Saturdays 7 PM - 8 PM (Pakistan time)
+mentor_name: Dr Example Name
+mentor_title: Clinical Pharmacist
+price: 9000
+topic: Pharmacology
+
+${PAGE_LISTS_EXAMPLE}
+${FENCE}
+
+THE COURSE DETAILS
+
+tagline (at most ${max("tagline")} characters), description (at most ${max("description")}), level, duration, timings, mentor_name, mentor_title and mentor_bio describe the course. Write description and mentor_bio as ONE paragraph on a single line, and never start a line inside them with a word followed by a colon. Leave out any line my text does not support.
+
+${pagePartsHelp()}
+
+THE RULES
+
+1. The first line is always format: ${COURSE_IMPORT_FORMAT_ID}. Do not add title, type, modules, sessions or quizzes: this file is for the page only.
+2. Use plain, clear words. Keep the meaning of my text; do not add hype or promises.
+3. If something is unclear, ask me before you guess.
+4. Give me the whole file in one code block, with nothing else inside the block.
+
+Start by asking me to paste my text.`;
+}
+
+/**
+ * "Improve my page": rewrites a page file downloaded from the course editor
+ * to be clearer and shorter, without inventing anything.
+ */
+export function improvePrompt(): string {
+  return `I will attach a text file with the page of one course on my academy's website. It starts with the line format: ${COURSE_IMPORT_FORMAT_ID}.
+
+Please improve the wording so it is clearer and shorter, and easy to read on a phone. Then give me the whole improved file in one code block, in exactly the same layout.
+
+WHAT TO DO
+1. Keep every key, heading and line layout exactly as it is. Change only the words after the keys and in the lists.
+2. Shorter sentences, plain words, no hype, no exclamation marks.
+3. Keep the same facts. Never invent or change a number, a price, a date, a duration, a student review, a rating, a result, a qualification or a teacher's name.
+4. Never add or change links.
+5. You may merge repeated lines in a list, or reorder lines so the most useful come first. Do not add new claims.
+6. Keep to the limits below.
+
+${pagePartsHelp()}
+
+When you are done, list in a few short lines (outside the code block) what you changed.
+
+Start by asking me to attach the file.`;
+}
+
+/** A ready example file for staff to download and copy from. */
+export function exampleFile(): string {
+  return `format: ${COURSE_IMPORT_FORMAT_ID}
+title: Example Course (replace this)
+type: course
+tagline: One short line about the course
+description: One plain paragraph about the course, on a single line.
+level: Beginner
+duration: 4 Weeks
+timings: Saturdays 7 PM - 8 PM (Pakistan time)
+mentor_name: Dr Example Name
+mentor_title: Clinical Pharmacist
+mentor_bio: One short paragraph about the teacher, on a single line.
+price: 9000
+topic: Pharmacology
+preview_video: https://youtu.be/DDDDDDDDDDD
+
+${PAGE_LISTS_EXAMPLE}
+
+## Module: Module 1 (replace this)
+notes: Module 1 slides | https://drive.google.com/example-module-notes
+
+### Session: Day 1 (replace this)
+video: https://youtu.be/AAAAAAAAAAA
+notes: Day 1 handout | https://drive.google.com/example-day-1
+quiz:
+${QUIZ_PASTE_EXAMPLE}
+`;
 }
