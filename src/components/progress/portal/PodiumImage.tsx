@@ -1,6 +1,6 @@
 // The share picture for a batch podium, drawn by next/og (satori): inline styles only, every
 // multi-child box is display:flex. It receives names, ranks and scores only: never email or phone.
-import { initials, shortName, type PodiumSize } from "@/lib/progress/leaderboard";
+import { podiumImageEntry, podiumImageTitle, type PodiumSize } from "@/lib/progress/leaderboard";
 
 const DEEP = "#0F3D22";
 const DEEPER = "#071F11";
@@ -10,6 +10,7 @@ const SILVER = "#C9D1CC";
 const BRONZE = "#D49A6A";
 
 export type PodiumImageEntry = { name: string; rank: number; score: number };
+type Drawn = ReturnType<typeof podiumImageEntry>;
 
 const ordinal = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
 const points = (n: number) => `${n.toLocaleString("en-US")} pts`;
@@ -32,7 +33,7 @@ function Medal({ size, colour }: { size: number; colour: string }) {
   );
 }
 
-function Place({ entry, story }: { entry: PodiumImageEntry; story: boolean }) {
+function Place({ entry, story }: { entry: Drawn; story: boolean }) {
   const first = entry.rank === 1;
   const avatar = story ? (first ? 230 : 180) : first ? 170 : 132;
   const pedestal = story ? (first ? 380 : entry.rank === 2 ? 290 : 220) : first ? 230 : entry.rank === 2 ? 170 : 120;
@@ -56,7 +57,7 @@ function Place({ entry, story }: { entry: PodiumImageEntry; story: boolean }) {
           fontWeight: 800,
         }}
       >
-        {initials(entry.name)}
+        {entry.initials}
       </div>
       <div
         style={{
@@ -76,6 +77,9 @@ function Place({ entry, story }: { entry: PodiumImageEntry; story: boolean }) {
         style={{
           marginTop: 16,
           maxWidth: story ? 310 : 290,
+          maxHeight: story ? 96 : 76,
+          overflow: "hidden",
+          wordBreak: "break-word",
           color: "#ffffff",
           fontSize: story ? 40 : 32,
           fontWeight: 700,
@@ -85,7 +89,7 @@ function Place({ entry, story }: { entry: PodiumImageEntry; story: boolean }) {
           justifyContent: "center",
         }}
       >
-        {shortName(entry.name, 24)}
+        {entry.name}
       </div>
       <div style={{ marginTop: 8, color: BRIGHT, fontSize: story ? 38 : 30, fontWeight: 800, display: "flex" }}>{points(entry.score)}</div>
       <div
@@ -113,7 +117,9 @@ function Place({ entry, story }: { entry: PodiumImageEntry; story: boolean }) {
 export function PodiumImage({ title, label, entries, size }: { title: string; label: string; entries: PodiumImageEntry[]; size: PodiumSize }) {
   const story = size === "story";
   // Visual order: second place left, first in the middle, third right.
-  const slots = [entries[1], entries[0], entries[2]].filter((e): e is PodiumImageEntry => e !== undefined);
+  // Names are cut or replaced first (see podiumImageEntry), so nothing outside the font reaches the renderer.
+  const drawn = entries.slice(0, 3).map(podiumImageEntry);
+  const slots = [drawn[1], drawn[0], drawn[2]].filter((e): e is Drawn => e !== undefined);
   return (
     <div
       style={{
@@ -143,8 +149,20 @@ export function PodiumImage({ title, label, entries, size }: { title: string; la
           PZ ACADEMY · LEADERBOARD
         </span>
       </div>
-      <div style={{ marginTop: story ? 56 : 36, color: "#ffffff", fontSize: story ? 76 : 58, fontWeight: 800, lineHeight: 1.1, display: "flex" }}>
-        {shortName(title, 70)}
+      <div
+        style={{
+          marginTop: story ? 56 : 36,
+          color: "#ffffff",
+          fontSize: story ? 76 : 56,
+          fontWeight: 800,
+          lineHeight: 1.1,
+          maxHeight: story ? 260 : 130,
+          overflow: "hidden",
+          wordBreak: "break-word",
+          display: "flex",
+        }}
+      >
+        {podiumImageTitle(title, size)}
       </div>
       <div style={{ marginTop: 16, color: BRIGHT, fontSize: story ? 44 : 34, fontWeight: 700, display: "flex" }}>{label}</div>
       <div style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: story ? 20 : 24 }}>

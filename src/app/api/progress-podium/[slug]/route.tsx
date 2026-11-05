@@ -30,7 +30,9 @@ export async function GET(req: Request, context: { params: Promise<{ slug: strin
 
     const { width, height } = PODIUM_SIZES[size];
     const img = new ImageResponse(<PodiumImage title={view.title} label={pick.label} entries={entries} size={size} />, { width, height });
-    return new Response(img.body, {
+    // Drawing happens while the body is read: read it here so a drawing failure lands in the catch (500), not a broken PNG.
+    const png = await img.arrayBuffer();
+    return new Response(png, {
       headers: {
         "Content-Type": "image/png",
         "Content-Disposition": `inline; filename="${podiumFileName(view.slug, pick.label, size)}"`,

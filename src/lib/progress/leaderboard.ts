@@ -70,6 +70,28 @@ export function shortName(name: string, max: number): string {
   return `${(space > 0 ? cut.slice(0, space) : cut).trim()}…`;
 }
 
+/**
+ * Only Basic Latin, Latin-1, Latin Extended A/B and Latin Extended Additional letters plus general
+ * punctuation. The share picture has a Latin font only; anything else would be drawn scrambled or
+ * make the renderer fetch a font from outside.
+ */
+export function isLatinText(s: string): boolean {
+  return /^[ -~ -ɏḀ-ỿ‐-‧]*$/.test(s);
+}
+
+const IMAGE_NAME_MAX = 16;
+const IMAGE_TITLE_MAX = { square: 40, story: 60 } as const;
+
+/** Name and initials as drawn in the share picture: "Student #rank" when the name is not Latin. */
+export function podiumImageEntry(e: { name: string; rank: number; score: number }): { name: string; initials: string; rank: number; score: number } {
+  if (!isLatinText(e.name)) return { name: `Student #${e.rank}`, initials: `#${e.rank}`, rank: e.rank, score: e.score };
+  return { name: shortName(e.name, IMAGE_NAME_MAX), initials: initials(e.name), rank: e.rank, score: e.score };
+}
+
+export function podiumImageTitle(title: string, size: PodiumSize): string {
+  return isLatinText(title) ? shortName(title, IMAGE_TITLE_MAX[size]) : "Batch leaderboard";
+}
+
 export type PodiumSize = "square" | "story";
 export const PODIUM_SIZES: Record<PodiumSize, { width: number; height: number }> = {
   square: { width: 1080, height: 1080 },
