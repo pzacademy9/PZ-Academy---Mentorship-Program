@@ -12,7 +12,12 @@ vi.mock("@/lib/data/pz-people", async (orig) => ({
   findIdsByName: (...a: unknown[]) => findIdsByName(...a),
 }));
 
-import { findMyIdByName } from "@/app/progress/actions";
+const getProgressByPzId = vi.fn();
+const publicProgressView = vi.fn();
+vi.mock("@/lib/data/progress", () => ({ getProgressByPzId: (...a: unknown[]) => getProgressByPzId(...a) }));
+vi.mock("@/lib/data/portal", () => ({ publicProgressView: (...a: unknown[]) => publicProgressView(...a) }));
+
+import { checkMyProgress, findMyIdByName } from "@/app/progress/actions";
 
 const GENERIC = "Something went wrong. Please try again in a minute.";
 
@@ -100,5 +105,44 @@ describe("findMyIdByName", () => {
   it("keeps the generic message even when the limiter itself throws", async () => {
     allowLookup.mockRejectedValue(new Error("limiter blew up"));
     expect(await findMyIdByName("sample")).toEqual({ status: "error", message: GENERIC });
+  });
+});
+
+describe("checkMyProgress", () => {
+  const progress = { firstName: "Sample", pzId: "Sample-0001", groups: [] };
+  beforeEach(() => {
+    getProgressByPzId.mockReset();
+    publicProgressView.mockReset().mockImplementation(async (p: unknown) => ({ progress: p, standings: {} }));
+  });
+  it("rate limited before any lookup", async () => {
+    allowLookup.mockResolvedValue(false);
+    expect(await checkMyProgress("Sample-0001")).toEqual({ status: "rate_limited" });
+    expect(getProgressByPzId).not.toHaveBeenCalled();
+  });
+  it("too short or too long is invalid without a lookup", async () => {
+    expect(await checkMyProgress("  ab ")).toEqual({ status: "invalid" });
+    expect(await checkMyProgress("x".repeat(41))).toEqual({ status: "invalid" });
+    expect(getProgressByPzId).not.toHaveBeenCalled();
+  });
+  it("unknown ID is not_found", async () => {
+    getProgressByPzId.mockResolvedValue(null);
+    expect(await checkMyProgress("Nobody-0000")).toEqual({ status: "not_found" });
+    expect(getProgressByPzId).toHaveBeenCalledWith("Nobody-0000");
+  });
+  it("found: only the public view of the progress, with standings", async () => {
+    getProgressByPzId.mockResolvedValue(progress);
+    const shown = { progress: { ...progress, groups: [] }, standings: { "sample-batch": { rank: 2, of: 5, gap: null, max: null } } };
+    publicProgressView.mockResolvedValue(shown);
+    expect(await checkMyProgress(" Sample-0001 ")).toEqual({ status: "ok", ...shown });
+    expect(publicProgressView).toHaveBeenCalledWith(progress);
+  });
+  it("nothing on a public board is not_found", async () => {
+    getProgressByPzId.mockResolvedValue(progress);
+    publicProgressView.mockResolvedValue(null);
+    expect(await checkMyProgress("Sample-0001")).toEqual({ status: "not_found" });
+  });
+  it("a thrown lookup error shows only the generic message", async () => {
+    getProgressByPzId.mockRejectedValue(new Error("secret db detail"));
+    expect(await checkMyProgress("Sample-0001")).toEqual({ status: "error", message: GENERIC });
   });
 });

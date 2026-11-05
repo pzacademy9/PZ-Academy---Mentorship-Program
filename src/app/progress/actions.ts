@@ -2,6 +2,10 @@
 
 import { checkNameQuery, findIdsByName, MAX_ROWS, type MyIdRow } from "@/lib/data/pz-people";
 import { callerAllowed } from "@/lib/pzid/caller-allowed";
+import { getProgressByPzId } from "@/lib/data/progress";
+import { publicProgressView } from "@/lib/data/portal";
+import type { Progress } from "@/lib/progress/build";
+import type { Standing } from "@/lib/progress/my-progress";
 
 export type FindMyIdByNameResult =
   | { status: "ok"; rows: MyIdRow[]; more: boolean }
@@ -23,6 +27,40 @@ export async function findMyIdByName(query: string): Promise<FindMyIdByNameResul
     const found = (await findIdsByName(check.q)).slice(0, MAX_ROWS + 1);
     if (found.length === 0) return { status: "not_found" };
     return { status: "ok", rows: found.slice(0, MAX_ROWS), more: found.length > MAX_ROWS };
+  } catch {
+    return { status: "error", message: GENERIC_ERROR };
+  }
+}
+
+export type CheckMyProgressResult =
+  | { status: "ok"; progress: Progress; standings: Record<string, Standing> }
+  | { status: "invalid" }
+  | { status: "not_found" }
+  | { status: "rate_limited" }
+  | { status: "error"; message: string };
+
+const MIN_ID = 3;
+const MAX_ID = 40;
+
+/**
+ * One student's progress, looked up by PZ ID alone (owner decision: the batch boards are already public).
+ * There is no password or proof of identity: anyone who types an ID sees what the public boards already
+ * show for it (name, PZ ID, attendance, quiz scores, rank), limited to the batches whose public board lists
+ * that ID. Never email or phone. Shares the Find my ID rate limit.
+ * An old (alias) ID still works: it resolves to the person's one current ID, which is what is shown,
+ * exactly as the existing ID lookup already did. No other ID is ever returned.
+ */
+export async function checkMyProgress(pzId: string): Promise<CheckMyProgressResult> {
+  try {
+    if (!(await callerAllowed())) return { status: "rate_limited" };
+    const id = typeof pzId === "string" ? pzId.trim() : "";
+    if (id.length < MIN_ID || id.length > MAX_ID) return { status: "invalid" };
+    const progress = await getProgressByPzId(id);
+    if (!progress) return { status: "not_found" };
+    // Only what the public boards show for this ID; nothing public left = not found.
+    const shown = await publicProgressView(progress);
+    if (!shown) return { status: "not_found" };
+    return { status: "ok", progress: shown.progress, standings: shown.standings };
   } catch {
     return { status: "error", message: GENERIC_ERROR };
   }

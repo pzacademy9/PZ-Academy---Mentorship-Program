@@ -1,8 +1,9 @@
 import { cache } from "react";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { BatchPortal } from "@/components/progress/portal/BatchPortal";
 import { getPortalBatch } from "@/lib/data/portal";
 import { portalCallerAllowed } from "@/lib/pzid/caller-allowed";
@@ -42,37 +43,31 @@ export default async function BatchRoute({ params }: { params: Promise<{ slug: s
   if (result.status === "missing") notFound();
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-pz-surface pb-10 pt-2 sm:pt-6">
-      <div className="mx-auto mb-2 flex w-full min-w-0 max-w-5xl items-center justify-between gap-3 px-4 sm:mb-4">
-        <Link
-          href="/"
-          className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary"
-        >
-          <Image
-            src="https://pharmacozyme.com/wp-content/uploads/2026/04/PZ-Academy-logo.png"
-            alt=""
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 object-contain"
-            priority
-            unoptimized
-          />
-          <span className="font-headline text-sm font-bold leading-tight tracking-tight text-pz-on-surface">PZ ACADEMY</span>
-        </Link>
-      </div>
-      {result.status === "ok" ? (
-        <BatchPortal view={result.view} />
-      ) : (
-        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-4">
-          <h1 className="font-headline text-2xl font-black text-pz-on-surface">Batch progress</h1>
-          <p role="alert" className="rounded-xl bg-pz-error-container p-4 text-base text-pz-on-error-container">
-            {result.status === "limited" ? RATE_LIMITED : GENERIC_ERROR}
-          </p>
-          <Link href="/progress" className="flex min-h-11 w-fit items-center font-headline text-base font-bold text-pz-primary">
-            Back to all batches
-          </Link>
-        </div>
-      )}
-    </main>
+    <>
+      <MarketingNav />
+      <main className="min-h-screen bg-pz-web-surface pb-16">
+        {result.status === "ok" ? (
+          <BatchPortal view={result.view} />
+        ) : (
+          <>
+            <div className="bg-pz-solid-deep px-5 pb-10 pt-[7.5rem] md:pt-[8.5rem]">
+              <h1 className="mx-auto max-w-3xl font-montserrat text-[28px] font-extrabold tracking-[-0.02em] text-white md:text-[40px]">Batch progress</h1>
+            </div>
+            <div className="mx-auto -mt-5 flex w-full min-w-0 max-w-3xl flex-col gap-4 px-5">
+              <p role="alert" className="rounded-[20px] bg-pz-surface-container-lowest p-5 font-poppins text-base text-pz-on-surface shadow-[0_8px_30px_rgba(15,61,34,0.08)]">
+                {result.status === "limited" ? RATE_LIMITED : GENERIC_ERROR}
+              </p>
+              <Link
+                href="/progress"
+                className="inline-flex min-h-12 w-fit items-center rounded-full bg-pz-solid-deep px-6 font-montserrat text-[15px] font-bold text-white hover:bg-pz-solid-forest focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pz-solid-mid"
+              >
+                Back to all batches
+              </Link>
+            </div>
+          </>
+        )}
+      </main>
+      <MarketingFooter />
+    </>
   );
 }

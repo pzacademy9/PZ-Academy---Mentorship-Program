@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
 import { PortalHome } from "@/components/progress/portal/PortalHome";
 import type { PortalBatchCard } from "@/lib/progress/portal-build";
 
@@ -64,8 +65,8 @@ describe("PortalHome", () => {
   it("shows the privacy line and tab counts", () => {
     render(<PortalHome groups={groups} />);
     expect(screen.getByText("Names and IDs only. No phone or email shown.")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: /Courses/ }).textContent).toContain("2");
-    expect(screen.getByRole("tab", { name: /Webinars/ }).textContent).toContain("0");
+    expect(screen.getByRole("button", { name: /Courses/ }).textContent).toContain("2");
+    expect(screen.getByRole("button", { name: /Webinars/ }).textContent).toContain("0");
   });
 
   it("filters by title search and by tab", () => {
@@ -75,7 +76,12 @@ describe("PortalHome", () => {
     expect(screen.queryByRole("link", { name: /Sample Course/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Sample Workshop/ })).toBeTruthy();
     fireEvent.change(box, { target: { value: "" } });
-    fireEvent.click(screen.getByRole("tab", { name: /Workshops/ }));
+    const ws = screen.getByRole("button", { name: /Workshops/ });
+    expect(ws.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(ws);
+    expect(ws.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("group", { name: "Batch type" })).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("link", { name: /Sample Course/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Sample Workshop/ })).toBeTruthy();
   });
@@ -119,7 +125,7 @@ describe("PortalHome", () => {
 
     it("tab counts still count batches, not groups", () => {
       render(<PortalHome groups={grouped} />);
-      expect(screen.getByRole("tab", { name: /Courses/ }).textContent).toContain("3");
+      expect(screen.getByRole("button", { name: /Courses/ }).textContent).toContain("3");
     });
   });
 
@@ -141,3 +147,61 @@ describe("PortalHome", () => {
     expect(screen.getByRole("heading", { name: "Find my ID" })).toBeTruthy();
   });
 });
+
+describe("PortalHome hero and PZ ID check", () => {
+  const progress = {
+    firstName: "Sample",
+    pzId: "Sample-0001",
+    groups: [{ kind: "course" as const, batches: [{ title: "Sample Course", slug: "sample-course", latest: true, mode: "live" as const, attendance: null, results: { total: 0, rows: [] } }] }],
+  };
+  it("hero heading and the ID box; the name search starts open and can be closed", () => {
+    render(<PortalHome groups={groups} checkId={async () => ({ status: "not_found" })} findId={async () => ({ status: "not_found" })} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Track your progress");
+    expect(screen.getByLabelText("Your PZ ID")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Find my ID" })).toBeTruthy();
+    const toggle = screen.getByRole("button", { name: /Forgot your ID\? Find it by name/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("heading", { name: "Find my ID" })).toBeNull();
+    window.location.hash = "#find-id";
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    expect(screen.getByRole("heading", { name: "Find my ID" })).toBeTruthy();
+    window.location.hash = "";
+  });
+  it("too short an ID answers on the page without calling the server", () => {
+    const checkId = vi.fn();
+    render(<PortalHome groups={groups} checkId={checkId} />);
+    fireEvent.change(screen.getByLabelText("Your PZ ID"), { target: { value: "ab" } });
+    fireEvent.click(screen.getByRole("button", { name: /Check progress/ }));
+    expect(screen.getByText("Check your ID")).toBeTruthy();
+    expect(checkId).not.toHaveBeenCalled();
+  });
+  it("not found and rate limited are stated plainly", async () => {
+    const checkId = vi.fn().mockResolvedValueOnce({ status: "not_found" }).mockResolvedValueOnce({ status: "rate_limited" });
+    render(<PortalHome groups={groups} checkId={checkId} />);
+    fireEvent.change(screen.getByLabelText("Your PZ ID"), { target: { value: "Nobody-0000" } });
+    fireEvent.click(screen.getByRole("button", { name: /Check progress/ }));
+    expect(await screen.findByText("We could not find that ID")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Check progress/ }));
+    expect(await screen.findByText("Too many tries")).toBeTruthy();
+  });
+  it("a found ID shows My Progress; Check another ID clears it", async () => {
+    const checkId = vi.fn().mockResolvedValue({ status: "ok", progress, standings: {} });
+    render(<PortalHome groups={groups} checkId={checkId} />);
+    fireEvent.change(screen.getByLabelText("Your PZ ID"), { target: { value: " Sample-0001 " } });
+    fireEvent.click(screen.getByRole("button", { name: /Check progress/ }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Sample" })).toBeTruthy();
+    expect(checkId).toHaveBeenCalledWith(" Sample-0001 ");
+    expect(screen.getByText("Sample-0001")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Check another ID/ }));
+    await waitFor(() => expect(screen.queryByRole("heading", { level: 2, name: "Sample" })).toBeNull());
+  });
+  it("cards show the right call to action for each state", () => {
+    render(<PortalHome groups={groups} />);
+    expect(within(screen.getByRole("link", { name: /Sample Course/ })).getByText("See leaderboard")).toBeTruthy();
+    expect(within(screen.getByRole("link", { name: /Done Course/ })).getByText("See final leaderboard")).toBeTruthy();
+    expect(within(screen.getByRole("link", { name: /Sample Workshop/ })).getByText("View batch progress")).toBeTruthy();
+  });
+});
+

@@ -20,6 +20,18 @@ function ranked(rows: PortalResultRow[]): RankedRow[] {
     .map((x) => x.r);
 }
 
+/** Max score next to an overall total: only when every class that has results has a known max. */
+function overallMax(view: PortalBatchView): number | null {
+  const withResults = view.sessions.filter((s) => (view.perClass[s.id] ?? []).length > 0);
+  if (withResults.length === 0 || withResults.some((s) => s.quizMax === null)) return null;
+  return withResults.reduce((n, s) => n + (s.quizMax ?? 0), 0);
+}
+
+/** The "of max" for the Overall board or one class; null when it is not known. */
+export function boardMax(view: PortalBatchView, pick: string): number | null {
+  return pick === "overall" ? overallMax(view) : (view.sessions.find((s) => s.id === pick)?.quizMax ?? null);
+}
+
 /** Top three live-ranked rows. Tied rows keep their shared rank; fewer than three is fine. */
 export function podium(rows: PortalResultRow[]): RankedRow[] {
   return ranked(rows).slice(0, 3);

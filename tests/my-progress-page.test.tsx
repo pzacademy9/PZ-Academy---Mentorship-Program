@@ -17,6 +17,7 @@ vi.mock("@/lib/data/portal", () => ({
     if (!u.email || !u.email_confirmed_at) return { status: "unconfirmed" };
     return { status: "ok", progress: await getProgressForEmail(u.email) };
   },
+  getProgressStandings: async () => ({}),
 }));
 const CONFIRMED = "2026-10-01T00:00:00Z";
 
