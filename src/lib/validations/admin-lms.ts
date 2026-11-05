@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SECTION_KEYS, SECTION_TITLE_MAX } from "@/lib/marketing/course-sections";
 import { TOPIC_MAX } from "@/lib/marketing/topics";
+import { PAGE_LIMITS } from "@/lib/marketing/page-limits";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type CourseType = Database["public"]["Enums"]["course_type"];
@@ -102,8 +103,8 @@ export const courseConfigSchema = z.object({
   /** Free text, e.g. "8 Weeks" / "4 Days" — the real Stitch screen ("Admin: Course Management Detail") is a plain text input, not a week count. */
   durationText: z.string().trim().max(50).optional(),
   timings: z.string().trim().max(200).optional(),
-  features: z.array(z.string().trim().min(1)).max(20).optional(),
-  outcomes: z.array(z.string().trim().min(1)).max(20).optional(),
+  features: z.array(z.string().trim().min(1)).max(PAGE_LIMITS.maxLines).optional(),
+  outcomes: z.array(z.string().trim().min(1)).max(PAGE_LIMITS.maxLines).optional(),
   registerUrl: url,
   thumbnailUrl: url,
   bannerUrl: url,
@@ -114,7 +115,7 @@ export const courseConfigSchema = z.object({
   gasWebappUrl: url,
   faqs: z
     .array(z.object({ question: z.string().trim().min(1), answer: z.string().trim().min(1) }))
-    .max(30)
+    .max(PAGE_LIMITS.maxFaqs)
     .optional(),
   /** Preview video on the public page (YouTube / Vimeo). */
   publicVideoUrl: httpsLink,

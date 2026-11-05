@@ -2,6 +2,10 @@ import {
   COURSE_DETAIL_FIELDS,
   COURSE_IMPORT_FORMAT_ID,
   COURSE_IMPORT_LIMITS,
+  PAGE_HEADER_FIELDS,
+  type PageHeaderField,
+  type PageListKind,
+  type RawPage,
   type CourseDetailField,
   type ImportCourseType,
   type RawDetails,
@@ -37,6 +41,31 @@ const DETAIL_RE = new RegExp(
 const DETAIL_BY_KEY = new Map<string, (typeof COURSE_DETAIL_FIELDS)[number]>(
   COURSE_DETAIL_FIELDS.map((f) => [f.key, f]),
 );
+
+// Public page header keys (header block only), from the shared table.
+const PAGE_KEY_RE = new RegExp(
+  "^(?:\\*\\*|__)?(" +
+    PAGE_HEADER_FIELDS.map((f) => f.key).join("|") +
+    ")(?:\\*\\*|__)?\\s*:(?:\\*\\*|__)?(.*)$",
+  "i",
+);
+const PAGE_KEY_BY_KEY = new Map<string, (typeof PAGE_HEADER_FIELDS)[number]>(PAGE_HEADER_FIELDS.map((f) => [f.key, f]));
+
+// The page list headings (see PAGE_LIST_HEADINGS); matched loosely so small AI wording changes still work.
+const PAGE_LIST_RES: [PageListKind, RegExp][] = [
+  ["learn", /^##\s+what\s+you(?:'|’|\s+wi)?ll\s+learn\s*:?$/i],
+  ["includes", /^##\s+this\s+(?:course|workshop|webinar|program)\s+includes\s*:?$/i],
+  ["faqs", /^##\s+(?:questions\s+and\s+answers|faqs?|frequently\s+asked\s+questions)\s*:?$/i],
+  ["sections", /^##\s+page\s+sections\s*:?$/i],
+];
+const BULLET_RE = /^(?:[-*•–]|\d+[.)])\s+/;
+const FAQ_Q_RE = /^(?:\*\*|__)?(?:q|question)(?:\*\*|__)?\s*[:.)-](?:\*\*|__)?\s*(.*)$/i;
+const FAQ_A_RE = /^(?:\*\*|__)?(?:a|answer)(?:\*\*|__)?\s*[:.)-](?:\*\*|__)?\s*(.*)$/i;
+
+function emptyPage(): RawPage {
+  const header = Object.fromEntries(PAGE_HEADER_FIELDS.map((f) => [f.field, ""])) as Record<PageHeaderField, string>;
+  return { header, learn: null, includes: null, faqs: null, sections: null };
+}
 
 // Removes bold markers anywhere in a title.
 function unbold(s: string): string {
@@ -91,7 +120,15 @@ function newSession(title: string, line: number): RawSession {
   return { title, line, video: "", video2: "", notes: [], quizText: "", quizLine: 0 };
 }
 
-export function parseCourseFile(text: string): ParseResult {
+export type ParseOptions = {
+  /**
+   * The course editor's "Import page from a file": title, type and sessions
+   * are not needed (a file may hold the page parts only). Default false.
+   */
+  pageOnly?: boolean;
+};
+
+export function parseCourseFile(text: string, options: ParseOptions = {}): ParseResult {
   const cleaned = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
   if (cleaned.trim() === "") return { ok: false, errors: ["The file is empty."] };
   if (cleaned.length > COURSE_IMPORT_LIMITS.maxChars) {
@@ -118,6 +155,8 @@ export function parseCourseFile(text: string): ParseResult {
   let type: ImportCourseType | null = null;
   const modules: RawModule[] = [];
   const unassignedNotes: RawNote[] = [];
+  const page = emptyPage();
+  let pageList: PageListKind | null = null;
 
   let currentModule: RawModule | null = null;
   let currentSession: RawSession | null = null;
@@ -180,8 +219,23 @@ export function parseCourseFile(text: string): ParseResult {
       cont = null;
       flushQuiz();
       inUnassigned = false;
+      pageList = null;
       let m: RegExpExecArray | null;
       const heading = line.replace(/\*\*|__/g, "");
+      const listKind = PAGE_LIST_RES.find(([, re]) => re.test(heading))?.[0];
+      if (listKind) {
+        // A page list ends the session or module above it, like any heading.
+        currentSession = null;
+        if (!flat) currentModule = null;
+        if (page[listKind] !== null) {
+          warnings.push(`The "${heading.replace(/^#+\s*/, "")}" list appears more than once (line ${lineNo}), so both were joined.`);
+        }
+        pageList = listKind;
+        if (listKind === "faqs") page.faqs ??= [];
+        else if (listKind === "sections") page.sections ??= [];
+        else page[listKind] ??= [];
+        continue;
+      }
       if ((m = MODULE_RE.exec(heading))) {
         if (flat) {
           errors.push("Workshops and webinars have sessions only, no modules.");
@@ -219,6 +273,12 @@ export function parseCourseFile(text: string): ParseResult {
       continue;
     }
 
+    if (pageList) {
+      if (line === "") continue;
+      readPageLine(page, pageList, line, lineNo, warnings);
+      continue;
+    }
+
     if (inQuiz) {
       // A second quiz: line in the same session: keep the first quiz only.
       if (/^(?:\*\*|__)?quiz(?:\*\*|__)?\s*:/i.test(line)) {
@@ -239,6 +299,20 @@ export function parseCourseFile(text: string): ParseResult {
     }
 
     if (!headingSeen) {
+      const pk = PAGE_KEY_RE.exec(line);
+      if (pk) {
+        const f = PAGE_KEY_BY_KEY.get(pk[1].toLowerCase());
+        if (f) {
+          const value = trimBold(pk[2].trim());
+          if (page.header[f.field] !== "" && value !== "") {
+            warnings.push(`The ${f.label.toLowerCase()} appears more than once (line ${lineNo}), so only the first was kept.`);
+          } else if (page.header[f.field] === "") {
+            page.header[f.field] = value;
+          }
+          cont = null;
+          continue;
+        }
+      }
       const d = DETAIL_RE.exec(line);
       if (d) {
         const f = DETAIL_BY_KEY.get(d[1].toLowerCase());
@@ -317,9 +391,42 @@ export function parseCourseFile(text: string): ParseResult {
   }
   flushQuiz();
 
+  if (options.pageOnly) {
+    if (errors.length > 0) return { ok: false, errors };
+    return { ok: true, raw: { title, type: type ?? "course", details, modules, unassignedNotes, page }, warnings };
+  }
   if (!title) errors.push("The course needs a title.");
   if (!type) errors.push("The type must be course, workshop or webinar.");
 
   if (errors.length > 0 || !type) return { ok: false, errors };
-  return { ok: true, raw: { title, type, details, modules, unassignedNotes }, warnings };
+  return { ok: true, raw: { title, type, details, modules, unassignedNotes, page }, warnings };
+}
+
+/** One non-blank line under a page list heading. */
+function readPageLine(page: RawPage, kind: PageListKind, line: string, lineNo: number, warnings: string[]): void {
+  if (kind === "learn" || kind === "includes") {
+    page[kind]!.push({ text: unbold(line.replace(BULLET_RE, "")), line: lineNo });
+    return;
+  }
+  if (kind === "faqs") {
+    const faqs = page.faqs!;
+    const bare = line.replace(BULLET_RE, "");
+    let m: RegExpExecArray | null;
+    if ((m = FAQ_Q_RE.exec(bare))) {
+      faqs.push({ question: unbold(m[1]), answer: "", line: lineNo });
+    } else if ((m = FAQ_A_RE.exec(bare))) {
+      const last = faqs[faqs.length - 1];
+      if (!last || last.answer !== "") warnings.push(`Line ${lineNo}: an answer without a question was left out.`);
+      else last.answer = m[1].trim();
+    } else {
+      const last = faqs[faqs.length - 1];
+      // A longer answer may run over several lines.
+      if (last && last.answer !== "") last.answer += "\n" + line;
+      else warnings.push(`Line ${lineNo} was not understood and was ignored.`);
+    }
+    return;
+  }
+  // Page sections: "key | show or hide | heading (optional)".
+  const parts = line.replace(BULLET_RE, "").split("|").map((p) => p.trim());
+  page.sections!.push({ key: parts[0] ?? "", show: parts[1] ?? "", title: parts.slice(2).join(" | "), line: lineNo });
 }

@@ -2,12 +2,15 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { createCourse, ensureDefaultModule } from "@/lib/data/admin-lms";
 import { usesFlatSessions, type LessonContentType } from "@/lib/validations/admin-lms";
-import type { Json } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import { deriveContentType } from "@/lib/lms/lesson-parts";
 import type { ImportPlan } from "@/lib/lms/course-import/analyze";
 import { COURSE_DETAIL_FIELDS } from "@/lib/lms/course-import/format";
+import { pageFieldsPatch } from "@/lib/marketing/course-sections";
 
-export type CreateFromPlanResult = { ok: true; id: string; slug: string } | { ok: false; reason: "db-error" };
+export type CreateFromPlanResult =
+  | { ok: true; id: string; slug: string; /** Plain-words notes about parts that could not be saved. */ notes: string[] }
+  | { ok: false; reason: "db-error" };
 
 const QUIZ_CHUNK = 500;
 
@@ -38,11 +41,18 @@ export async function createCourseFromPlan(plan: ImportPlan): Promise<CreateFrom
 
   try {
     // Basic settings from the file: one update on the new course row.
-    const detailColumns: Partial<Record<(typeof COURSE_DETAIL_FIELDS)[number]["column"], string>> = {};
+    const detailColumns: Database["public"]["Tables"]["courses"]["Update"] = {};
     for (const f of COURSE_DETAIL_FIELDS) {
       const v = plan.details[f.field];
       if (v) detailColumns[f.column] = v;
     }
+    // Public page parts on columns that every live database has (0101 and older).
+    const page = plan.page ?? {};
+    if (page.pricePkr !== undefined) detailColumns.price_pkr = page.pricePkr;
+    if (page.outcomes !== undefined) detailColumns.outcomes = page.outcomes;
+    if (page.features !== undefined) detailColumns.features = page.features;
+    if (page.faqs !== undefined) detailColumns.faqs = page.faqs;
+    Object.assign(detailColumns, pageFieldsPatch({ publicVideoUrl: page.publicVideoUrl, pageSections: page.pageSections }));
     if (Object.keys(detailColumns).length > 0) {
       const { error } = await admin.from("courses").update(detailColumns).eq("id", created.id);
       if (error) return await rollback();
@@ -129,5 +139,19 @@ export async function createCourseFromPlan(plan: ImportPlan): Promise<CreateFrom
     return await rollback();
   }
 
-  return { ok: true, id: created.id, slug: created.slug };
+  // Topic and webinar date (migration 0102) on their own: if that SQL is not
+  // pasted yet the course is still created, and the owner is told.
+  const notes: string[] = [];
+  const page = plan.page ?? {};
+  const extra = pageFieldsPatch({ topic: page.topic, startsAt: plan.type === "webinar" ? page.startsAt : undefined });
+  if (Object.keys(extra).length > 0) {
+    try {
+      const { error } = await admin.from("courses").update(extra).eq("id", created.id);
+      if (error) notes.push("The topic and webinar date could not be saved. Add them in the course editor.");
+    } catch {
+      notes.push("The topic and webinar date could not be saved. Add them in the course editor.");
+    }
+  }
+
+  return { ok: true, id: created.id, slug: created.slug, notes };
 }
