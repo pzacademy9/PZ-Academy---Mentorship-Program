@@ -5,7 +5,8 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingHero } from "@/components/marketing/MarketingHero";
 import { FaqAccordion } from "@/components/marketing/FaqAccordion";
-import { MentorApplicationForm, APPLY_ROLES } from "@/components/mentorship/MentorApplicationForm";
+import { MentorApplicationForm } from "@/components/mentorship/MentorApplicationForm";
+import { APPLY_ROLES } from "@/lib/mentorship/apply-files";
 import { MENTOR_BENEFITS } from "@/components/mentorship/MentorshipSections";
 
 export const metadata: Metadata = {

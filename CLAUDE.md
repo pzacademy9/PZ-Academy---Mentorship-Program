@@ -28,6 +28,7 @@ fetch that URL for the actual frontend code.
   (`...\PZ Academy\PZ Academy LMS & Site\...`) — call the binary directly instead, e.g.
   `./node_modules/.bin/vitest run`, `./node_modules/.bin/tsc --noEmit`.
 - `next build` corrupts the live dev server — don't run it while a dev server is up.
+- Run `npx next build` before pushing any branch that adds or changes a page (in a cloud session no dev server runs, so it is safe). Tests and tsc do NOT catch prerender errors such as a server page using a plain value exported from a "use client" file (broke main once, PR #95; `tests/client-boundary-values.test.ts` now guards it). Keep shared lists/constants in a non-client file.
 - Google Drive image URLs need `/thumbnail?id=` proxied through this app's own `/api/cover`
   route, not `uc?export=view` directly — Drive's CORP header blocks the latter when hotlinked.
 - Checks: `tsc --noEmit` must stay at 0 errors; `eslint` clean; focused `vitest run tests/<file>`

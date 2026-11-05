@@ -5,14 +5,8 @@ import { Camera, CheckCircle2, ChevronLeft, ChevronRight, FileText, Send } from 
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { compressImage } from "@/lib/landing/compress-image";
-import { CV_ACCEPT, PHOTO_ACCEPT, cvProblem, photoProblem } from "@/lib/mentorship/apply-files";
+import { APPLY_ROLES, APPLY_STEPS, CV_ACCEPT, PHOTO_ACCEPT, cvProblem, photoProblem } from "@/lib/mentorship/apply-files";
 
-export const APPLY_STEPS = ["Basic information", "Professional background", "Your role", "Short answers", "Documents"] as const;
-
-export const APPLY_ROLES = [
-  { id: "mentor", label: "Mentor & Consultant", desc: "1-on-1 online mentorship and consultation sessions" },
-  { id: "instructor", label: "Instructor", desc: "Teaching courses, workshops, seminars or webinars" },
-] as const;
 
 type Fields = {
   fullName: string; email: string; phone: string; country: string;
