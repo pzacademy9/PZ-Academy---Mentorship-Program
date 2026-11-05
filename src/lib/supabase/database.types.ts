@@ -3880,6 +3880,89 @@ export type Database = {
         }
         Relationships: []
       }
+      progress_report_recipients: {
+        Row: {
+          claimed_at: string | null
+          email: string
+          id: string
+          name: string
+          person_id: string | null
+          reason: string
+          send_id: string
+          sent_at: string | null
+          state: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          email: string
+          id?: string
+          name?: string
+          person_id?: string | null
+          reason?: string
+          send_id: string
+          sent_at?: string | null
+          state?: string
+        }
+        Update: {
+          claimed_at?: string | null
+          email?: string
+          id?: string
+          name?: string
+          person_id?: string | null
+          reason?: string
+          send_id?: string
+          sent_at?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_report_recipients_send_id_fkey"
+            columns: ["send_id"]
+            isOneToOne: false
+            referencedRelation: "progress_report_sends"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_report_recipients_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "pz_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progress_report_sends: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          page_id: string
+          recipient_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          page_id: string
+          recipient_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          page_id?: string
+          recipient_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_report_sends_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pz_id_aliases: {
         Row: {
           alias_norm: string
