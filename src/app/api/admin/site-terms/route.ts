@@ -6,7 +6,7 @@ import { firstIssue } from "@/lib/validations/landing-promo";
 
 /** The general Terms and Conditions text (admin only). */
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("terms");
   if (!auth.ok) return auth.response;
   try {
     return NextResponse.json({ body: await getGeneralTerms() });
@@ -17,7 +17,7 @@ export async function GET() {
 
 /** Saves the general Terms and Conditions text (admin only). */
 export async function PUT(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("terms");
   if (!auth.ok) return auth.response;
 
   const parsed = siteTermsSchema.safeParse(await req.json().catch(() => null));

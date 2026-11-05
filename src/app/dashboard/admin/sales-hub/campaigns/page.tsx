@@ -5,7 +5,7 @@ import { CampaignsPanel } from "@/components/admin/crm/CampaignsPanel";
 export const metadata = { title: "Campaigns — Sales Hub — PZ Academy" };
 
 export default async function SalesHubCampaignsPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const campaigns = await listCampaigns();
   return (
     <div className="space-y-6">

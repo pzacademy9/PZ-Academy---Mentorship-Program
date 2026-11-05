@@ -5,7 +5,7 @@ import { reorderSchema } from "@/lib/validations/admin-lms";
 
 /** Takes the complete ordered array of lesson IDs for this module and rewrites order_index to 0..n-1. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;

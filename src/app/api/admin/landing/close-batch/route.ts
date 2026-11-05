@@ -10,7 +10,7 @@ const notFound = (e: unknown) => e instanceof Error && e.message === "Page not f
 
 /** Close the batch into the paid and interested CRM cohorts (admin). middleware does not cover /api, so gate here. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["enrollments", "landing_pages"]);
   if (!auth.ok) return auth.response;
 
   const parsed = closeBatchBodySchema.safeParse(await req.json().catch(() => null));
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
 /** What closing would do, without changing anything (admin). */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["enrollments", "landing_pages"]);
   if (!auth.ok) return auth.response;
 
   const parsed = closeBatchQuerySchema.safeParse({ pageId: new URL(req.url).searchParams.get("pageId") });

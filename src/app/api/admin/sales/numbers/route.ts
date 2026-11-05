@@ -5,7 +5,7 @@ import { statusForReason } from "@/lib/api/sales-http";
 import { numberCreateSchema } from "@/lib/validations/sales";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   const result = await listNumbersAdmin();
   if (!result.ok) return NextResponse.json({ error: "Could not load numbers." }, { status: 500 });
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   const parsed = numberCreateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Users, BookOpen, Calendar, DollarSign } from "lucide-react";
-import { requireAdminPage } from "@/lib/auth/require-admin";
+import { requireAdminHomePage } from "@/lib/auth/require-admin";
 import { countPendingEnrollments } from "@/lib/data/admin-enrollments";
 
 export const metadata = { title: "Admin Dashboard — PZ Academy" };
 
 export default async function AdminDashboard() {
-  await requireAdminPage();
+  await requireAdminHomePage();
   const pendingCount = await countPendingEnrollments();
 
   return (

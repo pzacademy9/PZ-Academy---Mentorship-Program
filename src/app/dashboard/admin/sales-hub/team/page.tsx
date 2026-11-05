@@ -7,7 +7,7 @@ import { SalesTeamPanel } from "@/components/admin/sales/SalesTeamPanel";
 export const metadata = { title: "Sales Team — Sales Hub — PZ Academy" };
 
 export default async function AdminSalesTeamPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const [agents, agentsCanClaim] = await Promise.all([listSalesAgents(), getAgentsCanClaim()]);
 
   return (

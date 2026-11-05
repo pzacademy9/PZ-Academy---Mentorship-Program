@@ -6,7 +6,7 @@ import { getSheetSyncStatus } from "@/lib/data/landing-sheet-sync";
 
 /** What the sheet-sync review screen shows for one page. */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["enrollments", "sheet_sync"]);
   if (!auth.ok) return auth.response;
   const pageId = new URL(req.url).searchParams.get("pageId") ?? "";
   if (!isPageId(pageId)) return NextResponse.json({ error: "Page not found" }, { status: 404 });

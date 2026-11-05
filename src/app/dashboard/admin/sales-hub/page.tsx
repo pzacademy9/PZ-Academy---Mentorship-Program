@@ -6,7 +6,7 @@ import { hubOverviewCards } from "@/lib/crm/sales-hub-overview";
 export const metadata = { title: "Sales Hub — PZ Academy" };
 
 export default async function AdminSalesHubPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const cards = hubOverviewCards(await getSalesHubOverview());
 
   return (

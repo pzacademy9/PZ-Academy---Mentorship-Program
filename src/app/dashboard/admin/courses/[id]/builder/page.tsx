@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function CourseBuilderPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("courses");
   const { id } = await params;
   const state = await getBuilderState(id);
   if (!state) notFound();

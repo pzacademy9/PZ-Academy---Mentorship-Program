@@ -5,7 +5,7 @@ import { SafetyLimitsPanel } from "@/components/admin/sales/SafetyLimitsPanel";
 export const metadata = { title: "WhatsApp Safety & Limits — PZ Academy" };
 
 export default async function AdminSalesSafetyPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const agents = await listSalesAgents();
   return (
     <div className="space-y-6 font-body">

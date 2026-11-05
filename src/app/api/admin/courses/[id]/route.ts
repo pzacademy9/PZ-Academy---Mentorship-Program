@@ -5,7 +5,7 @@ import { courseConfigSchema } from "@/lib/validations/admin-lms";
 
 /** Saves the Configuration form (Basics + Mentor Profile). */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 /** Guarded delete — blocked outright if the program has any enrollment row. */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

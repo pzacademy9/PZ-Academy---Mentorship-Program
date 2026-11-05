@@ -4,7 +4,7 @@ import { NewMentorForm } from "@/components/admin/mentors/NewMentorForm";
 export const metadata = { title: "New Mentor — PZ Academy" };
 
 export default async function NewMentorPage() {
-  await requireAdminPage();
+  await requireAdminPage("mentors");
 
   return (
     <div className="max-w-xl space-y-6">

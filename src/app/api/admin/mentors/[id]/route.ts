@@ -5,7 +5,7 @@ import { mentorConfigSchema } from "@/lib/validations/admin-mentor";
 
 /** Saves the Configuration form. No slug in the body — slug is immutable, see mentorConfigSchema. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("mentors");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 /** Guarded delete — blocked outright if the mentor has any booking on record. Hidden is the offered alternative. */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("mentors");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

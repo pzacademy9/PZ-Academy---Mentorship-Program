@@ -4,7 +4,7 @@ import { getWhatsAppBatchDetail, updateWhatsAppBatch, deleteWhatsAppBatch } from
 import { whatsappBatchUpdateSchema } from "@/lib/validations/crm";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

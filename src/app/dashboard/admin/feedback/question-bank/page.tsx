@@ -5,7 +5,7 @@ import { QuestionBankEditor } from "./QuestionBankEditor";
 export const metadata = { title: "Question Bank — PZ Academy" };
 
 export default async function AdminQuestionBankPage() {
-  await requireAdminPage();
+  await requireAdminPage("feedback");
 
   const questions = await getQuestionBank();
 

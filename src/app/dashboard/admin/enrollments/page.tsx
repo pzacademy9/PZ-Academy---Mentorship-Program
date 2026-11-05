@@ -42,7 +42,7 @@ export default async function AdminEnrollmentsPage({
 }) {
   // Duplicates the middleware role gate on purpose — the codebase's
   // defence-in-depth convention for every admin page.
-  await requireAdminPage();
+  await requireAdminPage("enrollments");
 
   const { status, courseId, courseTitle } = await searchParams;
   const filter = parseFilter(status);

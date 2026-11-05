@@ -19,3 +19,8 @@ export function salesAgentRedirect(role: Role, path: string): string | null {
   if (!path.startsWith("/dashboard")) return null;
   return salesAgentMayAccess(path) ? null : "/dashboard/sales";
 }
+
+/** Who may walk into /dashboard/admin at all. Each page then checks its own area; a manager only gets what their areas allow. */
+export function mayEnterAdminSpace(role: Role): boolean {
+  return role === "admin" || role === "super_admin" || role === "manager";
+}

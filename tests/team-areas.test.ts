@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { roleHome } from "@/lib/roles";
 import {
   AREAS, canAccessArea, effectiveAreas, isArea, startingAreas, areaForPath, type Area,
 } from "@/lib/team/areas";
@@ -98,13 +97,5 @@ describe("areaForPath", () => {
     expect(a("/dashboard/admin/../x")).toBeNull();
     expect(a("/dashboard/adminx")).toBeNull();
     expect(a("/dashboard/students")).toBeNull();
-  });
-});
-
-describe("roleHome for a manager", () => {
-  it("never points at a page the middleware turns a manager away from (that would loop forever)", () => {
-    const home = roleHome("manager");
-    expect(home.startsWith("/dashboard/admin")).toBe(false);
-    expect(home.startsWith("/dashboard/mentor")).toBe(false);
   });
 });

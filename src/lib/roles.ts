@@ -9,8 +9,8 @@ export function roleHome(role: Role): string {
       return "/dashboard/admin";
     case "sales_agent":
       return "/dashboard/sales";
-    // A manager cannot open the admin yet (Part 2 of team roles); /dashboard avoids a redirect loop with the middleware.
     case "manager":
+      return "/dashboard/admin/courses";
     case "student":
     default:
       return "/dashboard";

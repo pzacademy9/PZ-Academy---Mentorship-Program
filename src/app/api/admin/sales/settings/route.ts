@@ -6,7 +6,7 @@ import { settingsUpdateSchema } from "@/lib/validations/sales";
 const LOAD_ERROR = { error: "Could not load the settings." };
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   try {
     return NextResponse.json({ settings: await getSafetySettings() });
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
   const parsed = settingsUpdateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

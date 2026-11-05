@@ -11,7 +11,7 @@ const FAILED = {
 };
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const body = await readImportText(req);

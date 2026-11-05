@@ -4,7 +4,7 @@ import { getModuleNotes, updateModuleNotes } from "@/lib/data/admin-lms";
 import { moduleNotesUpdateSchema } from "@/lib/validations/admin-lms";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;
@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mod
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;

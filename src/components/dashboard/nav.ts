@@ -5,6 +5,7 @@ import {
   ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp, ScrollText,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
+import { MEDIA_AREAS, type Area } from "@/lib/team/areas";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
 
 export interface NavItem {
@@ -13,6 +14,8 @@ export interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: Role[];
+  /** Admin-space entries: shown when the person has any one of these areas. */
+  areas?: readonly Area[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -23,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "My Links", href: "/dashboard/sales/my-links", icon: Link2, roles: ["sales_agent"] },
   { label: "Add a Lead", shortLabel: "Add lead", href: "/dashboard/sales/add-lead", icon: UserPlus, roles: ["sales_agent"] },
   { label: "Help & Safety", shortLabel: "Help", href: "/dashboard/sales/help", icon: LifeBuoy, roles: ["sales_agent"] },
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["student", "mentor", "admin", "super_admin"] },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["student", "mentor", "admin", "manager", "super_admin"] },
   { label: "My Courses", shortLabel: "Courses", href: "/dashboard/courses", icon: BookOpen, roles: ["student"] },
   { label: "My Progress", shortLabel: "Progress", href: "/dashboard/progress", icon: TrendingUp, roles: ["student"] },
   { label: "My Notes", shortLabel: "Notes", href: "/dashboard/notes", icon: NotebookPen, roles: ["student"] },
@@ -37,31 +40,41 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Edit Profile", shortLabel: "Profile", href: "/dashboard/mentor/profile", icon: UserCheck, roles: ["mentor"] },
   { label: "Availability", href: "/dashboard/mentor/availability", icon: Clock, roles: ["mentor"] },
   { label: "Feedback", href: "/dashboard/mentor/feedback", icon: Star, roles: ["mentor"] },
-  { label: "Students", href: "/dashboard/admin/students", icon: Users, roles: ["admin", "super_admin"] },
-  { label: "Certificates", href: "/dashboard/admin/certificates", icon: Award, roles: ["admin", "super_admin"] },
-  { label: "Enrollments", href: "/dashboard/admin/enrollments", icon: CreditCard, roles: ["admin", "super_admin"] },
-  { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "super_admin"] },
-  { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "super_admin"] },
-  { label: "Marketing", href: "/dashboard/admin/marketing", icon: Image, roles: ["admin", "super_admin"] },
-  { label: "Landing Pages", href: "/dashboard/admin/landing-pages", icon: LayoutTemplate, roles: ["admin", "super_admin"] },
-  { label: "Media Library", shortLabel: "Media", href: "/dashboard/admin/landing-media", icon: Images, roles: ["admin", "super_admin"] },
-  { label: "Promo Codes", shortLabel: "Promos", href: "/dashboard/admin/landing-promo-codes", icon: TicketPercent, roles: ["admin", "super_admin"] },
-  { label: "Payment Accounts", shortLabel: "Payments", href: "/dashboard/admin/payment-accounts", icon: Landmark, roles: ["admin", "super_admin"] },
-  { label: "Terms and Conditions", shortLabel: "Terms", href: "/dashboard/admin/terms", icon: ScrollText, roles: ["admin", "super_admin"] },
-  { label: "Agent Leaderboard", shortLabel: "Leaders", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, roles: ["admin", "super_admin"] },
-  { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "super_admin"] },
-  { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "super_admin"] },
-  { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "super_admin"] },
-  { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "super_admin"] },
-  { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "super_admin"] },
+  { label: "Students", href: "/dashboard/admin/students", icon: Users, roles: ["admin", "manager", "super_admin"], areas: ["students"] },
+  { label: "Certificates", href: "/dashboard/admin/certificates", icon: Award, roles: ["admin", "manager", "super_admin"], areas: ["certificates"] },
+  { label: "Enrollments", href: "/dashboard/admin/enrollments", icon: CreditCard, roles: ["admin", "manager", "super_admin"], areas: ["enrollments"] },
+  { label: "Mentorship", href: "/dashboard/admin/mentorship", icon: Handshake, roles: ["admin", "manager", "super_admin"], areas: ["mentorship"] },
+  { label: "Programs", href: "/dashboard/admin/courses", icon: BookOpen, roles: ["admin", "manager", "super_admin"], areas: ["courses"] },
+  { label: "Marketing", href: "/dashboard/admin/marketing", icon: Image, roles: ["admin", "manager", "super_admin"], areas: ["marketing"] },
+  { label: "Landing Pages", href: "/dashboard/admin/landing-pages", icon: LayoutTemplate, roles: ["admin", "manager", "super_admin"], areas: ["landing_pages"] },
+  { label: "Media Library", shortLabel: "Media", href: "/dashboard/admin/landing-media", icon: Images, roles: ["admin", "manager", "super_admin"], areas: MEDIA_AREAS },
+  { label: "Promo Codes", shortLabel: "Promos", href: "/dashboard/admin/landing-promo-codes", icon: TicketPercent, roles: ["admin", "manager", "super_admin"], areas: ["landing_pages"] },
+  { label: "Payment Accounts", shortLabel: "Payments", href: "/dashboard/admin/payment-accounts", icon: Landmark, roles: ["admin", "manager", "super_admin"], areas: ["payment_accounts"] },
+  { label: "Terms and Conditions", shortLabel: "Terms", href: "/dashboard/admin/terms", icon: ScrollText, roles: ["admin", "manager", "super_admin"], areas: ["terms"] },
+  { label: "Agent Leaderboard", shortLabel: "Leaders", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
+  { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
+  { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "manager", "super_admin"], areas: ["mentors"] },
+  { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "manager", "super_admin"], areas: ["feedback"] },
+  { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "manager", "super_admin"], areas: ["sheet_sync"] },
+  { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "manager", "super_admin"], areas: ["notifications"] },
   { label: "Team", href: "/dashboard/admin/team", icon: ShieldCheck, roles: ["super_admin"] },
   { label: "Analytics", href: "/dashboard/admin", icon: BarChart3, roles: ["admin", "super_admin"] },
-  { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "super_admin", "sales_agent"] },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["student", "mentor", "admin", "super_admin", "sales_agent"] },
+  { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "manager", "super_admin", "sales_agent"] },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["student", "mentor", "admin", "manager", "super_admin", "sales_agent"] },
 ];
 
-export function navForRole(role: Role): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.roles.includes(role));
+/**
+ * What a role sees. Admin-space entries carry `areas` and show only when the person has one of them
+ * (`areas` is their effective list). A super admin sees all. When the areas are not known, a manager
+ * sees no admin entries at all (fail closed).
+ */
+export function navForRole(role: Role, areas?: readonly Area[]): NavItem[] {
+  return NAV_ITEMS.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    if (!item.areas || role === "super_admin") return true;
+    if (!areas) return role !== "manager";
+    return item.areas.some((a) => areas.includes(a));
+  });
 }
 
 /** Longest matching href wins; matches `href` exactly or `href + "/"` prefix. */

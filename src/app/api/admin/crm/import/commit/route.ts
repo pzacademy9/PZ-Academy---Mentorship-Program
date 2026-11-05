@@ -7,7 +7,7 @@ import { importCommitSchema } from "@/lib/validations/crm";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const parsed = importCommitSchema.safeParse(await req.json().catch(() => null));

@@ -17,7 +17,7 @@ type SP = { tab?: string; group?: string; batch?: string; q?: string; page?: str
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function AdminCertificatesPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireAdminPage();
+  await requireAdminPage("certificates");
   const sp = await searchParams;
   const tab = first(sp.tab) === "official" ? "official" : "general";
   const category: CertCategory = tab === "official" ? "Official" : "General";

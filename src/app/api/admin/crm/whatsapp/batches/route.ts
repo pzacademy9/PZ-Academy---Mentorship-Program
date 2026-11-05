@@ -4,13 +4,13 @@ import { listWhatsAppBatches, createWhatsAppBatch } from "@/lib/data/admin-crm-w
 import { whatsappBatchCreateSchema } from "@/lib/validations/crm";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
   return NextResponse.json({ batches: await listWhatsAppBatches() });
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const parsed = whatsappBatchCreateSchema.safeParse(await req.json().catch(() => null));

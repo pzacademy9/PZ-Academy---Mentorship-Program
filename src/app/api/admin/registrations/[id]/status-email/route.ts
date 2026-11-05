@@ -11,7 +11,7 @@ const bodySchema = z.object({
 
 /** Send one status email to one person again (admin). Email text only: never changes status or access. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

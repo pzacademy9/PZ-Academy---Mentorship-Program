@@ -10,7 +10,7 @@ const bulkSchema = z.object({
 
 /** Paste-many quiz: appends after the existing questions, never replaces. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { lessonId } = await params;

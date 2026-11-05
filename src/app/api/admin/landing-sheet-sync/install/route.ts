@@ -7,7 +7,7 @@ export const maxDuration = 60;
 
 /** Switches on the automatic sheet check (every 5 minutes) in Google Sheets. Safe to repeat. */
 export async function POST() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["enrollments", "sheet_sync"]);
   if (!auth.ok) return auth.response;
   const r = await installLandingScanTrigger();
   if (!r.ok) return NextResponse.json({ error: `Could not switch on the automatic check: ${r.message ?? "no reply"}` }, { status: 502 });

@@ -4,7 +4,7 @@ import { updateQuizQuestion, deleteQuizQuestion } from "@/lib/data/admin-lms";
 import { quizQuestionUpdateSchema } from "@/lib/validations/admin-lms";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ qId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { qId } = await params;
@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ qI
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ qId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { qId } = await params;

@@ -11,7 +11,7 @@ export default async function AdminFeedbackSessionDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdminPage();
+  await requireAdminPage("feedback");
 
   const { id } = await params;
   const [detail, mentors] = await Promise.all([getFeedbackSessionDetail(id), listMentorsForLinking()]);

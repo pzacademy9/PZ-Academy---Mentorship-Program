@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function CourseConfigPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("courses");
   const { id } = await params;
   const course = await getCourseConfig(id);
   if (!course) notFound();

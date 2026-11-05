@@ -17,7 +17,7 @@ const bodySchema = z.object({ decision: z.enum(["confirm", "dismiss"]) });
  * the stray cell rather than leaving it visibly wrong.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

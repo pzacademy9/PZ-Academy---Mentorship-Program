@@ -6,7 +6,7 @@ import { readImportText } from "@/lib/lms/course-import/read-body";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const body = await readImportText(req);

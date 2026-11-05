@@ -11,7 +11,7 @@ const bodySchema = z.object({ publish: z.boolean() });
  * The Builder's Draft|Published pill (Part C) is the primary caller.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

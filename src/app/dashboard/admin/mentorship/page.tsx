@@ -22,7 +22,7 @@ export default async function AdminMentorshipPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  await requireAdminPage();
+  await requireAdminPage("mentorship");
   const { tab: tabParam } = await searchParams;
   const tab = parseTab(tabParam);
 

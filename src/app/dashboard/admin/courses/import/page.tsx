@@ -5,7 +5,7 @@ import { CourseImport } from "@/components/admin/program/CourseImport";
 export const metadata = { title: "Build a course from a file — PZ Academy" };
 
 export default async function CourseImportPage() {
-  await requireAdminPage();
+  await requireAdminPage("courses");
 
   return (
     <div className="space-y-6">

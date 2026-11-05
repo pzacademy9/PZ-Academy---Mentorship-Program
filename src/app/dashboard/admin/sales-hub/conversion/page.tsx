@@ -6,7 +6,7 @@ import { ConversionPanel, type ConversionTrackedItem } from "@/components/admin/
 export const metadata = { title: "Conversion — Sales Hub — PZ Academy" };
 
 export default async function SalesHubConversionPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const [whatsappBatches, campaigns] = await Promise.all([listWhatsAppBatches(), listCampaigns()]);
 
   const conversionItems: ConversionTrackedItem[] = [

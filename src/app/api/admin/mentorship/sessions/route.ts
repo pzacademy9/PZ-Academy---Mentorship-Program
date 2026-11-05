@@ -13,7 +13,7 @@ const REASON_MESSAGES: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("mentorship");
   if (!auth.ok) return auth.response;
 
   const parsed = scheduleSessionSchema.safeParse(await req.json().catch(() => null));

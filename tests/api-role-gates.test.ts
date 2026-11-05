@@ -16,12 +16,12 @@ const API = join(process.cwd(), "src", "app", "api");
 const rel = (f: string) => relative(API, f).replace(/[\\]/g, "/");
 
 describe("API role gates", () => {
-  it("every /api/admin route calls requireAdmin, except the pinned uploads/image route that calls requireMentor and the Team routes that call requireSuperAdmin", () => {
+  it("every /api/admin route calls requireAdmin, except the pinned uploads/image route that calls requireImageUploader and the Team routes that call requireSuperAdmin", () => {
     const files = routeFiles(join(API, "admin"));
     expect(files.length).toBeGreaterThan(0);
     const offenders = files.filter((f) => {
       const src = readFileSync(f, "utf8");
-      if (rel(f) === "admin/uploads/image/route.ts") return !src.includes("requireMentor(");
+      if (rel(f) === "admin/uploads/image/route.ts") return !src.includes("requireImageUploader(");
       // The Team screen's API is stricter: super admin only.
       if (rel(f).startsWith("admin/team/")) return !src.includes("requireSuperAdmin(");
       return !src.includes("requireAdmin(");

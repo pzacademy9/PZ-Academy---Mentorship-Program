@@ -9,7 +9,7 @@ import type { AgentChoice, LinkPage, PromoPageOption } from "@/lib/landing/regis
 export const metadata = { title: "Promo Codes — PZ Academy" };
 
 export default async function AdminPromoCodesPage() {
-  await requireAdminPage();
+  await requireAdminPage("landing_pages");
   const [codes, summaries, salesAgents] = await Promise.all([listPromoCodes(), listLandingPages(), listSalesAgents()]);
   // Option names come from each page's draft registration settings (what admins edit);
   // getLandingPage runs normalizeContent, so draft.registration is always present (Task 2).

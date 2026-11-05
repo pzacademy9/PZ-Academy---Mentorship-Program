@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { copyModule } from "@/lib/data/admin-lms";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;

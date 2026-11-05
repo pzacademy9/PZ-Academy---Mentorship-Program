@@ -9,7 +9,7 @@ import {
 
 /** Step 1 of invite: new email -> sends the invite. Already-registered email -> returns "existing" without writing (see PUT). */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("mentors");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 /** Step 2 of invite: admin confirmed the "this email already has an account" dialog — actually promote + link. */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("mentors");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 /** Clears the link and reverts the account to role='student' — see unlinkMentorAccount's comment. */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("mentors");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

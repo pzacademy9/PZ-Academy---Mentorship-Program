@@ -95,7 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   let isTest = false;
   let studentId: string | null = null;
   if (payload.testMode) {
-    const auth = await requireAdmin();
+    const auth = await requireAdmin("landing_pages");
     if (!auth.ok) return fail("Test registrations can only be made by a signed-in admin.", 403);
     isTest = true;
     studentId = auth.user.id;

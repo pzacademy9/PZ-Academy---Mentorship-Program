@@ -5,7 +5,7 @@ import { courseCreateSchema } from "@/lib/validations/admin-lms";
 
 /** Creates a draft program (title + type only). Everything else is filled in on the Configuration page. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const parsed = courseCreateSchema.safeParse(await req.json().catch(() => null));

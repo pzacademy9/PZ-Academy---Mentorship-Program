@@ -6,7 +6,7 @@ import { createSendBodySchema, isUuid } from "@/lib/validations/participants";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
   const parsed = createSendBodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
   const pageId = new URL(req.url).searchParams.get("pageId") ?? "";
   if (!isUuid(pageId)) return NextResponse.json({ error: "Invalid input" }, { status: 400 });

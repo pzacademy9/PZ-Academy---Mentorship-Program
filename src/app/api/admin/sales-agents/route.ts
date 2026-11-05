@@ -5,7 +5,7 @@ import { inviteOrCheckSalesAgent, confirmPromoteToSalesAgent } from "@/lib/data/
 
 /** Step 1: new email -> sends the invite. Already-registered email -> returns "existing" without writing (see PUT). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
 
   const parsed = salesAgentInviteSchema.safeParse(await req.json().catch(() => null));
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
 /** Step 2: the admin confirmed the "already has an account" dialog. */
 export async function PUT(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
 
   const parsed = salesAgentInviteSchema.safeParse(await req.json().catch(() => null));

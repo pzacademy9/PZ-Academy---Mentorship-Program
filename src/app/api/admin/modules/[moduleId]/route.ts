@@ -5,7 +5,7 @@ import { updateModule, deleteModule } from "@/lib/data/admin-lms";
 import { moduleUpdateSchema } from "@/lib/validations/admin-lms";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;
@@ -31,7 +31,7 @@ const deleteBodySchema = z.object({ confirm: z.boolean().default(false) });
  * src/lib/data/admin-lms.ts and the plan's delete-guards table).
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ moduleId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { moduleId } = await params;

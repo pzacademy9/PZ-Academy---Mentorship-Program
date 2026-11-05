@@ -7,7 +7,7 @@ import { CampaignDetailClient } from "@/components/admin/crm/CampaignDetailClien
 export const metadata = { title: "Campaign — PZ Academy CRM" };
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const { id } = await params;
   const [campaigns, conversionDetail] = await Promise.all([listCampaigns(), getCampaignConversionDetail(id)]);
   const campaign = campaigns.find((c) => c.id === id);

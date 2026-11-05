@@ -4,13 +4,13 @@ import { listCampaigns, createCampaign } from "@/lib/data/admin-crm-campaigns";
 import { campaignCreateSchema } from "@/lib/validations/crm";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
   return NextResponse.json({ campaigns: await listCampaigns() });
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const parsed = campaignCreateSchema.safeParse(await req.json().catch(() => null));

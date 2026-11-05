@@ -6,7 +6,7 @@ import { firstIssue } from "@/lib/validations/landing-promo";
 
 /** Edits or hides an account. Accounts are never deleted. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("payment_accounts");
   if (!auth.ok) return auth.response;
   const { key } = await params;
 

@@ -9,7 +9,7 @@ import { agentLinkSchema, firstIssue } from "@/lib/validations/landing-promo";
  * /e/<slug>?ref=<code> for any page. Admin only in Phase 2; the agents' own "My links" panel is Phase 3.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
 
   const parsed = agentLinkSchema.safeParse(await req.json().catch(() => null));

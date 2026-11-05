@@ -4,7 +4,7 @@ import { ImportWizard } from "@/components/admin/crm/ImportWizard";
 export const metadata = { title: "Import — Sales Hub — PZ Academy" };
 
 export default async function SalesHubImportPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   return (
     <div className="space-y-6">
       <div>

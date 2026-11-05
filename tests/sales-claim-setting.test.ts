@@ -26,7 +26,7 @@ describe("agents_can_claim setting", () => {
   });
 
   it("the setting route is admin-only and validates a boolean", () => {
-    expect(routeSrc).toContain("requireAdmin()");
+    expect(routeSrc).toContain('requireAdmin("sales_hub")');
     expect(routeSrc).toContain("z.boolean()");
   });
 

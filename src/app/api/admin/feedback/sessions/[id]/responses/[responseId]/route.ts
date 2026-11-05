@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { deleteFeedbackResponse, setResponseFeatured, setResponseVisibility } from "@/lib/data/feedback-responses";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; responseId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   const { id, responseId } = await params;
   try {
@@ -23,7 +23,7 @@ const patchSchema = z
 
 /** Toggles a single response's visibility or featured state on the public mentor-profile reviews section. See setResponseVisibility/setResponseFeatured for what these do NOT affect. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; responseId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   const { id, responseId } = await params;
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));

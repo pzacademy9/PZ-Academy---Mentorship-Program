@@ -5,7 +5,7 @@ import { LandingPagesList } from "@/components/admin/landing/LandingPagesList";
 export const metadata = { title: "Landing Pages — PZ Academy" };
 
 export default async function AdminLandingPagesPage() {
-  await requireAdminPage();
+  await requireAdminPage("landing_pages");
   const pages = await listLandingPages();
 
   return (

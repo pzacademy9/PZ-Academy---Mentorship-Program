@@ -8,7 +8,7 @@ import { isPageId } from "@/lib/validations/landing";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["landing_pages", "courses", "mentors", "marketing"]);
   if (!auth.ok) return auth.response;
   const { id } = await params;
   if (!isPageId(id)) return NextResponse.json({ error: "Picture not found" }, { status: 404 });
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["landing_pages", "courses", "mentors", "marketing"]);
   if (!auth.ok) return auth.response;
   const { id } = await params;
   if (!isPageId(id)) return NextResponse.json({ error: "Picture not found" }, { status: 404 });

@@ -12,13 +12,13 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
   return NextResponse.json({ sessions: await listFeedbackSessions() });
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("feedback");
   if (!auth.ok) return auth.response;
 
   const parsed = createSchema.safeParse(await req.json().catch(() => null));

@@ -19,7 +19,7 @@ const ALLOWED_MIME_TYPES = ["application/pdf"];
  * routes in /api/lessons/[id]/pdf and /api/lessons/[id]/documents/[fileId].
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["landing_pages", "courses", "mentors", "marketing"]);
   if (!auth.ok) return auth.response;
 
   if (!GAS_URL || !GAS_SHARED_SECRET) {

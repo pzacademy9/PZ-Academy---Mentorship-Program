@@ -6,7 +6,7 @@ import { importExistingMedia } from "@/lib/data/landing-media";
 export const maxDuration = 60;
 
 export async function POST() {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["landing_pages", "courses", "mentors", "marketing"]);
   if (!auth.ok) return auth.response;
   try {
     const result = await importExistingMedia(auth.user.id);

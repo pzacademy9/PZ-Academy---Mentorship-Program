@@ -10,7 +10,7 @@ function parseRange(raw: string | undefined): Range {
 }
 
 export default async function AgentLeaderboardPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const range = parseRange((await searchParams).range);
   const rows = await getLeaderboard(range);
   return <AgentLeaderboard rows={rows} range={range} />;

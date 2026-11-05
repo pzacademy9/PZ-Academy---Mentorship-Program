@@ -5,7 +5,7 @@ import { sendCampaign } from "@/lib/data/admin-crm-campaigns";
 export const maxDuration = 60;
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

@@ -7,7 +7,7 @@ import { emptyContent } from "@/lib/landing/content";
 import { buildTemplate } from "@/lib/landing/templates";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const parsed = createPageSchema.safeParse(await req.json().catch(() => null));

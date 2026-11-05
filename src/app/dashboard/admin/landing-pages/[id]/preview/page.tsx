@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Page preview — PZ Academy", robots
 export default async function LandingPreviewPage({
   params, searchParams,
 }: { params: Promise<{ id: string }>; searchParams?: Promise<{ v?: string | string[] }> }) {
-  await requireAdminPage();
+  await requireAdminPage("landing_pages");
   const { id } = await params;
   if (!isPageId(id)) notFound();
   const page = await getLandingPage(id);

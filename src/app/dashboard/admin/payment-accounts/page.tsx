@@ -7,7 +7,7 @@ export const metadata = { title: "Payment accounts — PZ Academy" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminPaymentAccountsPage() {
-  await requireAdminPage();
+  await requireAdminPage("payment_accounts");
   const [countries, accounts] = await Promise.all([listPaymentCountries(), listAllPaymentAccounts()]);
 
   return (

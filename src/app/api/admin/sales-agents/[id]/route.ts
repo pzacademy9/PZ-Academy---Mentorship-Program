@@ -4,7 +4,7 @@ import { removeSalesAgent } from "@/lib/data/sales-agents";
 
 /** Removes sales access (role back to student) and releases the agent's contacts. */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sales_hub");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

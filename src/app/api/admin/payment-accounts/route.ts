@@ -6,7 +6,7 @@ import { firstIssue } from "@/lib/validations/landing-promo";
 
 /** Adds a payment account to the library (admin only). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("payment_accounts");
   if (!auth.ok) return auth.response;
 
   const parsed = accountCreateSchema.safeParse(await req.json().catch(() => null));

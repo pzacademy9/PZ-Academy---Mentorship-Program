@@ -4,7 +4,7 @@ import { addFeaturedItem } from "@/lib/data/admin-marketing";
 import { featuredItemCreateSchema } from "@/lib/validations/admin-marketing";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("marketing");
   if (!auth.ok) return auth.response;
 
   const parsed = featuredItemCreateSchema.safeParse(await req.json().catch(() => null));

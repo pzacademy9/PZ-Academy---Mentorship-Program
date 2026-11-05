@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** Unfinished Sheet-row and email jobs of one page, for the editor's Registrations card. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });

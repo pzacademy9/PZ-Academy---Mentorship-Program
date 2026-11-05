@@ -44,7 +44,9 @@ export function canAccessArea(role: Role, custom: CustomAccess | null, area: Are
   return effectiveAreas(role, custom).includes(area);
 }
 
-const MEDIA: Area[] = ["landing_pages", "courses", "mentors", "marketing"];
+/** Areas that use the shared media library and image uploads: any one of them is enough. */
+export const MEDIA_AREAS: readonly Area[] = ["landing_pages", "courses", "mentors", "marketing"];
+const MEDIA: Area[] = [...MEDIA_AREAS];
 
 /**
  * Path rules, most specific first. A route may belong to several areas (access to any one is enough).
@@ -54,7 +56,13 @@ const RULES: { test: RegExp; areas: Area[] }[] = [
   { test: /^\/dashboard\/admin\/enrollments\/registrations\/campaign\/[^/]+\/sessions(\/|$)/, areas: ["classes"] },
   { test: /^\/(dashboard|api)\/admin\/(landing-media|uploads)(\/|$)/, areas: MEDIA },
   { test: /^\/(dashboard|api)\/admin\/(payment-accounts|payment-countries)(\/|$)/, areas: ["payment_accounts"] },
-  { test: /^\/(dashboard|api)\/admin\/(sheet-sync|landing-sheet-sync)(\/|$)/, areas: ["sheet_sync"] },
+  { test: /^\/api\/admin\/courses\/[^/]+\/connect-sheet(\/|$)/, areas: ["sheet_sync"] },
+  // Sheet and batch tools sit on the Registrations pages, so Registrations opens them too.
+  { test: /^\/api\/admin\/landing-pages\/[^/]+\/sheet(\/|$)/, areas: ["enrollments", "landing_pages"] },
+  { test: /^\/api\/admin\/landing\/(batch|close-batch|portal-links)(\/|$)/, areas: ["enrollments", "landing_pages"] },
+  { test: /^\/api\/admin\/landing-mirror(\/|$)/, areas: ["enrollments", "landing_pages"] },
+  { test: /^\/api\/admin\/landing-sheet-sync(\/|$)/, areas: ["enrollments", "sheet_sync"] },
+  { test: /^\/(dashboard|api)\/admin\/sheet-sync(\/|$)/, areas: ["sheet_sync"] },
   { test: /^\/(dashboard|api)\/admin\/(terms|site-terms)(\/|$)/, areas: ["terms"] },
   { test: /^\/(dashboard|api)\/admin\/team(\/|$)/, areas: ["team"] },
   { test: /^\/(dashboard|api)\/admin\/(sales-hub|sales|sales-agents|agent-leaderboard|landing-agent-links)(\/|$)/, areas: ["sales_hub"] },
@@ -62,7 +70,7 @@ const RULES: { test: RegExp; areas: Area[] }[] = [
   { test: /^\/(dashboard|api)\/admin\/(landing-pages|landing|landing-promo-codes|landing-whatsapp|landing-mirror)(\/|$)/, areas: ["landing_pages"] },
   { test: /^\/(dashboard|api)\/admin\/(courses|modules|lessons|quiz-questions)(\/|$)/, areas: ["courses"] },
   { test: /^\/(dashboard|api)\/admin\/(marketing|banners|featured-items)(\/|$)/, areas: ["marketing"] },
-  { test: /^\/(dashboard|api)\/admin\/crm(\/|$)/, areas: ["crm"] },
+  { test: /^\/(dashboard|api)\/admin\/crm(\/|$)/, areas: ["sales_hub", "crm"] },
   { test: /^\/(dashboard|api)\/admin\/mentors(\/|$)/, areas: ["mentors"] },
   { test: /^\/(dashboard|api)\/admin\/mentorship(\/|$)/, areas: ["mentorship"] },
   { test: /^\/(dashboard|api)\/admin\/feedback(\/|$)/, areas: ["feedback"] },
@@ -76,4 +84,16 @@ export function areaForPath(path: string): Area[] | null {
   if (path.includes("..")) return null;
   if (path === "/dashboard/admin" || path === "/dashboard/admin/") return [...AREAS];
   return RULES.find((r) => r.test.test(path))?.areas.slice() ?? null;
+}
+
+/** May this person open a route that belongs to any one of these areas? Super admin always may. Anything unclear is no. */
+export function mayOpen(role: Role, custom: CustomAccess | null, areas: readonly Area[]): boolean {
+  if (role === "super_admin") return true;
+  const mine = effectiveAreas(role, custom);
+  return areas.some((a) => mine.includes(a));
+}
+
+/** The Analytics home (`/dashboard/admin` exactly). Open to admin and super admin only; never to a manager. */
+export function isAdminHomePath(path: string): boolean {
+  return path === "/dashboard/admin" || path === "/dashboard/admin/";
 }

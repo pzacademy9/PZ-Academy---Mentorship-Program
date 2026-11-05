@@ -5,7 +5,7 @@ import { ProgramLibraryTable } from "@/components/admin/program/ProgramLibraryTa
 export const metadata = { title: "Programs — PZ Academy" };
 
 export default async function AdminProgramsPage() {
-  await requireAdminPage();
+  await requireAdminPage("courses");
   const { rows, stats } = await listPrograms();
 
   return (

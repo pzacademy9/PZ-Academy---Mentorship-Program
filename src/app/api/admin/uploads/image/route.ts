@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMentor } from "@/lib/auth/require-mentor";
+import { requireImageUploader } from "@/lib/auth/require-admin";
 
 // GAS_WEBAPP_URL is reserved for the feedback system in production; this
 // bridge (shared with sheets-sync per gas/sheets-sync/Code.gs) lives at
@@ -22,7 +22,7 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
  * content.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireMentor();
+  const auth = await requireImageUploader();
   if (!auth.ok) return auth.response;
 
   if (!GAS_URL || !GAS_SHARED_SECRET) {

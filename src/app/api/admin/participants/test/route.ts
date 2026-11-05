@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** Sends a sample to the signed-in admin only. The address comes from the session, never the body. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
   const toEmail = auth.user.email;
   if (!toEmail) return NextResponse.json({ error: "Your account has no email address" }, { status: 400 });

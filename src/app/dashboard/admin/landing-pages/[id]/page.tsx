@@ -12,7 +12,7 @@ import { LandingEditor } from "@/components/admin/landing/LandingEditor";
 export const metadata = { title: "Edit Landing Page — PZ Academy" };
 
 export default async function LandingEditorPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("landing_pages");
   const { id } = await params;
   if (!isPageId(id)) notFound();
   const page = await getLandingPage(id);

@@ -18,7 +18,7 @@ const Body = z.object({
 
 /** Approves the first sheet check: ticked differences are taken from the sheet, the rest keep the app's values. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["enrollments", "sheet_sync"]);
   if (!auth.ok) return auth.response;
   const body = Body.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "That request was not understood. Refresh the page and try again." }, { status: 400 });

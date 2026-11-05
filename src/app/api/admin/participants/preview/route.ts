@@ -6,7 +6,7 @@ import { previewBodySchema } from "@/lib/validations/participants";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
   const parsed = previewBodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });

@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Delete a registration for good (admin only). A group lead takes its members with it. */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -29,7 +29,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
 /** Manually change a registration's payment status (admin). middleware does not cover /api, so gate here. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function MentorConfigPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
+  await requireAdminPage("mentors");
   const { id } = await params;
   const mentor = await getMentorConfig(id);
   if (!mentor) notFound();

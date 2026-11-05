@@ -5,7 +5,7 @@ import { CourseAiPrompts } from "@/components/admin/program/CourseAiPrompts";
 export const metadata = { title: "Make a course page with AI — PZ Academy" };
 
 export default async function CourseAiPage() {
-  await requireAdminPage();
+  await requireAdminPage("courses");
   return (
     <div className="space-y-6">
       <div>

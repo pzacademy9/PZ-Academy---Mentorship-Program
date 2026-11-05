@@ -5,7 +5,7 @@ import { bannerReorderSchema } from "@/lib/validations/admin-marketing";
 
 /** Takes the complete ordered array of banner IDs for one slot and rewrites order_index to 0..n-1. */
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("marketing");
   if (!auth.ok) return auth.response;
 
   const parsed = bannerReorderSchema.safeParse(await req.json().catch(() => null));

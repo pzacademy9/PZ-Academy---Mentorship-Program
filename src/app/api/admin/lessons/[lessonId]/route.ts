@@ -6,7 +6,7 @@ import { lessonUpdateSchema } from "@/lib/validations/admin-lms";
 
 /** Full lesson detail (body, quiz questions) — fetched lazily when a lesson is selected in the Builder, not part of the initial page load. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { lessonId } = await params;
@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ les
 
 /** The Lesson Editor's autosave target (Part D) — also used by Part C's title/type edits. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { lessonId } = await params;
@@ -38,7 +38,7 @@ const deleteBodySchema = z.object({ confirm: z.boolean().default(false) });
 
 /** Guarded delete — see deleteLesson in src/lib/data/admin-lms.ts for the same rules as module deletion. */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { lessonId } = await params;

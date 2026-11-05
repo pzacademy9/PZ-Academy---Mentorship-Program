@@ -4,7 +4,7 @@ import { ConnectSheetForm } from "@/components/admin/ConnectSheetForm";
 export const metadata = { title: "Sheet Sync — PZ Academy" };
 
 export default async function AdminSheetSyncPage() {
-  const { supabase } = await requireAdminPage();
+  const { supabase } = await requireAdminPage("sheet_sync");
 
   const { data: courses } = await supabase
     .from("courses")

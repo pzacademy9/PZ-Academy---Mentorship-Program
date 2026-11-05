@@ -4,7 +4,7 @@ import { listFieldValues } from "@/lib/data/admin-crm-segments";
 import { segmentFieldValuesQuerySchema } from "@/lib/validations/crm";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const parsed = segmentFieldValuesQuerySchema.safeParse({ field: req.nextUrl.searchParams.get("field") });

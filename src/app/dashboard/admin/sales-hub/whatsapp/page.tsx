@@ -5,7 +5,7 @@ import { WhatsAppPanel } from "@/components/admin/crm/WhatsAppPanel";
 export const metadata = { title: "WhatsApp — Sales Hub — PZ Academy" };
 
 export default async function SalesHubWhatsAppPage() {
-  await requireAdminPage();
+  await requireAdminPage("sales_hub");
   const whatsappBatches = await listWhatsAppBatches();
   return (
     <div className="space-y-6">

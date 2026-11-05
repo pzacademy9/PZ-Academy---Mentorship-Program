@@ -10,7 +10,7 @@ import type { CampaignSelection } from "@/components/admin/registrations/Campaig
 
 /** Admin only: every enrolled person of a batch with their PZ ID. Emails are never returned. */
 export async function getBatchIdList(pageId: string): Promise<Array<{ name: string; pzId: string }>> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) throw new Error("You do not have permission to do this.");
   const rows = await listBatchIdsForAdmin(pageId);
   return rows.map((r) => ({ name: r.name, pzId: r.pzId }));
@@ -30,7 +30,7 @@ export async function getSelectionIdList(
   pageId: string,
   selection: CampaignSelection | null,
 ): Promise<Array<{ name: string; pzId: string }>> {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) throw new Error("You do not have permission to do this.");
   if (selection === null) {
     const rows = await listBatchIdsForAdmin(pageId);

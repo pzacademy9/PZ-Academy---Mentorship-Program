@@ -12,7 +12,7 @@ const FILTERS: readonly StudentFilter[] = ["all", "active", "payment-pending", "
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function AdminStudentsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireAdminPage();
+  await requireAdminPage("students");
   const sp = await searchParams;
   const f = first(sp.filter);
   const filter: StudentFilter = f && (FILTERS as readonly string[]).includes(f) ? (f as StudentFilter) : "all";

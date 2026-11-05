@@ -11,7 +11,7 @@ const MESSAGES = {
 } as const;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   if (!isPageId(id)) return NextResponse.json({ error: "Page not found" }, { status: 404 });

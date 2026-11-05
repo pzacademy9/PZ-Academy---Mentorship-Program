@@ -4,7 +4,7 @@ import { listContacts } from "@/lib/data/admin-crm-contacts";
 import { contactListQuerySchema } from "@/lib/validations/crm";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(["sales_hub", "crm"]);
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(req.url);

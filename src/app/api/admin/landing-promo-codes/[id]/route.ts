@@ -6,7 +6,7 @@ import { isPageId } from "@/lib/validations/landing";
 import { firstIssue, promoIssues, promoPatchSchema } from "@/lib/validations/landing-promo";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
   const { id } = await params;
   // isPageId is a plain uuid check: a non-uuid can never be a promo id and would make Postgres error (22P02).

@@ -4,7 +4,7 @@ import { createBanner } from "@/lib/data/admin-marketing";
 import { bannerCreateSchema } from "@/lib/validations/admin-marketing";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("marketing");
   if (!auth.ok) return auth.response;
 
   const parsed = bannerCreateSchema.safeParse(await req.json().catch(() => null));

@@ -14,7 +14,7 @@ const TOO_BIG = { errors: ["That file is too big to import."] };
 const bodySchema = z.object({ markdown: z.string().min(1).max(MAX_CHARS) });
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const declared = Number(req.headers.get("content-length"));

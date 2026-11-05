@@ -5,7 +5,7 @@ import { moduleCreateSchema } from "@/lib/validations/admin-lms";
 
 /** Creates a module under a course. Rejected for flat types (workshop/webinar/mentorship) — see usesFlatSessions(). */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
