@@ -10,6 +10,7 @@ import { ChipTabs } from "@/components/ui/chip-tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { formatDate, relativeTime, initials } from "@/lib/format";
+import { bookingRef } from "@/lib/mentorship/booking";
 
 export const metadata = { title: "Mentorship Review — PZ Academy" };
 
@@ -64,6 +65,7 @@ export default async function AdminMentorshipPage({
             mobile={{
               title: (b) => b.fullName,
               meta: (b) => [
+                `Ref ${bookingRef(b.id) ?? "—"}`,
                 b.email,
                 `${b.mentorName} · ${b.packageName}`,
                 `${formatDate(b.createdAt)} · ${relativeTime(b.createdAt)}`,
@@ -119,6 +121,7 @@ export default async function AdminMentorshipPage({
                           <span className="min-w-0">
                             <span className="block font-body font-medium truncate">{b.fullName}</span>
                             <span className="block font-body text-xs text-pz-on-surface-variant truncate">{b.email}</span>
+                            <span className="block font-mono text-[11px] font-semibold text-pz-on-surface-variant">Ref {bookingRef(b.id) ?? "—"}</span>
                           </span>
                         </div>
                       </td>

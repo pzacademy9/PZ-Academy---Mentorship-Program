@@ -45,7 +45,10 @@ export default async function MentorPage({ params }: Props) {
       <main>
         <MentorProfileClient mentor={mentor} reviewSummary={reviewSummary} reviews={reviews} />
       </main>
-      <MarketingFooter />
+      {/* Room under the footer for the phone's fixed "Book a session" bar. */}
+      <div className="pb-24 lg:pb-0">
+        <MarketingFooter />
+      </div>
     </>
   );
 }

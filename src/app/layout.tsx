@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, Fredoka, Handlee, Allura } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
-import "./mentorship/mentorship.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
