@@ -11,9 +11,7 @@ vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: async () => (gate.ok
     ? { ok: true, user: { id: "admin-1" } }
     : { ok: false, response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) }),
-}));
-vi.mock("@/lib/auth/require-mentor", () => ({
-  requireMentor: async () => ({ ok: true, user: { id: "mentor-1" } }),
+  requireImageUploader: async () => ({ ok: true, user: { id: "mentor-1" } }),
 }));
 const m = vi.hoisted(() => ({ listMedia: vi.fn(), addMedia: vi.fn(), updateMedia: vi.fn(), deleteMedia: vi.fn() }));
 vi.mock("@/lib/data/landing-media", () => m);
