@@ -51,7 +51,7 @@ function inviteEmailHtml(email: string, actionLink: string): string {
               <h2 style="${headingStyles} font-size: 22px; margin: 0 0 20px;">You're Invited!</h2>
 
               <p style="margin: 0 0 20px; color: ${brandColors.lightGray};">
-                Welcome to <strong>PZ Academy</strong>. You've been invited to join our mentorship platform.
+                Welcome to <strong>PZ Academy</strong>. You've been invited to join PZ Academy.
               </p>
 
               <p style="margin: 0 0 30px; color: ${brandColors.lightGray};">
@@ -84,8 +84,8 @@ function inviteEmailHtml(email: string, actionLink: string): string {
           <tr>
             <td style="background-color: #f0f0f0; padding: 20px 30px; text-align: center; border-top: 1px solid ${brandColors.border};">
               <p style="margin: 0; color: ${brandColors.lightGray}; font-size: 12px;">
-                PZ Academy Mentorship Platform<br>
-                © 2024 Pharmacozyme. All rights reserved.
+                PZ Academy<br>
+                © 2026 Pharmacozyme. All rights reserved.
               </p>
             </td>
           </tr>
@@ -161,8 +161,8 @@ function signupConfirmEmailHtml(email: string, actionLink: string): string {
           <tr>
             <td style="background-color: #f0f0f0; padding: 20px 30px; text-align: center; border-top: 1px solid ${brandColors.border};">
               <p style="margin: 0; color: ${brandColors.lightGray}; font-size: 12px;">
-                PZ Academy Mentorship Platform<br>
-                © 2024 Pharmacozyme. All rights reserved.
+                PZ Academy<br>
+                © 2026 Pharmacozyme. All rights reserved.
               </p>
             </td>
           </tr>
@@ -243,8 +243,8 @@ function resetPasswordEmailHtml(email: string, actionLink: string): string {
           <tr>
             <td style="background-color: #f0f0f0; padding: 20px 30px; text-align: center; border-top: 1px solid ${brandColors.border};">
               <p style="margin: 0; color: ${brandColors.lightGray}; font-size: 12px;">
-                PZ Academy Mentorship Platform<br>
-                © 2024 Pharmacozyme. All rights reserved.
+                PZ Academy<br>
+                © 2026 Pharmacozyme. All rights reserved.
               </p>
             </td>
           </tr>
@@ -325,8 +325,8 @@ function emailChangeConfirmEmailHtml(email: string, actionLink: string): string 
           <tr>
             <td style="background-color: #f0f0f0; padding: 20px 30px; text-align: center; border-top: 1px solid ${brandColors.border};">
               <p style="margin: 0; color: ${brandColors.lightGray}; font-size: 12px;">
-                PZ Academy Mentorship Platform<br>
-                © 2024 Pharmacozyme. All rights reserved.
+                PZ Academy<br>
+                © 2026 Pharmacozyme. All rights reserved.
               </p>
             </td>
           </tr>
