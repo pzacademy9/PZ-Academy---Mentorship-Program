@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // The podium share picture reads its fonts and logo from disk at run time; ship them with that route.
+    outputFileTracingIncludes: { "/api/progress-podium/[slug]": ["./src/assets/**/*"] },
+  },
   async redirects() {
     const base = "/dashboard/admin/sales-hub";
     return [

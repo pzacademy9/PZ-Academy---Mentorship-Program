@@ -5,6 +5,7 @@ import { getPortalBatch } from "@/lib/data/portal";
 import { portalCallerAllowed } from "@/lib/pzid/caller-allowed";
 import { PODIUM_SIZES, parsePodiumSize, podium, podiumFileName, resolvePodiumPick, rowsFor } from "@/lib/progress/leaderboard";
 import { PodiumImage } from "@/components/progress/portal/PodiumImage";
+import { podiumAssets } from "@/lib/progress/podium-assets";
 
 // Reads request headers for the rate limit and live scores, so nothing is cached at build time.
 export const dynamic = "force-dynamic";
@@ -29,7 +30,12 @@ export async function GET(req: Request, context: { params: Promise<{ slug: strin
     if (entries.length === 0) return text("No ranked students yet.", 404);
 
     const { width, height } = PODIUM_SIZES[size];
-    const img = new ImageResponse(<PodiumImage title={view.title} label={pick.label} entries={entries} size={size} />, { width, height });
+    const { fonts, logo } = await podiumAssets();
+    const img = new ImageResponse(<PodiumImage title={view.title} label={pick.label} entries={entries} size={size} logo={logo} />, {
+      width,
+      height,
+      ...(fonts.length > 0 ? { fonts } : {}),
+    });
     // Drawing happens while the body is read: read it here so a drawing failure lands in the catch (500), not a broken PNG.
     const png = await img.arrayBuffer();
     return new Response(png, {
