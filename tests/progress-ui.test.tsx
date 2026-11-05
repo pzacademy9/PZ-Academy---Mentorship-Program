@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, cleanup, within } from "@testing-library/react";
 import { MyIdSection } from "@/components/progress/MyIdSection";
-import { ProgressSection } from "@/components/progress/ProgressSection";
+import { MyProgress } from "@/components/progress/MyProgress";
 import type { FindMyIdByNameResult } from "@/app/progress/actions";
 import type { Progress, ProgressBatch } from "@/lib/progress/build";
+import type { Standing } from "@/lib/progress/my-progress";
 
 // Fake people only. Extra surname/email-shaped fields are smuggled in to prove they never render.
 const SURNAME = "Fakesurnameson";
@@ -87,8 +88,8 @@ function setup() {
   return render(<MyIdSection findId={findId} />);
 }
 
-function setupProgress(p: Progress = progress()) {
-  return render(<ProgressSection progress={p} />);
+function setupProgress(p: Progress = progress(), standings: Record<string, Standing> = {}) {
+  return render(<MyProgress progress={p} standings={standings} />);
 }
 
 const nameBox = () => screen.getByLabelText("Type your full name") as HTMLInputElement;
@@ -247,92 +248,110 @@ describe("Find My ID box: full name, long names, more matches, announcements", (
   });
 });
 
-describe("Progress view", () => {
-  it("no classes yet message when there are no groups", () => {
+describe("My Progress view", () => {
+  it("no batches: friendly message, no batch switch", () => {
     setupProgress(progress({ groups: [] }));
     expect(screen.getByText(/no classes to show yet/i)).toBeTruthy();
     expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "Sample" })).toBeTruthy();
   });
 
-  it("real tabs: switch with click and arrow keys", async () => {
-    setupProgress();
-    const [att, res] = screen.getAllByRole("tab");
-    expect(screen.getByRole("tablist")).toBeTruthy();
-    expect(att.getAttribute("aria-selected")).toBe("true");
-    expect(res.getAttribute("aria-selected")).toBe("false");
-    expect(res.getAttribute("tabindex")).toBe("-1");
-    expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(att.id);
-
-    fireEvent.click(res);
-    expect(res.getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByText("Total score: 15")).toBeTruthy();
-    expect(screen.queryByText(/Attended 3 of 4/)).toBeNull();
-
-    fireEvent.keyDown(res, { key: "ArrowLeft" });
-    expect(att.getAttribute("aria-selected")).toBe("true");
-    expect(document.activeElement).toBe(att);
-    expect(screen.getByText("Attended 3 of 4 classes (75%)")).toBeTruthy();
+  it("one batch: no switch, attendance ring and minimum from the real minPct", () => {
+    setupProgress(progress({ groups: [{ kind: "course", batches: [liveBatch] }] }));
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByText("Sample-0000")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Attended 3 of 4 classes (75%)" })).toBeTruthy();
+    expect(screen.getByText("Attended 3 of 4 classes held")).toBeTruthy();
+    expect(screen.getByText("Meets the 75% minimum")).toBeTruthy();
+    expect(screen.queryByText(/goal/i)).toBeNull();
   });
 
-  it("category headings shown, empty groups hidden", async () => {
+  it("several batches: real tabs, latest first, arrow keys switch", () => {
     setupProgress();
-    expect(screen.getByRole("heading", { name: "Courses" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Workshops" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Webinars" })).toBeNull();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((t) => t.textContent)).toEqual(["CourseSample Batch 1", "CourseOld Recorded Batch", "WorkshopLow Workshop"]);
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(tabs[1].getAttribute("tabindex")).toBe("-1");
+    expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabs[0].id);
+    fireEvent.keyDown(tabs[0], { key: "ArrowLeft" });
+    expect(screen.getAllByRole("tab")[2].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(screen.getAllByRole("tab")[2]);
+    expect(screen.getByText("Below the 75% minimum")).toBeTruthy();
   });
 
-  it("latest batch starts open, others closed; toggling works", async () => {
-    setupProgress();
-    const latest = screen.getByRole("button", { name: /sample batch 1/i });
-    const old = screen.getByRole("button", { name: /old recorded batch/i });
-    expect(latest.getAttribute("aria-expanded")).toBe("true");
-    expect(old.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByText("Latest")).toBeTruthy();
-
-    fireEvent.click(latest);
-    expect(latest.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("Attended 3 of 4 classes (75%)")).toBeNull();
-    fireEvent.click(latest);
-    expect(screen.getByText("Attended 3 of 4 classes (75%)")).toBeTruthy();
+  it("recorded batch: no attendance, no rank, says why", () => {
+    setupProgress(progress(), { "old-recorded": { rank: null, of: 9, gap: null, max: 10 } });
+    fireEvent.click(screen.getByRole("tab", { name: /Old Recorded Batch/ }));
+    expect(screen.getByText("Attendance is not tracked for recorded students.")).toBeTruthy();
+    expect(screen.getByText(/Recorded students are not ranked/)).toBeTruthy();
+    expect(screen.queryByText("Batch rank")).toBeNull();
+    expect(screen.queryByRole("img", { name: /Attended/ })).toBeNull();
+    expect(screen.getByText("of 10 points")).toBeTruthy();
   });
 
-  it("attendance header, target tag and all session tags", async () => {
+  it("rank badge and gap line only from a real live standing", () => {
+    const { unmount } = setupProgress(progress());
+    expect(screen.queryByText("Batch rank")).toBeNull();
+    expect(screen.queryByText(/more points? to reach/)).toBeNull();
+    unmount();
+    setupProgress(progress(), { "sample-batch-1": { rank: 4, of: 52, gap: { points: 1250, rank: 3 }, max: 20 } });
+    expect(screen.getByText("Batch rank")).toBeTruthy();
+    expect(screen.getByText("of 52")).toBeTruthy();
+    expect(screen.getByText("1,250 more points to reach #3")).toBeTruthy();
+  });
+
+  it("badges: none without real backing; Top 3 for a live rank of 3 or better; Perfect attendance when nothing was missed", () => {
+    const { unmount } = setupProgress(progress());
+    expect(screen.queryByRole("heading", { name: "Badges" })).toBeNull();
+    unmount();
+    const perfect: ProgressBatch = { ...liveBatch, attendance: { ...liveBatch.attendance!, attended: 4, pct: 100 } };
+    setupProgress(progress({ groups: [{ kind: "course", batches: [perfect] }] }), { "sample-batch-1": { rank: 2, of: 52, gap: null, max: null } });
+    expect(screen.getByRole("heading", { name: "Badges" })).toBeTruthy();
+    expect(screen.getByText("Perfect attendance")).toBeTruthy();
+    expect(screen.getByText("Attended all 4 classes held")).toBeTruthy();
+    expect(screen.getByText("Top 3")).toBeTruthy();
+    expect(screen.getByText("Rank 2 of 52 in this batch")).toBeTruthy();
+    expect(screen.queryByText(/streak/i)).toBeNull();
+  });
+
+  it("class-by-class ledger: state chips, points with max, class rank, and the next class", () => {
     setupProgress();
-    expect(screen.getByText("Meets 75% target")).toBeTruthy();
+    const list = screen.getByRole("list", { name: "Class by class" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(5);
+    expect(items[0].textContent).toContain("Class 1 · Enzyme Basics");
+    expect(within(items[0]).getByText("Present (check-in)")).toBeTruthy();
+    expect(within(items[0]).getByText("of 10 pts")).toBeTruthy();
+    expect(within(items[0]).getByText("Class rank 4 of 52")).toBeTruthy();
+    expect(within(items[1]).getByText("Present (by admin)")).toBeTruthy();
+    expect(within(items[1]).getByText("points")).toBeTruthy();
+    expect(within(items[3]).getByText("Absent")).toBeTruthy();
+    expect(within(items[4]).getByText("Next class")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Next class" })).toBeTruthy();
+    expect(screen.getAllByText(/Fri 2 Oct, 6:30 pm PKT/).length).toBeGreaterThan(0);
+  });
+
+  it("score card: total, 'of max' and a bar only when the max is known", () => {
+    const { unmount } = setupProgress();
+    expect(screen.getByText("15")).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    unmount();
+    setupProgress(progress(), { "sample-batch-1": { rank: 4, of: 52, gap: null, max: 20 } });
+    expect(screen.getByText("of 20 points")).toBeTruthy();
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("75");
-    expect(screen.getAllByText("Present (marked at check-in)")).toHaveLength(2);
-    expect(screen.getByText("Present (marked by admin)")).toBeTruthy();
-    expect(screen.getByText("Absent")).toBeTruthy();
-    expect(screen.getByText("Upcoming")).toBeTruthy();
-    expect(screen.getByText(/Fri 2 Oct, 6:30 pm PKT/)).toBeTruthy();
-    expect(screen.queryByText(/GMT/)).toBeNull();
   });
 
-  it("below target is stated plainly", async () => {
+  it("share opens WhatsApp with the public batch page only", () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
     setupProgress();
-    fireEvent.click(screen.getByRole("button", { name: /low workshop/i }));
-    expect(screen.getByText("Below the 75% target")).toBeTruthy();
-  });
-
-  it("results: score / max, score alone when max is null, rank when present", async () => {
-    setupProgress();
-    fireEvent.click(screen.getByRole("tab", { name: /quiz results/i }));
-    expect(screen.getByText("8 / 10")).toBeTruthy();
-    expect(screen.getByText("Rank 4 of 52")).toBeTruthy();
-    const second = screen.getByText(/02\. Second Class/).closest("li")!;
-    expect(second.textContent).toContain("Score: 7");
-    expect(second.textContent).not.toContain("/");
-    expect(screen.queryByText(/Top \d+%/)).toBeNull();
-  });
-
-  it("recorded student sees the note and no rank", async () => {
-    setupProgress();
-    fireEvent.click(screen.getByRole("button", { name: /old recorded batch/i }));
-    expect(screen.getByText(/attendance is not tracked for recorded students/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /quiz results/i }));
-    const quiz = screen.getByText(/01\. Recorded Quiz/).closest("li")!;
-    expect(quiz.textContent).not.toMatch(/Rank/);
-    expect(screen.getByText(/ranks are shown for live students only/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Share on WhatsApp" }));
+    const href = String(open.mock.calls[0][0]);
+    expect(href.startsWith("https://wa.me/?text=")).toBe(true);
+    const text = decodeURIComponent(href.split("text=")[1]);
+    expect(text).toContain("/progress/sample-batch-1");
+    expect(text).not.toContain("Sample-0000");
+    expect(screen.getByRole("link", { name: /See batch leaderboard/ }).getAttribute("href")).toBe("/progress/sample-batch-1");
   });
 });
 
@@ -346,15 +365,14 @@ describe("privacy and layout", () => {
     const { container } = render(
       <>
         <MyIdSection findId={findId} />
-        <ProgressSection progress={progress()} />
+        <MyProgress progress={progress()} />
       </>,
     );
     await searchName("Sample");
     await screen.findByText("2 matches found");
-    // open every card in both tabs
-    for (const tab of ["Attendance", "Quiz Results"]) {
+    // look at every batch
+    for (const tab of ["Sample Batch 1", "Old Recorded Batch", "Low Workshop"]) {
       fireEvent.click(screen.getByRole("tab", { name: new RegExp(tab, "i") }));
-      for (const b of screen.queryAllByRole("button", { expanded: false })) fireEvent.click(b);
       const text = container.textContent ?? "";
       expect(text).not.toContain("@");
       expect(text).not.toContain(SURNAME);
@@ -367,7 +385,7 @@ describe("privacy and layout", () => {
     const { container } = render(
       <>
         <MyIdSection findId={findId} />
-        <ProgressSection progress={progress()} />
+        <MyProgress progress={progress()} />
       </>,
     );
     const tooWide = /(?:^|\s)(?:min-)?w-\[(\d+)px\]/;

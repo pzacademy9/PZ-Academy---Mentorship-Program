@@ -13,9 +13,9 @@ vi.mock("@/lib/data/pz-people", async (orig) => ({
 }));
 
 const getProgressByPzId = vi.fn();
-const getProgressStandings = vi.fn();
+const publicProgressView = vi.fn();
 vi.mock("@/lib/data/progress", () => ({ getProgressByPzId: (...a: unknown[]) => getProgressByPzId(...a) }));
-vi.mock("@/lib/data/portal", () => ({ getProgressStandings: (...a: unknown[]) => getProgressStandings(...a) }));
+vi.mock("@/lib/data/portal", () => ({ publicProgressView: (...a: unknown[]) => publicProgressView(...a) }));
 
 import { checkMyProgress, findMyIdByName } from "@/app/progress/actions";
 
@@ -112,7 +112,7 @@ describe("checkMyProgress", () => {
   const progress = { firstName: "Sample", pzId: "Sample-0001", groups: [] };
   beforeEach(() => {
     getProgressByPzId.mockReset();
-    getProgressStandings.mockReset().mockResolvedValue({});
+    publicProgressView.mockReset().mockImplementation(async (p: unknown) => ({ progress: p, standings: {} }));
   });
   it("rate limited before any lookup", async () => {
     allowLookup.mockResolvedValue(false);
@@ -129,12 +129,17 @@ describe("checkMyProgress", () => {
     expect(await checkMyProgress("Nobody-0000")).toEqual({ status: "not_found" });
     expect(getProgressByPzId).toHaveBeenCalledWith("Nobody-0000");
   });
-  it("found: progress plus standings; a standings failure still returns the progress", async () => {
+  it("found: only the public view of the progress, with standings", async () => {
     getProgressByPzId.mockResolvedValue(progress);
-    getProgressStandings.mockResolvedValue({ "sample-batch": { rank: 2, of: 5, gap: null, max: null } });
-    expect(await checkMyProgress(" Sample-0001 ")).toEqual({ status: "ok", progress, standings: { "sample-batch": { rank: 2, of: 5, gap: null, max: null } } });
-    getProgressStandings.mockRejectedValue(new Error("db"));
-    expect(await checkMyProgress("Sample-0001")).toEqual({ status: "ok", progress, standings: {} });
+    const shown = { progress: { ...progress, groups: [] }, standings: { "sample-batch": { rank: 2, of: 5, gap: null, max: null } } };
+    publicProgressView.mockResolvedValue(shown);
+    expect(await checkMyProgress(" Sample-0001 ")).toEqual({ status: "ok", ...shown });
+    expect(publicProgressView).toHaveBeenCalledWith(progress);
+  });
+  it("nothing on a public board is not_found", async () => {
+    getProgressByPzId.mockResolvedValue(progress);
+    publicProgressView.mockResolvedValue(null);
+    expect(await checkMyProgress("Sample-0001")).toEqual({ status: "not_found" });
   });
   it("a thrown lookup error shows only the generic message", async () => {
     getProgressByPzId.mockRejectedValue(new Error("secret db detail"));

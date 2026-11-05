@@ -3,10 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getProgressForUser } from "@/lib/data/portal";
+import { getProgressForUser, getProgressStandings } from "@/lib/data/portal";
 import type { Progress } from "@/lib/progress/build";
-import { ProgressSection } from "@/components/progress/ProgressSection";
-import { CopyPzId } from "@/components/progress/CopyPzId";
+import type { Standing } from "@/lib/progress/my-progress";
+import { MyProgress } from "@/components/progress/MyProgress";
 
 export const metadata: Metadata = { title: "My Progress | PZ Academy" };
 export const dynamic = "force-dynamic";
@@ -62,20 +62,17 @@ export default async function MyProgressPage() {
     );
   }
 
+  // A rank is a bonus: when the boards cannot be read the student still sees their own progress.
+  let standings: Record<string, Standing> = {};
+  try {
+    standings = await getProgressStandings(progress);
+  } catch {
+    standings = {};
+  }
+
   return (
-    <div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-4">
-      <div className={`flex min-w-0 flex-col gap-2 ${card}`}>
-        <h1 className="break-words font-headline text-2xl font-black text-pz-on-surface sm:text-3xl">
-          Hello, {progress.firstName}
-        </h1>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-pz-on-surface-variant">
-          <span>PZ ID</span>
-          <span className="break-all font-headline text-base font-bold text-pz-primary">{progress.pzId}</span>
-          <CopyPzId pzId={progress.pzId} />
-        </div>
-        <p className="text-sm text-pz-on-surface-variant">Your attendance and quiz results across your batches.</p>
-      </div>
-      <ProgressSection progress={progress} />
+    <div className="mx-auto flex min-w-0 max-w-5xl flex-col gap-4 sm:gap-5">
+      <MyProgress progress={progress} standings={standings} nameAs="h1" />
       <PortalCard />
     </div>
   );

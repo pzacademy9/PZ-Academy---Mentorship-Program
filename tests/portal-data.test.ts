@@ -5,7 +5,7 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { listPortalBatches, getPortalBatch, getProgressForUser, getProgressStandings } from "@/lib/data/portal";
+import { listPortalBatches, getPortalBatch, getProgressForUser, getProgressStandings, publicProgressView } from "@/lib/data/portal";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 const PAST = "2026-10-01T10:00:00Z";
@@ -247,5 +247,39 @@ describe("getProgressStandings", () => {
     const out = await getProgressStandings(progress, load);
     expect(load.mock.calls.map((c) => c[0]).sort()).toEqual(["a", "broken"]);
     expect(out).toEqual({ a: { rank: 2, of: 2, gap: { points: 20, rank: 1 }, max: 100 } });
+  });
+});
+
+describe("publicProgressView", () => {
+  const board = (slug: string, ids: string[]) => ({
+    title: slug, slug, kind: "course" as const, minPct: 75, state: "live" as const, coverUrl: null, students: ids.length, classesHeld: 1,
+    sessions: [{ id: "s1", number: 1, title: "One", quizMax: 100 }],
+    attendance: ids.map((pzId) => ({ name: pzId, pzId, mode: "live" as const, attended: 1, held: 1, pct: 100, meetsMin: true, classes: [] })),
+    overall: ids.map((pzId, i) => ({ name: pzId, pzId, mode: "live" as const, score: 100 - i * 10, rank: i + 1 })),
+    perClass: { s1: ids.map((pzId, i) => ({ name: pzId, pzId, mode: "live" as const, score: 100 - i * 10, rank: i + 1 })) },
+  });
+  const batch = (slug: string) => ({ title: slug, slug, latest: false, mode: "live" as const, attendance: null, results: { total: 0, rows: [] } });
+  const progress = {
+    firstName: "Sample",
+    pzId: "Sample-0000",
+    groups: [
+      { kind: "course" as const, batches: [batch("shown"), batch("not-listed"), batch("hidden")] },
+      { kind: "workshop" as const, batches: [batch("broken")] },
+    ],
+  };
+  const load = async (slug: string) => {
+    if (slug === "broken") throw new Error("boom");
+    if (slug === "hidden") return null; // switched off / not visible on the portal
+    if (slug === "not-listed") return board(slug, ["Name-0001"]); // board leaves this person out
+    return board(slug, ["Name-0001", "Sample-0000"]);
+  };
+  it("keeps only batches whose public board lists this ID; hidden, unlisted and unreadable boards are dropped", async () => {
+    const out = await publicProgressView(progress, load);
+    expect(out?.progress.groups).toEqual([{ kind: "course", batches: [batch("shown")] }]);
+    expect(out?.standings).toEqual({ shown: { rank: 2, of: 2, gap: { points: 10, rank: 1 }, max: 100 } });
+    expect(Object.keys(out?.progress ?? {}).sort()).toEqual(["firstName", "groups", "pzId"]);
+  });
+  it("nothing public left is null", async () => {
+    expect(await publicProgressView({ ...progress, groups: [{ kind: "course" as const, batches: [batch("hidden")] }] }, load)).toBeNull();
   });
 });

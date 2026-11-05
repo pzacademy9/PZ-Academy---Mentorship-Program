@@ -3,7 +3,7 @@
 import { checkNameQuery, findIdsByName, MAX_ROWS, type MyIdRow } from "@/lib/data/pz-people";
 import { callerAllowed } from "@/lib/pzid/caller-allowed";
 import { getProgressByPzId } from "@/lib/data/progress";
-import { getProgressStandings } from "@/lib/data/portal";
+import { publicProgressView } from "@/lib/data/portal";
 import type { Progress } from "@/lib/progress/build";
 import type { Standing } from "@/lib/progress/my-progress";
 
@@ -43,8 +43,10 @@ const MIN_ID = 3;
 const MAX_ID = 40;
 
 /**
- * One student's own progress by PZ ID. Shares the Find my ID rate limit. Shows only what the public
- * batch pages already show for that ID (name, PZ ID, attendance, scores, rank); never email or phone.
+ * One student's progress, looked up by PZ ID alone (owner decision: the batch boards are already public).
+ * There is no password or proof of identity: anyone who types an ID sees what the public boards already
+ * show for it (name, PZ ID, attendance, quiz scores, rank), limited to the batches whose public board lists
+ * that ID. Never email or phone. Shares the Find my ID rate limit.
  */
 export async function checkMyProgress(pzId: string): Promise<CheckMyProgressResult> {
   try {
@@ -53,9 +55,10 @@ export async function checkMyProgress(pzId: string): Promise<CheckMyProgressResu
     if (id.length < MIN_ID || id.length > MAX_ID) return { status: "invalid" };
     const progress = await getProgressByPzId(id);
     if (!progress) return { status: "not_found" };
-    // A rank is a bonus: if the boards cannot be read, the student still sees their own progress.
-    const standings = await getProgressStandings(progress).catch(() => ({}));
-    return { status: "ok", progress, standings };
+    // Only what the public boards show for this ID; nothing public left = not found.
+    const shown = await publicProgressView(progress);
+    if (!shown) return { status: "not_found" };
+    return { status: "ok", progress: shown.progress, standings: shown.standings };
   } catch {
     return { status: "error", message: GENERIC_ERROR };
   }

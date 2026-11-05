@@ -230,6 +230,35 @@ export async function getProgressStandings(
   return out;
 }
 
+const MAX_PUBLIC_BATCHES = 12;
+
+/**
+ * For the public "check by PZ ID" lookup: keeps only the batches whose public board actually lists this
+ * PZ ID (same visibility as the batch pages: hidden batches, test or unpaid registrations and people the
+ * boards leave out are dropped), and works out the standings from those same boards. A board that cannot
+ * be read drops its batch (fail closed). Returns null when nothing public is left.
+ */
+export async function publicProgressView(
+  progress: Progress,
+  load: (slug: string) => Promise<PortalBatchView | null> = (slug) => getPortalBatch(slug),
+): Promise<{ progress: Progress; standings: Record<string, Standing> } | null> {
+  const slugs = Array.from(new Set(progress.groups.flatMap((g) => g.batches.map((b) => b.slug)))).slice(0, MAX_PUBLIC_BATCHES);
+  const views = new Map<string, PortalBatchView>();
+  await Promise.all(
+    slugs.map(async (slug) => {
+      const view = await load(slug).catch(() => null);
+      if (view && view.attendance.some((a) => a.pzId === progress.pzId)) views.set(slug, view);
+    }),
+  );
+  const groups = progress.groups
+    .map((g) => ({ ...g, batches: g.batches.filter((b) => views.has(b.slug)) }))
+    .filter((g) => g.batches.length > 0);
+  if (groups.length === 0) return null;
+  const standings: Record<string, Standing> = {};
+  for (const [slug, view] of Array.from(views.entries())) standings[slug] = standingFor(view, progress.pzId);
+  return { progress: { firstName: progress.firstName, pzId: progress.pzId, groups }, standings };
+}
+
 /** Progress of the person who owns this email (case-insensitive), or null when there is no such person. */
 async function getProgressForEmail(email: string, now: Date = new Date()): Promise<Progress | null> {
   const normalized = (typeof email === "string" ? email : "").trim().toLowerCase();
