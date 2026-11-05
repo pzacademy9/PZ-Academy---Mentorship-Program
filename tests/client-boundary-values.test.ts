@@ -31,9 +31,9 @@ function resolveImport(from: string, spec: string): string | null {
 describe("server files and client-only values", () => {
   it("no server file imports a plain value from a \"use client\" file", () => {
     const problems: string[] = [];
-    for (const [file, src] of text) {
+    for (const [file, src] of Array.from(text)) {
       if (isClient(src)) continue;
-      for (const m of src.matchAll(/import\s+(?!type\b)\{([^}]+)\}\s+from\s+["']([^"']+)["']/g)) {
+      for (const m of Array.from(src.matchAll(/import\s+(?!type\b)\{([^}]+)\}\s+from\s+["']([^"']+)["']/g))) {
         const target = resolveImport(file, m[2]);
         if (!target || !isClient(text.get(target)!)) continue;
         for (const raw of m[1].split(",")) {

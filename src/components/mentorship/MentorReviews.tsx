@@ -1,40 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Star, StarHalf, Quote, ArrowRight, MessageSquare, Inbox } from "lucide-react";
+import { Star, StarHalf, Quote, ArrowRight, MessageSquare, Inbox, MessageSquareQuote } from "lucide-react";
 import { relativeTime, initials } from "@/lib/format";
 import type { MentorReview, MentorReviewSummary } from "@/lib/data/mentor-reviews";
 
 /**
- * Presentational only — no "use client" data fetching, no direct DB access.
- * summary/reviews are fetched server-side by src/app/mentorship/mentors/
- * [slug]/page.tsx (a Server Component) and passed down through
- * MentorProfileClient as plain props. This keeps a clean server/client
- * boundary: MentorProfileClient is already a large existing "use client"
- * tree, so a nested async Server Component here would be invalid, and a
- * <Suspense> boundary would be unnecessary ceremony for data the parent
- * page already has in hand before it renders.
- *
- * Ported from docs/superpowers/stitch-screens/2026-08-17-feedback-phase-2/
- * D-mentor-reviews.html, but retinted to the brand- / font-montserrat /
- * font-poppins marketing system every other component on this page uses
- * (see MentorCard.tsx, MentorProfileClient.tsx) instead of the pz- M3
- * dashboard aliases the Stitch export ported 1:1 by default — this screen
- * lands on a public marketing page, not a dashboard, so the dashboard
- * token set was the wrong substitution. Material Symbols icon names are
- * still mapped to their lucide-react equivalents (star, star_half,
- * format_quote, arrow_forward, reviews → Star, StarHalf, Quote,
- * ArrowRight, Inbox), matching how every other Stitch port in this
- * codebase swaps Material Symbols for lucide.
+ * Real student reviews on a mentor's profile (feedback_responses, see
+ * src/lib/data/mentor-reviews.ts). Presentational only: the server page
+ * fetches summary/reviews and passes them down. Styled with the same PZ
+ * tokens as /mentorship (Stitch "Mentor Profile", Platform 2).
  */
 
 const INITIAL_VISIBLE = 4;
-
-const AVATAR_PALETTE = [
-  { bg: "bg-brand-green/10", text: "text-brand-green" },
-  { bg: "bg-brand-gold/15", text: "text-brand-green" },
-  { bg: "bg-gray-100", text: "text-gray-600" },
-] as const;
 
 /** Full/half/empty star fill state for a given 0..5 average, one entry per star position. */
 function starFillStates(avg: number): ("full" | "half" | "empty")[] {
@@ -46,17 +24,17 @@ function starFillStates(avg: number): ("full" | "half" | "empty")[] {
   });
 }
 
-function StarRow({ avg, size = 16 }: { avg: number; size?: number }) {
+export function StarRow({ avg, size = 16 }: { avg: number; size?: number }) {
   const states = starFillStates(avg);
   return (
-    <span className="inline-flex items-center gap-0.5 text-brand-gold" aria-label={`${avg.toFixed(1)} out of 5 stars`}>
+    <span role="img" className="inline-flex items-center gap-0.5" aria-label={`${avg.toFixed(1)} out of 5 stars`}>
       {states.map((state, i) =>
         state === "full" ? (
-          <Star key={i} style={{ width: size, height: size }} className="fill-brand-gold text-brand-gold" />
+          <Star key={i} style={{ width: size, height: size }} className="fill-pz-gold text-pz-gold" aria-hidden="true" />
         ) : state === "half" ? (
-          <StarHalf key={i} style={{ width: size, height: size }} className="fill-brand-gold text-brand-gold" />
+          <StarHalf key={i} style={{ width: size, height: size }} className="fill-pz-gold text-pz-gold" aria-hidden="true" />
         ) : (
-          <Star key={i} style={{ width: size, height: size }} className="text-gray-200" />
+          <Star key={i} style={{ width: size, height: size }} className="text-pz-border" aria-hidden="true" />
         ),
       )}
     </span>
@@ -67,71 +45,63 @@ function DistributionBar({ star, count, total }: { star: 1 | 2 | 3 | 4 | 5; coun
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="font-poppins text-xs text-gray-500 w-14 text-right shrink-0">
+      <span className="w-14 shrink-0 text-right font-poppins text-xs text-pz-muted">
         {star} star{star === 1 ? "" : "s"}
       </span>
-      <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-        <div className="h-full rounded-full bg-brand-gold transition-[width] duration-700" style={{ width: `${pct}%` }} />
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-pz-web-surface-high">
+        <div className="h-full rounded-full bg-pz-gold transition-[width] duration-700" style={{ width: `${pct}%` }} />
       </div>
-      <span className="font-poppins text-xs text-gray-500 w-6 text-right shrink-0">{count}</span>
+      <span className="w-6 shrink-0 text-right font-poppins text-xs text-pz-muted">{count}</span>
     </div>
   );
 }
 
-function ReviewCard({ review, palette }: { review: MentorReview; palette: { bg: string; text: string } }) {
-  const avatar = review.isFeatured ? { bg: "bg-brand-gold/15", text: "text-brand-green" } : palette;
-
+function ReviewCard({ review }: { review: MentorReview }) {
   return (
     <div
-      className={
-        review.isFeatured
-          ? "bg-gray-50 border-2 border-brand-gold rounded-xl p-5 flex flex-col gap-3 relative overflow-hidden"
-          : "bg-gray-50 border border-gray-100 rounded-xl p-5 flex flex-col gap-3"
-      }
+      className={`relative flex flex-col gap-3 overflow-hidden rounded-2xl bg-pz-web-surface-low p-5 ${review.isFeatured ? "ring-2 ring-pz-gold" : ""}`}
     >
       {review.isFeatured && (
-        <div className="absolute top-0 right-0 bg-brand-gold/10 text-brand-gold font-poppins text-xs font-semibold px-2 py-1 rounded-bl-lg">
-          Featured
-        </div>
+        <span className="absolute right-0 top-0 rounded-bl-lg bg-pz-gold/15 px-2 py-1 font-poppins text-xs font-semibold text-pz-ink">Featured</span>
       )}
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`w-10 h-10 shrink-0 rounded-full ${avatar.bg} ${avatar.text} flex items-center justify-center font-montserrat font-bold text-sm`}>
-            {initials(review.name)}
-          </span>
-          <div className="min-w-0">
-            <p className="font-montserrat text-sm font-semibold text-brand-black truncate">{review.name}</p>
-            <p className="font-poppins text-xs text-gray-400">{relativeTime(review.submittedAt)}</p>
-          </div>
-        </div>
-        {review.avgStars != null && <StarRow avg={review.avgStars} size={14} />}
+      {review.avgStars != null && <StarRow avg={review.avgStars} size={14} />}
+      <div className="flex items-start gap-2">
+        <Quote className="mt-0.5 h-4 w-4 shrink-0 text-pz-mid/40" aria-hidden="true" />
+        <p className="line-clamp-5 flex-1 break-words font-poppins text-sm italic leading-relaxed text-pz-ink">{review.comment}</p>
       </div>
-      <div className="flex gap-2 items-start">
-        <Quote className="w-4 h-4 text-brand-gold/30 shrink-0 mt-0.5" aria-hidden="true" />
-        <p className="font-poppins text-sm text-gray-700 leading-relaxed line-clamp-4 flex-1">{review.comment}</p>
-      </div>
-      <div className="mt-auto pt-2 border-t border-gray-100 flex items-center gap-1.5 text-gray-400">
-        <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />
-        <span className="font-poppins text-xs">{review.sessionName}</span>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div>
-      <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-1">What Mentees Say</h2>
-      <p className="font-poppins text-sm text-gray-500 mb-5">Verified feedback from completed sessions</p>
-      <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-10 flex flex-col items-center justify-center text-center gap-3 min-h-[220px]">
-        <Inbox className="w-10 h-10 text-gray-300" aria-hidden="true" />
-        <div>
-          <h3 className="font-montserrat text-base font-semibold text-brand-black">No reviews yet</h3>
-          <p className="font-poppins text-sm text-gray-500 mt-1 max-w-sm">
-            Complete your first session to start receiving feedback.
+      <div className="mt-auto flex items-center gap-2.5 border-t border-pz-border pt-3">
+        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pz-bright/25 font-montserrat text-xs font-bold text-pz-deep">
+          {initials(review.name)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate font-montserrat text-sm font-semibold text-pz-deep">{review.name}</p>
+          <p className="flex items-center gap-1 truncate font-poppins text-xs text-pz-muted">
+            <MessageSquare className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{review.sessionName}</span>
+            <span aria-hidden="true">·</span>
+            <span className="shrink-0">{relativeTime(review.submittedAt)}</span>
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Heading({ summary }: { summary?: MentorReviewSummary }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <h2 id="reviews-title" className="flex items-center gap-3 font-montserrat text-xl font-bold text-pz-deep md:text-2xl">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pz-web-surface-low text-pz-mid">
+          <MessageSquareQuote className="h-5 w-5" aria-hidden="true" />
+        </span>
+        Verified student reviews
+      </h2>
+      {summary && summary.avg != null && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-pz-gold/15 px-3 py-1 font-poppins text-xs font-bold text-pz-ink">
+          <Star className="h-3.5 w-3.5 fill-pz-gold text-pz-gold" aria-hidden="true" />
+          {summary.avg.toFixed(1)} rating
+        </span>
+      )}
     </div>
   );
 }
@@ -147,67 +117,70 @@ export function MentorReviews({
 }) {
   const [showAll, setShowAll] = useState(false);
 
-  // When the mentor has turned the section off, render nothing at all — not
-  // the zero-reviews EmptyState, which would falsely assert "no reviews yet"
-  // to the public even when real reviews exist behind the flag. This is
-  // distinct from the genuine "reviews are on but count is zero" case below.
+  // Section turned off by the admin: render nothing (not the empty state,
+  // which would wrongly say "no reviews yet" when real reviews exist).
   if (!showReviews) return null;
 
-  // Gated on the actual rendered content (reviews.length), not summary.count:
-  // a public, commented response with zero star answers (e.g. an all-video
-  // question bank) still appears as a review card below but contributes
-  // nothing to summary.count's star math in older semantics — count is now
-  // fixed to match, but gating on reviews.length directly is the more
-  // robust invariant regardless.
-  if (reviews.length === 0) return <EmptyState />;
+  if (reviews.length === 0) {
+    return (
+      <div>
+        <Heading />
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-pz-border bg-pz-web-surface-low p-8 text-center">
+          <Inbox className="h-9 w-9 text-pz-muted/50" aria-hidden="true" />
+          <h3 className="font-montserrat text-base font-semibold text-pz-deep">No reviews yet</h3>
+          <p className="max-w-sm font-poppins text-sm text-pz-muted">Reviews appear here after students finish their sessions and leave feedback.</p>
+        </div>
+      </div>
+    );
+  }
 
   const visible = showAll ? reviews : reviews.slice(0, INITIAL_VISIBLE);
   const stars = [5, 4, 3, 2, 1] as const;
 
   return (
     <div>
-      <h2 className="font-montserrat font-bold text-2xl text-brand-black mb-1">What Mentees Say</h2>
-      <p className="font-poppins text-sm text-gray-500 mb-5">Verified feedback from completed sessions</p>
+      <Heading summary={summary} />
+      <p className="-mt-3 mb-5 font-poppins text-sm text-pz-muted">Feedback from students after their real sessions.</p>
 
-      {/* Rating Summary Band */}
-      <div className="bg-gray-50 border border-gray-100 rounded-xl p-5 flex flex-col md:flex-row gap-8 items-center md:items-start mb-5">
-        <div className="flex flex-col items-center md:items-start min-w-[180px]">
-          <div className="font-montserrat text-4xl font-bold text-brand-black flex items-baseline gap-1.5">
-            {summary.avg != null ? summary.avg.toFixed(1) : "—"}
-            <span className="font-poppins text-base text-gray-400">/ 5</span>
-          </div>
-          {summary.avg != null && (
-            <div className="mt-2">
-              <StarRow avg={summary.avg} size={18} />
+      {summary.count > 0 && (
+        <div className="mb-5 flex flex-col items-center gap-6 rounded-2xl bg-pz-web-surface-low p-5 md:flex-row md:items-start">
+          <div className="flex min-w-[160px] flex-col items-center md:items-start">
+            <div className="flex items-baseline gap-1.5 font-montserrat text-4xl font-black text-pz-deep">
+              {summary.avg != null ? summary.avg.toFixed(1) : "—"}
+              <span className="font-poppins text-base font-normal text-pz-muted">/ 5</span>
             </div>
-          )}
-          <p className="font-poppins text-xs text-gray-500 mt-2">
-            Based on {summary.count} review{summary.count === 1 ? "" : "s"}
-          </p>
+            {summary.avg != null && (
+              <div className="mt-2">
+                <StarRow avg={summary.avg} size={18} />
+              </div>
+            )}
+            <p className="mt-2 font-poppins text-xs text-pz-muted">
+              Based on {summary.count} review{summary.count === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div className="flex w-full max-w-md flex-1 flex-col gap-1.5">
+            {stars.map((s) => (
+              <DistributionBar key={s} star={s} count={summary.distribution[s]} total={summary.count} />
+            ))}
+          </div>
         </div>
-        <div className="flex-1 w-full max-w-md flex flex-col gap-1.5">
-          {stars.map((s) => (
-            <DistributionBar key={s} star={s} count={summary.distribution[s]} total={summary.count} />
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Review Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {visible.map((review, i) => (
-          <ReviewCard key={review.id} review={review} palette={AVATAR_PALETTE[i % AVATAR_PALETTE.length]} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {visible.map((review) => (
+          <ReviewCard key={review.id} review={review} />
         ))}
       </div>
 
       {!showAll && reviews.length > INITIAL_VISIBLE && (
-        <div className="flex justify-center mt-5">
+        <div className="mt-5 flex justify-center">
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="px-5 py-2 rounded-full border border-gray-200 text-brand-green font-poppins text-sm font-semibold hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-pz-border px-5 font-poppins text-sm font-semibold text-pz-deep transition-colors hover:bg-pz-web-surface-low"
           >
-            Show all {summary.count} review{summary.count === 1 ? "" : "s"}
-            <ArrowRight className="w-4 h-4" />
+            Show all {reviews.length} reviews
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
