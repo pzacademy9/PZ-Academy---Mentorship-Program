@@ -63,4 +63,41 @@ export type RawCourse = {
   details: RawDetails;
   modules: RawModule[];
   unassignedNotes: RawNote[];
+  page: RawPage;
+};
+
+// ── Public page parts (the course page on the website) ─────────────────────
+// Optional; a file without them works exactly as before. Header keys sit with
+// the course details; the lists are ## sections anywhere in the file.
+
+export const PAGE_HEADER_FIELDS = [
+  { field: "price", key: "price", label: "Price" },
+  { field: "topic", key: "topic", label: "Topic" },
+  { field: "webinarDate", key: "webinar_date", label: "Webinar date" },
+  { field: "previewVideo", key: "preview_video", label: "Preview video" },
+] as const;
+
+export type PageHeaderField = (typeof PAGE_HEADER_FIELDS)[number]["field"];
+
+/** The ## headings of the page lists, as written in a file. */
+export const PAGE_LIST_HEADINGS = {
+  learn: "## What you'll learn",
+  includes: "## This course includes",
+  faqs: "## Questions and answers",
+  sections: "## Page sections",
+} as const;
+
+export type PageListKind = keyof typeof PAGE_LIST_HEADINGS;
+
+export type RawLine = { text: string; line: number };
+export type RawFaq = { question: string; answer: string; line: number };
+export type RawSectionRow = { key: string; show: string; title: string; line: number };
+
+/** What the reader found. A list is null when its heading is not in the file. */
+export type RawPage = {
+  header: Record<PageHeaderField, string>;
+  learn: RawLine[] | null;
+  includes: RawLine[] | null;
+  faqs: RawFaq[] | null;
+  sections: RawSectionRow[] | null;
 };

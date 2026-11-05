@@ -197,6 +197,9 @@ export function CourseImport({ prompt }: { prompt: string }) {
               {summary.detailsFilled.length > 0 && (
                 <li>Check the course details that were filled in: {summary.detailsFilled.join(", ")}.</li>
               )}
+              {(summary.pageFilled ?? []).length > 0 && (
+                <li>Check the public page parts that were filled in: {summary.pageFilled.join(", ")}.</li>
+              )}
               <li>Add the images.</li>
               <li>Publish the course when you are ready. Students cannot see it until then.</li>
             </ol>
@@ -271,6 +274,9 @@ export function CourseImport({ prompt }: { prompt: string }) {
                 ? `Course details found: ${summary.detailsFilled.join(", ")}`
                 : "No course details in the file"}
             </p>
+            {(summary.pageFilled ?? []).length > 0 && (
+              <p className="mt-1 font-body text-sm text-pz-on-surface-variant">Public page parts found: {summary.pageFilled.join(", ")}</p>
+            )}
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-pz-outline-variant">
@@ -339,6 +345,10 @@ export function CourseImport({ prompt }: { prompt: string }) {
     <div className="space-y-6">
       <section className={CARD}>
         <h2 className={STEP_HEAD}>1. Get the file from AI</h2>
+        <p className="font-body text-sm text-pz-on-surface-variant">
+          Only need the course page, or want to improve one?{" "}
+          <Link href="/dashboard/admin/courses/ai" className="font-semibold text-pz-primary hover:underline">More AI help and an example file</Link>
+        </p>
         <ol className="list-decimal space-y-1 pl-5 font-body text-sm text-pz-on-surface">
           <li>Copy the instructions below.</li>
           <li>Open your AI chat (ChatGPT, Claude or Gemini) and paste the instructions.</li>

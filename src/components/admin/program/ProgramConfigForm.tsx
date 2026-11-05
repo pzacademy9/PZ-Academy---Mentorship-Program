@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ExternalLink, Save, FilePenLine, UserCheck, Trash2, LayoutList, Image, Mountain } from "lucide-react";
+import { ExternalLink, Save, FilePenLine, UserCheck, Trash2, LayoutList, Image, Mountain, FileUp, FileDown, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,10 @@ import { COURSE_TYPES, COURSE_STATUSES } from "@/lib/validations/admin-lms";
 import type { CourseConfigDetail } from "@/lib/data/admin-lms";
 import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
 import { PublicPageEditor } from "@/components/admin/program/PublicPageEditor";
+import { ImportPageDialog } from "@/components/admin/program/ImportPageDialog";
+import type { PageImport } from "@/lib/lms/course-import/analyze";
+import type { EditorPage } from "@/lib/lms/course-import/page-changes";
+import { writePageFile } from "@/lib/lms/course-import/write";
 import { changedPageFields, type PublicPageFields } from "@/lib/marketing/course-sections";
 
 function toPageState(course: CourseConfigDetail): PublicPageFields {
@@ -78,6 +82,8 @@ function toFormState(course: CourseConfigDetail): FormState {
 
 const inputClass =
   "w-full border border-pz-outline-variant rounded-lg px-3 py-2.5 text-sm max-md:text-base max-md:min-h-11 font-body focus:outline-none focus:ring-2 focus:ring-pz-primary/20 focus:border-pz-primary";
+const TOOL_BTN =
+  "inline-flex min-h-11 items-center gap-2 rounded-lg border border-pz-outline-variant px-4 font-headline text-sm font-bold text-pz-primary transition-colors hover:bg-pz-surface-container-low";
 const labelClass = "block font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant mb-1.5";
 
 export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
@@ -89,6 +95,71 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
   const [page, setPage] = useState<PublicPageFields>(() => toPageState(course));
   const savedPage = useRef<PublicPageFields>(toPageState(course));
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  // The editor as it stands now (saved or not), for "Import page from a file" and the download.
+  const editorPage: EditorPage = {
+    title: form.title,
+    details: {
+      tagline: form.tagline,
+      description: form.description,
+      level: form.level,
+      duration: form.durationText,
+      timings: form.timings,
+      mentorName: form.mentorName,
+      mentorTitle: form.mentorTitle,
+      mentorBio: form.mentorBio,
+    },
+    pricePkr: Number(form.pricePkr) || 0,
+    topic: page.topic,
+    startsAt: page.startsAt,
+    publicVideoUrl: page.publicVideoUrl,
+    outcomes: page.outcomes,
+    features: page.features,
+    faqs: page.faqs,
+    pageSections: page.pageSections,
+  };
+
+  function applyImport(plan: PageImport) {
+    const d = plan.details;
+    setForm((prev) => ({
+      ...prev,
+      title: plan.title ?? prev.title,
+      tagline: d.tagline ?? prev.tagline,
+      description: d.description ?? prev.description,
+      level: d.level ?? prev.level,
+      durationText: d.duration ?? prev.durationText,
+      timings: d.timings ?? prev.timings,
+      mentorName: d.mentorName ?? prev.mentorName,
+      mentorTitle: d.mentorTitle ?? prev.mentorTitle,
+      mentorBio: d.mentorBio ?? prev.mentorBio,
+      pricePkr: plan.page.pricePkr !== undefined ? String(plan.page.pricePkr) : prev.pricePkr,
+    }));
+    const p = plan.page;
+    setPage((prev) => ({
+      ...prev,
+      topic: p.topic ?? prev.topic,
+      startsAt: p.startsAt ?? prev.startsAt,
+      publicVideoUrl: p.publicVideoUrl ?? prev.publicVideoUrl,
+      outcomes: p.outcomes ?? prev.outcomes,
+      features: p.features ?? prev.features,
+      faqs: p.faqs ?? prev.faqs,
+      pageSections: p.pageSections ?? prev.pageSections,
+    }));
+    toast.success("Filled in from the file. Check the boxes, then press Save.");
+  }
+
+  function downloadPage() {
+    const text = writePageFile({ ...editorPage, type: form.type });
+    const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${course.slug}-page.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -403,7 +474,28 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
         </div>
       </section>
 
-      <PublicPageEditor value={page} onChange={setPage} courseSlug={course.slug} courseType={form.type} topicOptions={course.topicOptions} />
+      <PublicPageEditor
+        value={page}
+        onChange={setPage}
+        courseSlug={course.slug}
+        courseType={form.type}
+        topicOptions={course.topicOptions}
+        toolbar={
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setImportOpen(true)} className={TOOL_BTN}>
+              <FileUp className="h-4 w-4" aria-hidden="true" /> Import page from a file
+            </button>
+            <button type="button" onClick={downloadPage} className={TOOL_BTN}>
+              <FileDown className="h-4 w-4" aria-hidden="true" /> Download my page as a file
+            </button>
+            <Link href="/dashboard/admin/courses/ai" className={TOOL_BTN}>
+              <Sparkles className="h-4 w-4" aria-hidden="true" /> AI help
+            </Link>
+          </div>
+        }
+      />
+
+      <ImportPageDialog open={importOpen} onOpenChange={setImportOpen} courseType={form.type} current={editorPage} onApply={applyImport} />
 
       <div className="md:hidden max-md:sticky max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:-mx-4 max-md:border-t max-md:border-border max-md:bg-background/95 max-md:px-4 max-md:py-3 max-md:backdrop-blur">
         <Button

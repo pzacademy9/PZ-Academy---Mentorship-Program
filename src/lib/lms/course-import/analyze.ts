@@ -5,11 +5,13 @@ import type { LessonResourceLink, QuizQuestionInput } from "@/lib/data/admin-lms
 import { parseQuizPaste } from "@/lib/lms/quiz-paste";
 import { checkVideoLink } from "@/lib/video-link";
 import { parseCourseFile } from "./parse";
+import { checkPageParts, pagePartLabels, type PagePlan } from "./page-parts";
 import {
   COURSE_DETAIL_FIELDS,
   COURSE_IMPORT_LIMITS,
   type ImportCourseType,
   type ImportDetails,
+  type RawDetails,
   type RawNote,
 } from "./format";
 
@@ -33,6 +35,8 @@ export type ImportPlan = {
   // Only the basic settings that were filled in and fit their limits.
   details: ImportDetails;
   modules: ImportModule[];
+  /** Public page parts in the file; parts left out of the file are undefined. */
+  page?: PagePlan;
 };
 
 export type ImportSummary = {
@@ -44,6 +48,8 @@ export type ImportSummary = {
   unassignedNotes: LessonResourceLink[];
   // Plain-word labels of the course details that will be filled in.
   detailsFilled: string[];
+  // Plain-word labels of the public page parts that will be filled in.
+  pageFilled: string[];
 };
 
 export type AnalyzeResult =
@@ -99,6 +105,60 @@ function cleanNotes(raw: RawNote[], where: string, warnings: string[]): LessonRe
   return kept;
 }
 
+function checkDetails(raw: RawDetails, warnings: string[]): { details: ImportDetails; detailsFilled: string[] } {
+  const details: ImportDetails = {};
+  const detailsFilled: string[] = [];
+  for (const f of COURSE_DETAIL_FIELDS) {
+    const value = raw[f.field].trim();
+    if (!value) continue;
+    if (value.length > f.max) {
+      warnings.push(`The ${f.label.toLowerCase()} is longer than ${f.max} letters, so it was left out.`);
+      continue;
+    }
+    details[f.field] = value;
+    detailsFilled.push(f.label);
+  }
+  return { details, detailsFilled };
+}
+
+/** What "Import page from a file" in the course editor may fill in. Undefined / missing = leave alone. */
+export type PageImport = {
+  title?: string;
+  details: ImportDetails;
+  page: PagePlan;
+};
+
+export type AnalyzePageResult =
+  | { ok: true; plan: PageImport; warnings: string[] }
+  | { ok: false; errors: string[] };
+
+/**
+ * The course editor's "Import page from a file": the same file layout, but only
+ * the title, the course details and the public page parts are used. Sessions
+ * and quizzes in the file are left out (they belong to the Curriculum Builder).
+ */
+export function analyzePageFile(text: string, courseType: string): AnalyzePageResult {
+  const parsed = parseCourseFile(text, { pageOnly: true });
+  if (!parsed.ok) return { ok: false, errors: parsed.errors };
+  const { raw } = parsed;
+  const warnings = [...parsed.warnings];
+  const { details } = checkDetails(raw.details, warnings);
+  const page = checkPageParts(raw.page, courseType, warnings);
+  const plan: PageImport = { details, page };
+  if (raw.title) {
+    if (raw.title.length > L.maxTitle) warnings.push(`The title is longer than ${L.maxTitle} letters, so it was left out.`);
+    else plan.title = raw.title;
+  }
+  const sessions = raw.modules.reduce((n, m) => n + m.sessions.length, 0);
+  if (sessions > 0 || raw.unassignedNotes.length > 0) {
+    warnings.push("Sessions, videos, notes and quizzes in this file are not used here. Use the Curriculum Builder for those.");
+  }
+  if (!plan.title && Object.keys(details).length === 0 && pagePartLabels(page).length === 0) {
+    return { ok: false, errors: ["The file has nothing for the course page."] };
+  }
+  return { ok: true, plan, warnings };
+}
+
 export function analyzeCourseFile(text: string): AnalyzeResult {
   const parsed = parseCourseFile(text);
   if (!parsed.ok) return { ok: false, errors: parsed.errors };
@@ -122,20 +182,10 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
   }
 
   const unassigned: LessonResourceLink[] = [];
-  const details: ImportDetails = {};
-  const detailsFilled: string[] = [];
-  for (const f of COURSE_DETAIL_FIELDS) {
-    const value = raw.details[f.field].trim();
-    if (!value) continue;
-    if (value.length > f.max) {
-      warnings.push(`The ${f.label.toLowerCase()} is longer than ${f.max} letters, so it was left out.`);
-      continue;
-    }
-    details[f.field] = value;
-    detailsFilled.push(f.label);
-  }
+  const { details, detailsFilled } = checkDetails(raw.details, warnings);
+  const page = checkPageParts(raw.page, raw.type, warnings);
 
-  const plan: ImportPlan = { title: raw.title, type: raw.type, details, modules: [] };
+  const plan: ImportPlan = { title: raw.title, type: raw.type, details, modules: [], page };
   const summary: ImportSummary = {
     modules: 0,
     sessions: 0,
@@ -144,6 +194,7 @@ export function analyzeCourseFile(text: string): AnalyzeResult {
     sessionList: [],
     unassignedNotes: unassigned,
     detailsFilled,
+    pageFilled: pagePartLabels(page),
   };
 
   for (const m of raw.modules) {
