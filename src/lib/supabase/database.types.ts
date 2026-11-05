@@ -4864,6 +4864,10 @@ export type Database = {
         Args: { p_keep: string; p_drop: string }
         Returns: undefined
       }
+      pz_reissue_id: {
+        Args: { p_person: string }
+        Returns: string
+      }
       resync_course_progress: {
         Args: { p_course_id: string }
         Returns: undefined
