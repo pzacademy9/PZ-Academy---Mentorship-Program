@@ -5,7 +5,7 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
-import { listPortalBatches, getPortalBatch, getProgressForUser } from "@/lib/data/portal";
+import { listPortalBatches, getPortalBatch, getProgressForUser, getProgressStandings } from "@/lib/data/portal";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 const PAST = "2026-10-01T10:00:00Z";
@@ -220,5 +220,32 @@ describe("getProgressForUser", () => {
   });
   it("is ok with null progress for an unknown confirmed email", async () => {
     expect(await getProgressForUser({ email: "nobody@example.com", email_confirmed_at: "2026-10-01T00:00:00Z" }, NOW)).toEqual({ status: "ok", progress: null });
+  });
+});
+
+describe("getProgressStandings", () => {
+  const board = (slug: string) => ({
+    title: slug, slug, kind: "course" as const, minPct: 75, state: "live" as const, coverUrl: null, students: 2, classesHeld: 1,
+    sessions: [{ id: "s1", number: 1, title: "One", quizMax: 100 }],
+    attendance: [],
+    overall: [
+      { name: "Other", pzId: "Name-0001", mode: "live" as const, score: 90, rank: 1 },
+      { name: "Sample", pzId: "Sample-0000", mode: "live" as const, score: 70, rank: 2 },
+    ],
+    perClass: { s1: [{ name: "Other", pzId: "Name-0001", mode: "live" as const, score: 90, rank: 1 }] },
+  });
+  const batch = (slug: string, scored: boolean) => ({
+    title: slug, slug, latest: false, mode: "live" as const, attendance: null,
+    results: { total: scored ? 70 : 0, rows: scored ? [{ number: 1, title: "One", startsAt: PAST, score: 70, max: 100, rank: 2, of: 2 }] : [] },
+  });
+  it("looks up only scored batches, keyed by slug; a failed board is left out", async () => {
+    const load = vi.fn(async (slug: string) => {
+      if (slug === "broken") throw new Error("boom");
+      return board(slug);
+    });
+    const progress = { firstName: "Sample", pzId: "Sample-0000", groups: [{ kind: "course" as const, batches: [batch("a", true), batch("b", false), batch("broken", true)] }] };
+    const out = await getProgressStandings(progress, load);
+    expect(load.mock.calls.map((c) => c[0]).sort()).toEqual(["a", "broken"]);
+    expect(out).toEqual({ a: { rank: 2, of: 2, gap: { points: 20, rank: 1 }, max: 100 } });
   });
 });

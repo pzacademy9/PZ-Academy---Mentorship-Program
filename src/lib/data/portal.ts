@@ -10,6 +10,7 @@ import { fetchAll } from "@/lib/data/attendance";
 import { getProgressByPzId } from "@/lib/data/progress";
 import { isPortalVisible } from "@/lib/progress/visibility";
 import type { Progress, ProgressKind } from "@/lib/progress/build";
+import { standingFor, type Standing } from "@/lib/progress/my-progress";
 import {
   buildPortalBatch,
   buildPortalCards,
@@ -197,6 +198,36 @@ export async function getPortalBatch(slug: string, now: Date = new Date()): Prom
   const [input] = await loadInputs(pages.slice(0, 1), true, now);
   if (!input) return null; // hidden: empty draft
   return buildPortalBatch(input);
+}
+
+const MAX_STANDINGS = 8;
+
+/**
+ * Where the student stands on each of their batches' public Overall board (rank, gap, max), keyed by slug.
+ * Only batches where the student has quiz scores are looked up. A batch whose board cannot be read is
+ * simply left out (the page then shows no rank for it); the student's own progress is unaffected.
+ */
+export async function getProgressStandings(
+  progress: Progress,
+  load: (slug: string) => Promise<PortalBatchView | null> = (slug) => getPortalBatch(slug),
+): Promise<Record<string, Standing>> {
+  const slugs = progress.groups
+    .flatMap((g) => g.batches)
+    .filter((b) => b.results.rows.length > 0)
+    .map((b) => b.slug)
+    .slice(0, MAX_STANDINGS);
+  const out: Record<string, Standing> = {};
+  await Promise.all(
+    slugs.map(async (slug) => {
+      try {
+        const view = await load(slug);
+        if (view) out[slug] = standingFor(view, progress.pzId);
+      } catch {
+        // Board unavailable: no rank shown for this batch.
+      }
+    }),
+  );
+  return out;
 }
 
 /** Progress of the person who owns this email (case-insensitive), or null when there is no such person. */

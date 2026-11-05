@@ -2,23 +2,12 @@
 
 import { useState } from "react";
 import { Crown, Medal, Trophy } from "lucide-react";
-import { initials, podium, restRows, gapAbove } from "@/lib/progress/leaderboard";
+import { boardMax, initials, podium, restRows, gapAbove } from "@/lib/progress/leaderboard";
 import type { PortalAttendanceRow, PortalBatchView, PortalResultRow } from "@/lib/progress/portal-build";
 import { btnFocus } from "../ui";
 
 export const fmtPoints = (n: number) => n.toLocaleString("en-US");
 const ordinal = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? `${n}st` : n % 10 === 2 && n % 100 !== 12 ? `${n}nd` : n % 10 === 3 && n % 100 !== 13 ? `${n}rd` : `${n}th`);
-
-/** Max score next to an overall total: only when every class that has results has a known max. */
-function overallMax(view: PortalBatchView): number | null {
-  const withResults = view.sessions.filter((s) => (view.perClass[s.id] ?? []).length > 0);
-  if (withResults.length === 0 || withResults.some((s) => s.quizMax === null)) return null;
-  return withResults.reduce((n, s) => n + (s.quizMax ?? 0), 0);
-}
-
-export function boardMax(view: PortalBatchView, pick: string): number | null {
-  return pick === "overall" ? overallMax(view) : (view.sessions.find((s) => s.id === pick)?.quizMax ?? null);
-}
 
 /** Overall / Class N switch, shared by the Leaderboard and Find me tabs. */
 export function BoardPicker({ view, pick, onPick }: { view: PortalBatchView; pick: string; onPick: (id: string) => void }) {

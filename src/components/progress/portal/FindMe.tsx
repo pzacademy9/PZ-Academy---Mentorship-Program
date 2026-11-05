@@ -3,7 +3,8 @@
 import { Search } from "lucide-react";
 import type { PortalAttendanceRow, PortalBatchView, PortalResultRow } from "@/lib/progress/portal-build";
 import { inputClass } from "../ui";
-import { BoardPicker, RankRow, boardMax, gapLine } from "./Leaderboard";
+import { boardMax } from "@/lib/progress/leaderboard";
+import { BoardPicker, RankRow, gapLine } from "./Leaderboard";
 
 interface Props {
   view: PortalBatchView;
