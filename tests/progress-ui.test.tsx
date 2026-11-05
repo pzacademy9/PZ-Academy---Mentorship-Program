@@ -287,6 +287,7 @@ describe("My Progress view", () => {
     expect(screen.queryByText("Batch rank")).toBeNull();
     expect(screen.queryByRole("img", { name: /Attended/ })).toBeNull();
     expect(screen.getByText("of 10 points")).toBeTruthy();
+    expect(screen.queryByText(/Class rank/)).toBeNull();
   });
 
   it("rank badge and gap line only from a real live standing", () => {

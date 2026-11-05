@@ -324,6 +324,17 @@ describe("BatchPortal share podium", () => {
     expect(created).toHaveLength(0);
   });
 
+  it("keeps the button on the right when the header wraps, and the menu never wider than the screen", () => {
+    setup();
+    render(<BatchPortal view={view()} />);
+    const btn = screen.getByRole("button", { name: /Share podium/ });
+    expect(btn.parentElement?.className).toMatch(/(^|\s)ml-auto(\s|$)/);
+    fireEvent.click(btn);
+    const menu = screen.getByRole("group", { name: "Share podium picture" });
+    expect(menu.className).toContain("right-0");
+    expect(menu.className).toContain("max-w-[calc(100vw-2rem)]");
+  });
+
   it("moves focus into the menu and back to the button on Escape", async () => {
     setup();
     render(<BatchPortal view={view()} />);

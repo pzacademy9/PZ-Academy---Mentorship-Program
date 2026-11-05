@@ -65,8 +65,8 @@ describe("PortalHome", () => {
   it("shows the privacy line and tab counts", () => {
     render(<PortalHome groups={groups} />);
     expect(screen.getByText("Names and IDs only. No phone or email shown.")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: /Courses/ }).textContent).toContain("2");
-    expect(screen.getByRole("tab", { name: /Webinars/ }).textContent).toContain("0");
+    expect(screen.getByRole("button", { name: /Courses/ }).textContent).toContain("2");
+    expect(screen.getByRole("button", { name: /Webinars/ }).textContent).toContain("0");
   });
 
   it("filters by title search and by tab", () => {
@@ -76,7 +76,12 @@ describe("PortalHome", () => {
     expect(screen.queryByRole("link", { name: /Sample Course/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Sample Workshop/ })).toBeTruthy();
     fireEvent.change(box, { target: { value: "" } });
-    fireEvent.click(screen.getByRole("tab", { name: /Workshops/ }));
+    const ws = screen.getByRole("button", { name: /Workshops/ });
+    expect(ws.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(ws);
+    expect(ws.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("group", { name: "Batch type" })).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("link", { name: /Sample Course/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Sample Workshop/ })).toBeTruthy();
   });
@@ -120,7 +125,7 @@ describe("PortalHome", () => {
 
     it("tab counts still count batches, not groups", () => {
       render(<PortalHome groups={grouped} />);
-      expect(screen.getByRole("tab", { name: /Courses/ }).textContent).toContain("3");
+      expect(screen.getByRole("button", { name: /Courses/ }).textContent).toContain("3");
     });
   });
 
@@ -149,16 +154,20 @@ describe("PortalHome hero and PZ ID check", () => {
     pzId: "Sample-0001",
     groups: [{ kind: "course" as const, batches: [{ title: "Sample Course", slug: "sample-course", latest: true, mode: "live" as const, attendance: null, results: { total: 0, rows: [] } }] }],
   };
-  it("hero heading and the ID box; name search is behind 'Forgot your ID?'", () => {
+  it("hero heading and the ID box; the name search starts open and can be closed", () => {
     render(<PortalHome groups={groups} checkId={async () => ({ status: "not_found" })} findId={async () => ({ status: "not_found" })} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Track your progress");
     expect(screen.getByLabelText("Your PZ ID")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Find my ID" })).toBeNull();
-    const toggle = screen.getByRole("button", { name: /Forgot your ID\? Find it by name/ });
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("heading", { name: "Find my ID" })).toBeTruthy();
+    const toggle = screen.getByRole("button", { name: /Forgot your ID\? Find it by name/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("heading", { name: "Find my ID" })).toBeNull();
+    window.location.hash = "#find-id";
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    expect(screen.getByRole("heading", { name: "Find my ID" })).toBeTruthy();
+    window.location.hash = "";
   });
   it("too short an ID answers on the page without calling the server", () => {
     const checkId = vi.fn();

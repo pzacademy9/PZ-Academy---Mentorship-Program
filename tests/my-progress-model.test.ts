@@ -167,9 +167,10 @@ describe("ledgerRows", () => {
 });
 
 describe("scoreMax", () => {
-  it("prefers the board max, then the student's own known maxes", () => {
+  it("only the board's real max: a missed quiz must not shrink it", () => {
     expect(scoreMax(batch(), { rank: 1, of: 2, gap: null, max: 300 })).toBe(300);
-    expect(scoreMax(batch(), null)).toBe(200);
+    expect(scoreMax(batch(), null)).toBeNull();
+    expect(scoreMax(batch(), { rank: 1, of: 2, gap: null, max: null })).toBeNull();
   });
   it("unknown when any of the student's classes has no max, or there are no scores", () => {
     const b = batch();

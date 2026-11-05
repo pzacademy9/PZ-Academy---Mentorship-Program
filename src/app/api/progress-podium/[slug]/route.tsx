@@ -9,6 +9,8 @@ import { podiumAssets } from "@/lib/progress/podium-assets";
 
 // Reads request headers for the rate limit and live scores, so nothing is cached at build time.
 export const dynamic = "force-dynamic";
+// Drawing the picture with its glows and fonts can take several seconds.
+export const maxDuration = 30;
 
 const text = (body: string, status: number) =>
   new Response(body, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });

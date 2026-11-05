@@ -47,6 +47,8 @@ const MAX_ID = 40;
  * There is no password or proof of identity: anyone who types an ID sees what the public boards already
  * show for it (name, PZ ID, attendance, quiz scores, rank), limited to the batches whose public board lists
  * that ID. Never email or phone. Shares the Find my ID rate limit.
+ * An old (alias) ID still works: it resolves to the person's one current ID, which is what is shown,
+ * exactly as the existing ID lookup already did. No other ID is ever returned.
  */
 export async function checkMyProgress(pzId: string): Promise<CheckMyProgressResult> {
   try {

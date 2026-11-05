@@ -91,12 +91,12 @@ export function nextClassNumber(rows: LedgerRow[]): number | null {
   return upcoming[0]?.number ?? null;
 }
 
-/** "of max" for the student's total: the board's max, else the sum of their own classes' maxes when all are known. */
+/**
+ * "of max" for the student's total: only the batch board's real max. No fallback from the student's own
+ * classes: a missed quiz would leave that class out and make the max look smaller than it is.
+ */
 export function scoreMax(batch: ProgressBatch, standing: Standing | null): number | null {
-  if (standing?.max != null) return standing.max;
-  const rows = batch.results.rows;
-  if (rows.length === 0 || rows.some((r) => r.max === null)) return null;
-  return rows.reduce((n, r) => n + (r.max ?? 0), 0);
+  return batch.results.rows.length > 0 ? (standing?.max ?? null) : null;
 }
 
 /** WhatsApp share link with the public batch page only: no ID, score or other private detail. */

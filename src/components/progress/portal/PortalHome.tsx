@@ -51,17 +51,22 @@ interface Props {
 export function PortalHome({ groups, findId, checkId, failed = false }: Props) {
   const [tab, setTab] = useState<ProgressKind | "all">("all");
   const [term, setTerm] = useState("");
-  // Without the ID box the name search is the main action, so it starts open.
-  const [nameOpen, setNameOpen] = useState(!checkId);
+  // Starts open: the site menu's "Find my ID" link lands here, so the name search must be ready.
+  const [nameOpen, setNameOpen] = useState(true);
   const [idValue, setIdValue] = useState("");
   const [check, setCheck] = useState<CheckMyProgressResult | null>(null);
   const [pending, startTransition] = useTransition();
   const resultRef = useRef<HTMLDivElement>(null);
   const idRef = useRef<HTMLInputElement>(null);
 
-  // The site menu's "Find my ID" link may arrive with #find-id: open the name search.
+  // A link to #find-id (now or later on this page) opens the name search again.
   useEffect(() => {
-    if (window.location.hash === "#find-id") setNameOpen(true);
+    const onHash = () => {
+      if (window.location.hash === "#find-id") setNameOpen(true);
+    };
+    onHash();
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   useEffect(() => {
@@ -178,7 +183,7 @@ export function PortalHome({ groups, findId, checkId, failed = false }: Props) {
           {findId && nameOpen && (
             <div
               id="find-id"
-              className="w-full min-w-0 scroll-mt-28 rounded-[24px] bg-pz-surface-container-lowest p-5 text-left shadow-xl motion-safe:duration-300 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 sm:p-6"
+              className="w-full min-w-0 scroll-mt-28 rounded-[24px] bg-pz-surface-container-lowest p-3 text-left shadow-xl motion-safe:duration-300 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 sm:p-4"
             >
               <MyIdSection findId={findId} />
             </div>
@@ -230,16 +235,15 @@ export function PortalHome({ groups, findId, checkId, failed = false }: Props) {
                   className="min-h-11 w-full min-w-0 bg-transparent font-poppins text-base text-pz-on-surface placeholder:text-pz-outline focus:outline-none"
                 />
               </div>
-              <div role="tablist" aria-label="Batch type" className="flex min-w-0 gap-1 rounded-full bg-pz-surface-container-lowest p-1 shadow-sm ring-1 ring-pz-outline-variant/40">
+              <div role="group" aria-label="Batch type" className="grid min-w-0 grid-cols-3 gap-2 py-1 sm:flex">
                 {ordered.map((g) => (
                   <button
                     key={g.kind}
                     type="button"
-                    role="tab"
-                    aria-selected={tab === g.kind}
+                    aria-pressed={tab === g.kind}
                     onClick={() => setTab(tab === g.kind ? "all" : g.kind)}
-                    className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 font-montserrat text-[13px] font-bold transition-colors motion-reduce:transition-none sm:px-4 sm:text-sm ${FOCUS} ${
-                      tab === g.kind ? "bg-pz-solid-deep text-white shadow-sm" : "text-pz-muted hover:bg-pz-web-surface-low"
+                    className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 whitespace-nowrap rounded-2xl px-1.5 font-montserrat text-[13px] font-bold shadow-sm sm:min-h-11 sm:shrink-0 sm:flex-row sm:gap-1.5 sm:rounded-full sm:px-4 sm:text-sm transition-colors motion-reduce:transition-none ${FOCUS} ${
+                      tab === g.kind ? "bg-pz-solid-deep text-white" : "bg-pz-surface-container-lowest text-pz-deep ring-1 ring-pz-outline-variant/40 hover:bg-pz-web-surface-low"
                     }`}
                   >
                     {LABELS[g.kind]}

@@ -63,7 +63,7 @@ export function SharePodium({ slug, title, pick, label }: { slug: string; title:
   }, [open]);
 
   return (
-    <div ref={wrap} className="relative shrink-0">
+    <div ref={wrap} className="relative ml-auto shrink-0">
       <button
         ref={button}
         type="button"

@@ -25,7 +25,7 @@ vi.mock("next/og", () => ({
   },
 }));
 
-import { GET } from "@/app/api/progress-podium/[slug]/route";
+import { GET, maxDuration } from "@/app/api/progress-podium/[slug]/route";
 
 // Fake people only. The extra email/phone fields stand for anything a future loader might add by mistake.
 const row = (name: string, score: number, rank: number | null, mode: "live" | "recorded" = "live") => ({
@@ -92,6 +92,10 @@ describe("GET /api/progress-podium/[slug]", () => {
     const opts = h.images[0].options as unknown as { fonts?: { name: string; weight: number }[] };
     expect(opts.fonts?.map((f) => `${f.name} ${f.weight}`)).toEqual(["Montserrat 600", "Montserrat 800"]);
     expect(lastMarkup()).toContain("data:image/png;base64,");
+  });
+
+  it("allows up to 30 seconds to draw", () => {
+    expect(maxDuration).toBe(30);
   });
 
   it("story size is 1080 x 1920 and names a png file", async () => {
