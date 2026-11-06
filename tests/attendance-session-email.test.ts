@@ -290,3 +290,13 @@ describe("listSessionSendState", () => {
     expect(await listSessionSendState([])).toEqual({});
   });
 });
+
+describe("zoom link changed wording", () => {
+  it("says the link changed and shows the new one", () => {
+    const m = buildSessionEmail(sessRow(), "update", { zoomChanged: true });
+    expect(m.subject).toMatch(/^New Zoom link: /);
+    expect(m.body).toMatch(/Zoom link .* has changed/);
+    expect(m.body).toContain("{{zoom_link}}");
+    expect(m.body).not.toMatch(/time .* has changed/);
+  });
+});

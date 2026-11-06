@@ -10,19 +10,22 @@ export type SessionEmailSource = {
 export function buildSessionEmail(
   session: SessionEmailSource,
   kind: "reminder" | "update" = "reminder",
-  opts: { resend?: boolean } = {},
+  opts: { resend?: boolean; zoomChanged?: boolean } = {},
 ): { subject: string; body: string } {
   const name = session.title.trim() !== "" ? session.title.trim() : `Session ${session.number}`;
   const lines: string[] = ["Hi {{first_name}},", ""];
   const resend = kind === "update" && !!opts.resend;
-  if (resend) {
+  const zoomChanged = kind === "update" && !!opts.zoomChanged;
+  if (zoomChanged) {
+    lines.push(`The Zoom link for your live session "${name}" has changed. Please use the new link below.`, "", "The class time:");
+  } else if (resend) {
     lines.push(`Here are the details of your live session "${name}":`);
   } else if (kind === "update") {
     lines.push(`The time of your live session "${name}" has changed. The new time is:`);
   } else {
     lines.push(`Your live session "${name}" is coming up:`);
   }
-  lines.push("{{session_time}}", "", "Join on Zoom here:", "{{zoom_link}}");
+  lines.push("{{session_time}}", "", zoomChanged ? "Join on Zoom with the NEW link:" : "Join on Zoom here:", "{{zoom_link}}");
   if (session.include_kahoot && session.kahoot_url.trim() !== "") {
     lines.push("", "Kahoot quiz link:", "{{kahoot_link}}");
   }
@@ -30,7 +33,9 @@ export function buildSessionEmail(
     lines.push("", "Mark your attendance with this link during the session:", "{{attendance_link}}");
   }
   lines.push("", "Your PZ ID: {{pz_id}}", "", "See you there,", "PZ Academy");
-  const subject = resend
+  const subject = zoomChanged
+    ? `New Zoom link: ${name}`
+    : resend
     ? `Your class details: ${name}`
     : kind === "update" ? `Updated: ${name} is on a new time` : `Reminder: ${name} is coming up`;
   return { subject, body: lines.join("\n") };

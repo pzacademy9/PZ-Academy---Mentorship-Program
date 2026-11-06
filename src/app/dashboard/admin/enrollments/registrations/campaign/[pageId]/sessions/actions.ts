@@ -42,6 +42,7 @@ const SEND_MESSAGES: Record<string, string> = {
   too_soon: "Wait a minute before sending again",
   no_audience: "Choose who gets this email first.",
   no_feedback_link: "This class has no feedback link yet",
+  nobody_missing: "Everyone has already got this email.",
   still_sending: "The last feedback email is still being sent. Please wait until it finishes.",
 };
 const OVERRIDES: readonly WindowOverride[] = ["auto", "open", "closed"];
@@ -238,7 +239,7 @@ export async function openProgramReport(pageId: string): Promise<{ ok: boolean; 
   }
 }
 
-async function sendNow(sessionId: string, kind: "reminder" | "update" | "feedback", opts?: { resend?: boolean; manual?: boolean }): Promise<ActionResult> {
+async function sendNow(sessionId: string, kind: "reminder" | "update" | "feedback", opts?: { resend?: boolean; manual?: boolean; zoomChanged?: boolean; onlyMissing?: boolean }): Promise<ActionResult> {
   const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
@@ -311,6 +312,16 @@ export async function emailUpdatedTime(sessionId: string): Promise<ActionResult>
 /** A plain second send of the class details (Zoom link, attendance link): same email kind, neutral wording. */
 export async function resendClassDetails(sessionId: string): Promise<ActionResult> {
   return sendNow(sessionId, "update", { resend: true });
+}
+
+/** The Zoom link email, only to people who have not got it yet (sent or still queued are left out; failed ones are tried again). */
+export async function emailMissingOnly(sessionId: string): Promise<ActionResult> {
+  return sendNow(sessionId, "update", { resend: true, onlyMissing: true });
+}
+
+/** Tells everyone the Zoom link changed, with the new link. */
+export async function emailNewZoomLink(sessionId: string): Promise<ActionResult> {
+  return sendNow(sessionId, "update", { zoomChanged: true });
 }
 
 /** Emails the class's feedback link to every enrolled student of the batch. */

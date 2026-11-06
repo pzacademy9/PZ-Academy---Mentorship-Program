@@ -12,7 +12,7 @@ import { formatPkt } from "@/lib/attendance/rules";
 
 export type SessionSendResult =
   | { ok: true; sendId: string; count: number }
-  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" | "no_audience" };
+  | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" | "no_audience" | "nobody_missing" };
 
 const TOO_SOON_MS = 60 * 1000;
 
@@ -43,7 +43,7 @@ export async function createSessionSend(
   sessionId: string,
   kind: "reminder" | "update" | "feedback" = "reminder",
   // manual = an admin pressed the button: the per-class reminder switch only controls the automatic email.
-  opts: { resend?: boolean; manual?: boolean } = {},
+  opts: { resend?: boolean; manual?: boolean; zoomChanged?: boolean; onlyMissing?: boolean } = {},
 ): Promise<SessionSendResult> {
   const session = await getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
@@ -88,6 +88,22 @@ export async function createSessionSend(
   }
   if (!process.env.BREVO_API_KEY_PARTICIPANTS) return { ok: false, reason: "not_set_up" };
 
+  // "Only people who have not got it": anyone already sent, or still queued, for an earlier Zoom link email of this class is left out.
+  // Failed and unsent people are included again.
+  const alreadyHave = new Set<string>();
+  if (opts.onlyMissing) {
+    const { data: earlier, error: earlierErr } = await admin.from("participant_sends").select("id")
+      .eq("session_id", sessionId).in("session_kind", ["reminder", "update"]);
+    if (earlierErr) throw new Error(`earlier sends read failed: ${earlierErr.message}`);
+    const earlierIds = ((earlier ?? []) as { id: string }[]).map((r) => r.id);
+    if (earlierIds.length > 0) {
+      const got = await fetchAllRows<{ registration_id: string }>("earlier recipients read", () =>
+        admin.from("participant_send_recipients").select("registration_id").in("send_id", earlierIds)
+          .in("state", ["sent", "pending", "claimed"]).order("id", { ascending: true }));
+      for (const r of got) alreadyHave.add(r.registration_id);
+    }
+  }
+
   const { planned, summary } = await plan({
     pageId: session.page_id,
     channel: "email",
@@ -96,10 +112,11 @@ export async function createSessionSend(
     // A live-only audience can be narrowed up front; "any" must be able to reach recorded students.
     filters: audience.mode === "live" ? { mode: "live" } : {},
     keep: (c) =>
+      !alreadyHave.has(c.registrationId) &&
       (c.status === "paid" || c.status === "free") &&
       matchAudience(parseOption(c.optionLabel ?? ""), audience).include,
   });
-  if (planned.send.length === 0) return { ok: false, reason: "no_recipients" };
+  if (planned.send.length === 0) return { ok: false, reason: opts.onlyMissing && alreadyHave.size > 0 ? "nobody_missing" : "no_recipients" };
 
   let batchTitle = "";
   if (kind === "feedback") {
