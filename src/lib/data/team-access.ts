@@ -23,7 +23,7 @@ export type TeamMember = {
 
 export type TeamResult =
   | { ok: true }
-  | { ok: false; reason: "not-found" | "is-super-admin" | "is-mentor" | "is-sales-agent" | "not-team-member" | "db-error" };
+  | { ok: false; reason: "not-found" | "is-super-admin" | "is-mentor" | "is-sales-agent" | "not-team-member" | "memory-not-saved" | "db-error" };
 
 const areas = (v: unknown): Area[] => (Array.isArray(v) ? v.filter(isArea) : []);
 
@@ -116,11 +116,8 @@ export async function switchOffTeamMember(userId: string): Promise<TeamResult> {
   const { error } = await admin.from("team_access").upsert({
     user_id: userId, active: false, previous_role: profile.role, updated_at: new Date().toISOString(),
   });
-  if (error) {
-    // Without the memory row "Add back" would have nothing to restore: put the old role back.
-    await admin.from("profiles").update({ role: profile.role }).eq("id", userId).eq("role", "student");
-    return { ok: false, reason: "db-error" };
-  }
+  // Fail closed: the person stays switched off even if the "Add back" memory could not be saved.
+  if (error) return { ok: false, reason: "memory-not-saved" };
   return { ok: true };
 }
 

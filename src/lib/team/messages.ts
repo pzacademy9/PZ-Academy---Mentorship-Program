@@ -5,6 +5,7 @@ export const TEAM_FAILURES: Record<string, [string, number]> = {
   "is-mentor": ["That account is a mentor. A mentor cannot also be on the team.", 409],
   "is-sales-agent": ["Sales agents are managed in Sales Hub, Team.", 409],
   "not-team-member": ["That person is not on the team.", 409],
+  "memory-not-saved": ["They were switched off, but their Add back details were not saved. Add them again from scratch if needed.", 500],
   "db-error": ["Could not save changes.", 500],
 };
 

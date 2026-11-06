@@ -158,13 +158,14 @@ describe("listTeam", () => {
   });
 });
 
-describe("switch off keeps the person safe when the memory row cannot be saved", () => {
-  it("puts the old role back and reports the error", async () => {
+describe("switch off fails closed when the memory row cannot be saved", () => {
+  it("keeps the person demoted and says the Add back details were not saved", async () => {
     db.profiles = [{ id: "u10", role: "manager" }];
     db.failUpsert = true;
-    expect(await switchOffTeamMember("u10")).toEqual({ ok: false, reason: "db-error" });
+    expect(await switchOffTeamMember("u10")).toEqual({ ok: false, reason: "memory-not-saved" });
     const roleWrites = db.writes.filter((w) => w.table === "profiles").map((w) => w.values);
-    expect(roleWrites).toEqual([{ role: "student" }, { role: "manager" }]);
+    expect(roleWrites).toEqual([{ role: "student" }]);
+    expect(db.profiles[0].role).toBe("student");
   });
 });
 
