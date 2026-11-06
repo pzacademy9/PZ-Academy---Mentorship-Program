@@ -46,6 +46,12 @@ describe("effectiveOwnerPromo", () => {
     const r = effectiveOwnerPromo({ owner: owner(), typed: "TEST-111", percent: null, globalMax: 30 });
     expect(r.ok && r.promo.value).toBe(10);
   });
+  it("never refuses a plain code: its percent is held down to the ceiling instead", () => {
+    const r = effectiveOwnerPromo({ owner: owner({ plainPercent: 10 }), typed: "TEST-111", percent: null, globalMax: 5 });
+    expect(r.ok && r.promo.value).toBe(5);
+    const own = effectiveOwnerPromo({ owner: owner({ plainPercent: 10, maxPercent: 8 }), typed: "TEST-111", percent: null, globalMax: 30 });
+    expect(own.ok && own.promo.value).toBe(8);
+  });
   it("gives no discount but still resolves when the plain percent is 0", () => {
     const r = effectiveOwnerPromo({ owner: owner({ plainPercent: 0 }), typed: "TEST-111", percent: null, globalMax: 30 });
     expect(r.ok && r.promo.value).toBe(0);

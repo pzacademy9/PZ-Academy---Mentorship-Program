@@ -10,6 +10,14 @@ describe("isBotUserAgent", () => {
     expect(isBotUserAgent(SAFARI_IOS)).toBe(false);
     expect(isBotUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0")).toBe(false);
   });
+  it("does not drop people reading in the LinkedIn or Telegram in-app browsers", () => {
+    expect(isBotUserAgent(`${SAFARI_IOS} [LinkedInApp]/9.29.5543`)).toBe(false);
+    expect(isBotUserAgent(`${CHROME_ANDROID} Telegram-Android/10.3.2 (Samsung SM-A546E; Android 13)`)).toBe(false);
+  });
+  it("still catches the LinkedIn and Telegram preview bots", () => {
+    expect(isBotUserAgent("LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)")).toBe(true);
+    expect(isBotUserAgent("TelegramBot (like TwitterBot)")).toBe(true);
+  });
   it("catches crawlers, link previews, headless browsers and scripts", () => {
     for (const ua of [
       "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0.0.0 Safari/537.36",

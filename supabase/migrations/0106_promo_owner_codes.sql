@@ -18,11 +18,9 @@ begin
     alter table public.landing_promo_codes
       add constraint landing_promo_codes_max_percent_chk check (max_percent is null or max_percent between 1 and 100);
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'landing_promo_codes_owner_code_has_owner_chk') then
-    alter table public.landing_promo_codes
-      add constraint landing_promo_codes_owner_code_has_owner_chk check (not is_owner_code or owner_agent_id is not null);
-  end if;
 end $$;
+-- Not a database rule on purpose: owner_agent_id is set to null when the agent is deleted, and a check
+-- here would block that delete. The app treats an owner code with no owner as an ordinary code.
 
 -- One row: the highest percent anyone may type after a code.
 create table if not exists public.landing_promo_settings (

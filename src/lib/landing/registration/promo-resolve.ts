@@ -17,16 +17,21 @@ export interface ResolvedPromo {
 
 const NONE: ResolvedPromo = { promo: null, overMax: null };
 
-export async function resolvePromoWith(typed: string, deps: PromoResolveDeps): Promise<ResolvedPromo> {
+// An owner code whose owner is gone (agent deleted) is just an ordinary code: no suffix, no plain percent.
+const isLiveOwnerCode = (p: PromoCode) => p.isOwnerCode === true && p.ownerAgentId !== null;
+
+export async function resolvePromoWith(raw: string, deps: PromoResolveDeps): Promise<ResolvedPromo> {
+  // People type "as47 -10 %": codes never contain spaces, so remove them all.
+  const typed = raw.replace(/\s+/g, "").toUpperCase();
   const exact = await deps.getByCode(typed);
   if (exact) {
-    if (!exact.isOwnerCode) return { promo: exact, overMax: null };
+    if (!isLiveOwnerCode(exact)) return { promo: exact, overMax: null };
     return fromOwner(exact, typed, null, deps);
   }
   const s = parsePromoSuffix(typed);
   if (!s) return NONE;
   const owner = await deps.getByCode(s.base);
-  if (!owner || !owner.isOwnerCode) return NONE;
+  if (!owner || !isLiveOwnerCode(owner)) return NONE;
   return fromOwner(owner, typed, s.percent, deps);
 }
 

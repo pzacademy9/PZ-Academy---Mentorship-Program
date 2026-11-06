@@ -52,6 +52,15 @@ describe("resolvePromoWith", () => {
     const r = await resolvePromoWith("TEST-111", deps([ownerCode({ plainPercent: 0 })]));
     expect(r.promo).toMatchObject({ id: "own1", value: 0 });
   });
+  it("reads a code typed with spaces and lowercase as the clean code", async () => {
+    for (const typed of ["TEST-111 -10 %", "TEST-111- 10%", "TEST-111-10 %"]) {
+      expect((await resolvePromoWith(typed, deps([ownerCode()]))).promo, typed).toMatchObject({ id: "own1", value: 10 });
+    }
+  });
+  it("ignores the owner behaviour when the owner is gone (agent deleted)", async () => {
+    const orphan = ownerCode({ ownerAgentId: null });
+    expect(await resolvePromoWith("TEST-111-10%", deps([orphan]))).toEqual({ promo: null, overMax: null });
+  });
   it("answers null for an unknown code and for an unknown suffix base", async () => {
     expect(await resolvePromoWith("NOPE", deps([]))).toEqual({ promo: null, overMax: null });
     expect(await resolvePromoWith("NOPE-10%", deps([]))).toEqual({ promo: null, overMax: null });

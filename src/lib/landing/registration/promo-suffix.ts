@@ -23,8 +23,9 @@ export function effectiveOwnerPromo(p: {
   globalMax: number;
 }): { ok: true; promo: PromoCode } | { ok: false; reason: "over_max"; max: number } {
   const max = Math.min(p.globalMax, p.owner.maxPercent ?? p.globalMax);
-  const percent = p.percent ?? p.owner.plainPercent ?? 10;
-  if (percent > max) return { ok: false, reason: "over_max", max };
+  // A typed percent above the ceiling is refused. A plain code (nothing typed) is never refused: it is held down to the ceiling.
+  if (p.percent !== null && p.percent > max) return { ok: false, reason: "over_max", max };
+  const percent = p.percent ?? Math.min(p.owner.plainPercent ?? 10, max);
   return {
     ok: true,
     promo: { ...p.owner, code: p.typed, type: "percent", value: percent, fixedAmounts: {}, maxDiscountPercent: 0 },
