@@ -1,5 +1,5 @@
 import { currentUserMayAccess, requireAdminPage } from "@/lib/auth/require-admin";
-import { listPromoCodes } from "@/lib/data/landing-promo-codes";
+import { getPromoSettings, listPromoCodes } from "@/lib/data/landing-promo-codes";
 import { getLandingPage, listLandingPages } from "@/lib/data/landing-pages";
 import { listSalesAgents } from "@/lib/data/sales-agents";
 import { PromoCodesManager } from "@/components/admin/landing/promo/PromoCodesManager";
@@ -12,7 +12,9 @@ export default async function AdminPromoCodesPage() {
   await requireAdminPage("landing_pages");
   // Agent links belong to Sales Hub (their route says so), so only show them to someone who has it.
   const canMakeLinks = await currentUserMayAccess("sales_hub");
-  const [codes, summaries, salesAgents] = await Promise.all([listPromoCodes(), listLandingPages(), canMakeLinks ? listSalesAgents() : Promise.resolve([])]);
+  const [codes, summaries, salesAgents, settings] = await Promise.all([
+    listPromoCodes(), listLandingPages(), canMakeLinks ? listSalesAgents() : Promise.resolve([]), getPromoSettings(),
+  ]);
   // Option names come from each page's draft registration settings (what admins edit);
   // getLandingPage runs normalizeContent, so draft.registration is always present (Task 2).
   const full = await Promise.all(summaries.map((s) => getLandingPage(s.id)));
@@ -30,7 +32,7 @@ export default async function AdminPromoCodesPage() {
           Discount codes for the registration form on your landing pages. The server checks every code, so a made-up code never gives a discount.
         </p>
       </div>
-      <PromoCodesManager codes={codes} pages={pages} />
+      <PromoCodesManager codes={codes} pages={pages} agents={agents} maxPercent={settings.maxPercent} />
       {canMakeLinks && <AgentLinksPanel agents={agents} pages={linkPages} />}
     </div>
   );

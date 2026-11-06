@@ -27,9 +27,14 @@ const promoFields = {
   endsAt: instant.nullable(),
   active: z.boolean(),
   ownerAgentId: z.string().regex(UUID_RE).nullable(),
+  // Owner codes: a person's own code. Optional so ordinary codes send nothing extra.
+  isOwnerCode: z.boolean().optional(),
+  plainPercent: z.number().min(0).max(100).optional(),
+  maxPercent: z.number().min(1).max(100).nullable().optional(),
 };
 
 export interface PromoRuleInput {
+  isOwnerCode?: boolean;
   type?: "percent" | "fixed";
   value?: number;
   fixedAmounts?: Record<string, number>;
@@ -40,7 +45,8 @@ export interface PromoRuleInput {
 /** Rules that span fields. On a patch, a type change must bring its value / amounts with it. */
 export function promoIssues(v: PromoRuleInput): { path: string; message: string }[] {
   const out: { path: string; message: string }[] = [];
-  if (v.type === "percent") {
+  // An owner code has no percent of its own: plain gives plainPercent, "-NN%" gives NN%.
+  if (v.type === "percent" && !v.isOwnerCode) {
     if (v.value === undefined) out.push({ path: "value", message: "Set the percentage off." });
     else if (v.value <= 0 || v.value > 100) out.push({ path: "value", message: "A percent code takes off more than 0% and at most 100%." });
   }
@@ -55,7 +61,10 @@ export function promoIssues(v: PromoRuleInput): { path: string; message: string 
 
 export const promoCreateSchema = z.object(promoFields).superRefine((v, ctx) => {
   for (const i of promoIssues(v)) ctx.addIssue({ code: "custom", path: [i.path], message: i.message });
+  if (v.isOwnerCode && !v.ownerAgentId) ctx.addIssue({ code: "custom", path: ["ownerAgentId"], message: "An owner code needs an owner." });
 });
+
+export const promoSettingsSchema = z.object({ maxPercent: z.number().int().min(1).max(100) });
 
 export const promoPatchSchema = z
   .object(promoFields)

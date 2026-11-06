@@ -8,9 +8,9 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 const data = vi.hoisted(() => ({
-  listPromoCodes: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), currentUserMayAccess: vi.fn(),
+  listPromoCodes: vi.fn(), getPromoSettings: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), currentUserMayAccess: vi.fn(),
 }));
-vi.mock("@/lib/data/landing-promo-codes", () => ({ listPromoCodes: data.listPromoCodes }));
+vi.mock("@/lib/data/landing-promo-codes", () => ({ listPromoCodes: data.listPromoCodes, getPromoSettings: data.getPromoSettings }));
 vi.mock("@/lib/data/landing-pages", () => ({ listLandingPages: data.listLandingPages, getLandingPage: data.getLandingPage }));
 vi.mock("@/lib/data/sales-agents", () => ({ listSalesAgents: data.listSalesAgents }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: data.requireAdminPage, currentUserMayAccess: data.currentUserMayAccess }));
@@ -274,6 +274,7 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     data.requireAdminPage.mockResolvedValue({ user: { id: "admin-user" }, supabase: {} });
     data.currentUserMayAccess.mockResolvedValue(true);
     data.listPromoCodes.mockResolvedValue([promo()]);
+    data.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
     data.listSalesAgents.mockResolvedValue([{ id: "agent-1", fullName: "Ayesha Siddiqui", email: "a@pz.test", createdAt: "2026-09-01T00:00:00Z", contactCount: 4 }]);
     data.listLandingPages.mockResolvedValue([
       { id: "p1", slug: "ppc", kind: "course", title: "PPC Batch 3", status: "draft", revision: 1, publishedAt: null, updatedAt: "2026-10-01T00:00:00Z", hasUnpublishedChanges: true },
@@ -300,6 +301,7 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     data.requireAdminPage.mockResolvedValue({ user: { id: "manager-user" }, supabase: {} });
     data.currentUserMayAccess.mockResolvedValue(false);
     data.listPromoCodes.mockResolvedValue([promo()]);
+    data.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
     data.listLandingPages.mockResolvedValue([]);
     render(await AdminPromoCodesPage());
     expect(data.currentUserMayAccess).toHaveBeenCalledWith("sales_hub");

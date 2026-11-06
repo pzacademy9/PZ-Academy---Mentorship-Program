@@ -11,7 +11,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import type { PromoCode } from "@/lib/landing/registration/promo";
 import {
-  PROMO_CURRENCIES, PROMO_STATE_LABEL, describeDiscount, draftFromPromo, draftToInput, emptyPromoDraft, normalizeCodeInput,
+  type AgentChoice, PROMO_CURRENCIES, PROMO_STATE_LABEL, describeDiscount, draftFromPromo, draftToInput, emptyPromoDraft, normalizeCodeInput,
   optionChoices, patchFromInput, promoState, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
 } from "@/lib/landing/registration/promo-form";
 import { CONTROL, HELP, LABEL } from "../registration/styles";
@@ -46,11 +46,44 @@ function whereText(p: PromoCode, pages: PromoPageOption[]): string {
 }
 const toggleIn = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 // Server field names (Task 13's `{ error, field }`) that have a place in this form.
-const FORM_FIELDS = ["code", "value", "maxDiscountPercent", "fixedAmounts", "pageIds", "maxUses", "startsAt", "endsAt"] as const;
+const FORM_FIELDS = ["code", "value", "maxDiscountPercent", "fixedAmounts", "pageIds", "maxUses", "startsAt", "endsAt", "ownerAgentId", "plainPercent", "ownPercentMax"] as const;
 
 type Editing = { mode: "new" } | { mode: "edit"; promo: PromoCode } | null;
 
-export function PromoCodesManager({ codes, pages }: { codes: PromoCode[]; pages: PromoPageOption[] }) {
+/** The one site-wide number: the highest percent anyone may type after an owner code (CODE-NN%). */
+function CeilingBox({ maxPercent }: { maxPercent: number }) {
+  const router = useRouter();
+  const [value, setValue] = useState(String(maxPercent));
+  const { run: save, pending } = useAsyncAction(async () => {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 1 || n > 100) { toast.error("Enter a whole percentage from 1 to 100."); return; }
+    try {
+      const res = await fetch("/api/admin/landing-promo-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxPercent: n }),
+      });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) { toast.error(body?.error ?? "Could not save the maximum."); return; }
+      toast.success(`The maximum discount is now ${n}%.`);
+      router.refresh();
+    } catch {
+      toast.error("Could not reach the server. Please try again.");
+    }
+  });
+  return (
+    <form noValidate onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-wrap items-end gap-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
+      <label className="block space-y-1">
+        <span className={LABEL}>Highest percent anyone may type</span>
+        <span className={`block ${HELP}`}>For personal codes like ALI-1-20%. Anything higher is refused.</span>
+        <input aria-label="Highest percent anyone may type after a code" type="number" inputMode="numeric" min={1} max={100} className={cn(CONTROL, "sm:w-32")} value={value} onChange={(e) => setValue(e.target.value)} />
+      </label>
+      <Button type="submit" variant="outline" disabled={pending} aria-busy={pending || undefined}>{pending ? "Saving…" : "Save maximum"}</Button>
+    </form>
+  );
+}
+
+export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }: { codes: PromoCode[]; pages: PromoPageOption[]; agents?: AgentChoice[]; maxPercent?: number }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Editing>(null);
   const now = new Date();
@@ -79,7 +112,7 @@ export function PromoCodesManager({ codes, pages }: { codes: PromoCode[]; pages:
             <DialogTitle>{editing.mode === "edit" ? `Edit ${editing.promo.code}` : "New promo code"}</DialogTitle>
             <DialogDescription>The registration form checks the code on the server, so the discount is always exactly what you set here.</DialogDescription>
           </DialogHeader>
-          <PromoForm key={editing.mode === "edit" ? editing.promo.id : "new"} existing={editing.mode === "edit" ? editing.promo : null} pages={pages} onDone={() => setEditing(null)} />
+          <PromoForm key={editing.mode === "edit" ? editing.promo.id : "new"} existing={editing.mode === "edit" ? editing.promo : null} pages={pages} agents={agents} onDone={() => setEditing(null)} />
         </DialogContent>
       )}
     </Dialog>
@@ -87,7 +120,8 @@ export function PromoCodesManager({ codes, pages }: { codes: PromoCode[]; pages:
 
   if (codes.length === 0) {
     return (
-      <>
+      <div className="space-y-4">
+        <CeilingBox maxPercent={maxPercent} />
         <div className="rounded-xl border border-dashed border-pz-outline-variant bg-pz-surface-container-lowest">
           <EmptyState
             icon={TicketPercent}
@@ -97,7 +131,7 @@ export function PromoCodesManager({ codes, pages }: { codes: PromoCode[]; pages:
           />
         </div>
         {dialog}
-      </>
+      </div>
     );
   }
 
@@ -119,6 +153,7 @@ export function PromoCodesManager({ codes, pages }: { codes: PromoCode[]; pages:
 
   return (
     <div className="space-y-4">
+      <CeilingBox maxPercent={maxPercent} />
       <div className="flex justify-end">
         <Button type="button" onClick={() => setEditing({ mode: "new" })}>
           <Plus aria-hidden="true" /> New promo code
@@ -175,7 +210,7 @@ export function PromoCodesManager({ codes, pages }: { codes: PromoCode[]; pages:
   );
 }
 
-function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pages: PromoPageOption[]; onDone: () => void }) {
+function PromoForm({ existing, pages, agents, onDone }: { existing: PromoCode | null; pages: PromoPageOption[]; agents: AgentChoice[]; onDone: () => void }) {
   const router = useRouter();
   const [d, setD] = useState<PromoDraft>(() => (existing ? draftFromPromo(existing) : emptyPromoDraft()));
   const [errors, setErrors] = useState<PromoErrors>({});
@@ -248,6 +283,40 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
       </label>
 
       <fieldset className="space-y-2">
+        <legend className={LABEL}>Owner</legend>
+        {!existing && (
+          <label className={CHECK_ROW}>
+            <input type="checkbox" checked={d.isOwnerCode} onChange={(e) => set({ isOwnerCode: e.target.checked })} />
+            Owner code (a person&apos;s own code)
+          </label>
+        )}
+        {d.isOwnerCode && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block space-y-1">
+              <span className={LABEL}>Owner</span>
+              <select aria-label="Owner" aria-invalid={invalid("ownerAgentId")} aria-describedby={describedBy("ownerAgentId", false)} disabled={!!existing} className={CONTROL} value={d.ownerAgentId} onChange={(e) => set({ ownerAgentId: e.target.value })}>
+                <option value="">Choose a sales agent</option>
+                {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+              {errors.ownerAgentId && <span id={errId("ownerAgentId")} role="alert" className={ERROR}>{errors.ownerAgentId}</span>}
+            </label>
+            <label className="block space-y-1">
+              <span className={LABEL}>Discount when typed plain (%)</span>
+              <span className={`block ${HELP}`}>0 means the plain code gives nothing.</span>
+              <input aria-label="Discount when typed plain (%)" aria-invalid={invalid("plainPercent")} aria-describedby={describedBy("plainPercent", false)} type="number" inputMode="numeric" min={0} max={100} className={CONTROL} value={d.plainPercent} onChange={(e) => set({ plainPercent: e.target.value })} />
+              {errors.plainPercent && <span id={errId("plainPercent")} role="alert" className={ERROR}>{errors.plainPercent}</span>}
+            </label>
+            <label className="block space-y-1">
+              <span className={LABEL}>This person&apos;s own maximum (%)</span>
+              <span className={`block ${HELP}`}>Optional. Can only be lower than the site-wide maximum.</span>
+              <input aria-label="This person's own maximum (%)" aria-invalid={invalid("ownPercentMax")} aria-describedby={describedBy("ownPercentMax", false)} type="number" inputMode="numeric" min={1} max={100} className={CONTROL} value={d.ownPercentMax} onChange={(e) => set({ ownPercentMax: e.target.value })} />
+              {errors.ownPercentMax && <span id={errId("ownPercentMax")} role="alert" className={ERROR}>{errors.ownPercentMax}</span>}
+            </label>
+          </div>
+        )}
+      </fieldset>
+
+      {!d.isOwnerCode && <fieldset className="space-y-2">
         <legend className={LABEL}>Discount</legend>
         <div className="flex flex-wrap gap-4">
           <label className={CHECK_ROW}><input type="radio" name="promo-type" checked={d.type === "percent"} onChange={() => set({ type: "percent" })} />Percentage off</label>
@@ -284,7 +353,7 @@ function PromoForm({ existing, pages, onDone }: { existing: PromoCode | null; pa
             {errors.fixedAmounts && <span id={errId("fixedAmounts")} role="alert" className={ERROR}>{errors.fixedAmounts}</span>}
           </div>
         )}
-      </fieldset>
+      </fieldset>}
 
       <fieldset className="space-y-2">
         <legend className={LABEL}>Where it works</legend>
