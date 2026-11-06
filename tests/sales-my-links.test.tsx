@@ -9,6 +9,8 @@ const { requireSales, getStats, getLink, listPages, AgentLinkError } = vi.hoiste
 vi.mock("@/lib/auth/require-sales", () => ({ requireSalesAgentPage: requireSales }));
 vi.mock("@/lib/data/landing-agent-stats", () => ({ getAgentLinkStats: getStats, listPublishedLinkPages: listPages }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ getOrCreateAgentLink: getLink, AgentLinkError }));
+const { getPromo } = vi.hoisted(() => ({ getPromo: vi.fn() }));
+vi.mock("@/lib/data/agent-promo-code", () => ({ getAgentPromoSummary: getPromo }));
 
 import MyLinksPage from "@/app/dashboard/sales/my-links/page";
 
@@ -23,6 +25,7 @@ beforeEach(() => {
   getLink.mockReset().mockResolvedValue({ code: "ayesha-7k2" });
   listPages.mockReset().mockResolvedValue(PAGES);
   getStats.mockReset().mockResolvedValue([{ pageId: "p1", views: 128, registered: 14, paid: 9 }]);
+  getPromo.mockReset().mockResolvedValue(null);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -55,6 +58,20 @@ describe("My links page", () => {
     listPages.mockResolvedValue([]);
     render(await MyLinksPage());
     expect(screen.getByText(/no pages are open for registration yet/i)).toBeTruthy();
+  });
+
+  it("asks only for the signed-in agent's discount code and offers to create one when none exists", async () => {
+    render(await MyLinksPage());
+    expect(getPromo).toHaveBeenCalledWith("agent-1");
+    expect(screen.getByRole("button", { name: /create my code/i })).toBeTruthy();
+  });
+
+  it("shows the agent's existing discount code with its numbers", async () => {
+    getPromo.mockResolvedValue({ code: "PZ-AHM", used: 7, paid: 4 });
+    render(await MyLinksPage());
+    expect(screen.getByText("PZ-AHM")).toBeTruthy();
+    expect(screen.getByText("7")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /create my code/i })).toBeNull();
   });
 
   it("an admin opening the page gets a plain note, not a crash", async () => {

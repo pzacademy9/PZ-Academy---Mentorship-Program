@@ -1,6 +1,7 @@
 import { requireSalesAgentPage } from "@/lib/auth/require-sales";
 import { getAgentLinkStats, listPublishedLinkPages } from "@/lib/data/landing-agent-stats";
 import { AgentLinkError, getOrCreateAgentLink } from "@/lib/data/landing-agent-links";
+import { getAgentPromoSummary } from "@/lib/data/agent-promo-code";
 import { MyLinks, type MyLinkRow } from "@/components/sales/MyLinks";
 
 export const metadata = { title: "My Links — Sales Workspace" };
@@ -24,7 +25,7 @@ export default async function MyLinksPage() {
     }
     throw e;
   }
-  const [pages, stats] = await Promise.all([listPublishedLinkPages(), getAgentLinkStats(user.id)]);
+  const [pages, stats, promo] = await Promise.all([listPublishedLinkPages(), getAgentLinkStats(user.id), getAgentPromoSummary(user.id)]);
 
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   const byPage = new Map(stats.map((s) => [s.pageId, s]));
@@ -40,5 +41,5 @@ export default async function MyLinksPage() {
     };
   });
 
-  return <MyLinks code={code} rows={rows} />;
+  return <MyLinks code={code} rows={rows} promo={promo} />;
 }
