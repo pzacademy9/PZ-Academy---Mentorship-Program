@@ -52,6 +52,30 @@ describe("home page hero", () => {
     expect(within(hero()).getByRole("link", { name: /fake batch/i }).getAttribute("href")).toBe("/e/s1?src=website");
   });
 
+  it("shows the countdown, seats left and Early Bird price on the bar, quietly", async () => {
+    const startsAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    data.batches = new Map([["c1", {
+      courseId: "c1", slug: "s1", title: "Fake Batch", startsOn: "30 October 2026", startsAt, seatsLeft: 7,
+      earlyBird: { price: "PKR 6,000", was: "PKR 8,000", until: "20 October 2026" }, href: "/e/s1?src=website",
+    }]]);
+    render(await HomePage());
+    const bar = within(hero());
+    expect(bar.getByText(/starts in [45] days/i)).toBeTruthy();
+    expect(bar.getByText("7 seats left")).toBeTruthy();
+    expect(bar.getByText(/early bird/i).textContent).toMatch(/PKR 6,000/);
+    // Not crowded: the old date line is replaced by the countdown, and the strike-through price stays off the bar.
+    expect(bar.queryByText(/PKR 8,000/)).toBeNull();
+    expect(bar.queryByText(/starts 30 October 2026/i)).toBeNull();
+  });
+
+  it("falls back to the plain date when there is no countdown, and omits missing facts", async () => {
+    data.batches = new Map([["c1", { courseId: "c1", slug: "s1", title: "Fake Batch", startsOn: "30 October 2026", startsAt: "", seatsLeft: null, earlyBird: null, href: "/e/s1?src=website" }]]);
+    render(await HomePage());
+    expect(within(hero()).getByText(/starts 30 October 2026/i)).toBeTruthy();
+    expect(within(hero()).queryByText(/seats? left/i)).toBeNull();
+    expect(within(hero()).queryByText(/early bird/i)).toBeNull();
+  });
+
   it("shows no start date when no batch is open", async () => {
     render(await HomePage());
     expect(within(hero()).queryByText(/starts/i)).toBeNull();
