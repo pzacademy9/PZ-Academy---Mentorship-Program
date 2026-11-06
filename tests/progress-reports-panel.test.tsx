@@ -14,8 +14,9 @@ afterEach(() => {
 
 const summary = { students: 3, withEmail: 3, ranked: 2, noQuiz: 1, recorded: 0, quizClasses: 1 };
 const students = [
-  { personId: "p1", label: "Fake One (Fakeone-1001) · #1", hasEmail: true },
-  { personId: "p2", label: "Fake Two (Faketwo-1002) · #2", hasEmail: true },
+  { personId: "p1", label: "Fake One (Fakeone-1001) · #1", hasEmail: true, labels: ["Live - Full Course"] },
+  { personId: "p2", label: "Fake Two (Faketwo-1002) · #2", hasEmail: true, labels: ["Live - Modules: M2"] },
+  { personId: "p3", label: "Fake Three (Fakethree-1003) · no quiz yet", hasEmail: true, labels: ["Live - Modules: M7"] },
 ];
 
 function actions(over: Partial<ReportActions> = {}): ReportActions {
@@ -83,8 +84,56 @@ describe("progress reports panel", () => {
     const a = actions();
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[round]} actions={a} />);
     expect(screen.getByText("1 sent · 1 failed · 0 skipped · 1 waiting")).toBeTruthy();
-    expect(screen.getByText("Failed · Brevo down")).toBeTruthy();
+    expect(screen.getByText("Failed · could not be sent")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Continue sending (1 waiting)" }));
     await waitFor(() => expect(a.run).toHaveBeenCalledWith("send-9"));
+  });
+});
+
+describe("choosing who gets the report", () => {
+  it("with no module ticked the send button is off and a hint says what to do", () => {
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={actions()} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Chosen modules only/ }));
+    expect((screen.getByRole("button", { name: /^Send to/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Tick at least one module.")).toBeTruthy();
+  });
+
+  it("shows plain words for a failed student, never the email service's text", () => {
+    const round: ReportRound = {
+      id: "send-8", createdAt: "2026-11-05T10:00:00Z", total: 1,
+      counts: { sent: 0, failed: 1, skipped: 0, waiting: 0 },
+      recipients: [{ name: "Fake Two", email: "fake.two@example.com", state: "failed", reason: "Brevo key 123 rejected" }],
+    };
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[round]} actions={actions()} />);
+    expect(screen.queryByText(/Brevo key 123/)).toBeNull();
+    expect(screen.getByText("Failed · could not be sent")).toBeTruthy();
+  });
+
+  it("full course only: shows the count and sends that group", async () => {
+    const a = actions();
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Full course students only/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to 1 student" }));
+    expect(screen.getByRole("alertdialog").textContent).toMatch(/1 student.*full course students/);
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "full" }));
+  });
+
+  it("chosen modules only: ticking a module sends just that module's students", async () => {
+    const a = actions();
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Chosen modules only/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Module 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to 1 student" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "modules", modules: [2] }));
+  });
+
+  it("everyone is still the default and sends the all choice", async () => {
+    const a = actions();
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
+    fireEvent.click(screen.getByRole("button", { name: "Send to all 3 students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "all" }));
   });
 });

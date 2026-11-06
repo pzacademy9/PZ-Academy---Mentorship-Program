@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Mail, MessageSquareText, Star } from "lucide-react";
@@ -8,12 +8,14 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import { emailFeedbackLink } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { createMissingFeedbackAction } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions";
+import { ClassEmailHistory } from "./ClassEmailHistory";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
 import { cardCls, primaryBtn, quietBtn } from "./styles";
 
 export function FeedbackCard({ pageId, cls }: { pageId: string; cls: ClassSummary }) {
   const confirm = useConfirm();
   const [busy, startTransition] = useTransition();
+  const [sentCount, setSentCount] = useState(0);
 
   async function email(sessionId: string) {
     const ok = await confirm({
@@ -26,6 +28,7 @@ export function FeedbackCard({ pageId, cls }: { pageId: string; cls: ClassSummar
       const res = await emailFeedbackLink(sessionId);
       if (res.ok) toast.success(res.message ?? "Email sent");
       else toast.error(res.message ?? "Something went wrong. Please try again.");
+      setSentCount((n) => n + 1);
     });
   }
 
@@ -51,6 +54,7 @@ export function FeedbackCard({ pageId, cls }: { pageId: string; cls: ClassSummar
               Email to students
             </button>
           </div>
+          <ClassEmailHistory pageId={pageId} sessionId={cls.id} kinds={["feedback"]} refreshKey={sentCount} />
           <div className="rounded-lg bg-pz-surface-container-low p-4">
             <p className="font-headline text-2xl font-bold text-pz-on-surface">
               {cls.feedbackCount} {cls.feedbackCount === 1 ? "response" : "responses"}

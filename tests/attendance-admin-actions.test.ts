@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   setMinPct: vi.fn(),
   createSessionSend: vi.fn(),
   sendSessionTest: vi.fn(),
+  listSessionEmailHistory: vi.fn(),
   runEmailSend: vi.fn(),
   listSessionSendState: vi.fn(),
 }));
@@ -38,13 +39,14 @@ vi.mock("@/lib/data/attendance", () => ({
 vi.mock("@/lib/data/session-emails", () => ({
   createSessionSend: h.createSessionSend,
   sendSessionTest: h.sendSessionTest,
+  listSessionEmailHistory: h.listSessionEmailHistory,
   listSessionSendState: h.listSessionSendState,
 }));
 vi.mock("@/lib/data/participant-sends", () => ({ runEmailSend: h.runEmailSend }));
 
 import {
   addSession, saveSession, removeSession, setOverride, toggleMark, markEveryonePresent, saveMinPct,
-  sendReminderNow, emailUpdatedTime, resendClassDetails, sendTestEmailToMe,
+  sendReminderNow, emailUpdatedTime, resendClassDetails, sendTestEmailToMe, loadClassEmailHistory,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const PAGE = "00000000-0000-4000-8000-000000000001";
@@ -214,6 +216,20 @@ describe("email buttons", () => {
     const r = await sendReminderNow(SESS);
     expect(r).toEqual({ ok: false, message: text });
     expect(h.runEmailSend).not.toHaveBeenCalled();
+  });
+});
+
+describe("email history", () => {
+  it("is for admins only and returns the class's rounds", async () => {
+    h.listSessionEmailHistory.mockResolvedValue([{ id: "r1" }]);
+    expect(await loadClassEmailHistory(SESS)).toEqual({ ok: true, rounds: [{ id: "r1" }] });
+    h.admin = false;
+    expect((await loadClassEmailHistory(SESS)).ok).toBe(false);
+    expect(h.listSessionEmailHistory).toHaveBeenCalledTimes(1);
+  });
+  it("refuses an id that is not a class id", async () => {
+    expect((await loadClassEmailHistory("nope")).ok).toBe(false);
+    expect(h.listSessionEmailHistory).not.toHaveBeenCalled();
   });
 });
 

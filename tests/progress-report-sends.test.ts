@@ -124,6 +124,15 @@ describe("sending", () => {
     expect(again.ok).toBe(false);
   });
 
+  it("refuses a new round while the last one still has people waiting", async () => {
+    await createReportSend(PAGE, null);
+    store.progress_report_sends[0].created_at = new Date(Date.now() - 5 * 60_000).toISOString();
+    const again = await createReportSend(PAGE, null, { kind: "all" });
+    expect(again).toEqual({ ok: false, message: "The last round is still sending. Press Continue sending first." });
+    for (const r of store.progress_report_recipients) r.state = "sent";
+    expect((await createReportSend(PAGE, null)).ok).toBe(true);
+  });
+
   it("skips unsubscribed students", async () => {
     h.unsub = new Set(["fake.two@example.com"]);
     const res = (await createReportSend(PAGE, null)) as { sendId: string };
@@ -138,5 +147,43 @@ describe("sending", () => {
     expect(run.failed).toBe(1);
     expect(await retryReportFailed(res.sendId)).toBe(1);
     expect(await runReportSend(res.sendId)).toEqual({ sent: 1, failed: 0, pending: 0 });
+  });
+});
+
+describe("choosing who gets the round", () => {
+  function labels() {
+    const regs = store.landing_registrations as { id: string; option_label: string }[];
+    regs.find((r) => r.id === "r1")!.option_label = "Live - Full Course";
+    regs.find((r) => r.id === "r6")!.option_label = "Live - Full Course";
+    regs.find((r) => r.id === "r2")!.option_label = "Live - Modules: M2";
+    regs.find((r) => r.id === "r3")!.option_label = "Live - Modules: M7";
+  }
+  const names = () => (store.progress_report_recipients as { name: string }[]).map((r) => r.name).sort();
+  it("full course only sends to the full course student", async () => {
+    labels();
+    const res = await createReportSend(PAGE, null, { kind: "full" });
+    expect(res).toMatchObject({ ok: true, count: 1 });
+    expect(names()).toEqual(["Fake One"]);
+  });
+  it("a module sends to that module's students only, not full course students", async () => {
+    labels();
+    const res = await createReportSend(PAGE, null, { kind: "modules", modules: [2] });
+    expect(res).toMatchObject({ ok: true, count: 1 });
+    expect(names()).toEqual(["Fake Two"]);
+  });
+  it("says so when nobody is in the chosen group", async () => {
+    labels();
+    expect(await createReportSend(PAGE, null, { kind: "modules", modules: [9] })).toEqual({ ok: false, message: "Nobody is in that group." });
+    (store.landing_registrations as { id: string; option_label: string }[]).forEach((r) => { r.option_label = "Live - Modules: M7"; });
+    db.reset();
+    store.progress_report_sends = [];
+    store.progress_report_recipients = [];
+    db.state.handler = memoryHandler(store);
+    const none = await createReportSend(PAGE, null, { kind: "full" });
+    expect(none).toEqual({ ok: false, message: "Nobody is in that group." });
+  });
+  it("no group given still means everyone", async () => {
+    labels();
+    expect(await createReportSend(PAGE, null)).toMatchObject({ ok: true, count: 3 });
   });
 });

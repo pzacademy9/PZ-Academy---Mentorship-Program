@@ -36,6 +36,7 @@ vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessi
   removeSession: h.removeSession,
   emailFeedbackLink: h.emailFeedbackLink,
   sendTestEmailToMe: h.sendTestEmailToMe,
+  loadClassEmailHistory: vi.fn(async () => ({ ok: true, rounds: [] })),
 }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions", () => ({
   createMissingFeedbackAction: h.createMissing,

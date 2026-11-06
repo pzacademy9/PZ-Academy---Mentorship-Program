@@ -12,6 +12,7 @@ import { buildBatchReport, type BatchReport, type ReportQuizRow, type StudentRep
 import { DEFAULT_YOUTUBE, renderReportEmail } from "@/lib/progress/report-email";
 import type { PortalPersonInput, PortalRegInput, PortalSessionInput } from "@/lib/progress/portal-build";
 import type { ProgressKind } from "@/lib/progress/build";
+import { matchesReportAudience, type ReportAudience } from "@/lib/progress/report-audience";
 
 const CHUNK = 200;
 const CONCURRENCY = 4;
@@ -31,7 +32,8 @@ function chunks<T>(items: T[]): T[][] {
   return out;
 }
 
-export type ReportBatch = { pageId: string; report: BatchReport };
+/** optionLabels: every registration label of each student (person id), used to pick a group. */
+export type ReportBatch = { pageId: string; report: BatchReport; optionLabels: Record<string, string[]> };
 
 /** Builds the report for every enrolled (paid or free, non-test) student of a batch. Null for an unknown page. */
 export async function loadBatchReport(pageId: string, now: Date = new Date()): Promise<ReportBatch | null> {
@@ -100,8 +102,10 @@ export async function loadBatchReport(pageId: string, now: Date = new Date()): P
   const emails: Record<string, string> = {};
   const newest: Record<string, string> = {};
   const regInputs: PortalRegInput[] = [];
+  const optionLabels: Record<string, string[]> = {};
   for (const r of regs) {
     if (!r.person_id) continue;
+    (optionLabels[r.person_id] ??= []).push(r.option_label ?? "");
     regInputs.push({ personId: r.person_id, mode: r.mode === "live" ? "live" : "recorded", optionLabel: r.option_label });
     if (!newest[r.person_id] || r.created_at > newest[r.person_id]) {
       newest[r.person_id] = r.created_at;
@@ -123,7 +127,7 @@ export async function loadBatchReport(pageId: string, now: Date = new Date()): P
     emails,
     now,
   });
-  return { pageId: p.id, report };
+  return { pageId: p.id, report, optionLabels };
 }
 
 async function linksFor(slug: string, email: string) {
@@ -164,7 +168,7 @@ export async function reportTablesReady(): Promise<boolean> {
 export type CreateReportSendResult = { ok: true; sendId: string; count: number } | { ok: false; message: string };
 
 /** Freezes a new round: every student with an email gets a pending row. */
-export async function createReportSend(pageId: string, createdBy: string | null): Promise<CreateReportSendResult> {
+export async function createReportSend(pageId: string, createdBy: string | null, audience: ReportAudience = { kind: "all" }): Promise<CreateReportSendResult> {
   if (!(await reportTablesReady())) return { ok: false, message: "Paste the SQL from the owner steps first, then try again." };
   const loaded = await loadBatchReport(pageId);
   if (!loaded) return { ok: false, message: "This batch was not found." };
@@ -175,8 +179,18 @@ export async function createReportSend(pageId: string, createdBy: string | null)
   check("recent sends read", rErr);
   if ((recent ?? []).length > 0) return { ok: false, message: "Reports were just started for this batch. Wait a minute, or continue the round below." };
 
-  const recipients = loaded.report.students.filter((s) => s.email !== "");
-  if (recipients.length === 0) return { ok: false, message: "Nobody to send to." };
+  // A round that still has people waiting must be finished first, or students could get the report twice.
+  const { data: earlier, error: eErr } = await admin.from("progress_report_sends").select("id").eq("page_id", pageId);
+  check("earlier sends read", eErr);
+  const earlierIds = ((earlier ?? []) as { id: string }[]).map((r) => r.id);
+  for (const part of chunks(earlierIds)) {
+    const { data: waiting, error: wErr } = await admin.from("progress_report_recipients").select("id").in("send_id", part).in("state", ["pending", "claimed"]).limit(1);
+    check("waiting recipients read", wErr);
+    if ((waiting ?? []).length > 0) return { ok: false, message: "The last round is still sending. Press Continue sending first." };
+  }
+
+  const recipients = loaded.report.students.filter((s) => s.email !== "" && matchesReportAudience(loaded.optionLabels[s.personId] ?? [], audience));
+  if (recipients.length === 0) return { ok: false, message: audience.kind === "all" ? "Nobody to send to." : "Nobody is in that group." };
 
   const { data: send, error: sErr } = await admin
     .from("progress_report_sends")

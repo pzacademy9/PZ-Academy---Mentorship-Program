@@ -7,7 +7,7 @@ import { buildFeedbackEmail, buildSessionEmail } from "@/lib/attendance/session-
 import { getSessionAudience, getSessionById } from "@/lib/data/attendance";
 import { matchAudience, parseOption } from "@/lib/classes/audience";
 import { attendanceBase } from "@/lib/attendance/links";
-import { freezeRecipients, plan, sendTestToMe } from "@/lib/data/participant-sends";
+import { fetchAllRows, freezeRecipients, plan, sendTestToMe } from "@/lib/data/participant-sends";
 import { formatPkt } from "@/lib/attendance/rules";
 
 export type SessionSendResult =
@@ -166,4 +166,38 @@ export async function sendSessionTest(sessionId: string, toEmail: string): Promi
     },
   });
   return res.ok ? { ok: true } : { ok: false, reason: "failed" };
+}
+
+export type SessionEmailKind = "reminder" | "update" | "feedback";
+export type SessionEmailRound = {
+  id: string;
+  kind: SessionEmailKind;
+  createdAt: string;
+  total: number;
+  counts: { sent: number; failed: number; skipped: number; waiting: number };
+  recipients: { name: string; email: string; state: string; reason: string }[];
+};
+
+/** Every email sent for one class (newest first): when, how many got it, and each person's result. */
+export async function listSessionEmailHistory(sessionId: string): Promise<SessionEmailRound[]> {
+  const admin = createAdminSupabase();
+  const { data: sends, error } = await admin.from("participant_sends")
+    .select("id, session_kind, created_at, recipient_count").eq("session_id", sessionId).order("created_at", { ascending: false });
+  if (error) throw new Error(`session sends read failed: ${error.message}`);
+  const out: SessionEmailRound[] = [];
+  for (const s of (sends ?? []) as { id: string; session_kind: string | null; created_at: string; recipient_count: number }[]) {
+    const recipients = await fetchAllRows<{ name: string; email: string; state: string; reason: string }>("session recipients read", () =>
+      admin.from("participant_send_recipients").select("name, email, state, reason").eq("send_id", s.id)
+        .order("name", { ascending: true }).order("id", { ascending: true }));
+    const counts = { sent: 0, failed: 0, skipped: 0, waiting: 0 };
+    for (const r of recipients) {
+      if (r.state === "sent") counts.sent += 1;
+      else if (r.state === "failed") counts.failed += 1;
+      else if (r.state === "skipped") counts.skipped += 1;
+      else counts.waiting += 1;
+    }
+    const kind: SessionEmailKind = s.session_kind === "feedback" || s.session_kind === "update" ? s.session_kind : "reminder";
+    out.push({ id: s.id, kind, createdAt: s.created_at, total: s.recipient_count, counts, recipients });
+  }
+  return out;
 }
