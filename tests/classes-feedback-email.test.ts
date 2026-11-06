@@ -21,7 +21,7 @@ vi.mock("@/lib/data/participant-prefs", () => ({
 vi.mock("@/lib/brevo-participants", () => ({ sendParticipantEmail: h.send }));
 
 import { buildFeedbackEmail } from "@/lib/attendance/session-email";
-import { createSessionSend, sendSessionTest } from "@/lib/data/session-emails";
+import { createSessionSend, sendSessionTest, listSessionEmailHistory } from "@/lib/data/session-emails";
 import { emailFeedbackLink } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const SESS = "00000000-0000-4000-8000-000000000002";
@@ -182,5 +182,25 @@ describe("sendSessionTest", () => {
     setup({ zoom_url: "" });
     expect(await sendSessionTest(SESS, "boss@pz.test")).toEqual({ ok: false, reason: "no_zoom" });
     expect(h.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("listSessionEmailHistory", () => {
+  it("lists each email sent for the class with counts and who got it", async () => {
+    await createSessionSend(SESS, "feedback");
+    const rows = store.participant_send_recipients as { state: string; reason: string }[];
+    rows[0].state = "sent";
+    rows[1].state = "skipped";
+    rows[1].reason = "unsubscribed";
+    const out = await listSessionEmailHistory(SESS);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ kind: "feedback", total: 2, counts: { sent: 1, failed: 0, skipped: 1, waiting: 0 } });
+    expect(out[0].recipients.map((r) => r.state).sort()).toEqual(["sent", "skipped"]);
+    expect(out[0].recipients.find((r) => r.state === "skipped")!.reason).toBe("unsubscribed");
+  });
+  it("is empty when nothing was sent, and ignores other classes", async () => {
+    expect(await listSessionEmailHistory(SESS)).toEqual([]);
+    (store.participant_sends as unknown[]).push({ id: "x", session_id: "other", session_kind: "reminder", created_at: new Date().toISOString(), recipient_count: 1, subject: "s", channel: "email" });
+    expect(await listSessionEmailHistory(SESS)).toEqual([]);
   });
 });

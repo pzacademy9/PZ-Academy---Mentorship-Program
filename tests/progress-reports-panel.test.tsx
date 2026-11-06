@@ -14,8 +14,9 @@ afterEach(() => {
 
 const summary = { students: 3, withEmail: 3, ranked: 2, noQuiz: 1, recorded: 0, quizClasses: 1 };
 const students = [
-  { personId: "p1", label: "Fake One (Fakeone-1001) · #1", hasEmail: true },
-  { personId: "p2", label: "Fake Two (Faketwo-1002) · #2", hasEmail: true },
+  { personId: "p1", label: "Fake One (Fakeone-1001) · #1", hasEmail: true, labels: ["Live - Full Course"] },
+  { personId: "p2", label: "Fake Two (Faketwo-1002) · #2", hasEmail: true, labels: ["Live - Modules: M2"] },
+  { personId: "p3", label: "Fake Three (Fakethree-1003) · no quiz yet", hasEmail: true, labels: ["Live - Modules: M7"] },
 ];
 
 function actions(over: Partial<ReportActions> = {}): ReportActions {
@@ -86,5 +87,37 @@ describe("progress reports panel", () => {
     expect(screen.getByText("Failed · Brevo down")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Continue sending (1 waiting)" }));
     await waitFor(() => expect(a.run).toHaveBeenCalledWith("send-9"));
+  });
+});
+
+describe("choosing who gets the report", () => {
+  it("full course only: shows the count and sends that group", async () => {
+    const a = actions();
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Full course students only/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to 1 student" }));
+    expect(screen.getByRole("alertdialog").textContent).toMatch(/1 student.*full course students/);
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "full" }));
+  });
+
+  it("full course plus modules: ticking module numbers adds those students", async () => {
+    const a = actions();
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Full course plus chosen modules/ }));
+    // nothing ticked yet: only the full course student, and the button says so
+    expect(screen.getByRole("button", { name: "Send to 1 student" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Module 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to 2 students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "modules", modules: [2] }));
+  });
+
+  it("everyone is still the default and sends the all choice", async () => {
+    const a = actions();
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
+    fireEvent.click(screen.getByRole("button", { name: "Send to all 3 students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "all" }));
   });
 });

@@ -15,6 +15,7 @@ import {
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
 import { AudiencePicker } from "./AudiencePicker";
+import { ClassEmailHistory } from "./ClassEmailHistory";
 import { emailStatusLine } from "./email-status";
 import { cardCls, quietBtn } from "./styles";
 
@@ -114,6 +115,7 @@ export function AttendanceCard({
         </button>
       </div>
       <AudiencePicker pageId={pageId} sessionId={session.id} saved={session.audience} />
+      <ClassEmailHistory pageId={pageId} sessionId={session.id} kinds={["reminder", "update"]} refreshKey={`${sends?.reminderAt ?? ""}|${sends?.updateAt ?? ""}`} />
 
       <div className="rounded-lg bg-pz-surface-container-low p-4">
         <p className="text-base text-pz-on-surface-variant">

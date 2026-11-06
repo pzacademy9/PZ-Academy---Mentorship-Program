@@ -10,6 +10,8 @@ import {
   sendReportTest,
 } from "@/lib/data/progress-reports";
 
+import { cleanReportAudience } from "@/lib/progress/report-audience";
+
 const NO_PERMISSION = "You do not have permission to do this.";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Fail = { ok: false; message: string };
@@ -43,12 +45,14 @@ export async function sendReportTestAction(pageId: string, personId: string): Pr
   }
 }
 
-/** Admin only: starts a new round for every student of the batch. */
-export async function startReportRoundAction(pageId: string): Promise<{ ok: true; sendId: string; count: number } | Fail> {
+/** Admin only: starts a new round for the chosen group of the batch (everyone when none is given). */
+export async function startReportRoundAction(pageId: string, audience?: unknown): Promise<{ ok: true; sendId: string; count: number } | Fail> {
   const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NO_PERMISSION };
+  const group = cleanReportAudience(audience);
+  if (!group) return { ok: false, message: "Pick who gets the report, then try again." };
   try {
-    return await createReportSend(String(pageId ?? ""), auth.user.id);
+    return await createReportSend(String(pageId ?? ""), auth.user.id, group);
   } catch {
     return { ok: false, message: "Could not start sending. Nothing was sent. Please try again." };
   }

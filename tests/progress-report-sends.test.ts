@@ -140,3 +140,43 @@ describe("sending", () => {
     expect(await runReportSend(res.sendId)).toEqual({ sent: 1, failed: 0, pending: 0 });
   });
 });
+
+describe("choosing who gets the round", () => {
+  function labels() {
+    const regs = store.landing_registrations as { id: string; option_label: string }[];
+    regs.find((r) => r.id === "r1")!.option_label = "Live - Full Course";
+    regs.find((r) => r.id === "r6")!.option_label = "Live - Full Course";
+    regs.find((r) => r.id === "r2")!.option_label = "Live - Modules: M2";
+    regs.find((r) => r.id === "r3")!.option_label = "Live - Modules: M7";
+  }
+  const names = () => (store.progress_report_recipients as { name: string }[]).map((r) => r.name).sort();
+  it("full course only sends to the full course student", async () => {
+    labels();
+    const res = await createReportSend(PAGE, null, { kind: "full" });
+    expect(res).toMatchObject({ ok: true, count: 1 });
+    expect(names()).toEqual(["Fake One"]);
+  });
+  it("full course plus a module adds that module's students only", async () => {
+    labels();
+    const res = await createReportSend(PAGE, null, { kind: "modules", modules: [2] });
+    expect(res).toMatchObject({ ok: true, count: 2 });
+    expect(names()).toEqual(["Fake One", "Fake Two"]);
+  });
+  it("says so when nobody is in the chosen group", async () => {
+    labels();
+    const res = await createReportSend(PAGE, null, { kind: "modules", modules: [9] });
+    expect(res.ok).toBe(true);
+    // full course student Fake One is always included, so pick a group that really is empty:
+    (store.landing_registrations as { id: string; option_label: string }[]).forEach((r) => { r.option_label = "Live - Modules: M7"; });
+    db.reset();
+    store.progress_report_sends = [];
+    store.progress_report_recipients = [];
+    db.state.handler = memoryHandler(store);
+    const none = await createReportSend(PAGE, null, { kind: "full" });
+    expect(none).toEqual({ ok: false, message: "Nobody is in that group." });
+  });
+  it("no group given still means everyone", async () => {
+    labels();
+    expect(await createReportSend(PAGE, null)).toMatchObject({ ok: true, count: 3 });
+  });
+});

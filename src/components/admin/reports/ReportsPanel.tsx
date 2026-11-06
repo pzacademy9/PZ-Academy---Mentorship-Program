@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ReportRound } from "@/lib/data/progress-reports";
+import { describeReportAudience, matchesReportAudience, type ReportAudience } from "@/lib/progress/report-audience";
 
-export type ReportStudentOption = { personId: string; label: string; hasEmail: boolean };
+export type ReportStudentOption = { personId: string; label: string; hasEmail: boolean; labels: string[] };
 
 type Fail = { ok: false; message: string };
 export interface ReportActions {
   preview: (pageId: string, personId: string) => Promise<{ ok: true; subject: string; html: string } | Fail>;
   sendTest: (pageId: string, personId: string) => Promise<{ ok: true; to: string } | Fail>;
-  start: (pageId: string) => Promise<{ ok: true; sendId: string; count: number } | Fail>;
+  start: (pageId: string, audience: ReportAudience) => Promise<{ ok: true; sendId: string; count: number } | Fail>;
   run: (sendId: string) => Promise<{ ok: true; sent: number; failed: number; pending: number } | Fail>;
   retry: (sendId: string) => Promise<{ ok: true; count: number } | Fail>;
 }
@@ -41,6 +42,8 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [group, setGroup] = useState<"all" | "full" | "modules">("all");
+  const [modules, setModules] = useState<number[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -70,6 +73,11 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
     };
   }, []);
 
+  const audience: ReportAudience = group === "all" ? { kind: "all" } : group === "full" ? { kind: "full" } : { kind: "modules", modules: [...modules].sort((a, b) => a - b) };
+  const countFor = (a: ReportAudience) =>
+    a.kind === "all" ? summary.withEmail : students.filter((x) => x.hasEmail && matchesReportAudience(x.labels, a)).length;
+  const sendCount = countFor(audience);
+  const people = (n: number) => `${n} ${n === 1 ? "student" : "students"}`;
   const latest = rounds[0];
   const unfinished = latest && latest.counts.waiting > 0 ? latest : null;
 
@@ -105,7 +113,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
     setConfirming(false);
     startTransition(async () => {
       try {
-        const res = await actions.start(pageId);
+        const res = await actions.start(pageId, audience);
         if (!res.ok) {
           setError(res.message);
           return;
@@ -179,10 +187,38 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
 
       {/* Send to everyone */}
       <section aria-labelledby="send-all-title" className={card}>
-        <h2 id="send-all-title" className="font-headline text-lg font-bold text-pz-on-surface">Send to all students</h2>
+        <h2 id="send-all-title" className="font-headline text-lg font-bold text-pz-on-surface">Send to students</h2>
         <p className="mt-1 text-sm text-pz-on-surface-variant">
           Each student gets their own report with the latest numbers: rank, points, the top 10 and how to climb. Students who have not taken a quiz get the &quot;get started&quot; version. Unsubscribed students are skipped. Pressing again never sends twice in the same round.
         </p>
+        <fieldset className="mt-4 space-y-2" disabled={working}>
+          <legend className="text-sm font-semibold text-pz-on-surface">Who gets it</legend>
+          {([
+            ["all", `Everyone in the batch (${summary.withEmail})`],
+            ["full", `Full course students only (${countFor({ kind: "full" })})`],
+            ["modules", "Full course plus chosen modules"],
+          ] as const).map(([value, label]) => (
+            <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
+              <input type="radio" name="report-group" checked={group === value} onChange={() => { setGroup(value); setConfirming(false); }} />
+              {label}
+            </label>
+          ))}
+          {group === "modules" && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                <label key={n} className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
+                  <input
+                    type="checkbox"
+                    aria-label={`Module ${n}`}
+                    checked={modules.includes(n)}
+                    onChange={(e) => { setModules(e.target.checked ? [...modules, n] : modules.filter((m) => m !== n)); setConfirming(false); }}
+                  />
+                  {n}
+                </label>
+              ))}
+            </div>
+          )}
+        </fieldset>
         {progress && (
           <div className="mt-4">
             <p className="text-sm font-semibold text-pz-on-surface">
@@ -195,12 +231,12 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
         )}
         <div className="mt-4 flex flex-wrap gap-2">
           {!confirming ? (
-            <button type="button" disabled={!ready || working || summary.withEmail === 0} onClick={() => setConfirming(true)} className={primaryBtn}>
-              Send to all {summary.withEmail} students
+            <button type="button" disabled={!ready || working || sendCount === 0} onClick={() => setConfirming(true)} className={primaryBtn}>
+              {group === "all" ? `Send to all ${summary.withEmail} students` : `Send to ${people(sendCount)}`}
             </button>
           ) : (
             <div role="alertdialog" aria-label="Confirm sending" className="w-full rounded-lg border border-pz-primary bg-pz-surface-container-low p-4">
-              <p className="text-sm text-pz-on-surface">{`Send the progress report to ${summary.withEmail} students now?`}</p>
+              <p className="text-sm text-pz-on-surface">{`Send the progress report to ${people(sendCount)} (${describeReportAudience(audience)}) now?`}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={startAll} disabled={working} className={primaryBtn}>Yes, send now</button>
                 <button type="button" onClick={() => setConfirming(false)} className={ghostBtn}>Cancel</button>

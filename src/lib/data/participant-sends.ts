@@ -48,7 +48,7 @@ const SESSION_DELETED = "Session was deleted";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Reads every row of a query by paging with range() until a short page. `build` must give a stable total order. */
-async function fetchAllRows<T>(what: string, build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: { message: string } | null }> }): Promise<T[]> {
+export async function fetchAllRows<T>(what: string, build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: { message: string } | null }> }): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await build().range(from, from + 999);

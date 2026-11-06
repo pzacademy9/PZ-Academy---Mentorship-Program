@@ -16,7 +16,7 @@ import {
   updateSession,
   type SessionInput,
 } from "@/lib/data/attendance";
-import { createSessionSend, listSessionSendState, sendSessionTest } from "@/lib/data/session-emails";
+import { createSessionSend, listSessionEmailHistory, listSessionSendState, sendSessionTest, type SessionEmailRound } from "@/lib/data/session-emails";
 import { runEmailSend } from "@/lib/data/participant-sends";
 import { getBatchProgramId } from "@/lib/data/batch-feedback";
 import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
@@ -274,6 +274,18 @@ function sendMessage(out: { sent: number; failed: number; pending: number }, nou
 export async function sendReminderNow(sessionId: string): Promise<ActionResult> {
   // Pressed by hand: sends even when the automatic reminder is switched off for this class.
   return sendNow(sessionId, "reminder", { manual: true });
+}
+
+/** Admin only: every email sent for one class, with each person's result. */
+export async function loadClassEmailHistory(sessionId: string): Promise<{ ok: true; rounds: SessionEmailRound[] } | { ok: false; message: string }> {
+  const auth = await requireAdmin("classes");
+  if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
+  try {
+    return { ok: true, rounds: await listSessionEmailHistory(sessionId) };
+  } catch {
+    return { ok: false, message: SAVE_FAILED };
+  }
 }
 
 /** One test copy of the Zoom-link email, to the signed-in admin's own address only. */
