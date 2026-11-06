@@ -1,4 +1,4 @@
-import { requireAdminPage } from "@/lib/auth/require-admin";
+import { currentUserMayAccess, requireAdminPage } from "@/lib/auth/require-admin";
 import { listPromoCodes } from "@/lib/data/landing-promo-codes";
 import { getLandingPage, listLandingPages } from "@/lib/data/landing-pages";
 import { listSalesAgents } from "@/lib/data/sales-agents";
@@ -10,7 +10,9 @@ export const metadata = { title: "Promo Codes — PZ Academy" };
 
 export default async function AdminPromoCodesPage() {
   await requireAdminPage("landing_pages");
-  const [codes, summaries, salesAgents] = await Promise.all([listPromoCodes(), listLandingPages(), listSalesAgents()]);
+  // Agent links belong to Sales Hub (their route says so), so only show them to someone who has it.
+  const canMakeLinks = await currentUserMayAccess("sales_hub");
+  const [codes, summaries, salesAgents] = await Promise.all([listPromoCodes(), listLandingPages(), canMakeLinks ? listSalesAgents() : Promise.resolve([])]);
   // Option names come from each page's draft registration settings (what admins edit);
   // getLandingPage runs normalizeContent, so draft.registration is always present (Task 2).
   const full = await Promise.all(summaries.map((s) => getLandingPage(s.id)));
@@ -29,7 +31,7 @@ export default async function AdminPromoCodesPage() {
         </p>
       </div>
       <PromoCodesManager codes={codes} pages={pages} />
-      <AgentLinksPanel agents={agents} pages={linkPages} />
+      {canMakeLinks && <AgentLinksPanel agents={agents} pages={linkPages} />}
     </div>
   );
 }

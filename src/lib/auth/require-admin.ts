@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Role } from "@/lib/roles";
-import { mayOpen, MEDIA_AREAS, type Area } from "@/lib/team/areas";
+import { effectiveAreas, firstOpenPath, mayOpen, MEDIA_AREAS, type Area } from "@/lib/team/areas";
 
 type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
 
@@ -100,9 +100,33 @@ export async function requireAdminPage(area: AreaArg): Promise<{ user: User; sup
     .eq("id", user.id)
     .single();
 
-  if (!(await mayAccess(profile?.role as Role | undefined, user.id, area))) redirect("/dashboard");
+  const role = profile?.role as Role | undefined;
+  if (!(await mayAccess(role, user.id, area))) redirect(await deniedLanding(role, user.id));
 
   return { user, supabase };
+}
+
+/**
+ * Where a denied person goes. A manager goes to the first admin page their areas open (that page's own
+ * guard lets them in, so there is no loop); anyone else, or a manager with nothing left, goes to /dashboard.
+ */
+async function deniedLanding(role: Role | undefined, userId: string): Promise<string> {
+  if (role !== "manager") return "/dashboard";
+  try {
+    const { getCustomAccess } = await import("@/lib/data/team-access");
+    return firstOpenPath(effectiveAreas(role, await getCustomAccess(userId))) ?? "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
+}
+
+/** For pages that show or hide a part by area: may the signed-in person open this area? False when signed out or the read fails. */
+export async function currentUserMayAccess(area: AreaArg): Promise<boolean> {
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  return mayAccess(profile?.role as Role | undefined, user.id, area);
 }
 
 /** The Analytics home page: admin and super admin only. A manager never sees it, whatever areas they have. */

@@ -93,9 +93,9 @@ describe("requireAdmin(area)", () => {
 });
 
 describe("requireAdminPage(area)", () => {
-  it("sends a denied manager to the normal dashboard, never to an admin address", async () => {
+  it("sends a denied manager to the first admin page they can still open (never one they cannot)", async () => {
     custom = { extra: [], removed: ["courses"] };
-    await expect(requireAdminPage("courses")).rejects.toThrow("redirect:/dashboard");
+    await expect(requireAdminPage("courses")).rejects.toThrow(/^redirect:\/dashboard\/admin\/landing-pages$/);
   });
   it("sends a signed-out person to login", async () => {
     role = "signed-out";

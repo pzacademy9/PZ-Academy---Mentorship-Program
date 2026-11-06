@@ -23,7 +23,7 @@ export type TeamMember = {
 
 export type TeamResult =
   | { ok: true }
-  | { ok: false; reason: "not-found" | "is-super-admin" | "is-mentor" | "is-sales-agent" | "not-team-member" | "db-error" };
+  | { ok: false; reason: "not-found" | "is-super-admin" | "is-mentor" | "is-sales-agent" | "not-team-member" | "memory-not-saved" | "db-error" };
 
 const areas = (v: unknown): Area[] => (Array.isArray(v) ? v.filter(isArea) : []);
 
@@ -63,8 +63,9 @@ export async function listTeam(): Promise<TeamMember[]> {
     });
   }
   for (const o of off ?? []) {
-    const { data: p } = await admin.from("profiles").select("id, full_name").eq("id", o.user_id).maybeSingle();
-    if (!p) continue;
+    const { data: p } = await admin.from("profiles").select("id, full_name, role").eq("id", o.user_id).maybeSingle();
+    // Only a plain student can be added back: skip anyone now a mentor, sales agent, or already on the team another way.
+    if (!p || p.role !== "student") continue;
     const { data: u } = await admin.auth.admin.getUserById(p.id);
     rows.push({
       id: p.id, fullName: p.full_name, email: u?.user?.email ?? "", role: "student",
@@ -115,7 +116,8 @@ export async function switchOffTeamMember(userId: string): Promise<TeamResult> {
   const { error } = await admin.from("team_access").upsert({
     user_id: userId, active: false, previous_role: profile.role, updated_at: new Date().toISOString(),
   });
-  if (error) return { ok: false, reason: "db-error" };
+  // Fail closed: the person stays switched off even if the "Add back" memory could not be saved.
+  if (error) return { ok: false, reason: "memory-not-saved" };
   return { ok: true };
 }
 

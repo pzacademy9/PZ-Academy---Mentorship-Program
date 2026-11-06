@@ -93,6 +93,23 @@ export function mayOpen(role: Role, custom: CustomAccess | null, areas: readonly
   return areas.some((a) => mine.includes(a));
 }
 
+/** Where a person with these areas can start, in menu order. Only areas that have a page of their own. */
+const ENTRY_PATHS: readonly (readonly [Area, string])[] = [
+  ["courses", "/dashboard/admin/courses"],
+  ["landing_pages", "/dashboard/admin/landing-pages"],
+  ["enrollments", "/dashboard/admin/enrollments"],
+  ["students", "/dashboard/admin/students"],
+  ["certificates", "/dashboard/admin/certificates"],
+  ["feedback", "/dashboard/admin/feedback"],
+  ["mentorship", "/dashboard/admin/mentorship"],
+  ["notifications", "/dashboard/admin/notifications"],
+];
+
+/** The first admin page these areas open, or null when none has a page (the caller then uses /dashboard). */
+export function firstOpenPath(areas: readonly Area[]): string | null {
+  return ENTRY_PATHS.find(([a]) => areas.includes(a))?.[1] ?? null;
+}
+
 /** The Analytics home (`/dashboard/admin` exactly). Open to admin and super admin only; never to a manager. */
 export function isAdminHomePath(path: string): boolean {
   return path === "/dashboard/admin" || path === "/dashboard/admin/";
