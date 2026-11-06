@@ -21,7 +21,7 @@ vi.mock("@/lib/data/participant-prefs", () => ({
 vi.mock("@/lib/brevo-participants", () => ({ sendParticipantEmail: h.send }));
 
 import { buildFeedbackEmail } from "@/lib/attendance/session-email";
-import { createSessionSend } from "@/lib/data/session-emails";
+import { createSessionSend, sendSessionTest } from "@/lib/data/session-emails";
 import { emailFeedbackLink } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const SESS = "00000000-0000-4000-8000-000000000002";
@@ -155,5 +155,32 @@ describe("emailFeedbackLink", () => {
     const html = String(h.send.mock.calls[0][0].htmlContent);
     expect(html).toContain("https://app.test/feedback/slug-one");
     expect(html).toContain("Hi Name");
+  });
+});
+
+describe("Email now with the reminder switch off", () => {
+  it("is refused for the automatic reminder but allowed when pressed by hand", async () => {
+    setup({ email_enabled: false, starts_at: new Date(Date.now() + 3600_000).toISOString() });
+    expect(await createSessionSend(SESS, "reminder")).toEqual({ ok: false, reason: "disabled" });
+    expect(await createSessionSend(SESS, "reminder", { manual: true })).toMatchObject({ ok: true });
+  });
+});
+
+describe("sendSessionTest", () => {
+  it("sends one [TEST] email with the real Zoom link and records nothing", async () => {
+    setup({ email_enabled: false });
+    const r = await sendSessionTest(SESS, "boss@pz.test");
+    expect(r).toEqual({ ok: true });
+    expect(h.send).toHaveBeenCalledTimes(1);
+    const arg = h.send.mock.calls[0][0];
+    expect(arg.to).toBe("boss@pz.test");
+    expect(arg.subject).toMatch(/^\[TEST\]/);
+    expect(arg.htmlContent).toContain("https://zoom.test/j/1");
+    expect(store.participant_sends).toHaveLength(0);
+  });
+  it("refuses when the class has no Zoom link", async () => {
+    setup({ zoom_url: "" });
+    expect(await sendSessionTest(SESS, "boss@pz.test")).toEqual({ ok: false, reason: "no_zoom" });
+    expect(h.send).not.toHaveBeenCalled();
   });
 });

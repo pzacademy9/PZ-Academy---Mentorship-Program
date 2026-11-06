@@ -16,12 +16,13 @@ const h = vi.hoisted(() => ({
   isLiveEnrolled: vi.fn(),
   setMinPct: vi.fn(),
   createSessionSend: vi.fn(),
+  sendSessionTest: vi.fn(),
   runEmailSend: vi.fn(),
   listSessionSendState: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-admin", () => ({
-  requireAdmin: async () => (h.admin ? { ok: true, user: { id: "admin-1" } } : { ok: false, response: {} }),
+  requireAdmin: async () => (h.admin ? { ok: true, user: { id: "admin-1", email: "boss@pz.test" } } : { ok: false, response: {} }),
 }));
 vi.mock("@/lib/data/attendance", () => ({
   createSession: h.createSession,
@@ -36,13 +37,14 @@ vi.mock("@/lib/data/attendance", () => ({
 }));
 vi.mock("@/lib/data/session-emails", () => ({
   createSessionSend: h.createSessionSend,
+  sendSessionTest: h.sendSessionTest,
   listSessionSendState: h.listSessionSendState,
 }));
 vi.mock("@/lib/data/participant-sends", () => ({ runEmailSend: h.runEmailSend }));
 
 import {
   addSession, saveSession, removeSession, setOverride, toggleMark, markEveryonePresent, saveMinPct,
-  sendReminderNow, emailUpdatedTime, resendClassDetails,
+  sendReminderNow, emailUpdatedTime, resendClassDetails, sendTestEmailToMe,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const PAGE = "00000000-0000-4000-8000-000000000001";
@@ -189,7 +191,7 @@ describe("email buttons", () => {
   it("send the email once for a reminder", async () => {
     const r = await sendReminderNow(SESS);
     expect(r.ok).toBe(true);
-    expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "reminder");
+    expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "reminder", { manual: true });
     expect(h.runEmailSend).toHaveBeenCalledWith("send-1", 40);
   });
   it("send the update email", async () => {
@@ -212,6 +214,25 @@ describe("email buttons", () => {
     const r = await sendReminderNow(SESS);
     expect(r).toEqual({ ok: false, message: text });
     expect(h.runEmailSend).not.toHaveBeenCalled();
+  });
+});
+
+describe("test email to me", () => {
+  it("sends one test to the admin's own email", async () => {
+    h.sendSessionTest.mockResolvedValue({ ok: true });
+    const r = await sendTestEmailToMe(SESS);
+    expect(h.sendSessionTest).toHaveBeenCalledWith(SESS, "boss@pz.test");
+    expect(r).toEqual({ ok: true, message: "Test email sent to boss@pz.test" });
+    expect(h.createSessionSend).not.toHaveBeenCalled();
+  });
+  it("is refused for non-admins", async () => {
+    h.admin = false;
+    expect((await sendTestEmailToMe(SESS)).ok).toBe(false);
+    expect(h.sendSessionTest).not.toHaveBeenCalled();
+  });
+  it("says so when there is no Zoom link", async () => {
+    h.sendSessionTest.mockResolvedValue({ ok: false, reason: "no_zoom" });
+    expect(await sendTestEmailToMe(SESS)).toEqual({ ok: false, message: "No Zoom link on this class" });
   });
 });
 

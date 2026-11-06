@@ -7,7 +7,8 @@ import { buildFeedbackEmail, buildSessionEmail } from "@/lib/attendance/session-
 import { getSessionAudience, getSessionById } from "@/lib/data/attendance";
 import { matchAudience, parseOption } from "@/lib/classes/audience";
 import { attendanceBase } from "@/lib/attendance/links";
-import { freezeRecipients, plan } from "@/lib/data/participant-sends";
+import { freezeRecipients, plan, sendTestToMe } from "@/lib/data/participant-sends";
+import { formatPkt } from "@/lib/attendance/rules";
 
 export type SessionSendResult =
   | { ok: true; sendId: string; count: number }
@@ -41,7 +42,8 @@ export async function listSessionSendState(sessionIds: string[]): Promise<Record
 export async function createSessionSend(
   sessionId: string,
   kind: "reminder" | "update" | "feedback" = "reminder",
-  opts: { resend?: boolean } = {},
+  // manual = an admin pressed the button: the per-class reminder switch only controls the automatic email.
+  opts: { resend?: boolean; manual?: boolean } = {},
 ): Promise<SessionSendResult> {
   const session = await getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
@@ -52,7 +54,7 @@ export async function createSessionSend(
   if (kind !== "feedback" && session.zoom_url.trim() === "") return { ok: false, reason: "no_zoom" };
   if (kind === "reminder") {
     if (new Date(session.starts_at).getTime() <= Date.now()) return { ok: false, reason: "started" };
-    if (!session.email_enabled) return { ok: false, reason: "disabled" };
+    if (!session.email_enabled && !opts.manual) return { ok: false, reason: "disabled" };
   }
   const admin = createAdminSupabase();
   let feedbackUrl = "";
@@ -139,4 +141,29 @@ export async function createSessionSend(
   const sendId = (sendRow as { id: string }).id;
   await freezeRecipients(sendId, planned);
   return { ok: true, sendId, count: planned.send.length };
+}
+
+/**
+ * One test copy of the Zoom-link email to the admin's own address: real Zoom, time and links, sample name.
+ * Nothing is recorded and no student is touched.
+ */
+export async function sendSessionTest(sessionId: string, toEmail: string): Promise<{ ok: true } | { ok: false; reason: "no_zoom" | "not_set_up" | "failed" }> {
+  const session = await getSessionById(sessionId);
+  if (!session) throw new Error("Session not found");
+  if (session.zoom_url.trim() === "") return { ok: false, reason: "no_zoom" };
+  if (!process.env.BREVO_API_KEY_PARTICIPANTS) return { ok: false, reason: "not_set_up" };
+  const msg = buildSessionEmail(session, "reminder");
+  const res = await sendTestToMe({
+    subject: msg.subject,
+    body: msg.body,
+    toEmail,
+    pageId: session.page_id,
+    session: {
+      zoomUrl: session.zoom_url,
+      kahootUrl: session.include_kahoot ? session.kahoot_url : "",
+      timeText: formatPkt(session.starts_at),
+      attendanceUrl: `${attendanceBase()}/attend/${session.public_code}`,
+    },
+  });
+  return res.ok ? { ok: true } : { ok: false, reason: "failed" };
 }

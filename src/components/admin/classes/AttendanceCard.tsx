@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Mail, UserCheck } from "lucide-react";
+import { FlaskConical, Mail, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { checkinWindow, type WindowOverride } from "@/lib/attendance/rules";
@@ -11,7 +11,7 @@ import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { AttendanceGrid } from "@/components/admin/attendance/AttendanceGrid";
 import {
-  emailUpdatedTime, markEveryonePresent, resendClassDetails, sendReminderNow, setOverride, type ActionResult,
+  emailUpdatedTime, markEveryonePresent, resendClassDetails, sendReminderNow, sendTestEmailToMe, setOverride, type ActionResult,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
 import { AudiencePicker } from "./AudiencePicker";
@@ -60,16 +60,16 @@ export function AttendanceCard({
   }
 
   async function onEmail() {
-    if (!sends?.reminderAt) {
-      run(() => sendReminderNow(session.id));
-      return;
-    }
+    const again = !!sends?.reminderAt;
     const ok = await confirm({
-      title: "Email students again?",
-      description: "Send the class details again to all enrolled students?",
+      title: again ? "Email students again?" : "Email the Zoom link now?",
+      description: again
+        ? "Send the class details again to everyone listed under Will get this email? Tip: send yourself a test first."
+        : "This sends the Zoom link and class time to everyone listed under Will get this email. Tip: send yourself a test first.",
       confirmLabel: "Email to students",
     });
-    if (ok) run(() => resendClassDetails(session.id));
+    if (!ok) return;
+    run(() => (again ? resendClassDetails(session.id) : sendReminderNow(session.id)));
   }
 
   async function onMarkAll() {
@@ -106,7 +106,11 @@ export function AttendanceCard({
         <CopyLinkButton url={cls.attendanceLink} />
         <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={onEmail}>
           <Mail className="size-5" aria-hidden />
-          Email to students
+          Email Zoom link now
+        </button>
+        <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={() => run(() => sendTestEmailToMe(session.id))}>
+          <FlaskConical className="size-5" aria-hidden />
+          Send me a test
         </button>
       </div>
       <AudiencePicker pageId={pageId} sessionId={session.id} saved={session.audience} />

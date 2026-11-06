@@ -16,7 +16,7 @@ import {
   updateSession,
   type SessionInput,
 } from "@/lib/data/attendance";
-import { createSessionSend, listSessionSendState } from "@/lib/data/session-emails";
+import { createSessionSend, listSessionSendState, sendSessionTest } from "@/lib/data/session-emails";
 import { runEmailSend } from "@/lib/data/participant-sends";
 import { getBatchProgramId } from "@/lib/data/batch-feedback";
 import { generateFeedbackShareToken } from "@/lib/data/feedback-share";
@@ -238,7 +238,7 @@ export async function openProgramReport(pageId: string): Promise<{ ok: boolean; 
   }
 }
 
-async function sendNow(sessionId: string, kind: "reminder" | "update" | "feedback", opts?: { resend?: boolean }): Promise<ActionResult> {
+async function sendNow(sessionId: string, kind: "reminder" | "update" | "feedback", opts?: { resend?: boolean; manual?: boolean }): Promise<ActionResult> {
   const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
@@ -272,7 +272,24 @@ function sendMessage(out: { sent: number; failed: number; pending: number }, nou
 }
 
 export async function sendReminderNow(sessionId: string): Promise<ActionResult> {
-  return sendNow(sessionId, "reminder");
+  // Pressed by hand: sends even when the automatic reminder is switched off for this class.
+  return sendNow(sessionId, "reminder", { manual: true });
+}
+
+/** One test copy of the Zoom-link email, to the signed-in admin's own address only. */
+export async function sendTestEmailToMe(sessionId: string): Promise<ActionResult> {
+  const auth = await requireAdmin("classes");
+  if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
+  if (!isUuid(sessionId)) return { ok: false, message: NO_SESSION };
+  const to = auth.user.email?.trim() ?? "";
+  if (to === "") return { ok: false, message: "Your account has no email address" };
+  try {
+    const res = await sendSessionTest(sessionId, to);
+    if (!res.ok) return { ok: false, message: res.reason === "failed" ? SAVE_FAILED : SEND_MESSAGES[res.reason] ?? SAVE_FAILED };
+    return { ok: true, message: `Test email sent to ${to}` };
+  } catch {
+    return { ok: false, message: SAVE_FAILED };
+  }
 }
 
 export async function emailUpdatedTime(sessionId: string): Promise<ActionResult> {
