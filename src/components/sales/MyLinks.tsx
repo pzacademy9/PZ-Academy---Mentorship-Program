@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Eye, Info, Link2, UserPlus, CircleCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MyPromoCode, type MyPromo } from "@/components/sales/MyPromoCode";
 
 export type MyLinkRow = { id: string; title: string; link: string; views: number; registered: number; paid: number };
 
@@ -81,7 +82,7 @@ function LinkCard({ row }: { row: MyLinkRow }) {
   );
 }
 
-export function MyLinks({ code, rows }: { code: string; rows: MyLinkRow[] }) {
+export function MyLinks({ code, rows, promo }: { code: string; rows: MyLinkRow[]; promo: MyPromo | null }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -95,6 +96,8 @@ export function MyLinks({ code, rows }: { code: string; rows: MyLinkRow[] }) {
           Ref: {code}
         </span>
       </div>
+
+      <MyPromoCode promo={promo} />
 
       {rows.length === 0 ? (
         <EmptyState
