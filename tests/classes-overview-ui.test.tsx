@@ -345,6 +345,13 @@ describe("attendance card actions", () => {
     expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
   });
 
+  it("after only a time-change email the main button also warns that people already got it", async () => {
+    panel(summary(), session(), { sends: { reminderAt: null, updateAt: "2026-11-09T10:00:00.000Z" } });
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
+  });
+
   it("Email new Zoom link under More settings asks first, then sends the changed-link email", async () => {
     h.emailNewZoomLink.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
     panel(summary());

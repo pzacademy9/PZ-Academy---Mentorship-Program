@@ -76,6 +76,7 @@ export function ClassEmailHistory({
         {rounds.map((r) => (
           <div key={r.id} className="rounded-lg bg-pz-surface-container-low p-3">
             <p className="font-headline text-base font-bold text-pz-on-surface">{KIND_LABEL[r.kind]}</p>
+            {r.subject !== "" && <p className="break-words text-base text-pz-on-surface-variant">{r.subject}</p>}
             <p className="text-base text-pz-on-surface-variant">{formatPkt(r.createdAt)}</p>
             <p className="text-base text-pz-on-surface">
               {r.counts.sent} sent · {r.counts.failed} failed · {r.counts.skipped} skipped · {r.counts.waiting} waiting

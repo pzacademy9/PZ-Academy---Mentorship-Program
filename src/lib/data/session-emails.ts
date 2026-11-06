@@ -15,6 +15,9 @@ export type SessionSendResult =
   | { ok: false; reason: "no_zoom" | "no_feedback_link" | "still_sending" | "already_sent" | "started" | "disabled" | "no_recipients" | "not_set_up" | "too_soon" | "no_audience" | "nobody_missing" };
 
 const TOO_SOON_MS = 60 * 1000;
+const STALE_CLAIM_MS = 15 * 60 * 1000;
+/** The "new Zoom link" email is the one update email with this subject start. */
+const ZOOM_CHANGED_SUBJECT = "New Zoom link";
 
 export type SessionSendState = { reminderAt: string | null; updateAt: string | null };
 
@@ -68,10 +71,14 @@ export async function createSessionSend(
   }
   if (kind === "update" || kind === "feedback") {
     const since = new Date(Date.now() - TOO_SOON_MS).toISOString();
-    const { data: recent, error: recentErr } = await admin.from("participant_sends").select("id")
+    const { data: recent, error: recentErr } = await admin.from("participant_sends").select("id, subject")
       .eq("session_id", sessionId).eq("session_kind", kind).gte("created_at", since);
     if (recentErr) throw new Error(`recent send check failed: ${recentErr.message}`);
-    if ((recent ?? []).length > 0) return { ok: false, reason: "too_soon" };
+    // A time-change email and a new-Zoom-link email are different emails: only the same one is "too soon".
+    const sameKind = ((recent ?? []) as { subject: string }[]).filter(
+      (r) => kind !== "update" || (r.subject ?? "").startsWith(ZOOM_CHANGED_SUBJECT) === !!opts.zoomChanged,
+    );
+    if (sameKind.length > 0) return { ok: false, reason: "too_soon" };
   }
   if (kind === "feedback") {
     // An earlier feedback send for this class that still has people waiting (pending or being sent) must finish first.
@@ -90,17 +97,28 @@ export async function createSessionSend(
 
   // "Only people who have not got it": anyone already sent, or still queued, for an earlier Zoom link email of this class is left out.
   // Failed and unsent people are included again.
+  // Only emails since the latest "new Zoom link" email count, because older ones carried the old link.
+  // A row stuck as claimed for over 15 minutes is treated like a failed one. The same inbox counts as the same person.
   const alreadyHave = new Set<string>();
+  const alreadyEmails = new Set<string>();
   if (opts.onlyMissing) {
-    const { data: earlier, error: earlierErr } = await admin.from("participant_sends").select("id")
+    const { data: earlier, error: earlierErr } = await admin.from("participant_sends").select("id, created_at, subject")
       .eq("session_id", sessionId).in("session_kind", ["reminder", "update"]);
     if (earlierErr) throw new Error(`earlier sends read failed: ${earlierErr.message}`);
-    const earlierIds = ((earlier ?? []) as { id: string }[]).map((r) => r.id);
+    const sends = (earlier ?? []) as { id: string; created_at: string; subject: string }[];
+    const zoomTimes = sends.filter((s) => (s.subject ?? "").startsWith(ZOOM_CHANGED_SUBJECT)).map((s) => s.created_at).sort();
+    const since = zoomTimes.length > 0 ? zoomTimes[zoomTimes.length - 1] : "";
+    const earlierIds = sends.filter((s) => s.created_at >= since).map((s) => s.id);
     if (earlierIds.length > 0) {
-      const got = await fetchAllRows<{ registration_id: string }>("earlier recipients read", () =>
-        admin.from("participant_send_recipients").select("registration_id").in("send_id", earlierIds)
+      const staleBefore = Date.now() - STALE_CLAIM_MS;
+      const got = await fetchAllRows<{ registration_id: string; email: string; state: string; claimed_at: string | null }>("earlier recipients read", () =>
+        admin.from("participant_send_recipients").select("registration_id, email, state, claimed_at").in("send_id", earlierIds)
           .in("state", ["sent", "pending", "claimed"]).order("id", { ascending: true }));
-      for (const r of got) alreadyHave.add(r.registration_id);
+      for (const r of got) {
+        if (r.state === "claimed" && (!r.claimed_at || new Date(r.claimed_at).getTime() < staleBefore)) continue;
+        alreadyHave.add(r.registration_id);
+        if ((r.email ?? "").trim() !== "") alreadyEmails.add(r.email.trim().toLowerCase());
+      }
     }
   }
 
@@ -113,6 +131,7 @@ export async function createSessionSend(
     filters: audience.mode === "live" ? { mode: "live" } : {},
     keep: (c) =>
       !alreadyHave.has(c.registrationId) &&
+      !alreadyEmails.has((c.email ?? "").trim().toLowerCase()) &&
       (c.status === "paid" || c.status === "free") &&
       matchAudience(parseOption(c.optionLabel ?? ""), audience).include,
   });
@@ -189,6 +208,7 @@ export type SessionEmailKind = "reminder" | "update" | "feedback";
 export type SessionEmailRound = {
   id: string;
   kind: SessionEmailKind;
+  subject: string;
   createdAt: string;
   total: number;
   counts: { sent: number; failed: number; skipped: number; waiting: number };
@@ -199,10 +219,10 @@ export type SessionEmailRound = {
 export async function listSessionEmailHistory(sessionId: string): Promise<SessionEmailRound[]> {
   const admin = createAdminSupabase();
   const { data: sends, error } = await admin.from("participant_sends")
-    .select("id, session_kind, created_at, recipient_count").eq("session_id", sessionId).order("created_at", { ascending: false });
+    .select("id, session_kind, subject, created_at, recipient_count").eq("session_id", sessionId).order("created_at", { ascending: false });
   if (error) throw new Error(`session sends read failed: ${error.message}`);
   const out: SessionEmailRound[] = [];
-  for (const s of (sends ?? []) as { id: string; session_kind: string | null; created_at: string; recipient_count: number }[]) {
+  for (const s of (sends ?? []) as { id: string; session_kind: string | null; subject: string | null; created_at: string; recipient_count: number }[]) {
     const recipients = await fetchAllRows<{ name: string; email: string; state: string; reason: string }>("session recipients read", () =>
       admin.from("participant_send_recipients").select("name, email, state, reason").eq("send_id", s.id)
         .order("name", { ascending: true }).order("id", { ascending: true }));
@@ -214,7 +234,7 @@ export async function listSessionEmailHistory(sessionId: string): Promise<Sessio
       else counts.waiting += 1;
     }
     const kind: SessionEmailKind = s.session_kind === "feedback" || s.session_kind === "update" ? s.session_kind : "reminder";
-    out.push({ id: s.id, kind, createdAt: s.created_at, total: s.recipient_count, counts, recipients });
+    out.push({ id: s.id, kind, subject: s.subject ?? "", createdAt: s.created_at, total: s.recipient_count, counts, recipients });
   }
   return out;
 }

@@ -61,7 +61,8 @@ export function AttendanceCard({
   }
 
   async function onEmail() {
-    const again = !!sends?.reminderAt;
+    // Any earlier Zoom link or class details email means people have already got something.
+    const again = !!(sends?.reminderAt || sends?.updateAt);
     const ok = await confirm({
       title: again ? "Email students again?" : "Email the Zoom link now?",
       description: again

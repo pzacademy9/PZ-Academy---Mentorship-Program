@@ -11,7 +11,7 @@ import { ClassEmailHistory } from "@/components/admin/classes/ClassEmailHistory"
 afterEach(() => { cleanup(); h.load.mockReset(); });
 
 const round = (over: Record<string, unknown> = {}) => ({
-  id: "r1", kind: "reminder", createdAt: "2026-11-06T12:30:00.000Z", total: 3,
+  id: "r1", kind: "reminder", subject: "Reminder: Intro is coming up", createdAt: "2026-11-06T12:30:00.000Z", total: 3,
   counts: { sent: 1, failed: 1, skipped: 1, waiting: 0 },
   recipients: [
     { name: "Fake One", email: "fake.one@example.com", state: "sent", reason: "" },
@@ -30,6 +30,7 @@ describe("ClassEmailHistory", () => {
     expect(await screen.findByText("Zoom link email")).toBeTruthy();
     expect(h.load).toHaveBeenCalledWith("s1");
     expect(screen.getByText("1 sent · 1 failed · 1 skipped · 0 waiting")).toBeTruthy();
+    expect(screen.getByText("Reminder: Intro is coming up")).toBeTruthy();
   });
 
   it("shows each person with a plain reason, never the provider's text", async () => {
