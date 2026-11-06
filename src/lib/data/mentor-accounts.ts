@@ -11,10 +11,11 @@ import type { Role } from "@/lib/roles";
  * responsibility (auth account linking) from registry CRUD.
  */
 
+/** The account id for this email, or null when there is none. A failed lookup throws: it must never look like "no account". */
 export async function findAccountIdByEmail(email: string): Promise<string | null> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc("find_user_id_by_email", { p_email: email });
-  if (error) return null;
+  if (error) throw new Error("Could not look up the account");
   return data ?? null;
 }
 

@@ -31,8 +31,12 @@ export async function POST(req: NextRequest) {
 
   const saved = await saveTeamMember({ userId: result.userId, role, custom: { extra, removed } });
   if (!saved.ok) {
+    // The email is already out and the account exists, so say that: adding the person again finishes the job.
     const f = teamFailure(saved.reason);
-    return NextResponse.json({ error: f.error }, { status: f.status });
+    return NextResponse.json(
+      { error: `The invite was sent, but the role and areas did not save. Add ${email} again to finish.` },
+      { status: f.status },
+    );
   }
   return NextResponse.json({ status: "invited", email });
 }

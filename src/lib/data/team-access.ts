@@ -63,8 +63,9 @@ export async function listTeam(): Promise<TeamMember[]> {
     });
   }
   for (const o of off ?? []) {
-    const { data: p } = await admin.from("profiles").select("id, full_name").eq("id", o.user_id).maybeSingle();
-    if (!p) continue;
+    const { data: p } = await admin.from("profiles").select("id, full_name, role").eq("id", o.user_id).maybeSingle();
+    // Only a plain student can be added back: skip anyone now a mentor, sales agent, or already on the team another way.
+    if (!p || p.role !== "student") continue;
     const { data: u } = await admin.auth.admin.getUserById(p.id);
     rows.push({
       id: p.id, fullName: p.full_name, email: u?.user?.email ?? "", role: "student",
@@ -115,7 +116,11 @@ export async function switchOffTeamMember(userId: string): Promise<TeamResult> {
   const { error } = await admin.from("team_access").upsert({
     user_id: userId, active: false, previous_role: profile.role, updated_at: new Date().toISOString(),
   });
-  if (error) return { ok: false, reason: "db-error" };
+  if (error) {
+    // Without the memory row "Add back" would have nothing to restore: put the old role back.
+    await admin.from("profiles").update({ role: profile.role }).eq("id", userId).eq("role", "student");
+    return { ok: false, reason: "db-error" };
+  }
   return { ok: true };
 }
 

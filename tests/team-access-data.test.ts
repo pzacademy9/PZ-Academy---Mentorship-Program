@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 type Row = Record<string, unknown>;
-const db: { profiles: Row[]; team_access: Row[]; writes: { table: string; op: string; values: Row }[]; flipAfterRead: boolean; failSelect: string | null } = {
-  profiles: [], team_access: [], writes: [], flipAfterRead: false, failSelect: null,
+const db: { profiles: Row[]; team_access: Row[]; writes: { table: string; op: string; values: Row }[]; flipAfterRead: boolean; failSelect: string | null; failUpsert: boolean } = {
+  profiles: [], team_access: [], writes: [], flipAfterRead: false, failSelect: null, failUpsert: false,
 };
 
 function from(table: "profiles" | "team_access") {
@@ -25,12 +25,12 @@ function from(table: "profiles" | "team_access") {
       return { data: copy, error: null };
     },
     update: (values: Row) => { pending = { op: "update", values }; return b; },
-    upsert: async (values: Row) => { db.writes.push({ table, op: "upsert", values }); return { error: null }; },
+    upsert: async (values: Row) => { if (db.failUpsert) return { error: { message: "boom" } }; db.writes.push({ table, op: "upsert", values }); return { error: null }; },
     then: (resolve: (v: unknown) => void) => {
       if (db.failSelect === table && !pending) { resolve({ data: null, error: { message: "boom" } }); return; }
       const matched = rows();
       if (pending?.op === "update") {
-        if (matched.length > 0) db.writes.push({ table, op: "update", values: pending.values });
+        if (matched.length > 0) { db.writes.push({ table, op: "update", values: pending.values }); for (const r of matched) Object.assign(r, pending.values); }
         resolve({ data: matched.map((r) => ({ id: r.id })), error: null });
         return;
       }
@@ -45,7 +45,7 @@ vi.mock("@/lib/data/mentor-accounts", () => ({ findAccountIdByEmail: async () =>
 import { cleanCustom, decideTeamChange, isStaffRole } from "@/lib/team/rules";
 import { getCustomAccess, listTeam, saveTeamMember, switchOffTeamMember } from "@/lib/data/team-access";
 
-beforeEach(() => { db.profiles = []; db.team_access = []; db.writes = []; db.flipAfterRead = false; db.failSelect = null; });
+beforeEach(() => { db.profiles = []; db.team_access = []; db.writes = []; db.flipAfterRead = false; db.failSelect = null; db.failUpsert = false; });
 
 describe("decideTeamChange", () => {
   it("allows admin, manager and plain students, refuses everyone else", () => {
@@ -155,5 +155,31 @@ describe("listTeam", () => {
     db.team_access = [{ user_id: "u2", active: false, previous_role: "admin", extra_areas: ["crm"], removed_areas: [] }];
     const m = (await listTeam()).find((x) => x.id === "u2");
     expect(m).toMatchObject({ active: false, previousRole: "admin", custom: { extra: ["crm"], removed: [] } });
+  });
+});
+
+describe("switch off keeps the person safe when the memory row cannot be saved", () => {
+  it("puts the old role back and reports the error", async () => {
+    db.profiles = [{ id: "u10", role: "manager" }];
+    db.failUpsert = true;
+    expect(await switchOffTeamMember("u10")).toEqual({ ok: false, reason: "db-error" });
+    const roleWrites = db.writes.filter((w) => w.table === "profiles").map((w) => w.values);
+    expect(roleWrites).toEqual([{ role: "student" }, { role: "manager" }]);
+  });
+});
+
+describe("listTeam shows no stale Add back row", () => {
+  const off = (id: string) => ({ user_id: id, active: false, previous_role: "admin", extra_areas: [], removed_areas: [] });
+  it("hides a switched-off person who has since become a mentor", async () => {
+    db.profiles = [{ id: "u11", role: "mentor", full_name: "Mo" }];
+    db.team_access = [off("u11")];
+    expect((await listTeam()).find((x) => x.id === "u11")).toBeUndefined();
+  });
+  it("lists a person once when they were switched off and later made an admin another way", async () => {
+    db.profiles = [{ id: "u12", role: "admin", full_name: "Ad" }];
+    db.team_access = [off("u12")];
+    const rows = (await listTeam()).filter((x) => x.id === "u12");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].active).toBe(true);
   });
 });

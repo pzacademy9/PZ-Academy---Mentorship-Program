@@ -113,6 +113,15 @@ describe("POST and PUT /api/admin/team (add by email)", () => {
     expect(res.status).toBe(200);
     expect(saveTeamMember).toHaveBeenCalledWith({ userId: "new1", role: "manager", custom: { extra: [], removed: [] } });
   });
+  it("POST tells the truth when the invite went out but the role did not save", async () => {
+    inviteOrCheckTeamMember.mockResolvedValue({ status: "invited", email: good.email, userId: "new1" });
+    saveTeamMember.mockResolvedValue({ ok: false, reason: "db-error" });
+    const res = await POST(req(good));
+    expect(res.status).toBe(500);
+    const msg = (await res.json()).error as string;
+    expect(msg).toMatch(/invite was sent/i);
+    expect(msg).toMatch(/add .* again/i);
+  });
   it("PUT refuses a mentor with a plain message", async () => {
     findTeamCandidateId.mockResolvedValue("m1");
     saveTeamMember.mockResolvedValue({ ok: false, reason: "is-mentor" });
