@@ -67,7 +67,7 @@ const RULES: { test: RegExp; areas: Area[] }[] = [
   { test: /^\/(dashboard|api)\/admin\/team(\/|$)/, areas: ["team"] },
   { test: /^\/(dashboard|api)\/admin\/(sales-hub|sales|sales-agents|agent-leaderboard|landing-agent-links)(\/|$)/, areas: ["sales_hub"] },
   { test: /^\/(dashboard|api)\/admin\/(enrollments|registrations|participants)(\/|$)/, areas: ["enrollments"] },
-  { test: /^\/(dashboard|api)\/admin\/(landing-pages|landing|landing-promo-codes|landing-whatsapp|landing-mirror)(\/|$)/, areas: ["landing_pages"] },
+  { test: /^\/(dashboard|api)\/admin\/(landing-pages|landing|landing-promo-codes|landing-promo-settings|landing-whatsapp|landing-mirror)(\/|$)/, areas: ["landing_pages"] },
   { test: /^\/(dashboard|api)\/admin\/(courses|modules|lessons|quiz-questions)(\/|$)/, areas: ["courses"] },
   { test: /^\/(dashboard|api)\/admin\/(marketing|banners|featured-items)(\/|$)/, areas: ["marketing"] },
   { test: /^\/(dashboard|api)\/admin\/crm(\/|$)/, areas: ["sales_hub", "crm"] },
