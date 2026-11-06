@@ -8,12 +8,12 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 const data = vi.hoisted(() => ({
-  listPromoCodes: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(),
+  listPromoCodes: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), currentUserMayAccess: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({ listPromoCodes: data.listPromoCodes }));
 vi.mock("@/lib/data/landing-pages", () => ({ listLandingPages: data.listLandingPages, getLandingPage: data.getLandingPage }));
 vi.mock("@/lib/data/sales-agents", () => ({ listSalesAgents: data.listSalesAgents }));
-vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: data.requireAdminPage }));
+vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: data.requireAdminPage, currentUserMayAccess: data.currentUserMayAccess }));
 
 import { PromoCodesManager } from "@/components/admin/landing/promo/PromoCodesManager";
 import { AgentLinksPanel } from "@/components/admin/landing/promo/AgentLinksPanel";
@@ -272,6 +272,7 @@ describe("AgentLinksPanel", () => {
 describe("/dashboard/admin/landing-promo-codes page", () => {
   it("is admin-only and lists codes with each page's options, plus the agent links section", async () => {
     data.requireAdminPage.mockResolvedValue({ user: { id: "admin-user" }, supabase: {} });
+    data.currentUserMayAccess.mockResolvedValue(true);
     data.listPromoCodes.mockResolvedValue([promo()]);
     data.listSalesAgents.mockResolvedValue([{ id: "agent-1", fullName: "Ayesha Siddiqui", email: "a@pz.test", createdAt: "2026-09-01T00:00:00Z", contactCount: 4 }]);
     data.listLandingPages.mockResolvedValue([
@@ -293,5 +294,18 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     fireEvent.click(screen.getByRole("button", { name: /new promo code/i }));
     const dialog = screen.getByRole("dialog", { name: "New promo code" });
     expect(within(dialog).getByRole("checkbox", { name: "Module 1 · PPC Batch 3" })).toBeTruthy();
+  });
+
+  it("hides Agent links (and never reads the agents) from someone without Sales Hub, so no button gives a 403", async () => {
+    data.requireAdminPage.mockResolvedValue({ user: { id: "manager-user" }, supabase: {} });
+    data.currentUserMayAccess.mockResolvedValue(false);
+    data.listPromoCodes.mockResolvedValue([promo()]);
+    data.listLandingPages.mockResolvedValue([]);
+    render(await AdminPromoCodesPage());
+    expect(data.currentUserMayAccess).toHaveBeenCalledWith("sales_hub");
+    expect(screen.getByRole("heading", { level: 1, name: "Promo Codes" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { level: 2, name: "Agent links" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /generate link/i })).toBeNull();
+    expect(data.listSalesAgents).not.toHaveBeenCalled();
   });
 });
