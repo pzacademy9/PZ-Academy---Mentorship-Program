@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   sendReminderNow: vi.fn(),
   emailUpdatedTime: vi.fn(),
   resendClassDetails: vi.fn(),
+  sendTestEmailToMe: vi.fn(),
   markEveryonePresent: vi.fn(),
   toggleMark: vi.fn(),
   saveMinPct: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessi
   saveMinPct: h.saveMinPct,
   removeSession: h.removeSession,
   emailFeedbackLink: h.emailFeedbackLink,
+  sendTestEmailToMe: h.sendTestEmailToMe,
 }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions", () => ({
   createMissingFeedbackAction: h.createMissing,
@@ -117,7 +119,8 @@ describe("cards", () => {
     const att = screen.getByTestId("attendance-card");
     const attButtons = within(att).getAllByRole("button");
     expect(attButtons[0].textContent).toMatch(/Copy link/);
-    expect(attButtons[1].textContent).toMatch(/Email to students/);
+    expect(attButtons[1].textContent).toMatch(/Email Zoom link now/);
+    expect(attButtons[2].textContent).toMatch(/Send me a test/);
     const fb = screen.getByTestId("feedback-card");
     expect(within(fb).getAllByRole("button")[0].textContent).toMatch(/Copy link/);
     expect(att.textContent).toMatch(/38\s*of 52 present/);
@@ -293,15 +296,32 @@ describe("EditClassDialog rules", () => {
 describe("attendance card actions", () => {
   it("first send uses the reminder; a second send asks and then re-sends the plain class details", async () => {
     const { unmount } = panel(summary());
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email to students/ }));
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.sendReminderNow).toHaveBeenCalledWith("s1"));
     expect(h.resendClassDetails).not.toHaveBeenCalled();
     unmount();
 
     panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email to students/ }));
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.resendClassDetails).toHaveBeenCalledWith("s1"));
     expect(h.emailUpdatedTime).not.toHaveBeenCalled();
+  });
+
+  it("asks before the first real send and sends nothing when you say no", async () => {
+    h.confirm.mockResolvedValueOnce(false);
+    panel(summary());
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.confirm.mock.calls[0][0].description).toMatch(/test/i);
+    expect(h.sendReminderNow).not.toHaveBeenCalled();
+  });
+
+  it("Send me a test sends a test copy without asking", async () => {
+    h.sendTestEmailToMe.mockResolvedValue({ ok: true, message: "Test email sent to a@b.c" });
+    panel(summary());
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Send me a test/ }));
+    await waitFor(() => expect(h.sendTestEmailToMe).toHaveBeenCalledWith("s1"));
+    expect(h.sendReminderNow).not.toHaveBeenCalled();
   });
 
   it("Email updated time under More settings keeps the updated-time email", async () => {

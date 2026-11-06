@@ -459,10 +459,10 @@ export async function listMessagesForRegistrations(registrationIds: string[]): P
   return out.sort((a, b) => (b.sendCreatedAt ?? "").localeCompare(a.sendCreatedAt ?? ""));
 }
 
-export async function sendTestToMe(input: { subject: string; body: string; toEmail: string; pageId: string }): Promise<{ ok: boolean; error?: string }> {
+export async function sendTestToMe(input: { subject: string; body: string; toEmail: string; pageId: string; session?: SessionTagContext }): Promise<{ ok: boolean; error?: string }> {
   try {
     const portalUrl = await portalUrlFor(await pageCourseId(input.pageId));
-    const msg = renderEmail(input, { name: "Sample Person", refId: "REF-SAMPLE", pzId: "Sample-0000" }, portalUrl, `${appUrl()}/unsubscribe/participants/preview`);
+    const msg = renderEmail(input, { name: "Sample Person", refId: "REF-SAMPLE", pzId: "Sample-0000" }, portalUrl, `${appUrl()}/unsubscribe/participants/preview`, input.session);
     const res = await sendParticipantEmail({ to: input.toEmail, subject: `[TEST] ${msg.subject}`, htmlContent: msg.html });
     return res.ok ? { ok: true } : { ok: false, error: res.error };
   } catch (e) {
