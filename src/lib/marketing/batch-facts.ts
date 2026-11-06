@@ -61,3 +61,16 @@ export function startsAtLabel(iso: string): string {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${date}, ${h12}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"} PKT`;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const pktDay = (ms: number) => Math.floor((ms + PKT_OFFSET_MS) / DAY_MS);
+
+/** "Starts in 5 days" / "Starts tomorrow" / "Starts today", counted in Pakistan calendar days. "" when unset, invalid or past. */
+export function startsInText(iso: string, now: Date): string {
+  const t = Date.parse(iso);
+  if (!iso.trim() || Number.isNaN(t)) return "";
+  const days = pktDay(t) - pktDay(now.getTime());
+  if (days < 0) return "";
+  if (days === 0) return "Starts today";
+  return days === 1 ? "Starts tomorrow" : `Starts in ${days} days`;
+}

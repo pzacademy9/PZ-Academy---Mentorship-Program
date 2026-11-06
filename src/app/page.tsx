@@ -17,6 +17,7 @@ import { SectionHeader } from "@/components/marketing/kit/SectionHeader";
 import { StatCounter } from "@/components/marketing/kit/StatCounter";
 import { BTN_GHOST_DARK, BTN_PRIMARY, BTN_SOLID } from "@/components/marketing/kit/buttons";
 import { attachLiveBatches } from "@/lib/data/live-batch-merge";
+import { seatsLeftText, startsInText } from "@/lib/marketing/batch-facts";
 import { isSafeHref, pickPromo } from "@/lib/marketing/promo";
 import { QUICK_QUIZ } from "@/lib/marketing/quick-quiz";
 
@@ -94,6 +95,7 @@ export default async function HomePage() {
   const heroCta = heroBanner && isSafeHref(heroBanner.ctaLink) ? heroBanner : null;
   const batchList = Array.from(openBatches.values());
   const nextBatch = batchList[0] ?? null;
+  const startsIn = nextBatch?.startsAt ? startsInText(nextBatch.startsAt, new Date()) : "";
   // Admin-picked featured items win; otherwise show real courses and workshops.
   const programs = featuredCards.length > 0
     ? null
@@ -204,16 +206,29 @@ export default async function HomePage() {
         {nextBatch && (
           <div className="relative z-20 w-full bg-pz-solid-forest/95 px-5 py-3 md:px-12">
             <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 font-poppins text-sm">
-              <p className="flex min-w-0 items-center gap-2.5 text-white">
+              <div className="flex min-w-0 items-center gap-3 text-white">
                 <span aria-hidden="true" className="relative flex h-2.5 w-2.5 shrink-0">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pz-bright opacity-75" />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-pz-bright" />
                 </span>
-                <span className="truncate">
-                  Live batch<span className="hidden sm:inline"> open</span>: <span className="font-bold text-pz-bright">{nextBatch.title}</span>
-                  {nextBatch.startsOn && <> — starts {nextBatch.startsOn}</>}
-                </span>
-              </p>
+                {/* Two quiet lines: the name, then the few facts that matter. Early Bird hides on phones when seats are also shown. */}
+                <div className="min-w-0">
+                  <p className="truncate">
+                    Live batch<span className="hidden sm:inline"> open</span>: <span className="font-bold text-pz-bright">{nextBatch.title}</span>
+                  </p>
+                  {(startsIn || nextBatch.startsOn || nextBatch.seatsLeft != null || nextBatch.earlyBird) && (
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-white/70">
+                      {startsIn ? <span>{startsIn}</span> : nextBatch.startsOn ? <span>Starts {nextBatch.startsOn}</span> : null}
+                      {nextBatch.seatsLeft != null && <span className="font-semibold text-white">{seatsLeftText(nextBatch.seatsLeft)}</span>}
+                      {nextBatch.earlyBird && (
+                        <span className={nextBatch.seatsLeft != null ? "hidden sm:inline" : undefined}>
+                          Early Bird <span className="font-semibold text-white">{nextBatch.earlyBird.price}</span>
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
               <Link
                 href={nextBatch.href}
                 aria-label={`Register for live: ${nextBatch.title}`}
