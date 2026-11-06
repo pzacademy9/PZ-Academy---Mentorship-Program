@@ -13,9 +13,9 @@ describe("matchesReportAudience", () => {
     expect(matchesReportAudience(mods, { kind: "full" })).toBe(false);
     expect(matchesReportAudience([""], { kind: "full" })).toBe(false);
   });
-  it("full course plus modules takes full course and the chosen modules only", () => {
+  it("modules takes only students of the chosen modules, never full course students", () => {
     const a = { kind: "modules" as const, modules: [5] };
-    expect(matchesReportAudience(full, a)).toBe(true);
+    expect(matchesReportAudience(full, a)).toBe(false);
     expect(matchesReportAudience(mods, a)).toBe(true);
     expect(matchesReportAudience(["Live - Modules: M2, M3"], a)).toBe(false);
     expect(matchesReportAudience(["Live - Modules: M12"], { kind: "modules", modules: [1] })).toBe(false);
@@ -42,6 +42,6 @@ describe("describeReportAudience", () => {
   it("says the group in plain words", () => {
     expect(describeReportAudience({ kind: "all" })).toBe("everyone in the batch");
     expect(describeReportAudience({ kind: "full" })).toBe("full course students");
-    expect(describeReportAudience({ kind: "modules", modules: [2, 5] })).toBe("full course students and students of module 2, 5");
+    expect(describeReportAudience({ kind: "modules", modules: [2, 5] })).toBe("students of module 2, 5");
   });
 });

@@ -12,8 +12,8 @@ export function matchesReportAudience(optionLabels: string[], a: ReportAudience)
   return optionLabels.some((label) => {
     const o = parseOption(label);
     if (o.mode === "unknown") return false;
-    if (o.full) return true;
-    return a.kind === "modules" && o.modules.some((n) => a.modules.includes(n));
+    if (a.kind === "full") return o.full;
+    return !o.full && o.modules.some((n) => a.modules.includes(n));
   });
 }
 
@@ -33,5 +33,5 @@ export function cleanReportAudience(raw: unknown): ReportAudience | null {
 export function describeReportAudience(a: ReportAudience): string {
   if (a.kind === "all") return "everyone in the batch";
   if (a.kind === "full") return "full course students";
-  return `full course students and students of module ${a.modules.join(", ")}`;
+  return `students of module ${a.modules.join(", ")}`;
 }

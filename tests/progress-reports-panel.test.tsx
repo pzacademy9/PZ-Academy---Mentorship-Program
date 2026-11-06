@@ -93,7 +93,7 @@ describe("progress reports panel", () => {
 describe("choosing who gets the report", () => {
   it("with no module ticked the send button is off and a hint says what to do", () => {
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={actions()} />);
-    fireEvent.click(screen.getByRole("radio", { name: /Full course plus chosen modules/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Chosen modules only/ }));
     expect((screen.getByRole("button", { name: /^Send to/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText("Tick at least one module.")).toBeTruthy();
   });
@@ -119,12 +119,12 @@ describe("choosing who gets the report", () => {
     await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "full" }));
   });
 
-  it("full course plus modules: ticking module numbers adds those students", async () => {
+  it("chosen modules only: ticking a module sends just that module's students", async () => {
     const a = actions();
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
-    fireEvent.click(screen.getByRole("radio", { name: /Full course plus chosen modules/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Chosen modules only/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Module 2" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send to 2 students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to 1 student" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
     await waitFor(() => expect(a.start).toHaveBeenCalledWith("page-1", { kind: "modules", modules: [2] }));
   });

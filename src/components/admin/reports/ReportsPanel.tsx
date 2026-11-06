@@ -207,7 +207,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
           {([
             ["all", `Everyone in the batch (${summary.withEmail})`],
             ["full", `Full course students only (${countFor({ kind: "full" })})`],
-            ["modules", "Full course plus chosen modules"],
+            ["modules", "Chosen modules only"],
           ] as const).map(([value, label]) => (
             <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
               <input type="radio" name="report-group" checked={group === value} onChange={() => { setGroup(value); setConfirming(false); }} />

@@ -165,17 +165,15 @@ describe("choosing who gets the round", () => {
     expect(res).toMatchObject({ ok: true, count: 1 });
     expect(names()).toEqual(["Fake One"]);
   });
-  it("full course plus a module adds that module's students only", async () => {
+  it("a module sends to that module's students only, not full course students", async () => {
     labels();
     const res = await createReportSend(PAGE, null, { kind: "modules", modules: [2] });
-    expect(res).toMatchObject({ ok: true, count: 2 });
-    expect(names()).toEqual(["Fake One", "Fake Two"]);
+    expect(res).toMatchObject({ ok: true, count: 1 });
+    expect(names()).toEqual(["Fake Two"]);
   });
   it("says so when nobody is in the chosen group", async () => {
     labels();
-    const res = await createReportSend(PAGE, null, { kind: "modules", modules: [9] });
-    expect(res.ok).toBe(true);
-    // full course student Fake One is always included, so pick a group that really is empty:
+    expect(await createReportSend(PAGE, null, { kind: "modules", modules: [9] })).toEqual({ ok: false, message: "Nobody is in that group." });
     (store.landing_registrations as { id: string; option_label: string }[]).forEach((r) => { r.option_label = "Live - Modules: M7"; });
     db.reset();
     store.progress_report_sends = [];
