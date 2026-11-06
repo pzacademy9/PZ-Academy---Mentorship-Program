@@ -124,6 +124,15 @@ describe("sending", () => {
     expect(again.ok).toBe(false);
   });
 
+  it("refuses a new round while the last one still has people waiting", async () => {
+    await createReportSend(PAGE, null);
+    store.progress_report_sends[0].created_at = new Date(Date.now() - 5 * 60_000).toISOString();
+    const again = await createReportSend(PAGE, null, { kind: "all" });
+    expect(again).toEqual({ ok: false, message: "The last round is still sending. Press Continue sending first." });
+    for (const r of store.progress_report_recipients) r.state = "sent";
+    expect((await createReportSend(PAGE, null)).ok).toBe(true);
+  });
+
   it("skips unsubscribed students", async () => {
     h.unsub = new Set(["fake.two@example.com"]);
     const res = (await createReportSend(PAGE, null)) as { sendId: string };

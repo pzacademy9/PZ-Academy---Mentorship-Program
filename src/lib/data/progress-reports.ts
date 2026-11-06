@@ -179,6 +179,16 @@ export async function createReportSend(pageId: string, createdBy: string | null,
   check("recent sends read", rErr);
   if ((recent ?? []).length > 0) return { ok: false, message: "Reports were just started for this batch. Wait a minute, or continue the round below." };
 
+  // A round that still has people waiting must be finished first, or students could get the report twice.
+  const { data: earlier, error: eErr } = await admin.from("progress_report_sends").select("id").eq("page_id", pageId);
+  check("earlier sends read", eErr);
+  const earlierIds = ((earlier ?? []) as { id: string }[]).map((r) => r.id);
+  for (const part of chunks(earlierIds)) {
+    const { data: waiting, error: wErr } = await admin.from("progress_report_recipients").select("id").in("send_id", part).in("state", ["pending", "claimed"]).limit(1);
+    check("waiting recipients read", wErr);
+    if ((waiting ?? []).length > 0) return { ok: false, message: "The last round is still sending. Press Continue sending first." };
+  }
+
   const recipients = loaded.report.students.filter((s) => s.email !== "" && matchesReportAudience(loaded.optionLabels[s.personId] ?? [], audience));
   if (recipients.length === 0) return { ok: false, message: audience.kind === "all" ? "Nobody to send to." : "Nobody is in that group." };
 

@@ -84,13 +84,31 @@ describe("progress reports panel", () => {
     const a = actions();
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[round]} actions={a} />);
     expect(screen.getByText("1 sent · 1 failed · 0 skipped · 1 waiting")).toBeTruthy();
-    expect(screen.getByText("Failed · Brevo down")).toBeTruthy();
+    expect(screen.getByText("Failed · could not be sent")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Continue sending (1 waiting)" }));
     await waitFor(() => expect(a.run).toHaveBeenCalledWith("send-9"));
   });
 });
 
 describe("choosing who gets the report", () => {
+  it("with no module ticked the send button is off and a hint says what to do", () => {
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={actions()} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Full course plus chosen modules/ }));
+    expect((screen.getByRole("button", { name: /^Send to/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Tick at least one module.")).toBeTruthy();
+  });
+
+  it("shows plain words for a failed student, never the email service's text", () => {
+    const round: ReportRound = {
+      id: "send-8", createdAt: "2026-11-05T10:00:00Z", total: 1,
+      counts: { sent: 0, failed: 1, skipped: 0, waiting: 0 },
+      recipients: [{ name: "Fake Two", email: "fake.two@example.com", state: "failed", reason: "Brevo key 123 rejected" }],
+    };
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[round]} actions={actions()} />);
+    expect(screen.queryByText(/Brevo key 123/)).toBeNull();
+    expect(screen.getByText("Failed · could not be sent")).toBeTruthy();
+  });
+
   it("full course only: shows the count and sends that group", async () => {
     const a = actions();
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
@@ -105,8 +123,6 @@ describe("choosing who gets the report", () => {
     const a = actions();
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={a} />);
     fireEvent.click(screen.getByRole("radio", { name: /Full course plus chosen modules/ }));
-    // nothing ticked yet: only the full course student, and the button says so
-    expect(screen.getByRole("button", { name: "Send to 1 student" })).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Module 2" }));
     fireEvent.click(screen.getByRole("button", { name: "Send to 2 students" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));

@@ -31,6 +31,16 @@ const ghostBtn = "shrink-0 whitespace-nowrap rounded-lg border border-pz-outline
 
 const STATE_LABEL: Record<string, string> = { sent: "Sent", failed: "Failed", skipped: "Skipped", pending: "Waiting", claimed: "Sending" };
 
+/** Reasons the team wrote itself. Email-service error text never reaches the screen. */
+function reasonWords(state: string, reason: string): string {
+  if (state === "sent" || state === "pending" || state === "claimed") return "";
+  if (reason === "unsubscribed") return "unsubscribed";
+  if (reason === "no_email") return "no email";
+  if (reason === "No longer in this batch") return "no longer in this batch";
+  if (reason.startsWith("May have been sent")) return "may have been sent, check before sending again";
+  return state === "failed" ? "could not be sent" : "";
+}
+
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" });
 }
@@ -76,7 +86,8 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
   const audience: ReportAudience = group === "all" ? { kind: "all" } : group === "full" ? { kind: "full" } : { kind: "modules", modules: [...modules].sort((a, b) => a - b) };
   const countFor = (a: ReportAudience) =>
     a.kind === "all" ? summary.withEmail : students.filter((x) => x.hasEmail && matchesReportAudience(x.labels, a)).length;
-  const sendCount = countFor(audience);
+  const noModules = group === "modules" && modules.length === 0;
+  const sendCount = noModules ? 0 : countFor(audience);
   const people = (n: number) => `${n} ${n === 1 ? "student" : "students"}`;
   const latest = rounds[0];
   const unfinished = latest && latest.counts.waiting > 0 ? latest : null;
@@ -203,6 +214,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
               {label}
             </label>
           ))}
+          {noModules && <p className="text-sm text-pz-on-surface-variant">Tick at least one module.</p>}
           {group === "modules" && (
             <div className="flex flex-wrap gap-2 pt-1">
               {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
@@ -325,7 +337,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
                         <span className="min-w-0 break-words text-pz-on-surface">{x.name || x.email}</span>
                         <span className="text-pz-on-surface-variant">
                           {STATE_LABEL[x.state] ?? x.state}
-                          {x.reason && x.state !== "sent" ? ` · ${x.reason === "unsubscribed" ? "unsubscribed" : x.reason === "no_email" ? "no email" : x.reason}` : ""}
+                          {reasonWords(x.state, x.reason) ? ` · ${reasonWords(x.state, x.reason)}` : ""}
                         </span>
                       </li>
                     ))}
