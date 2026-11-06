@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { emailUsedPromo, getPromoByCode } from "@/lib/data/landing-promo-codes";
+import { emailUsedPromo, getPromoByCode, getPromoSettings } from "@/lib/data/landing-promo-codes";
+import { resolvePromoWith } from "@/lib/landing/registration/promo-resolve";
 import { loadPublicPage, publicJson, variantParam } from "@/lib/api/landing-public-http";
 import { computeQuote } from "@/lib/landing/registration/pricing";
 import { applyPromo } from "@/lib/landing/registration/promo";
@@ -29,7 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   if (!quote.ok || quote.isFree || !b.promoCode) return publicJson({ quote });
 
   try {
-    const promoCode = await getPromoByCode(b.promoCode);
+    const resolved = await resolvePromoWith(b.promoCode, { getByCode: getPromoByCode, getMax: async () => (await getPromoSettings()).maxPercent });
+    if (resolved.overMax !== null) return publicJson({ quote, promo: { ok: false, reason: "over_max", max: resolved.overMax } });
+    const promoCode = resolved.promo;
     const emailAlreadyUsed = promoCode !== null && promoCode.oneperEmail && isEmail(b.email)
       ? await emailUsedPromo(promoCode.id, b.email)
       : false;

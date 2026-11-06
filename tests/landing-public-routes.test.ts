@@ -12,6 +12,7 @@ const m = vi.hoisted(() => ({
   listPaymentAccounts: vi.fn(),
   resolveAccountKeysSafe: vi.fn(),
   getPromoByCode: vi.fn(),
+  getPromoSettings: vi.fn(),
   emailUsedPromo: vi.fn(),
   getRegistrationStatus: vi.fn(),
   resolveAgentCode: vi.fn(),
@@ -22,7 +23,7 @@ const m = vi.hoisted(() => ({
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePage: m.getRegistrablePage }));
 vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.listPaymentAccounts }));
 vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveAccountKeysSafe: m.resolveAccountKeysSafe }));
-vi.mock("@/lib/data/landing-promo-codes", () => ({ getPromoByCode: m.getPromoByCode, emailUsedPromo: m.emailUsedPromo }));
+vi.mock("@/lib/data/landing-promo-codes", () => ({ getPromoByCode: m.getPromoByCode, getPromoSettings: m.getPromoSettings, emailUsedPromo: m.emailUsedPromo }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationStatus: m.getRegistrationStatus }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ resolveAgentCode: m.resolveAgentCode }));
 vi.mock("@/lib/data/landing-funnel", () => ({ recordFunnelEvent: m.recordFunnelEvent }));
@@ -65,6 +66,7 @@ beforeEach(() => {
   m.resolveAccountKeysSafe.mockImplementation(async (regions: { key: string; accountKeys: string[] }[]) =>
     Object.fromEntries(regions.map((r) => [r.key, r.accountKeys])));
   m.recordFunnelEvent.mockResolvedValue(undefined);
+  m.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
   m.resolveAgentCode.mockResolvedValue(null);
   m.getUser.mockResolvedValue({ data: { user: null } });
 });
@@ -189,6 +191,18 @@ describe("POST /api/landing/[slug]/quote", () => {
     const body = await (await quote(postReq(quoteBody({ promoCode: " pz10 " })), ctx())).json();
     expect(m.getPromoByCode).toHaveBeenCalledWith("PZ10");
     expect(body.promo).toMatchObject({ ok: true, code: "PZ10", discount: 480, total: 4320 });
+  });
+  it("prices an owner code with a typed percent, 15 and 25 included", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? promo({ id: "own-1", code: "TEST-111", value: 0, ownerAgentId: "a-1", isOwnerCode: true, plainPercent: 10, maxPercent: null }) : null));
+    const p15 = await (await quote(postReq(quoteBody({ promoCode: "test-111-15%" })), ctx())).json();
+    expect(p15.promo).toMatchObject({ ok: true, discount: 720, total: 4080 });
+    const p25 = await (await quote(postReq(quoteBody({ promoCode: "TEST-111-25%" })), ctx())).json();
+    expect(p25.promo).toMatchObject({ ok: true, discount: 1200, total: 3600 });
+  });
+  it("names the maximum when the typed percent is too high", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? promo({ id: "own-1", code: "TEST-111", value: 0, ownerAgentId: "a-1", isOwnerCode: true, plainPercent: 10, maxPercent: null }) : null));
+    const body = await (await quote(postReq(quoteBody({ promoCode: "TEST-111-35%" })), ctx())).json();
+    expect(body.promo).toEqual({ ok: false, reason: "over_max", max: 30 });
   });
   it("reports an unknown code", async () => {
     m.getPromoByCode.mockResolvedValue(null);
