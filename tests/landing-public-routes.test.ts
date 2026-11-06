@@ -285,7 +285,8 @@ describe("POST /api/landing/[slug]/event", () => {
   });
   it("answers 204 but stores nothing for a bot, a link preview or a request with no browser name", async () => {
     const body = { sessionId: "sess-0001-abcd", type: "view", ref: "ayesha-7k2" };
-    for (const headers of [{ "user-agent": "WhatsApp/2.23.20.0 A" }, { "user-agent": "Mozilla/5.0 HeadlessChrome/120.0.0.0" }, {}]) {
+    const bots: Record<string, string>[] = [{ "user-agent": "WhatsApp/2.23.20.0 A" }, { "user-agent": "Mozilla/5.0 HeadlessChrome/120.0.0.0" }, {}];
+    for (const headers of bots) {
       expect((await event(postReq(body, headers), ctx())).status).toBe(204);
     }
     expect(m.recordFunnelEvent).not.toHaveBeenCalled();
