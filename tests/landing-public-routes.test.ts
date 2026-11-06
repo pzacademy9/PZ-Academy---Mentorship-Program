@@ -47,8 +47,9 @@ const page = (registration: RegistrationConfig = PPC_CONFIG, over: Record<string
   sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC", courseId: null, ...over,
 });
 const getReq = (url = "http://x/api/landing/ppc-b4/config", headers: Record<string, string> = {}) => new Request(url, { headers }) as never;
-const postReq = (body: unknown) =>
-  new Request("http://x", { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) }) as never;
+const CHROME = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const postReq = (body: unknown, headers: Record<string, string> = { "user-agent": CHROME }) =>
+  new Request("http://x", { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) }) as never;
 const promo = (over: Partial<PromoCode> = {}): PromoCode => ({
   id: "promo-1", code: "PZ10", type: "percent", value: 10, fixedAmounts: {}, maxDiscountPercent: 0, pageIds: [], optionKeys: [],
   maxUses: null, usedCount: 0, oneperEmail: false, startsAt: null, endsAt: null, active: true, ownerAgentId: null, ...over,
@@ -281,6 +282,14 @@ describe("POST /api/landing/[slug]/event", () => {
     expect(m.recordFunnelEvent).toHaveBeenCalledWith({
       pageId: "page-1", sessionId: "sess-0001-abcd", type: "view", utm: { utm_source: "fb" }, agentId: "agent-1",
     });
+  });
+  it("answers 204 but stores nothing for a bot, a link preview or a request with no browser name", async () => {
+    const body = { sessionId: "sess-0001-abcd", type: "view", ref: "ayesha-7k2" };
+    for (const headers of [{ "user-agent": "WhatsApp/2.23.20.0 A" }, { "user-agent": "Mozilla/5.0 HeadlessChrome/120.0.0.0" }, {}]) {
+      expect((await event(postReq(body, headers), ctx())).status).toBe(204);
+    }
+    expect(m.recordFunnelEvent).not.toHaveBeenCalled();
+    expect(m.resolveAgentCode).not.toHaveBeenCalled();
   });
   it("accepts a beacon without a ref and records views on a closed page", async () => {
     m.getRegistrablePage.mockResolvedValue(page(PPC_CONFIG, { status: "closed" }));
