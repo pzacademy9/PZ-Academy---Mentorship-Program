@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   emailUpdatedTime: vi.fn(),
   resendClassDetails: vi.fn(),
   sendTestEmailToMe: vi.fn(),
+  emailMissingOnly: vi.fn(),
+  emailNewZoomLink: vi.fn(),
   markEveryonePresent: vi.fn(),
   toggleMark: vi.fn(),
   saveMinPct: vi.fn(),
@@ -36,6 +38,8 @@ vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessi
   removeSession: h.removeSession,
   emailFeedbackLink: h.emailFeedbackLink,
   sendTestEmailToMe: h.sendTestEmailToMe,
+  emailMissingOnly: h.emailMissingOnly,
+  emailNewZoomLink: h.emailNewZoomLink,
   loadClassEmailHistory: vi.fn(async () => ({ ok: true, rounds: [] })),
 }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions", () => ({
@@ -315,6 +319,46 @@ describe("attendance card actions", () => {
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/test/i);
     expect(h.sendReminderNow).not.toHaveBeenCalled();
+  });
+
+  it("Email people who have not got it asks, then sends only to them", async () => {
+    h.emailMissingOnly.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
+    panel(summary());
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /haven.t got it/ }));
+    await waitFor(() => expect(h.emailMissingOnly).toHaveBeenCalledWith("s1"));
+    expect(h.sendReminderNow).not.toHaveBeenCalled();
+    expect(h.resendClassDetails).not.toHaveBeenCalled();
+  });
+
+  it("saying no to the only-missing question sends nothing", async () => {
+    h.confirm.mockResolvedValueOnce(false);
+    panel(summary());
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /haven.t got it/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.emailMissingOnly).not.toHaveBeenCalled();
+  });
+
+  it("the repeat send warns that people who already got it get it again", async () => {
+    panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
+  });
+
+  it("after only a time-change email the main button also warns that people already got it", async () => {
+    panel(summary(), session(), { sends: { reminderAt: null, updateAt: "2026-11-09T10:00:00.000Z" } });
+    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
+  });
+
+  it("Email new Zoom link under More settings asks first, then sends the changed-link email", async () => {
+    h.emailNewZoomLink.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
+    panel(summary());
+    fireEvent.click(screen.getByRole("button", { name: "Email new Zoom link" }));
+    await waitFor(() => expect(h.confirm).toHaveBeenCalled());
+    expect(h.confirm.mock.calls[0][0].description).toMatch(/everyone/i);
+    await waitFor(() => expect(h.emailNewZoomLink).toHaveBeenCalledWith("s1"));
   });
 
   it("Send me a test sends a test copy without asking", async () => {

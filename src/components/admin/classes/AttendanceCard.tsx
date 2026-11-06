@@ -11,7 +11,7 @@ import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { AttendanceGrid } from "@/components/admin/attendance/AttendanceGrid";
 import {
-  emailUpdatedTime, markEveryonePresent, resendClassDetails, sendReminderNow, sendTestEmailToMe, setOverride, type ActionResult,
+  emailMissingOnly, emailNewZoomLink, emailUpdatedTime, markEveryonePresent, resendClassDetails, sendReminderNow, sendTestEmailToMe, setOverride, type ActionResult,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { CopyLinkButton, LinkBox } from "./CopyLinkButton";
 import { AudiencePicker } from "./AudiencePicker";
@@ -61,16 +61,35 @@ export function AttendanceCard({
   }
 
   async function onEmail() {
-    const again = !!sends?.reminderAt;
+    // Any earlier Zoom link or class details email means people have already got something.
+    const again = !!(sends?.reminderAt || sends?.updateAt);
     const ok = await confirm({
       title: again ? "Email students again?" : "Email the Zoom link now?",
       description: again
-        ? "Send the class details again to everyone listed under Will get this email? Tip: send yourself a test first."
+        ? "This sends the class details again to everyone listed under Will get this email, including people who already got it. To skip them, use Email only those who haven't got it. Tip: send yourself a test first."
         : "This sends the Zoom link and class time to everyone listed under Will get this email. Tip: send yourself a test first.",
       confirmLabel: "Email to students",
     });
     if (!ok) return;
     run(() => (again ? resendClassDetails(session.id) : sendReminderNow(session.id)));
+  }
+
+  async function onMissingOnly() {
+    const ok = await confirm({
+      title: "Email people who haven't got it?",
+      description: "This sends the Zoom link only to people who have not received it yet. People already sent, or still waiting to be sent, are skipped. People whose email failed are tried again.",
+      confirmLabel: "Email them",
+    });
+    if (ok) run(() => emailMissingOnly(session.id));
+  }
+
+  async function onNewZoomLink() {
+    const ok = await confirm({
+      title: "Email the new Zoom link?",
+      description: "Make sure you saved the new Zoom link first. This tells everyone listed under Will get this email that the link has changed, including people who already got the old one.",
+      confirmLabel: "Email new link",
+    });
+    if (ok) run(() => emailNewZoomLink(session.id));
   }
 
   async function onMarkAll() {
@@ -112,6 +131,10 @@ export function AttendanceCard({
         <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={() => run(() => sendTestEmailToMe(session.id))}>
           <FlaskConical className="size-5" aria-hidden />
           Send me a test
+        </button>
+        <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={onMissingOnly}>
+          <Mail className="size-5" aria-hidden />
+          Email only those who haven&apos;t got it
         </button>
       </div>
       <AudiencePicker pageId={pageId} sessionId={session.id} saved={session.audience} />
@@ -164,6 +187,11 @@ export function AttendanceCard({
             ))}
           </div>
           <p className="text-base text-pz-on-surface-variant">{overrideNote(override, state)}</p>
+          <p className="pt-2 font-headline text-base font-bold text-pz-on-surface-variant">Zoom link changed</p>
+          <p className="text-base text-pz-on-surface-variant">Save the new Zoom link first (Edit this class), then use this to tell everyone.</p>
+          <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={onNewZoomLink}>
+            Email new Zoom link
+          </button>
           <p className="pt-2 font-headline text-base font-bold text-pz-on-surface-variant">Time change email</p>
           <p className="text-base text-pz-on-surface-variant">Use this after you change the class time, to tell students the new time.</p>
           <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy} onClick={() => run(() => emailUpdatedTime(session.id))}>

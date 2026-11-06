@@ -46,7 +46,7 @@ vi.mock("@/lib/data/participant-sends", () => ({ runEmailSend: h.runEmailSend })
 
 import {
   addSession, saveSession, removeSession, setOverride, toggleMark, markEveryonePresent, saveMinPct,
-  sendReminderNow, emailUpdatedTime, resendClassDetails, sendTestEmailToMe, loadClassEmailHistory,
+  sendReminderNow, emailUpdatedTime, resendClassDetails, sendTestEmailToMe, loadClassEmailHistory, emailMissingOnly, emailNewZoomLink,
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const PAGE = "00000000-0000-4000-8000-000000000001";
@@ -216,6 +216,21 @@ describe("email buttons", () => {
     const r = await sendReminderNow(SESS);
     expect(r).toEqual({ ok: false, message: text });
     expect(h.runEmailSend).not.toHaveBeenCalled();
+  });
+});
+
+describe("new email options", () => {
+  it("only-missing resends the class details with the skip-already-sent option", async () => {
+    await emailMissingOnly(SESS);
+    expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "update", { resend: true, onlyMissing: true });
+  });
+  it("new Zoom link sends the changed-link email to everyone", async () => {
+    await emailNewZoomLink(SESS);
+    expect(h.createSessionSend).toHaveBeenCalledWith(SESS, "update", { zoomChanged: true });
+  });
+  it("explains when everyone already has it", async () => {
+    h.createSessionSend.mockResolvedValue({ ok: false, reason: "nobody_missing" });
+    expect(await emailMissingOnly(SESS)).toEqual({ ok: false, message: "Everyone has already got this email." });
   });
 });
 

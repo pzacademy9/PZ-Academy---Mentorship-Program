@@ -204,3 +204,104 @@ describe("listSessionEmailHistory", () => {
     expect(await listSessionEmailHistory(SESS)).toEqual([]);
   });
 });
+
+describe("Zoom link emails for people who have not got it", () => {
+  const future = () => ({ starts_at: new Date(Date.now() + 3600_000).toISOString() });
+  const recs = () => store.participant_send_recipients as { registration_id: string; state: string }[];
+  it("skips people already sent or still waiting, and tries failed ones again", async () => {
+    setup(future());
+    h.candidates = [cand("a"), cand("b"), cand("c")];
+    await createSessionSend(SESS, "reminder");
+    recs().find((r) => r.registration_id === "a")!.state = "sent";
+    recs().find((r) => r.registration_id === "b")!.state = "failed";
+    // c stays pending: it is queued and will get the first email
+    (store.participant_sends[0] as { created_at: string }).created_at = new Date(Date.now() - 5 * 60_000).toISOString();
+    const res = await createSessionSend(SESS, "update", { resend: true, onlyMissing: true });
+    expect(res).toMatchObject({ ok: true, count: 1 });
+    const added = recs().filter((r) => r.registration_id === "b");
+    expect(added).toHaveLength(2);
+    expect(store.participant_sends[1]).toMatchObject({ session_kind: "update" });
+    expect(String(store.participant_sends[1].body)).toMatch(/Here are the details/);
+  });
+  it("says so when everyone has it already", async () => {
+    setup(future());
+    await createSessionSend(SESS, "reminder");
+    for (const r of recs()) r.state = "sent";
+    (store.participant_sends[0] as { created_at: string }).created_at = new Date(Date.now() - 5 * 60_000).toISOString();
+    expect(await createSessionSend(SESS, "update", { resend: true, onlyMissing: true })).toEqual({ ok: false, reason: "nobody_missing" });
+    expect(store.participant_sends).toHaveLength(1);
+  });
+  it("without the option it still goes to everyone", async () => {
+    setup(future());
+    await createSessionSend(SESS, "reminder");
+    for (const r of recs()) r.state = "sent";
+    (store.participant_sends[0] as { created_at: string }).created_at = new Date(Date.now() - 5 * 60_000).toISOString();
+    expect(await createSessionSend(SESS, "update", { resend: true })).toMatchObject({ ok: true, count: 2 });
+  });
+});
+
+describe("new Zoom link email", () => {
+  it("goes to everyone, even people who already got the old link, with changed-link wording", async () => {
+    setup({ starts_at: new Date(Date.now() + 3600_000).toISOString() });
+    await createSessionSend(SESS, "reminder");
+    for (const r of store.participant_send_recipients as { state: string }[]) r.state = "sent";
+    (store.participant_sends[0] as { created_at: string }).created_at = new Date(Date.now() - 5 * 60_000).toISOString();
+    expect(await createSessionSend(SESS, "update", { zoomChanged: true })).toMatchObject({ ok: true, count: 2 });
+    expect(String(store.participant_sends[1].subject)).toMatch(/^New Zoom link/);
+  });
+});
+
+describe("only-missing review fixes", () => {
+  const future = () => ({ starts_at: new Date(Date.now() + 3600_000).toISOString() });
+  const recs = () => store.participant_send_recipients as { registration_id: string; state: string; claimed_at?: string | null; reason?: string }[];
+  const age = (i: number, ms = 5 * 60_000) => { (store.participant_sends[i] as { created_at: string }).created_at = new Date(Date.now() - ms).toISOString(); };
+
+  it("a person who shares an email with someone already sent is not emailed again", async () => {
+    setup(future());
+    h.candidates = [{ ...cand("a"), email: "same@x.com" }, { ...cand("b"), email: "same@x.com" }];
+    await createSessionSend(SESS, "reminder");
+    recs().find((r) => r.state === "pending")!.state = "sent";
+    age(0);
+    expect(await createSessionSend(SESS, "update", { resend: true, onlyMissing: true })).toEqual({ ok: false, reason: "nobody_missing" });
+  });
+
+  it("a row stuck as claimed for over 15 minutes does not count as got it", async () => {
+    setup(future());
+    await createSessionSend(SESS, "reminder");
+    const [first, second] = recs();
+    first.state = "claimed"; first.claimed_at = new Date(Date.now() - 30 * 60_000).toISOString();
+    second.state = "claimed"; second.claimed_at = new Date().toISOString();
+    age(0);
+    const res = await createSessionSend(SESS, "update", { resend: true, onlyMissing: true });
+    expect(res).toMatchObject({ ok: true, count: 1 });
+  });
+
+  it("after a new-Zoom-link email, only people who got that newer email are skipped", async () => {
+    setup(future());
+    await createSessionSend(SESS, "reminder");
+    for (const r of recs()) r.state = "sent";
+    age(0, 10 * 60_000);
+    await createSessionSend(SESS, "update", { zoomChanged: true });
+    const newer = recs().filter((r, i) => i >= 2);
+    newer.find((r) => r.registration_id === "a")!.state = "sent";
+    newer.find((r) => r.registration_id === "b")!.state = "failed";
+    age(1);
+    const res = await createSessionSend(SESS, "update", { resend: true, onlyMissing: true });
+    expect(res).toMatchObject({ ok: true, count: 1 });
+    expect(recs().filter((r) => r.registration_id === "b")).toHaveLength(3);
+  });
+
+  it("a time-change email a moment ago does not block the new-Zoom-link email", async () => {
+    setup(future());
+    await createSessionSend(SESS, "update");
+    expect(await createSessionSend(SESS, "update", { zoomChanged: true })).toMatchObject({ ok: true });
+    expect(await createSessionSend(SESS, "update", { zoomChanged: true })).toEqual({ ok: false, reason: "too_soon" });
+  });
+
+  it("the history shows each email's subject so the kinds can be told apart", async () => {
+    setup(future());
+    await createSessionSend(SESS, "update", { zoomChanged: true });
+    const out = await listSessionEmailHistory(SESS);
+    expect(out[0].subject).toMatch(/^New Zoom link/);
+  });
+});
