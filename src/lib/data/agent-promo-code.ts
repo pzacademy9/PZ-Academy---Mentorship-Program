@@ -7,7 +7,7 @@ import { createAgentPromoWith, type AgentPromoResult } from "@/lib/landing/regis
 
 export type AgentPromoSummary = { code: string; used: number; paid: number };
 
-async function findOwnerCode(agentId: string): Promise<{ id: string; code: string } | null> {
+async function listOwnerCodes(agentId: string): Promise<{ id: string; code: string }[]> {
   const admin = createAdminSupabase();
   const { data, error } = await admin
     .from("landing_promo_codes")
@@ -15,10 +15,13 @@ async function findOwnerCode(agentId: string): Promise<{ id: string; code: strin
     .eq("owner_agent_id", agentId)
     .eq("is_owner_code", true)
     .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("id", { ascending: true });
   if (error) throw error;
-  return data ? { id: data.id, code: data.code } : null;
+  return (data ?? []).map((r) => ({ id: r.id, code: r.code }));
+}
+
+async function findOwnerCode(agentId: string): Promise<{ id: string; code: string } | null> {
+  return (await listOwnerCodes(agentId))[0] ?? null;
 }
 
 /** The agent's code with real (non-test) registrations that used it and how many of those are paid. Null when none. */
@@ -31,7 +34,9 @@ export async function getAgentPromoSummary(agentId: string): Promise<AgentPromoS
       .from("landing_registrations")
       .select("id", { count: "exact", head: true })
       .eq("promo_code_id", found.id)
-      .eq("is_test", false);
+      .eq("is_test", false)
+      // Group members carry the lead's code too; one group is one sale, as on the link cards.
+      .in("row_type", ["individual", "lead"]);
     if (paidOnly) q = q.eq("status", "paid");
     const { count: n, error } = await q;
     if (error) throw error;
@@ -43,7 +48,11 @@ export async function getAgentPromoSummary(agentId: string): Promise<AgentPromoS
 
 export function createAgentPromo(agentId: string, rawName: string): Promise<AgentPromoResult> {
   return createAgentPromoWith(agentId, rawName, {
-    findForAgent: async (id) => (await findOwnerCode(id))?.code ?? null,
+    listForAgent: listOwnerCodes,
     create: createPromoCode,
+    remove: async (id) => {
+      const { error } = await createAdminSupabase().from("landing_promo_codes").delete().eq("id", id);
+      if (error) throw error;
+    },
   });
 }
