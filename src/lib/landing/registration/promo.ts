@@ -17,11 +17,15 @@ export interface PromoCode {
   endsAt: string | null;
   active: boolean;
   ownerAgentId: string | null;
+  // Owner codes (optional so ordinary codes and older fixtures stay valid; the data layer always fills them).
+  isOwnerCode?: boolean;                  // a person's own code: plain gives plainPercent, "-NN%" gives NN%
+  plainPercent?: number;                  // discount when the owner code is typed with no percent (default 10)
+  maxPercent?: number | null;             // this person's own ceiling (can only lower the global one)
 }
 
 export type PromoResult =
   | { ok: true; promoId: string; code: string; discount: number; total: number }
-  | { ok: false; reason: "unknown" | "inactive" | "not_started" | "expired" | "exhausted" | "wrong_page" | "wrong_option" | "already_used" };
+  | { ok: false; max?: number; reason: "unknown" | "inactive" | "not_started" | "expired" | "exhausted" | "wrong_page" | "wrong_option" | "already_used" | "over_max" };
 
 export type PromoFailureReason = Extract<PromoResult, { ok: false }>["reason"];
 
@@ -72,8 +76,10 @@ const MESSAGES: Record<PromoFailureReason, string> = {
   wrong_page: "This promo code is not valid for this event.",
   wrong_option: "This promo code does not apply to what you chose.",
   already_used: "You have already used this promo code.",
+  over_max: "That discount is higher than allowed.",
 };
 
-export function promoMessage(reason: PromoFailureReason): string {
+export function promoMessage(reason: PromoFailureReason, maxPercent?: number): string {
+  if (reason === "over_max" && maxPercent !== undefined) return `The maximum discount is ${maxPercent}%.`;
   return MESSAGES[reason];
 }

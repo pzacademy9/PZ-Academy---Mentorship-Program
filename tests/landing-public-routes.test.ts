@@ -12,6 +12,7 @@ const m = vi.hoisted(() => ({
   listPaymentAccounts: vi.fn(),
   resolveAccountKeysSafe: vi.fn(),
   getPromoByCode: vi.fn(),
+  getPromoSettings: vi.fn(),
   emailUsedPromo: vi.fn(),
   getRegistrationStatus: vi.fn(),
   resolveAgentCode: vi.fn(),
@@ -22,7 +23,7 @@ const m = vi.hoisted(() => ({
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePage: m.getRegistrablePage }));
 vi.mock("@/lib/data/landing-payment-accounts", () => ({ listPaymentAccounts: m.listPaymentAccounts }));
 vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveAccountKeysSafe: m.resolveAccountKeysSafe }));
-vi.mock("@/lib/data/landing-promo-codes", () => ({ getPromoByCode: m.getPromoByCode, emailUsedPromo: m.emailUsedPromo }));
+vi.mock("@/lib/data/landing-promo-codes", () => ({ getPromoByCode: m.getPromoByCode, getPromoSettings: m.getPromoSettings, emailUsedPromo: m.emailUsedPromo }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationStatus: m.getRegistrationStatus }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ resolveAgentCode: m.resolveAgentCode }));
 vi.mock("@/lib/data/landing-funnel", () => ({ recordFunnelEvent: m.recordFunnelEvent }));
@@ -46,8 +47,9 @@ const page = (registration: RegistrationConfig = PPC_CONFIG, over: Record<string
   sheetId: "sheet-1", driveFolderId: "folder-1", refPrefix: "PPC", courseId: null, ...over,
 });
 const getReq = (url = "http://x/api/landing/ppc-b4/config", headers: Record<string, string> = {}) => new Request(url, { headers }) as never;
-const postReq = (body: unknown) =>
-  new Request("http://x", { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) }) as never;
+const CHROME = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const postReq = (body: unknown, headers: Record<string, string> = { "user-agent": CHROME }) =>
+  new Request("http://x", { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) }) as never;
 const promo = (over: Partial<PromoCode> = {}): PromoCode => ({
   id: "promo-1", code: "PZ10", type: "percent", value: 10, fixedAmounts: {}, maxDiscountPercent: 0, pageIds: [], optionKeys: [],
   maxUses: null, usedCount: 0, oneperEmail: false, startsAt: null, endsAt: null, active: true, ownerAgentId: null, ...over,
@@ -65,6 +67,7 @@ beforeEach(() => {
   m.resolveAccountKeysSafe.mockImplementation(async (regions: { key: string; accountKeys: string[] }[]) =>
     Object.fromEntries(regions.map((r) => [r.key, r.accountKeys])));
   m.recordFunnelEvent.mockResolvedValue(undefined);
+  m.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
   m.resolveAgentCode.mockResolvedValue(null);
   m.getUser.mockResolvedValue({ data: { user: null } });
 });
@@ -190,6 +193,18 @@ describe("POST /api/landing/[slug]/quote", () => {
     expect(m.getPromoByCode).toHaveBeenCalledWith("PZ10");
     expect(body.promo).toMatchObject({ ok: true, code: "PZ10", discount: 480, total: 4320 });
   });
+  it("prices an owner code with a typed percent, 15 and 25 included", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? promo({ id: "own-1", code: "TEST-111", value: 0, ownerAgentId: "a-1", isOwnerCode: true, plainPercent: 10, maxPercent: null }) : null));
+    const p15 = await (await quote(postReq(quoteBody({ promoCode: "test-111-15%" })), ctx())).json();
+    expect(p15.promo).toMatchObject({ ok: true, discount: 720, total: 4080 });
+    const p25 = await (await quote(postReq(quoteBody({ promoCode: "TEST-111-25%" })), ctx())).json();
+    expect(p25.promo).toMatchObject({ ok: true, discount: 1200, total: 3600 });
+  });
+  it("names the maximum when the typed percent is too high", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? promo({ id: "own-1", code: "TEST-111", value: 0, ownerAgentId: "a-1", isOwnerCode: true, plainPercent: 10, maxPercent: null }) : null));
+    const body = await (await quote(postReq(quoteBody({ promoCode: "TEST-111-35%" })), ctx())).json();
+    expect(body.promo).toEqual({ ok: false, reason: "over_max", max: 30 });
+  });
   it("reports an unknown code", async () => {
     m.getPromoByCode.mockResolvedValue(null);
     expect((await (await quote(postReq(quoteBody({ promoCode: "NOPE" })), ctx())).json()).promo).toEqual({ ok: false, reason: "unknown" });
@@ -267,6 +282,15 @@ describe("POST /api/landing/[slug]/event", () => {
     expect(m.recordFunnelEvent).toHaveBeenCalledWith({
       pageId: "page-1", sessionId: "sess-0001-abcd", type: "view", utm: { utm_source: "fb" }, agentId: "agent-1",
     });
+  });
+  it("answers 204 but stores nothing for a bot, a link preview or a request with no browser name", async () => {
+    const body = { sessionId: "sess-0001-abcd", type: "view", ref: "ayesha-7k2" };
+    const bots: Record<string, string>[] = [{ "user-agent": "WhatsApp/2.23.20.0 A" }, { "user-agent": "Mozilla/5.0 HeadlessChrome/120.0.0.0" }, {}];
+    for (const headers of bots) {
+      expect((await event(postReq(body, headers), ctx())).status).toBe(204);
+    }
+    expect(m.recordFunnelEvent).not.toHaveBeenCalled();
+    expect(m.resolveAgentCode).not.toHaveBeenCalled();
   });
   it("accepts a beacon without a ref and records views on a closed page", async () => {
     m.getRegistrablePage.mockResolvedValue(page(PPC_CONFIG, { status: "closed" }));

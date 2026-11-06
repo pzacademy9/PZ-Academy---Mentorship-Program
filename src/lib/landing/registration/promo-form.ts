@@ -22,9 +22,15 @@ export interface PromoDraft {
   startsAt: string;
   endsAt: string;
   active: boolean;
+  /** A person's own code: typed plain it gives `plainPercent`; typed as CODE-NN% it gives NN%. */
+  isOwnerCode: boolean;
+  ownerAgentId: string;
+  plainPercent: string;
+  /** This person's own highest percent (empty = only the site-wide maximum applies). */
+  ownPercentMax: string;
 }
 
-export type PromoErrors = Partial<Record<"code" | "value" | "maxDiscountPercent" | "fixedAmounts" | "pageIds" | "maxUses" | "startsAt" | "endsAt", string>>;
+export type PromoErrors = Partial<Record<"code" | "value" | "maxDiscountPercent" | "fixedAmounts" | "pageIds" | "maxUses" | "startsAt" | "endsAt" | "ownerAgentId" | "plainPercent" | "ownPercentMax", string>>;
 export type PromoStateKey = "active" | "paused" | "scheduled" | "expired" | "used_up";
 export const PROMO_STATE_LABEL: Record<PromoStateKey, string> = {
   active: "Active", paused: "Paused", scheduled: "Starts later", expired: "Ended", used_up: "Used up",
@@ -54,6 +60,7 @@ export function emptyPromoDraft(): PromoDraft {
   return {
     code: "", type: "percent", value: "", maxDiscountPercent: "", fixedAmounts: {}, scope: "all", pageIds: [], optionKeys: [],
     maxUses: "", oneperEmail: false, startsAt: "", endsAt: "", active: true,
+    isOwnerCode: false, ownerAgentId: "", plainPercent: "10", ownPercentMax: "",
   };
 }
 
@@ -72,6 +79,10 @@ export function draftFromPromo(p: PromoCode): PromoDraft {
     startsAt: isoToPktLocal(p.startsAt),
     endsAt: isoToPktLocal(p.endsAt),
     active: p.active,
+    isOwnerCode: p.isOwnerCode === true,
+    ownerAgentId: p.ownerAgentId ?? "",
+    plainPercent: String(p.plainPercent ?? 10),
+    ownPercentMax: p.maxPercent == null ? "" : String(p.maxPercent),
   };
 }
 
@@ -91,7 +102,24 @@ export function draftToInput(d: PromoDraft, ownerAgentId: string | null = null):
   let value = 0;
   let maxDiscountPercent = 0;
   const fixedAmounts: Record<string, number> = {};
-  if (d.type === "percent") {
+  // Owner codes carry no percent-off of their own (plain gives plainPercent, "-NN%" gives NN%), always a percent type.
+  let plainPercent: number | undefined;
+  let ownMax: number | null | undefined;
+  let owner: string | null = ownerAgentId;
+  if (d.isOwnerCode) {
+    owner = d.ownerAgentId || ownerAgentId;
+    if (!owner) errors.ownerAgentId = "Choose who owns this code.";
+    const pp = num(d.plainPercent);
+    if (pp === null || Number.isNaN(pp) || !Number.isInteger(pp) || pp < 0 || pp > 100) errors.plainPercent = "Enter a whole percentage from 0 to 100.";
+    else plainPercent = pp;
+    const om = num(d.ownPercentMax);
+    if (om === null) ownMax = null;
+    else if (Number.isNaN(om) || !Number.isInteger(om) || om < 1 || om > 100) errors.ownPercentMax = "Enter a whole percentage from 1 to 100, or leave it empty.";
+    else ownMax = om;
+  }
+  if (d.isOwnerCode) {
+    // The discount comes from plainPercent and the typed percent, both checked above.
+  } else if (d.type === "percent") {
     const v = num(d.value);
     if (v === null || Number.isNaN(v) || !Number.isInteger(v) || v < 1 || v > 100) errors.value = "Enter a whole percentage from 1 to 100.";
     else value = v;
@@ -142,8 +170,9 @@ export function draftToInput(d: PromoDraft, ownerAgentId: string | null = null):
   return {
     ok: true,
     input: {
-      code, type: d.type, value, fixedAmounts, maxDiscountPercent, pageIds, optionKeys: Array.from(new Set(d.optionKeys)),
-      maxUses, oneperEmail: d.oneperEmail, startsAt, endsAt, active: d.active, ownerAgentId,
+      code, type: d.isOwnerCode ? "percent" : d.type, value, fixedAmounts, maxDiscountPercent, pageIds, optionKeys: Array.from(new Set(d.optionKeys)),
+      maxUses, oneperEmail: d.oneperEmail, startsAt, endsAt, active: d.active, ownerAgentId: owner,
+      ...(d.isOwnerCode ? { isOwnerCode: true, plainPercent, maxPercent: ownMax } : {}),
     },
   };
 }
@@ -153,6 +182,7 @@ export function patchFromInput(i: PromoCodeInput): Omit<PromoCodeInput, "code" |
   return {
     type: i.type, value: i.value, fixedAmounts: i.fixedAmounts, maxDiscountPercent: i.maxDiscountPercent, pageIds: i.pageIds,
     optionKeys: i.optionKeys, maxUses: i.maxUses, oneperEmail: i.oneperEmail, startsAt: i.startsAt, endsAt: i.endsAt, active: i.active,
+    ...(i.isOwnerCode ? { isOwnerCode: true, plainPercent: i.plainPercent, maxPercent: i.maxPercent } : {}),
   };
 }
 
@@ -164,7 +194,11 @@ export function promoState(p: Pick<PromoCode, "active" | "maxUses" | "usedCount"
   return "active";
 }
 
-export function describeDiscount(p: Pick<PromoCode, "type" | "value" | "fixedAmounts" | "maxDiscountPercent">): string {
+export function describeDiscount(p: Pick<PromoCode, "type" | "value" | "fixedAmounts" | "maxDiscountPercent" | "isOwnerCode" | "plainPercent" | "maxPercent">): string {
+  if (p.isOwnerCode) {
+    const plain = (p.plainPercent ?? 10) > 0 ? `${p.plainPercent ?? 10}% off` : "no discount";
+    return `Owner code: ${plain} plain, CODE-NN% for any NN${p.maxPercent ? ` up to ${p.maxPercent}` : ""}`;
+  }
   if (p.type === "percent") {
     return p.maxDiscountPercent > 0 && p.maxDiscountPercent < p.value ? `${p.value}% off (at most ${p.maxDiscountPercent}%)` : `${p.value}% off`;
   }

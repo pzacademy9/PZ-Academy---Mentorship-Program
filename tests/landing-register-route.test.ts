@@ -13,6 +13,7 @@ const m = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   getUser: vi.fn(),
   getPromoByCode: vi.fn(),
+  getPromoSettings: vi.fn(),
   emailUsedPromo: vi.fn(),
   resolveAgentCode: vi.fn(),
   createRegistration: vi.fn(),
@@ -30,7 +31,7 @@ vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveAccountKeysSafe:
 vi.mock("@/lib/data/landing-public", () => ({ getRegistrablePage: m.getRegistrablePage }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: m.requireAdmin }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: async () => ({ auth: { getUser: m.getUser } }) }));
-vi.mock("@/lib/data/landing-promo-codes", () => ({ normalizePromoCode: (c: string) => c.trim().toUpperCase(), getPromoByCode: m.getPromoByCode, emailUsedPromo: m.emailUsedPromo }));
+vi.mock("@/lib/data/landing-promo-codes", () => ({ normalizePromoCode: (c: string) => c.trim().toUpperCase(), getPromoByCode: m.getPromoByCode, getPromoSettings: m.getPromoSettings, emailUsedPromo: m.emailUsedPromo }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ resolveAgentCode: m.resolveAgentCode }));
 vi.mock("@/lib/data/landing-registrations", () => ({
   createRegistration: m.createRegistration,
@@ -81,6 +82,7 @@ beforeEach(() => {
     Object.fromEntries(regions.map((r) => [r.key, r.accountKeys])));
   m.requireAdmin.mockResolvedValue({ ok: false, response: new Response(null, { status: 401 }) });
   m.getPromoByCode.mockResolvedValue(null);
+  m.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
   m.emailUsedPromo.mockResolvedValue(false);
   m.resolveAgentCode.mockResolvedValue(null);
   m.createRegistration.mockImplementation(async (input: { promo: { total: number } | null; quote: { total: number; currency: string } }) => ({
@@ -287,6 +289,40 @@ describe("promo codes", () => {
     expect(m.getPromoByCode).toHaveBeenCalledWith("PZ10");
     expect(inputOf().promo).toMatchObject({ ok: true, promoId: "promo-1", total: 4320 });
     expect((await res.json()).total).toBe(4320);
+  });
+  const ownerPromo = (over: Partial<PromoCode> = {}) =>
+    promo({ id: "own-1", code: "TEST-111", value: 0, ownerAgentId: "agent-7", isOwnerCode: true, plainPercent: 10, maxPercent: null, ...over });
+  it("an owner code with a typed percent takes that percent off and credits the owner", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? ownerPromo() : null));
+    const res = await submit(ppcPayload({ promoCode: "test-111-25%" }));
+    expect(res.status).toBe(201);
+    expect(inputOf().promo).toMatchObject({ ok: true, promoId: "own-1", code: "TEST-111-25%", total: 3600 });
+    expect(inputOf().agentId).toBe("agent-7");
+  });
+  it("an owner code typed with no percent gives its plain 10%", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? ownerPromo() : null));
+    await submit(ppcPayload({ promoCode: "TEST-111" }));
+    expect(inputOf().promo).toMatchObject({ ok: true, total: 4320 });
+  });
+  it("422 with the maximum named when the typed percent is too high, before any upload", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? ownerPromo() : null));
+    const res = await submit(ppcPayload({ promoCode: "TEST-111-35%" }));
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.field).toBe("promoCode");
+    expect(body.error).toBe("The maximum discount is 30%.");
+    nothingStored();
+  });
+  it("a 0% plain owner code gives no discount but still credits the owner", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? ownerPromo({ plainPercent: 0 }) : null));
+    const res = await submit(ppcPayload({ promoCode: "TEST-111" }));
+    expect(res.status).toBe(201);
+    expect(inputOf().promo).toMatchObject({ ok: true, total: 4800 });
+    expect(inputOf().agentId).toBe("agent-7");
+  });
+  it("a suffix on an ordinary (non-owner) code is not accepted", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "PZ10" ? promo() : null));
+    expect((await submit(ppcPayload({ promoCode: "PZ10-10%" }))).status).toBe(422);
   });
   it("422 for a code that does not apply, before any upload", async () => {
     const res = await submit(ppcPayload({ promoCode: "NOPE" }));

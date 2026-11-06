@@ -12,7 +12,7 @@ export type PromoCodeInput = Omit<PromoCode, "id" | "usedCount">;
 export type PromoWriteResult = { ok: true; id: string } | { ok: false; reason: "duplicate" | "not-found" | "invalid" | "db-error" };
 
 const COLUMNS =
-  "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id";
+  "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, is_owner_code, plain_percent, max_percent";
 const UNIQUE_VIOLATION = "23505";
 const CHECK_VIOLATION = "23514";
 
@@ -52,6 +52,9 @@ function mapRow(r: Row): PromoCode {
     endsAt: r.ends_at,
     active: r.active,
     ownerAgentId: r.owner_agent_id,
+    isOwnerCode: r.is_owner_code,
+    plainPercent: Number(r.plain_percent),
+    maxPercent: r.max_percent === null ? null : Number(r.max_percent),
   };
 }
 
@@ -70,6 +73,9 @@ function toRow(i: Partial<PromoCodeInput>): Update {
   if (i.endsAt !== undefined) row.ends_at = i.endsAt;
   if (i.active !== undefined) row.active = i.active;
   if (i.ownerAgentId !== undefined) row.owner_agent_id = i.ownerAgentId;
+  if (i.isOwnerCode !== undefined) row.is_owner_code = i.isOwnerCode;
+  if (i.plainPercent !== undefined) row.plain_percent = i.plainPercent;
+  if (i.maxPercent !== undefined) row.max_percent = i.maxPercent;
   return row;
 }
 
@@ -81,6 +87,24 @@ export async function getPromoByCode(code: string): Promise<PromoCode | null> {
   const { data, error } = await admin.from("landing_promo_codes").select(COLUMNS).eq("code", normalized).maybeSingle();
   if (error) throw error;
   return data ? mapRow(data as Row) : null;
+}
+
+const DEFAULT_MAX_PERCENT = 30;
+
+/** The highest percent anyone may type after an owner code. Falls back to 30 if the row is missing. */
+export async function getPromoSettings(): Promise<{ maxPercent: number }> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("landing_promo_settings").select("max_percent").eq("id", true).maybeSingle();
+  if (error) throw error;
+  return { maxPercent: data ? Number(data.max_percent) : DEFAULT_MAX_PERCENT };
+}
+
+export async function setPromoSettings(maxPercent: number): Promise<void> {
+  const admin = createAdminSupabase();
+  const { error } = await admin
+    .from("landing_promo_settings")
+    .upsert({ id: true, max_percent: maxPercent, updated_at: new Date().toISOString() });
+  if (error) throw error;
 }
 
 /** One code by id, or null. Throws on a read error. */

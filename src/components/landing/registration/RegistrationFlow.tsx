@@ -100,7 +100,7 @@ export function RegistrationFlow({ slug, variant, config: pc, me, testMode, trac
     : pending && !promo ? { kind: "checking" }
     : promo && promo.ok
       ? { kind: "ok", message: promo.discount > 0 ? `✓ ${formatMoney(promo.discount, currency)} off applied` : "✓ Code accepted. It doesn't change your price." }
-    : promo && !promo.ok ? { kind: "error", message: promoMessage(promo.reason) }
+    : promo && !promo.ok ? { kind: "error", message: promoMessage(promo.reason, promo.max) }
     : { kind: "checking" };
 
   // After a failed Continue or a server error, move focus to the first invalid field (or the message) in DOM order.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { recordFunnelEvent } from "@/lib/data/landing-funnel";
 import { resolveAgentCode } from "@/lib/data/landing-agent-links";
 import { loadPublicPage, NO_STORE, publicJson } from "@/lib/api/landing-public-http";
+import { isBotUserAgent } from "@/lib/landing/bot-agent";
 import { cleanUtm } from "@/lib/landing/registration/utm";
 import { eventRequestSchema } from "@/lib/validations/landing-public";
 
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   }
   const parsed = eventRequestSchema.safeParse(raw);
   if (!parsed.success) return publicJson({ error: "Invalid input" }, 400);
+
+  // Bots and link previews get the same answer as everyone, but are not counted.
+  if (isBotUserAgent(req.headers.get("user-agent"))) return new NextResponse(null, { status: 204, headers: NO_STORE });
 
   const agent = parsed.data.ref ? await resolveAgentCode(parsed.data.ref) : null;
   await recordFunnelEvent({

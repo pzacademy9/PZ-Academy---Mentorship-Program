@@ -26,6 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (!current) return NextResponse.json({ error: "Promo code not found" }, { status: 404 });
     const issue = promoIssues({
+      isOwnerCode: current.isOwnerCode,
       type: p.type ?? current.type,
       value: p.value ?? current.value,
       fixedAmounts: p.fixedAmounts ?? current.fixedAmounts,

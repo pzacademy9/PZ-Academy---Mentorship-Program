@@ -3,7 +3,8 @@ import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { CLOSED_MESSAGE, loadPublicPage, publicJson, variantParam } from "@/lib/api/landing-public-http";
-import { getPromoByCode, emailUsedPromo, normalizePromoCode } from "@/lib/data/landing-promo-codes";
+import { getPromoByCode, getPromoSettings, emailUsedPromo, normalizePromoCode } from "@/lib/data/landing-promo-codes";
+import { resolvePromoWith } from "@/lib/landing/registration/promo-resolve";
 import { resolveAgentCode } from "@/lib/data/landing-agent-links";
 import {
   countRecentRegistrations, createRegistration, findOpenRegistration, findRecentRegistration, type OkPromo,
@@ -154,7 +155,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const promoInput = normalizePromoCode(payload.promoCode);
   if (promoInput && !quote.isFree) {
     try {
-      promoCode = await getPromoByCode(promoInput);
+      const resolved = await resolvePromoWith(promoInput, { getByCode: getPromoByCode, getMax: async () => (await getPromoSettings()).maxPercent });
+      if (resolved.overMax !== null) return fail(promoMessage("over_max", resolved.overMax), 422, "promoCode");
+      promoCode = resolved.promo;
       const emailAlreadyUsed = promoCode !== null && promoCode.oneperEmail ? await emailUsedPromo(promoCode.id, leadEmail) : false;
       const result = applyPromo({
         promo: promoCode, pageId: page.id, optionKeys: quote.optionKeys, currency: quote.currency, total: quote.total, now, emailAlreadyUsed,
@@ -185,8 +188,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
   // 7. Attribution: the agent link wins; otherwise the agent who owns the promo code used.
   const fromLink = payload.attribution.refCode ? await resolveAgentCode(payload.attribution.refCode) : null;
-  // A zero discount is not a use of the code, so it does not credit the code's owner either.
-  const agentId = isTest ? null : fromLink?.agentId ?? (promo && promo.discount > 0 ? promoCode?.ownerAgentId ?? null : null);
+  // A zero discount is not a use of the code, so it does not credit the code's owner either,
+  // unless it is the owner's own code (a person's plain code may be set to give no discount).
+  const agentId = isTest ? null : fromLink?.agentId ?? (promo && (promo.discount > 0 || promoCode?.isOwnerCode) ? promoCode?.ownerAgentId ?? null : null);
 
   // 8. One atomic insert (ref counter, capacity, promo use; members get ref_id = null).
   const created = await createRegistration({

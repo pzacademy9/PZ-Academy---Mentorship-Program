@@ -2226,12 +2226,15 @@ export type Database = {
           ends_at: string | null
           fixed_amounts: Json
           id: string
+          is_owner_code: boolean
           max_discount_percent: number
+          max_percent: number | null
           max_uses: number | null
           one_per_email: boolean
           option_keys: string[]
           owner_agent_id: string | null
           page_ids: string[]
+          plain_percent: number
           starts_at: string | null
           type: string
           updated_at: string
@@ -2246,12 +2249,15 @@ export type Database = {
           ends_at?: string | null
           fixed_amounts?: Json
           id?: string
+          is_owner_code?: boolean
           max_discount_percent?: number
+          max_percent?: number | null
           max_uses?: number | null
           one_per_email?: boolean
           option_keys?: string[]
           owner_agent_id?: string | null
           page_ids?: string[]
+          plain_percent?: number
           starts_at?: string | null
           type: string
           updated_at?: string
@@ -2266,7 +2272,10 @@ export type Database = {
           ends_at?: string | null
           fixed_amounts?: Json
           id?: string
+          is_owner_code?: boolean
           max_discount_percent?: number
+          max_percent?: number | null
+          plain_percent?: number
           max_uses?: number | null
           one_per_email?: boolean
           option_keys?: string[]
@@ -2294,6 +2303,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      landing_promo_settings: {
+        Row: {
+          id: boolean
+          max_percent: number
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          max_percent?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          max_percent?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       landing_ref_counters: {
         Row: {
