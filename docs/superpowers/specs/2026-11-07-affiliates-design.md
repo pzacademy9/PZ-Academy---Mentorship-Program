@@ -62,6 +62,17 @@ numbers, and cannot sit beside the new promo code engine. Affiliates are not stu
 - **Old history:** imported as an opening balance per affiliate.
 - **Views:** bot and preview visits are not counted (already merged).
 
+## Claims and risks (owner approved safer wording, 2026-11-07)
+
+Public copy must not overclaim. Approved wording lives in the Step 1 plan (Task 6). In short: never "official",
+"ambassador", "encrypted", a review time, "instant", "weekly", Raast, tiers or a percent other than 8 to 10.
+Commission is described as a percent of what the student pays once payment is confirmed. Risks recorded:
+(1) commission is on the post-discount paid amount, so students typing a bigger `-NN%` lowers it; (2) the plain 10%
+can be set to 0 per person, so the page says "Students get 10% off with your code" only while that is true
+(review the wording if the owner ever lowers a plain percent); (3) payout is manual, so no timing is promised;
+(4) spam by affiliates: applicants must tick a short affiliate rules text the owner approves, stored as
+`rules_accepted_at`; (5) personal data: one privacy line on the form; (6) no application reference numbers.
+
 ## How it fits the existing system (builder notes, **my calls**)
 
 - Affiliates have no `profiles` row, so they need their own table (`affiliates`) with a unique private token,
