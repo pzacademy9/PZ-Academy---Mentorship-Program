@@ -8,7 +8,10 @@ export type TermsDoc = { body: string; updatedAt: string | null };
 
 /** One Terms document and when it was last saved; empty when none is saved. Throws on a database error. */
 export async function getTerms(key: TermsKey): Promise<TermsDoc> {
-  const { data, error } = await createAdminSupabase().from("site_terms").select("body, updated_at").eq("key", key).maybeSingle();
+  // Affiliate documents are read fresh so a saved text shows at once and the apply form opens when all three are in.
+  // The general Terms keep the cached client: the landing pages are cached on purpose.
+  const db = key === "general" ? createAdminSupabase() : createAdminSupabase({ noStore: true });
+  const { data, error } = await db.from("site_terms").select("body, updated_at").eq("key", key).maybeSingle();
   if (error) throw error;
   return {
     body: typeof data?.body === "string" ? data.body : "",

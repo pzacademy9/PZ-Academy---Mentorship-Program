@@ -4,7 +4,8 @@ import { createSupabaseMock } from "./helpers/supabase-mock";
 
 vi.mock("server-only", () => ({}));
 const db = createSupabaseMock();
-vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
+const opened = vi.hoisted(() => [] as unknown[]);
+vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: (o?: unknown) => { opened.push(o); return db.client; } }));
 const gate = vi.hoisted(() => ({ result: null as unknown }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: async () => gate.result }));
 
@@ -28,6 +29,7 @@ const full = (over: Partial<Record<string, string>> = {}): Row[] => [
 ];
 
 beforeEach(() => {
+  opened.length = 0;
   db.reset();
   gate.result = { ok: true, user: { id: "a" } };
 });
@@ -60,6 +62,20 @@ describe("getTerms / saveTerms", () => {
     expect(await getTermsOrEmpty("affiliate_terms")).toEqual({ body: "", updatedAt: null });
     db.state.handler = () => ({ data: null, error: { code: "57014", message: "x" } });
     await expect(getTermsOrEmpty("affiliate_terms")).rejects.toBeTruthy();
+  });
+});
+
+describe("fresh reads for the affiliate documents", () => {
+  it("affiliate keys are read without the Next data cache, so a saved document shows at once", async () => {
+    rows(full());
+    await getTerms("affiliate_terms");
+    await getAffiliatePolicies();
+    expect(opened.every((o) => (o as { noStore?: boolean } | undefined)?.noStore === true)).toBe(true);
+  });
+  it("the general Terms keep the normal cached client (landing pages rely on it)", async () => {
+    rows(full());
+    await getTerms("general");
+    expect(opened[0]).toBeUndefined();
   });
 });
 
