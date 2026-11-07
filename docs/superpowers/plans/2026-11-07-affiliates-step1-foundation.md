@@ -28,6 +28,8 @@
 - Name with only a title ("Dr") or one word or non-Latin letters: code still valid and unique.
 - Applicant text containing HTML or very long text: stored as text, never rendered as markup, capped.
 - Bots posting the public form: rate limit and honeypot.
+- Applying before the owner has published the three policy documents: the form must refuse ("not open yet"), never accept an applicant who agreed to empty text.
+- A policy text edited after someone applied: their row keeps the version they agreed to.
 - Admin who lacks the sales_hub area cannot read applications (they contain phone numbers).
 - A failed email never loses an accept: status changes, and the admin sees "email not sent" with a Resend button.
 
@@ -38,6 +40,7 @@
 - Create `src/lib/affiliates/code.ts` (pure: build code from name and serial)
 - Create `src/lib/validations/affiliate-application.ts` (zod)
 - Create `src/lib/data/affiliates.ts` (server data layer)
+- Modify `src/lib/data/site-terms.ts`, `src/lib/validations/site-terms.ts`, `src/app/api/admin/site-terms/route.ts`, `src/components/admin/terms/GeneralTermsEditor.tsx`, `src/app/dashboard/admin/terms/page.tsx` (several documents, Task 6b); create `src/app/affiliate-apply/terms/page.tsx`, `rules/page.tsx`, `privacy/page.tsx`
 - Create `src/lib/brevo-affiliates.ts` and `src/lib/affiliates/emails.ts` (templates)
 - Create `src/app/api/affiliates/apply/route.ts` and `src/app/affiliate-apply/page.tsx` + `src/components/affiliates/ApplyForm.tsx`
 - Create `src/app/api/admin/affiliates/route.ts`, `src/app/api/admin/affiliates/[id]/route.ts`, `src/app/dashboard/admin/affiliates/page.tsx`, `src/components/admin/affiliates/AffiliatesManager.tsx`
@@ -49,7 +52,7 @@
 
 **Files:** Create `supabase/migrations/0107_affiliates.sql`; modify `database.types.ts`; test `tests/migrations-affiliates.test.ts`.
 
-**Interfaces — Produces:** table `affiliates(id uuid pk default gen_random_uuid(), status text check in ('applied','accepted','dropped','left') default 'applied', name text not null, email text not null, whatsapp text not null, city_country text not null, answers jsonb not null default '{}', code text unique null, code_serial int null, token text unique null, team text null check in ('Green','White','Yellow','Blue','Pink'), commission_mode text not null default 'automatic' check in ('manual','automatic'), manual_percent numeric(4,2) null check between 8 and 10, opening_secured int not null default 0, opening_commission numeric(12,2) not null default 0, opening_withdrawn numeric(12,2) not null default 0, is_imported boolean not null default false, rules_accepted_at timestamptz null (set when applying; null for imported rows), accepted_at, dropped_at, left_at, created_at, updated_at)`. Unique index on `lower(email)`. Sequence `affiliate_code_serial` starting at 321, and `next_affiliate_serial() returns int` (security definer, service role only). RLS enabled, no policies. Idempotent (safe to run twice).
+**Interfaces — Produces:** table `affiliates(id uuid pk default gen_random_uuid(), status text check in ('applied','accepted','dropped','left') default 'applied', name text not null, email text not null, whatsapp text not null, city_country text not null, answers jsonb not null default '{}', code text unique null, code_serial int null, token text unique null, team text null check in ('Green','White','Yellow','Blue','Pink'), commission_mode text not null default 'automatic' check in ('manual','automatic'), manual_percent numeric(4,2) null check between 8 and 10, opening_secured int not null default 0, opening_commission numeric(12,2) not null default 0, opening_withdrawn numeric(12,2) not null default 0, is_imported boolean not null default false, terms_accepted_at timestamptz null and terms_version text null (set when applying; null for imported rows), accepted_at, dropped_at, left_at, created_at, updated_at)`. Unique index on `lower(email)`. Sequence `affiliate_code_serial` starting at 321, and `next_affiliate_serial() returns int` (security definer, service role only). RLS enabled, no policies. Also in this migration: widen the `site_terms` key check to `('general','affiliate_terms','affiliate_rules','affiliate_privacy')` (drop and re-add the check constraint safely) and seed the three new keys with empty text. Idempotent (safe to run twice).
 
 - [ ] **Step 1:** Write `tests/migrations-affiliates.test.ts` reading the SQL file: asserts every table/column/check above, the sequence start 321, `lower(email)` unique index, RLS enabled, `create ... if not exists` idempotency, and that the function is revoked from `anon, authenticated`.
 - [ ] **Step 2:** Run it. Expected: FAIL (file missing).
@@ -72,7 +75,7 @@ Rules: strip titles (Dr, Mr, Ms, Mrs, Miss, Prof, Professor, Engr, Engineer, Sir
 
 **Files:** Create `src/lib/validations/affiliate-application.ts`; test `tests/affiliate-application-validation.test.ts`.
 
-**Interfaces — Produces:** `affiliateApplicationSchema` (zod) and `type AffiliateApplication`. Fields: `name` (2-80), `email` (valid, lowercased, trimmed), `whatsapp` (7-20 digits after stripping spaces, +, -), `city` and `country` (1-60 each), `status` ("student"|"professional"), `organization` (1-120), `field` (1-120), `commissionExperience` {yes: boolean, details: string max 600}, `eventsManaged` {...}, `promotingPrograms` boolean, `onlineSales` boolean, `ratings` {marketing, eventPromotion, onlineEngagement, communication} each int 1-5, `hoursPerWeek` ("1-3"|"4-6"|"7-10"|"10+"), `linkedin` (optional, must start with https:// when present, max 200), `why` (10-1000), `agreeRules` (must be literally true), `website` (honeypot, must be empty). Details required (min 3 chars) when yes is true.
+**Interfaces — Produces:** `affiliateApplicationSchema` (zod) and `type AffiliateApplication`. Fields: `name` (2-80), `email` (valid, lowercased, trimmed), `whatsapp` (7-20 digits after stripping spaces, +, -), `city` and `country` (1-60 each), `status` ("student"|"professional"), `organization` (1-120), `field` (1-120), `commissionExperience` {yes: boolean, details: string max 600}, `eventsManaged` {...}, `promotingPrograms` boolean, `onlineSales` boolean, `ratings` {marketing, eventPromotion, onlineEngagement, communication} each int 1-5, `hoursPerWeek` ("1-3"|"4-6"|"7-10"|"10+"), `linkedin` (optional, must start with https:// when present, max 200), `why` (10-1000), `agreeTerms` (must be literally true), `website` (honeypot, must be empty). Details required (min 3 chars) when yes is true.
 
 - [ ] Tests: a full valid object passes; each required field missing fails; rating 0 and 6 fail; `yes:true` with empty details fails; honeypot filled fails; email is lowercased and trimmed; text over its cap fails.
 - [ ] Run RED, implement, run GREEN, commit.
@@ -114,10 +117,24 @@ POST: rate limit per IP using the existing limiter in `src/lib/pzid/` (see `look
 - Under the button: "We review every application. If you are accepted, your affiliate code and private link are sent to your email." Do NOT say "encrypted", "within 48h", "leadership", "instant", "weekly", "Raast", "tiers", "15% to 25%".
 - No application reference number on the success screen. Success title: "Thanks, we have your application".
 - Privacy line under the contact card: "We use this only to review your application and contact you."
-- One required tick: "I agree to promote honestly and not spam (see the affiliate rules)", linking to a short rules text shown in a dialog. Draft rules text (owner approves before launch): promote honestly; no spam or unsolicited bulk messages; do not promise income or results; do not give discounts beyond your code; do not present yourself as PZ Academy staff; PZ Academy may drop an affiliate who breaks these rules. Stored as `rules_accepted_at` on the row.
+- One required tick, with the exact text and links defined in Task 6b (Affiliate Terms, Affiliate Rules, Privacy Policy). The draft rules wording is in `docs/affiliates/affiliate-policies-draft.md`.
 
 - [ ] Tests: honeypot filled returns 200 and `createApplication` not called; invalid body 400 with a field message; duplicate 409; the 31st request in the window from one IP is 429; page metadata has noindex; form shows an inline error for a bad email, disables submit while sending, and shows the success text after a 201.
 - [ ] RED, implement, GREEN, commit.
+
+### Task 6b: Policy documents (terms, rules, privacy)
+
+**Files:** modify the `site-terms` data layer, validation, admin route, editor and Terms page listed above; create the three public pages; tests `tests/site-terms-documents.test.ts`, `tests/affiliate-policy-pages.test.tsx`. The draft texts are in `docs/affiliates/affiliate-policies-draft.md` (owner and a lawyer approve them, then the owner pastes each into the admin Terms screen; they are never hard-coded in the app).
+
+**Interfaces — Produces:** `type TermsKey = "general"|"affiliate_terms"|"affiliate_rules"|"affiliate_privacy"`; `getTerms(key): Promise<{body:string; updatedAt:string|null}>`; `saveTerms(key, body)`; `getAffiliatePolicies(): Promise<{terms,rules,privacy: {body,updatedAt}} & {ready:boolean; version:string}>` where `ready` is true only when all three bodies are non-empty and `version` is the three `updatedAt` stamps joined (what an applicant agreed to). Existing `getGeneralTerms` keeps working (calls `getTerms("general")`).
+
+- Admin Terms screen gets four tabs: General, Affiliate Terms, Affiliate Rules, Affiliate Privacy; same editor and 20,000 character cap; the route takes `?key=` and rejects any other key with 400.
+- Public pages `/affiliate-apply/terms`, `/rules`, `/privacy`: plain readable text (paragraphs and simple headings from line breaks; never raw HTML), `noindex`, no site menu, a "Back to the form" link; a missing or empty document shows "This page is not published yet".
+- `POST /api/affiliates/apply` (Task 6): when `ready` is false returns 503 "Applications are not open yet."; on success stores `terms_accepted_at = now()` and `terms_version = version`. The form page shows "Applications are not open yet" instead of the form while not ready.
+- Form tick text: "I have read and agree to the Affiliate Terms, Affiliate Rules and Privacy Policy" with the three words linked.
+
+- [ ] Tests: saving with an unknown key returns 400; saving `affiliate_terms` does not change `general`; `ready` is false when any of the three is empty and true when all have text; a 20,001-character body is refused; the apply route returns 503 when not ready and stores a version string when ready; public page renders paragraphs and escapes `<script>`; an empty document shows the not-published text; the old general terms flow tests still pass unchanged.
+- [ ] RED, implement, GREEN, run the existing `tests/site-terms*` files, commit.
 
 ### Task 7: Admin routes and screen
 

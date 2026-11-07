@@ -73,6 +73,13 @@ can be set to 0 per person, so the page says "Students get 10% off with your cod
 (4) spam by affiliates: applicants must tick a short affiliate rules text the owner approves, stored as
 `rules_accepted_at`; (5) personal data: one privacy line on the form; (6) no application reference numbers.
 
+## Policies (owner request, 2026-11-07)
+
+Three public documents, edited by the owner in the admin Terms screen and shown on the application page:
+Affiliate Terms and Conditions, Affiliate Rules (conduct and anti-spam), Affiliate Privacy Policy. Drafts (not legal
+advice, lawyer review needed, ten owner choices listed at the end) are in `docs/affiliates/affiliate-policies-draft.md`.
+Applications stay closed until all three are published. Each applicant's row records which version they agreed to.
+
 ## How it fits the existing system (builder notes, **my calls**)
 
 - Affiliates have no `profiles` row, so they need their own table (`affiliates`) with a unique private token,
