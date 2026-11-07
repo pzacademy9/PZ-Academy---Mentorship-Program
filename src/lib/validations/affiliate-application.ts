@@ -17,10 +17,11 @@ export const HOURS = ["1-3", "4-6", "7-10", "10+"] as const;
 
 export const affiliateApplicationSchema = z.object({
   name: text(2, 80),
-  email: z.string().trim().toLowerCase().max(200).regex(EMAIL_RE, "Enter a valid email address."),
+  email: z.string().trim().toLowerCase().max(200, { abort: true }).regex(EMAIL_RE, "Enter a valid email address."),
   whatsapp: z
     .string()
     .trim()
+    .max(40)
     .transform((v) => v.replace(/[\s\-().]/g, ""))
     .pipe(z.string().regex(/^\+?\d{7,20}$/, "Enter a valid WhatsApp number.")),
   city: text(1, 60),

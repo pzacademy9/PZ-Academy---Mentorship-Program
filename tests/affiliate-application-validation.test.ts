@@ -85,3 +85,16 @@ describe("affiliateApplicationSchema", () => {
     expect(r.why).toContain("<script>");
   });
 });
+
+describe("affiliateApplicationSchema length limits", () => {
+  const codes = (patch: Record<string, unknown>) => {
+    const r = affiliateApplicationSchema.safeParse({ ...valid(), ...patch });
+    return r.success ? [] : r.error.issues.map((i) => i.code);
+  };
+  it("rejects a huge email on length alone", () => {
+    expect(codes({ email: "a".repeat(5000) })).toEqual(["too_big"]);
+  });
+  it("rejects a huge whatsapp on length alone", () => {
+    expect(codes({ whatsapp: "1".repeat(10000) })).toEqual(["too_big"]);
+  });
+});
