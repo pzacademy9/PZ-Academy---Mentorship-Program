@@ -153,3 +153,73 @@ describe("AffiliatesAdmin", () => {
     await waitFor(() => expect(confirmFn).toHaveBeenCalled());
   });
 });
+
+describe("email history in the admin screen", () => {
+  const history = [
+    { id: "e1", kind: "accepted", toEmail: "sara@example.com", status: "failed", error: "Affiliate email is not set up", createdAt: "2026-11-08T10:00:00Z" },
+    { id: "e0", kind: "accepted", toEmail: "sara@example.com", status: "sent", error: null, createdAt: "2026-11-07T10:00:00Z" },
+  ];
+  const get = () =>
+    fetchMock().mockImplementation(async (_u: string, init?: { method?: string }) =>
+      !init?.method || init.method === "GET"
+        ? reply(200, { affiliate: accepted, link: "https://pharmacozyme.com/affiliate/tok", emails: history })
+        : reply(200, { ok: true, removed: 2 }),
+    );
+
+  it("flags a card whose last email failed", () => {
+    render(<AffiliatesAdmin initial={[accepted]} emailFailedIds={["a2"]} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    expect(screen.getByText("Email failed")).toBeTruthy();
+  });
+
+  it("shows no flag when nothing failed", () => {
+    render(<AffiliatesAdmin initial={[accepted]} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    expect(screen.queryByText("Email failed")).toBeNull();
+  });
+
+  it("lists each email with its result and why it failed", async () => {
+    get();
+    render(<AffiliatesAdmin initial={[accepted]} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
+    const d = within(screen.getByRole("dialog"));
+    expect(await d.findByText(/Affiliate email is not set up/)).toBeTruthy();
+    expect(d.getAllByText(/Welcome email/).length).toBe(2);
+    expect(d.getByText("Failed")).toBeTruthy();
+    expect(d.getByText("Sent")).toBeTruthy();
+  });
+
+  it("Clear history asks first, then clears only this person's emails", async () => {
+    get();
+    render(<AffiliatesAdmin initial={[accepted]} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
+    const d = within(screen.getByRole("dialog"));
+    fireEvent.click(await d.findByRole("button", { name: /clear history/i }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMock().mock.calls.some((c) => c[1]?.method === "DELETE")).toBe(true));
+    const del = fetchMock().mock.calls.find((c) => c[1]?.method === "DELETE")!;
+    expect(del[0]).toBe("/api/admin/affiliates/emails?affiliateId=a2");
+  });
+
+  it("does not clear when the owner says no", async () => {
+    get();
+    confirmFn.mockResolvedValue(false);
+    render(<AffiliatesAdmin initial={[accepted]} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
+    fireEvent.click(await within(screen.getByRole("dialog")).findByRole("button", { name: /clear history/i }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(fetchMock().mock.calls.some((c) => c[1]?.method === "DELETE")).toBe(false);
+  });
+
+  it("a page-level button clears history older than 90 days after a yes", async () => {
+    fetchMock().mockResolvedValue(reply(200, { ok: true, removed: 5 }));
+    render(<AffiliatesAdmin initial={[base]} />);
+    fireEvent.click(screen.getByRole("button", { name: /clear old email history/i }));
+    await waitFor(() => expect(fetchMock()).toHaveBeenCalled());
+    expect(fetchMock().mock.calls[0][0]).toBe("/api/admin/affiliates/emails?olderThanDays=90");
+    expect(fetchMock().mock.calls[0][1].method).toBe("DELETE");
+  });
+});

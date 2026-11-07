@@ -11,6 +11,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { TEAMS, type CommissionMode, type Team } from "@/lib/affiliates/service";
 import type { AffiliateRow } from "@/lib/data/affiliates";
+import type { AffiliateEmailRow } from "@/lib/data/affiliate-emails";
 
 const INPUT =
   "w-full min-w-0 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 font-body text-sm max-md:min-h-11 max-md:text-base focus:outline-none focus:ring-2 focus:ring-pz-primary/20";
@@ -19,6 +20,12 @@ const LABEL = "mb-1.5 block font-headline text-xs font-bold uppercase tracking-w
 const STATUS_LABEL: Record<AffiliateRow["status"], string> = { applied: "Applied", accepted: "Accepted", dropped: "Dropped", left: "Left" };
 
 type Tab = "applications" | "affiliates";
+
+const KIND_LABEL: Record<AffiliateEmailRow["kind"], string> = { accepted: "Welcome email", dropped: "Dropped email", left: "Left email" };
+
+function stamp(iso: string): string {
+  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 function when(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
@@ -85,14 +92,17 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
   const [percent, setPercent] = useState<string>(row.manualPercent === null ? "" : String(row.manualPercent));
   const [link, setLink] = useState<string | null>(null);
   const [emailNotSent, setEmailNotSent] = useState(false);
+  const [emails, setEmails] = useState<AffiliateEmailRow[]>([]);
 
   useEffect(() => {
-    if (row.status !== "accepted") return;
+    if (row.status === "applied") return;
     let live = true;
     void fetch(`/api/admin/affiliates/${row.id}`)
       .then((r) => r.json())
-      .then((j: { link?: string | null }) => {
-        if (live) setLink(j.link ?? null);
+      .then((j: { link?: string | null; emails?: AffiliateEmailRow[] }) => {
+        if (!live) return;
+        setLink(j.link ?? null);
+        setEmails(j.emails ?? []);
       })
       .catch(() => {});
     return () => {
@@ -162,6 +172,29 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
     router.refresh();
   });
 
+  const clearHistory = useAsyncAction(async () => {
+    const yes = await confirm({
+      title: `Clear email history for ${row.name}?`,
+      description: "The list of emails sent to this person is deleted. The emails themselves are not affected.",
+      confirmLabel: "Clear history",
+      destructive: true,
+    });
+    if (!yes) return;
+    try {
+      const res = await fetch(`/api/admin/affiliates/emails?affiliateId=${row.id}`, { method: "DELETE" });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        toast.error(data?.error ?? "Could not clear the history. Please try again.");
+        return;
+      }
+      setEmails([]);
+      toast.success("History cleared.");
+      router.refresh();
+    } catch {
+      toast.error("Could not reach the server. Please check your connection and try again.");
+    }
+  });
+
   const copy = async () => {
     if (!link) return;
     try {
@@ -208,6 +241,28 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
             <Button type="button" onClick={() => void accept.run()} disabled={accept.pending}>Accept</Button>
             <Button type="button" variant="outline" onClick={() => void drop.run()} disabled={drop.pending}>Drop</Button>
           </div>
+        </div>
+      ) : null}
+
+      {row.status !== "applied" ? (
+        <div className="space-y-2 border-t border-pz-outline-variant pt-4">
+          <p className={LABEL}>Email history</p>
+          {emails.length === 0 ? (
+            <p className="font-body text-xs text-pz-on-surface-variant">No emails recorded.</p>
+          ) : (
+            <ul className="space-y-2">
+              {emails.map((m) => (
+                <li key={m.id} className="min-w-0 break-words rounded-lg border border-pz-outline-variant p-2 font-body text-xs text-pz-on-surface">
+                  <span className="font-semibold">{KIND_LABEL[m.kind]}</span> · {stamp(m.createdAt)} ·{" "}
+                  <span className={m.status === "failed" ? "font-bold text-pz-danger" : "font-bold"}>{m.status === "failed" ? "Failed" : "Sent"}</span>
+                  {m.error ? <span className="block text-pz-danger">{m.error}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {emails.length > 0 ? (
+            <Button type="button" variant="outline" onClick={() => void clearHistory.run()} disabled={clearHistory.pending}>Clear history</Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -262,7 +317,30 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
 }
 
 /** Admin: applications and affiliates, with a detail sheet for each. */
-export function AffiliatesAdmin({ initial }: { initial: AffiliateRow[] }) {
+export function AffiliatesAdmin({ initial, emailFailedIds = [] }: { initial: AffiliateRow[]; emailFailedIds?: string[] }) {
+  const router = useRouter();
+  const confirmTop = useConfirm();
+  const clearOld = useAsyncAction(async () => {
+    const yes = await confirmTop({
+      title: "Clear email history older than 90 days?",
+      description: "Older records of emails sent to affiliates are deleted to keep the database small. Newer ones stay.",
+      confirmLabel: "Clear old history",
+      destructive: true,
+    });
+    if (!yes) return;
+    try {
+      const res = await fetch("/api/admin/affiliates/emails?olderThanDays=90", { method: "DELETE" });
+      const data = (await res.json().catch(() => null)) as { error?: string; removed?: number } | null;
+      if (!res.ok) toast.error(data?.error ?? "Could not clear the history. Please try again.");
+      else {
+        toast.success(`Cleared ${data?.removed ?? 0} old records.`);
+        router.refresh();
+      }
+    } catch {
+      toast.error("Could not reach the server. Please check your connection and try again.");
+    }
+  });
+
   const [tab, setTab] = useState<Tab>("applications");
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -303,6 +381,7 @@ export function AffiliatesAdmin({ initial }: { initial: AffiliateRow[] }) {
                 <span className="mt-1 block break-words font-body text-sm text-pz-on-surface-variant">{r.email}</span>
                 <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-xs text-pz-on-surface-variant">
                   <span>{STATUS_LABEL[r.status]}</span>
+                  {emailFailedIds.includes(r.id) ? <span className="font-bold text-pz-danger">Email failed</span> : null}
                   {r.code ? <span className="font-mono font-bold text-pz-on-surface">{r.code}</span> : null}
                   {r.team ? <span>Team {r.team}</span> : null}
                   <span>{when(r.status === "applied" ? r.createdAt : r.acceptedAt ?? r.createdAt)}</span>
@@ -312,6 +391,11 @@ export function AffiliatesAdmin({ initial }: { initial: AffiliateRow[] }) {
           ))}
         </ul>
       )}
+
+      <div className="border-t border-pz-outline-variant pt-4">
+        <Button type="button" variant="outline" onClick={() => void clearOld.run()} disabled={clearOld.pending}>Clear old email history</Button>
+        <p className="mt-1 font-body text-xs text-pz-on-surface-variant">Deletes records of emails older than 90 days, to keep the database small.</p>
+      </div>
 
       <Dialog open={open !== null} onOpenChange={(o) => !o && setOpenId(null)}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-xl overflow-y-auto">

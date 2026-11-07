@@ -95,6 +95,36 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_emails: {
+        Row: {
+          affiliate_id: string
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          status: string
+          to_email: string
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          status: string
+          to_email: string
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          status?: string
+          to_email?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           active: boolean

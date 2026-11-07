@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { acceptApplication, dropAffiliate, getAffiliateDetail, markAffiliateLeft, updateAffiliate } from "@/lib/data/affiliates";
 import { TEAMS } from "@/lib/affiliates/service";
+import { listAffiliateEmails } from "@/lib/data/affiliate-emails";
 import { affiliateLink } from "@/lib/affiliates/contact";
 import { sendAccepted, sendDropped, sendLeft } from "@/lib/affiliates/send";
 
@@ -33,7 +34,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const detail = await getAffiliateDetail(id);
     if (!detail) return fail("Not found.", 404);
     const { token, ...affiliate } = detail;
-    return NextResponse.json({ affiliate, link: detail.status === "accepted" && token ? affiliateLink(token) : null });
+    const emails = await listAffiliateEmails(id).catch(() => []);
+    return NextResponse.json({ affiliate, link: detail.status === "accepted" && token ? affiliateLink(token) : null, emails });
   } catch {
     return fail("Could not load this affiliate. Please try again.", 500);
   }
@@ -61,7 +63,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           default: return fail("Could not accept. Please try again.", 500);
         }
       }
-      const emailSent = await sendAccepted({ name: r.name, email: r.email, code: r.code, team: input.team ?? null, token: r.token });
+      const emailSent = await sendAccepted({ id, name: r.name, email: r.email, code: r.code, team: input.team ?? null, token: r.token });
       return NextResponse.json({ ok: true, code: r.code, emailSent });
     }
 
@@ -85,7 +87,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         return NextResponse.json({ ok: true, emailSent: sent });
       }
       if (detail.status !== "accepted" || !detail.code || !detail.token) return fail("Only an accepted, dropped or left affiliate can be sent this email.", 409);
-      const emailSent = await sendAccepted({ name: detail.name, email: detail.email, code: detail.code, team: detail.team, token: detail.token });
+      const emailSent = await sendAccepted({ id, name: detail.name, email: detail.email, code: detail.code, team: detail.team, token: detail.token });
       return NextResponse.json({ ok: true, emailSent });
     }
 

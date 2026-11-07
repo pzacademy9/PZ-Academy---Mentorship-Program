@@ -1,5 +1,6 @@
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listAffiliates } from "@/lib/data/affiliates";
+import { affiliatesWithFailedEmail } from "@/lib/data/affiliate-emails";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
 export const metadata = { title: "Affiliates — PZ Academy" };
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminAffiliatesPage() {
   await requireAdminPage("sales_hub");
-  const rows = await listAffiliates();
+  const [rows, failed] = await Promise.all([listAffiliates(), affiliatesWithFailedEmail()]);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -17,7 +18,7 @@ export default async function AdminAffiliatesPage() {
           Read each application, then accept or drop it. Accepted affiliates get their code and private link by email.
         </p>
       </div>
-      <AffiliatesAdmin initial={rows} />
+      <AffiliatesAdmin initial={rows} emailFailedIds={Array.from(failed)} />
     </div>
   );
 }
