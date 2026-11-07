@@ -163,6 +163,14 @@ describe("PATCH drop / leave / resend / update", () => {
     d.getAffiliateDetail.mockResolvedValue(row());
     expect((await patch({ action: "resend" })).status).toBe(409);
   });
+  it("resend after a dropped or left email failed sends that email again", async () => {
+    d.getAffiliateDetail.mockResolvedValue(row({ status: "dropped" }));
+    expect(await (await patch({ action: "resend" })).json()).toEqual({ ok: true, emailSent: true });
+    d.getAffiliateDetail.mockResolvedValue(row({ status: "left" }));
+    expect((await patch({ action: "resend" })).status).toBe(200);
+    expect(d.send).toHaveBeenCalledTimes(2);
+    expect((d.send.mock.calls[0][0] as { subject: string }).subject).toMatch(/status update/i);
+  });
   it("update passes team and commission to the data layer", async () => {
     d.updateAffiliate.mockResolvedValue({ ok: true });
     const res = await patch({ action: "update", team: "Pink", commissionMode: "manual", manualPercent: 9 });

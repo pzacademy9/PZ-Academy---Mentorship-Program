@@ -80,7 +80,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!detail) return fail("Not found.", 404);
 
     if (input.action === "resend") {
-      if (detail.status !== "accepted" || !detail.code || !detail.token) return fail("Only an accepted affiliate can be sent this email.", 409);
+      if (detail.status === "dropped" || detail.status === "left") {
+        const sent = detail.status === "dropped" ? await sendDropped(detail) : await sendLeft(detail);
+        return NextResponse.json({ ok: true, emailSent: sent });
+      }
+      if (detail.status !== "accepted" || !detail.code || !detail.token) return fail("Only an accepted, dropped or left affiliate can be sent this email.", 409);
       const emailSent = await sendAccepted({ name: detail.name, email: detail.email, code: detail.code, team: detail.team, token: detail.token });
       return NextResponse.json({ ok: true, emailSent });
     }

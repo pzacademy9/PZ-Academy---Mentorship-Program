@@ -211,6 +211,12 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
         </div>
       ) : null}
 
+      {row.status === "dropped" || row.status === "left" ? (
+        <div className="border-t border-pz-outline-variant pt-4">
+          <Button type="button" variant="outline" onClick={() => void resend.run()} disabled={resend.pending}>Resend status email</Button>
+        </div>
+      ) : null}
+
       {row.status === "accepted" ? (
         <div className="space-y-4 border-t border-pz-outline-variant pt-4">
           <p className="font-body text-sm text-pz-on-surface">
