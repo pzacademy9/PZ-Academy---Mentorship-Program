@@ -5,13 +5,13 @@ import { siteTermsSchema, termsKeySchema } from "@/lib/validations/site-terms";
 import { firstIssue } from "@/lib/validations/landing-promo";
 
 /** Reads ?key=; a missing key means "general", any other unknown key is refused. */
-function keyFrom(req?: NextRequest) {
-  const raw = req ? new URL(req.url).searchParams.get("key") : null;
+function keyFrom(req: NextRequest) {
+  const raw = new URL(req.url).searchParams.get("key");
   return termsKeySchema.safeParse(raw ?? "general");
 }
 
 /** One Terms document (admin only). */
-export async function GET(req?: NextRequest) {
+export async function GET(req: NextRequest) {
   const auth = await requireAdmin("terms");
   if (!auth.ok) return auth.response;
   const key = keyFrom(req);
