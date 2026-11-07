@@ -41,8 +41,9 @@ and the Affiliate Rules.
   already been paid for it, we may deduct it from your next payout.
 - A sale counts for you if the student uses your code, or registers through your private link within [30] days of
   opening it. If a student does both, the private link comes first.
-- You may not earn commission on your own registration, or on a registration by a member of your household
-  [or on anyone you register yourself using false details].
+- You may not earn commission on your own registration. Relatives and friends who register for themselves can earn
+  you commission like anyone else, as long as they really are the ones registering and paying. Registering people
+  under false details to earn commission is not allowed.
 - We decide the final figures from our records. If you think a figure is wrong, write to us within [30] days and we
   will check it.
 - We may change commission percents or rules for future sales. We will tell you before the change starts. Sales already
@@ -104,8 +105,8 @@ These are short, plain rules. They are part of the Affiliate Terms.
    discounts we have not approved. Do not share or sell your code or private link to others.
 5. **Do not pretend to be us.** Do not say you work for PZ Academy, do not use our logo as if you were us, and do
    not make accounts or pages that look like ours.
-6. **No cheating.** No fake registrations, no registering yourself or your family to earn commission, no tricks to
-   make a sale look like yours.
+6. **No cheating.** No fake registrations, no registering yourself to earn commission, no registering people under
+   false details, no tricks to make a sale look like yours.
 7. **Pay attention to students.** Answer their questions politely. Send payment or course problems to us, do not
    handle money yourself. Never collect payments for us.
 8. **If you break the rules,** we may remove commission from the sales involved, pause or end your account, and
@@ -157,7 +158,7 @@ We may update this policy and will show the new version on the affiliate pages. 
 ## Choices the assistant made (owner to confirm or change)
 
 1. Minimum age 18.
-2. Own sales not allowed (including household members).
+2. Own registration earns no commission. Relatives registering and paying for themselves do count (owner decision).
 3. Link credit window 30 days; the private link wins when a student also types a code.
 4. Commission reversed on refunds, even after payout (deducted from the next payout).
 5. Payout aimed within 7 working days of a request.
