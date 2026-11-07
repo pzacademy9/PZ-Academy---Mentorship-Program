@@ -61,19 +61,20 @@ describe("general terms data", () => {
   });
 });
 
+const getReq = () => new Request("http://x/api/admin/site-terms") as never;
 const req = (body: unknown, method = "PUT") => new Request("http://x", { method, body: JSON.stringify(body) }) as never;
 
 describe("site terms route", () => {
   it.each([[401, "Not authenticated"], [403, "Forbidden"]])("%s refuses a non-admin on GET and PUT and touches no data", async (code, message) => {
     gate.result = { ok: false, response: NextResponse.json({ error: message }, { status: code }) };
-    expect((await GET()).status).toBe(code);
+    expect((await GET(getReq())).status).toBe(code);
     expect((await PUT(req({ body: "x" }))).status).toBe(code);
     expect(db.state.ops.length).toBe(0);
   });
 
   it("GET gives the stored text", async () => {
     db.state.handler = () => ({ data: { body: "Stored" }, error: null });
-    const res = await GET();
+    const res = await GET(getReq());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ body: "Stored" });
   });
