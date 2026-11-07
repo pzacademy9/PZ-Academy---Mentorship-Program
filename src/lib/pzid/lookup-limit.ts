@@ -76,6 +76,14 @@ export async function allowPortalView(ip: string): Promise<boolean> {
   return allowUnder("pz-portal:", PORTAL_LIMIT, ip);
 }
 
+/**
+ * Rate limit for the public affiliate application: about 30 per 10 minutes per IP, counted
+ * separately from the progress lookups (its own key prefix).
+ */
+export async function allowAffiliateApply(ip: string): Promise<boolean> {
+  return allowUnder("pz-affiliate-apply:", LIMIT, ip);
+}
+
 async function allowUnder(prefix: string, limit: number, ip: string): Promise<boolean> {
   const key = createHash("sha256").update(`${prefix}${rateKeyForIp(ip)}`).digest("hex");
   try {

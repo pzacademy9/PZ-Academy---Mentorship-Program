@@ -46,3 +46,6 @@ next-env.d.ts
 /.superpowers/
 
 .worktrees/
+
+# local-only generated files (may contain real people)
+.local/

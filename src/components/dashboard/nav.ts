@@ -52,6 +52,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Payment Accounts", shortLabel: "Payments", href: "/dashboard/admin/payment-accounts", icon: Landmark, roles: ["admin", "manager", "super_admin"], areas: ["payment_accounts"] },
   { label: "Terms and Conditions", shortLabel: "Terms", href: "/dashboard/admin/terms", icon: ScrollText, roles: ["admin", "manager", "super_admin"], areas: ["terms"] },
   { label: "Agent Leaderboard", shortLabel: "Leaders", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
+  { label: "Affiliates", href: "/dashboard/admin/affiliates", icon: UserPlus, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
   { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "manager", "super_admin"], areas: ["mentors"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "manager", "super_admin"], areas: ["feedback"] },

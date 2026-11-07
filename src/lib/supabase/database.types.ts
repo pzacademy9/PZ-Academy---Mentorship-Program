@@ -14,6 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliates: {
+        Row: {
+          accepted_at: string | null
+          answers: Json
+          city_country: string
+          code: string | null
+          code_serial: number | null
+          commission_mode: string
+          created_at: string
+          dropped_at: string | null
+          email: string
+          id: string
+          is_imported: boolean
+          left_at: string | null
+          manual_percent: number | null
+          name: string
+          opening_commission: number
+          opening_secured: number
+          opening_withdrawn: number
+          status: string
+          team: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
+          token: string | null
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          answers?: Json
+          city_country: string
+          code?: string | null
+          code_serial?: number | null
+          commission_mode?: string
+          created_at?: string
+          dropped_at?: string | null
+          email: string
+          id?: string
+          is_imported?: boolean
+          left_at?: string | null
+          manual_percent?: number | null
+          name: string
+          opening_commission?: number
+          opening_secured?: number
+          opening_withdrawn?: number
+          status?: string
+          team?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          token?: string | null
+          updated_at?: string
+          whatsapp: string
+        }
+        Update: {
+          accepted_at?: string | null
+          answers?: Json
+          city_country?: string
+          code?: string | null
+          code_serial?: number | null
+          commission_mode?: string
+          created_at?: string
+          dropped_at?: string | null
+          email?: string
+          id?: string
+          is_imported?: boolean
+          left_at?: string | null
+          manual_percent?: number | null
+          name?: string
+          opening_commission?: number
+          opening_secured?: number
+          opening_withdrawn?: number
+          status?: string
+          team?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          token?: string | null
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
+      affiliate_emails: {
+        Row: {
+          affiliate_id: string
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          status: string
+          to_email: string
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          status: string
+          to_email: string
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          status?: string
+          to_email?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           active: boolean
@@ -4800,6 +4911,7 @@ export type Database = {
       }
     }
     Functions: {
+      next_affiliate_serial: { Args: Record<PropertyKey, never>; Returns: number }
       book_mentorship_sessions: {
         Args: { p_booking_id: string; p_slots: string[] }
         Returns: number
