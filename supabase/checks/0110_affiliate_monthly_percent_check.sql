@@ -75,7 +75,7 @@ begin
   values (v_page, 'individual', 'Zz A13', 'zz-a13@example.invalid', 'PK', 'PKR', 10000, 'ZZ0110-A13', a_aff) returning id into v_reg;
   update public.landing_registrations set status = 'paid', amount_received = 10000 where id = v_reg;
   select * into c from public.affiliate_commissions where registration_id = v_reg;
-  if c.percent <> 8 then
+  if c.id is null or c.percent <> 8 then
     raise exception 'CHECK 3 FAILED: with only 9 live paid last month the next sale should be 8 percent (got %)', c.percent;
   end if;
 
@@ -92,7 +92,7 @@ begin
   values (v_page, 'individual', 'Zz B1', 'zz-b1@example.invalid', 'PK', 'PKR', 10000, 'ZZ0110-B1', b_aff) returning id into v_reg;
   update public.landing_registrations set status = 'paid', amount_received = 10000 where id = v_reg;
   select * into c from public.affiliate_commissions where registration_id = v_reg;
-  if c.percent <> case when v_bridge then 10 else 8 end then
+  if c.id is null or c.percent <> case when v_bridge then 10 else 8 end then
     raise exception 'CHECK 5 FAILED: imported history should give % percent today (got %)', case when v_bridge then 10 else 8 end, c.percent;
   end if;
 
@@ -101,7 +101,7 @@ begin
   values (v_page, 'individual', 'Zz M1', 'zz-m1@example.invalid', 'PK', 'PKR', 10000, 'ZZ0110-M1', m_aff) returning id into v_reg;
   update public.landing_registrations set status = 'paid', amount_received = 10000 where id = v_reg;
   select * into c from public.affiliate_commissions where registration_id = v_reg;
-  if c.percent <> 9 then
+  if c.id is null or c.percent <> 9 then
     raise exception 'CHECK 6 FAILED: a manual affiliate at 9 percent should earn 9 percent (got %)', c.percent;
   end if;
 
