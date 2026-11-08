@@ -297,7 +297,7 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
           <div>
             <label htmlFor="aff-mode" className={LABEL}>Commission</label>
             <select id="aff-mode" className={INPUT} value={mode} onChange={(e) => setMode(e.target.value as CommissionMode)}>
-              <option value="automatic">Automatic (8%, then 10% at 10 paid participants)</option>
+              <option value="automatic">Automatic (8%, or 10% after a month with 10 paid participants)</option>
               <option value="manual">Manual (I type the percent)</option>
             </select>
           </div>

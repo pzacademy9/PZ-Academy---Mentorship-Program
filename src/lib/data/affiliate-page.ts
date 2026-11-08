@@ -8,7 +8,10 @@ import {
   AUTO_STEP,
   balancePkr,
   commissionPercent,
+  monthKey,
+  paidInMonth,
   paidSoFar,
+  previousMonthKey,
   splitCommissions,
   type CommissionRow,
 } from "@/lib/affiliates/commission";
@@ -25,8 +28,15 @@ export type AffiliatePageModel = {
   code: string;
   team: string | null;
   percent: number;
+  /** True when the percent follows the monthly rule; false when the owner set it by hand. */
+  automatic: boolean;
+  /** All-time paid participants (imported plus new). */
   paidCount: number;
-  /** Paid participants still needed for 10% (Automatic mode only); null once reached or in Manual mode. */
+  /** Paid participants so far this calendar month (Pakistan time). */
+  monthPaid: number;
+  /** Paid participants last calendar month: this is what set this month's percent. */
+  lastMonthPaid: number;
+  /** Paid participants still needed THIS month to earn 10% NEXT month (Automatic mode only); null once reached or in Manual mode. */
   toNextStep: number | null;
   earnedPkr: number;
   balancePkr: number;
@@ -48,18 +58,30 @@ export type PageModelInput = {
     openingCommission: number;
     openingWithdrawn: number;
   };
-  commissions: CommissionRow[];
+  commissions: (CommissionRow & { createdAt: string })[];
   stats: { pageId: string; views: number; registered: number; paid: number }[];
   pages: { id: string; slug: string; title: string }[];
   baseUrl: string;
   supportWa: string;
+  /** Defaults to now. Passed in by tests. */
+  now?: Date;
 };
 
 export function buildPageModel(i: PageModelInput): AffiliatePageModel {
   const a = i.affiliate;
+  const now = i.now ?? new Date();
   const live = i.commissions.filter((c) => !c.voided).length;
   const paidCount = paidSoFar(a.openingSecured, live);
-  const percent = commissionPercent({ mode: a.commissionMode, manualPercent: a.manualPercent, paidSoFar: paidCount });
+  const thisMonth = monthKey(now);
+  const monthPaid = paidInMonth(i.commissions, thisMonth);
+  const lastMonthPaid = paidInMonth(i.commissions, previousMonthKey(thisMonth));
+  const percent = commissionPercent({
+    mode: a.commissionMode,
+    manualPercent: a.manualPercent,
+    lastMonthPaid,
+    openingSecured: a.openingSecured,
+    now,
+  });
   const split = splitCommissions(i.commissions);
   const byPage = new Map(i.stats.map((s) => [s.pageId, s]));
   const ref = a.code.toLowerCase();
@@ -68,8 +90,11 @@ export function buildPageModel(i: PageModelInput): AffiliatePageModel {
     code: a.code,
     team: a.team,
     percent,
+    automatic: a.commissionMode === "automatic",
     paidCount,
-    toNextStep: a.commissionMode === "automatic" && paidCount < AUTO_STEP ? AUTO_STEP - paidCount : null,
+    monthPaid,
+    lastMonthPaid,
+    toNextStep: a.commissionMode === "automatic" && monthPaid < AUTO_STEP ? AUTO_STEP - monthPaid : null,
     earnedPkr: round2(a.openingCommission + split.earnedPkr),
     balancePkr: balancePkr({ openingCommission: a.openingCommission, openingWithdrawn: a.openingWithdrawn, pkrCommissions: [split.earnedPkr] }),
     waiting: split.waiting,
@@ -99,7 +124,7 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
   if (!row || !row.code) return null;
 
   const [commissions, stats, pages] = await Promise.all([
-    admin.from("affiliate_commissions").select("currency, commission, commission_pkr, voided_at").eq("affiliate_id", row.id),
+    admin.from("affiliate_commissions").select("currency, commission, commission_pkr, voided_at, created_at").eq("affiliate_id", row.id),
     admin.rpc("affiliate_link_stats", { p_affiliate_id: row.id }),
     listPublishedLinkPages(),
   ]);
@@ -122,6 +147,7 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
       commission: Number(c.commission),
       commissionPkr: c.commission_pkr === null ? null : Number(c.commission_pkr),
       voided: c.voided_at !== null,
+      createdAt: c.created_at,
     })),
     stats: (stats.data ?? []).map((s) => ({ pageId: s.page_id, views: Number(s.views), registered: Number(s.registered), paid: Number(s.paid) })),
     pages,

@@ -83,21 +83,27 @@ export function AffiliatePage({ model }: { model: AffiliatePageModel }) {
           {m.toNextStep !== null && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-xs font-medium text-landing-muted">
-                <span>{`${m.paidCount} of ${AUTO_STEP} paid participants`}</span>
-                <span className="font-semibold text-landing-primary">{`${Math.min(100, Math.round((m.paidCount / AUTO_STEP) * 100))}%`}</span>
+                <span>{`${m.monthPaid} of ${AUTO_STEP} paid participants this month`}</span>
+                <span className="font-semibold text-landing-primary">{`${Math.min(100, Math.round((m.monthPaid / AUTO_STEP) * 100))}%`}</span>
               </div>
               <div
                 role="progressbar"
-                aria-label="Paid participants towards 10%"
+                aria-label="Paid participants this month towards 10% next month"
                 aria-valuemin={0}
                 aria-valuemax={AUTO_STEP}
-                aria-valuenow={m.paidCount}
+                aria-valuenow={m.monthPaid}
                 className="h-3 w-full overflow-hidden rounded-full bg-landing-surface-container-low p-0.5"
               >
-                <div className="h-full rounded-full bg-landing-mint" style={{ width: `${Math.min(100, (m.paidCount / AUTO_STEP) * 100)}%` }} />
+                <div className="h-full rounded-full bg-landing-mint" style={{ width: `${Math.min(100, (m.monthPaid / AUTO_STEP) * 100)}%` }} />
               </div>
-              <p className="text-xs text-landing-muted">{`${m.toNextStep} more paid participant${m.toNextStep === 1 ? "" : "s"} to reach 10%`}</p>
+              <p className="text-xs text-landing-muted">{`${m.toNextStep} more paid participant${m.toNextStep === 1 ? "" : "s"} this month to earn 10% next month`}</p>
             </div>
+          )}
+          {m.automatic && m.toNextStep === null && (
+            <p className="mt-3 text-xs text-landing-muted">You have reached 10 paid participants this month, so you earn 10% next month.</p>
+          )}
+          {m.automatic && (
+            <p className="mt-3 text-xs text-landing-muted">{`Last month: ${m.lastMonthPaid} paid participant${m.lastMonthPaid === 1 ? "" : "s"}. Each month, 10 paid participants earn 10% for the next month. Fewer than 10 means 8%.`}</p>
           )}
           {certificate && (
             <p className="mt-3 rounded-2xl bg-landing-mint-light p-3 text-sm font-bold text-landing-deep">Certificate of Achievement unlocked</p>

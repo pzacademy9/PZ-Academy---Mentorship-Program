@@ -17,33 +17,63 @@ const pg = [
   { id: "p1", slug: "ppc-b4", title: "PPC Batch 4" },
   { id: "p2", slug: "mdc-b3", title: "MDC Batch 3" },
 ];
-const com = (over: Partial<{ currency: string; commission: number; commissionPkr: number | null; voided: boolean }> = {}) => ({
-  currency: "PKR", commission: 800, commissionPkr: 800, voided: false, ...over,
+// "Now" is 10 December 2026, so this month is December and last month is November (after the November bridge).
+const NOW = new Date("2026-12-10T10:00:00Z");
+const THIS_MONTH = "2026-12-05T10:00:00Z";
+const LAST_MONTH = "2026-11-05T10:00:00Z";
+const com = (over: Partial<{ currency: string; commission: number; commissionPkr: number | null; voided: boolean; createdAt: string }> = {}) => ({
+  currency: "PKR", commission: 800, commissionPkr: 800, voided: false, createdAt: THIS_MONTH, ...over,
 });
 const input = (over: Record<string, unknown> = {}) => ({
   affiliate, commissions: [] as ReturnType<typeof com>[], stats: [] as { pageId: string; views: number; registered: number; paid: number }[],
-  pages: pg, baseUrl: "https://pz.test", supportWa: "https://wa.me/1", ...over,
+  pages: pg, baseUrl: "https://pz.test", supportWa: "https://wa.me/1", now: NOW, ...over,
 });
+const many = (n: number, over: Parameters<typeof com>[0] = {}) => Array.from({ length: n }, () => com(over));
 
 describe("buildPageModel: percent and progress", () => {
-  it("automatic: 8% and the count to the next step", () => {
-    const m = buildPageModel(input({ affiliate: { ...affiliate }, commissions: [com(), com(), com()] }));
+  it("automatic: sales this month show progress this month, and the percent stays 8%", () => {
+    const m = buildPageModel(input({ commissions: many(3) }));
+    expect(m.automatic).toBe(true);
     expect(m.paidCount).toBe(3);
+    expect(m.monthPaid).toBe(3);
+    expect(m.lastMonthPaid).toBe(0);
     expect(m.percent).toBe(8);
     expect(m.toNextStep).toBe(7);
   });
-  it("automatic: imported paid participants count, and 10 reaches 10% with no next step", () => {
-    const m = buildPageModel(input({ affiliate: { ...affiliate, openingSecured: 8 }, commissions: [com(), com()] }));
-    expect(m.paidCount).toBe(10);
+  it("automatic: 10 paid last month means 10% this month, and this month starts its own count", () => {
+    const m = buildPageModel(input({ commissions: [...many(10, { createdAt: LAST_MONTH }), ...many(2)] }));
+    expect(m.lastMonthPaid).toBe(10);
     expect(m.percent).toBe(10);
+    expect(m.monthPaid).toBe(2);
+    expect(m.toNextStep).toBe(8);
+  });
+  it("automatic: 9 paid last month is still 8%", () => {
+    const m = buildPageModel(input({ commissions: many(9, { createdAt: LAST_MONTH }) }));
+    expect(m.percent).toBe(8);
+  });
+  it("automatic: 10 paid this month earns 10% next month, so no next step", () => {
+    const m = buildPageModel(input({ commissions: many(10) }));
+    expect(m.monthPaid).toBe(10);
     expect(m.toNextStep).toBeNull();
+    expect(m.percent).toBe(8);
+  });
+  it("the all-time count still adds imported participants (used for the certificate)", () => {
+    const m = buildPageModel(input({ affiliate: { ...affiliate, openingSecured: 8 }, commissions: many(2) }));
+    expect(m.paidCount).toBe(10);
+    expect(m.percent).toBe(8);
+  });
+  it("November bridge: an imported affiliate with 10 or more past sales is at 10% in November", () => {
+    const m = buildPageModel(input({ affiliate: { ...affiliate, openingSecured: 12 }, now: new Date("2026-11-15T10:00:00Z") }));
+    expect(m.percent).toBe(10);
   });
   it("a cancelled sale does not count", () => {
     const m = buildPageModel(input({ commissions: [com(), com({ voided: true })] }));
     expect(m.paidCount).toBe(1);
+    expect(m.monthPaid).toBe(1);
   });
   it("manual: shows the typed percent and no next step", () => {
     const m = buildPageModel(input({ affiliate: { ...affiliate, commissionMode: "manual", manualPercent: 9 }, commissions: [com()] }));
+    expect(m.automatic).toBe(false);
     expect(m.percent).toBe(9);
     expect(m.toNextStep).toBeNull();
   });
@@ -110,7 +140,7 @@ describe("getAffiliatePageModel", () => {
           ? { data: { id: "aff-1", status, name: "Sara Khan", code: "SK321", team: "Blue", commission_mode: "automatic", manual_percent: null, opening_secured: 0, opening_commission: "100.00", opening_withdrawn: "0.00" }, error: null }
           : { data: null, error: null };
       }
-      if (op.table === "affiliate_commissions") return { data: [{ currency: "PKR", commission: "800.00", commission_pkr: "800.00", voided_at: null }], error: null };
+      if (op.table === "affiliate_commissions") return { data: [{ currency: "PKR", commission: "800.00", commission_pkr: "800.00", voided_at: null, created_at: "2026-11-05T10:00:00Z" }], error: null };
       if (op.table === "affiliate_link_stats") return { data: [{ page_id: "p1", views: 4, registered: 2, paid: 1 }], error: null };
       return { data: null, error: null };
     };
