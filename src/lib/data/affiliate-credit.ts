@@ -25,10 +25,16 @@ export async function resolveAffiliateCode(raw: string): Promise<{ affiliateId: 
   }
 }
 
-/** Marks the lead (or individual) registration as this affiliate's, unless an agent already has it. */
+/**
+ * Marks the lead (or individual) registration as this affiliate's, unless an agent already has it.
+ * Re-checks that the affiliate is still accepted: a code left switched on by mistake earns nothing.
+ */
 export async function creditRegistration(registrationId: string, affiliateId: string): Promise<void> {
   try {
-    const { error } = await createAdminSupabase()
+    const admin = createAdminSupabase();
+    const { data: affiliate } = await admin.from("affiliates").select("status").eq("id", affiliateId).maybeSingle();
+    if (affiliate?.status !== "accepted") return;
+    const { error } = await admin
       .from("landing_registrations")
       .update({ affiliate_id: affiliateId })
       .eq("id", registrationId)

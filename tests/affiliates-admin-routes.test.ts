@@ -17,7 +17,10 @@ const d = vi.hoisted(() => ({
   markAffiliateLeft: vi.fn(),
   updateAffiliate: vi.fn(),
   send: vi.fn(),
+  ensurePromo: vi.fn(),
+  deactivatePromo: vi.fn(),
 }));
+vi.mock("@/lib/data/affiliate-promo", () => ({ ensureAffiliatePromo: d.ensurePromo, deactivateAffiliatePromo: d.deactivatePromo }));
 vi.mock("@/lib/data/affiliates", () => ({
   listAffiliates: d.listAffiliates,
   getAffiliateDetail: d.getAffiliateDetail,
@@ -40,6 +43,8 @@ beforeEach(() => {
   Object.values(d).forEach((f) => f.mockReset());
   gate.result = { ok: true, user: { id: "u" } };
   d.send.mockResolvedValue({ ok: true });
+  d.ensurePromo.mockResolvedValue("ok");
+  d.deactivatePromo.mockResolvedValue(undefined);
 });
 
 describe("affiliate admin routes: access", () => {
@@ -136,6 +141,53 @@ describe("PATCH accept", () => {
   });
 });
 
+describe("the discount code follows the affiliate", () => {
+  it("accepting makes the code work and says nothing extra when it did", async () => {
+    d.acceptApplication.mockResolvedValue({ ok: true, code: "TP321", token: "tok", name: "T", email: "t@example.com" });
+    const res = await patch({ action: "accept" });
+    expect(d.ensurePromo).toHaveBeenCalledWith({ id: "a1", code: "TP321" });
+    expect(await res.json()).toEqual({ ok: true, code: "TP321", emailSent: true });
+  });
+  it("a failed code never undoes the accept and is flagged for a retry", async () => {
+    d.acceptApplication.mockResolvedValue({ ok: true, code: "TP321", token: "tok", name: "T", email: "t@example.com" });
+    d.ensurePromo.mockResolvedValue("failed");
+    const res = await patch({ action: "accept" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, code: "TP321", emailSent: true, promoFailed: true });
+  });
+  it("a code that could not be accepted makes no discount code", async () => {
+    d.acceptApplication.mockResolvedValue({ ok: false, reason: "not-applied" });
+    await patch({ action: "accept" });
+    expect(d.ensurePromo).not.toHaveBeenCalled();
+  });
+  it("resend repairs the code of an accepted affiliate and flags a failure", async () => {
+    d.getAffiliateDetail.mockResolvedValue(row({ status: "accepted", code: "TP321", token: "tok", team: "Blue" }));
+    expect(await (await patch({ action: "resend" })).json()).toEqual({ ok: true, emailSent: true });
+    expect(d.ensurePromo).toHaveBeenCalledWith({ id: "a1", code: "TP321" });
+    d.ensurePromo.mockResolvedValue("failed");
+    expect(await (await patch({ action: "resend" })).json()).toEqual({ ok: true, emailSent: true, promoFailed: true });
+  });
+  it("resend for a dropped affiliate does not touch the code", async () => {
+    d.getAffiliateDetail.mockResolvedValue(row({ status: "dropped" }));
+    await patch({ action: "resend" });
+    expect(d.ensurePromo).not.toHaveBeenCalled();
+  });
+  it("drop and leave switch the code off, but only when the change went through", async () => {
+    d.getAffiliateDetail.mockResolvedValue(row({ status: "accepted" }));
+    d.dropAffiliate.mockResolvedValue({ ok: true });
+    await patch({ action: "drop" });
+    expect(d.deactivatePromo).toHaveBeenCalledWith("a1");
+    d.deactivatePromo.mockClear();
+    d.markAffiliateLeft.mockResolvedValue({ ok: true });
+    await patch({ action: "leave" });
+    expect(d.deactivatePromo).toHaveBeenCalledWith("a1");
+    d.deactivatePromo.mockClear();
+    d.dropAffiliate.mockResolvedValue({ ok: false, reason: "wrong-status" });
+    await patch({ action: "drop" });
+    expect(d.deactivatePromo).not.toHaveBeenCalled();
+  });
+});
+
 describe("PATCH drop / leave / resend / update", () => {
   it("drop sends the dropped email", async () => {
     d.getAffiliateDetail.mockResolvedValue(row());
@@ -169,7 +221,7 @@ describe("PATCH drop / leave / resend / update", () => {
     d.getAffiliateDetail.mockResolvedValue(row({ status: "left" }));
     expect((await patch({ action: "resend" })).status).toBe(200);
     expect(d.send).toHaveBeenCalledTimes(2);
-    expect((d.send.mock.calls[0][0] as { subject: string }).subject).toMatch(/status update/i);
+    expect((d.send.mock.calls[0][0] as { subject: string }).subject).toMatch(/affiliate status/i);
   });
   it("update passes team and commission to the data layer", async () => {
     d.updateAffiliate.mockResolvedValue({ ok: true });

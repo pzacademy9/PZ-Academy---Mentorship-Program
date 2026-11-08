@@ -72,7 +72,19 @@ describe("resolveAffiliateCode", () => {
 
 describe("creditRegistration", () => {
   beforeEach(() => db.reset());
+  const status = (s: string | null) => {
+    db.state.handler = (op) => (op.table === "affiliates" && op.op === "select" ? { data: s ? { status: s } : null, error: null } : { data: null, error: null });
+  };
+  it("never credits an affiliate who is no longer accepted (a code left on by mistake still earns nothing)", async () => {
+    for (const s of ["dropped", "left", "applied", null]) {
+      db.reset();
+      status(s);
+      await creditRegistration("reg-1", "aff-1");
+      expect(db.find("landing_registrations", "update").length).toBe(0);
+    }
+  });
   it("sets the affiliate only where no agent already has the credit", async () => {
+    status("accepted");
     await creditRegistration("reg-1", "aff-1");
     const ops = db.find("landing_registrations", "update");
     expect(ops.length).toBe(1);
