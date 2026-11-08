@@ -46,7 +46,7 @@ export function splitCommissions(rows: CommissionRow[]): { earnedPkr: number; wa
   }
   return {
     earnedPkr: Math.round(earned * 100) / 100,
-    waiting: [...waiting.entries()]
+    waiting: Array.from(waiting.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([currency, amount]) => ({ currency, amount: Math.round(amount * 100) / 100 })),
   };
