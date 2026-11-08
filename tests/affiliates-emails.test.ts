@@ -70,6 +70,15 @@ describe("affiliate emails", () => {
     for (const html of [acceptedEmail(base).html, droppedEmail({ name: "S" }).html, leftEmail({ name: "S" }).html])
       expect(html).not.toMatch(/official|ambassador|instant|weekly|raast/i);
   });
+  it("reads like a personal letter so Gmail files it in Primary", () => {
+    const mails = [acceptedEmail(base), droppedEmail({ name: "S" }), leftEmail({ name: "S" })];
+    for (const { subject, html } of mails) {
+      expect(subject).not.toMatch(/!|congrat|selected|free|offer|win|limited|deal|bonus/i);
+      expect(html).not.toMatch(/!/);
+      expect(html).not.toMatch(/background|<img|<table|<button|border-radius/i);
+      expect((html.match(/<a /g) ?? []).length).toBeLessThanOrEqual(3);
+    }
+  });
   it("dropped and left emails greet by escaped name", () => {
     expect(droppedEmail({ name: "<i>S</i>" }).html).not.toContain("<i>S</i>");
     expect(leftEmail({ name: "Sara" }).html).toContain("Sara");
