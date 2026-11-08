@@ -201,6 +201,11 @@ describe("funnel events and UTMs", () => {
       page_id: "p1", session_id: "s-12345678", type: "view", utm: { utm_source: "fb" }, agent_id: null,
     });
   });
+  it("carries the affiliate only when there is one (the column exists only after migration 0109)", async () => {
+    db.state.handler = memoryHandler({});
+    await recordFunnelEvent({ pageId: "p1", sessionId: "s-12345678", type: "view", utm: {}, agentId: null, affiliateId: "aff-1" });
+    expect(db.find("landing_funnel_events", "insert")[0].payload).toMatchObject({ agent_id: null, affiliate_id: "aff-1" });
+  });
   it("never throws on a write error", async () => {
     db.state.handler = () => ({ data: null, error: { code: "08006" } });
     await expect(recordFunnelEvent({ pageId: "p1", sessionId: "s-12345678", type: "start", utm: {}, agentId: null })).resolves.toBeUndefined();

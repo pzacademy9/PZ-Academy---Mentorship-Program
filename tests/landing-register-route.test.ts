@@ -16,6 +16,8 @@ const m = vi.hoisted(() => ({
   getPromoSettings: vi.fn(),
   emailUsedPromo: vi.fn(),
   resolveAgentCode: vi.fn(),
+  resolveAffiliateCode: vi.fn(),
+  creditRegistration: vi.fn(),
   createRegistration: vi.fn(),
   findRecentRegistration: vi.fn(),
   findOpenRegistration: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: m.requireAdmin }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: async () => ({ auth: { getUser: m.getUser } }) }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({ normalizePromoCode: (c: string) => c.trim().toUpperCase(), getPromoByCode: m.getPromoByCode, getPromoSettings: m.getPromoSettings, emailUsedPromo: m.emailUsedPromo }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ resolveAgentCode: m.resolveAgentCode }));
+vi.mock("@/lib/data/affiliate-credit", () => ({ resolveAffiliateCode: m.resolveAffiliateCode, creditRegistration: m.creditRegistration }));
 vi.mock("@/lib/data/landing-registrations", () => ({
   createRegistration: m.createRegistration,
   findRecentRegistration: m.findRecentRegistration,
@@ -85,6 +88,8 @@ beforeEach(() => {
   m.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
   m.emailUsedPromo.mockResolvedValue(false);
   m.resolveAgentCode.mockResolvedValue(null);
+  m.resolveAffiliateCode.mockResolvedValue(null);
+  m.creditRegistration.mockResolvedValue(undefined);
   m.createRegistration.mockImplementation(async (input: { promo: { total: number } | null; quote: { total: number; currency: string } }) => ({
     ok: true, refId: "PZA-PPC-001", registrationIds: ["reg-1"], total: input.promo ? input.promo.total : input.quote.total, currency: input.quote.currency,
   }));
@@ -347,6 +352,60 @@ describe("promo codes", () => {
     m.getPromoByCode.mockResolvedValue(promo({ ownerAgentId: "agent-7" }));
     await submit(ppcPayload({ promoCode: "PZ10" }));
     expect(inputOf().agentId).toBe("agent-7");
+  });
+});
+
+describe("affiliate credit", () => {
+  const withRef = (refCode: string, extra: Record<string, unknown> = {}) =>
+    ppcPayload({ attribution: { ...ppcPayload().attribution, refCode }, ...extra });
+  const affiliatePromo = (over: Partial<PromoCode> = {}) =>
+    promo({ id: "aff-promo", code: "AB321", value: 0, ownerAgentId: null, ownerAffiliateId: "aff-5", isOwnerCode: true, plainPercent: 10, maxPercent: null, ...over });
+
+  it("an affiliate link credits the affiliate, not an agent, and writes it after the registration", async () => {
+    m.resolveAffiliateCode.mockResolvedValue({ affiliateId: "aff-1" });
+    const res = await submit(withRef("as47"));
+    expect(res.status).toBe(201);
+    expect(m.resolveAffiliateCode).toHaveBeenCalledWith("as47");
+    expect(inputOf().agentId).toBeNull();
+    expect(m.creditRegistration).toHaveBeenCalledWith("reg-1", "aff-1");
+  });
+  it("an agent link wins: the affiliate is not even looked up", async () => {
+    m.resolveAgentCode.mockResolvedValue({ agentId: "agent-1" });
+    m.resolveAffiliateCode.mockResolvedValue({ affiliateId: "aff-1" });
+    await submit(withRef("ayesha-7k2"));
+    expect(inputOf().agentId).toBe("agent-1");
+    expect(m.resolveAffiliateCode).not.toHaveBeenCalled();
+    expect(m.creditRegistration).not.toHaveBeenCalled();
+  });
+  it("an affiliate's promo code credits the affiliate when there is no link", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "AB321" ? affiliatePromo() : null));
+    const res = await submit(ppcPayload({ promoCode: "ab321-15%" }));
+    expect(res.status).toBe(201);
+    expect(inputOf().agentId).toBeNull();
+    expect(m.creditRegistration).toHaveBeenCalledWith("reg-1", "aff-5");
+  });
+  it("an affiliate link beats an affiliate promo code of someone else", async () => {
+    m.resolveAffiliateCode.mockResolvedValue({ affiliateId: "aff-1" });
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "AB321" ? affiliatePromo() : null));
+    await submit(withRef("as47", { promoCode: "AB321" }));
+    expect(m.creditRegistration).toHaveBeenCalledWith("reg-1", "aff-1");
+  });
+  it("a test registration is never credited and the affiliate is not looked up", async () => {
+    m.requireAdmin.mockResolvedValue({ ok: true, user: { id: "admin-1", email: "admin@pz.test" } });
+    m.createRegistration.mockResolvedValue({ ok: true, refId: "TEST-12345", registrationIds: ["reg-9"], total: 4800, currency: "PKR" });
+    m.resolveAffiliateCode.mockResolvedValue({ affiliateId: "aff-1" });
+    await submit(withRef("as47", { testMode: true }));
+    expect(m.creditRegistration).not.toHaveBeenCalled();
+  });
+  it("the registration still succeeds when writing the credit fails", async () => {
+    m.resolveAffiliateCode.mockResolvedValue({ affiliateId: "aff-1" });
+    m.creditRegistration.mockRejectedValue(new Error("boom"));
+    expect((await submit(withRef("as47"))).status).toBe(201);
+  });
+  it("the registration still succeeds when the affiliate lookup fails", async () => {
+    m.resolveAffiliateCode.mockRejectedValue(new Error("boom"));
+    expect((await submit(withRef("as47"))).status).toBe(201);
+    expect(m.creditRegistration).not.toHaveBeenCalled();
   });
 });
 

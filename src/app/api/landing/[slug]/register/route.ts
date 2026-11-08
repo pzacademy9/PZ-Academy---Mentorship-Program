@@ -6,6 +6,8 @@ import { CLOSED_MESSAGE, loadPublicPage, publicJson, variantParam } from "@/lib/
 import { getPromoByCode, getPromoSettings, emailUsedPromo, normalizePromoCode } from "@/lib/data/landing-promo-codes";
 import { resolvePromoWith } from "@/lib/landing/registration/promo-resolve";
 import { resolveAgentCode } from "@/lib/data/landing-agent-links";
+import { creditRegistration, resolveAffiliateCode } from "@/lib/data/affiliate-credit";
+import { pickCredit } from "@/lib/landing/registration/credit";
 import {
   countRecentRegistrations, createRegistration, findOpenRegistration, findRecentRegistration, type OkPromo,
 } from "@/lib/data/landing-registrations";
@@ -186,11 +188,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     voucherUrl = uploaded.url;
   }
 
-  // 7. Attribution: the agent link wins; otherwise the agent who owns the promo code used.
-  const fromLink = payload.attribution.refCode ? await resolveAgentCode(payload.attribution.refCode) : null;
+  // 7. Attribution: an agent link wins, then an affiliate link, then whoever owns the promo code used (agent or
+  // affiliate). A lookup that fails never blocks the registration. A test registration is never credited.
+  const refCode = payload.attribution.refCode;
+  const fromLink = !isTest && refCode ? await resolveAgentCode(refCode).catch(() => null) : null;
+  const fromAffiliateLink = !isTest && refCode && !fromLink ? await resolveAffiliateCode(refCode).catch(() => null) : null;
   // A zero discount is not a use of the code, so it does not credit the code's owner either,
   // unless it is the owner's own code (a person's plain code may be set to give no discount).
-  const agentId = isTest ? null : fromLink?.agentId ?? (promo && (promo.discount > 0 || promoCode?.isOwnerCode) ? promoCode?.ownerAgentId ?? null : null);
+  const credit = pickCredit({
+    isTest,
+    agentLink: fromLink?.agentId ?? null,
+    affiliateLink: fromAffiliateLink?.affiliateId ?? null,
+    promoCounts: Boolean(promo && (promo.discount > 0 || promoCode?.isOwnerCode)),
+    promoOwnerAgentId: promoCode?.ownerAgentId ?? null,
+    promoOwnerAffiliateId: promoCode?.ownerAffiliateId ?? null,
+  });
+  const agentId = credit.agentId;
 
   // 8. One atomic insert (ref counter, capacity, promo use; members get ref_id = null).
   const created = await createRegistration({
@@ -214,6 +227,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return fail("We could not save your registration. Please try again in a moment.", 500);
   }
   const leadId = created.registrationIds[0];
+  // The atomic insert above only knows agents; an affiliate's credit is written right after. A failure here is
+  // logged inside and never fails the registration.
+  if (credit.affiliateId) await creditRegistration(leadId, credit.affiliateId).catch(() => undefined);
   const jobs: JobType[] = [
     "email_received", // before the Sheet row: a slow Apps Script call must not delay the confirmation email
     ...(isTest ? [] : (["sheet_append"] as JobType[])),

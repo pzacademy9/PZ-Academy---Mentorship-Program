@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordFunnelEvent } from "@/lib/data/landing-funnel";
 import { resolveAgentCode } from "@/lib/data/landing-agent-links";
+import { resolveAffiliateCode } from "@/lib/data/affiliate-credit";
 import { loadPublicPage, NO_STORE, publicJson } from "@/lib/api/landing-public-http";
 import { isBotUserAgent } from "@/lib/landing/bot-agent";
 import { cleanUtm } from "@/lib/landing/registration/utm";
@@ -29,13 +30,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   // Bots and link previews get the same answer as everyone, but are not counted.
   if (isBotUserAgent(req.headers.get("user-agent"))) return new NextResponse(null, { status: 204, headers: NO_STORE });
 
-  const agent = parsed.data.ref ? await resolveAgentCode(parsed.data.ref) : null;
+  // An agent link wins; a code no agent owns may belong to an affiliate. A failed lookup only loses the credit.
+  const ref = parsed.data.ref;
+  const agent = ref ? await resolveAgentCode(ref).catch(() => null) : null;
+  const affiliate = ref && !agent ? await resolveAffiliateCode(ref).catch(() => null) : null;
   await recordFunnelEvent({
     pageId: gate.page.id,
     sessionId: parsed.data.sessionId,
     type: parsed.data.type,
     utm: cleanUtm(parsed.data.utm),
     agentId: agent?.agentId ?? null,
+    affiliateId: affiliate?.affiliateId ?? null,
   });
   return new NextResponse(null, { status: 204, headers: NO_STORE });
 }

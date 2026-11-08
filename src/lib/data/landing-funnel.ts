@@ -13,6 +13,7 @@ export async function recordFunnelEvent(e: {
   type: FunnelEventType;
   utm: Record<string, string>;
   agentId: string | null;
+  affiliateId?: string | null;
 }): Promise<void> {
   try {
     const admin = createAdminSupabase();
@@ -22,6 +23,8 @@ export async function recordFunnelEvent(e: {
       type: e.type,
       utm: cleanUtm(e.utm) as unknown as Json,
       agent_id: e.agentId,
+      // Only sent when there is one, so a view still records if the code is deployed before migration 0109.
+      ...(e.affiliateId ? { affiliate_id: e.affiliateId } : {}),
     });
     if (error) console.warn("[landing-funnel] insert failed:", error.code);
   } catch {
