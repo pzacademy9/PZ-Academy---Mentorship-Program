@@ -11,9 +11,21 @@ type Update = Database["public"]["Tables"]["landing_promo_codes"]["Update"];
 export type PromoCodeInput = Omit<PromoCode, "id" | "usedCount">;
 export type PromoWriteResult = { ok: true; id: string } | { ok: false; reason: "duplicate" | "not-found" | "invalid" | "db-error" };
 
-const COLUMNS =
-  "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, owner_affiliate_id, is_owner_code, plain_percent, max_percent";
+const LEGACY_COLUMNS =
+  "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, is_owner_code, plain_percent, max_percent";
+const COLUMNS = `${LEGACY_COLUMNS}, owner_affiliate_id`;
+const UNDEFINED_COLUMN = "42703";
 const UNIQUE_VIOLATION = "23505";
+
+/**
+ * Reads with the full column list. If the database does not have owner_affiliate_id yet (the code was deployed
+ * before migration 0109 was pasted), asks again without it, so promo codes keep working for every visitor.
+ */
+async function readWithFallback<T>(run: (columns: string) => PromiseLike<{ data: T; error: { code?: string } | null }>) {
+  const first = await run(COLUMNS);
+  if (first.error?.code !== UNDEFINED_COLUMN) return first;
+  return run(LEGACY_COLUMNS);
+}
 const CHECK_VIOLATION = "23514";
 
 function failure(code: string | undefined): PromoWriteResult {
@@ -52,7 +64,7 @@ function mapRow(r: Row): PromoCode {
     endsAt: r.ends_at,
     active: r.active,
     ownerAgentId: r.owner_agent_id,
-    ownerAffiliateId: r.owner_affiliate_id,
+    ownerAffiliateId: r.owner_affiliate_id ?? null,
     isOwnerCode: r.is_owner_code,
     plainPercent: Number(r.plain_percent),
     maxPercent: r.max_percent === null ? null : Number(r.max_percent),
@@ -86,9 +98,9 @@ export async function getPromoByCode(code: string): Promise<PromoCode | null> {
   const normalized = normalizePromoCode(code);
   if (!normalized) return null;
   const admin = createAdminSupabase();
-  const { data, error } = await admin.from("landing_promo_codes").select(COLUMNS).eq("code", normalized).maybeSingle();
+  const { data, error } = await readWithFallback((cols) => admin.from("landing_promo_codes").select(cols).eq("code", normalized).maybeSingle());
   if (error) throw error;
-  return data ? mapRow(data as Row) : null;
+  return data ? mapRow(data as unknown as Row) : null;
 }
 
 const DEFAULT_MAX_PERCENT = 30;
@@ -112,16 +124,16 @@ export async function setPromoSettings(maxPercent: number): Promise<void> {
 /** One code by id, or null. Throws on a read error. */
 export async function getPromoById(id: string): Promise<PromoCode | null> {
   const admin = createAdminSupabase();
-  const { data, error } = await admin.from("landing_promo_codes").select(COLUMNS).eq("id", id).maybeSingle();
+  const { data, error } = await readWithFallback((cols) => admin.from("landing_promo_codes").select(cols).eq("id", id).maybeSingle());
   if (error) throw error;
-  return data ? mapRow(data as Row) : null;
+  return data ? mapRow(data as unknown as Row) : null;
 }
 
 export async function listPromoCodes(): Promise<PromoCode[]> {
   const admin = createAdminSupabase();
-  const { data, error } = await admin.from("landing_promo_codes").select(COLUMNS).order("created_at", { ascending: false });
+  const { data, error } = await readWithFallback((cols) => admin.from("landing_promo_codes").select(cols).order("created_at", { ascending: false }));
   if (error) throw error;
-  return (data ?? []).map((r) => mapRow(r as Row));
+  return ((data ?? []) as unknown as Row[]).map((r) => mapRow(r));
 }
 
 export async function createPromoCode(input: PromoCodeInput): Promise<PromoWriteResult> {

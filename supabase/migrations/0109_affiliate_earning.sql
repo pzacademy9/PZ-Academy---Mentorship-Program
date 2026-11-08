@@ -6,11 +6,15 @@
 --
 -- Commission rules (the same rules are written in TypeScript in src/lib/affiliates/commission.ts):
 --   * one sale = a lead or individual row, is_test = false, carrying an affiliate_id. Member rows never earn.
---   * amount = amount actually paid (amount_received, else expected_amount, which is already after discount).
+--   * amount = what was actually received. amount_received is ALWAYS in PKR (the bank statement and the sheet are in
+--     PKR), whatever currency the course was priced in, so a sale with an amount received is saved as PKR.
+--     Only a sale with no amount received falls back to expected_amount (already after discount) in the
+--     price's own currency; that one waits for the owner to convert it by hand (a later step), so
+--     commission_pkr stays empty for it.
 --   * Manual mode: manual_percent (8 to 10). Automatic mode: 8%, then 10% once opening_secured plus the
 --     affiliate's live (not cancelled) snapshots reach 10. The percent is fixed in the snapshot.
---   * money is never converted: commission_pkr is filled for PKR sales only; a foreign sale waits for the
---     owner to convert it by hand (a later step).
+--   * if the amount received of a sale is corrected (or the sale goes Paid, Pending, Paid), the commission
+--     follows the amount as it is now, at the percent that was already fixed.
 
 -- ------------------------------------------------------------ who gets the credit
 alter table public.landing_promo_codes
@@ -66,6 +70,7 @@ declare
   v_live       integer;
   v_percent    numeric(4,2);
   v_amount     numeric(12,2);
+  v_currency   text;
   v_commission numeric(12,2);
 begin
   if not (new.row_type in ('individual', 'lead') and new.is_test = false and new.affiliate_id is not null) then
@@ -79,40 +84,60 @@ begin
     return new;
   end if;
 
-  if new.status = 'paid' and old.status <> 'paid' then
-    -- Lock the affiliate so two sales turning Paid at the same moment step the percent once.
-    select commission_mode, manual_percent, opening_secured
-      into v_aff
-      from public.affiliates where id = new.affiliate_id for update;
-    if not found then
-      return new;
-    end if;
-
-    -- Paid again after being cancelled: restore the same row (same percent, same amount).
-    update public.affiliate_commissions set voided_at = null
-     where registration_id = new.id and voided_at is not null;
-    if found then
-      return new;
-    end if;
-
-    select count(*)::integer into v_live
-      from public.affiliate_commissions
-     where affiliate_id = new.affiliate_id and voided_at is null;
-
-    v_percent := case
-      when v_aff.commission_mode = 'manual' then least(10, greatest(8, coalesce(v_aff.manual_percent, 8)))
-      when v_live + v_aff.opening_secured >= 10 then 10 else 8
-    end;
-    v_amount := coalesce(new.amount_received, new.expected_amount);
-    v_commission := round(v_amount * v_percent / 100, 2);
-
-    insert into public.affiliate_commissions
-      (registration_id, affiliate_id, currency, amount_paid, percent, commission, commission_pkr)
-    values
-      (new.id, new.affiliate_id, new.currency, v_amount, v_percent, v_commission,
-       case when new.currency = 'PKR' then v_commission else null end)
-    on conflict (registration_id) do nothing;
+  if new.status <> 'paid' then
+    return new;
   end if;
+
+  -- The amount received is always PKR. Only a sale with no amount received falls back to its price in its own currency.
+  if new.amount_received is not null then
+    v_amount := new.amount_received; v_currency := 'PKR';
+  else
+    v_amount := new.expected_amount; v_currency := new.currency;
+  end if;
+
+  -- Still Paid, amount corrected: the live commission follows the new amount at the percent already fixed.
+  if old.status = 'paid' and new.status = 'paid' then
+    update public.affiliate_commissions
+       set currency = v_currency, amount_paid = v_amount, commission = round(v_amount * percent / 100, 2),
+           commission_pkr = case when v_currency = 'PKR' then round(v_amount * percent / 100, 2) else null end
+     where registration_id = new.id and voided_at is null;
+    return new;
+  end if;
+
+  -- From here: the sale just turned Paid.
+  -- Lock the affiliate so two sales turning Paid at the same moment step the percent once.
+  select commission_mode, manual_percent, opening_secured
+    into v_aff
+    from public.affiliates where id = new.affiliate_id for update;
+  if not found then
+    return new;
+  end if;
+
+  -- Paid again after being cancelled: restore the same row (same percent) with the amount as it is now.
+  update public.affiliate_commissions
+     set voided_at = null, currency = v_currency, amount_paid = v_amount, commission = round(v_amount * percent / 100, 2),
+         commission_pkr = case when v_currency = 'PKR' then round(v_amount * percent / 100, 2) else null end
+   where registration_id = new.id and voided_at is not null;
+  if found then
+    return new;
+  end if;
+
+  select count(*)::integer into v_live
+    from public.affiliate_commissions
+   where affiliate_id = new.affiliate_id and voided_at is null;
+
+  v_percent := case
+    when v_aff.commission_mode = 'manual' then least(10, greatest(8, coalesce(v_aff.manual_percent, 8)))
+    when v_live + v_aff.opening_secured >= 10 then 10 else 8
+  end;
+  v_commission := round(v_amount * v_percent / 100, 2);
+
+  insert into public.affiliate_commissions
+    (registration_id, affiliate_id, currency, amount_paid, percent, commission, commission_pkr)
+  values
+    (new.id, new.affiliate_id, v_currency, v_amount, v_percent, v_commission,
+     case when v_currency = 'PKR' then v_commission else null end)
+  on conflict (registration_id) do nothing;
 
   return new;
 end;
@@ -122,9 +147,9 @@ revoke all on function public.affiliate_snapshot_commission() from public, anon,
 
 drop trigger if exists landing_registrations_affiliate_commission on public.landing_registrations;
 create trigger landing_registrations_affiliate_commission
-  after update of status on public.landing_registrations
+  after update of status, amount_received on public.landing_registrations
   for each row
-  when (old.status is distinct from new.status)
+  when (old.status is distinct from new.status or old.amount_received is distinct from new.amount_received)
   execute function public.affiliate_snapshot_commission();
 
 -- ------------------------------------------------------------ per-affiliate numbers, one row per page

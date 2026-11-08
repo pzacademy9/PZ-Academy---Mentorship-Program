@@ -41,9 +41,11 @@ describe("0109 affiliate earning: commission table", () => {
 });
 
 describe("0109 affiliate earning: trigger", () => {
-  it("fires only when the status really changes", () => {
+  it("fires when the status changes or the amount received is corrected, and only then", () => {
     expect(flat).toMatch(/drop trigger if exists landing_registrations_affiliate_commission on public\.landing_registrations/i);
-    expect(flat).toMatch(/create trigger landing_registrations_affiliate_commission after update of status on public\.landing_registrations for each row when \(old\.status is distinct from new\.status\)/i);
+    expect(flat).toMatch(
+      /create trigger landing_registrations_affiliate_commission after update of status, amount_received on public\.landing_registrations for each row when \(old\.status is distinct from new\.status or old\.amount_received is distinct from new\.amount_received\)/i,
+    );
   });
   it("only counts real sales: lead or individual, not a test, with an affiliate", () => {
     expect(flat).toMatch(/new\.row_type in \('individual', 'lead'\)/i);
@@ -58,14 +60,24 @@ describe("0109 affiliate earning: trigger", () => {
     expect(flat).toMatch(/manual_percent/i);
     expect(flat).toMatch(/opening_secured/i);
   });
-  it("takes the amount actually paid and rounds the commission to 2 decimals", () => {
-    expect(flat).toMatch(/coalesce\(new\.amount_received, new\.expected_amount\)/i);
-    expect(flat).toMatch(/round\(.*\* v_percent \/ 100, 2\)/i);
-    expect(flat).toMatch(/new\.currency = 'PKR'/i);
+  it("an amount received is always PKR, whatever currency the price was in", () => {
+    expect(flat).toMatch(/if new\.amount_received is not null then v_amount := new\.amount_received; v_currency := 'PKR';/i);
   });
-  it("paid again after a void restores the same row instead of adding a second", () => {
-    expect(flat).toMatch(/voided_at = null/i);
+  it("only a sale with no amount received falls back to its price in its own currency, which waits for a manual conversion", () => {
+    expect(flat).toMatch(/else v_amount := new\.expected_amount; v_currency := new\.currency; end if;/i);
+    expect(flat).toMatch(/commission_pkr[\s\S]{0,80}case when v_currency = 'PKR' then/i);
+    expect(flat).not.toMatch(/coalesce\(new\.amount_received, new\.expected_amount\)/i);
+  });
+  it("rounds the commission to 2 decimals", () => {
+    expect(flat).toMatch(/round\(v_amount \* v_percent \/ 100, 2\)/i);
+  });
+  it("paid again after a void restores the same row with the amount as it is now, instead of adding a second", () => {
+    expect(flat).toMatch(/update public\.affiliate_commissions set voided_at = null, currency = v_currency, amount_paid = v_amount/i);
     expect(flat).toMatch(/on conflict \(registration_id\) do nothing/i);
+  });
+  it("correcting the amount of a sale that stays Paid corrects its commission at the percent already fixed", () => {
+    expect(flat).toMatch(/old\.status = 'paid' and new\.status = 'paid'/i);
+    expect(flat).toMatch(/set currency = v_currency, amount_paid = v_amount, commission = round\(v_amount \* percent \/ 100, 2\)/i);
   });
   it("leaving paid voids the row", () => {
     expect(flat).toMatch(/old\.status = 'paid' and new\.status <> 'paid'/i);
