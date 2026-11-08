@@ -38,7 +38,7 @@ export function acceptedEmail(a: {
     `<p style="${P}">Hello ${esc(a.name)},</p>` +
     `<p style="${P}">Your application to the Pharmacozyme Affiliate Programme has been accepted. Welcome to the team.</p>` +
     `<p style="${P}">Your code: <strong>${esc(a.code)}</strong><br>Your team: ${esc(a.team)}<br>Your commission: 8% to 10% of what the student pays</p>` +
-    `<p style="${P}">Students who use ${esc(a.code)} get 10% off their registration. You earn 8% on every paid registration, and 10% once you reach 10 paid participants. Commission is counted only after the student has paid.</p>` +
+    `<p style="${P}">Students who use ${esc(a.code)} get 10% off their registration. You earn 8% on every paid registration. If you have 10 or more paid participants in a month, you earn 10% for the whole of the next month. Commission is counted only after the student has paid.</p>` +
     `<p style="${P}">At 10 paid participants you receive a Certificate of Achievement. You can ask for a payout once you have earned PKR 3,500 or more.</p>` +
     `<p style="${P}">Your private page: ${link("open my page", a.link)}<br>Please keep this link to yourself, because anyone who has it can open your page.</p>` +
     `<p style="${P}">Our WhatsApp group: ${link("join the group", a.groupWa)}<br>Questions: ${link("message support", a.supportWa)}</p>`;

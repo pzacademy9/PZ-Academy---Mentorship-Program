@@ -5,22 +5,66 @@ import {
   paidSoFar,
   balancePkr,
   splitCommissions,
+  monthKey,
+  previousMonthKey,
+  paidInMonth,
 } from "@/lib/affiliates/commission";
 
+const NOV = new Date("2026-11-15T10:00:00Z");
+const DEC = new Date("2026-12-10T10:00:00Z");
+const auto = (over: Partial<Parameters<typeof commissionPercent>[0]> = {}) =>
+  commissionPercent({ mode: "automatic", manualPercent: null, lastMonthPaid: 0, openingSecured: 0, now: DEC, ...over });
+
 describe("commissionPercent", () => {
-  it("automatic: 8% below 10 paid participants", () => {
-    expect(commissionPercent({ mode: "automatic", manualPercent: null, paidSoFar: 0 })).toBe(8);
-    expect(commissionPercent({ mode: "automatic", manualPercent: null, paidSoFar: 9 })).toBe(8);
+  it("automatic: 8% when last month had fewer than 10 paid participants", () => {
+    expect(auto({ lastMonthPaid: 0 })).toBe(8);
+    expect(auto({ lastMonthPaid: 9 })).toBe(8);
   });
-  it("automatic: 10% from 10 paid participants", () => {
-    expect(commissionPercent({ mode: "automatic", manualPercent: null, paidSoFar: 10 })).toBe(10);
-    expect(commissionPercent({ mode: "automatic", manualPercent: null, paidSoFar: 40 })).toBe(10);
+  it("automatic: 10% when last month had 10 or more", () => {
+    expect(auto({ lastMonthPaid: 10 })).toBe(10);
+    expect(auto({ lastMonthPaid: 40 })).toBe(10);
+  });
+  it("automatic: imported history does not count once the November bridge is over", () => {
+    expect(auto({ openingSecured: 164, lastMonthPaid: 0, now: DEC })).toBe(8);
+  });
+  it("automatic: an imported affiliate with 10 or more past sales keeps 10% through November 2026", () => {
+    expect(auto({ openingSecured: 12, lastMonthPaid: 0, now: NOV })).toBe(10);
+    expect(auto({ openingSecured: 10, lastMonthPaid: 0, now: new Date("2026-11-30T18:59:59Z") })).toBe(10);
+  });
+  it("automatic: the bridge ends at midnight Pakistan time on 1 December", () => {
+    expect(auto({ openingSecured: 12, lastMonthPaid: 0, now: new Date("2026-11-30T19:00:00Z") })).toBe(8);
+  });
+  it("automatic: fewer than 10 imported past sales gets no bridge", () => {
+    expect(auto({ openingSecured: 9, lastMonthPaid: 0, now: NOV })).toBe(8);
   });
   it("manual: uses the typed percent, clamped to 8..10, 8 when missing", () => {
-    expect(commissionPercent({ mode: "manual", manualPercent: 9.5, paidSoFar: 0 })).toBe(9.5);
-    expect(commissionPercent({ mode: "manual", manualPercent: 12, paidSoFar: 0 })).toBe(10);
-    expect(commissionPercent({ mode: "manual", manualPercent: 3, paidSoFar: 50 })).toBe(8);
-    expect(commissionPercent({ mode: "manual", manualPercent: null, paidSoFar: 50 })).toBe(8);
+    const m = (manualPercent: number | null) =>
+      commissionPercent({ mode: "manual", manualPercent, lastMonthPaid: 50, openingSecured: 50, now: DEC });
+    expect(m(9.5)).toBe(9.5);
+    expect(m(12)).toBe(10);
+    expect(m(3)).toBe(8);
+    expect(m(null)).toBe(8);
+  });
+});
+
+describe("months (Pakistan time)", () => {
+  it("monthKey uses Pakistan time, not UTC", () => {
+    expect(monthKey("2026-11-30T18:59:59Z")).toBe("2026-11");
+    expect(monthKey("2026-11-30T19:00:00Z")).toBe("2026-12");
+  });
+  it("previousMonthKey rolls over the year", () => {
+    expect(previousMonthKey("2026-12")).toBe("2026-11");
+    expect(previousMonthKey("2027-01")).toBe("2026-12");
+  });
+  it("paidInMonth counts live rows created in that month only", () => {
+    const rows = [
+      { createdAt: "2026-11-02T10:00:00Z", voided: false },
+      { createdAt: "2026-11-20T10:00:00Z", voided: true },
+      { createdAt: "2026-12-01T10:00:00Z", voided: false },
+    ];
+    expect(paidInMonth(rows, "2026-11")).toBe(1);
+    expect(paidInMonth(rows, "2026-12")).toBe(1);
+    expect(paidInMonth(rows, "2026-10")).toBe(0);
   });
 });
 

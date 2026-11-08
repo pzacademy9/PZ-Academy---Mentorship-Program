@@ -6,7 +6,7 @@ import { AffiliateClosed } from "@/components/affiliates/AffiliateClosed";
 import type { AffiliatePageModel } from "@/lib/data/affiliate-page";
 
 const model = (over: Partial<AffiliatePageModel> = {}): AffiliatePageModel => ({
-  name: "Sara Khan", code: "SK321", team: "Blue", percent: 8, paidCount: 9, toNextStep: 1,
+  name: "Sara Khan", code: "SK321", team: "Blue", percent: 8, automatic: true, paidCount: 19, monthPaid: 9, lastMonthPaid: 10, toNextStep: 1,
   earnedPkr: 51000, balancePkr: 51000, waiting: [{ currency: "AED", amount: 40 }],
   totals: { views: 124, registered: 18, paid: 9 },
   links: [
@@ -52,30 +52,36 @@ describe("AffiliatePage: identity and numbers", () => {
 });
 
 describe("AffiliatePage: commission", () => {
-  it("8% with the progress to 10% and the plain count", () => {
+  it("shows this month's progress towards 10% next month, and last month's count", () => {
     render(<AffiliatePage model={model()} />);
     expect(screen.getByText("Your commission: 8%")).toBeTruthy();
-    expect(screen.getByText("9 of 10 paid participants")).toBeTruthy();
-    expect(screen.getByText("1 more paid participant to reach 10%")).toBeTruthy();
+    expect(screen.getByText("9 of 10 paid participants this month")).toBeTruthy();
+    expect(screen.getByText("1 more paid participant this month to earn 10% next month")).toBeTruthy();
+    expect(screen.getByText(/Last month: 10 paid participants\./)).toBeTruthy();
     const bar = screen.getByRole("progressbar");
     expect(bar.getAttribute("aria-valuenow")).toBe("9");
     expect(bar.getAttribute("aria-valuemax")).toBe("10");
   });
   it("says participants in the plural", () => {
-    render(<AffiliatePage model={model({ paidCount: 3, toNextStep: 7 })} />);
-    expect(screen.getByText("7 more paid participants to reach 10%")).toBeTruthy();
+    render(<AffiliatePage model={model({ monthPaid: 3, toNextStep: 7 })} />);
+    expect(screen.getByText("7 more paid participants this month to earn 10% next month")).toBeTruthy();
   });
-  it("10% and the certificate once 10 are reached, with no progress bar", () => {
-    render(<AffiliatePage model={model({ percent: 10, paidCount: 10, toNextStep: null })} />);
-    expect(screen.getByText("Your commission: 10%")).toBeTruthy();
+  it("once 10 are reached this month: no progress bar, and it says 10% comes next month", () => {
+    render(<AffiliatePage model={model({ percent: 8, monthPaid: 10, paidCount: 10, toNextStep: null })} />);
     expect(screen.getByText("Certificate of Achievement unlocked")).toBeTruthy();
+    expect(screen.getByText("You have reached 10 paid participants this month, so you earn 10% next month.")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByText(/more paid participant/)).toBeNull();
   });
-  it("a typed (manual) percent shows alone: no progress bar, no certificate before 10", () => {
-    render(<AffiliatePage model={model({ percent: 9, paidCount: 3, toNextStep: null })} />);
+  it("shows 10% when last month earned it", () => {
+    render(<AffiliatePage model={model({ percent: 10, lastMonthPaid: 12 })} />);
+    expect(screen.getByText("Your commission: 10%")).toBeTruthy();
+  });
+  it("a typed (manual) percent shows alone: no progress bar, no monthly text, no certificate before 10", () => {
+    render(<AffiliatePage model={model({ percent: 9, automatic: false, paidCount: 3, monthPaid: 3, toNextStep: null })} />);
     expect(screen.getByText("Your commission: 9%")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText(/Last month/)).toBeNull();
     expect(screen.queryByText(/Certificate/)).toBeNull();
   });
 });

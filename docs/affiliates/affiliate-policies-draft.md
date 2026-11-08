@@ -33,8 +33,9 @@ and the Affiliate Rules.
 
 ### 4. Commission
 - You earn commission of [8% to 10%] of the amount a student actually pays for a registration that uses your code or
-  your link, after any discount. The percent is either set by us for you, or follows the automatic rule: 8%, rising
-  to 10% once you have 10 paid participants. We tell you which applies to you.
+  your link, after any discount. The percent is either set by us for you, or follows the automatic rule: 8%, or 10%
+  for a whole month if you had 10 or more paid participants in the month before. Fewer than 10 in a month means 8%
+  the next month. Months are counted in Pakistan time. We tell you which applies to you.
 - A sale counts only when we have confirmed the payment as Paid. Registrations that are unpaid, free, cancelled,
   refunded or marked as a test earn nothing.
 - If a payment is refunded or reversed after commission was counted, we take that commission back. If you have
