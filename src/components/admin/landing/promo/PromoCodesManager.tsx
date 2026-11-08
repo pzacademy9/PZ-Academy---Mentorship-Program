@@ -225,7 +225,7 @@ function PromoForm({ existing, pages, agents, onDone }: { existing: PromoCode | 
 
   const { run: save, pending } = useAsyncAction(async () => {
     const available = new Set(choices.map((c) => c.key));
-    const checked = draftToInput({ ...d, optionKeys: d.optionKeys.filter((k) => available.has(k)) }, existing?.ownerAgentId ?? null);
+    const checked = draftToInput({ ...d, optionKeys: d.optionKeys.filter((k) => available.has(k)) }, existing?.ownerAgentId ?? null, Boolean(existing?.ownerAffiliateId));
     if (!checked.ok) { setErrors(checked.errors); return; }
     setErrors({});
     const code = checked.input.code;

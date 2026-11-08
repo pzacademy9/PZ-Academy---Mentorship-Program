@@ -12,7 +12,7 @@ export type PromoCodeInput = Omit<PromoCode, "id" | "usedCount">;
 export type PromoWriteResult = { ok: true; id: string } | { ok: false; reason: "duplicate" | "not-found" | "invalid" | "db-error" };
 
 const COLUMNS =
-  "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, is_owner_code, plain_percent, max_percent";
+  "id, code, type, value, fixed_amounts, max_discount_percent, page_ids, option_keys, max_uses, used_count, one_per_email, starts_at, ends_at, active, owner_agent_id, owner_affiliate_id, is_owner_code, plain_percent, max_percent";
 const UNIQUE_VIOLATION = "23505";
 const CHECK_VIOLATION = "23514";
 
@@ -52,6 +52,7 @@ function mapRow(r: Row): PromoCode {
     endsAt: r.ends_at,
     active: r.active,
     ownerAgentId: r.owner_agent_id,
+    ownerAffiliateId: r.owner_affiliate_id,
     isOwnerCode: r.is_owner_code,
     plainPercent: Number(r.plain_percent),
     maxPercent: r.max_percent === null ? null : Number(r.max_percent),
@@ -73,6 +74,7 @@ function toRow(i: Partial<PromoCodeInput>): Update {
   if (i.endsAt !== undefined) row.ends_at = i.endsAt;
   if (i.active !== undefined) row.active = i.active;
   if (i.ownerAgentId !== undefined) row.owner_agent_id = i.ownerAgentId;
+  if (i.ownerAffiliateId !== undefined) row.owner_affiliate_id = i.ownerAffiliateId;
   if (i.isOwnerCode !== undefined) row.is_owner_code = i.isOwnerCode;
   if (i.plainPercent !== undefined) row.plain_percent = i.plainPercent;
   if (i.maxPercent !== undefined) row.max_percent = i.maxPercent;

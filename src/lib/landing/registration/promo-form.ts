@@ -94,7 +94,8 @@ function num(s: string | undefined): number | null {
   return Number.isFinite(n) ? n : NaN;
 }
 
-export function draftToInput(d: PromoDraft, ownerAgentId: string | null = null): { ok: true; input: PromoCodeInput } | { ok: false; errors: PromoErrors } {
+/** `ownedByAffiliate`: the code being edited belongs to an affiliate, so no agent owner is needed. */
+export function draftToInput(d: PromoDraft, ownerAgentId: string | null = null, ownedByAffiliate = false): { ok: true; input: PromoCodeInput } | { ok: false; errors: PromoErrors } {
   const errors: PromoErrors = {};
   const code = normalizeCodeInput(d.code.trim());
   if (!CODE_RE.test(code)) errors.code = "Use 2 to 40 capital letters, numbers, - or _ with no spaces, like PZ10.";
@@ -108,7 +109,7 @@ export function draftToInput(d: PromoDraft, ownerAgentId: string | null = null):
   let owner: string | null = ownerAgentId;
   if (d.isOwnerCode) {
     owner = d.ownerAgentId || ownerAgentId;
-    if (!owner) errors.ownerAgentId = "Choose who owns this code.";
+    if (!owner && !ownedByAffiliate) errors.ownerAgentId = "Choose who owns this code.";
     const pp = num(d.plainPercent);
     if (pp === null || Number.isNaN(pp) || !Number.isInteger(pp) || pp < 0 || pp > 100) errors.plainPercent = "Enter a whole percentage from 0 to 100.";
     else plainPercent = pp;
