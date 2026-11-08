@@ -1,6 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { allowLookup, allowPortalView } from "@/lib/pzid/lookup-limit";
+import { allowAffiliatePage, allowLookup, allowPortalView } from "@/lib/pzid/lookup-limit";
 
 async function callerIp(): Promise<string> {
   const h = await headers();
@@ -10,6 +10,11 @@ async function callerIp(): Promise<string> {
 /** Find my ID rate limit for the current caller (keyed by IP): 30 per 10 minutes. */
 export async function callerAllowed(): Promise<boolean> {
   return allowLookup(await callerIp());
+}
+
+/** Affiliate private page limit for the current caller: 60 per 10 minutes, its own key. */
+export async function affiliatePageCallerAllowed(): Promise<boolean> {
+  return allowAffiliatePage(await callerIp());
 }
 
 /** Batch page rate limit for the current caller: its own, higher count (300 per 10 minutes). */

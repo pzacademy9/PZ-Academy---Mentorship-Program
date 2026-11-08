@@ -3,15 +3,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 const hdrs = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => ({ get: hdrs.get }) }));
-const lim = vi.hoisted(() => ({ allowLookup: vi.fn(), allowPortalView: vi.fn() }));
+const lim = vi.hoisted(() => ({ allowLookup: vi.fn(), allowPortalView: vi.fn(), allowAffiliatePage: vi.fn() }));
 vi.mock("@/lib/pzid/lookup-limit", () => lim);
 
-import { callerAllowed, portalCallerAllowed } from "@/lib/pzid/caller-allowed";
+import { callerAllowed, portalCallerAllowed, affiliatePageCallerAllowed } from "@/lib/pzid/caller-allowed";
 
 beforeEach(() => {
   hdrs.get.mockReset().mockImplementation((n: string) => (n === "x-real-ip" ? "203.0.113.9" : null));
   lim.allowLookup.mockReset().mockResolvedValue(true);
   lim.allowPortalView.mockReset().mockResolvedValue(true);
+  lim.allowAffiliatePage.mockReset().mockResolvedValue(true);
+});
+
+describe("affiliate page limit", () => {
+  it("uses the affiliate page limiter only", async () => {
+    await affiliatePageCallerAllowed();
+    expect(lim.allowAffiliatePage).toHaveBeenCalledWith("203.0.113.9");
+    expect(lim.allowLookup).not.toHaveBeenCalled();
+    expect(lim.allowPortalView).not.toHaveBeenCalled();
+  });
 });
 
 describe("caller limits", () => {
