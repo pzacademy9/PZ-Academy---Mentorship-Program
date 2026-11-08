@@ -103,6 +103,26 @@ describe("AffiliatesAdmin", () => {
     await waitFor(() => expect(JSON.parse(fetchMock().mock.calls[1][1].body)).toEqual({ action: "resend" }));
   });
 
+  it("when the discount code did not switch on it says so and shows Resend", async () => {
+    fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP321", emailSent: true, promoFailed: true }));
+    render(<AffiliatesAdmin initial={[base]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/discount code/i)));
+    expect(screen.getByRole("button", { name: /resend/i })).toBeTruthy();
+  });
+
+  it("Resend says when the discount code is still not on", async () => {
+    fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP321", emailSent: false }));
+    render(<AffiliatesAdmin initial={[base]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
+    await screen.findByText(/Email not sent/i);
+    fetchMock().mockResolvedValue(reply(200, { ok: true, emailSent: true, promoFailed: true }));
+    fireEvent.click(screen.getByRole("button", { name: /resend/i }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/discount code is still not on/i)));
+  });
+
   it("shows the plain server message when the code is taken", async () => {
     fetchMock().mockResolvedValue(reply(409, { error: "That code is already taken. Try another." }));
     render(<AffiliatesAdmin initial={[base]} />);

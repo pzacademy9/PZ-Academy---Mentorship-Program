@@ -125,6 +125,45 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_commissions: {
+        Row: {
+          affiliate_id: string
+          amount_paid: number
+          commission: number
+          commission_pkr: number | null
+          created_at: string
+          currency: string
+          id: string
+          percent: number
+          registration_id: string
+          voided_at: string | null
+        }
+        Insert: {
+          affiliate_id: string
+          amount_paid: number
+          commission: number
+          commission_pkr?: number | null
+          created_at?: string
+          currency: string
+          id?: string
+          percent: number
+          registration_id: string
+          voided_at?: string | null
+        }
+        Update: {
+          affiliate_id?: string
+          amount_paid?: number
+          commission?: number
+          commission_pkr?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          percent?: number
+          registration_id?: string
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           active: boolean
@@ -1879,6 +1918,7 @@ export type Database = {
       }
       landing_funnel_events: {
         Row: {
+          affiliate_id: string | null
           agent_id: string | null
           at: string
           id: number
@@ -1888,6 +1928,7 @@ export type Database = {
           utm: Json
         }
         Insert: {
+          affiliate_id?: string | null
           agent_id?: string | null
           at?: string
           id?: never
@@ -1897,6 +1938,7 @@ export type Database = {
           utm?: Json
         }
         Update: {
+          affiliate_id?: string | null
           agent_id?: string | null
           at?: string
           id?: never
@@ -2343,6 +2385,7 @@ export type Database = {
           max_uses: number | null
           one_per_email: boolean
           option_keys: string[]
+          owner_affiliate_id: string | null
           owner_agent_id: string | null
           page_ids: string[]
           plain_percent: number
@@ -2366,6 +2409,7 @@ export type Database = {
           max_uses?: number | null
           one_per_email?: boolean
           option_keys?: string[]
+          owner_affiliate_id?: string | null
           owner_agent_id?: string | null
           page_ids?: string[]
           plain_percent?: number
@@ -2390,6 +2434,7 @@ export type Database = {
           max_uses?: number | null
           one_per_email?: boolean
           option_keys?: string[]
+          owner_affiliate_id?: string | null
           owner_agent_id?: string | null
           page_ids?: string[]
           starts_at?: string | null
@@ -2488,6 +2533,7 @@ export type Database = {
       }
       landing_registrations: {
         Row: {
+          affiliate_id: string | null
           agent_id: string | null
           amount_received: number | null
           city: string
@@ -2532,6 +2578,7 @@ export type Database = {
           whatsapp: string
         }
         Insert: {
+          affiliate_id?: string | null
           agent_id?: string | null
           amount_received?: number | null
           city?: string
@@ -2576,6 +2623,7 @@ export type Database = {
           whatsapp?: string
         }
         Update: {
+          affiliate_id?: string | null
           agent_id?: string | null
           amount_received?: number | null
           city?: string
@@ -5024,6 +5072,15 @@ export type Database = {
       landing_rollback_variant: {
         Args: { p_user: string; p_variant_id: string; p_version: number }
         Returns: number
+      }
+      affiliate_link_stats: {
+        Args: { p_affiliate_id: string }
+        Returns: {
+          page_id: string
+          views: number
+          registered: number
+          paid: number
+        }[]
       }
       landing_agent_link_stats: {
         Args: { p_agent_id: string }

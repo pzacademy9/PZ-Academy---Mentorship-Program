@@ -17,6 +17,8 @@ export interface PromoCode {
   endsAt: string | null;
   active: boolean;
   ownerAgentId: string | null;
+  /** An affiliate's own code (set instead of ownerAgentId). Optional so older fixtures stay valid; the data layer always fills it. */
+  ownerAffiliateId?: string | null;
   // Owner codes (optional so ordinary codes and older fixtures stay valid; the data layer always fills them).
   isOwnerCode?: boolean;                  // a person's own code: plain gives plainPercent, "-NN%" gives NN%
   plainPercent?: number;                  // discount when the owner code is typed with no percent (default 10)

@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client })
 const mem = vi.hoisted(() => ({ allowRequest: vi.fn() }));
 vi.mock("@/lib/pzid/rate-limit", () => ({ allowRequest: mem.allowRequest }));
 
-import { allowLookup, allowPortalView, rateKeyForIp, LIMIT, PORTAL_LIMIT, WINDOW_SECS } from "@/lib/pzid/lookup-limit";
+import { allowLookup, allowPortalView, allowAffiliatePage, rateKeyForIp, LIMIT, PORTAL_LIMIT, WINDOW_SECS } from "@/lib/pzid/lookup-limit";
 
 beforeEach(() => {
   db.reset();
@@ -86,6 +86,22 @@ describe("allowPortalView", () => {
     mem.allowRequest.mockReturnValue(true);
     expect(await allowPortalView("203.0.113.9")).toBe(true);
     expect(mem.allowRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("allowAffiliatePage", () => {
+  it("allows 60 per 10 minutes and counts under its own key, apart from Find my ID", async () => {
+    db.state.handler = () => ({ data: true, error: null });
+    await allowAffiliatePage("203.0.113.9");
+    await allowLookup("203.0.113.9");
+    const ops = db.find("public_lookup_allow", "rpc");
+    expect(ops[0].payload).toMatchObject({ p_limit: 60, p_window_secs: 600 });
+    expect((ops[0].payload as { p_key: string }).p_key).not.toBe((ops[1].payload as { p_key: string }).p_key);
+  });
+  it("falls back to the in-memory limiter on a database error and refuses when that refuses", async () => {
+    db.state.handler = () => ({ data: null, error: { message: "down" } });
+    mem.allowRequest.mockReturnValue(false);
+    expect(await allowAffiliatePage("203.0.113.9")).toBe(false);
   });
 });
 

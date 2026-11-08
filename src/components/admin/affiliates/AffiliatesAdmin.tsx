@@ -116,7 +116,11 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
     const typed = code.trim();
     const { ok, data } = await call(row.id, typed ? { action: "accept", code: typed, team: teamValue } : { action: "accept", team: teamValue });
     if (!ok) return;
-    if (data?.emailSent === false) {
+    if (data?.promoFailed === true) {
+      // Accepted and saved, but the discount code did not switch on: Resend tries again.
+      setEmailNotSent(true);
+      toast.error("Accepted, but the discount code did not switch on. Press Resend to try again.");
+    } else if (data?.emailSent === false) {
       setEmailNotSent(true);
       toast.success("Accepted. Email not sent, press Resend.");
     } else toast.success(`Accepted. Their code is ${String(data?.code ?? "")}.`);
@@ -141,7 +145,7 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
   const leave = useAsyncAction(async () => {
     const yes = await confirm({
       title: `Mark ${row.name} as left?`,
-      description: "They will get a thank-you email. Their code stops working for new sales once the code step ships.",
+      description: "They will get a thank-you email. Their code stops working for new sales. Commission already earned stays.",
       confirmLabel: "Mark as left",
       destructive: true,
     });
@@ -156,7 +160,8 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
   const resend = useAsyncAction(async () => {
     const { ok, data } = await call(row.id, { action: "resend" });
     if (!ok) return;
-    if (data?.emailSent === false) toast.error("Email still not sent. Check the email settings.");
+    if (data?.promoFailed === true) toast.error("The discount code is still not on. Press Resend again, or check the Promo codes screen.");
+    else if (data?.emailSent === false) toast.error("Email still not sent. Check the email settings.");
     else {
       setEmailNotSent(false);
       toast.success("Email sent.");

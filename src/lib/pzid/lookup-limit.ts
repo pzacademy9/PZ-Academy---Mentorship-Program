@@ -84,6 +84,14 @@ export async function allowAffiliateApply(ip: string): Promise<boolean> {
   return allowUnder("pz-affiliate-apply:", LIMIT, ip);
 }
 
+/**
+ * Rate limit for opening an affiliate's private page: about 60 per 10 minutes per IP, counted under its own
+ * key. It slows anyone trying token after token; a real affiliate refreshing their own page stays far below it.
+ */
+export async function allowAffiliatePage(ip: string): Promise<boolean> {
+  return allowUnder("pz-affiliate-page:", 60, ip);
+}
+
 async function allowUnder(prefix: string, limit: number, ip: string): Promise<boolean> {
   const key = createHash("sha256").update(`${prefix}${rateKeyForIp(ip)}`).digest("hex");
   try {

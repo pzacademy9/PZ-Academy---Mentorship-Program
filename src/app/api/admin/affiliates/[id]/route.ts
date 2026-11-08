@@ -6,6 +6,7 @@ import { TEAMS } from "@/lib/affiliates/service";
 import { listAffiliateEmails } from "@/lib/data/affiliate-emails";
 import { affiliateLink } from "@/lib/affiliates/contact";
 import { sendAccepted, sendDropped, sendLeft } from "@/lib/affiliates/send";
+import { deactivateAffiliatePromo, ensureAffiliatePromo } from "@/lib/data/affiliate-promo";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -63,8 +64,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           default: return fail("Could not accept. Please try again.", 500);
         }
       }
+      // The discount code is made after the accept; if it fails the accept stands and the admin can press Resend.
+      const promo = await ensureAffiliatePromo({ id, code: r.code });
       const emailSent = await sendAccepted({ id, name: r.name, email: r.email, code: r.code, team: input.team ?? null, token: r.token });
-      return NextResponse.json({ ok: true, code: r.code, emailSent });
+      return NextResponse.json({ ok: true, code: r.code, emailSent, ...(promo === "failed" ? { promoFailed: true } : {}) });
     }
 
     if (input.action === "update") {
@@ -87,8 +90,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         return NextResponse.json({ ok: true, emailSent: sent });
       }
       if (detail.status !== "accepted" || !detail.code || !detail.token) return fail("Only an accepted, dropped or left affiliate can be sent this email.", 409);
+      const promo = await ensureAffiliatePromo({ id, code: detail.code });
       const emailSent = await sendAccepted({ id, name: detail.name, email: detail.email, code: detail.code, team: detail.team, token: detail.token });
-      return NextResponse.json({ ok: true, emailSent });
+      return NextResponse.json({ ok: true, emailSent, ...(promo === "failed" ? { promoFailed: true } : {}) });
     }
 
     const r = input.action === "drop" ? await dropAffiliate(id) : await markAffiliateLeft(id);
@@ -97,6 +101,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       if (r.reason === "wrong-status") return fail("This affiliate cannot be changed this way any more.", 409);
       return fail("Could not save. Please try again.", 500);
     }
+    // No new discount or credit for someone who is no longer in the programme. Old commission stays.
+    await deactivateAffiliatePromo(id);
     const emailSent = input.action === "drop" ? await sendDropped(detail) : await sendLeft(detail);
     return NextResponse.json({ ok: true, emailSent });
   } catch {

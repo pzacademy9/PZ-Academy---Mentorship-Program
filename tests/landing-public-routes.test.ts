@@ -16,6 +16,7 @@ const m = vi.hoisted(() => ({
   emailUsedPromo: vi.fn(),
   getRegistrationStatus: vi.fn(),
   resolveAgentCode: vi.fn(),
+  resolveAffiliateCode: vi.fn(),
   recordFunnelEvent: vi.fn(),
   getUser: vi.fn(),
   profile: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/lib/data/landing-payment-countries", () => ({ resolveAccountKeysSafe:
 vi.mock("@/lib/data/landing-promo-codes", () => ({ getPromoByCode: m.getPromoByCode, getPromoSettings: m.getPromoSettings, emailUsedPromo: m.emailUsedPromo }));
 vi.mock("@/lib/data/landing-registrations", () => ({ getRegistrationStatus: m.getRegistrationStatus }));
 vi.mock("@/lib/data/landing-agent-links", () => ({ resolveAgentCode: m.resolveAgentCode }));
+vi.mock("@/lib/data/affiliate-credit", () => ({ resolveAffiliateCode: m.resolveAffiliateCode }));
 vi.mock("@/lib/data/landing-funnel", () => ({ recordFunnelEvent: m.recordFunnelEvent }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
@@ -69,6 +71,7 @@ beforeEach(() => {
   m.recordFunnelEvent.mockResolvedValue(undefined);
   m.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
   m.resolveAgentCode.mockResolvedValue(null);
+  m.resolveAffiliateCode.mockResolvedValue(null);
   m.getUser.mockResolvedValue({ data: { user: null } });
 });
 afterEach(() => vi.useRealTimers());
@@ -280,8 +283,21 @@ describe("POST /api/landing/[slug]/event", () => {
     expect(res.status).toBe(204);
     expect(m.resolveAgentCode).toHaveBeenCalledWith("ayesha-7k2");
     expect(m.recordFunnelEvent).toHaveBeenCalledWith({
-      pageId: "page-1", sessionId: "sess-0001-abcd", type: "view", utm: { utm_source: "fb" }, agentId: "agent-1",
+      pageId: "page-1", sessionId: "sess-0001-abcd", type: "view", utm: { utm_source: "fb" }, agentId: "agent-1", affiliateId: null,
     });
+    expect(m.resolveAffiliateCode).not.toHaveBeenCalled();
+  });
+  it("records the affiliate behind the ref code when no agent owns it", async () => {
+    m.resolveAffiliateCode.mockResolvedValue({ affiliateId: "aff-1" });
+    const res = await event(postReq({ sessionId: "sess-0001-abcd", type: "view", ref: "as47" }), ctx());
+    expect(res.status).toBe(204);
+    expect(m.resolveAffiliateCode).toHaveBeenCalledWith("as47");
+    expect(m.recordFunnelEvent.mock.calls[0][0]).toMatchObject({ type: "view", agentId: null, affiliateId: "aff-1" });
+  });
+  it("still records the view when the affiliate lookup fails", async () => {
+    m.resolveAffiliateCode.mockRejectedValue(new Error("boom"));
+    expect((await event(postReq({ sessionId: "sess-0001-abcd", type: "view", ref: "as47" }), ctx())).status).toBe(204);
+    expect(m.recordFunnelEvent.mock.calls[0][0]).toMatchObject({ agentId: null, affiliateId: null });
   });
   it("answers 204 but stores nothing for a bot, a link preview or a request with no browser name", async () => {
     const body = { sessionId: "sess-0001-abcd", type: "view", ref: "ayesha-7k2" };
