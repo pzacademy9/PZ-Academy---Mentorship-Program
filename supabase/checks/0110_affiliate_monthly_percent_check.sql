@@ -21,6 +21,7 @@ declare
   i        integer;
   n        integer;
   v_bridge boolean;
+  v_expect integer;
 begin
   select id into v_page from public.landing_pages limit 1;
   if v_page is null then
@@ -34,6 +35,7 @@ begin
   -- The last moment of last month, Pakistan time.
   v_last_day := (date_trunc('month', now() at time zone 'Asia/Karachi') - interval '1 second') at time zone 'Asia/Karachi';
   v_bridge := (now() at time zone 'Asia/Karachi') < timestamp '2026-12-01 00:00:00';
+  v_expect := case when v_bridge then 10 else 8 end;
 
   insert into public.affiliates (name, email, whatsapp, city_country, status, code, token, commission_mode, opening_secured)
   values ('Zz A', 'zz-a-0110@example.invalid', '+920000000001', 'Test', 'accepted', 'ZZ998', 'zz-a-0110-token-00000000000000000', 'automatic', 0)
@@ -92,8 +94,8 @@ begin
   values (v_page, 'individual', 'Zz B1', 'zz-b1@example.invalid', 'PK', 'PKR', 10000, 'ZZ0110-B1', b_aff) returning id into v_reg;
   update public.landing_registrations set status = 'paid', amount_received = 10000 where id = v_reg;
   select * into c from public.affiliate_commissions where registration_id = v_reg;
-  if c.id is null or c.percent <> case when v_bridge then 10 else 8 end then
-    raise exception 'CHECK 5 FAILED: imported history should give % percent today (got %)', case when v_bridge then 10 else 8 end, c.percent;
+  if c.id is null or c.percent <> v_expect then
+    raise exception 'CHECK 5 FAILED: imported history should give % percent today (got %)', v_expect, c.percent;
   end if;
 
   -- 6. Manual mode ignores the monthly rule.
