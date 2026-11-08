@@ -98,7 +98,8 @@ export async function listSessions(pageId: string): Promise<SessionRow[]> {
 }
 
 export async function getSessionById(sessionId: string): Promise<SessionRow | null> {
-  const { data, error } = await createAdminSupabase().from("batch_sessions").select("*").eq("id", sessionId).maybeSingle();
+  // noStore: a send must see the Zoom link and time as saved right now, never a cached copy.
+  const { data, error } = await createAdminSupabase({ noStore: true }).from("batch_sessions").select("*").eq("id", sessionId).maybeSingle();
   check("session read", error);
   return (data as SessionRow | null) ?? null;
 }

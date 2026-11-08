@@ -7,7 +7,7 @@ const MAX_LEAD_MS = 10080 * 60 * 1000;
 
 /** Sessions whose reminder is due: enabled, not started, now >= starts_at - lead, and no reminder send yet. */
 export async function listDueReminderSessionIds(now = new Date()): Promise<string[]> {
-  const admin = createAdminSupabase();
+  const admin = createAdminSupabase({ noStore: true });
   const { data, error } = await admin.from("batch_sessions")
     .select("id, starts_at, email_lead_minutes")
     .eq("email_enabled", true)
@@ -27,7 +27,7 @@ export async function listDueReminderSessionIds(now = new Date()): Promise<strin
 
 /** Session sends (reminder or update) that still have pending recipients, oldest first, at most max. One query. */
 export async function listSessionSendsWithPending(max: number): Promise<string[]> {
-  const { data, error } = await createAdminSupabase().from("participant_send_recipients")
+  const { data, error } = await createAdminSupabase({ noStore: true }).from("participant_send_recipients")
     .select("send_id, participant_sends!inner(session_id, session_kind, created_at)")
     .eq("state", "pending")
     .not("participant_sends.session_kind", "is", null)

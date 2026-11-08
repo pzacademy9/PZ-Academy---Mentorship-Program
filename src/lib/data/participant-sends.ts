@@ -257,7 +257,8 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
   // Short plain reasons for anything that stopped a person being emailed (the timer writes these into its reply).
   const notes: string[] = [];
   const note = (s: string) => { if (notes.length < 5) notes.push(s); };
-  const admin = createAdminSupabase();
+  // noStore: the queue changes every minute, so a cached read would show people who were already handled (or none at all).
+  const admin = createAdminSupabase({ noStore: true });
   const { data: send, error: sendErr } = await admin.from("participant_sends").select("*").eq("id", sendId).maybeSingle();
   check("send read", sendErr);
   if (!send || send.channel !== "email") return { sent: 0, failed: 0, pending: 0, notes: ["send not found or not email"] };
