@@ -43,7 +43,7 @@ describe("session-emails cron", () => {
     m.pending.mockResolvedValue(["send1"]);
     m.runEmailSend.mockResolvedValue({ sent: 2, failed: 1, pending: 0 });
     const res = await call("Bearer s3cret");
-    expect(await res.json()).toEqual({ ok: true, created: 1, sent: 2, failed: 1 });
+    expect(await res.json()).toEqual({ ok: true, created: 1, sent: 2, failed: 1, pendingSends: 1, notes: [] });
     expect(m.createSessionSend).toHaveBeenCalledWith("s1", "reminder");
     expect(m.runEmailSend).toHaveBeenCalledWith("send1", 40);
   });
@@ -54,11 +54,11 @@ describe("session-emails cron", () => {
     const a = await (await call("Bearer s3cret")).json();
     const b = await (await call("Bearer s3cret")).json();
     expect(a.created).toBe(1);
-    expect(b).toEqual({ ok: true, created: 0, sent: 0, failed: 0 });
+    expect(b).toEqual({ ok: true, created: 0, sent: 0, failed: 0, pendingSends: 0, notes: [] });
   });
   it("a not-yet-due session is untouched", async () => {
     const res = await call("Bearer s3cret");
-    expect(await res.json()).toEqual({ ok: true, created: 0, sent: 0, failed: 0 });
+    expect(await res.json()).toEqual({ ok: true, created: 0, sent: 0, failed: 0, pendingSends: 0, notes: [] });
     expect(m.createSessionSend).not.toHaveBeenCalled();
   });
   it("a failing session does not stop the others and leaks nothing", async () => {
@@ -66,13 +66,13 @@ describe("session-emails cron", () => {
     m.createSessionSend.mockRejectedValueOnce(new Error("boom a@b.com")).mockResolvedValueOnce({ ok: true, sendId: "g", count: 1 });
     const res = await call("Bearer s3cret");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, created: 1, sent: 0, failed: 1 });
+    expect(await res.json()).toEqual({ ok: true, created: 1, sent: 0, failed: 1, pendingSends: 0, notes: [] });
     expect(JSON.stringify((console.error as ReturnType<typeof vi.fn>).mock.calls)).not.toContain("a@b.com");
   });
   it("a failing send run does not stop the next one", async () => {
     m.pending.mockResolvedValue(["x", "y"]);
     m.runEmailSend.mockRejectedValueOnce(new Error("bad")).mockResolvedValueOnce({ sent: 3, failed: 0, pending: 0 });
-    expect(await (await call("Bearer s3cret")).json()).toEqual({ ok: true, created: 0, sent: 3, failed: 1 });
+    expect(await (await call("Bearer s3cret")).json()).toEqual({ ok: true, created: 0, sent: 3, failed: 1, pendingSends: 2, notes: ["run failed: bad"] });
   });
   it("caps sends per call", async () => {
     await call("Bearer s3cret");

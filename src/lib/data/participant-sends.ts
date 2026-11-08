@@ -253,11 +253,14 @@ export async function pzIdsFor(registrationIds: string[]): Promise<Map<string, s
   return out;
 }
 
-export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: number; failed: number; pending: number }> {
+export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: number; failed: number; pending: number; notes: string[] }> {
+  // Short plain reasons for anything that stopped a person being emailed (the timer writes these into its reply).
+  const notes: string[] = [];
+  const note = (s: string) => { if (notes.length < 5) notes.push(s); };
   const admin = createAdminSupabase();
   const { data: send, error: sendErr } = await admin.from("participant_sends").select("*").eq("id", sendId).maybeSingle();
   check("send read", sendErr);
-  if (!send || send.channel !== "email") return { sent: 0, failed: 0, pending: 0 };
+  if (!send || send.channel !== "email") return { sent: 0, failed: 0, pending: 0, notes: ["send not found or not email"] };
 
   // A run that died mid-way leaves rows claimed. The email may or may not have gone out, so after
   // 15 minutes they become failed (never pending): nothing is re-sent automatically, the owner decides via retryFailed.
@@ -280,7 +283,7 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
         .update({ state: "skipped", reason: SESSION_DELETED }).eq("send_id", sendId).eq("state", "pending");
       check("session deleted skip", skipErr);
     }
-    return { sent: 0, failed: 0, pending: 0 };
+    return { sent: 0, failed: 0, pending: 0, notes: ["session was deleted"] };
   }
 
   const portalUrl = await portalUrlFor(await pageCourseId(send.page_id));
@@ -306,7 +309,8 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
       const { data: won, error: claimErr } = await admin.from("participant_send_recipients")
         .update({ state: "claimed", claimed_at: new Date().toISOString() })
         .eq("id", r.id).eq("state", "pending").select("id");
-      if (claimErr || !won || won.length === 0) return; // someone else has it
+      if (claimErr) { note(`claim error: ${claimErr.message}`); return; }
+      if (!won || won.length === 0) { note("claim lost: someone else has it"); return; } // someone else has it
       const finish = async (patch: Partial<SendRecipientRow>) => {
         // The email already went out when state is "sent": retry the mark so it is not later seen as stale.
         const attempts = patch.state === "sent" ? 3 : 1;
@@ -341,7 +345,8 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
       }
       if (result.ok) { sent += 1; await finish({ state: "sent", sent_at: new Date().toISOString(), reason: "" }); }
       else { failed += 1; await finish({ state: "failed", reason: result.error }); }
-    } catch {
+    } catch (e) {
+      note(`recipient run failed: ${e instanceof Error ? e.message : "unknown"}`);
       console.warn("[participant-sends] recipient run failed");
     }
   });
@@ -349,7 +354,8 @@ export async function runEmailSend(sendId: string, limit = 40): Promise<{ sent: 
   const { count, error: cErr } = await admin.from("participant_send_recipients")
     .select("id", { count: "exact", head: true }).eq("send_id", sendId).eq("state", "pending");
   check("pending count", cErr);
-  return { sent, failed, pending: count ?? 0 };
+  if (pendingRows.length === 0) note("no pending rows read");
+  return { sent, failed, pending: count ?? 0, notes };
 }
 
 export async function retryFailed(sendId: string): Promise<number> {

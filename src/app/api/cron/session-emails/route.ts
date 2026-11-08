@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
   let created = 0;
   let sent = 0;
   let failed = 0;
+  // Plain reasons, so the timer's reply (kept by the Supabase job) says why nothing went out.
+  const notes: string[] = [];
+  let pendingSends = 0;
 
   try {
     for (const sessionId of await listDueReminderSessionIds()) {
@@ -43,11 +46,14 @@ export async function GET(req: NextRequest) {
 
   try {
     for (const sendId of await listSessionSendsWithPending(MAX_SENDS_PER_CALL)) {
+      pendingSends++;
       try {
         const r = await runEmailSend(sendId, RECIPIENTS_PER_SEND);
         sent += r.sent;
         failed += r.failed;
-      } catch {
+        for (const n of r.notes ?? []) if (notes.length < 8) notes.push(n);
+      } catch (e) {
+        if (notes.length < 8) notes.push(`run failed: ${e instanceof Error ? e.message : "unknown"}`);
         failed++;
         console.error(`session-emails: could not run send ${sendId}`);
       }
@@ -57,5 +63,5 @@ export async function GET(req: NextRequest) {
     console.error("session-emails: could not list pending sends");
   }
 
-  return NextResponse.json({ ok: true, created, sent, failed });
+  return NextResponse.json({ ok: true, created, sent, failed, pendingSends, notes });
 }
