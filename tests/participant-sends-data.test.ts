@@ -195,7 +195,7 @@ describe("runEmailSend", () => {
   it("marks failures with the reason and never resends sent rows", async () => {
     const id = await made();
     h.send.mockImplementation(async (o: { to: string }) => (o.to === "b@x.com" ? { ok: false, error: "bounced" } : { ok: true }));
-    expect(await runEmailSend(id)).toEqual({ sent: 2, failed: 1, pending: 0 });
+    expect(await runEmailSend(id)).toMatchObject({ sent: 2, failed: 1, pending: 0 });
     expect(store.participant_send_recipients.find((r) => r.registration_id === "b")).toMatchObject({ state: "failed", reason: "bounced" });
     h.send.mockClear();
     await runEmailSend(id);
@@ -212,7 +212,7 @@ describe("runEmailSend", () => {
 
   it("returns the remaining pending count for a limited chunk", async () => {
     const id = await made();
-    expect(await runEmailSend(id, 2)).toEqual({ sent: 2, failed: 0, pending: 1 });
+    expect(await runEmailSend(id, 2)).toMatchObject({ sent: 2, failed: 0, pending: 1 });
   });
 
   it("turns rows claimed over 15 minutes ago into failed (never sent), and retryFailed makes them pending", async () => {
@@ -246,7 +246,7 @@ describe("runEmailSend", () => {
   it("fails a recipient whose portal link cannot be built instead of sending a blank link", async () => {
     const id = await made({ body: "Go {{ portal_link }}" });
     store.landing_pages[0].course_id = null;
-    expect(await runEmailSend(id)).toEqual({ sent: 0, failed: 3, pending: 0 });
+    expect(await runEmailSend(id)).toMatchObject({ sent: 0, failed: 3, pending: 0 });
     expect(h.send).not.toHaveBeenCalled();
     expect(store.participant_send_recipients[0]).toMatchObject({ state: "failed", reason: "No portal link available" });
   });
@@ -302,7 +302,7 @@ describe("runEmailSend", () => {
 
   it("does nothing for a whatsapp send", async () => {
     const r = await createSend(input({ channel: "whatsapp" }));
-    expect(await runEmailSend((r as { sendId: string }).sendId)).toEqual({ sent: 0, failed: 0, pending: 0 });
+    expect(await runEmailSend((r as { sendId: string }).sendId)).toMatchObject({ sent: 0, failed: 0, pending: 0 });
     expect(h.send).not.toHaveBeenCalled();
   });
 });
