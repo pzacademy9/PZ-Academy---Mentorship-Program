@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ReportRound } from "@/lib/data/progress-reports";
-import { describeReportAudience, matchesReportAudience, type ReportAudience } from "@/lib/progress/report-audience";
+import { describeReportAudience, pickReportRecipients, type ReportAudience, type ReportWho } from "@/lib/progress/report-audience";
 
-export type ReportStudentOption = { personId: string; label: string; hasEmail: boolean; labels: string[] };
+export type ReportStudentOption = { personId: string; label: string; hasEmail: boolean; email: string; labels: string[] };
 
 type Fail = { ok: false; message: string };
 export interface ReportActions {
@@ -52,7 +52,9 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [group, setGroup] = useState<"all" | "full" | "modules">("all");
+  // Live is the starting choice, so recorded students are never emailed by accident.
+  const [who, setWho] = useState<ReportWho>("live");
+  const [group, setGroup] = useState<"all" | "full" | "modules" | "modulesOnly">("all");
   const [modules, setModules] = useState<number[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,11 +85,15 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
     };
   }, []);
 
-  const audience: ReportAudience = group === "all" ? { kind: "all" } : group === "full" ? { kind: "full" } : { kind: "modules", modules: [...modules].sort((a, b) => a - b) };
-  const countFor = (a: ReportAudience) =>
-    a.kind === "all" ? summary.withEmail : students.filter((x) => x.hasEmail && matchesReportAudience(x.labels, a)).length;
-  const noModules = group === "modules" && modules.length === 0;
+  const sortedModules = [...modules].sort((a, b) => a - b);
+  const partFor = (g: typeof group): ReportAudience["part"] =>
+    g === "all" ? { kind: "all" } : g === "full" ? { kind: "full" } : { kind: "modules", modules: sortedModules, withFull: g === "modules" };
+  const audience: ReportAudience = { who, part: partFor(group) };
+  // The same one-person-one-inbox rule the server uses, so this number is exactly what gets sent.
+  const countFor = (a: ReportAudience) => pickReportRecipients(students, a).length;
+  const noModules = (group === "modules" || group === "modulesOnly") && modules.length === 0;
   const sendCount = noModules ? 0 : countFor(audience);
+  const showModulePicker = group === "modules" || group === "modulesOnly";
   const people = (n: number) => `${n} ${n === 1 ? "student" : "students"}`;
   const latest = rounds[0];
   const unfinished = latest && latest.counts.waiting > 0 ? latest : null;
@@ -203,11 +209,25 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
           Each student gets their own report with the latest numbers: rank, points, the top 10 and how to climb. Students who have not taken a quiz get the &quot;get started&quot; version. Unsubscribed students are skipped. Pressing again never sends twice in the same round.
         </p>
         <fieldset className="mt-4 space-y-2" disabled={working}>
-          <legend className="text-sm font-semibold text-pz-on-surface">Who gets it</legend>
+          <legend className="text-sm font-semibold text-pz-on-surface">1. Live or recorded</legend>
           {([
-            ["all", `Everyone in the batch (${summary.withEmail})`],
-            ["full", `Full course students only (${countFor({ kind: "full" })})`],
-            ["modules", "Chosen modules only"],
+            ["live", `Live students only (${countFor({ who: "live", part: { kind: "all" } })})`],
+            ["recorded", `Recorded students only (${countFor({ who: "recorded", part: { kind: "all" } })})`],
+            ["both", `Both live and recorded (${countFor({ who: "both", part: { kind: "all" } })})`],
+          ] as const).map(([value, label]) => (
+            <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
+              <input type="radio" name="report-who" checked={who === value} onChange={() => { setWho(value); setConfirming(false); }} />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className="mt-4 space-y-2" disabled={working}>
+          <legend className="text-sm font-semibold text-pz-on-surface">2. Which part of the course</legend>
+          {([
+            ["all", `Everyone (${countFor({ who, part: { kind: "all" } })})`],
+            ["full", `Full course students only (${countFor({ who, part: { kind: "full" } })})`],
+            ["modules", "Chosen modules, plus full course students"],
+            ["modulesOnly", "Chosen modules only, no full course students"],
           ] as const).map(([value, label]) => (
             <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
               <input type="radio" name="report-group" checked={group === value} onChange={() => { setGroup(value); setConfirming(false); }} />
@@ -215,7 +235,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
             </label>
           ))}
           {noModules && <p className="text-sm text-pz-on-surface-variant">Tick at least one module.</p>}
-          {group === "modules" && (
+          {showModulePicker && (
             <div className="flex flex-wrap gap-2 pt-1">
               {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                 <label key={n} className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
@@ -244,7 +264,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
         <div className="mt-4 flex flex-wrap gap-2">
           {!confirming ? (
             <button type="button" disabled={!ready || working || sendCount === 0} onClick={() => setConfirming(true)} className={primaryBtn}>
-              {group === "all" ? `Send to all ${summary.withEmail} students` : `Send to ${people(sendCount)}`}
+              {`Send to ${people(sendCount)}`}
             </button>
           ) : (
             <div role="alertdialog" aria-label="Confirm sending" className="w-full rounded-lg border border-pz-primary bg-pz-surface-container-low p-4">

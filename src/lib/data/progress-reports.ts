@@ -12,7 +12,7 @@ import { buildBatchReport, type BatchReport, type ReportQuizRow, type StudentRep
 import { DEFAULT_YOUTUBE, renderReportEmail } from "@/lib/progress/report-email";
 import type { PortalPersonInput, PortalRegInput, PortalSessionInput } from "@/lib/progress/portal-build";
 import type { ProgressKind } from "@/lib/progress/build";
-import { matchesReportAudience, type ReportAudience } from "@/lib/progress/report-audience";
+import { pickReportRecipients, type ReportAudience } from "@/lib/progress/report-audience";
 
 const CHUNK = 200;
 const CONCURRENCY = 4;
@@ -168,7 +168,7 @@ export async function reportTablesReady(): Promise<boolean> {
 export type CreateReportSendResult = { ok: true; sendId: string; count: number } | { ok: false; message: string };
 
 /** Freezes a new round: every student with an email gets a pending row. */
-export async function createReportSend(pageId: string, createdBy: string | null, audience: ReportAudience = { kind: "all" }): Promise<CreateReportSendResult> {
+export async function createReportSend(pageId: string, createdBy: string | null, audience: ReportAudience = { who: "both", part: { kind: "all" } }): Promise<CreateReportSendResult> {
   if (!(await reportTablesReady())) return { ok: false, message: "Paste the SQL from the owner steps first, then try again." };
   const loaded = await loadBatchReport(pageId);
   if (!loaded) return { ok: false, message: "This batch was not found." };
@@ -189,8 +189,12 @@ export async function createReportSend(pageId: string, createdBy: string | null,
     if ((waiting ?? []).length > 0) return { ok: false, message: "The last round is still sending. Press Continue sending first." };
   }
 
-  const recipients = loaded.report.students.filter((s) => s.email !== "" && matchesReportAudience(loaded.optionLabels[s.personId] ?? [], audience));
-  if (recipients.length === 0) return { ok: false, message: audience.kind === "all" ? "Nobody to send to." : "Nobody is in that group." };
+  // One row per person and per inbox: the same rule the screen uses for its count.
+  const recipients = pickReportRecipients(
+    loaded.report.students.map((s) => ({ ...s, labels: loaded.optionLabels[s.personId] ?? [] })),
+    audience,
+  );
+  if (recipients.length === 0) return { ok: false, message: audience.who === "both" && audience.part.kind === "all" ? "Nobody to send to." : "Nobody is in that group." };
 
   const { data: send, error: sErr } = await admin
     .from("progress_report_sends")

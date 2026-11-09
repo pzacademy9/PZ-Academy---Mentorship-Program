@@ -34,6 +34,7 @@ export default async function ProgressReportsPage({ params }: { params: Promise<
     personId: s.personId,
     label: `${s.name} (${s.pzId})${s.rank !== null ? ` · #${s.rank}` : s.mode === "recorded" ? " · recorded" : " · no quiz yet"}`,
     hasEmail: s.email !== "",
+    email: s.email,
     labels: loaded.optionLabels[s.personId] ?? [],
   }));
   const summary = {
