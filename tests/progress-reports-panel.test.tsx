@@ -175,4 +175,13 @@ describe("choosing who gets the report", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
     await waitFor(() => expect(sent.open).toBe(true));
   });
+
+  it("both module choices show their count once a module is ticked", () => {
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[]} actions={actions()} />);
+    expect(screen.getByRole("radio", { name: /Chosen modules, plus full course students \(tick modules below\)/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: /Chosen modules, plus full course students/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Module 2" }));
+    expect(screen.getByRole("radio", { name: /Chosen modules, plus full course students \(2\)/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /Chosen modules only, no full course students \(1\)/ })).toBeTruthy();
+  });
 });

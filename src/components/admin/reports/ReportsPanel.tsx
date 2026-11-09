@@ -95,6 +95,9 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
   const countFor = (a: ReportAudience) => pickReportRecipients(students, a).length;
   const noModules = (group === "modules" || group === "modulesOnly") && modules.length === 0;
   const sendCount = noModules ? 0 : countFor(audience);
+  // The count for a module choice follows the ticked modules; until one is ticked it says so instead of a wrong number.
+  const modulesCount = (g: "modules" | "modulesOnly") =>
+    sortedModules.length === 0 ? "(tick modules below)" : `(${countFor({ who, part: partFor(g) })})`;
   const showModulePicker = group === "modules" || group === "modulesOnly";
   const people = (n: number) => `${n} ${n === 1 ? "student" : "students"}`;
   const latest = rounds[0];
@@ -205,6 +208,8 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
         {notice && <p className="text-sm font-semibold text-pz-primary">{notice}</p>}
       </div>
 
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+      <div className="min-w-0 space-y-5">
       {/* Send to everyone */}
       <section aria-labelledby="send-all-title" className={card}>
         <h2 id="send-all-title" className="font-headline text-lg font-bold text-pz-on-surface">Send to students</h2>
@@ -229,8 +234,8 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
           {([
             ["all", `Everyone (${countFor({ who, part: { kind: "all" } })})`],
             ["full", `Full course students only (${countFor({ who, part: { kind: "full" } })})`],
-            ["modules", "Chosen modules, plus full course students"],
-            ["modulesOnly", "Chosen modules only, no full course students"],
+            ["modules", `Chosen modules, plus full course students ${modulesCount("modules")}`],
+            ["modulesOnly", `Chosen modules only, no full course students ${modulesCount("modulesOnly")}`],
           ] as const).map(([value, label]) => (
             <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-pz-outline-variant px-3 text-sm text-pz-on-surface">
               <input type="radio" name="report-group" checked={group === value} onChange={() => { setGroup(value); setConfirming(false); }} />
@@ -337,6 +342,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
         </section>
       )}
 
+      </div>
       {/* Preview */}
       <section aria-labelledby="preview-title" className={card}>
         <h2 id="preview-title" className="font-headline text-lg font-bold text-pz-on-surface">Preview one student&apos;s email</h2>
@@ -379,6 +385,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
           </>
         )}
       </section>
+      </div>
     </div>
   );
 }
