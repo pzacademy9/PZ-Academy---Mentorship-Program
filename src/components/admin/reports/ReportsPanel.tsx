@@ -58,6 +58,8 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
   const [modules, setModules] = useState<number[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  // The "Sent before" list opens by itself when a send ends, so you see who got it straight away.
+  const [sentOpen, setSentOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const stopRef = useRef(false);
 
@@ -122,6 +124,7 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
       setError("Sending stopped. Press Continue sending to carry on.");
     } finally {
       setBusy(false);
+      setSentOpen(true);
       router.refresh();
     }
   }
@@ -288,6 +291,52 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
         </div>
       </section>
 
+      {/* Who got it: an accordion above the preview, opened by itself after a send */}
+      {rounds.length > 0 && (
+        <section aria-labelledby="rounds-title" className={card}>
+          <details open={sentOpen} onToggle={(e) => setSentOpen((e.currentTarget as HTMLDetailsElement).open)}>
+            <summary className="flex cursor-pointer items-center justify-between gap-3 max-md:min-h-11">
+              <h2 id="rounds-title" className="font-headline text-lg font-bold text-pz-on-surface">Sent before</h2>
+              <span className="text-sm text-pz-on-surface-variant">
+                {`${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}`}
+                {rounds[0] ? ` · last: ${rounds[0].counts.sent} sent, ${rounds[0].counts.waiting} waiting` : ""}
+              </span>
+            </summary>
+          <ul className="mt-3 space-y-3">
+            {rounds.map((r) => (
+              <li key={r.id} className="rounded-lg bg-pz-surface-container-low p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-pz-on-surface">{when(r.createdAt)}</p>
+                  <p className="text-sm text-pz-on-surface-variant">
+                    {r.counts.sent} sent · {r.counts.failed} failed · {r.counts.skipped} skipped · {r.counts.waiting} waiting
+                  </p>
+                </div>
+                {r.counts.failed > 0 && !busy && (
+                  <button type="button" disabled={working} onClick={() => retry(r)} className={`mt-2 ${ghostBtn}`}>
+                    Try the {r.counts.failed} failed again
+                  </button>
+                )}
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-semibold text-pz-primary max-md:min-h-11">Show each student</summary>
+                  <ul className="mt-2 space-y-1">
+                    {r.recipients.map((x, i) => (
+                      <li key={`${x.email}-${i}`} className="flex flex-wrap justify-between gap-2 text-sm">
+                        <span className="min-w-0 break-words text-pz-on-surface">{x.name || x.email}</span>
+                        <span className="text-pz-on-surface-variant">
+                          {STATE_LABEL[x.state] ?? x.state}
+                          {reasonWords(x.state, x.reason) ? ` · ${reasonWords(x.state, x.reason)}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </li>
+            ))}
+          </ul>
+          </details>
+        </section>
+      )}
+
       {/* Preview */}
       <section aria-labelledby="preview-title" className={card}>
         <h2 id="preview-title" className="font-headline text-lg font-bold text-pz-on-surface">Preview one student&apos;s email</h2>
@@ -330,44 +379,6 @@ export function ReportsPanel({ pageId, ready, summary, students, rounds, actions
           </>
         )}
       </section>
-
-      {/* Past rounds */}
-      {rounds.length > 0 && (
-        <section aria-labelledby="rounds-title" className={card}>
-          <h2 id="rounds-title" className="font-headline text-lg font-bold text-pz-on-surface">Sent before</h2>
-          <ul className="mt-3 space-y-3">
-            {rounds.map((r) => (
-              <li key={r.id} className="rounded-lg bg-pz-surface-container-low p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-pz-on-surface">{when(r.createdAt)}</p>
-                  <p className="text-sm text-pz-on-surface-variant">
-                    {r.counts.sent} sent · {r.counts.failed} failed · {r.counts.skipped} skipped · {r.counts.waiting} waiting
-                  </p>
-                </div>
-                {r.counts.failed > 0 && !busy && (
-                  <button type="button" disabled={working} onClick={() => retry(r)} className={`mt-2 ${ghostBtn}`}>
-                    Try the {r.counts.failed} failed again
-                  </button>
-                )}
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-sm font-semibold text-pz-primary max-md:min-h-11">Show each student</summary>
-                  <ul className="mt-2 space-y-1">
-                    {r.recipients.map((x, i) => (
-                      <li key={`${x.email}-${i}`} className="flex flex-wrap justify-between gap-2 text-sm">
-                        <span className="min-w-0 break-words text-pz-on-surface">{x.name || x.email}</span>
-                        <span className="text-pz-on-surface-variant">
-                          {STATE_LABEL[x.state] ?? x.state}
-                          {reasonWords(x.state, x.reason) ? ` · ${reasonWords(x.state, x.reason)}` : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }

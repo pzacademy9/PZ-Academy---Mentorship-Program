@@ -159,4 +159,20 @@ describe("choosing who gets the report", () => {
     render(<ReportsPanel pageId="page-1" ready summary={summary} students={twins} rounds={[]} actions={actions()} />);
     expect(screen.getByRole("button", { name: "Send to 1 student" })).toBeTruthy();
   });
+
+  it("the Sent before list sits above the preview, shut at first, and opens by itself after a send", async () => {
+    const round: ReportRound = {
+      id: "send-7", createdAt: "2026-11-05T10:00:00Z", total: 1,
+      counts: { sent: 1, failed: 0, skipped: 0, waiting: 0 },
+      recipients: [{ name: "Fake One", email: "fake.one@example.com", state: "sent", reason: "" }],
+    };
+    render(<ReportsPanel pageId="page-1" ready summary={summary} students={students} rounds={[round]} actions={actions()} />);
+    const sent = screen.getByText("Sent before").closest("details") as HTMLDetailsElement;
+    const previewTitle = screen.getByText("Preview one student's email");
+    expect(sent.open).toBe(false);
+    expect(sent.compareDocumentPosition(previewTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Send to 3 students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, send now" }));
+    await waitFor(() => expect(sent.open).toBe(true));
+  });
 });
