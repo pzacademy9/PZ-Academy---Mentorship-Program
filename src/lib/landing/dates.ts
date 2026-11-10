@@ -80,6 +80,8 @@ export function datesFor(c: LandingContent, moduleKey: string | null): Range | n
       end: ranges.reduce((max, r) => (r.end > max ? r.end : max), ranges[0].end),
     };
   }
+  // Event dates are only for pages with no modules; a page that has modules ignores them.
+  if (c.modules.length > 0) return null;
   const s = c.settings.eventStartsOn ?? "";
   const e = c.settings.eventEndsOn ?? "";
   return isRealDate(s) && isRealDate(e) && e >= s ? { start: s, end: e } : null;
@@ -157,6 +159,8 @@ function hasUnresolvable(c: LandingContent, value: unknown, refKey: string | nul
     for (const m of Array.from(value.matchAll(MARKER_RE))) {
       const moduleKey = m[2] ?? refKey;
       if (datesFor(c, moduleKey) === null) return true;
+      // Whole-page marker: every module must have dates, or the range would cover only some of them.
+      if (moduleKey === null && c.modules.some((mod) => moduleRange(c, mod.key) === null)) return true;
     }
     return false;
   }
@@ -182,4 +186,50 @@ export function unfilledDateMarkers(c: LandingContent, moduleKey: string | null)
     if (unfilled) out.push({ sectionId: section.id, sectionLabel: SECTION_DEFS[section.type].label });
   }
   return out;
+}
+
+const ANY_MARKER_RE = /\{\s*(?:dates|weekdays)[^}]{0,30}\}?/i;
+
+function collectStrings(value: unknown, out: string[]): void {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) for (const v of value) collectStrings(v, out);
+  else if (value && typeof value === "object") for (const v of Object.values(value as Record<string, unknown>)) collectStrings(v, out);
+}
+
+/** Markers that name a module code the page does not have. */
+export function unknownMarkerCodes(c: LandingContent): { sectionId: string; sectionLabel: string; kind: string; code: string }[] {
+  const keys = new Set(c.modules.map((m) => m.key));
+  const out: { sectionId: string; sectionLabel: string; kind: string; code: string }[] = [];
+  for (const section of c.sections) {
+    if (!section.enabled) continue;
+    const strings: string[] = [];
+    collectStrings(section.data, strings);
+    for (const str of strings) {
+      for (const m of Array.from(str.matchAll(MARKER_RE))) {
+        if (m[2] && !keys.has(m[2])) out.push({ sectionId: section.id, sectionLabel: SECTION_DEFS[section.type].label, kind: m[1], code: m[2] });
+      }
+    }
+  }
+  return out;
+}
+
+/** Text that still holds a marker after the real ones were replaced: a misspelling such as {Dates} or {dates:Module 1}. */
+export function leftoverMarkers(c: LandingContent): { sectionId: string; sectionLabel: string; fragment: string }[] {
+  const resolved = applyAutoDates(c, { moduleKey: null });
+  const out: { sectionId: string; sectionLabel: string; fragment: string }[] = [];
+  for (const section of resolved.sections) {
+    if (!section.enabled) continue;
+    const strings: string[] = [];
+    collectStrings(section.data, strings);
+    for (const str of strings) {
+      const m = ANY_MARKER_RE.exec(str);
+      if (m) out.push({ sectionId: section.id, sectionLabel: SECTION_DEFS[section.type].label, fragment: m[0] });
+    }
+  }
+  return out;
+}
+
+/** True when text holds anything that looks like a date marker (used for SEO text, where markers never resolve). */
+export function hasMarkerText(s: string): boolean {
+  return ANY_MARKER_RE.test(s);
 }

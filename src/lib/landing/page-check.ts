@@ -153,7 +153,7 @@ function dateChecks(c: LandingContent): PageCheck[] {
     const e = m.endsOn ?? "";
     if (!isRealDate(s) || !isRealDate(e) || e < s) continue;
     const covered = Math.round((Date.parse(`${e}T00:00:00Z`) - Date.parse(`${s}T00:00:00Z`)) / DAY_MS) + 1;
-    if (covered === m.days) continue;
+    if (m.days === 0 || covered === m.days) continue;
     out.push({
       id: `module-days-${m.key}`,
       title: `${m.title}: the dates and the day count differ`,

@@ -11,7 +11,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
-import { isRealDate, unfilledDateMarkers } from "./dates";
+import { hasMarkerText, isRealDate, leftoverMarkers, unfilledDateMarkers, unknownMarkerCodes } from "./dates";
 import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, isReservedSegment, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
@@ -469,6 +469,8 @@ function priceCardProblems(c: LandingContent, out: Problem[]) {
 }
 
 /** Date problems: half-filled module dates, and markers or schedule rows that cannot resolve. Reads the real main content. */
+const SETTINGS_TARGET = "__settings__"; // the builder's id for the Page settings panel (same value as page-check.ts)
+
 function dateProblems(c: LandingContent, out: Problem[]) {
   const modules = c.modules ?? [];
   for (const m of modules) {
@@ -476,11 +478,18 @@ function dateProblems(c: LandingContent, out: Problem[]) {
     const e = m.endsOn ?? "";
     if (s === "" && e === "") continue;
     if (!isRealDate(s) || !isRealDate(e) || e < s) {
-      out.push({ message: `${m.title.trim() === "" ? m.key : m.title}: the end date is before the start date, or one date is missing.` });
+      out.push({ message: `${m.title.trim() === "" ? m.key : m.title}: the end date is before the start date, or one date is missing.`, sectionId: SETTINGS_TARGET });
     }
   }
   const seen = new Set<string>();
-  const refs: (string | null)[] = [null, ...modules.filter((m) => isRealDate(m.startsOn ?? "") && isRealDate(m.endsOn ?? "")).map((m) => m.key)];
+  for (const u of unknownMarkerCodes(c)) {
+    out.push({ message: `A box uses {${u.kind}:${u.code}} but no module has the code ${u.code}.`, sectionId: u.sectionId });
+    seen.add(u.sectionId);
+  }
+  for (const l of leftoverMarkers(c)) {
+    out.push({ message: `A box has a date marker that is not spelled right: ${l.fragment}. Use {dates}, {weekdays}, {dates:module-code} or {weekdays:module-code}.`, sectionId: l.sectionId });
+  }
+  const refs: (string | null)[] = [null, ...modules.map((m) => m.key)];
   for (const ref of refs) {
     for (const u of unfilledDateMarkers(c, ref)) {
       if (seen.has(u.sectionId)) continue;
@@ -504,6 +513,9 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   const slug = validateSlug(page.slug);
   if (!slug.ok) problems.push({ message: slug.message });
   if (c.seo.description.trim() === "") problems.push({ message: "Add a short description for Google and WhatsApp previews (Page settings)." });
+  if ([c.seo.title, c.seo.description, c.seo.ogImage].some((t) => typeof t === "string" && hasMarkerText(t))) {
+    problems.push({ message: "Date markers work only inside page sections, not in the page title or description. Type the text without the marker.", sectionId: SETTINGS_TARGET });
+  }
   if (c.registration.enabled) {
     // The built-in registration form replaces the external Register link.
     for (const p of registrationProblems(c.registration)) problems.push({ message: p.message, sectionId: registrationTarget(p.step) });

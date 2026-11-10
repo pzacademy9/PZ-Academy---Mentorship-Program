@@ -22,6 +22,7 @@ export const TEMPLATES: TemplateInfo[] = DEFS.map(({ id, kind, label, descriptio
 
 function fresh(c: LandingContent): LandingContent {
   const copy = structuredClone(c);
+  copy.settings.countdownFollowsEarlyBird = true;
   const ids = new Map<string, string>();
   copy.sections = copy.sections.map((s) => {
     const id = globalThis.crypto.randomUUID();
