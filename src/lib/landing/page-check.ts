@@ -162,7 +162,7 @@ function dateChecks(c: LandingContent): PageCheck[] {
       sectionId: SETTINGS_TARGET,
     });
   }
-  if (c.settings.countdownFollowsEarlyBird === true && c.registration.earlyBirdEndsAt.trim() === "") {
+  if (c.settings.countdownFollowsEarlyBird === true && c.registration.earlyBirdEndsAt.trim() === "" && c.settings.countdownLabel.trim() !== "") {
     out.push({
       id: "countdown-follows",
       title: "The countdown has no Early Bird end to follow",
