@@ -32,6 +32,12 @@ export interface LandingSettings {
   terms?: string;
   /** Soft shadows behind boxes on the public page. Default true; false turns them all off. */
   boxShadows?: boolean;
+  /** First day of the whole event, "YYYY-MM-DD", or ""/omitted. */
+  eventStartsOn?: string;
+  /** Last day of the whole event, "YYYY-MM-DD", or ""/omitted. */
+  eventEndsOn?: string;
+  /** When true the countdown follows the Early Bird deadline. */
+  countdownFollowsEarlyBird?: boolean;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -60,7 +66,7 @@ export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
 };
 
 const DEFAULT_SETTINGS: LandingSettings = {
-  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true, terms: "",
+  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true, terms: "", countdownFollowsEarlyBird: false,
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
@@ -73,6 +79,8 @@ const moduleSchema = z.object({
   format: z.string().max(60),
   days: z.number().int().min(0).max(60),
   optionKey: z.string().max(32),
+  startsOn: z.string().max(10).optional(),
+  endsOn: z.string().max(10).optional(),
 });
 
 export const contentSchema = z
@@ -88,6 +96,9 @@ export const contentSchema = z
       batchStartsOn: z.string().max(40).optional(),
       terms: z.string().max(20000).optional(),
       boxShadows: z.boolean().optional(),
+      eventStartsOn: z.string().max(10).optional(),
+      eventEndsOn: z.string().max(10).optional(),
+      countdownFollowsEarlyBird: z.boolean().optional(),
     }),
     seo: z.object({
       title: z.string().max(120),
@@ -117,13 +128,21 @@ export const contentSchema = z
     });
   });
 
+/** A real calendar date written "YYYY-MM-DD", else "". */
+function realDateOrEmpty(v: unknown): string {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+  const t = Date.parse(`${v}T00:00:00Z`);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toISOString().slice(0, 10) === v ? v : "";
+}
+
 function normalizeModules(raw: unknown): ModuleDef[] {
   const out: ModuleDef[] = [];
   for (const m of Array.isArray(raw) ? raw : []) {
     if (!isRecord(m) || typeof m.key !== "string" || !MODULE_KEY_RE.test(m.key) || m.key.length > 40) continue;
     if (out.some((x) => x.key === m.key)) continue;
     const days = typeof m.days === "number" && Number.isFinite(m.days) ? Math.min(60, Math.max(0, Math.round(m.days))) : 0;
-    out.push({ key: m.key, title: str(m.title, "", 120), format: str(m.format, "", 60), days, optionKey: str(m.optionKey, "", 32) });
+    out.push({ key: m.key, title: str(m.title, "", 120), format: str(m.format, "", 60), days, optionKey: str(m.optionKey, "", 32), startsOn: realDateOrEmpty(m.startsOn), endsOn: realDateOrEmpty(m.endsOn) });
     if (out.length >= MAX_MODULES) break;
   }
   return out;
@@ -151,6 +170,9 @@ export function normalizeContent(raw: unknown): LandingContent {
     showCreateAccount: typeof s.showCreateAccount === "boolean" ? s.showCreateAccount : true,
     terms: str(s.terms, "", 20000),
     boxShadows: typeof s.boxShadows === "boolean" ? s.boxShadows : true,
+    eventStartsOn: realDateOrEmpty(s.eventStartsOn),
+    eventEndsOn: realDateOrEmpty(s.eventEndsOn),
+    countdownFollowsEarlyBird: s.countdownFollowsEarlyBird === true,
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),
@@ -180,7 +202,7 @@ export function newSection(type: SectionType, id: string = newId()): LandingSect
 
 export function emptyContent(kind: PageKind): LandingContent {
   return {
-    settings: { ...DEFAULT_SETTINGS },
+    settings: { ...DEFAULT_SETTINGS, countdownFollowsEarlyBird: true },
     seo: { ...DEFAULT_SEO },
     sections: KIND_SECTIONS[kind].map((t) => newSection(t)),
     needsReview: [],

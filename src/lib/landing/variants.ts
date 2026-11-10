@@ -13,6 +13,10 @@ export interface ModuleDef {
   days: number;
   /** The registration.options[].key (kind "module") that sells this module; "" until linked. */
   optionKey: string;
+  /** First day of this module, "YYYY-MM-DD", or ""/omitted. */
+  startsOn?: string;
+  /** Last day of this module, "YYYY-MM-DD", or ""/omitted. */
+  endsOn?: string;
 }
 
 export const MODULE_KEY_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
