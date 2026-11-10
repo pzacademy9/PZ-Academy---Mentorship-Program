@@ -142,3 +142,29 @@ describe("unfilledDateMarkers", () => {
     expect(unfilledDateMarkers(c, null).map((l) => l.sectionId)).toContain(c.sections.find((s) => s.type === "schedule")!.id);
   });
 });
+
+describe("backwards ranges count as not set", () => {
+  it("returns null for a module or event range ending before it starts", () => {
+    const c = build();
+    c.modules[0] = { ...c.modules[0], startsOn: "2026-11-29", endsOn: "2026-11-27" };
+    expect(datesFor(c, "module-1")).toBeNull();
+    const e = build({ modules: false });
+    e.settings.eventStartsOn = "2026-12-03";
+    e.settings.eventEndsOn = "2026-12-01";
+    expect(datesFor(e, null)).toBeNull();
+  });
+  it("never prints a backwards range", () => {
+    expect(formatDateRange("2026-11-29", "2026-11-27")).toBe("");
+    const c = build();
+    c.modules[0] = { ...c.modules[0], startsOn: "2026-11-29", endsOn: "2026-11-27" };
+    expect(hero(applyAutoDates(c, { moduleKey: "module-1" })).data.dateLine).toBe("");
+  });
+  it("resolves the keyed bracket form and drops empty brackets", () => {
+    const c = build();
+    c.sections = c.sections.map((s) => (s.type === "curriculum" ? { ...s, data: { items: [{ title: "{dates:module-2} ({weekdays:module-2})" }] } } : s));
+    const title = (x: LandingContent) => (x.sections.find((s) => s.type === "curriculum")!.data.items as { title: string }[])[0].title;
+    expect(title(applyAutoDates(c, { moduleKey: null }))).toBe("4 – 6 Dec 2026 (Fri, Sat & Sun)");
+    c.modules[1] = { ...c.modules[1], startsOn: "2026-12-01", endsOn: "2026-12-10" };
+    expect(title(applyAutoDates(c, { moduleKey: null }))).toBe("1 – 10 Dec 2026");
+  });
+});

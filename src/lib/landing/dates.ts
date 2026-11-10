@@ -32,7 +32,7 @@ export function isRealDate(v: string): boolean {
 export function formatDateRange(start: string, end: string): string {
   const a = parse(start);
   const b = parse(end);
-  if (!a || !b) return "";
+  if (!a || !b || b.t < a.t) return "";
   if (a.t === b.t) return `${a.d} ${MONTHS[a.m - 1]} ${a.y}`;
   if (a.y === b.y && a.m === b.m) return `${a.d} – ${b.d} ${MONTHS[b.m - 1]} ${b.y}`;
   if (a.y === b.y) return `${a.d} ${MONTHS[a.m - 1]} – ${b.d} ${MONTHS[b.m - 1]} ${b.y}`;
@@ -58,6 +58,7 @@ export function weekdayText(ranges: Range[]): string {
 function moduleRange(c: LandingContent, key: string): Range | null {
   const m = c.modules.find((x) => x.key === key);
   if (!m || !m.startsOn || !m.endsOn || !isRealDate(m.startsOn) || !isRealDate(m.endsOn)) return null;
+  if (m.endsOn < m.startsOn) return null;
   return { start: m.startsOn, end: m.endsOn };
 }
 
@@ -81,7 +82,7 @@ export function datesFor(c: LandingContent, moduleKey: string | null): Range | n
   }
   const s = c.settings.eventStartsOn ?? "";
   const e = c.settings.eventEndsOn ?? "";
-  return isRealDate(s) && isRealDate(e) ? { start: s, end: e } : null;
+  return isRealDate(s) && isRealDate(e) && e >= s ? { start: s, end: e } : null;
 }
 
 /** Weekday ranges for a marker: one module, every module with dates, or the whole-page range. */
