@@ -461,9 +461,34 @@ describe("PageSettingsPanel Dates box and countdown switch", () => {
     const sw = screen.getByRole("switch", { name: "Count down to the Early Bird end" });
     expect(sw.getAttribute("aria-checked")).toBe("true");
     expect(screen.queryByLabelText("Countdown ends (Pakistan time)")).toBeNull();
-    expect(screen.getByText(/Follows the Early Bird end: 2026-10-15T19:30/)).toBeTruthy();
+    expect(screen.getByText(/Follows the Early Bird end: 15 Oct 2026, 7:30 PM \(Pakistan time\)/)).toBeTruthy();
     fireEvent.click(sw);
     expect(onSettings).toHaveBeenLastCalledWith({ countdownFollowsEarlyBird: false });
+  });
+  it("formats a morning Early Bird time", () => {
+    mount({ over: { countdownFollowsEarlyBird: true }, earlyBird: "2026-10-15T04:05:00.000Z" });
+    expect(screen.getByText("Follows the Early Bird end: 15 Oct 2026, 9:05 AM (Pakistan time)")).toBeTruthy();
+  });
+  it("shows the Event row when the modules list is empty, and the hero button works from event dates", () => {
+    const onSettings = vi.fn();
+    const onHeroDateLine = vi.fn();
+    render(
+      <PageSettingsPanel
+        settings={{ ...base.settings, eventStartsOn: "2026-12-01", eventEndsOn: "2026-12-03" }}
+        seo={base.seo}
+        onSettings={onSettings}
+        onSeo={() => {}}
+        registration={base.registration}
+        modules={{ modules: [], registration: base.registration, slug: "x", lockedKeys: [], onModules: () => {}, onRename: () => {} }}
+        onHeroDateLine={onHeroDateLine}
+      />,
+    );
+    expect(screen.getByLabelText("Event starts")).toBeTruthy();
+    expect(screen.queryByLabelText("Module A starts")).toBeNull();
+    const btn = screen.getByRole("button", { name: "Use automatic dates in the hero" }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    fireEvent.click(btn);
+    expect(onHeroDateLine).toHaveBeenCalledWith("1 – 3 Dec 2026 (Tue, Wed & Thu)");
   });
   it("says not set yet when the Early Bird end is empty", () => {
     mount({ over: { countdownFollowsEarlyBird: true } });

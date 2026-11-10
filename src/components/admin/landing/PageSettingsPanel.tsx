@@ -31,6 +31,18 @@ function isoToPkt(iso: string): string {
   return new Date(t + PKT_OFFSET_MS).toISOString().slice(0, 16);
 }
 
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Stored ISO instant -> "15 Oct 2026, 7:30 PM (Pakistan time)", or "". */
+function pktLabel(iso: string): string {
+  const v = isoToPkt(iso);
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(v);
+  if (!m) return "";
+  const h = Number(m[4]);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${Number(m[3])} ${SHORT_MONTHS[Number(m[2]) - 1]} ${m[1]}, ${h12}:${m[5]} ${h >= 12 ? "PM" : "AM"} (Pakistan time)`;
+}
+
 /** datetime-local value (read as Pakistan time, UTC+5, no daylight saving) -> ISO instant, or "". */
 function pktToIso(local: string): string {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local)) return "";
@@ -93,7 +105,7 @@ export function PageSettingsPanel({
   const countdownId = useId();
   const batchStartId = useId();
   const followId = useId();
-  const dateRows: { key: string; title: string; start: string; end: string; set: (patch: { start?: string; end?: string }) => void }[] = modules
+  const dateRows: { key: string; title: string; start: string; end: string; set: (patch: { start?: string; end?: string }) => void }[] = modules && modules.modules.length > 0
     ? modules.modules.map((m, i) => ({
         key: m.key, title: m.title || `Module ${i + 1}`, start: m.startsOn ?? "", end: m.endsOn ?? "",
         set: (patch) => modules.onModules(modules.modules.map((x, j) => (j === i ? {
@@ -119,7 +131,7 @@ export function PageSettingsPanel({
     return weekdays ? `${dates} (${weekdays})` : dates;
   })();
   const followsEarlyBird = settings.countdownFollowsEarlyBird === true;
-  const earlyBirdText = registration?.earlyBirdEndsAt ? isoToPkt(registration.earlyBirdEndsAt) : "";
+  const earlyBirdText = registration?.earlyBirdEndsAt ? pktLabel(registration.earlyBirdEndsAt) : "";
   const cardTitle = seo.title || pageTitle || "";
   const st = statuses ?? READY_ALL;
   const toRegistrationStep = (step: RegistrationStepKey) => {
