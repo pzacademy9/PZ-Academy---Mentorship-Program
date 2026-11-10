@@ -88,7 +88,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     ],
     notes: [
       "A course has modules. List every module in modules, with one option per module (kind: module) and one for the full course (kind: bundle), each module pointing to its option. If students may mix modules, enable module_mix with the full-course option as bundle. Give each module a real name as its title (like \"Therapeutics\"), never just \"Module 1\": a module's own link shows it to visitors.",
-      "In the outline write one entry per module, titled \"Module N: name\", with that module's days as \"- Day N: topic\" lines in its points. Each module's days are numbered from Day 1; the outline holds no typed dates. A schedule row for a module has an empty when and that module's code.",
+      "In the outline write one entry per module, titled \"Module N: name\", with that module's days as \"- Day N: topic\" lines in its points. Each module's days are numbered from Day 1; the outline holds no typed dates. A schedule row for a module has an empty when and its module code.",
       "Give each module link its own hero_title (for example \"Therapeutics\") when the teammate wants one; ask. If the document is silent on mixing modules or on which links to switch on, leave module_mix and links out; list them under \"Please check\".",
       "Add video reviews or testimonials only if the teammate gives real YouTube links or quotes.",
     ],
@@ -392,7 +392,7 @@ ${FENCE}
 
 Rules for that top part:
 - Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals. Write group_totals (the total for the whole group, not per person; early_group_totals for the Early Bird price) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" write only min: N (no max). Write percent_off whenever a percentage is stated (totals apply only to Live, single-option purchases). Whole numbers only.
-- Dates are YYYY-MM-DD, both or neither: ${kind === "course" ? "starts: and ends: on each module line (event_starts and event_ends in settings if no modules)" : "event_starts and event_ends in settings"}. In text write {dates} and {weekdays}${kind === "course" ? " ({dates:module-1})" : ""}, never a typed date.
+- If a module's or the event's dates are not in the document, leave them out and list them under "Please check". Dates: YYYY-MM-DD, both or neither: ${kind === "course" ? "starts: and ends: on each module line (no modules: event_starts and event_ends in settings)" : "event_starts and event_ends in settings"}. In text write {dates} and {weekdays}${kind === "course" ? " ({dates:module-1})" : ""}, never typed dates.
 - Country codes: 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
 - Every country used in prices or links must be in regions; every option in prices must be in options.${hasModules ? " Every module's option must be in options." : ""}
 - Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone; list it under "Please check before publishing".

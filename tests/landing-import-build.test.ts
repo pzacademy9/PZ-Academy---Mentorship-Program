@@ -325,3 +325,34 @@ describe("buildImport dates", () => {
     expect(r).toContain(`${id("schedule")}:items.2.when`);
   });
 });
+
+describe("buildImport missing-date notices", () => {
+  const MOD = "Some modules have no dates";
+  const EVT = "This page has no event dates";
+  const hero = sec("hero", "headline: Hi\ndateLine: \"{dates} ({weekdays})\"");
+  const msgs = (raw: string) => ok(raw).warnings.map((w) => w.message).join(" | ");
+  it("warns when modules have no dates and the hero uses {dates}", () => {
+    expect(msgs(file(FRONT, hero))).toContain(MOD);
+  });
+  it("gives neither notice when every module has dates", () => {
+    const front = FRONT
+      .replace("days: 3, option: m1 }", "days: 3, option: m1, starts: 2026-11-27, ends: 2026-11-29 }")
+      .replace("days: 3, option: m2 }", "days: 3, option: m2, starts: 2026-12-04, ends: 2026-12-06 }");
+    const m = msgs(file(front, hero));
+    expect(m).not.toContain(MOD);
+    expect(m).not.toContain(EVT);
+  });
+  it("warns when a module schedule row has an empty when and the module has no dates", () => {
+    expect(msgs(file(FRONT, sec("schedule", "items:\n  - { when: '', title: A, module: module-1 }")))).toContain(MOD);
+  });
+  it("warns when a page with no modules uses {dates} and has no event dates", () => {
+    expect(msgs(file(noModules(), hero))).toContain(EVT);
+    expect(msgs(file(noModules("settings:\n  event_starts: 2026-11-27\n  event_ends: 2026-11-29\n"), hero))).not.toContain(EVT);
+  });
+  it("adds nothing for a file with no markers and no dates", () => {
+    const m = msgs(file(FRONT, sec("hero", "headline: Hi\ndateLine: Fri 7 PM")));
+    expect(m).not.toContain(MOD);
+    expect(m).not.toContain(EVT);
+    expect(msgs(file(noModules()))).not.toContain(EVT);
+  });
+});

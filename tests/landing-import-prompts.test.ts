@@ -240,3 +240,9 @@ describe("masterPrompt dates", () => {
     expect(r.built.content.modules[0].startsOn).toBe("2026-11-15");
   });
 });
+
+describe("masterPrompt missing dates", () => {
+  it("tells the AI to list missing dates under Please check", () => {
+    for (const kind of KINDS) expect(masterPrompt(kind)).toContain(`dates are not in the document, leave them out and list them under "Please check"`);
+  });
+});

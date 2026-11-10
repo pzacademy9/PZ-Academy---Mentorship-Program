@@ -160,6 +160,16 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
   content.needsReview = review;
 
   // ---- warnings about gaps
+  // A date line or schedule row that needs dates the file did not give: say so, since publishing will be blocked.
+  const needsDates = JSON.stringify(content.sections).includes("{dates") || JSON.stringify(content.sections).includes("{weekdays")
+    || content.sections.some((s) => s.type === "schedule" && (s.data.items as Rec[]).some((it) => text(it.module) !== "" && text(it.when) === ""));
+  if (needsDates) {
+    if (content.modules.length > 0 && content.modules.some((m) => !m.startsOn || !m.endsOn)) {
+      warn("Some modules have no dates, so the date line cannot be filled in. Add dates to each module before publishing.");
+    } else if (content.modules.length === 0 && !content.settings.eventStartsOn) {
+      warn("This page has no event dates, so the date line cannot be filled in. Add the event dates before publishing.");
+    }
+  }
   const schedule = content.sections.find((s) => s.type === "schedule");
   if (schedule && schedule.enabled) {
     const dated = new Set(((schedule.data.items as Rec[]) ?? []).map((it) => text(it.module)));
