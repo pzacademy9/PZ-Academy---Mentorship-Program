@@ -16,6 +16,7 @@ const B = "https://chat.whatsapp.com/BBBBBBBBBB";
 function content(a: string, b: string): LandingContent {
   const c = emptyContent("course");
   c.seo.description = "A short description.";
+  c.settings.countdownFollowsEarlyBird = false;
   c.settings.registerUrl = "https://example.com/register";
   c.sections = [{ id: "s1", type: "rich_text", enabled: true, data: { heading: "About", body: "Some text." } }];
   c.registration = {
