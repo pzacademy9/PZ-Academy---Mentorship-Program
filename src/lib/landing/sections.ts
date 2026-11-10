@@ -175,7 +175,7 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [
       text("heading", "Heading", { defaultValue: "Schedule" }),
       list("items", "Entries", [
-        text("when", "When", { required: true, max: 80, example: "Fri 30 Oct · 7:30 PM" }),
+        text("when", "When", { max: 80, example: "Fri 30 Oct · 7:30 PM" }),
         text("title", "What", { required: true, max: 120 }),
         text("detail", "Extra detail (optional)", { max: 300 }),
       ], { required: true, itemLabel: "Entry", maxItems: 30 }),

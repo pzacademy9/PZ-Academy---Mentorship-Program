@@ -3,6 +3,7 @@
 // No server imports. The builder shows the results; publish is blocked by failures and asks
 // for confirmation on warnings.
 import type { LandingContent } from "./content";
+import { isRealDate } from "./dates";
 import { isHttpsUrl } from "./simple-text";
 import { resolveVariant, emptyOverrides } from "./resolve-variant";
 import { isValidWaGroupUrl, selectWaGroups } from "./registration/wa-groups";
@@ -142,11 +143,43 @@ function moduleChecks(c: LandingContent): PageCheck[] {
   return out;
 }
 
+const DAY_MS = 86_400_000;
+
+/** Date warnings. They do not need the registration form, so they run for every page. */
+function dateChecks(c: LandingContent): PageCheck[] {
+  const out: PageCheck[] = [];
+  for (const m of c.modules ?? []) {
+    const s = m.startsOn ?? "";
+    const e = m.endsOn ?? "";
+    if (!isRealDate(s) || !isRealDate(e) || e < s) continue;
+    const covered = Math.round((Date.parse(`${e}T00:00:00Z`) - Date.parse(`${s}T00:00:00Z`)) / DAY_MS) + 1;
+    if (covered === m.days) continue;
+    out.push({
+      id: `module-days-${m.key}`,
+      title: `${m.title}: the dates and the day count differ`,
+      status: "warn",
+      detail: `${m.title} has ${m.days} days but the dates cover ${covered} days.`,
+      sectionId: SETTINGS_TARGET,
+    });
+  }
+  if (c.settings.countdownFollowsEarlyBird === true && c.registration.earlyBirdEndsAt.trim() === "") {
+    out.push({
+      id: "countdown-follows",
+      title: "The countdown has no Early Bird end to follow",
+      status: "warn",
+      detail: "The countdown follows Early Bird, but no Early Bird end is set, so no countdown shows.",
+      sectionId: SETTINGS_TARGET,
+    });
+  }
+  return out;
+}
+
 export function runPageChecks(c: LandingContent, ctx: { hasCourse: boolean }): PageCheck[] {
   const r = c.registration;
-  if (!r.enabled) return [];
+  const dates = dateChecks(c);
+  if (!r.enabled) return dates;
   const checks: PageCheck[] = [liveGroups(r), sharedGroups(r), recordedNoGroup(r)];
   if (r.modes.includes("recorded")) checks.push(recordedPortal(c, ctx));
-  checks.push(...countryChecks(c), ...moduleChecks(c));
+  checks.push(...countryChecks(c), ...moduleChecks(c), ...dates);
   return checks;
 }

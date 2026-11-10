@@ -11,6 +11,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
+import { isRealDate, unfilledDateMarkers } from "./dates";
 import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, isReservedSegment, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
@@ -467,6 +468,36 @@ function priceCardProblems(c: LandingContent, out: Problem[]) {
   }
 }
 
+/** Date problems: half-filled module dates, and markers or schedule rows that cannot resolve. Reads the real main content. */
+function dateProblems(c: LandingContent, out: Problem[]) {
+  const modules = c.modules ?? [];
+  for (const m of modules) {
+    const s = m.startsOn ?? "";
+    const e = m.endsOn ?? "";
+    if (s === "" && e === "") continue;
+    if (!isRealDate(s) || !isRealDate(e) || e < s) {
+      out.push({ message: `${m.title.trim() === "" ? m.key : m.title}: the end date is before the start date, or one date is missing.` });
+    }
+  }
+  const seen = new Set<string>();
+  const refs: (string | null)[] = [null, ...modules.filter((m) => isRealDate(m.startsOn ?? "") && isRealDate(m.endsOn ?? "")).map((m) => m.key)];
+  for (const ref of refs) {
+    for (const u of unfilledDateMarkers(c, ref)) {
+      if (seen.has(u.sectionId)) continue;
+      seen.add(u.sectionId);
+      out.push({ message: `"${u.sectionLabel}" uses {dates} or {weekdays}, but no dates are set. Fill the Dates box in Page settings.`, sectionId: u.sectionId });
+    }
+  }
+  for (const s of c.sections) {
+    if (!s.enabled || s.type !== "schedule" || !Array.isArray(s.data.items)) continue;
+    (s.data.items as Record<string, unknown>[]).forEach((row, n) => {
+      if (isBlank(row.when) && isBlank(row.module)) {
+        out.push({ message: "A schedule row has no date. Type one, or link the row to a module that has dates.", sectionId: s.id, field: `items.${n}.when` });
+      }
+    });
+  }
+}
+
 export function computeReadiness(c: LandingContent, page: { title: string; slug: string }): { ready: boolean; problems: Problem[] } {
   const problems: Problem[] = [];
   if (page.title.trim() === "") problems.push({ message: "Give the page a name." });
@@ -493,6 +524,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   reviewProblems(c, problems);
   moduleProblems(c, problems);
   priceCardProblems(c, problems);
+  dateProblems(c, problems);
   return { ready: problems.length === 0, problems };
 }
 
