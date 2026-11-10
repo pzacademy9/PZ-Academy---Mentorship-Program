@@ -488,7 +488,7 @@ describe("PageSettingsPanel Dates box and countdown switch", () => {
     const btn = screen.getByRole("button", { name: "Use automatic dates in the hero" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
     fireEvent.click(btn);
-    expect(onHeroDateLine).toHaveBeenCalledWith("1 – 3 Dec 2026 (Tue, Wed & Thu)");
+    expect(onHeroDateLine).toHaveBeenCalledWith("{dates} ({weekdays})");
   });
   it("says not set yet when the Early Bird end is empty", () => {
     mount({ over: { countdownFollowsEarlyBird: true } });
@@ -502,7 +502,7 @@ describe("PageSettingsPanel Dates box and countdown switch", () => {
   it("the hero button sends the automatic date line, and is hidden without the prop", () => {
     const { onHeroDateLine } = mount();
     fireEvent.click(screen.getByRole("button", { name: "Use automatic dates in the hero" }));
-    expect(onHeroDateLine).toHaveBeenCalledWith("4 – 6 Nov 2026 (Wed, Thu & Fri)");
+    expect(onHeroDateLine).toHaveBeenCalledWith("{dates} ({weekdays})");
   });
   it("hides the hero button when no handler is passed", () => {
     mount({ hero: false });

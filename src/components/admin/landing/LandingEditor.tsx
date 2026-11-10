@@ -470,7 +470,12 @@ function EditorShell({
   /** The main page's hero, so Page settings can write its date line (main page only). */
   const heroSection = content.sections.find((x) => x.type === "hero");
   const setHeroDateLine = heroSection
-    ? (text: string) => apply(updateSectionData(contentRef.current, heroSection.id, { ...heroSection.data, dateLine: text }))
+    ? (text: string) => {
+        const latest = contentRef.current;
+        const hero = latest.sections.find((x) => x.id === heroSection.id);
+        if (!hero) return;
+        apply(updateSectionData(latest, hero.id, { ...hero.data, dateLine: text }));
+      }
     : undefined;
 
   const slotProps = {

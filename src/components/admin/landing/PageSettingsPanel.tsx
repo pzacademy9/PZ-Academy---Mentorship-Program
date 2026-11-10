@@ -255,7 +255,7 @@ export function PageSettingsPanel({
             <button
               type="button"
               disabled={heroLine === ""}
-              onClick={() => onHeroDateLine(heroLine)}
+              onClick={() => onHeroDateLine("{dates} ({weekdays})")}
               className="rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-semibold text-pz-primary hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 max-md:min-h-11"
             >
               Use automatic dates in the hero
