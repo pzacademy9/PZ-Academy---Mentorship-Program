@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { LandingSeo, LandingSettings } from "@/lib/landing/content";
 import type { FieldDef } from "@/lib/landing/sections";
+import { formatDateRange, isRealDate, weekdayText } from "@/lib/landing/dates";
 import type { RegistrationConfig } from "@/lib/landing/registration/config";
 import type { RegistrationStepKey } from "@/lib/landing/registration/setup-steps";
 import Link from "next/link";
@@ -37,6 +38,14 @@ function pktToIso(local: string): string {
   return Number.isNaN(t) ? "" : new Date(t).toISOString();
 }
 
+const DAY_MS = 86_400_000;
+const DATE_INPUT_CLASS = "h-auto w-full rounded-md border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2 font-body text-sm text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11 max-md:text-base";
+
+function daysBetween(start: string, end: string): number | null {
+  if (!isRealDate(start) || !isRealDate(end) || end < start) return null;
+  return Math.round((Date.parse(end) - Date.parse(start)) / DAY_MS) + 1;
+}
+
 const text = (key: string, label: string, o: Partial<FieldDef> = {}): FieldDef => ({ key, label, kind: "text", ...o });
 
 const BUTTON_ACTION = text("registerUrl", "What the button does", { kind: "url", help: "The link the button opens, for example your registration form. Starts with https://" });
@@ -52,8 +61,10 @@ const SEO_IMAGE: FieldDef = { key: "ogImage", label: "Share image", kind: "image
 export function PageSettingsPanel({
   settings, seo, slug, pageTitle, onSettings, onSeo,
   registration, registrationStep, onRegistrationStep, onRegistration, modules, courseModules, saveMessage, children,
-  hasCourse = false, courseTitle = null, statuses,
+  hasCourse = false, courseTitle = null, statuses, onHeroDateLine,
 }: {
+  /** Sends the automatic date line to the main hero; the button is hidden when this is omitted. */
+  onHeroDateLine?: (text: string) => void;
   /** Ready / Needs attention for each card; omitted = all ready. */
   statuses?: Record<SettingsCardId, CardStatus>;
   /** Whether the page is linked to a course (recorded students then open that course's portal). */
@@ -81,6 +92,34 @@ export function PageSettingsPanel({
 }) {
   const countdownId = useId();
   const batchStartId = useId();
+  const followId = useId();
+  const dateRows: { key: string; title: string; start: string; end: string; set: (patch: { start?: string; end?: string }) => void }[] = modules
+    ? modules.modules.map((m, i) => ({
+        key: m.key, title: m.title || `Module ${i + 1}`, start: m.startsOn ?? "", end: m.endsOn ?? "",
+        set: (patch) => modules.onModules(modules.modules.map((x, j) => (j === i ? {
+          ...x,
+          ...(patch.start !== undefined ? { startsOn: patch.start } : {}),
+          ...(patch.end !== undefined ? { endsOn: patch.end } : {}),
+        } : x))),
+      }))
+    : [{
+        key: "event", title: "Event", start: settings.eventStartsOn ?? "", end: settings.eventEndsOn ?? "",
+        set: (patch) => onSettings({
+          ...(patch.start !== undefined ? { eventStartsOn: patch.start } : {}),
+          ...(patch.end !== undefined ? { eventEndsOn: patch.end } : {}),
+        }),
+      }];
+  const validRanges = dateRows.filter((r) => daysBetween(r.start, r.end) !== null).map((r) => ({ start: r.start, end: r.end }));
+  const heroLine = (() => {
+    if (validRanges.length === 0) return "";
+    const start = validRanges.reduce((a, r) => (r.start < a ? r.start : a), validRanges[0].start);
+    const end = validRanges.reduce((a, r) => (r.end > a ? r.end : a), validRanges[0].end);
+    const weekdays = weekdayText(validRanges);
+    const dates = formatDateRange(start, end);
+    return weekdays ? `${dates} (${weekdays})` : dates;
+  })();
+  const followsEarlyBird = settings.countdownFollowsEarlyBird === true;
+  const earlyBirdText = registration?.earlyBirdEndsAt ? isoToPkt(registration.earlyBirdEndsAt) : "";
   const cardTitle = seo.title || pageTitle || "";
   const st = statuses ?? READY_ALL;
   const toRegistrationStep = (step: RegistrationStepKey) => {
@@ -174,17 +213,79 @@ export function PageSettingsPanel({
 
       <StepCard number={5} title="Countdown and start date" blurb="Optional. A strip at the top of the page and the start date on the website." status={st.dates}>
         <FieldInput field={COUNTDOWN_LABEL} value={settings.countdownLabel} onChange={(v) => onSettings({ countdownLabel: String(v) })} />
-        <div className="space-y-1.5">
-          <label htmlFor={countdownId} className="font-body text-sm font-semibold text-pz-on-surface">Countdown ends (Pakistan time)</label>
-          <p className="font-body text-xs text-pz-on-surface-variant">The strip counts down to this moment. Clear it to hide the countdown.</p>
-          <Input
-            id={countdownId}
-            type="datetime-local"
-            value={isoToPkt(settings.countdownTo)}
-            onChange={(e) => onSettings({ countdownTo: pktToIso(e.target.value) })}
-            className="h-auto w-full rounded-md border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2 font-body text-sm text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11 max-md:text-base"
-          />
+        <div className="space-y-3 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-3">
+          <p className="font-headline text-sm font-bold text-pz-on-surface">Dates</p>
+          <ul className="space-y-3">
+            {dateRows.map((r) => {
+              const n = daysBetween(r.start, r.end);
+              const startId = `${followId}-${r.key}-s`;
+              const endId = `${followId}-${r.key}-e`;
+              return (
+                <li key={r.key} className="space-y-1.5">
+                  <p className="font-body text-sm font-semibold text-pz-on-surface">{r.title}</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label htmlFor={startId} className="font-body text-xs text-pz-on-surface-variant">Start date</label>
+                      <Input id={startId} type="date" aria-label={`${r.title} starts`} value={r.start} onChange={(e) => r.set({ start: e.target.value })} className={DATE_INPUT_CLASS} />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor={endId} className="font-body text-xs text-pz-on-surface-variant">End date</label>
+                      <Input id={endId} type="date" aria-label={`${r.title} ends`} min={r.start || undefined} value={r.end} onChange={(e) => r.set({ end: e.target.value })} className={DATE_INPUT_CLASS} />
+                    </div>
+                  </div>
+                  {n !== null && <p className="font-body text-xs text-pz-on-surface-variant">{n} {n === 1 ? "day" : "days"}</p>}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="font-body text-xs text-pz-on-surface-variant">Hero, Schedule and links follow these dates.</p>
+          {onHeroDateLine && (
+            <button
+              type="button"
+              disabled={heroLine === ""}
+              onClick={() => onHeroDateLine(heroLine)}
+              className="rounded-lg border border-pz-outline-variant px-3 py-1.5 font-body text-xs font-semibold text-pz-primary hover:bg-pz-surface-container-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 max-md:min-h-11"
+            >
+              Use automatic dates in the hero
+            </button>
+          )}
         </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest p-3">
+          <div className="min-w-0">
+            <p className="font-body text-sm font-semibold text-pz-on-surface">Count down to the Early Bird end</p>
+            <p className="font-body text-xs text-pz-on-surface-variant">The strip counts down to the Early Bird end set in Registration setup.</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={followsEarlyBird}
+            aria-label="Count down to the Early Bird end"
+            onClick={() => onSettings({ countdownFollowsEarlyBird: !followsEarlyBird })}
+            className={cn(
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-md:h-8 max-md:w-14",
+              followsEarlyBird ? "bg-pz-solid-forest" : "bg-pz-outline-variant",
+            )}
+          >
+            <span aria-hidden="true" className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-pz-surface-container-lowest shadow transition-transform max-md:h-7 max-md:w-7", followsEarlyBird ? "translate-x-5 max-md:translate-x-6" : "translate-x-0.5")} />
+          </button>
+        </div>
+        {followsEarlyBird ? (
+          <p className="font-body text-sm text-pz-on-surface">Follows the Early Bird end: {earlyBirdText || "not set yet"}</p>
+        ) : (
+          <>
+          <div className="space-y-1.5">
+            <label htmlFor={countdownId} className="font-body text-sm font-semibold text-pz-on-surface">Countdown ends (Pakistan time)</label>
+            <p className="font-body text-xs text-pz-on-surface-variant">The strip counts down to this moment. Clear it to hide the countdown.</p>
+            <Input
+              id={countdownId}
+              type="datetime-local"
+              value={isoToPkt(settings.countdownTo)}
+              onChange={(e) => onSettings({ countdownTo: pktToIso(e.target.value) })}
+              className="h-auto w-full rounded-md border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2 font-body text-sm text-pz-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:min-h-11 max-md:text-base"
+            />
+          </div>
+          </>
+        )}
         <div className="space-y-1.5">
           <label htmlFor={batchStartId} className="font-body text-sm font-semibold text-pz-on-surface">Batch starts (Pakistan time)</label>
           <p className="font-body text-xs text-pz-on-surface-variant">Optional. The website shows &quot;starts &lt;date&gt;&quot; for this course while the page is open. Clear it to hide the date.</p>

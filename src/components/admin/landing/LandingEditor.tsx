@@ -467,6 +467,12 @@ function EditorShell({
     onRename: (from: string, to: string) => apply(renameModule(contentRef.current, from, to)),
   };
 
+  /** The main page's hero, so Page settings can write its date line (main page only). */
+  const heroSection = content.sections.find((x) => x.type === "hero");
+  const setHeroDateLine = heroSection
+    ? (text: string) => apply(updateSectionData(contentRef.current, heroSection.id, { ...heroSection.data, dateLine: text }))
+    : undefined;
+
   const slotProps = {
     page, title, versions, content, saveState: state, saveNow,
     onSelectSection: gotoProblem, serverProblems, onServerProblems: setServerProblems, onRestored: onRestoredClear,
@@ -768,6 +774,7 @@ function EditorShell({
               onRegistrationStep={setRegStep}
               onRegistration={(next) => apply(updateRegistration(contentRef.current, next))}
               modules={modulesProps}
+              onHeroDateLine={setHeroDateLine}
             >
               {content.registration.enabled ? (
                 <RegistrationOpsCard pageId={page.id} slug={page.slug} status={page.status} initialSheetId={sheetId} />

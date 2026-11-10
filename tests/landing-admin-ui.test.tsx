@@ -385,23 +385,103 @@ describe("PageSettingsPanel", () => {
     expect(onSeo).toHaveBeenLastCalledWith({ description: "Short text" });
   });
   it("converts the countdown date (entered in Pakistan time) to an ISO instant, and back", () => {
-    const { onSettings } = setup();
+    const { onSettings } = setup({ countdownFollowsEarlyBird: false });
     fireEvent.change(screen.getByLabelText("Countdown ends (Pakistan time)"), { target: { value: "2026-10-15T19:30" } });
     expect(onSettings).toHaveBeenLastCalledWith({ countdownTo: "2026-10-15T14:30:00.000Z" });
   });
   it("clears the countdown when the date is emptied", () => {
-    const { onSettings } = setup({ countdownTo: "2026-10-15T14:30:00.000Z" });
+    const { onSettings } = setup({ countdownTo: "2026-10-15T14:30:00.000Z", countdownFollowsEarlyBird: false });
     fireEvent.change(screen.getByLabelText("Countdown ends (Pakistan time)"), { target: { value: "" } });
     expect(onSettings).toHaveBeenLastCalledWith({ countdownTo: "" });
   });
   it("shows the stored countdown in Pakistan time", () => {
-    setup({ countdownTo: "2026-10-15T14:30:00.000Z" });
+    setup({ countdownTo: "2026-10-15T14:30:00.000Z", countdownFollowsEarlyBird: false });
     expect((screen.getByLabelText("Countdown ends (Pakistan time)") as HTMLInputElement).value).toBe("2026-10-15T19:30");
   });
   it("flags a bad register link inline without blocking, and previews the share card", () => {
     setup({ registerUrl: "javascript:alert(1)" });
     expect(screen.getByText(/starting with https/i)).toBeTruthy();
     expect(screen.getByText("/e/ppc-b3")).toBeTruthy();
+  });
+});
+
+describe("PageSettingsPanel Dates box and countdown switch", () => {
+  const base = emptyContent("course");
+  const mods = [
+    { key: "a", title: "Module A", format: "", days: 0, optionKey: "", startsOn: "2026-11-04", endsOn: "2026-11-06" },
+    { key: "b", title: "Module B", format: "", days: 0, optionKey: "" },
+  ];
+  const mount = (opts: { over?: Partial<typeof base.settings>; withModules?: boolean; earlyBird?: string; hero?: boolean } = {}) => {
+    const onSettings = vi.fn();
+    const onModules = vi.fn();
+    const onHeroDateLine = vi.fn();
+    render(
+      <PageSettingsPanel
+        settings={{ ...base.settings, ...(opts.over ?? {}) }}
+        seo={base.seo}
+        slug="x"
+        onSettings={onSettings}
+        onSeo={() => {}}
+        registration={{ ...base.registration, earlyBirdEndsAt: opts.earlyBird ?? "" }}
+        modules={opts.withModules === false ? undefined : { modules: mods, registration: base.registration, slug: "x", lockedKeys: [], onModules, onRename: () => {} }}
+        onHeroDateLine={opts.hero === false ? undefined : onHeroDateLine}
+      />,
+    );
+    return { onSettings, onModules, onHeroDateLine };
+  };
+
+  it("shows one Start and End date row per module with a days text", () => {
+    mount();
+    const s = screen.getByLabelText("Module A starts") as HTMLInputElement;
+    expect(s.type).toBe("date");
+    expect(s.value).toBe("2026-11-04");
+    expect((screen.getByLabelText("Module A ends") as HTMLInputElement).min).toBe("2026-11-04");
+    expect(screen.getByLabelText("Module B starts")).toBeTruthy();
+    expect(screen.getByText("3 days")).toBeTruthy();
+    expect(screen.getByText("Hero, Schedule and links follow these dates.")).toBeTruthy();
+  });
+  it("changing a module start date calls onModules with a new array", () => {
+    const { onModules } = mount();
+    fireEvent.change(screen.getByLabelText("Module B starts"), { target: { value: "2026-11-10" } });
+    const next = onModules.mock.calls.at(-1)![0];
+    expect(next).not.toBe(mods);
+    expect(next[1].startsOn).toBe("2026-11-10");
+    expect(next[0].startsOn).toBe("2026-11-04");
+  });
+  it("with no modules shows an Event starts / Event ends pair", () => {
+    const { onSettings } = mount({ withModules: false });
+    expect(screen.queryByLabelText("Module A starts")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Event starts"), { target: { value: "2026-12-01" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ eventStartsOn: "2026-12-01" });
+    fireEvent.change(screen.getByLabelText("Event ends"), { target: { value: "2026-12-03" } });
+    expect(onSettings).toHaveBeenLastCalledWith({ eventEndsOn: "2026-12-03" });
+  });
+  it("the countdown switch hides the Countdown ends input and shows the Early Bird end", () => {
+    const { onSettings } = mount({ over: { countdownFollowsEarlyBird: true }, earlyBird: "2026-10-15T14:30:00.000Z" });
+    const sw = screen.getByRole("switch", { name: "Count down to the Early Bird end" });
+    expect(sw.getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByLabelText("Countdown ends (Pakistan time)")).toBeNull();
+    expect(screen.getByText(/Follows the Early Bird end: 2026-10-15T19:30/)).toBeTruthy();
+    fireEvent.click(sw);
+    expect(onSettings).toHaveBeenLastCalledWith({ countdownFollowsEarlyBird: false });
+  });
+  it("says not set yet when the Early Bird end is empty", () => {
+    mount({ over: { countdownFollowsEarlyBird: true } });
+    expect(screen.getByText("Follows the Early Bird end: not set yet")).toBeTruthy();
+  });
+  it("when the switch is off the Countdown ends input shows", () => {
+    mount({ over: { countdownFollowsEarlyBird: false } });
+    expect(screen.getByRole("switch", { name: "Count down to the Early Bird end" }).getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByLabelText("Countdown ends (Pakistan time)")).toBeTruthy();
+  });
+  it("the hero button sends the automatic date line, and is hidden without the prop", () => {
+    const { onHeroDateLine } = mount();
+    fireEvent.click(screen.getByRole("button", { name: "Use automatic dates in the hero" }));
+    expect(onHeroDateLine).toHaveBeenCalledWith("4 – 6 Nov 2026 (Wed, Thu & Fri)");
+  });
+  it("hides the hero button when no handler is passed", () => {
+    mount({ hero: false });
+    expect(screen.queryByRole("button", { name: "Use automatic dates in the hero" })).toBeNull();
   });
 });
 
