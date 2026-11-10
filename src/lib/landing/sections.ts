@@ -100,7 +100,7 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
       { key: "secondaryCtaSection", label: "Section to go to", kind: "sectionRef", showWhen: { key: "secondaryCtaType", equals: "section" } },
       link("secondaryCtaUrl", "Second button link (optional)", { help: "Starts with https://", showWhen: { key: "secondaryCtaType", equals: "link" } }),
       { key: "secondaryCtaWhatsapp", label: "WhatsApp number", kind: "whatsapp", help: "Digits only, with country code, like 923700199429.", example: "923700199429", showWhen: { key: "secondaryCtaType", equals: "whatsapp" } },
-      text("dateLine", "Date and time line", { example: "Wednesday, 16 September · 7:30 PM PKT", hintLength: 60 }),
+      text("dateLine", "Date and time line", { example: "Wednesday, 16 September · 7:30 PM PKT", hintLength: 60, help: "Type {dates} ({weekdays}) to fill this from the Dates box in Page settings." }),
       list("badges", "Highlights under the buttons", [text("text", "Highlight", { max: 60 })], { itemLabel: "Highlight", maxItems: 6 }),
     ],
   },
@@ -128,8 +128,8 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [
       text("heading", "Heading", { required: true, example: "What you will learn" }),
       list("items", "Modules or days", [
-        text("title", "Title", { required: true, max: 100, example: "Day 1 — Basics" }),
-        text("subtitle", "Small line (optional)", { max: 120 }),
+        text("title", "Title", { required: true, max: 100, example: "Day 1 — Basics", help: "Type {dates} or {weekdays} to fill dates from the Dates box in Page settings." }),
+        text("subtitle", "Small line (optional)", { max: 120, help: "Type {dates} or {weekdays} to fill dates from the Dates box in Page settings." }),
         area("points", "Topics", { max: 1500, help: "One topic per line starting with -. " + MARKUP_HELP }),
       ], { required: true, itemLabel: "Module", maxItems: 20 }),
     ],
@@ -175,7 +175,7 @@ const BASE_SECTION_DEFS: Record<SectionType, SectionDef> = {
     fields: [
       text("heading", "Heading", { defaultValue: "Schedule" }),
       list("items", "Entries", [
-        text("when", "When", { required: true, max: 80, example: "Fri 30 Oct · 7:30 PM" }),
+        text("when", "When", { max: 80, example: "Fri 30 Oct · 7:30 PM", help: "Type {dates} or {weekdays} to fill this from the Dates box in Page settings." }),
         text("title", "What", { required: true, max: 120 }),
         text("detail", "Extra detail (optional)", { max: 300 }),
       ], { required: true, itemLabel: "Entry", maxItems: 30 }),

@@ -36,6 +36,7 @@ import { StatusBadge } from "./StatusBadge";
 import type { LandingVariant } from "@/lib/data/landing-variants";
 import { buildVariantGrid, type VariantGridRow } from "@/lib/landing/variant-grid";
 import { findOrphans, resolveVariant } from "@/lib/landing/resolve-variant";
+import { applyAutoDates } from "@/lib/landing/dates";
 import { VariantSwitcher } from "./variants/VariantSwitcher";
 import { LinksPanel } from "./variants/LinksPanel";
 import { LinkPublishSlot, MAIN_FIRST } from "./variants/LinkPublishSlot";
@@ -363,7 +364,7 @@ function EditorShell({
     [content, overrides],
   );
   const previewContent = useMemo(
-    () => (link.active && overrides ? resolveVariant(content, link.active.ref, overrides) : content),
+    () => (link.active && overrides ? resolveVariant(content, link.active.ref, overrides) : applyAutoDates(content, { moduleKey: null })),
     [content, link.active, overrides],
   );
   const orphans = useMemo(() => (overrides ? findOrphans(content, overrides) : null), [content, overrides]);
@@ -465,6 +466,17 @@ function EditorShell({
     onModules: (modules: LandingContent["modules"]) => apply(updateModules(contentRef.current, modules)),
     onRename: (from: string, to: string) => apply(renameModule(contentRef.current, from, to)),
   };
+
+  /** The main page's hero, so Page settings can write its date line (main page only). */
+  const heroSection = content.sections.find((x) => x.type === "hero");
+  const setHeroDateLine = heroSection
+    ? (text: string) => {
+        const latest = contentRef.current;
+        const hero = latest.sections.find((x) => x.id === heroSection.id);
+        if (!hero) return;
+        apply(updateSectionData(latest, hero.id, { ...hero.data, dateLine: text }));
+      }
+    : undefined;
 
   const slotProps = {
     page, title, versions, content, saveState: state, saveNow,
@@ -767,6 +779,7 @@ function EditorShell({
               onRegistrationStep={setRegStep}
               onRegistration={(next) => apply(updateRegistration(contentRef.current, next))}
               modules={modulesProps}
+              onHeroDateLine={setHeroDateLine}
             >
               {content.registration.enabled ? (
                 <RegistrationOpsCard pageId={page.id} slug={page.slug} status={page.status} initialSheetId={sheetId} />

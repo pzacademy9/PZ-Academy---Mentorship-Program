@@ -262,3 +262,25 @@ describe("buildRegistration: how did you hear about us", () => {
     expect(buildRegistration(empty).registration.discoveryOptions).toEqual([...DEFAULT_DISCOVERY_OPTIONS]);
   });
 });
+
+describe("module dates", () => {
+  const withMod = (extra: Record<string, unknown>) => { const b = base(); b.modules = [{ ...b.modules[0], ...extra }]; return b; };
+  it("reads starts and ends into startsOn and endsOn", () => {
+    const r = buildRegistration(withMod({ starts: "2026-11-27", ends: "2026-11-29" }));
+    expect(r.problems.filter((p) => p.level === "error")).toEqual([]);
+    expect(r.modules[0].startsOn).toBe("2026-11-27");
+    expect(r.modules[0].endsOn).toBe("2026-11-29");
+  });
+  it("builds as before with no dates", () => {
+    const r = buildRegistration(base());
+    expect(r.modules[0].startsOn).toBeUndefined();
+    expect(r.modules[0].endsOn).toBeUndefined();
+  });
+  it("errors, naming the module, on a bad date, an end before the start, or only one date", () => {
+    const msgs = (extra: Record<string, unknown>) => buildRegistration(withMod(extra)).problems.filter((p) => p.level === "error").map((p) => p.message).join(" ");
+    expect(msgs({ starts: "2026-13-40", ends: "2026-11-29" })).toContain("Foundations");
+    expect(msgs({ starts: "2026-11-29", ends: "2026-11-27" })).toContain("Foundations");
+    expect(msgs({ starts: "2026-11-27" })).toContain("Foundations");
+    expect(msgs({ ends: "2026-11-27" })).toContain("Foundations");
+  });
+});

@@ -5,6 +5,7 @@ import {
   DEFAULT_DISCOVERY_OPTIONS, ITEM_KEY_RE, MAX_GROUP_SIZE, REGION_KEY_RE, normalizeRegistration, registrationProblems,
   type OptionDef, type PriceCell, type RegionDef, type RegistrationConfig, type TierDef,
 } from "../registration/config";
+import { isRealDate } from "../dates";
 import { MODULE_KEY_RE, type ModuleDef } from "../variants";
 import type { ImportProblem } from "./parse";
 
@@ -27,6 +28,18 @@ export const daysOf = (v: unknown): number | undefined => {
   if (typeof v === "string" && /^\s*\d{1,3}\s*$/.test(v)) return Number(v);
   return finite(v);
 };
+
+/** Reads a start and end day written 2026-11-27. Both or neither; a problem comes back as plain words. */
+export function readDateRange(startsRaw: unknown, endsRaw: unknown, who: string): { startsOn: string; endsOn: string; problem?: string } {
+  const startsOn = text(startsRaw);
+  const endsOn = text(endsRaw);
+  if (startsOn === "" && endsOn === "") return { startsOn: "", endsOn: "" };
+  const none = { startsOn: "", endsOn: "" };
+  if (startsOn === "" || endsOn === "") return { ...none, problem: `${who}: give both a start date and an end date, or neither.` };
+  if (!isRealDate(startsOn) || !isRealDate(endsOn)) return { ...none, problem: `${who}: the dates must be real days written like 2026-11-27.` };
+  if (endsOn < startsOn) return { ...none, problem: `${who}: the end date is before the start date.` };
+  return { startsOn, endsOn };
+}
 
 const PAYMENT_WA_MESSAGE = "The WhatsApp number for payment checks must be digits only";
 const PAYMENT_WA_MISSING = "The WhatsApp number for payment screenshots was not given. Add it in the editor.";
@@ -183,7 +196,12 @@ export function buildRegistration(front: Record<string, unknown>): BuiltRegistra
     }
     if (modules.some((x) => x.key === key)) { error(`Two modules use the code "${key}". Give each module its own code.`); }
     if (modules.some((x) => x.key === key)) continue;
-    modules.push({ key, title, format: text(m.format), days: Math.max(0, Math.round(daysOf(m.days) ?? 0)), optionKey });
+    const range = readDateRange(m.starts, m.ends, `The module "${shown}"`);
+    if (range.problem) error(range.problem);
+    modules.push({
+      key, title, format: text(m.format), days: Math.max(0, Math.round(daysOf(m.days) ?? 0)), optionKey,
+      ...(range.startsOn !== "" ? { startsOn: range.startsOn, endsOn: range.endsOn } : {}),
+    });
   }
 
   // ---- module options without a price in a country

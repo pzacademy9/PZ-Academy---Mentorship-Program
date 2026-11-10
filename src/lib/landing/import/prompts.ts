@@ -77,7 +77,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     topics: [
       "the page name and the link name (the last part of the web address, small letters and dashes)",
       "the modules: name, format (for example 3-Day Workshop) and days of each; whether students can buy single modules or mix them",
-      "event dates for every module, and the class time for each country",
+      "each module's real dates, and the class time for each country",
       "prices for each country: the full course and each module, the Early Bird price and the day it ends, group discounts, and Live versus Recorded",
       "the instructors (name, title, short bio)",
       "what is included, and what students learn in each module (benefit cards and outline)",
@@ -88,18 +88,18 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     ],
     notes: [
       "A course has modules. List every module in modules, with one option per module (kind: module) and one for the full course (kind: bundle), each module pointing to its option. If students may mix modules, enable module_mix with the full-course option as bundle. Give each module a real name as its title (like \"Therapeutics\"), never just \"Module 1\": a module's own link shows it to visitors.",
-      "In the outline write one entry per module, titled \"Module N: name\", with that module's days as \"- Day N: topic\" lines in its points. In the schedule, give entries that belong to one module that module's code.",
+      "In the outline write one entry per module, titled \"Module N: name\", with that module's days as \"- Day N: topic\" lines in its points. Each module's days are numbered from Day 1; the outline holds no typed dates. A schedule row for a module has an empty when and its module code.",
       "Give each module link its own hero_title (for example \"Therapeutics\") when the teammate wants one; ask. If the document is silent on mixing modules or on which links to switch on, leave module_mix and links out; list them under \"Please check\".",
       "Add video reviews or testimonials only if the teammate gives real YouTube links or quotes.",
     ],
     frontExtra: `modules:
-  - { key: module-1, title: Module name, format: 3-Day Workshop, days: 3, option: m1 }`,
+  - { key: module-1, title: Module name, format: 3-Day Workshop, days: 3, option: m1, starts: 2026-11-27, ends: 2026-11-29 }`,
   },
   workshop: {
     noun: "workshop",
     topics: [
       "the page name (for example \"Mastering Dose Calculation – MDC 3\") and the link name (the last part of the web address, small letters and dashes)",
-      "the dates: a short day-by-day agenda with date and time; and the class time for each country",
+      "the dates: first and last day, a short day-by-day agenda with time; and the class time for each country",
       "prices for each country: the normal price, the Early Bird price and the day it ends, group discounts, and Live versus Recorded if offered",
       "the instructors (name, title, short bio)",
       "who the workshop is for, what students will learn, and what is included",
@@ -112,7 +112,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
     ],
     notes: [
       "A workshop is usually one event. Keep dates short, for example \"Fri 30 Oct · 7:30 PM\". Do not add a modules list unless the workshop really has separately sold parts.",
-      "In the outline write one entry per day, titled \"Day N: name\", with its topics as \"- \" lines. Use one option of kind bundle for the workshop. Add an Early Bird price and end date only when the teammate gives them.",
+      "Give event_starts and event_ends in settings. In the outline write one entry per day, titled \"Day N: name\", with its topics as \"- \" lines. Use one option of kind bundle for the workshop. Add an Early Bird price and end date only when the teammate gives them.",
       "Only add written testimonials if the teammate gives you real quotes. Otherwise leave that section out and say so.",
     ],
     frontExtra: `modules:
@@ -131,7 +131,7 @@ const KIND_INFO: Record<PageKind, KindInfo> = {
       "which countries should get their own link",
     ],
     notes: [
-      "A webinar is a single event: one date, one speaker group, no modules and no course outline. Do not add a modules list and do not ask about modules.",
+      "A webinar is a single event: one date, one speaker group, no modules and no course outline. Do not add a modules list and do not ask about modules. Give its date as event_starts and event_ends (the same day twice).",
       "A single plan: write one option of kind bundle. A free webinar: free: true on the option AND a price of amount: 0 for every country that can register. A Free plan plus a paid (for example Pro) plan: write TWO options, one with free: true and amount: 0 in every country, and one paid option with its price per country. Do not put Free and Pro in one option.",
       "In the schedule, list the date and time and any short agenda lines. Use the text block for what attendees will explore.",
     ],
@@ -147,7 +147,7 @@ const heroBlock = (kind: PageKind): string => {
 headline: Practical Pharmacology Course
 subheadline: "A hands-on course, built for pharmacists who want to use drugs with confidence."
 primaryCtaLabel: Register now
-dateLine: Starts 15 November 2026
+dateLine: "{dates} ({weekdays})"
 badges:
   - { text: Live classes }
   - { text: Certificate }`;
@@ -157,7 +157,7 @@ badges:
 headline: Mastering Dose Calculation
 subheadline: Learn to calculate doses safely, step by step.
 primaryCtaLabel: Register now
-dateLine: 4 to 6 November 2026 · 7:30 PM
+dateLine: "{dates} ({weekdays})"
 badges:
   - { text: Hands-on practice }`;
   }
@@ -165,7 +165,7 @@ badges:
 headline: Choosing the Right Drug for Diabetes
 subheadline: One evening, one clear way to choose therapy for your patient.
 primaryCtaLabel: Save my seat
-dateLine: Friday, 6 November 2026 · 7:30 PM`;
+dateLine: "{dates} ({weekdays})"`;
 };
 
 const SAMPLE_BLOCKS: Record<SectionType, (kind: PageKind) => string> = {
@@ -184,6 +184,7 @@ items:
   - { title: Practice cases, text: "Work through real patient cases, step by step." }`,
   curriculum: (kind) => {
     const d = (n: number, t: string) => (kind === "course" ? `Day ${n}: ${t}` : t);
+    const second = kind === "course" ? 1 : 3; // each module's days start again at Day 1
     const tag = (m: string) => (kind === "course" ? `
     module: ${m}` : "");
     return `heading: What you will learn
@@ -195,8 +196,8 @@ items:
       - ${d(2, "Reading a prescription")}
   - title: "${kind === "course" ? "Module 2: Therapeutics" : "Day 2: Practice"}"${tag("module-2")}
     points: |
-      - ${d(3, "Choosing a drug")}
-      - ${d(4, "Checking doses")}`;
+      - ${d(second, "Choosing a drug")}
+      - ${d(second + 1, "Checking doses")}`;
   },
   instructors: (kind) => `heading: ${kind === "webinar" ? "Meet your speaker" : "Meet your instructor"}
 items:
@@ -228,8 +229,8 @@ items:
     option: ${LINK_GROUP}` : ""}`,
   schedule: (kind) => `heading: Schedule
 items:
-  - { when: "${kind === "course" ? "15 Nov · 7:30 PM" : "Fri 6 Nov · 7:30 PM"}", title: ${kind === "course" ? "Module 1 begins" : "Session starts"}${kind === "course" ? ", module: module-1" : ""} }
-  - { when: "${kind === "course" ? "22 Nov · 7:30 PM" : "Fri 6 Nov · 9:00 PM"}", title: ${kind === "course" ? "Module 2 begins" : "Questions and answers"}${kind === "course" ? ", module: module-2" : ""} }`,
+  - { when: "${kind === "course" ? "" : "Fri 6 Nov · 7:30 PM"}", title: ${kind === "course" ? "Module 1 begins" : "Session starts"}${kind === "course" ? ", module: module-1" : ""} }
+  - { when: "${kind === "course" ? "" : "Fri 6 Nov · 9:00 PM"}", title: ${kind === "course" ? "Module 2 begins" : "Questions and answers"}${kind === "course" ? ", module: module-2" : ""} }`,
   video_reviews: () => `heading: What students say
 items:
   - { url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", caption: "A student shares their result" }`,
@@ -245,6 +246,9 @@ items:
 text: Seats are limited. Reserve yours today.
 buttonLabel: Register now`,
 };
+
+/** Dates for a page with no modules (a course keeps its dates on each module). */
+const eventDates = (kind: PageKind): string => (kind === "workshop" ? "  event_starts: 2026-11-04\n  event_ends: 2026-11-06\n" : "  event_starts: 2026-11-06\n  event_ends: 2026-11-06\n");
 
 function exampleFront(kind: PageKind): string {
   const free = kind === "webinar";
@@ -290,8 +294,8 @@ function exampleFront(kind: PageKind): string {
 `;
   const modules = kind === "course"
     ? `modules:
-  - { key: module-1, title: Foundations, format: 3-Day Workshop, days: 3, option: m1 }
-  - { key: module-2, title: Therapeutics, format: 3-Day Workshop, days: 3, option: m2 }
+  - { key: module-1, title: Foundations, format: 3-Day Workshop, days: 3, option: m1, starts: 2026-11-15, ends: 2026-11-17 }
+  - { key: module-2, title: Therapeutics, format: 3-Day Workshop, days: 3, option: m2, starts: 2026-11-22, ends: 2026-11-24 }
 `
     : "";
   const links = kind === "course"
@@ -313,7 +317,7 @@ seo: { title: "${title}", description: "A practical PZ Academy ${kind} for pharm
 settings:
   register_label: Register now
   whatsapp: "923001234567"
-registration:
+${kind === "course" ? "" : eventDates(kind)}registration:
   modes: ${kind === "course" ? "[live, recorded]" : "[live]"}
 ${kind === "course" ? "  recorded_percent: 60\n" : ""}  default_region: UAE
 ${early}  event_label: ${title}
@@ -363,7 +367,7 @@ settings:
   register_label: Register now
   whatsapp: "923001234567"      # chat button; digits only, with country code
   countdown_to: 2026-10-25T23:59:00+04:00   # optional
-  countdown_label: Early Bird ends in
+  countdown_label: Early Bird ends in${kind === "course" ? "" : "\n  event_starts: 2026-11-27\n  event_ends: 2026-11-29"}
 registration:
   modes: [live, recorded]       # leave out if only Live
   recorded_percent: 60          # only if told
@@ -387,14 +391,15 @@ ${linkLines}
 ${FENCE}
 
 Rules for that top part:
-- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals. Write group_totals (the total for the whole group, not per person; early_group_totals for the Early Bird price) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" write only min: N (no max). Write percent_off whenever a percentage is stated (totals apply only to Live, single-option purchases). Whole numbers only.
+- Every price is a plain number: 200, not "AED 200" and not "1,200". Put the currency in the country line only. Group discounts: if the document gives only a percentage ("Group of 3 or more: 20% off"), write the tier with percent_off and NO group_totals. Write group_totals (whole-group total, not per person; early_group_totals for Early Bird) only when the document states that exact total, only for a tier with one fixed size, and a stated total beats a calculated one. For "N or more" write only min: N (no max). Write percent_off whenever a percentage is stated (totals apply only to Live, single-option purchases). Whole numbers.
+- If a module's or the event's dates are not in the document, leave them out and list them under "Please check". Dates: YYYY-MM-DD, both or neither: ${kind === "course" ? "starts: and ends: on each module line (no modules: event_starts and event_ends in settings)" : "event_starts and event_ends in settings"}. In text write {dates} and {weekdays}${kind === "course" ? " ({dates:module-1})" : ""}, never typed dates. Only in section text, never seo or registration text.
 - Country codes: 2 to 6 capital letters (UAE, PK). Option keys: small letters, digits or _.
 - Every country used in prices or links must be in regions; every option in prices must be in options.${hasModules ? " Every module's option must be in options." : ""}
 - Early Bird end: if only a day is given, use 23:59 that day in the main country's time zone; list it under "Please check before publishing".
-- Quoting: put any text in double quotes if it has a comma, a colon, a # or starts with a symbol such as * @ & ! - ; when unsure, quote it.
+- Quoting: put any text in double quotes if it has a comma, a colon, a # or starts with a symbol such as * @ & ! - .
 - default_region is the main country: the first or largest audience in the document. If a date has no year, use the year of the event dates and list it under "Please check before publishing".
 - pricing_cards: link each card with option: (${kind === "webinar" ? "an option code from options, or" : `an option code from options, ${LINK_ALL_MODULES} for the single modules, or`} ${LINK_GROUP} for group discounts). It shows the registration prices, so write NO price on it. Add a group discount card when you define group discounts${kind === "webinar" ? "." : ` and an ${LINK_ALL_MODULES} card when single modules are sold.`} With one country only, a card without option may type the amount.
-- settings.whatsapp (chat button): only a number the document labels for chat or WhatsApp. If a local number like 0315... is given and the country is clear, add the country code (92...) and list it under "Please check before publishing". verify_whatsapp (payment screenshots): ask; if not given, leave it out and list it there.
+- settings.whatsapp (chat button): only a number the document labels for chat or WhatsApp. If a local number like 0315... is given and the country is clear, add the country code (92...) and list it under "Please check before publishing". verify_whatsapp (payment screenshots): if not given, leave it out and list it there.
 - Leave out what you do not know. Never write payment accounts.
 ${limitsLine()}
 - on: true gives that country${kind === "webinar" ? "" : " or module"} its own link.${kind === "webinar" ? "" : " A line with both a country and a module gives that pair its own link."}

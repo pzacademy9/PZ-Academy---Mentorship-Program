@@ -415,3 +415,36 @@ describe("price card readiness", () => {
     expect(probs(c).some((x) => x.message.includes('needs "Price"'))).toBe(true);
   });
 });
+
+describe("module dates and countdown switch", () => {
+  const mod = (extra: Record<string, unknown>) => ({ key: "pmh", title: "PMH", format: "3-Day Workshop", days: 3, optionKey: "", ...extra });
+  const withModules = (modules: unknown[], settings: Record<string, unknown> = {}) => normalizeContent({ ...emptyContent("course"), settings: { ...emptyContent("course").settings, ...settings }, modules });
+  it("keeps real module dates", () => {
+    const m = withModules([mod({ startsOn: "2026-11-27", endsOn: "2026-11-29" })]).modules[0];
+    expect(m.startsOn).toBe("2026-11-27");
+    expect(m.endsOn).toBe("2026-11-29");
+  });
+  it("drops malformed module dates to empty", () => {
+    const m = withModules([mod({ startsOn: "27/11/2026", endsOn: "2026-02-31" })]).modules[0];
+    expect(m.startsOn).toBe("");
+    expect(m.endsOn).toBe("");
+  });
+  it("keeps event dates", () => {
+    const s = withModules([], { eventStartsOn: "2026-11-27", eventEndsOn: "2026-11-29" }).settings;
+    expect(s.eventStartsOn).toBe("2026-11-27");
+    expect(s.eventEndsOn).toBe("2026-11-29");
+  });
+  it("countdownFollowsEarlyBird is false when absent and true when true", () => {
+    expect(normalizeContent({}).settings.countdownFollowsEarlyBird).toBe(false);
+    expect(withModules([], { countdownFollowsEarlyBird: true }).settings.countdownFollowsEarlyBird).toBe(true);
+  });
+  it("new course pages follow the early bird by default", () => {
+    expect(emptyContent("course").settings.countdownFollowsEarlyBird).toBe(true);
+  });
+  it("schema accepts the new fields and content without them", () => {
+    const c = emptyContent("course");
+    const full = { ...c, settings: { ...c.settings, eventStartsOn: "2026-11-27", eventEndsOn: "2026-11-29" }, modules: [mod({ startsOn: "2026-11-27", endsOn: "2026-11-29" })] };
+    expect(contentSchema.safeParse(full).success).toBe(true);
+    expect(contentSchema.safeParse({ ...c, modules: [mod({})] }).success).toBe(true);
+  });
+});

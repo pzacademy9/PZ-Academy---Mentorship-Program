@@ -11,6 +11,7 @@ function page(over: {
 } = {}): LandingContent {
   const c = emptyContent("course");
   c.settings.portalLink = over.portalLink ?? "";
+  c.settings.countdownFollowsEarlyBird = false;
   c.modules = [{ key: "m1", title: "Module One", format: "3-Day Workshop", days: 3, optionKey: "m1" } as never];
   c.registration = {
     ...c.registration,
@@ -109,5 +110,47 @@ describe("runPageChecks", () => {
     const checks = runPageChecks(page({ fullWa: WA1 }), ctx);
     expect(failures(checks).every((k) => k.status === "fail")).toBe(true);
     expect(failures(checks).length).toBeGreaterThan(0);
+  });
+});
+
+describe("date page checks", () => {
+  it("warns when a module's day count differs from its dates, even with registration off", () => {
+    const c = page({ enabled: false });
+    c.modules = [{ key: "m1", title: "Module One", format: "3-Day Workshop", days: 3, optionKey: "", startsOn: "2026-11-27", endsOn: "2026-11-30" }];
+    const k = byId(c, "module-days-m1")!;
+    expect(k.status).toBe("warn");
+    expect(k.detail).toBe("Module One has 3 days but the dates cover 4 days.");
+  });
+  it("no day warning when the counts match", () => {
+    const c = page({ enabled: false });
+    c.modules = [{ key: "m1", title: "Module One", format: "3-Day Workshop", days: 3, optionKey: "", startsOn: "2026-11-27", endsOn: "2026-11-29" }];
+    expect(byId(c, "module-days-m1")).toBeUndefined();
+  });
+  it("no countdown-follows warning when the switch is on but no countdown label is written", () => {
+    const c = page({ enabled: false });
+    c.settings.countdownFollowsEarlyBird = true;
+    c.settings.countdownLabel = "";
+    expect(byId(c, "countdown-follows")).toBeUndefined();
+  });
+  it("warns when the switch is on, a label is set and no Early Bird end is set", () => {
+    const c = page({ enabled: false });
+    c.settings.countdownFollowsEarlyBird = true;
+    c.settings.countdownLabel = "Early Bird ends in";
+    const k = byId(c, "countdown-follows")!;
+    expect(k.status).toBe("warn");
+    expect(k.detail).toBe("The countdown follows Early Bird, but no Early Bird end is set, so no countdown shows.");
+  });
+  it("no warning when the Early Bird end is set", () => {
+    const c = page({ enabled: false });
+    c.settings.countdownFollowsEarlyBird = true;
+    c.settings.countdownLabel = "Early Bird ends in";
+    c.registration.earlyBirdEndsAt = "2026-11-20T10:00:00+05:00";
+    expect(byId(c, "countdown-follows")).toBeUndefined();
+  });
+  it("registration-off pages return only date checks", () => {
+    const c = page({ enabled: false });
+    c.settings.countdownFollowsEarlyBird = true;
+    c.settings.countdownLabel = "Early Bird ends in";
+    expect(runPageChecks(c, ctx).map((k) => k.id)).toEqual(["countdown-follows"]);
   });
 });

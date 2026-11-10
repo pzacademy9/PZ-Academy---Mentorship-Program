@@ -198,3 +198,41 @@ describe("findOrphans / defaultModuleHeadline", () => {
     expect(defaultModuleHeadline(build().modules[0])).toBe("3-Day Workshop: One");
   });
 });
+
+describe("resolveVariant: automatic dates", () => {
+  function dated(): LandingContent {
+    const c = build();
+    c.modules[0] = { ...c.modules[0], startsOn: "2026-12-04", endsOn: "2026-12-06" };
+    c.modules[1] = { ...c.modules[1], startsOn: "2026-12-11", endsOn: "2026-12-13" };
+    c.sections[0].data = { headline: "H", dateLine: "{dates} ({weekdays})" };
+    return c;
+  }
+  const hero = (c: LandingContent) => sec(c, "hero1").data.dateLine;
+  it("main shows the whole-course range", () => {
+    expect(hero(resolveVariant(dated(), MAIN, emptyOverrides()))).toBe("4 – 13 Dec 2026 (Fri, Sat & Sun)");
+  });
+  it("a module link shows only that module's range", () => {
+    expect(hero(resolveVariant(dated(), M2, emptyOverrides()))).toBe("11 – 13 Dec 2026 (Fri, Sat & Sun)");
+  });
+  it("a link override with a marker resolves, plain typed text is unchanged", () => {
+    const withMarker = resolveVariant(dated(), M2, { sections: { hero1: { fields: { dateLine: "{dates}" } } } });
+    expect(hero(withMarker)).toBe("11 – 13 Dec 2026");
+    const typed = resolveVariant(dated(), M2, { sections: { hero1: { fields: { dateLine: "Typed by hand" } } } });
+    expect(hero(typed)).toBe("Typed by hand");
+  });
+  it("a keyed marker for another module resolves on a module link, and modules stays narrowed", () => {
+    const c = dated();
+    c.modules.push({ key: "module-3", title: "Three", format: "3-Day Workshop", days: 3, optionKey: "m3", startsOn: "2027-01-08", endsOn: "2027-01-10" });
+    c.sections[1].data = { ...c.sections[1].data, heading: "Next: {dates:module-3} / {weekdays:module-3}" };
+    const r = resolveVariant(c, M2, emptyOverrides());
+    expect(sec(r, "cur1").data.heading).toBe("Next: 8 – 10 Jan 2027 / Fri, Sat & Sun");
+    expect(hero(r)).toBe("11 – 13 Dec 2026 (Fri, Sat & Sun)");
+    expect(r.modules.map((m) => m.key)).toEqual(["module-2"]);
+  });
+  it("countdown follows Early Bird on a country link", () => {
+    const c = dated();
+    c.settings.countdownFollowsEarlyBird = true;
+    c.registration.earlyBirdEndsAt = "2026-11-30T20:00";
+    expect(resolveVariant(c, { regionKey: "UAE", moduleKey: null }, emptyOverrides()).settings.countdownTo).toBe("2026-11-30T20:00");
+  });
+});

@@ -11,6 +11,7 @@ import {
   SECTION_DEFS, SECTION_TYPES, defaultSectionData, normalizeSectionData, sectionDataSchema,
   type FieldDef, type SectionType,
 } from "./sections";
+import { hasMarkerText, isRealDate, leftoverMarkers, unfilledDateMarkers, unknownMarkerCodes } from "./dates";
 import { MAX_MODULES, MODULE_ITEM_SECTIONS, MODULE_KEY_RE, isReservedSegment, type ModuleDef } from "./variants";
 
 export type PageKind = "course" | "workshop" | "webinar";
@@ -32,6 +33,12 @@ export interface LandingSettings {
   terms?: string;
   /** Soft shadows behind boxes on the public page. Default true; false turns them all off. */
   boxShadows?: boolean;
+  /** First day of the whole event, "YYYY-MM-DD", or ""/omitted. */
+  eventStartsOn?: string;
+  /** Last day of the whole event, "YYYY-MM-DD", or ""/omitted. */
+  eventEndsOn?: string;
+  /** When true the countdown follows the Early Bird deadline. */
+  countdownFollowsEarlyBird?: boolean;
 }
 export interface LandingSeo { title: string; description: string; ogImage: string }
 export interface LandingSection { id: string; type: SectionType; enabled: boolean; data: Record<string, unknown> }
@@ -60,7 +67,7 @@ export const KIND_SECTIONS: Record<PageKind, SectionType[]> = {
 };
 
 const DEFAULT_SETTINGS: LandingSettings = {
-  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true, terms: "",
+  registerUrl: "", registerLabel: "Register now", whatsappNumber: "", countdownTo: "", countdownLabel: "", batchStartsOn: "", portalLink: "", showCreateAccount: true, terms: "", countdownFollowsEarlyBird: false,
 };
 const DEFAULT_SEO: LandingSeo = { title: "", description: "", ogImage: "" };
 
@@ -73,6 +80,8 @@ const moduleSchema = z.object({
   format: z.string().max(60),
   days: z.number().int().min(0).max(60),
   optionKey: z.string().max(32),
+  startsOn: z.string().max(10).optional(),
+  endsOn: z.string().max(10).optional(),
 });
 
 export const contentSchema = z
@@ -88,6 +97,9 @@ export const contentSchema = z
       batchStartsOn: z.string().max(40).optional(),
       terms: z.string().max(20000).optional(),
       boxShadows: z.boolean().optional(),
+      eventStartsOn: z.string().max(10).optional(),
+      eventEndsOn: z.string().max(10).optional(),
+      countdownFollowsEarlyBird: z.boolean().optional(),
     }),
     seo: z.object({
       title: z.string().max(120),
@@ -117,13 +129,21 @@ export const contentSchema = z
     });
   });
 
+/** A real calendar date written "YYYY-MM-DD", else "". */
+function realDateOrEmpty(v: unknown): string {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+  const t = Date.parse(`${v}T00:00:00Z`);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toISOString().slice(0, 10) === v ? v : "";
+}
+
 function normalizeModules(raw: unknown): ModuleDef[] {
   const out: ModuleDef[] = [];
   for (const m of Array.isArray(raw) ? raw : []) {
     if (!isRecord(m) || typeof m.key !== "string" || !MODULE_KEY_RE.test(m.key) || m.key.length > 40) continue;
     if (out.some((x) => x.key === m.key)) continue;
     const days = typeof m.days === "number" && Number.isFinite(m.days) ? Math.min(60, Math.max(0, Math.round(m.days))) : 0;
-    out.push({ key: m.key, title: str(m.title, "", 120), format: str(m.format, "", 60), days, optionKey: str(m.optionKey, "", 32) });
+    out.push({ key: m.key, title: str(m.title, "", 120), format: str(m.format, "", 60), days, optionKey: str(m.optionKey, "", 32), startsOn: realDateOrEmpty(m.startsOn), endsOn: realDateOrEmpty(m.endsOn) });
     if (out.length >= MAX_MODULES) break;
   }
   return out;
@@ -151,6 +171,9 @@ export function normalizeContent(raw: unknown): LandingContent {
     showCreateAccount: typeof s.showCreateAccount === "boolean" ? s.showCreateAccount : true,
     terms: str(s.terms, "", 20000),
     boxShadows: typeof s.boxShadows === "boolean" ? s.boxShadows : true,
+    eventStartsOn: realDateOrEmpty(s.eventStartsOn),
+    eventEndsOn: realDateOrEmpty(s.eventEndsOn),
+    countdownFollowsEarlyBird: s.countdownFollowsEarlyBird === true,
   };
   const seoOut: LandingSeo = {
     title: str(seo.title, "", 120),
@@ -180,7 +203,7 @@ export function newSection(type: SectionType, id: string = newId()): LandingSect
 
 export function emptyContent(kind: PageKind): LandingContent {
   return {
-    settings: { ...DEFAULT_SETTINGS },
+    settings: { ...DEFAULT_SETTINGS, countdownFollowsEarlyBird: true },
     seo: { ...DEFAULT_SEO },
     sections: KIND_SECTIONS[kind].map((t) => newSection(t)),
     needsReview: [],
@@ -445,12 +468,54 @@ function priceCardProblems(c: LandingContent, out: Problem[]) {
   }
 }
 
+/** Date problems: half-filled module dates, and markers or schedule rows that cannot resolve. Reads the real main content. */
+const SETTINGS_TARGET = "__settings__"; // the builder's id for the Page settings panel (same value as page-check.ts)
+
+function dateProblems(c: LandingContent, out: Problem[]) {
+  const modules = c.modules ?? [];
+  for (const m of modules) {
+    const s = m.startsOn ?? "";
+    const e = m.endsOn ?? "";
+    if (s === "" && e === "") continue;
+    if (!isRealDate(s) || !isRealDate(e) || e < s) {
+      out.push({ message: `${m.title.trim() === "" ? m.key : m.title}: the end date is before the start date, or one date is missing.`, sectionId: SETTINGS_TARGET });
+    }
+  }
+  const seen = new Set<string>();
+  for (const u of unknownMarkerCodes(c)) {
+    out.push({ message: `A box uses {${u.kind}:${u.code}} but no module has the code ${u.code}.`, sectionId: u.sectionId });
+    seen.add(u.sectionId);
+  }
+  for (const l of leftoverMarkers(c)) {
+    out.push({ message: `A box has a date marker that is not spelled right: ${l.fragment}. Use {dates}, {weekdays}, {dates:module-code} or {weekdays:module-code}.`, sectionId: l.sectionId });
+  }
+  const refs: (string | null)[] = [null, ...modules.map((m) => m.key)];
+  for (const ref of refs) {
+    for (const u of unfilledDateMarkers(c, ref)) {
+      if (seen.has(u.sectionId)) continue;
+      seen.add(u.sectionId);
+      out.push({ message: `"${u.sectionLabel}" uses {dates} or {weekdays}, but no dates are set. Fill the Dates box in Page settings.`, sectionId: u.sectionId });
+    }
+  }
+  for (const s of c.sections) {
+    if (!s.enabled || s.type !== "schedule" || !Array.isArray(s.data.items)) continue;
+    (s.data.items as Record<string, unknown>[]).forEach((row, n) => {
+      if (isBlank(row.when) && isBlank(row.module)) {
+        out.push({ message: "A schedule row has no date. Type one, or link the row to a module that has dates.", sectionId: s.id, field: `items.${n}.when` });
+      }
+    });
+  }
+}
+
 export function computeReadiness(c: LandingContent, page: { title: string; slug: string }): { ready: boolean; problems: Problem[] } {
   const problems: Problem[] = [];
   if (page.title.trim() === "") problems.push({ message: "Give the page a name." });
   const slug = validateSlug(page.slug);
   if (!slug.ok) problems.push({ message: slug.message });
   if (c.seo.description.trim() === "") problems.push({ message: "Add a short description for Google and WhatsApp previews (Page settings)." });
+  if ([c.seo.title, c.seo.description, c.seo.ogImage].some((t) => typeof t === "string" && hasMarkerText(t))) {
+    problems.push({ message: "Date markers work only inside page sections, not in the page title or description. Type the text without the marker.", sectionId: SETTINGS_TARGET });
+  }
   if (c.registration.enabled) {
     // The built-in registration form replaces the external Register link.
     for (const p of registrationProblems(c.registration)) problems.push({ message: p.message, sectionId: registrationTarget(p.step) });
@@ -471,6 +536,7 @@ export function computeReadiness(c: LandingContent, page: { title: string; slug:
   reviewProblems(c, problems);
   moduleProblems(c, problems);
   priceCardProblems(c, problems);
+  dateProblems(c, problems);
   return { ready: problems.length === 0, problems };
 }
 
