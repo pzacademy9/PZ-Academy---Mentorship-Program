@@ -129,6 +129,7 @@ export function resolveVariant(main: LandingContent, ref: VariantRef, overrides:
   let sections = applyOverrides(base.sections, ov);
   let registration = base.registration;
   let modules = base.modules ?? [];
+  const allModules = modules; // a keyed marker such as {dates:module-3} must resolve on every link
 
   const moduleTitle = ref.moduleKey ? (modules.find((m) => m.key === ref.moduleKey)?.title ?? "") : "";
   // A link whose own edits set a section's items keeps those titles exactly as the admin wrote them.
@@ -140,14 +141,15 @@ export function resolveVariant(main: LandingContent, ref: VariantRef, overrides:
     registration = narrowModule(registration, mod?.optionKey ?? "", base.registration, mod?.title ?? "");
     modules = mod ? [mod] : [];
   }
-  return applyAutoDates({
+  const dated = applyAutoDates({
     ...base,
     settings: { ...base.settings, ...(ov.settings ?? {}) },
     seo: { ...base.seo, ...(ov.seo ?? {}) },
     sections,
     registration,
-    modules,
+    modules: allModules,
   }, ref);
+  return { ...dated, modules };
 }
 
 export function findOrphans(

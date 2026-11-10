@@ -220,6 +220,15 @@ describe("resolveVariant: automatic dates", () => {
     const typed = resolveVariant(dated(), M2, { sections: { hero1: { fields: { dateLine: "Typed by hand" } } } });
     expect(hero(typed)).toBe("Typed by hand");
   });
+  it("a keyed marker for another module resolves on a module link, and modules stays narrowed", () => {
+    const c = dated();
+    c.modules.push({ key: "module-3", title: "Three", format: "3-Day Workshop", days: 3, optionKey: "m3", startsOn: "2027-01-08", endsOn: "2027-01-10" });
+    c.sections[1].data = { ...c.sections[1].data, heading: "Next: {dates:module-3} / {weekdays:module-3}" };
+    const r = resolveVariant(c, M2, emptyOverrides());
+    expect(sec(r, "cur1").data.heading).toBe("Next: 8 – 10 Jan 2027 / Fri, Sat & Sun");
+    expect(hero(r)).toBe("11 – 13 Dec 2026 (Fri, Sat & Sun)");
+    expect(r.modules.map((m) => m.key)).toEqual(["module-2"]);
+  });
   it("countdown follows Early Bird on a country link", () => {
     const c = dated();
     c.settings.countdownFollowsEarlyBird = true;
