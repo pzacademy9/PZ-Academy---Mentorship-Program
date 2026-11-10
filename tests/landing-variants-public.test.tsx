@@ -15,7 +15,7 @@ vi.mock("@/components/landing/registration/RegistrationHost", () => ({
 }));
 
 import VariantPage, { generateMetadata, revalidate, dynamicParams, generateStaticParams } from "@/app/e/[slug]/[...variant]/page";
-import { emptyContent, newSection } from "@/lib/landing/content";
+import { emptyContent, newSection, type LandingContent } from "@/lib/landing/content";
 import { resolveVariant } from "@/lib/landing/resolve-variant";
 import { PPC_CONFIG } from "./helpers/landing-fixtures";
 import { parseVariantPath } from "@/lib/landing/variants";
@@ -85,6 +85,21 @@ describe("public variant page", () => {
     expect(revalidate).toBe(3600);
     expect(dynamicParams).toBe(true);
     expect(await generateStaticParams()).toEqual([]);
+  });
+});
+
+describe("public variant page dates", () => {
+  it("renders the module's dates in the hero", async () => {
+    const mc: LandingContent = main();
+    mc.modules[1] = { ...mc.modules[1], startsOn: "2026-12-11", endsOn: "2026-12-12" };
+    mc.sections[0].data = { headline: "H", dateLine: "{dates}" };
+    const ref = parseVariantPath(["module-2"], mc)!;
+    getPublishedVariantPage.mockResolvedValue({
+      page: { id: "p1", slug: "ppc-b4", kind: "course", title: "PPC Batch 4", status: "published" as const },
+      content: resolveVariant(mc, ref, { sections: {} }), ref, status: "published" as const,
+    });
+    render(await VariantPage(params(["module-2"])));
+    expect(screen.getAllByText(/11 – 12 Dec 2026/).length).toBeGreaterThan(0);
   });
 });
 

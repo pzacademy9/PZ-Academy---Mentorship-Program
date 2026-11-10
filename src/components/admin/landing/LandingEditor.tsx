@@ -36,6 +36,7 @@ import { StatusBadge } from "./StatusBadge";
 import type { LandingVariant } from "@/lib/data/landing-variants";
 import { buildVariantGrid, type VariantGridRow } from "@/lib/landing/variant-grid";
 import { findOrphans, resolveVariant } from "@/lib/landing/resolve-variant";
+import { applyAutoDates } from "@/lib/landing/dates";
 import { VariantSwitcher } from "./variants/VariantSwitcher";
 import { LinksPanel } from "./variants/LinksPanel";
 import { LinkPublishSlot, MAIN_FIRST } from "./variants/LinkPublishSlot";
@@ -363,7 +364,7 @@ function EditorShell({
     [content, overrides],
   );
   const previewContent = useMemo(
-    () => (link.active && overrides ? resolveVariant(content, link.active.ref, overrides) : content),
+    () => (link.active && overrides ? resolveVariant(content, link.active.ref, overrides) : applyAutoDates(content, { moduleKey: null })),
     [content, link.active, overrides],
   );
   const orphans = useMemo(() => (overrides ? findOrphans(content, overrides) : null), [content, overrides]);

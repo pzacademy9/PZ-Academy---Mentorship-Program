@@ -5,6 +5,7 @@ import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getLandingPage } from "@/lib/data/landing-pages";
 import { listVariants } from "@/lib/data/landing-variants";
 import { resolveVariant } from "@/lib/landing/resolve-variant";
+import { applyAutoDates } from "@/lib/landing/dates";
 import { emptyOverrides, parseVariantPath } from "@/lib/landing/variants";
 import { isPageId } from "@/lib/validations/landing";
 import { PreviewTarget } from "@/components/admin/landing/PreviewTarget";
@@ -26,7 +27,7 @@ export default async function LandingPreviewPage({
   const { v } = (await searchParams) ?? {};
   const ref = typeof v === "string" && v !== "" ? parseVariantPath(v.split("/"), page.draft) : null;
   if (typeof v === "string" && v !== "" && !ref) notFound();
-  let content = page.draft;
+  let content = applyAutoDates(page.draft, { moduleKey: null });
   if (ref) {
     const variant = (await listVariants(id)).find((x) => x.ref.regionKey === ref.regionKey && x.ref.moduleKey === ref.moduleKey);
     content = resolveVariant(page.draft, ref, variant?.draft ?? emptyOverrides());

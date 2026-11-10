@@ -17,6 +17,7 @@
 //       disabled. Tiers that have explicit group totals somewhere in the main page but none on the kept
 //       option are removed. Regions with no price for the kept option are dropped (none left: disabled) (percent-only tiers, which no option prices explicitly, stay).
 import { SECTION_DEFS } from "./sections";
+import { applyAutoDates } from "./dates";
 import { MODULE_ITEM_SECTIONS, type VariantOverrides, type VariantRef } from "./variants";
 import type { LandingContent, LandingSection } from "./content";
 import type { RegistrationConfig } from "./registration/config";
@@ -139,14 +140,14 @@ export function resolveVariant(main: LandingContent, ref: VariantRef, overrides:
     registration = narrowModule(registration, mod?.optionKey ?? "", base.registration, mod?.title ?? "");
     modules = mod ? [mod] : [];
   }
-  return {
+  return applyAutoDates({
     ...base,
     settings: { ...base.settings, ...(ov.settings ?? {}) },
     seo: { ...base.seo, ...(ov.seo ?? {}) },
     sections,
     registration,
     modules,
-  };
+  }, ref);
 }
 
 export function findOrphans(
