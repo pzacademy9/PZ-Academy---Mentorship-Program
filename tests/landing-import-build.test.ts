@@ -285,3 +285,43 @@ describe("buildImport: final review fixes", () => {
     expect(msgs).toContain("7 group discounts; only the first 6");
   });
 });
+
+describe("buildImport dates", () => {
+  const settingsWith = (lines: string) => file(noModules(`settings:\n${lines}`));
+  it("puts module starts and ends on the modules", () => {
+    const front = FRONT.replace("days: 3, option: m1 }", "days: 3, option: m1, starts: 2026-11-27, ends: 2026-11-29 }");
+    const b = ok(file(front));
+    expect(b.content.modules[0].startsOn).toBe("2026-11-27");
+    expect(b.content.modules[0].endsOn).toBe("2026-11-29");
+    expect(b.content.modules[1].startsOn).toBeUndefined();
+  });
+  it("errors on a bad module date, naming the module", () => {
+    const front = FRONT.replace("days: 3, option: m1 }", "days: 3, option: m1, starts: 2026-11-29, ends: 2026-11-27 }");
+    expect(errs(file(front)).join(" ")).toContain("Module 1");
+  });
+  it("reads event_starts and event_ends into the settings", () => {
+    const b = ok(settingsWith("  event_starts: 2026-11-27\n  event_ends: 2026-11-29\n"));
+    expect(b.content.settings.eventStartsOn).toBe("2026-11-27");
+    expect(b.content.settings.eventEndsOn).toBe("2026-11-29");
+  });
+  it("errors on a bad or lonely event date", () => {
+    expect(errs(settingsWith("  event_starts: 2026-02-31\n  event_ends: 2026-03-02\n"))).toHaveLength(1);
+    expect(errs(settingsWith("  event_starts: 2026-11-27\n"))).toHaveLength(1);
+    expect(errs(settingsWith("  event_starts: 2026-11-29\n  event_ends: 2026-11-27\n"))).toHaveLength(1);
+  });
+  it("makes the countdown follow Early Bird unless the file gives countdown_to", () => {
+    expect(ok(file(noModules())).content.settings.countdownFollowsEarlyBird).toBe(true);
+    expect(ok(file()).content.settings.countdownFollowsEarlyBird).toBe(false);
+  });
+  it("does not flag date markers for review, but still flags typed text", () => {
+    const b = ok(file(FRONT,
+      sec("hero", "headline: Hi\ndateLine: \"{dates} ({weekdays})\"") +
+      sec("schedule", "items:\n  - { when: \"{dates:module-1}\", title: A }\n  - { when: \"{weekdays}\", title: B }\n  - { when: Sat, title: C }")));
+    const id = (t: string) => b.content.sections.find((s) => s.type === t)!.id;
+    const r = b.content.needsReview;
+    expect(r).not.toContain(`${id("hero")}:dateLine`);
+    expect(r).not.toContain(`${id("schedule")}:items.0.when`);
+    expect(r).not.toContain(`${id("schedule")}:items.1.when`);
+    expect(r).toContain(`${id("schedule")}:items.2.when`);
+  });
+});

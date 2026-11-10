@@ -8,7 +8,7 @@ import {
 import { SECTION_DEFS, SECTION_TYPES, sectionDataSchema, type FieldDef, type SectionType } from "../sections";
 import { slugify, validateSlug } from "../slug";
 import { LINK_ALL_MODULES, LINK_GROUP } from "../registration/card-price";
-import { buildRegistration, daysOf } from "./build-registration";
+import { buildRegistration, daysOf, readDateRange } from "./build-registration";
 import { parseImportFile, type ImportProblem } from "./parse";
 
 export interface ImportLink { regionKey: string | null; moduleKey: string | null; on: boolean; heroTitle?: string; heroSubtitle?: string }
@@ -23,6 +23,7 @@ type Rec = Record<string, unknown>;
 const isRecord = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
 const text = (v: unknown): string => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "");
 const KINDS: PageKind[] = ["course", "workshop", "webinar"];
+const hasDateMarker = (v: string): boolean => v.includes("{dates") || v.includes("{weekdays");
 const PICTURES_WARNING = "Pictures are added in the editor, not in the file.";
 
 export function buildImport(raw: string): { ok: true; built: BuiltImport } | { ok: false; errors: string[] } {
@@ -104,6 +105,14 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
     sections: [],
     needsReview: [],
   };
+  content.settings.countdownFollowsEarlyBird = content.settings.countdownTo === "";
+  // Event dates are for pages with no modules; with modules, each module carries its own dates.
+  const eventRange = readDateRange(settings.event_starts, settings.event_ends, "The event dates");
+  if (eventRange.problem) error(eventRange.problem);
+  else if (eventRange.startsOn !== "") {
+    if (reg.modules.length > 0) warn("The event dates were left out because this page has modules. Give each module its own dates.");
+    else { content.settings.eventStartsOn = eventRange.startsOn; content.settings.eventEndsOn = eventRange.endsOn; }
+  }
   if (content.settings.countdownTo !== "") warn("Check the countdown date before publishing.");
   if (text(seoIn.ogImage) !== "" || text(seoIn.og_image) !== "") sawPicture = true;
 
@@ -138,8 +147,8 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
   const review: string[] = [];
   for (const s of content.sections) {
     const d = s.data;
-    if (s.type === "hero" && text(d.dateLine) !== "") review.push(`${s.id}:dateLine`);
-    if (s.type === "schedule") (d.items as Rec[]).forEach((it, i) => { if (text(it.when) !== "") review.push(`${s.id}:items.${i}.when`); });
+    if (s.type === "hero" && text(d.dateLine) !== "" && !hasDateMarker(text(d.dateLine))) review.push(`${s.id}:dateLine`);
+    if (s.type === "schedule") (d.items as Rec[]).forEach((it, i) => { if (text(it.when) !== "" && !hasDateMarker(text(it.when))) review.push(`${s.id}:items.${i}.when`); });
     if (s.type === "pricing_cards") {
       (d.items as Rec[]).forEach((it, i) => {
         if (text(it.price) !== "") review.push(`${s.id}:items.${i}.price`);
@@ -154,7 +163,7 @@ function build(raw: string): { ok: true; built: BuiltImport } | { ok: false; err
   const schedule = content.sections.find((s) => s.type === "schedule");
   if (schedule && schedule.enabled) {
     const dated = new Set(((schedule.data.items as Rec[]) ?? []).map((it) => text(it.module)));
-    if (!dated.has("")) for (const m of content.modules) if (!dated.has(m.key)) warn(`${m.title.trim() || m.key} has no dates.`);
+    if (!dated.has("")) for (const m of content.modules) if (!dated.has(m.key) && !m.startsOn) warn(`${m.title.trim() || m.key} has no dates.`);
   }
   const faq = content.sections.find((s) => s.type === "faq");
   if (!faq || (faq.data.items as unknown[]).length === 0) warn("The page has no questions and answers (FAQ).");

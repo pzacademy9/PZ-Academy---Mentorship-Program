@@ -68,12 +68,12 @@ describe("masterPrompt", () => {
       });
 
       it("stays a sane length", () => {
-        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(13000);
+        expect(prompt.length - EXAMPLE_FILE_BY_KIND[kind].length).toBeLessThan(13400);
       });
 
       it("keeps the rules section (before the section list) short", () => {
         const rules = prompt.split("# The page sections")[0];
-        expect(rules.length).toBeLessThan(9000);
+        expect(rules.length).toBeLessThan(9200);
       });
 
       it("states the final outline, group and conflict rules", () => {
@@ -212,5 +212,31 @@ describe("module titles in the course prompt", () => {
     expect(prompt).toContain('hero_title (for example "Therapeutics")');
     expect(EXAMPLE_FILE_BY_KIND.course).toContain('hero_title: "Therapeutics"');
     expect(EXAMPLE_FILE_BY_KIND.course).not.toContain('hero_title: "Module 2: Therapeutics"');
+  });
+});
+
+describe("masterPrompt dates", () => {
+  const course = masterPrompt("course");
+  it("asks for each module's real dates and shows the new lines", () => {
+    expect(course).toContain("starts:");
+    expect(course).toContain("ends:");
+    expect(course).toContain("event_starts");
+    expect(course).toContain("event_ends");
+    expect(course).toContain("each module's real dates");
+  });
+  it("uses markers in the hero example and empty when for module rows", () => {
+    expect(course).toContain("{dates} ({weekdays})");
+    expect(EXAMPLE_FILE_BY_KIND.course).toContain('dateLine: "{dates} ({weekdays})"');
+    expect(EXAMPLE_FILE_BY_KIND.course).toContain('when: ""');
+    expect(EXAMPLE_FILE_BY_KIND.course).toContain("module: module-1");
+  });
+  it("numbers each module's days from Day 1 and keeps typed dates out of the outline", () => {
+    expect(course).toMatch(/numbered from Day 1/);
+    expect(course).toMatch(/outline holds no typed dates/i);
+  });
+  it("the course example file imports with its dates", () => {
+    const r = buildImport(EXAMPLE_FILE_BY_KIND.course);
+    if (!r.ok) throw new Error(r.errors.join(" | "));
+    expect(r.built.content.modules[0].startsOn).toBe("2026-11-15");
   });
 });
