@@ -37,6 +37,13 @@ describe("publicName", () => {
     expect(publicName("Madonna")).toBe("Madonna");
     expect(publicName("   ")).toBe("Affiliate");
     expect(publicName("Ali Khan-Reza")).toBe("Ali K.");
+    expect(publicName("M. Ali Khan")).toBe("Ali K.");
+    expect(publicName("Ali Khan (PZ)")).toBe("Ali K.");
+    expect(publicName("Dr. Ali Khan")).toBe("Ali K.");
+    expect(publicName("Ali")).toBe("Ali");
+    expect(publicName("Dr")).toBe("Affiliate");
+    expect(publicName("Prof.")).toBe("Affiliate");
+    expect(publicName("")).toBe("Affiliate");
   });
 });
 
@@ -84,7 +91,17 @@ describe("rankTeams", () => {
 describe("gapFor / gapLine", () => {
   it("chases a strictly higher paid", () => {
     const r = rankAffiliates([row("a", "Ali Khan", 5, 5), row("b", "Bina Raza", 3, 3)]);
-    expect(gapFor(r, "b")).toEqual({ kind: "chase", more: 2, target: "Ali K.", rank: 1 });
+    expect(gapFor(r, "b")).toEqual({ kind: "chase", more: 3, target: "Ali K.", rank: 1 });
+  });
+  it("counts a pass that only brings paid level as one more", () => {
+    const tie = rankAffiliates([row("a", "Ali Khan", 5, 5), row("b", "Bina Raza", 3, 3)]);
+    expect(gapFor(tie, "b")).toMatchObject({ kind: "chase", more: 3 });
+    const ahead = rankAffiliates([row("a", "Ali Khan", 5, 5), row("b", "Bina Raza", 3, 6)]);
+    expect(gapFor(ahead, "b")).toMatchObject({ kind: "chase", more: 2 });
+  });
+  it("does not name a runner-up with no paid sale", () => {
+    const r = rankAffiliates([row("a", "Ali Khan", 5, 5), row("z", "Zed Q", 0, 0)]);
+    expect(gapFor(r, "a")).toEqual({ kind: "first", ahead: 5, of: null });
   });
   it("needs one more when paid is equal but registered is lower", () => {
     const r = rankAffiliates([row("a", "Ali Khan", 3, 9), row("b", "Bina Raza", 3, 3)]);

@@ -139,11 +139,17 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   // The rank card is a bonus: if it cannot load, the rest of the page must still show.
   let rank: AffiliatePageModel["rank"] = { all: null, month: null, boardUrl: "" };
+  // The two reads fail independently: a missing board link must not hide a good rank, and the other way round.
   try {
-    const [own, boardToken] = await Promise.all([getAffiliateRank(row.id), getBoardToken()]);
-    rank = { ...own, boardUrl: `${baseUrl}/affiliate-board/${boardToken}` };
+    const own = await getAffiliateRank(row.id);
+    rank = { ...rank, ...own };
   } catch (e) {
     console.error("affiliate rank failed to load", e);
+  }
+  try {
+    rank = { ...rank, boardUrl: `${baseUrl}/affiliate-board/${await getBoardToken()}` };
+  } catch (e) {
+    console.error("affiliate board link failed to load", e);
   }
 
   return buildPageModel({

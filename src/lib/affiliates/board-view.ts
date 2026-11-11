@@ -11,7 +11,8 @@ export type BoardViews = { all: BoardView; month: BoardView };
 
 export function toBoardView(board: { rows: RankedAffiliate[]; teams: TeamRank[] }): BoardView {
   return {
-    rows: board.rows.map((r) => ({ rank: r.rank, publicName: r.publicName, team: r.team, paid: r.paid })),
+    // Only affiliates with a paid sale are on the public board; ranks stay the real ranks. The team race keeps every row.
+    rows: board.rows.filter((r) => r.paid >= 1).map((r) => ({ rank: r.rank, publicName: r.publicName, team: r.team, paid: r.paid })),
     teams: board.teams.map((t) => ({ team: t.team, rank: t.rank, paid: t.paid, active: t.active, score: t.score })),
   };
 }

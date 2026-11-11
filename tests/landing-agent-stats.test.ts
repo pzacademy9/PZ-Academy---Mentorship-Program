@@ -267,3 +267,16 @@ describe("migration 0083 (checked by text only, the SQL cannot run here)", () =>
     expect(sql).not.toMatch(/\binto\b/i);
   });
 });
+
+describe("migration 0111 leaderboard revenue", () => {
+  const sql = readFileSync(join(process.cwd(), "supabase", "migrations", "0111_leaderboard_revenue_price.sql"), "utf8");
+  const code = sql.split(/\r?\n/).filter((l) => !l.trim().startsWith("--")).join("\n");
+  it("sums the row price and never amount_received", () => {
+    expect(code).toContain("r.expected_amount as amount");
+    expect(code).not.toContain("amount_received");
+  });
+  it("replaces only landing_leaderboard", () => {
+    const fns = Array.from(code.matchAll(/create or replace function\s+public\.(\w+)/gi)).map((m) => m[1]);
+    expect(fns).toEqual(["landing_leaderboard"]);
+  });
+});

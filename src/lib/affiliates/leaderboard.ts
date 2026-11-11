@@ -26,17 +26,29 @@ export function windowFor(period: BoardPeriod, now: Date): Date | null {
   return period === "month" ? monthStartPkt(now) : null;
 }
 
-/** "Ali Khan" -> "Ali K."; one word -> "Ali"; titles skipped; nothing usable -> "Affiliate". */
+// "M." / "M" / "A.B.": a single initial or dotted initials, never a name on its own when a longer word exists.
+const INITIALS_RE = /^[^\s.]\.?$|^([^\s.]\.){2,}$/;
+// ASCII punctuation except the apostrophe and hyphen, which belong inside names ("O'Neil", "Khan-Reza").
+const PUNCTUATION_RE = /[!-&(-,.\/:-@\[-`{-~]/g;
+const NOT_A_LETTER_RE = /^[\d'-]$/;
+
+/**
+ * "Ali Khan" -> "Ali K."; one word -> "Ali". Brackets, titles (Dr, Prof...) and initials ("M.") are skipped when a
+ * longer word exists; nothing usable (blank or only a title) -> "Affiliate".
+ */
 export function publicName(name: string): string {
   const words = name
+    .replace(/\([^)]*\)/g, " ")
     .split(/\s+/)
-    .map((w) => w.replace(/[.,]/g, ""))
-    .filter((w) => w.length > 0);
-  const real = words.filter((w) => !TITLES.has(w.toLowerCase()));
-  const use = real.length > 0 ? real : words;
+    .map((raw) => ({ raw, clean: raw.replace(PUNCTUATION_RE, "") }))
+    .filter((w) => Array.from(w.clean).some((c) => !NOT_A_LETTER_RE.test(c)));
+  const notTitle = words.filter((w) => !TITLES.has(w.clean.toLowerCase()));
+  const longer = notTitle.filter((w) => !INITIALS_RE.test(w.raw));
+  const use = (longer.length > 0 ? longer : notTitle).map((w) => w.clean);
   if (use.length === 0) return "Affiliate";
   if (use.length === 1) return use[0];
-  return `${use[0]} ${Array.from(use[use.length - 1])[0].toUpperCase()}.`;
+  const last = Array.from(use[use.length - 1]).find((c) => !NOT_A_LETTER_RE.test(c)) ?? "";
+  return `${use[0]} ${last.toUpperCase()}.`;
 }
 
 const sameStanding = (a: BoardRow, b: BoardRow) => a.paid === b.paid && a.registered === b.registered;
@@ -79,12 +91,14 @@ export function gapFor(ranked: RankedAffiliate[], affiliateId: string): GapResul
   if (me.rank === 1) {
     const other = ranked.find((r) => r.affiliateId !== affiliateId);
     if (!other) return { kind: "first", ahead: 0, of: null };
-    return { kind: "first", ahead: me.paid - other.paid, of: other.publicName };
+    // A runner-up with no paid sale is not on the board, so they are not named.
+    return { kind: "first", ahead: me.paid - other.paid, of: other.paid >= 1 ? other.publicName : null };
   }
   let target: RankedAffiliate | undefined;
   for (const r of ranked) if (r.rank < me.rank) target = r;
   if (!target) return { kind: "none" };
-  const more = target.paid > me.paid ? target.paid - me.paid : 1;
+  // A pass that only brings paid level is a tie on paid, so it needs one more unless registered already wins the tie-break.
+  const more = target.paid - me.paid + (me.registered > target.registered ? 0 : 1);
   return { kind: "chase", more, target: target.publicName, rank: target.rank };
 }
 

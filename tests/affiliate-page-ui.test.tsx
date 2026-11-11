@@ -212,6 +212,20 @@ describe("AffiliatePage: your rank", () => {
     expect(screen.queryByRole("heading", { name: "Your rank" })).toBeNull();
     expect(screen.getByText("Hello, Sara Khan")).toBeTruthy();
   });
+  it("says 'of 1 affiliate' for a board of one", () => {
+    render(<AffiliatePage model={model({ rank: { month: own({ rank: 1, of: 1, line: "You are first." }), all: null, boardUrl: BOARD } })} />);
+    expect(screen.getByText("You are 1st of 1 affiliate")).toBeTruthy();
+  });
+  it("uses amber only on the rank pill: every other background and border is a landing token", () => {
+    for (const rank of [1, 3]) {
+      const { container, unmount } = render(<AffiliatePage model={model({ rank: { month: own({ rank }), all: null, boardUrl: BOARD } })} />);
+      const card = container.querySelector('[data-testid="your-rank"]')!;
+      const pill = card.querySelector('[data-testid="rank-pill"]')!;
+      pill.remove();
+      expect(card.innerHTML).not.toMatch(/(bg|border)-(emerald|amber|green)-/);
+      unmount();
+    }
+  });
   it("uses only the allowed colour tokens", () => {
     const { container } = render(<AffiliatePage model={model({ rank: { month: own(), all: own(), boardUrl: BOARD } })} />);
     const html = container.innerHTML;

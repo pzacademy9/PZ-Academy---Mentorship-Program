@@ -208,16 +208,27 @@ describe("getAffiliatePageModel", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const m = await getAffiliatePageModel(token);
     expect(m).toMatchObject({ name: "Sara Khan", earnedPkr: 900 });
-    expect(m?.rank).toEqual({ all: null, month: null, boardUrl: "" });
+    expect(m?.rank).toMatchObject({ all: null, month: null });
     expect(err).toHaveBeenCalled();
     err.mockRestore();
   });
-  it("a board link failure also hides the card and keeps the page", async () => {
+  it("a board link failure keeps a good rank, with no link, and is logged", async () => {
     serve("accepted");
+    const own = { rank: 3, of: 54, paid: 4, line: "x", teamRank: 2, team: "Blue" };
+    lb.rank.mockResolvedValue({ all: own, month: null });
     lb.token.mockRejectedValue(new Error("no link"));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const m = await getAffiliatePageModel(token);
-    expect(m?.rank).toEqual({ all: null, month: null, boardUrl: "" });
+    expect(m?.rank).toEqual({ all: own, month: null, boardUrl: "" });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+  it("a rank failure keeps the board link", async () => {
+    serve("accepted");
+    lb.rank.mockRejectedValue(new Error("rank down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = await getAffiliatePageModel(token);
+    expect(m?.rank).toEqual({ all: null, month: null, boardUrl: "https://pz.test/affiliate-board/boardtoken" });
     err.mockRestore();
   });
 });

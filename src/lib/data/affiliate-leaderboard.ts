@@ -67,11 +67,12 @@ export async function isBoardToken(token: string): Promise<boolean> {
 
 function ownRank(board: AffiliateBoard, affiliateId: string): OwnRank | null {
   const me = board.rows.find((r) => r.affiliateId === affiliateId);
-  if (!me) return null;
+  // Nobody with no paid sale is ranked (matches the public board); "of" counts only those with a paid sale.
+  if (!me || me.paid === 0) return null;
   const gap = gapFor(board.rows, affiliateId);
   return {
     rank: me.rank,
-    of: board.rows.length,
+    of: board.rows.filter((r) => r.paid >= 1).length,
     paid: me.paid,
     line: gap ? gapLine(gap) : "",
     teamRank: me.team ? (board.teams.find((t) => t.team === me.team)?.rank ?? null) : null,

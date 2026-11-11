@@ -1,7 +1,8 @@
 // src/lib/landing/agent-stats-rules.ts
 // The counting rules for agent numbers, written over plain rows. The live numbers come from the SQL
-// functions in supabase/migrations/0083_agent_stats.sql, which follow exactly these rules; this file
-// is the executable copy the tests check, so a change to one must be made in the other.
+// functions in supabase/migrations/0083_agent_stats.sql (link stats) and
+// supabase/migrations/0111_leaderboard_revenue_price.sql (the leaderboard function), which follow exactly
+// these rules; this file is the executable copy the tests check, so a change to one must be made in the other.
 //
 //  * One sale = a lead or individual row, not a test row. Member rows are never counted.
 //  * registered = sales by created_at; paid = sales that are Paid right now.

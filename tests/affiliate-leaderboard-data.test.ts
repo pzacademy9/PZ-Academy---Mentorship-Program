@@ -106,15 +106,20 @@ describe("getAffiliateRank", () => {
   it("gives rank, size, paid, a gap line and the team standing for one on the board", async () => {
     serveBoard();
     const r = await getAffiliateRank("a1", NOW);
-    expect(r.all).toMatchObject({ rank: 2, of: 3, paid: 2, team: "Green" });
-    expect(r.all!.line).toBe("2 more paid sales to pass Sara N.");
+    expect(r.all).toMatchObject({ rank: 2, of: 2, paid: 2, team: "Green" });
+    expect(r.all!.line).toBe("3 more paid sales to pass Sara N.");
     expect(typeof r.all!.teamRank).toBe("number");
     expect(r.month).toMatchObject({ rank: 2 });
   });
-  it("an affiliate without a team has no team rank", async () => {
+  it("an affiliate with no paid sale is unranked (null), not 3rd of 3", async () => {
     serveBoard();
     const r = await getAffiliateRank("a3", NOW);
-    expect(r.all).toMatchObject({ team: null, teamRank: null });
-    expect(r.all!.line).toBe("Get your first paid sale to join the race.");
+    expect(r).toEqual({ all: null, month: null });
+  });
+  it("an affiliate without a team has no team rank", async () => {
+    db.state.handler = (op) =>
+      op.op === "rpc" ? { data: [{ affiliate_id: "a9", name: "Solo Q", team: null, registered: "2", paid: "1" }], error: null } : { data: null, error: null };
+    const r = await getAffiliateRank("a9", NOW);
+    expect(r.all).toMatchObject({ team: null, teamRank: null, rank: 1, of: 1 });
   });
 });

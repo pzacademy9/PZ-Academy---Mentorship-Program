@@ -101,6 +101,20 @@ describe("GET /api/admin/affiliates/podium", () => {
     for (const e of el.props.entries) expect(Object.keys(e).sort()).toEqual(["name", "rank", "score"]);
   });
 
+  it("a tie at the edge gives at most three entries with the real rank numbers", async () => {
+    h.getAffiliateBoard.mockResolvedValue(board([r(1, "Alpha", 5), r(1, "Bravo", 5), r(1, "Charlie", 5), r(4, "Delta", 3)]));
+    await call();
+    const el = h.images[0].element as ReactElement<{ entries: { name: string; rank: number }[] }>;
+    expect(el.props.entries.map((e) => e.rank)).toEqual([1, 1, 1]);
+    expect(markup()).not.toContain("Delta");
+  });
+  it("one paid affiliate gives a one-entry podium", async () => {
+    h.getAffiliateBoard.mockResolvedValue(board([r(1, "Alpha", 2), r(2, "Echo", 0)]));
+    await call();
+    const el = h.images[0].element as ReactElement<{ entries: unknown[] }>;
+    expect(el.props.entries).toHaveLength(1);
+  });
+
   it("a non-Latin name reads Affiliate #rank", async () => {
     h.getAffiliateBoard.mockResolvedValue(board([r(1, "Alpha", 3), { ...r(2, "x", 2), publicName: "علي" }]));
     await call();

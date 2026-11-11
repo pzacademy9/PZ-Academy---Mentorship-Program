@@ -80,6 +80,43 @@ describe("the public affiliate board route", () => {
     render(await Page(ctx()));
     expect(screen.getByText("No paid sales yet this month. Be the first.")).toBeTruthy();
   });
+  it("rows with no paid sale (as the data layer returns them) never show: empty message, no podium, no crown", async () => {
+    const zero = (n: number) => row({ affiliateId: `z${n}`, publicName: `Zed ${n}`, paid: 0, registered: 3, rank: n });
+    m.board.mockImplementation(async (p: string) => ({ period: p, rows: [zero(1), zero(2)], teams: teams(0) }));
+    const { container } = render(await Page(ctx()));
+    expect(screen.getByText("No paid sales yet this month. Be the first.")).toBeTruthy();
+    expect(screen.queryAllByRole("listitem", { name: /podium place/i }).length).toBe(0);
+    expect(screen.queryByText("Top affiliates")).toBeNull();
+    expect(container.innerHTML).not.toContain("Zed");
+  });
+  it("only rows with a paid sale are rendered, with their real ranks", async () => {
+    const rows = [
+      row({ paid: 4, rank: 1 }),
+      row({ ...sara, paid: 2, rank: 2 }),
+      row({ affiliateId: "z1", publicName: "Zed Q.", paid: 0, rank: 3 }),
+      row({ affiliateId: "z2", publicName: "Yan Q.", paid: 0, rank: 3 }),
+    ];
+    m.board.mockImplementation(async (p: string) => ({ period: p, rows, teams: teams(2) }));
+    const { container } = render(await Page(ctx()));
+    expect(screen.getAllByRole("listitem", { name: /podium place/i }).length).toBe(2);
+    expect(container.innerHTML).not.toContain("Zed Q.");
+    expect(container.innerHTML).not.toContain("Yan Q.");
+    expect(screen.getByText("Sara N.")).toBeTruthy();
+  });
+  it("a one-word and a very long name render without a crash and keep their text", async () => {
+    const long = "Abdulrahman-Muhammad-Ibn-Abdullah-Al-Farsi-Al-Hashimi-Al-Qureshi-Al-Madani-Al-Makki K.";
+    const rows = [
+      row({ paid: 9, rank: 1, publicName: "Madonna" }),
+      row({ ...sara, paid: 8, rank: 2, publicName: long }),
+      row({ affiliateId: "i3", publicName: "Cy P.", paid: 7, rank: 3 }),
+      row({ affiliateId: "i4", publicName: long + "x", paid: 6, rank: 4 }),
+    ];
+    m.board.mockImplementation(async (p: string) => ({ period: p, rows, teams: teams(2) }));
+    render(await Page(ctx()));
+    expect(screen.getAllByText("Madonna").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(long).length).toBeGreaterThan(0);
+    expect(screen.getByText(long + "x")).toBeTruthy();
+  });
   it("a one-row board renders one podium place", async () => {
     m.board.mockImplementation(async (p: string) => ({ period: p, rows: [row({ paid: 3 })], teams: teams(3) }));
     render(await Page(ctx()));

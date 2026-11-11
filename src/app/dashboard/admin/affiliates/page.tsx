@@ -12,9 +12,18 @@ export default async function AdminAffiliatesPage() {
   const [rows, failed] = await Promise.all([listAffiliates(), affiliatesWithFailedEmail()]);
   // The leaderboard is an extra tab: if it cannot load, the other two tabs must still work.
   const [month, all, token] = await Promise.all([
-    getAffiliateBoard("month").catch(() => null),
-    getAffiliateBoard("all").catch(() => null),
-    getBoardToken().catch(() => null),
+    getAffiliateBoard("month").catch((e) => {
+      console.error("admin affiliates: month leaderboard failed", e);
+      return null;
+    }),
+    getAffiliateBoard("all").catch((e) => {
+      console.error("admin affiliates: all-time leaderboard failed", e);
+      return null;
+    }),
+    getBoardToken().catch((e) => {
+      console.error("admin affiliates: board link failed", e);
+      return null;
+    }),
   ]);
   const boards = month && all ? { month, all } : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");

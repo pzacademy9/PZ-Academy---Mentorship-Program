@@ -86,12 +86,12 @@ export function YourRank({ rank }: { rank: Rank }) {
 
           {own ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <div className={`inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 px-3 py-1 ${first ? "bg-amber-100" : "bg-amber-50"}`}>
+              <div data-testid="rank-pill" className={`inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 px-3 py-1 ${first ? "bg-amber-100" : "bg-amber-50"}`}>
                 {first && <Icon className={`h-5 w-5 ${AMBER_TEXT}`}>{CROWN}</Icon>}
                 <span className={`font-headline text-3xl font-black tracking-tight ${AMBER_TEXT}`}>{ordinal(own.rank)}</span>
                 {!first && <Icon className={`h-5 w-5 ${AMBER_TEXT}`}>{MEDAL}</Icon>}
               </div>
-              <span className="text-sm font-medium text-landing-muted">{`You are ${ordinal(own.rank)} of ${own.of} affiliates`}</span>
+              <span className="text-sm font-medium text-landing-muted">{`You are ${ordinal(own.rank)} of ${own.of} ${own.of === 1 ? "affiliate" : "affiliates"}`}</span>
             </div>
           ) : (
             <div className="inline-flex w-fit items-center rounded-2xl border border-landing-border bg-landing-surface px-3 py-1">
@@ -105,10 +105,10 @@ export function YourRank({ rank }: { rank: Rank }) {
             own.line && (
               <p
                 className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold leading-tight md:text-sm ${
-                  first ? "border-amber-200 bg-amber-50 text-landing-deep" : "border-emerald-100 bg-emerald-50 text-emerald-800"
+                  first ? "border-landing-mint bg-landing-mint-light text-landing-deep" : "border-landing-border bg-landing-mint-light text-landing-deep"
                 }`}
               >
-                <Icon className={first ? `${AMBER_TEXT}` : "text-emerald-700"}>{first ? MEDAL : ARROW_UP}</Icon>
+                <Icon className={first ? AMBER_TEXT : "text-landing-primary"}>{first ? MEDAL : ARROW_UP}</Icon>
                 <span>{own.line}</span>
               </p>
             )
