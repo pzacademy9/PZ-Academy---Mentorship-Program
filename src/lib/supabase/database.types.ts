@@ -125,6 +125,24 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_board_link: {
+        Row: {
+          id: boolean
+          rotated_at: string
+          token: string
+        }
+        Insert: {
+          id?: boolean
+          rotated_at?: string
+          token: string
+        }
+        Update: {
+          id?: boolean
+          rotated_at?: string
+          token?: string
+        }
+        Relationships: []
+      }
       affiliate_commissions: {
         Row: {
           affiliate_id: string
@@ -5072,6 +5090,16 @@ export type Database = {
       landing_rollback_variant: {
         Args: { p_user: string; p_variant_id: string; p_version: number }
         Returns: number
+      }
+      affiliate_leaderboard: {
+        Args: { p_from?: string }
+        Returns: {
+          affiliate_id: string
+          name: string
+          team: string | null
+          registered: number
+          paid: number
+        }[]
       }
       affiliate_link_stats: {
         Args: { p_affiliate_id: string }
