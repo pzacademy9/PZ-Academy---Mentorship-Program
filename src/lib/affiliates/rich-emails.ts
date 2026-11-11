@@ -38,7 +38,7 @@ const CERT_TARGET = 10;
 const WITHDRAW_PKR = 3500;
 const TARGET = 10;
 
-const pkr = (n: number): string => "PKR " + Math.round(n).toLocaleString("en-US");
+const pkr = (n: number): string => "PKR " + Math.floor(n).toLocaleString("en-US");
 
 function pill(text: string, bg: string, color: string): string {
   return `<span style="background:${bg};color:${color};padding:5px 14px;border-radius:50px;font-weight:700;font-size:13px;display:inline-block;">${esc(text)}</span>`;
@@ -225,10 +225,10 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
     bar(i.paid, CERT_TARGET, "#0b7a3b") +
     `</div><div><table width="100%" cellpadding="0" cellspacing="0"><tr>` +
     `<td style="font-size:13px;color:#0d1b2a;">Withdrawal (${esc(pkr(WITHDRAW_PKR))})</td>` +
-    `<td align="right">${canWithdraw ? pill("Eligible! Request Now", "#e6f7ee", "#0b7a3b") : pill(`${pkr(needWd)} more`, "#fce8e6", "#c62828")}</td></tr></table>` +
+    `<td align="right">${canWithdraw ? pill("Eligible! Request Now", "#e6f7ee", "#0b7a3b") : pill(`PKR ${Math.ceil(needWd).toLocaleString("en-US")} more`, "#fce8e6", "#c62828")}</td></tr></table>` +
     bar(i.balancePkr, WITHDRAW_PKR, "#f59e0b", true) +
     `</div></div>` +
-    `<div style="text-align:center;margin-bottom:24px;">${waBtn("Contact on WhatsApp", i.supportWa)}</div>`;
+    `<div style="text-align:center;margin-bottom:24px;">${waBtn("Message us on WhatsApp", i.supportWa)}</div>`;
 
   return {
     subject: "Performance Update - Pharmacozyme Affiliate",
@@ -255,7 +255,7 @@ export function motivationEmail(i: MotivationInput): { subject: string; html: st
       : "") +
     `<p style="font-size:13px;font-weight:700;color:#0d1b2a;margin:0 0 8px;">Top 5 Leaderboard</p>` +
     topTable(i.top.slice(0, 5)) +
-    `<div style="text-align:center;margin-bottom:24px;">${waBtn("Contact on WhatsApp", i.supportWa)}</div>`;
+    `<div style="text-align:center;margin-bottom:24px;">${waBtn("Message us on WhatsApp", i.supportWa)}</div>`;
 
   return {
     subject: "Start Your Affiliate Journey - Pharmacozyme",

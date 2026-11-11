@@ -90,6 +90,19 @@ describe("progressEmail", () => {
     expect(r.html).toContain("\u0645\u0631\u062D\u0628\u0627");
   });
 
+  it("main support button label is exactly \"Message us on WhatsApp\" in both emails", () => {
+    expect(progressEmail(base()).html).toContain(">Message us on WhatsApp</a>");
+    const m = motivationEmail({ name: "Z", code: "Z", leaderLine: null, top: [], supportWa: "https://wa.me/1" });
+    expect(m.html).toContain(">Message us on WhatsApp</a>");
+  });
+
+  it("balance 3499.6 shows PKR 1 more, never PKR 0 more, and no withdraw banner", () => {
+    const html = progressEmail(base({ balancePkr: 3499.6 })).html;
+    expect(html).not.toContain("PKR 0 more");
+    expect(html).toContain("PKR 1 more");
+    expect(html).not.toContain("You Can Withdraw");
+  });
+
   it("includes the message block when a message is given", () => {
     expect(progressEmail(base({ message: "Hi team" })).html).toContain("Hi team");
   });
