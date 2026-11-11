@@ -6,7 +6,8 @@
 //  * One sale = a lead or individual row, not a test row. Member rows are never counted.
 //  * registered = sales by created_at; paid = sales that are Paid right now.
 //  * In a window a paid sale is dated by its earliest Paid status event (else its created_at).
-//  * Revenue = amount_received if set, else expected_amount, per currency, never converted.
+//  * Revenue = expected_amount (the price in the page currency), per currency, never converted.
+//    amount_received is NOT used: it carries no currency and can hold a different one (e.g. PKR on a SAR row).
 //  * Views = distinct session ids of this agent's view events, per page.
 
 export type StatRegistration = {
@@ -95,7 +96,7 @@ export function countLeaderboard(input: {
     const paidAt = firstPaid.get(r.id) ?? created;
     if (fromMs !== null && paidAt < fromMs) continue;
     s.paid += 1;
-    s.money.set(r.currency, (s.money.get(r.currency) ?? 0) + (r.amountReceived ?? r.expectedAmount));
+    s.money.set(r.currency, (s.money.get(r.currency) ?? 0) + r.expectedAmount);
   }
 
   return sortLeaders(

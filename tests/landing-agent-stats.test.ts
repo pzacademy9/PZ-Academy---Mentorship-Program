@@ -104,19 +104,20 @@ describe("countLeaderboard (pure counting rules)", () => {
     expect(out[2]).toEqual({ agentId: "z", name: "Zed", registered: 0, paid: 0, revenue: [] });
   });
 
-  it("two currencies give two revenue entries and no total; amount_received wins over expected_amount", () => {
+  it("two currencies give two revenue entries and no total; amount_received is ignored (it has no currency)", () => {
     const out = countLeaderboard({
       ...base, range: "all",
       registrations: [
         reg({ status: "paid", currency: "PKR", amountReceived: 900, expectedAmount: 1000 }),
+        reg({ status: "paid", currency: "SAR", amountReceived: 12500, expectedAmount: 170 }),
         reg({ status: "paid", currency: "PKR", amountReceived: null, expectedAmount: 500 }),
         reg({ status: "paid", currency: "USD", amountReceived: null, expectedAmount: 20 }),
       ],
       paidEvents: [],
     });
     const a = find(out, "a");
-    expect(a.paid).toBe(3);
-    expect(a.revenue).toEqual([{ currency: "PKR", amount: 1400 }, { currency: "USD", amount: 20 }]);
+    expect(a.paid).toBe(4);
+    expect(a.revenue).toEqual([{ currency: "PKR", amount: 1500 }, { currency: "SAR", amount: 170 }, { currency: "USD", amount: 20 }]);
   });
 
   it("a group counts once: the lead carries the sale and members add nothing", () => {
