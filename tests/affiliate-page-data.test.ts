@@ -6,6 +6,8 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 const pages = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock("@/lib/data/landing-agent-stats", () => ({ listPublishedLinkPages: pages.list }));
+const lb = vi.hoisted(() => ({ rank: vi.fn(), token: vi.fn() }));
+vi.mock("@/lib/data/affiliate-leaderboard", () => ({ getAffiliateRank: lb.rank, getBoardToken: lb.token }));
 
 import { buildPageModel, getAffiliatePageModel } from "@/lib/data/affiliate-page";
 
@@ -26,7 +28,8 @@ const com = (over: Partial<{ currency: string; commission: number; commissionPkr
 });
 const input = (over: Record<string, unknown> = {}) => ({
   affiliate, commissions: [] as ReturnType<typeof com>[], stats: [] as { pageId: string; views: number; registered: number; paid: number }[],
-  pages: pg, baseUrl: "https://pz.test", supportWa: "https://wa.me/1", now: NOW, ...over,
+  pages: pg, baseUrl: "https://pz.test", supportWa: "https://wa.me/1", now: NOW,
+  rank: { all: null, month: null, boardUrl: "" }, ...over,
 });
 const many = (n: number, over: Parameters<typeof com>[0] = {}) => Array.from({ length: n }, () => com(over));
 
@@ -125,8 +128,18 @@ describe("buildPageModel: links and totals", () => {
   });
 });
 
+describe("buildPageModel: rank", () => {
+  it("passes the rank through untouched", () => {
+    const own = { rank: 3, of: 54, paid: 4, line: "2 more paid sales to pass Ali K.", teamRank: 2, team: "Blue" as const };
+    const rank = { all: own, month: null, boardUrl: "https://pz.test/affiliate-board/tok" };
+    expect(buildPageModel(input({ rank })).rank).toEqual(rank);
+  });
+});
+
 describe("getAffiliatePageModel", () => {
   beforeEach(() => {
+    lb.rank.mockReset().mockResolvedValue({ all: null, month: null });
+    lb.token.mockReset().mockResolvedValue("boardtoken");
     db.reset();
     pages.list.mockReset().mockResolvedValue(pg);
     process.env.NEXT_PUBLIC_APP_URL = "https://pz.test/";
@@ -180,5 +193,42 @@ describe("getAffiliatePageModel", () => {
   it("lets a read error through, so the page shows an error and not a wrong 'no longer active'", async () => {
     db.state.handler = () => ({ data: null, error: { code: "57014", message: "x" } });
     await expect(getAffiliatePageModel(token)).rejects.toBeTruthy();
+  });
+  it("loads the rank for this affiliate and builds the board link", async () => {
+    serve("accepted");
+    const own = { rank: 3, of: 54, paid: 4, line: "x", teamRank: 2, team: "Blue" };
+    lb.rank.mockResolvedValue({ all: own, month: null });
+    const m = await getAffiliatePageModel(token);
+    expect(lb.rank).toHaveBeenCalledWith("aff-1");
+    expect(m?.rank).toEqual({ all: own, month: null, boardUrl: "https://pz.test/affiliate-board/boardtoken" });
+  });
+  it("a rank failure is logged and the rest of the page still loads, with the card hidden", async () => {
+    serve("accepted");
+    lb.rank.mockRejectedValue(new Error("rank down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = await getAffiliatePageModel(token);
+    expect(m).toMatchObject({ name: "Sara Khan", earnedPkr: 900 });
+    expect(m?.rank).toMatchObject({ all: null, month: null });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+  it("a board link failure keeps a good rank, with no link, and is logged", async () => {
+    serve("accepted");
+    const own = { rank: 3, of: 54, paid: 4, line: "x", teamRank: 2, team: "Blue" };
+    lb.rank.mockResolvedValue({ all: own, month: null });
+    lb.token.mockRejectedValue(new Error("no link"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = await getAffiliatePageModel(token);
+    expect(m?.rank).toEqual({ all: own, month: null, boardUrl: "" });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+  it("a rank failure keeps the board link", async () => {
+    serve("accepted");
+    lb.rank.mockRejectedValue(new Error("rank down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = await getAffiliatePageModel(token);
+    expect(m?.rank).toEqual({ all: null, month: null, boardUrl: "https://pz.test/affiliate-board/boardtoken" });
+    err.mockRestore();
   });
 });

@@ -7,6 +7,7 @@
 import { useState } from "react";
 import type { AffiliatePageModel } from "@/lib/data/affiliate-page";
 import { AUTO_STEP } from "@/lib/affiliates/commission";
+import { YourRank } from "@/components/affiliates/YourRank";
 
 const TEAM_DOT: Record<string, string> = {
   Green: "bg-green-500",
@@ -119,6 +120,8 @@ export function AffiliatePage({ model }: { model: AffiliatePageModel }) {
           </div>
         ))}
       </section>
+
+      <YourRank rank={m.rank} />
 
       <section className={CARD}>
         <div className="grid grid-cols-2 gap-3">

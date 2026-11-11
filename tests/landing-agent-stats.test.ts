@@ -104,19 +104,20 @@ describe("countLeaderboard (pure counting rules)", () => {
     expect(out[2]).toEqual({ agentId: "z", name: "Zed", registered: 0, paid: 0, revenue: [] });
   });
 
-  it("two currencies give two revenue entries and no total; amount_received wins over expected_amount", () => {
+  it("two currencies give two revenue entries and no total; amount_received is ignored (it has no currency)", () => {
     const out = countLeaderboard({
       ...base, range: "all",
       registrations: [
         reg({ status: "paid", currency: "PKR", amountReceived: 900, expectedAmount: 1000 }),
+        reg({ status: "paid", currency: "SAR", amountReceived: 12500, expectedAmount: 170 }),
         reg({ status: "paid", currency: "PKR", amountReceived: null, expectedAmount: 500 }),
         reg({ status: "paid", currency: "USD", amountReceived: null, expectedAmount: 20 }),
       ],
       paidEvents: [],
     });
     const a = find(out, "a");
-    expect(a.paid).toBe(3);
-    expect(a.revenue).toEqual([{ currency: "PKR", amount: 1400 }, { currency: "USD", amount: 20 }]);
+    expect(a.paid).toBe(4);
+    expect(a.revenue).toEqual([{ currency: "PKR", amount: 1500 }, { currency: "SAR", amount: 170 }, { currency: "USD", amount: 20 }]);
   });
 
   it("a group counts once: the lead carries the sale and members add nothing", () => {
@@ -264,5 +265,18 @@ describe("migration 0083 (checked by text only, the SQL cannot run here)", () =>
     expect(sql).toMatch(/group by ps\.aid, ps\.currency/);
     expect(sql).toMatch(/r\.status = 'paid'|s\.status = 'paid'/);
     expect(sql).not.toMatch(/\binto\b/i);
+  });
+});
+
+describe("migration 0111 leaderboard revenue", () => {
+  const sql = readFileSync(join(process.cwd(), "supabase", "migrations", "0111_leaderboard_revenue_price.sql"), "utf8");
+  const code = sql.split(/\r?\n/).filter((l) => !l.trim().startsWith("--")).join("\n");
+  it("sums the row price and never amount_received", () => {
+    expect(code).toContain("r.expected_amount as amount");
+    expect(code).not.toContain("amount_received");
+  });
+  it("replaces only landing_leaderboard", () => {
+    const fns = Array.from(code.matchAll(/create or replace function\s+public\.(\w+)/gi)).map((m) => m[1]);
+    expect(fns).toEqual(["landing_leaderboard"]);
   });
 });
