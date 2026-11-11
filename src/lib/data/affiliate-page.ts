@@ -16,6 +16,7 @@ import {
   type CommissionRow,
 } from "@/lib/affiliates/commission";
 import { affiliateSupportWa } from "@/lib/affiliates/contact";
+import { getAffiliateRank, getBoardToken, type OwnRank } from "@/lib/data/affiliate-leaderboard";
 
 // Tokens are 24 random bytes in base64url (32 characters). Anything else never reaches the database.
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,64}$/;
@@ -45,6 +46,8 @@ export type AffiliatePageModel = {
   totals: { views: number; registered: number; paid: number };
   links: AffiliatePageLink[];
   supportWa: string;
+  /** This affiliate's standing on the leaderboards. Both null with an empty boardUrl means it could not be loaded: the card is hidden. */
+  rank: { all: OwnRank | null; month: OwnRank | null; boardUrl: string };
 };
 
 export type PageModelInput = {
@@ -63,6 +66,7 @@ export type PageModelInput = {
   pages: { id: string; slug: string; title: string }[];
   baseUrl: string;
   supportWa: string;
+  rank: AffiliatePageModel["rank"];
   /** Defaults to now. Passed in by tests. */
   now?: Date;
 };
@@ -107,6 +111,7 @@ export function buildPageModel(i: PageModelInput): AffiliatePageModel {
       return { pageId: p.id, title: p.title, url: `${i.baseUrl}/e/${p.slug}?ref=${ref}`, views: s?.views ?? 0, registered: s?.registered ?? 0, paid: s?.paid ?? 0 };
     }),
     supportWa: i.supportWa,
+    rank: i.rank,
   };
 }
 
@@ -131,6 +136,16 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
   if (commissions.error) throw commissions.error;
   if (stats.error) throw stats.error;
 
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
+  // The rank card is a bonus: if it cannot load, the rest of the page must still show.
+  let rank: AffiliatePageModel["rank"] = { all: null, month: null, boardUrl: "" };
+  try {
+    const [own, boardToken] = await Promise.all([getAffiliateRank(row.id), getBoardToken()]);
+    rank = { ...own, boardUrl: `${baseUrl}/affiliate-board/${boardToken}` };
+  } catch (e) {
+    console.error("affiliate rank failed to load", e);
+  }
+
   return buildPageModel({
     affiliate: {
       name: row.name,
@@ -151,7 +166,8 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
     })),
     stats: (stats.data ?? []).map((s) => ({ pageId: s.page_id, views: Number(s.views), registered: Number(s.registered), paid: Number(s.paid) })),
     pages,
-    baseUrl: (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, ""),
+    baseUrl,
     supportWa: affiliateSupportWa(),
+    rank,
   });
 }

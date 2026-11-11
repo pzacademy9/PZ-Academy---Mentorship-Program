@@ -14,6 +14,7 @@ const model = (over: Partial<AffiliatePageModel> = {}): AffiliatePageModel => ({
     { pageId: "p2", title: "MDC Batch 3", url: "https://pz.test/e/mdc-b3?ref=sk321", views: 0, registered: 0, paid: 0 },
   ],
   supportWa: "https://wa.me/923155614490",
+  rank: { all: null, month: null, boardUrl: "" },
   ...over,
 });
 
@@ -159,6 +160,62 @@ describe("AffiliatePage: footer, wording and colours", () => {
     const html = container.innerHTML;
     expect(html).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(html).not.toMatch(/style="[^"]*color/i);
+    expect(html).not.toMatch(/(bg|border)-pz-(deep|mid|danger)\b/);
+    expect(html).not.toMatch(/\b(bg|text|border)-brand-/);
+  });
+});
+
+const own = (over: Partial<NonNullable<AffiliatePageModel["rank"]["month"]>> = {}) => ({
+  rank: 3, of: 54, paid: 4, line: "2 more paid sales to pass Ali K.", teamRank: 2, team: "Blue" as const, ...over,
+});
+const BOARD = "https://pz.test/affiliate-board/tok";
+
+describe("AffiliatePage: your rank", () => {
+  it("shows this month first with the rank, the gap line and the team line", () => {
+    render(<AffiliatePage model={model({ rank: { month: own(), all: own({ rank: 7, of: 90, line: "5 more paid sales to pass Zed Q." }), boardUrl: BOARD } })} />);
+    expect(screen.getByRole("heading", { name: "Your rank" })).toBeTruthy();
+    expect(screen.getByText("You are 3rd of 54 affiliates")).toBeTruthy();
+    expect(screen.getByText("2 more paid sales to pass Ali K.")).toBeTruthy();
+    expect(screen.getByText(/Your team/).textContent).toBe("Your team Blue is 2nd of 5.");
+  });
+  it("switches to all time", () => {
+    render(<AffiliatePage model={model({ rank: { month: own(), all: own({ rank: 7, of: 90, line: "5 more paid sales to pass Zed Q." }), boardUrl: BOARD } })} />);
+    fireEvent.click(screen.getByRole("tab", { name: "All time" }));
+    expect(screen.getByText("You are 7th of 90 affiliates")).toBeTruthy();
+    expect(screen.getByText("5 more paid sales to pass Zed Q.")).toBeTruthy();
+    expect(screen.queryByText("2 more paid sales to pass Ali K.")).toBeNull();
+  });
+  it("first place has its own wording", () => {
+    render(<AffiliatePage model={model({ rank: { month: own({ rank: 1, line: "You are first, 3 ahead of Bina R.", teamRank: 1 }), all: null, boardUrl: BOARD } })} />);
+    expect(screen.getByText("You are 1st of 54 affiliates")).toBeTruthy();
+    expect(screen.getByText("You are first, 3 ahead of Bina R.")).toBeTruthy();
+  });
+  it("no paid sales in the period: join-the-race prompt, no crash", () => {
+    render(<AffiliatePage model={model({ rank: { month: null, all: own(), boardUrl: BOARD } })} />);
+    expect(screen.getByText("Unranked")).toBeTruthy();
+    expect(screen.getByText("Get your first paid sale to join the race.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /see the full board/i })).toBeTruthy();
+  });
+  it("no team shows no team line", () => {
+    render(<AffiliatePage model={model({ rank: { month: own({ team: null, teamRank: null }), all: null, boardUrl: BOARD } })} />);
+    expect(screen.queryByText(/Your team/)).toBeNull();
+  });
+  it("links to the board only when there is a board link", () => {
+    const { unmount } = render(<AffiliatePage model={model({ rank: { month: own(), all: own(), boardUrl: BOARD } })} />);
+    expect(screen.getByRole("link", { name: /see the full board/i }).getAttribute("href")).toBe(BOARD);
+    unmount();
+    render(<AffiliatePage model={model({ rank: { month: own(), all: own(), boardUrl: "" } })} />);
+    expect(screen.queryByRole("link", { name: /see the full board/i })).toBeNull();
+  });
+  it("hides the whole card when the rank could not be loaded", () => {
+    render(<AffiliatePage model={model()} />);
+    expect(screen.queryByRole("heading", { name: "Your rank" })).toBeNull();
+    expect(screen.getByText("Hello, Sara Khan")).toBeTruthy();
+  });
+  it("uses only the allowed colour tokens", () => {
+    const { container } = render(<AffiliatePage model={model({ rank: { month: own(), all: own(), boardUrl: BOARD } })} />);
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(html).not.toMatch(/(bg|border)-pz-(deep|mid|danger)\b/);
     expect(html).not.toMatch(/\b(bg|text|border)-brand-/);
   });
