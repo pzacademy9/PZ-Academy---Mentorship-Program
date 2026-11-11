@@ -3,7 +3,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 
-export type AffiliateEmailKind = "accepted" | "dropped" | "left";
+export type AffiliateEmailKind = "accepted" | "dropped" | "left" | "progress" | "motivation";
 export interface AffiliateEmailRow {
   id: string;
   kind: AffiliateEmailKind;
@@ -26,6 +26,24 @@ export async function logAffiliateEmail(e: { affiliateId: string; kind: Affiliat
     return !error;
   } catch {
     return false;
+  }
+}
+
+/**
+ * How many emails were sent (status 'sent') in the last 24 hours, for the daily sending limit.
+ * On a read error it returns 300 so callers stop sending rather than overshoot.
+ */
+export async function countSentLast24h(): Promise<number> {
+  try {
+    const { count, error } = await createAdminSupabase()
+      .from("affiliate_emails")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "sent")
+      .gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
+    if (error) return 300;
+    return count ?? 0;
+  } catch {
+    return 300;
   }
 }
 

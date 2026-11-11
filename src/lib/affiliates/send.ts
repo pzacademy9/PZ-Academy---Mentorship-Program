@@ -6,7 +6,7 @@ import { sendAffiliateEmail } from "@/lib/brevo-affiliates";
 import { logAffiliateEmail, type AffiliateEmailKind } from "@/lib/data/affiliate-emails";
 import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { acceptedEmail, droppedEmail, leftEmail } from "./emails";
-import { messageBlockPlain } from "./rich-emails";
+import { messageBlockPlain, progressEmail, motivationEmail, type ProgressInput, type MotivationInput } from "./rich-emails";
 import { affiliateGroupWa, affiliateLink, affiliateSupportWa } from "./contact";
 
 async function deliver(
@@ -49,5 +49,7 @@ export async function sendAccepted(a: { id: string; name: string; email: string;
     }),
   );
 }
+export const sendProgress = (a: { id: string; name: string; email: string }, input: ProgressInput) => deliver(a, "progress", progressEmail(input));
+export const sendMotivation = (a: { id: string; name: string; email: string }, input: MotivationInput) => deliver(a, "motivation", motivationEmail(input));
 export const sendDropped = (a: { id: string; name: string; email: string }) => deliver(a, "dropped", droppedEmail({ name: a.name }));
 export const sendLeft = (a: { id: string; name: string; email: string }) => deliver(a, "left", leftEmail({ name: a.name }));
