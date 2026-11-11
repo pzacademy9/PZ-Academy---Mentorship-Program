@@ -5,15 +5,27 @@
 -- Service role only (RLS on, no policies). The owner pastes this in the Supabase SQL editor. Safe to run twice.
 --
 -- Old sales are marked as already emailed (the backfill below) so that nobody gets a progress email about a sale
--- that happened before this feature. The backfill runs before the index and the settings table are made.
+-- that happened before this feature. The guarded backfill runs before the index and the settings table are made.
+
+begin;
 
 -- ------------------------------------------------------------ columns
-alter table public.affiliate_commissions add column if not exists progress_emailed_at timestamptz;
 alter table public.affiliate_commissions add column if not exists progress_attempts integer not null default 0;
 alter table public.affiliates add column if not exists motivation_emailed_at timestamptz;
 
--- ------------------------------------------------------------ backfill: every sale that exists now counts as emailed
-update public.affiliate_commissions set progress_emailed_at = now() where progress_emailed_at is null;
+-- ------------------------------------------------------------ progress mark + backfill, first run only
+-- Every sale that exists now counts as emailed. This runs only when the column is not there yet, so pasting the
+-- migration again later never marks new unsent sales as emailed.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'affiliate_commissions' and column_name = 'progress_emailed_at'
+  ) then
+    alter table public.affiliate_commissions add column progress_emailed_at timestamptz;
+    update public.affiliate_commissions set progress_emailed_at = now() where progress_emailed_at is null;
+  end if;
+end $$;
 
 -- ------------------------------------------------------------ pending-progress index
 create index if not exists affiliate_commissions_progress_pending_idx
@@ -34,3 +46,5 @@ insert into public.affiliate_email_settings (id) values (true) on conflict (id) 
 alter table public.affiliate_emails drop constraint if exists affiliate_emails_kind_check;
 alter table public.affiliate_emails add constraint affiliate_emails_kind_check
   check (kind in ('accepted', 'dropped', 'left', 'progress', 'motivation'));
+
+commit;

@@ -7,7 +7,7 @@ const flat = sql.replace(/\s+/g, " ");
 
 describe("0113 affiliate progress and motivation emails", () => {
   it("adds the new columns", () => {
-    expect(flat).toMatch(/add column if not exists progress_emailed_at timestamptz/i);
+    expect(flat).toMatch(/add column progress_emailed_at timestamptz/i);
     expect(flat).toMatch(/add column if not exists progress_attempts integer not null default 0/i);
     expect(flat).toMatch(/add column if not exists motivation_emailed_at timestamptz/i);
   });
@@ -30,9 +30,16 @@ describe("0113 affiliate progress and motivation emails", () => {
       /update public\.affiliate_commissions set progress_emailed_at = now\(\) where progress_emailed_at is null/i,
     );
     expect(backfill).toBeGreaterThan(-1);
-    expect(backfill).toBeGreaterThan(flat.search(/add column if not exists progress_emailed_at/i));
+    expect(backfill).toBeGreaterThan(flat.search(/add column progress_emailed_at/i));
     expect(backfill).toBeLessThan(flat.search(/create index/i));
     expect(backfill).toBeLessThan(flat.search(/create table if not exists public\.affiliate_email_settings/i));
+  });
+  it("runs the backfill only inside a column-existence guard, so a second paste is safe", () => {
+    const m = flat.match(/do \$\$ begin if not exists \( select 1 from information_schema\.columns where table_schema = 'public' and table_name = 'affiliate_commissions' and column_name = 'progress_emailed_at' \) then (.*?) end if; end \$\$;/i);
+    expect(m).not.toBeNull();
+    expect(m![1]).toMatch(/alter table public\.affiliate_commissions add column progress_emailed_at timestamptz;/i);
+    expect(m![1]).toMatch(/update public\.affiliate_commissions set progress_emailed_at = now\(\) where progress_emailed_at is null;/i);
+    expect(flat.match(/set progress_emailed_at = now\(\)/gi)).toHaveLength(1);
   });
   it("adds the pending partial index", () => {
     expect(flat).toMatch(
