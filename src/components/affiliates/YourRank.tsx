@@ -29,9 +29,11 @@ export function ordinal(n: number): string {
 // Accent colours: the landing tokens have no gold, so the rank pill uses Tailwind amber (accepted for this accent).
 const AMBER_TEXT = "text-amber-600";
 
-function Icon({ children, className = "h-4 w-4" }: { children: ReactNode; className?: string }) {
+// The size is fixed unless a size class (h-/w-) is passed, so a colour-only class can never leave the icon without a size.
+function Icon({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const sized = /(^|\s)(h|w)-/.test(className);
   return (
-    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${className}`}>
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${sized ? "" : "h-4 w-4"} ${className}`}>
       {children}
     </svg>
   );
