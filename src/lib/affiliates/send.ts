@@ -4,7 +4,9 @@
 import "server-only";
 import { sendAffiliateEmail } from "@/lib/brevo-affiliates";
 import { logAffiliateEmail, type AffiliateEmailKind } from "@/lib/data/affiliate-emails";
+import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { acceptedEmail, droppedEmail, leftEmail } from "./emails";
+import { messageBlockPlain } from "./rich-emails";
 import { affiliateGroupWa, affiliateLink, affiliateSupportWa } from "./contact";
 
 async function deliver(
@@ -25,7 +27,14 @@ async function deliver(
   return ok;
 }
 
-export function sendAccepted(a: { id: string; name: string; email: string; code: string; team: string | null; token: string }): Promise<boolean> {
+export async function sendAccepted(a: { id: string; name: string; email: string; code: string; team: string | null; token: string }): Promise<boolean> {
+  // A failed read of the message box must never stop the Accepted email: send without a message.
+  let messageHtml = "";
+  try {
+    messageHtml = messageBlockPlain(await getEmailMessage());
+  } catch {
+    messageHtml = "";
+  }
   return deliver(
     a,
     "accepted",
@@ -36,6 +45,7 @@ export function sendAccepted(a: { id: string; name: string; email: string; code:
       link: affiliateLink(a.token),
       supportWa: affiliateSupportWa(),
       groupWa: affiliateGroupWa(),
+      messageHtml,
     }),
   );
 }
