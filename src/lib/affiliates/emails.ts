@@ -12,7 +12,7 @@ export function esc(v: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function safeUrl(u: string): string {
+export function safeUrl(u: string): string {
   return /^https:\/\//i.test(u) ? esc(u) : "#";
 }
 
