@@ -17,7 +17,24 @@ type Picture = { status: "loading" } | { status: "ready"; blob: Blob } | { statu
  * "Share podium" button with a small menu: square or story picture of the board on screen.
  * Both pictures are fetched when the menu opens, so a tap can share (or save) at once.
  */
-export function SharePodium({ slug, title, pick, label }: { slug: string; title: string; pick: string; label: string }) {
+export function SharePodium({
+  slug,
+  title,
+  pick,
+  label,
+  imageUrl,
+  fileBase,
+}: {
+  slug: string;
+  title: string;
+  pick: string;
+  label: string;
+  /** Picture address for a size. Default: the student batch podium. */
+  imageUrl?: (size: PodiumSize) => string;
+  /** Used instead of the slug in the saved file name. */
+  fileBase?: string;
+}) {
+  const urlFor = (size: PodiumSize) => (imageUrl ? imageUrl(size) : podiumImageUrl(slug, size, pick));
   const [open, setOpen] = useState(false);
   const [pictures, setPictures] = useState<Record<string, Picture>>({});
   const [busy, setBusy] = useState(false);
@@ -33,7 +50,7 @@ export function SharePodium({ slug, title, pick, label }: { slug: string; title:
 
   const prepare = () => {
     for (const { size } of CHOICES) {
-      const url = podiumImageUrl(slug, size, pick);
+      const url = urlFor(size);
       const known = pictures[url];
       if (known && known.status !== "error") continue;
       setPictures((p) => ({ ...p, [url]: { status: "loading" } }));
@@ -90,7 +107,7 @@ export function SharePodium({ slug, title, pick, label }: { slug: string; title:
         >
           <p className="px-2 pb-1 pt-1 text-xs text-pz-on-surface-variant">Top three, {label}</p>
           {CHOICES.map(({ size, title: choice, hint, Icon }) => {
-            const url = podiumImageUrl(slug, size, pick);
+            const url = urlFor(size);
             const pic = pictures[url];
             const ready = pic?.status === "ready" ? pic.blob : null;
             return (
@@ -102,7 +119,7 @@ export function SharePodium({ slug, title, pick, label }: { slug: string; title:
                   if (!ready || busy) return;
                   setBusy(true);
                   // Straight from the tap: no await before the share sheet opens.
-                  const done = sharePodiumBlob(ready, podiumFileName(slug, label, size), title, {
+                  const done = sharePodiumBlob(ready, podiumFileName(fileBase ?? slug, label, size), title, {
                     navigator: typeof navigator === "undefined" ? undefined : navigator,
                     save: saveBlobViaLink,
                   });

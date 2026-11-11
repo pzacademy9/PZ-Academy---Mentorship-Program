@@ -33,9 +33,9 @@ beforeEach(() => {
 });
 
 describe("AffiliatesAdmin", () => {
-  it("has the Applications and Affiliates tabs only, with applicants under Applications", () => {
+  it("has the Applications, Affiliates and Leaderboard tabs, with applicants under Applications", () => {
     render(<AffiliatesAdmin initial={[base, accepted]} />);
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Applications", "Affiliates"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Applications", "Affiliates", "Leaderboard"]);
     expect(screen.getByText("Test Person")).toBeTruthy();
     expect(screen.queryByText("Sara Khan")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
@@ -241,5 +241,92 @@ describe("email history in the admin screen", () => {
     await waitFor(() => expect(fetchMock()).toHaveBeenCalled());
     expect(fetchMock().mock.calls[0][0]).toBe("/api/admin/affiliates/emails?olderThanDays=90");
     expect(fetchMock().mock.calls[0][1].method).toBe("DELETE");
+  });
+});
+
+describe("AffiliatesAdmin leaderboard tab", () => {
+  const row = (rank: number, name: string, team: "Blue" | "Green" | null, registered: number, paid: number) => ({
+    affiliateId: `id${rank}`, name, team, registered, paid, rank, publicName: `${name.split(" ")[0]} ${name.split(" ")[1][0]}.`,
+  });
+  const month = { period: "month" as const, rows: [row(1, "Sara Khan", "Blue", 6, 3), row(2, "Ali Raza", "Green", 4, 1)], teams: [] };
+  const all = { period: "all" as const, rows: [row(1, "Ali Raza", "Green", 20, 9), row(2, "Sara Khan", "Blue", 12, 5)], teams: [] };
+  const teams = (b: Omit<typeof month, "period"> & { period: "month" | "all" }) => ({
+    ...b,
+    teams: (["Green", "White", "Yellow", "Blue", "Pink"] as const).map((t, i) => ({ team: t, rank: i + 1, paid: 0, members: 0, active: 0, score: 0 })),
+  });
+  const boards = { month: teams(month), all: teams(all) };
+  const URL_ = "https://pharmacozyme.com/affiliate-board/TOKENTOKENTOKENTOKEN1234";
+  const open = () => {
+    render(<AffiliatesAdmin initial={[accepted]} boards={boards} boardUrl={URL_} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Leaderboard" }));
+  };
+
+  it("shows this month first with full names, registered and paid, then switches to all time", () => {
+    open();
+    const list = within(screen.getByTestId("leaderboard-list"));
+    expect(list.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      expect.stringContaining("Sara Khan"),
+      expect.stringContaining("Ali Raza"),
+    ]);
+    expect(list.getAllByRole("listitem")[0].textContent).toMatch(/6 registered/);
+    expect(list.getAllByRole("listitem")[0].textContent).toMatch(/3 paid/);
+    fireEvent.click(screen.getByRole("button", { name: "All time" }));
+    expect(within(screen.getByTestId("leaderboard-list")).getAllByRole("listitem")[0].textContent).toContain("Ali Raza");
+    expect(screen.getByTestId("team-race")).toBeTruthy();
+  });
+
+  it("never shows a code, email or token of an affiliate in the list", () => {
+    open();
+    const html = screen.getByTestId("leaderboard-list").outerHTML;
+    expect(html).not.toMatch(/SK321|@example|TOKEN/);
+  });
+
+  it("Copy for WhatsApp writes the share text with the public link and says Copied", async () => {
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Copy for WhatsApp" }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
+    const text = (navigator.clipboard.writeText as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(text).toContain("Pharmacozyme Affiliates - This month");
+    expect(text).toContain("1. Sara K. (Blue) - 3 paid");
+    expect(text).toContain(URL_);
+    expect(text).not.toMatch(/Khan|@/);
+    expect(await screen.findByText("Copied")).toBeTruthy();
+  });
+
+  it("shows the public link, copies it, and Change link asks first", async () => {
+    open();
+    expect((screen.getByLabelText("Public link") as HTMLInputElement).value).toBe(URL_);
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(URL_));
+
+    confirmFn.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole("button", { name: "Change link" }));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(confirmFn.mock.calls[0][0].description).toBe("The old link will stop working. Continue?");
+    expect(fetchMock()).not.toHaveBeenCalled();
+
+    fetchMock().mockResolvedValue(reply(200, { url: "https://pharmacozyme.com/affiliate-board/NEWNEWNEWNEWNEWNEWNEW12" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change link" }));
+    await waitFor(() => expect(fetchMock()).toHaveBeenCalledWith("/api/admin/affiliates/board-link", { method: "POST" }));
+    await waitFor(() => expect((screen.getByLabelText("Public link") as HTMLInputElement).value).toContain("NEWNEW"));
+  });
+
+  it("has a Share podium button that points at the admin picture route", async () => {
+    fetchMock().mockResolvedValue({ ok: true, headers: new Headers({ "content-type": "image/png" }), blob: async () => new Blob(["x"], { type: "image/png" }) });
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /Share podium/ }));
+    await waitFor(() => expect(fetchMock()).toHaveBeenCalledTimes(2));
+    expect(fetchMock().mock.calls.map((c) => c[0])).toEqual([
+      "/api/admin/affiliates/podium?period=month&size=square",
+      "/api/admin/affiliates/podium?period=month&size=story",
+    ]);
+  });
+
+  it("an empty board shows a friendly message and no share actions", () => {
+    render(<AffiliatesAdmin initial={[]} boards={{ month: { period: "month", rows: [], teams: [] }, all: { period: "all", rows: [], teams: [] } }} boardUrl={URL_} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Leaderboard" }));
+    expect(screen.getByText("No affiliates on the board yet")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Share podium/ })).toBeNull();
+    expect((screen.getByRole("button", { name: "Copy for WhatsApp" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

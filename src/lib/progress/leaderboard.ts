@@ -95,8 +95,11 @@ const IMAGE_NAME_MAX = 16;
 const IMAGE_TITLE_MAX = { square: 40, story: 60 } as const;
 
 /** Name and initials as drawn in the share picture: "Student #rank" when the name is not Latin. */
-export function podiumImageEntry(e: { name: string; rank: number; score: number }): { name: string; initials: string; rank: number; score: number } {
-  if (!isLatinText(e.name)) return { name: `Student #${e.rank}`, initials: `#${e.rank}`, rank: e.rank, score: e.score };
+export function podiumImageEntry(
+  e: { name: string; rank: number; score: number },
+  fallbackLabel = "Student",
+): { name: string; initials: string; rank: number; score: number } {
+  if (!isLatinText(e.name)) return { name: `${fallbackLabel} #${e.rank}`, initials: `#${e.rank}`, rank: e.rank, score: e.score };
   return { name: shortName(e.name, IMAGE_NAME_MAX), initials: initials(e.name), rank: e.rank, score: e.score };
 }
 

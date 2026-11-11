@@ -62,7 +62,7 @@ function Medal({ size, rank }: { size: number; rank: number }) {
   );
 }
 
-function Place({ entry, story }: { entry: Drawn; story: boolean }) {
+function Place({ entry, story, unit }: { entry: Drawn; story: boolean; unit: string }) {
   const first = entry.rank === 1;
   const m = metal(entry.rank);
   const avatar = story ? (first ? 220 : 170) : first ? 148 : 114;
@@ -137,7 +137,7 @@ function Place({ entry, story }: { entry: Drawn; story: boolean }) {
       </div>
       <div style={{ marginTop: story ? 10 : 6, display: "flex", alignItems: "baseline" }}>
         <span style={{ color: first ? GOLD : BRIGHT, fontSize: story ? (first ? 64 : 52) : first ? 48 : 40, fontWeight: 800, letterSpacing: "-0.02em" }}>{fmt(entry.score)}</span>
-        <span style={{ marginLeft: 8, color: "rgba(255,255,255,0.7)", fontSize: story ? 28 : 22, fontWeight: 600 }}>pts</span>
+        <span style={{ marginLeft: 8, color: "rgba(255,255,255,0.7)", fontSize: story ? 28 : 22, fontWeight: 600 }}>{unit}</span>
       </div>
       <div style={{ marginTop: story ? 26 : 18, width: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ height: story ? 22 : 16, backgroundColor: m.top, borderRadius: "18px 18px 0 0", display: "flex", opacity: 0.95 }} />
@@ -178,6 +178,9 @@ export function PodiumImage({
   entries,
   size,
   logo = null,
+  unit = "pts",
+  heading,
+  fallbackLabel = "Student",
 }: {
   title: string;
   label: string;
@@ -185,11 +188,17 @@ export function PodiumImage({
   size: PodiumSize;
   /** PZ Academy logo as a data URL; without it a lettered mark is drawn. */
   logo?: string | null;
+  /** Word drawn after each score. Default "pts" (the student board). */
+  unit?: string;
+  /** Replaces the "<label> · Top n" pill. */
+  heading?: string;
+  /** Replaces "Student" in "Student #rank" for names the font cannot draw. */
+  fallbackLabel?: string;
 }) {
   const story = size === "story";
   // Visual order: second place left, first in the middle, third right.
   // Names are cut or replaced first (see podiumImageEntry), so nothing outside the font reaches the renderer.
-  const drawn = entries.slice(0, 3).map(podiumImageEntry);
+  const drawn = entries.slice(0, 3).map((e) => podiumImageEntry(e, fallbackLabel));
   const slots = [drawn[1], drawn[0], drawn[2]].filter((e): e is Drawn => e !== undefined);
   const pad = story ? 72 : 56;
   const logoSize = story ? 104 : 76;
@@ -301,14 +310,14 @@ export function PodiumImage({
             fontWeight: 800,
           }}
         >
-          {`${label} · Top ${slots.length}`}
+          {heading ?? `${label} · Top ${slots.length}`}
         </div>
       </div>
 
       {/* Podium. */}
       <div style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: story ? 22 : 24, padding: `0 ${story ? 40 : 48}px` }}>
         {slots.map((e, i) => (
-          <Place key={i} entry={e} story={story} />
+          <Place key={i} entry={e} story={story} unit={unit} />
         ))}
       </div>
 
