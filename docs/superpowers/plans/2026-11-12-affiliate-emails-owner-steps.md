@@ -1,6 +1,61 @@
 # Affiliate emails: owner steps
 
-(The full step list is added when the build is done. For now, only the two Stitch prompts.)
+What was built: affiliates get a **Progress email** by themselves each time one of their sales turns Paid. You can
+send a **Motivation email** to affiliates with no paid sale yet. One **message box** adds a note to Progress and Welcome
+emails. Do the steps in order. Nothing goes live until step 3.
+
+## Step 1. Paste the database change (0113)
+
+1. Open the Supabase SQL editor.
+2. Paste the whole file `supabase/migrations/0113_affiliate_emails_progress.sql` and press Run.
+3. It is safe to run twice. It marks every sale that is already Paid as "already emailed", so nobody gets an email
+   about old sales.
+4. Tell me when done. I will check it with a read-only look.
+
+## Step 2. Check two settings (no typing needed if they exist)
+
+- In Vercel, `CRON_SECRET` must exist (the sheet mirror already uses it).
+- In Supabase, the secret named `session_cron_secret` must exist (the sheet mirror already uses it).
+- The affiliate email settings (`BREVO_API_KEY_AFFILIATES`, sender email and name) already work for the Welcome email.
+
+## Step 3. Turn on the automatic Progress email (only after the code is live on the site)
+
+Paste this in the Supabase SQL editor. It checks for new Paid sales every 5 minutes:
+
+```sql
+select cron.schedule('affiliate-progress','*/5 * * * *', $$ select net.http_get(url := 'https://pz-academy.pharmacozyme.com/api/cron/affiliate-progress', timeout_milliseconds := 60000, headers := jsonb_build_object('Authorization','Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name='session_cron_secret'))); $$);
+```
+
+Check it is scheduled:
+
+```sql
+select jobname, schedule from cron.job;
+```
+
+Off switch (stops the Progress emails completely):
+
+```sql
+select cron.unschedule('affiliate-progress');
+```
+
+## Step 4. One careful test before real use
+
+1. Use a TEST affiliate that has your own email address. Never test on the real list.
+2. In Admin, Affiliates, Emails: send the Motivation email to that one test person only. Check your inbox. If it is in
+   Promotions or Spam, tell me: rich emails can land there.
+3. Turn one test registration of that test affiliate to Paid. Within about 5 minutes the Progress email arrives.
+4. Fill the message box with a short note and a link. Check the next Progress email shows it, and the link is a button.
+
+## Limits to know
+
+- Your affiliate email account allows 300 emails a day. Progress emails always go first. The Motivation send stops at 250
+  a day and tells you how many people are left for tomorrow.
+- If several of one person's sales turn Paid together, they get one email.
+- Someone who is dropped, left or not accepted gets no Progress email, and does not get a catch-up if accepted again later.
+- A sale that is cancelled and then turned Paid again does not send a new Progress email.
+- If an email fails 5 times for one affiliate, it stops trying and shows as failed in their email history.
+
+## Stitch prompts for the new "Emails" tab (Admin, Affiliates)
 
 ## Stitch prompts for the new "Emails" tab (Admin, Affiliates)
 
