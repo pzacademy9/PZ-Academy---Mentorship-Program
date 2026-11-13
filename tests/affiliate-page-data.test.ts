@@ -14,7 +14,7 @@ vi.mock("@/lib/data/affiliate-payouts", () => ({ listAffiliateHistory: vi.fn().m
 import { buildPageModel, getAffiliatePageModel } from "@/lib/data/affiliate-page";
 
 const affiliate = {
-  name: "Sara Khan", code: "SK321", team: "Blue", commissionMode: "automatic" as const, manualPercent: null as number | null,
+  id: "aff-1", name: "Sara Khan", code: "SK321", team: "Blue", commissionMode: "automatic" as const, manualPercent: null as number | null,
   openingSecured: 0, openingCommission: 0, openingWithdrawn: 0,
 };
 const pg = [

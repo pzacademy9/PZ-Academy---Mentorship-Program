@@ -6,7 +6,7 @@ import { AffiliateClosed } from "@/components/affiliates/AffiliateClosed";
 import type { AffiliatePageModel } from "@/lib/data/affiliate-page";
 
 const model = (over: Partial<AffiliatePageModel> = {}): AffiliatePageModel => ({
-  name: "Sara Khan", code: "SK321", team: "Blue", percent: 8, automatic: true, paidCount: 19, monthPaid: 9, lastMonthPaid: 10, toNextStep: 1,
+  affiliateId: "aff-1", name: "Sara Khan", code: "SK321", team: "Blue", percent: 8, automatic: true, paidCount: 19, monthPaid: 9, lastMonthPaid: 10, toNextStep: 1,
   earnedPkr: 51000, balancePkr: 51000, waiting: [{ currency: "AED", amount: 40 }],
   totals: { views: 124, registered: 18, paid: 9 },
   links: [

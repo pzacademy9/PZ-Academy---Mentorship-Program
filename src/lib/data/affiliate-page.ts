@@ -27,6 +27,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export type AffiliatePageLink = { pageId: string; title: string; url: string; views: number; registered: number; paid: number };
 
 export type AffiliatePageModel = {
+  /** The affiliate's internal id (not the secret token). Server routes use it to act for this affiliate. */
+  affiliateId: string;
   name: string;
   code: string;
   team: string | null;
@@ -57,6 +59,7 @@ export type AffiliatePageModel = {
 
 export type PageModelInput = {
   affiliate: {
+    id: string;
     name: string;
     code: string;
     team: string | null;
@@ -102,6 +105,7 @@ export function buildPageModel(i: PageModelInput): AffiliatePageModel {
   const byPage = new Map(i.stats.map((s) => [s.pageId, s]));
   const ref = a.code.toLowerCase();
   return {
+    affiliateId: a.id,
     name: a.name,
     code: a.code,
     team: a.team,
@@ -169,6 +173,7 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
 
   return buildPageModel({
     affiliate: {
+      id: row.id,
       name: row.name,
       code: row.code,
       team: row.team,

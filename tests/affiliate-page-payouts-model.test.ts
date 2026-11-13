@@ -11,7 +11,7 @@ import type { HistoryRow } from "@/lib/data/affiliate-payouts";
 
 const NOW = new Date("2026-12-10T10:00:00Z");
 const affiliate = {
-  name: "Sara Khan", code: "SK321", team: "Blue", commissionMode: "automatic" as const, manualPercent: null as number | null,
+  id: "aff-1", name: "Sara Khan", code: "SK321", team: "Blue", commissionMode: "automatic" as const, manualPercent: null as number | null,
   openingSecured: 0, openingCommission: 5000, openingWithdrawn: 0,
 };
 const pay = (status: HistoryRow["status"], amountPkr = 5000): HistoryRow => ({
