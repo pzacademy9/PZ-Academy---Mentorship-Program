@@ -251,3 +251,41 @@ describe("AffiliateEmailsTab: Motivation send", () => {
     }
   });
 });
+
+describe("AffiliateEmailsTab: pick and search", () => {
+  const list = [
+    { id: "a", name: "Aisha Khan", email: "aisha@example.com", sentAt: null },
+    { id: "t", name: "Test", email: "test@example.com", sentAt: null },
+    { id: "z", name: "Zara Ali", email: "zara@example.com", sentAt: null },
+  ];
+
+  it("Select none clears every tick and disables Send", async () => {
+    route(list);
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send to 3 people" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Select none" }));
+    expect((screen.getByRole("button", { name: "Send to 0 people" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("the search box filters the list by name or email and keeps the picked count", async () => {
+    route(list);
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send to 3 people" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Select none" }));
+    fireEvent.change(screen.getByLabelText("Search affiliates"), { target: { value: "TEST@exam" } });
+    const rows = screen.getByTestId("motivation-list").querySelectorAll("li");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain("Test");
+    fireEvent.click(rows[0].querySelector("input")!);
+    expect(screen.getByRole("button", { name: "Send to 1 person" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search affiliates"), { target: { value: "nobody" } });
+    expect(screen.getByText("Nobody matches your search.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send to 1 person" })).toBeTruthy();
+  });
+
+  it("the list can take keyboard focus so it scrolls without a mouse", async () => {
+    route(list);
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
+    await waitFor(() => expect(screen.getByTestId("motivation-list").getAttribute("tabindex")).toBe("0"));
+  });
+});
