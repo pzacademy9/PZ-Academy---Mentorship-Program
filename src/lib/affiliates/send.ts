@@ -4,7 +4,9 @@
 import "server-only";
 import { sendAffiliateEmail } from "@/lib/brevo-affiliates";
 import { logAffiliateEmail, type AffiliateEmailKind } from "@/lib/data/affiliate-emails";
+import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { acceptedEmail, droppedEmail, leftEmail } from "./emails";
+import { messageBlockPlain, progressEmail, motivationEmail, type ProgressInput, type MotivationInput } from "./rich-emails";
 import { affiliateGroupWa, affiliateLink, affiliateSupportWa } from "./contact";
 
 async function deliver(
@@ -25,7 +27,14 @@ async function deliver(
   return ok;
 }
 
-export function sendAccepted(a: { id: string; name: string; email: string; code: string; team: string | null; token: string }): Promise<boolean> {
+export async function sendAccepted(a: { id: string; name: string; email: string; code: string; team: string | null; token: string }): Promise<boolean> {
+  // A failed read of the message box must never stop the Accepted email: send without a message.
+  let messageHtml = "";
+  try {
+    messageHtml = messageBlockPlain(await getEmailMessage());
+  } catch {
+    messageHtml = "";
+  }
   return deliver(
     a,
     "accepted",
@@ -36,8 +45,11 @@ export function sendAccepted(a: { id: string; name: string; email: string; code:
       link: affiliateLink(a.token),
       supportWa: affiliateSupportWa(),
       groupWa: affiliateGroupWa(),
+      messageHtml,
     }),
   );
 }
+export const sendProgress = (a: { id: string; name: string; email: string }, input: ProgressInput) => deliver(a, "progress", progressEmail(input));
+export const sendMotivation = (a: { id: string; name: string; email: string }, input: MotivationInput) => deliver(a, "motivation", motivationEmail(input));
 export const sendDropped = (a: { id: string; name: string; email: string }) => deliver(a, "dropped", droppedEmail({ name: a.name }));
 export const sendLeft = (a: { id: string; name: string; email: string }) => deliver(a, "left", leftEmail({ name: a.name }));

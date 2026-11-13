@@ -29,6 +29,7 @@ export type Database = {
           is_imported: boolean
           left_at: string | null
           manual_percent: number | null
+          motivation_emailed_at: string | null
           name: string
           opening_commission: number
           opening_secured: number
@@ -55,6 +56,7 @@ export type Database = {
           is_imported?: boolean
           left_at?: string | null
           manual_percent?: number | null
+          motivation_emailed_at?: string | null
           name: string
           opening_commission?: number
           opening_secured?: number
@@ -81,6 +83,7 @@ export type Database = {
           is_imported?: boolean
           left_at?: string | null
           manual_percent?: number | null
+          motivation_emailed_at?: string | null
           name?: string
           opening_commission?: number
           opening_secured?: number
@@ -143,6 +146,24 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_email_settings: {
+        Row: {
+          id: boolean
+          message: string
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          message?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          message?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       affiliate_commissions: {
         Row: {
           affiliate_id: string
@@ -153,6 +174,8 @@ export type Database = {
           currency: string
           id: string
           percent: number
+          progress_attempts: number
+          progress_emailed_at: string | null
           registration_id: string
           voided_at: string | null
         }
@@ -165,6 +188,8 @@ export type Database = {
           currency: string
           id?: string
           percent: number
+          progress_attempts?: number
+          progress_emailed_at?: string | null
           registration_id: string
           voided_at?: string | null
         }
@@ -177,6 +202,8 @@ export type Database = {
           currency?: string
           id?: string
           percent?: number
+          progress_attempts?: number
+          progress_emailed_at?: string | null
           registration_id?: string
           voided_at?: string | null
         }

@@ -12,7 +12,7 @@ export function esc(v: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function safeUrl(u: string): string {
+export function safeUrl(u: string): string {
   return /^https:\/\//i.test(u) ? esc(u) : "#";
 }
 
@@ -33,9 +33,12 @@ export function acceptedEmail(a: {
   link: string;
   supportWa: string;
   groupWa: string;
+  /** Pre-rendered plain message block (messageBlockPlain). Passed in, not built here, so this file never imports rich-emails.ts (which imports this one). */
+  messageHtml?: string;
 }): { subject: string; html: string } {
   const body =
     `<p style="${P}">Hello ${esc(a.name)},</p>` +
+    (a.messageHtml ?? "") +
     `<p style="${P}">Your application to the Pharmacozyme Affiliate Programme has been accepted. Welcome to the team.</p>` +
     `<p style="${P}">Your code: <strong>${esc(a.code)}</strong><br>Your team: ${esc(a.team)}<br>Your commission: 8% to 10% of what the student pays</p>` +
     `<p style="${P}">Students who use ${esc(a.code)} get 10% off their registration. You earn 8% on every paid registration. If you have 10 or more paid participants in a month, you earn 10% for the whole of the next month. Commission is counted only after the student has paid.</p>` +
