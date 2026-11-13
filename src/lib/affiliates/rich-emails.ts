@@ -3,6 +3,7 @@
 // escaped, only https:// links become buttons, email-safe markup only (tables, inline styles).
 
 import { esc, safeUrl } from "@/lib/affiliates/emails";
+import { WITHDRAW_PKR } from "@/lib/affiliates/payouts";
 
 export type TopRow = {
   rank: number;
@@ -35,7 +36,6 @@ export type MotivationInput = {
 };
 
 const CERT_TARGET = 10;
-const WITHDRAW_PKR = 3500;
 const TARGET = 10;
 
 const pkr = (n: number): string => "PKR " + Math.floor(n).toLocaleString("en-US");
