@@ -62,14 +62,14 @@ export function AffiliatePage({ model, token }: { model: AffiliatePageClientMode
   const m = model;
   const [sheetOpen, setSheetOpen] = useState(false);
   // After a request goes through, the page shows the waiting state at once, without a reload.
-  const [justRequested, setJustRequested] = useState<number | null>(null);
+  const [justRequested, setJustRequested] = useState<{ amountPkr: number; method: PayoutMethod; accountMask: string } | null>(null);
   const requestButton = useRef<HTMLButtonElement>(null);
-  const pendingPkr = justRequested ?? m.payout.pendingPkr;
+  const pendingPkr = justRequested?.amountPkr ?? m.payout.pendingPkr;
   const available = pendingPkr !== null ? 0 : m.balancePkr;
   const minimum = m.payout.minimum;
   const history: { id: string; amountPkr: number; method: PayoutMethod | null; accountMask: string; status: PayoutStatus; rejectReason: string | null; requestedAt: string }[] =
     justRequested !== null
-      ? [{ id: "just-requested", amountPkr: justRequested, method: null, accountMask: "", status: "pending", rejectReason: null, requestedAt: new Date().toISOString() }, ...m.payout.history]
+      ? [{ id: "just-requested", amountPkr: justRequested.amountPkr, method: justRequested.method, accountMask: justRequested.accountMask, status: "pending", rejectReason: null, requestedAt: new Date().toISOString() }, ...m.payout.history]
       : m.payout.history;
   const certificate = m.paidCount >= AUTO_STEP;
   const tiles: [string, number][] = [
@@ -280,8 +280,8 @@ export function AffiliatePage({ model, token }: { model: AffiliatePageClientMode
             setSheetOpen(false);
             requestButton.current?.focus();
           }}
-          onDone={(amount) => {
-            setJustRequested(amount);
+          onDone={(done) => {
+            setJustRequested(done);
             setSheetOpen(false);
           }}
         />

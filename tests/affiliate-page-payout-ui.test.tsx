@@ -101,6 +101,18 @@ describe("payout sheet", () => {
     expect(screen.getByTestId("balance").textContent).toContain("PKR 0");
     expect(screen.queryByRole("button", { name: /request payout/i })).toBeNull();
   });
+  it("shows the method and the masked account on the new history row, never the full number", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ok: true, amountPkr: 4120 }) });
+    const { container } = render(<AffiliatePage token="tok" model={model()} />);
+    const dialog = openSheet();
+    fill(dialog, "Sara Khan", "03001234567");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    const row = await screen.findByTestId("payout-just-requested");
+    expect(row.textContent).toContain("JazzCash");
+    expect(row.textContent).toContain("•••• 4567");
+    expect(row.textContent).toContain("Pending");
+    expect(container.textContent).not.toContain("03001234567");
+  });
   it("shows the server's error sentence in the sheet and lets the affiliate try again", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "You already have a payout request waiting." }) });
     render(<AffiliatePage token="tok" model={model()} />);

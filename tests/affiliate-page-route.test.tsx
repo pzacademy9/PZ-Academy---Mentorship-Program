@@ -32,6 +32,13 @@ describe("the private affiliate page route", () => {
     expect(screen.getByText("Hello, Sara Khan")).toBeTruthy();
     expect(m.model).toHaveBeenCalledWith(token);
   });
+  it("never sends the affiliate id to the browser, and gives the page the route token", async () => {
+    const tree = (await Page(ctx())) as { props: { children: { props: Record<string, unknown> } } };
+    const props = tree.props.children.props;
+    expect(props.token).toBe(token);
+    expect("affiliateId" in (props.model as object)).toBe(false);
+    expect((props.model as { name: string }).name).toBe("Sara Khan");
+  });
   it("an unknown, dropped or malformed token gets the same neutral page with nothing about why", async () => {
     m.model.mockResolvedValue(null);
     const { container } = render(await Page(ctx("zzz")));

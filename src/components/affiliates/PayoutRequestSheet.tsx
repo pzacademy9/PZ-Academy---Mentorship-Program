@@ -4,7 +4,7 @@
 // Asks where to send the money. A bottom sheet on a phone, a centred dialog on a wide screen.
 // The amount is only shown here: the server works out the real amount from the balance.
 import { useEffect, useRef, useState } from "react";
-import { formatPayoutPkr, validatePayoutDetails, type PayoutMethod } from "@/lib/affiliates/payouts";
+import { formatPayoutPkr, maskAccount, validatePayoutDetails, type PayoutMethod } from "@/lib/affiliates/payouts";
 
 const METHODS: { value: PayoutMethod; label: string; hint: string }[] = [
   { value: "jazzcash", label: "JazzCash", hint: "Mobile wallet" },
@@ -24,7 +24,7 @@ export function PayoutRequestSheet({
 }: {
   token: string;
   amountPkr: number;
-  onDone: (amountPkr: number) => void;
+  onDone: (done: { amountPkr: number; method: PayoutMethod; accountMask: string }) => void;
   onClose: () => void;
 }) {
   const [method, setMethod] = useState<PayoutMethod>("jazzcash");
@@ -79,7 +79,7 @@ export function PayoutRequestSheet({
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; amountPkr?: number; error?: string };
       if (res.ok && body.ok && typeof body.amountPkr === "number") {
-        onDone(body.amountPkr);
+        onDone({ amountPkr: body.amountPkr, method: checked.method, accountMask: maskAccount(checked.number) });
         return;
       }
       setError(body.error || "Something went wrong. Please try again.");
