@@ -11,7 +11,8 @@ real affiliate. The app never moves money; it only records.
 ## Step 1. Paste the database change (0114), after the code is live on the site
 
 1. Open the Supabase SQL editor (project whqdasotjlhvrjmgiffk).
-2. Paste the whole file `supabase/migrations/0114_affiliate_payouts.sql` and press Run. It is safe to run twice.
+2. Open the file `0114_affiliate_payouts.sql` in the project's `supabase/migrations` folder, select all, copy, paste it
+   in the SQL editor and press Run. It is safe to run twice.
 3. Paste this check and press Run:
 
 ```sql
@@ -33,8 +34,12 @@ from public.affiliates
 where id = '6b618da6-5eff-4db9-9297-3f7b5c2bad9c';
 ```
 
-Copy the whole result row somewhere safe (a note on your phone is fine). You need `opening_commission` and
-`opening_withdrawn` for the clean-up in step 4. The `token` is the secret part of the private page link.
+Copy the two numbers from the result and write them here. You need them for the clean-up in step 4:
+
+- opening_commission = ____
+- opening_withdrawn = ____
+
+(A note on your phone is fine.)
 
 Now set the balance. This changes ONLY the test affiliate. Paste and run:
 
@@ -49,16 +54,16 @@ set opening_commission = 4120.75 + a.opening_withdrawn
 where a.id = '6b618da6-5eff-4db9-9297-3f7b5c2bad9c';
 ```
 
-Run it only once. You should see "Success. 1 row affected".
+It is safe to run again. You should see "Success. 1 row affected".
 
 ## Step 3. The live test (all on the test affiliate)
 
 ### 3a. Look at the private page
 
-1. Open `https://pz-academy.pharmacozyme.com/affiliate/<token>` (use the `token` you copied in step 2).
+1. Open the private link from the Affiliates page (Admin > Affiliates > Affiliates, open Test).
 2. The Balance card should read **PKR 4,120.75** and show a button **Request payout of PKR 4,120.75**.
 3. Check this on your phone AND on the PC. The card must look tidy on both.
-4. (Optional, to see the other two card states.) Under 3,500: change the number in step 2 to 1,000, look, then change back.
+4. (Optional, to see the other two card states.) Under 3,500: change 4120.75 in the SQL to 1000, run it, look, then put 4120.75 back and run it again.
    You should see a disabled button saying "Available from PKR 3,500". The third state (requested) appears in 3b.
 
 ### 3b. Ask for a payout
@@ -75,7 +80,8 @@ Run it only once. You should see "Success. 1 row affected".
 
 1. Open Admin and press **Affiliates**. The menu changes: Applications, Affiliates, Payouts, Leaderboard, Emails and
    Back to Admin. The tab strip inside the page is gone.
-2. On the phone, the bottom bar changes to the Affiliates items (4 items and a More button).
+2. On the phone, the bottom bar changes. You should see Applications, Affiliates, Payouts, Leaderboard and a More button
+   holding Emails and Back to Admin.
 3. Open **Payouts**. Pending should show 1.
 4. The card shows: the name **Test** next to the account title **Test Person**, JazzCash, the full number
    03001234567 with a copy button, and the amount PKR 4,120.75.
@@ -83,8 +89,9 @@ Run it only once. You should see "Success. 1 row affected".
 ### 3d. Mark paid
 
 1. Press **Mark paid** on the card. It moves to Paid.
-2. Press the Paid filter, find the card, and try pressing Mark paid again if the button is still there, or open the
-   page in a second tab and press it there. Nothing should change the second time (no second email, no error).
+2. Before you press Mark paid in step 1, open Admin > Payouts in a second tab too. After you press it in the first tab,
+   press Mark paid on the same card in the second tab. You should see a short notice that the payout was already decided,
+   and no second email.
 3. Open the inbox of hamzaansari4you@gmail.com. A "paid" email should arrive within a minute. Tell me which tab it
    landed in (Primary, Promotions or Spam). The amount must read **PKR 4,120.75**, with the method and the date.
 4. Open the private page. The history row now says Paid. The balance is still 0.
@@ -102,6 +109,10 @@ Run it only once. You should see "Success. 1 row affected".
 
 ## Step 4. Clean up the test rows
 
+Before you paste: in the last block, replace `<PASTE opening_commission HERE>` and `<PASTE opening_withdrawn HERE>` with
+the two numbers you wrote down in step 2 (numbers only, no brackets). If you forget, the SQL shows an error and changes
+nothing in that block.
+
 This deletes ONLY the test affiliate's rows. Paste and run:
 
 ```sql
@@ -112,10 +123,10 @@ where affiliate_id = '6b618da6-5eff-4db9-9297-3f7b5c2bad9c'
 delete from public.affiliate_payouts
 where affiliate_id = '6b618da6-5eff-4db9-9297-3f7b5c2bad9c';
 
--- Put back the numbers you wrote down in step 2. Replace the two numbers below.
+-- Put back the two numbers you wrote down in step 2.
 update public.affiliates
-set opening_commission = 0,   -- replace 0 with the opening_commission you copied
-    opening_withdrawn  = 0    -- replace 0 with the opening_withdrawn you copied
+set opening_commission = <PASTE opening_commission HERE>,
+    opening_withdrawn  = <PASTE opening_withdrawn HERE>
 where id = '6b618da6-5eff-4db9-9297-3f7b5c2bad9c';
 ```
 
@@ -129,7 +140,7 @@ select
   (select opening_withdrawn from public.affiliates where id = '6b618da6-5eff-4db9-9297-3f7b5c2bad9c') as opening_withdrawn;
 ```
 
-You should see 0, 0, and your two original numbers.
+You should see 0, 0, and the same two numbers you wrote down in step 2. Compare them.
 
 ## Step 5. Things to know
 
