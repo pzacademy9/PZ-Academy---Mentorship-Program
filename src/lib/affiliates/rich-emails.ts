@@ -327,16 +327,16 @@ export function welcomeEmailRich(i: WelcomeInput): { subject: string; html: stri
 
 export function motivationEmail(i: MotivationInput): { subject: string; html: string } {
   const body =
-    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello, ${esc(i.name)}!</p>` +
-    `<p style="font-size:14px;color:#475569;line-height:1.85;margin:0 0 20px;">You haven't secured any registrations yet, but the first one is always the hardest! Here is a quick reminder of everything waiting for you.</p>` +
+    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
+    `<p style="font-size:14px;color:#475569;line-height:1.85;margin:0 0 20px;">No paid registration has been recorded under your code yet. This is a short reminder of how the programme works.</p>` +
     `<div style="background:#f0fdf4;border-left:4px solid #0b7a3b;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:20px;">` +
-    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0b7a3b;">Your Promo Code</p>` +
+    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0b7a3b;">Your Code</p>` +
     `<p style="margin:0;font-size:22px;font-weight:800;letter-spacing:3px;color:#1a73e8;font-family:monospace;">${esc(i.code)}</p>` +
-    `<p style="margin:6px 0 0;font-size:12px;color:#475569;">Share this. Students get a discount, and you earn commission on every paid registration.</p></div>` +
+    `<p style="margin:6px 0 0;font-size:12px;color:#475569;">Students who use it receive a reduction in their fee, and you receive commission on every paid registration.</p></div>` +
     `<div style="background:#eff6ff;border-left:4px solid #1a73e8;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:20px;">` +
-    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#1a73e8;">What You Can Earn</p>` +
+    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#1a73e8;">Programme Targets</p>` +
     `<p style="margin:0;font-size:13px;color:#374151;line-height:1.8;">Certificate: after <strong>${CERT_TARGET} participants</strong><br>` +
-    `Withdrawal: after <strong>${esc(pkr(WITHDRAW_PKR))}</strong> earned<br>` +
+    `Payout: once your commission reaches <strong>${esc(pkr(WITHDRAW_PKR))}</strong><br>` +
     `Your target: <strong>${TARGET} participants</strong></p></div>` +
     (i.leaderLine
       ? `<div style="background:#fefce8;border:1.5px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:center;">` +
@@ -347,7 +347,7 @@ export function motivationEmail(i: MotivationInput): { subject: string; html: st
     `<div style="text-align:center;margin-bottom:24px;">${waBtn("Message us on WhatsApp", i.supportWa)}</div>`;
 
   return {
-    subject: "Start Your Affiliate Journey - Pharmacozyme",
-    html: wrap("#166534", "&#128640;", "Time to Get Started!", "Pharmacozyme Affiliate Programme", body, i.supportWa),
+    subject: `${i.name}, a note about your affiliate code ${i.code}`,
+    html: wrap("#166534", "&#128203;", "A Reminder About Your Code", "Pharmacozyme Affiliate Programme", body, i.supportWa),
   };
 }

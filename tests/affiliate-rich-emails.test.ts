@@ -185,7 +185,7 @@ describe("motivationEmail", () => {
       top: six,
       supportWa: "https://wa.me/923001234567",
     });
-    expect(r.subject).toBe("Start Your Affiliate Journey - Pharmacozyme");
+    expect(r.subject).toBe("Zed, a note about your affiliate code ZED10");
     expect(r.html).toContain("ZED10");
     expect(r.html).toContain("10 participants");
     expect(r.html).toContain("PKR 3,500");
