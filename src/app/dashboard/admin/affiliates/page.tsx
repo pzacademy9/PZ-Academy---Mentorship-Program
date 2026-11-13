@@ -3,6 +3,7 @@ import { listAffiliates } from "@/lib/data/affiliates";
 import { affiliatesWithFailedEmail } from "@/lib/data/affiliate-emails";
 import { readEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { getAffiliateBoard, getBoardToken } from "@/lib/data/affiliate-leaderboard";
+import { listAdminPayouts, type PayoutRow } from "@/lib/data/affiliate-payouts";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
 export const metadata = { title: "Affiliates — PZ Academy" };
@@ -35,6 +36,15 @@ export default async function AdminAffiliatesPage() {
     console.error("admin affiliates: email message failed", e);
     emailMessageFailed = true;
   }
+  // Payouts are an extra tab too: a failed read must not break the other tabs.
+  let payouts: PayoutRow[] = [];
+  let payoutsFailed = false;
+  try {
+    payouts = await listAdminPayouts();
+  } catch (e) {
+    console.error("admin affiliates: payouts failed", e);
+    payoutsFailed = true;
+  }
   const boards = month && all ? { month, all } : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   const boardUrl = token ? `${base}/affiliate-board/${token}` : null;
@@ -47,7 +57,7 @@ export default async function AdminAffiliatesPage() {
           Read each application, then accept or drop it. Accepted affiliates get their code and private link by email.
         </p>
       </div>
-      <AffiliatesAdmin initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} />
+      <AffiliatesAdmin initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} />
     </div>
   );
 }

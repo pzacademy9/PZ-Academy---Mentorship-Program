@@ -3,7 +3,7 @@
 // escaped, only https:// links become buttons, email-safe markup only (tables, inline styles).
 
 import { esc, safeUrl } from "@/lib/affiliates/emails";
-import { WITHDRAW_PKR, type PayoutMethod } from "@/lib/affiliates/payouts";
+import { WITHDRAW_PKR, formatPayoutPkr, type PayoutMethod } from "@/lib/affiliates/payouts";
 
 export type TopRow = {
   rank: number;
@@ -191,11 +191,11 @@ const payPara = (t: string): string => `<p style="font-size:14px;color:#475569;l
 export function payoutPaidEmail(i: PayoutPaidInput): { subject: string; html: string } {
   const body =
     `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
-    payPara(`Your payout of <strong>${esc(pkr(i.amountPkr))}</strong> has been sent by ${esc(METHOD_LABEL[i.method])} on ${esc(i.paidOn)}.`) +
+    payPara(`Your payout of <strong>${esc(formatPayoutPkr(i.amountPkr))}</strong> has been sent by ${esc(METHOD_LABEL[i.method])} on ${esc(i.paidOn)}.`) +
     payPara("It can take a short while to show in your account. If you do not see it after a day, please message us and we will help.") +
     `<div style="text-align:center;margin-bottom:24px;">${btn("Open my page", i.pageUrl, "#1a73e8")}</div>`;
   return {
-    subject: `${i.name}, your payout of ${pkr(i.amountPkr)} has been sent`,
+    subject: `${i.name}, your payout of ${formatPayoutPkr(i.amountPkr)} has been sent`,
     html: wrap("#1e1b4b", "&#128176;", "Your Payout Has Been Sent", "Pharmacozyme Affiliate Programme", body, i.supportWa),
   };
 }
@@ -203,7 +203,7 @@ export function payoutPaidEmail(i: PayoutPaidInput): { subject: string; html: st
 export function payoutRejectedEmail(i: PayoutRejectedInput): { subject: string; html: string } {
   const body =
     `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
-    payPara(`We could not process your payout request of <strong>${esc(pkr(i.amountPkr))}</strong>.`) +
+    payPara(`We could not process your payout request of <strong>${esc(formatPayoutPkr(i.amountPkr))}</strong>.`) +
     `<div style="background:#f8fafc;border-left:4px solid #94a3b8;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:20px;">` +
     `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0d1b2a;">Reason</p>` +
     `<p style="margin:0;font-size:13px;color:#374151;line-height:1.8;">${esc(i.reason)}</p></div>` +

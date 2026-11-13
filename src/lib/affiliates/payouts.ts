@@ -48,3 +48,10 @@ export function availableBalance(balancePkr: number, heldPkr: number): number {
 export function canRequest(available: number): boolean {
   return available >= WITHDRAW_PKR;
 }
+
+/** Whole rupees with no decimals, otherwise exactly 2 decimals: "PKR 4,120" or "PKR 4,120.75". */
+export function formatPayoutPkr(n: number): string {
+  const r = Math.round(n * 100) / 100;
+  const whole = Number.isInteger(r);
+  return "PKR " + r.toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 });
+}

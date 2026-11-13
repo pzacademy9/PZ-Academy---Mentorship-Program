@@ -242,4 +242,12 @@ describe("payout emails", () => {
       expect(h).not.toMatch(/congratulations|amazing|claim|free|offer|bonus/i);
     }
   });
+
+  it("payout emails keep the cents of a fractional amount", () => {
+    const a = payoutPaidEmail({ name: "Sara", amountPkr: 4120.75, method: "bank", paidOn: "13 Nov 2026", pageUrl: "https://pharmacozyme.com/affiliate/t", supportWa: "https://wa.me/1" });
+    expect(a.subject).toBe("Sara, your payout of PKR 4,120.75 has been sent");
+    expect(a.html).toContain("PKR 4,120.75");
+    const b = payoutRejectedEmail({ name: "Sara", amountPkr: 4120.75, reason: "x", pageUrl: "https://pharmacozyme.com/affiliate/t", supportWa: "https://wa.me/1" });
+    expect(b.html).toContain("PKR 4,120.75");
+  });
 });

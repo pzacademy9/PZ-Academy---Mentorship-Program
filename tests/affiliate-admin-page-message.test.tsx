@@ -7,6 +7,8 @@ vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: async () => ({}) 
 vi.mock("@/lib/data/affiliates", () => ({ listAffiliates: async () => [] }));
 vi.mock("@/lib/data/affiliate-emails", () => ({ affiliatesWithFailedEmail: async () => new Set<string>() }));
 vi.mock("@/lib/data/affiliate-email-settings", () => ({ readEmailMessage: m.readEmailMessage, getEmailMessage: m.getEmailMessage }));
+const pay = vi.hoisted(() => ({ list: vi.fn() }));
+vi.mock("@/lib/data/affiliate-payouts", () => ({ listAdminPayouts: pay.list }));
 vi.mock("@/lib/data/affiliate-leaderboard", () => ({ getAffiliateBoard: async () => null, getBoardToken: async () => null }));
 
 import AdminAffiliatesPage from "@/app/dashboard/admin/affiliates/page";
@@ -19,6 +21,7 @@ function propsOf(el: ReactElement) {
 beforeEach(() => {
   m.readEmailMessage.mockReset();
   m.getEmailMessage.mockReset();
+  pay.list.mockReset().mockResolvedValue([]);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -34,5 +37,15 @@ describe("admin affiliates page: message read", () => {
     const p = propsOf((await AdminAffiliatesPage()) as ReactElement);
     expect(p.emailMessageFailed).toBe(false);
     expect(p.emailMessage).toBe("Hi");
+  });
+});
+
+describe("admin affiliates page: payouts read", () => {
+  it("passes an empty list and the failed flag when the payouts read throws", async () => {
+    pay.list.mockRejectedValue(new Error("db down"));
+    const kids = ((await AdminAffiliatesPage()) as ReactElement).props.children as ReactElement[];
+    const p = kids[kids.length - 1].props as { payouts: unknown[]; payoutsFailed: boolean };
+    expect(p.payoutsFailed).toBe(true);
+    expect(p.payouts).toEqual([]);
   });
 });

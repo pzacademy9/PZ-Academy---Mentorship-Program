@@ -35,7 +35,7 @@ beforeEach(() => {
 describe("AffiliatesAdmin", () => {
   it("has the Applications, Affiliates Leaderboard and Emails tabs, with applicants under Applications", () => {
     render(<AffiliatesAdmin initial={[base, accepted]} />);
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Applications", "Affiliates", "Leaderboard", "Emails"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Applications", "Affiliates", "Payouts", "Leaderboard", "Emails"]);
     expect(screen.getByText("Test Person")).toBeTruthy();
     expect(screen.queryByText("Sara Khan")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));

@@ -5,6 +5,7 @@ import {
   maskAccount,
   availableBalance,
   canRequest,
+  formatPayoutPkr,
 } from "@/lib/affiliates/payouts";
 
 describe("payout rules", () => {
@@ -37,5 +38,18 @@ describe("payout rules", () => {
   });
   it("masks", () => {
     expect(maskAccount("03001234567")).toBe("•••• 4567");
+  });
+});
+
+describe("formatPayoutPkr", () => {
+  it("shows whole rupees with no decimals", () => {
+    expect(formatPayoutPkr(4120)).toBe("PKR 4,120");
+    expect(formatPayoutPkr(3500)).toBe("PKR 3,500");
+    expect(formatPayoutPkr(1234567)).toBe("PKR 1,234,567");
+  });
+  it("shows exactly 2 decimals for a fraction", () => {
+    expect(formatPayoutPkr(4120.75)).toBe("PKR 4,120.75");
+    expect(formatPayoutPkr(4120.5)).toBe("PKR 4,120.50");
+    expect(formatPayoutPkr(0.1 + 0.2)).toBe("PKR 0.30");
   });
 });
