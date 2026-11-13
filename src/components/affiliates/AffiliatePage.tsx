@@ -4,10 +4,15 @@
 // An affiliate's private page: who they are, their numbers, their money and a link per open course.
 // Layout follows the Stitch screens "Your Affiliate Page" (390px and 1440px). The preview toggles, the top menu,
 // the Payouts and Marketing Kit tabs and the footer links on those screens are not part of the product.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AffiliatePageModel } from "@/lib/data/affiliate-page";
 import { AUTO_STEP } from "@/lib/affiliates/commission";
 import { YourRank } from "@/components/affiliates/YourRank";
+import { PayoutRequestSheet } from "@/components/affiliates/PayoutRequestSheet";
+import { formatPayoutPkr, type PayoutMethod, type PayoutStatus } from "@/lib/affiliates/payouts";
+
+// The page model without the affiliate's internal id: that never reaches the browser.
+export type AffiliatePageClientModel = Omit<AffiliatePageModel, "affiliateId">;
 
 const TEAM_DOT: Record<string, string> = {
   Green: "bg-green-500",
@@ -43,8 +48,29 @@ function CopyButton({ text, label, aria, className = SOFT_BUTTON }: { text: stri
   );
 }
 
-export function AffiliatePage({ model }: { model: AffiliatePageModel }) {
+const METHOD_LABEL: Record<PayoutMethod, string> = { jazzcash: "JazzCash", easypaisa: "Easypaisa", bank: "Bank" };
+const STATUS_LABEL: Record<PayoutStatus, string> = { pending: "Pending", paid: "Paid", rejected: "Rejected" };
+const STATUS_CHIP: Record<PayoutStatus, string> = {
+  pending: "bg-landing-surface text-landing-deep border border-landing-border",
+  paid: "bg-landing-mint-light text-landing-deep",
+  rejected: "bg-white text-pz-danger border border-landing-border",
+};
+const requestedOn = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Karachi" });
+
+export function AffiliatePage({ model, token }: { model: AffiliatePageClientModel; token: string }) {
   const m = model;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // After a request goes through, the page shows the waiting state at once, without a reload.
+  const [justRequested, setJustRequested] = useState<number | null>(null);
+  const requestButton = useRef<HTMLButtonElement>(null);
+  const pendingPkr = justRequested ?? m.payout.pendingPkr;
+  const available = pendingPkr !== null ? 0 : m.balancePkr;
+  const minimum = m.payout.minimum;
+  const history: { id: string; amountPkr: number; method: PayoutMethod | null; accountMask: string; status: PayoutStatus; rejectReason: string | null; requestedAt: string }[] =
+    justRequested !== null
+      ? [{ id: "just-requested", amountPkr: justRequested, method: null, accountMask: "", status: "pending", rejectReason: null, requestedAt: new Date().toISOString() }, ...m.payout.history]
+      : m.payout.history;
   const certificate = m.paidCount >= AUTO_STEP;
   const tiles: [string, number][] = [
     ["Views", m.totals.views],
@@ -131,7 +157,7 @@ export function AffiliatePage({ model }: { model: AffiliatePageModel }) {
           </div>
           <div data-testid="balance" className="rounded-2xl bg-landing-surface p-3 md:p-5">
             <p className="text-xs font-medium text-landing-muted">Balance</p>
-            <p className="mt-0.5 break-words font-headline text-lg font-extrabold text-landing-deep md:text-3xl">{pkr(m.balancePkr)}</p>
+            <p className="mt-0.5 break-words font-headline text-lg font-extrabold text-landing-deep md:text-3xl">{formatPayoutPkr(available)}</p>
           </div>
         </div>
         <div className="mt-4 space-y-1.5 text-xs leading-relaxed text-landing-muted">
@@ -142,7 +168,70 @@ export function AffiliatePage({ model }: { model: AffiliatePageModel }) {
             </p>
           )}
         </div>
+        <div className="mt-4">
+          {pendingPkr !== null ? (
+            <p className="rounded-2xl bg-landing-mint-light p-3 text-sm font-semibold text-landing-deep">{`Payout of ${formatPayoutPkr(pendingPkr)} requested`}</p>
+          ) : m.payout.canRequest ? (
+            <button
+              ref={requestButton}
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-landing-mint px-6 py-3 font-headline text-sm font-bold text-landing-deep md:w-auto"
+            >
+              {`Request payout of ${formatPayoutPkr(available)}`}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium text-landing-muted">
+                <span>Progress to payout</span>
+                <span className="font-semibold text-landing-primary">{`${formatPayoutPkr(available)} / ${formatPayoutPkr(minimum)}`}</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Balance towards the payout minimum"
+                aria-valuemin={0}
+                aria-valuemax={minimum}
+                aria-valuenow={available}
+                className="h-3 w-full overflow-hidden rounded-full bg-landing-surface-container-low p-0.5"
+              >
+                <div className="h-full rounded-full bg-landing-mint" style={{ width: `${Math.min(100, (available / minimum) * 100)}%` }} />
+              </div>
+              <button
+                type="button"
+                disabled
+                className="inline-flex min-h-[48px] w-full cursor-not-allowed items-center justify-center rounded-full border border-landing-border bg-landing-surface px-6 py-3 font-headline text-sm font-bold text-landing-muted md:w-auto"
+              >
+                Request payout
+              </button>
+              <p className="text-xs font-medium text-landing-muted">{`Available from ${formatPayoutPkr(minimum)}`}</p>
+            </div>
+          )}
+        </div>
       </section>
+
+      {history.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="px-1 font-headline text-base font-bold text-landing-deep md:text-2xl">Payout history</h2>
+          <ul className="space-y-2.5">
+            {history.map((h) => (
+              <li key={h.id} data-testid={`payout-${h.id}`} className={`${CARD} min-w-0`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-headline text-sm font-bold text-landing-deep">{formatPayoutPkr(h.amountPkr)}</p>
+                    <p className="text-xs text-landing-muted">
+                      {[requestedOn(h.requestedAt), h.method ? METHOD_LABEL[h.method] : null, h.accountMask || null].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_CHIP[h.status]}`}>{STATUS_LABEL[h.status]}</span>
+                </div>
+                {h.status === "rejected" && h.rejectReason && (
+                  <p className="mt-2 rounded-2xl bg-landing-surface p-2.5 text-xs text-pz-danger">{`Reason: ${h.rejectReason}`}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="px-1 font-headline text-base font-bold text-landing-deep md:text-2xl">Your links</h2>
@@ -182,6 +271,21 @@ export function AffiliatePage({ model }: { model: AffiliatePageModel }) {
           Message support
         </a>
       </footer>
+
+      {sheetOpen && (
+        <PayoutRequestSheet
+          token={token}
+          amountPkr={available}
+          onClose={() => {
+            setSheetOpen(false);
+            requestButton.current?.focus();
+          }}
+          onDone={(amount) => {
+            setJustRequested(amount);
+            setSheetOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

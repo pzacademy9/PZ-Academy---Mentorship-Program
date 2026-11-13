@@ -19,10 +19,17 @@ export default async function AffiliatePrivatePage({ params }: { params: Promise
   // Over the limit, a wrong token and a dropped affiliate all get the same answer. A read error is not hidden:
   // it is thrown, so a real affiliate sees an error and not a wrong "no longer active".
   const allowed = await affiliatePageCallerAllowed();
-  const model = allowed ? await getAffiliatePageModel(token) : null;
+  const full = allowed ? await getAffiliatePageModel(token) : null;
+  // The internal affiliate id stays on the server.
+  let model: Omit<NonNullable<typeof full>, "affiliateId"> | null = null;
+  if (full) {
+    const { affiliateId: _affiliateId, ...rest } = full;
+    void _affiliateId;
+    model = rest;
+  }
   return (
     <main className="min-h-screen bg-landing-surface px-4 py-8 font-landing-body text-landing-on-surface md:px-6 md:py-12">
-      {model ? <AffiliatePage model={model} /> : <AffiliateClosed supportWa={affiliateSupportWa()} />}
+      {model ? <AffiliatePage model={model} token={token} /> : <AffiliateClosed supportWa={affiliateSupportWa()} />}
     </main>
   );
 }

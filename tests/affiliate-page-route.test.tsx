@@ -13,7 +13,8 @@ const ctx = (t = token) => ({ params: Promise.resolve({ token: t }) });
 const good = {
   name: "Sara Khan", code: "SK321", team: "Blue", percent: 8, paidCount: 3, toNextStep: 7, earnedPkr: 800, balancePkr: 800, waiting: [],
   totals: { views: 1, registered: 1, paid: 1 }, links: [], supportWa: "https://wa.me/923155614490",
-  rank: { all: null, month: null, boardUrl: "" },
+  rank: { all: null, month: null, boardUrl: "" }, affiliateId: "aff-1",
+  payout: { minimum: 3500, canRequest: false, pendingPkr: null, history: [] },
 };
 
 beforeEach(() => {
