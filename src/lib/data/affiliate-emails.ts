@@ -3,7 +3,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 
-export type AffiliateEmailKind = "accepted" | "dropped" | "left" | "progress" | "motivation";
+export type AffiliateEmailKind = "accepted" | "dropped" | "left" | "progress" | "motivation" | "payout_paid" | "payout_rejected";
 export interface AffiliateEmailRow {
   id: string;
   kind: AffiliateEmailKind;

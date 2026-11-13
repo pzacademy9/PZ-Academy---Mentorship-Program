@@ -11,7 +11,7 @@ import { getAffiliateBoard, type AffiliateBoard } from "@/lib/data/affiliate-lea
 import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { countSentLast24h } from "@/lib/data/affiliate-emails";
 import { sendProgress } from "@/lib/affiliates/send";
-import { affiliateSupportWa } from "@/lib/affiliates/contact";
+import { affiliateLink, affiliateSupportWa } from "@/lib/affiliates/contact";
 import { gapFor, gapLine } from "@/lib/affiliates/leaderboard";
 import {
   balancePkr,
@@ -102,6 +102,7 @@ export async function runProgressEmails(
     id: string;
     name: string;
     code: string;
+    token: string | null;
     email: string;
     commission_mode: string;
     manual_percent: number | string | null;
@@ -161,6 +162,7 @@ export async function runProgressEmails(
       top: topRows(board, affiliateId),
       supportWa,
       message,
+      pageUrl: a.token ? affiliateLink(a.token) : "",
     };
     return sendProgress({ id: a.id, name: a.name, email: a.email }, input);
   };
@@ -172,7 +174,7 @@ export async function runProgressEmails(
 
     const { data: a, error: aError } = await admin
       .from("affiliates")
-      .select("id, name, code, team, email, status, commission_mode, manual_percent, opening_secured, opening_commission, opening_withdrawn")
+      .select("id, name, code, token, team, email, status, commission_mode, manual_percent, opening_secured, opening_commission, opening_withdrawn")
       .eq("id", affiliateId)
       .maybeSingle();
     if (aError) {

@@ -3,7 +3,7 @@
 // escaped, only https:// links become buttons, email-safe markup only (tables, inline styles).
 
 import { esc, safeUrl } from "@/lib/affiliates/emails";
-import { WITHDRAW_PKR } from "@/lib/affiliates/payouts";
+import { WITHDRAW_PKR, type PayoutMethod } from "@/lib/affiliates/payouts";
 
 export type TopRow = {
   rank: number;
@@ -25,6 +25,8 @@ export type ProgressInput = {
   top: TopRow[];
   supportWa: string;
   message: string;
+  /** The affiliate's private page, where Request payout lives. */
+  pageUrl: string;
 };
 
 export type MotivationInput = {
@@ -165,6 +167,54 @@ export function messageBlockPlain(message: string): string {
   return `<div style="margin:0 0 16px;">${inner}</div>`;
 }
 
+const METHOD_LABEL: Record<PayoutMethod, string> = { jazzcash: "JazzCash", easypaisa: "Easypaisa", bank: "bank transfer" };
+
+export type PayoutPaidInput = {
+  name: string;
+  amountPkr: number;
+  method: PayoutMethod;
+  paidOn: string;
+  pageUrl: string;
+  supportWa: string;
+};
+
+export type PayoutRejectedInput = {
+  name: string;
+  amountPkr: number;
+  reason: string;
+  pageUrl: string;
+  supportWa: string;
+};
+
+const payPara = (t: string): string => `<p style="font-size:14px;color:#475569;line-height:1.85;margin:0 0 16px;">${t}</p>`;
+
+export function payoutPaidEmail(i: PayoutPaidInput): { subject: string; html: string } {
+  const body =
+    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
+    payPara(`Your payout of <strong>${esc(pkr(i.amountPkr))}</strong> has been sent by ${esc(METHOD_LABEL[i.method])} on ${esc(i.paidOn)}.`) +
+    payPara("It can take a short while to show in your account. If you do not see it after a day, please message us and we will help.") +
+    `<div style="text-align:center;margin-bottom:24px;">${btn("Open my page", i.pageUrl, "#1a73e8")}</div>`;
+  return {
+    subject: `${i.name}, your payout of ${pkr(i.amountPkr)} has been sent`,
+    html: wrap("#1e1b4b", "&#128176;", "Your Payout Has Been Sent", "Pharmacozyme Affiliate Programme", body, i.supportWa),
+  };
+}
+
+export function payoutRejectedEmail(i: PayoutRejectedInput): { subject: string; html: string } {
+  const body =
+    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
+    payPara(`We could not process your payout request of <strong>${esc(pkr(i.amountPkr))}</strong>.`) +
+    `<div style="background:#f8fafc;border-left:4px solid #94a3b8;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:20px;">` +
+    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0d1b2a;">Reason</p>` +
+    `<p style="margin:0;font-size:13px;color:#374151;line-height:1.8;">${esc(i.reason)}</p></div>` +
+    payPara(`The amount is back in your balance. Once the detail above is put right, you can press Request payout on your page again.`) +
+    `<div style="text-align:center;margin-bottom:24px;">${btn("Open my page", i.pageUrl, "#1a73e8")}</div>`;
+  return {
+    subject: `${i.name}, an update on your payout request`,
+    html: wrap("#1e1b4b", "&#128236;", "An Update On Your Payout Request", "Pharmacozyme Affiliate Programme", body, i.supportWa),
+  };
+}
+
 export function progressEmail(i: ProgressInput): { subject: string; html: string } {
   const canWithdraw = i.balancePkr >= WITHDRAW_PKR;
   const hasCert = i.paid >= CERT_TARGET;
@@ -175,11 +225,10 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
   if (canWithdraw) {
     banners +=
       `<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:16px 18px;margin-bottom:18px;text-align:center;">` +
-      `<p style="margin:0 0 4px;font-size:20px;line-height:1;">&#127881;</p>` +
-      `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#15803d;">Withdrawal Now Available</p>` +
-      `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">Your commission balance is now <strong>${esc(pkr(i.balancePkr))}</strong>, which meets the withdrawal threshold of ${esc(pkr(WITHDRAW_PKR))}.<br>` +
-      `Please send your payment details on WhatsApp</p>` +
-      `<div style="margin-top:12px;">${waBtn("Withdrawal Request on WhatsApp", i.supportWa)}</div></div>`;
+      `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#15803d;">Payout Available</p>` +
+      `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">Your available balance is <strong>${esc(pkr(i.balancePkr))}</strong>, which meets the minimum of ${esc(pkr(WITHDRAW_PKR))}.<br>` +
+      `Open your page and press Request payout.</p>` +
+      `<div style="margin-top:12px;">${btn("Open my page", i.pageUrl, "#1a73e8")}</div></div>`;
   }
   if (hasCert) {
     banners +=

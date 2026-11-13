@@ -23,7 +23,7 @@ const STATUS_LABEL: Record<AffiliateRow["status"], string> = { applied: "Applied
 
 type Tab = "applications" | "affiliates" | "leaderboard" | "emails";
 
-const KIND_LABEL: Record<AffiliateEmailRow["kind"], string> = { accepted: "Welcome email", dropped: "Dropped email", left: "Left email", progress: "Progress email", motivation: "Motivation email" };
+const KIND_LABEL: Record<AffiliateEmailRow["kind"], string> = { accepted: "Welcome email", dropped: "Dropped email", left: "Left email", progress: "Progress email", motivation: "Motivation email", payout_paid: "Payout sent email", payout_rejected: "Payout update email" };
 
 function stamp(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });

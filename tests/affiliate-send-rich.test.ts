@@ -21,7 +21,7 @@ const brevo = vi.hoisted(() => ({ send: vi.fn() }));
 vi.mock("@/lib/brevo-affiliates", () => ({ sendAffiliateEmail: brevo.send }));
 
 import { countSentLast24h } from "@/lib/data/affiliate-emails";
-import { sendProgress, sendMotivation } from "@/lib/affiliates/send";
+import { sendProgress, sendMotivation, sendPayoutPaid, sendPayoutRejected } from "@/lib/affiliates/send";
 import type { ProgressInput, MotivationInput } from "@/lib/affiliates/rich-emails";
 
 beforeEach(() => {
@@ -33,7 +33,7 @@ beforeEach(() => {
 const who = { id: "a1", name: "Test Person", email: "t@example.com" };
 const progressInput: ProgressInput = {
   name: "Test Person", code: "TP1", paid: 3, commissionPkr: 1500, balancePkr: 1500, percent: 10,
-  rank: 4, gapLine: "", top: [], supportWa: "https://wa.me/1", message: "",
+  rank: 4, gapLine: "", top: [], supportWa: "https://wa.me/1", message: "", pageUrl: "https://pharmacozyme.com/affiliate/t",
 };
 const motivationInput: MotivationInput = { name: "Test Person", code: "TP1", leaderLine: null, top: [], supportWa: "https://wa.me/1" };
 
@@ -50,6 +50,23 @@ describe("rich send helpers", () => {
     brevo.send.mockResolvedValueOnce({ ok: true });
     expect(await sendMotivation(who, motivationInput)).toBe(true);
     expect(calls.find((c) => c.op === "insert")!.args[0]).toMatchObject({ kind: "motivation", status: "sent" });
+  });
+});
+
+describe("payout send helpers", () => {
+  it('sendPayoutPaid logs kind "payout_paid"', async () => {
+    answers.affiliate_emails = { error: null };
+    brevo.send.mockResolvedValueOnce({ ok: true });
+    const input = { name: "Test Person", amountPkr: 3500, method: "bank" as const, paidOn: "13 Nov 2026", pageUrl: "https://pharmacozyme.com/affiliate/t", supportWa: "https://wa.me/1" };
+    expect(await sendPayoutPaid(who, input)).toBe(true);
+    expect(calls.find((c) => c.op === "insert")!.args[0]).toMatchObject({ affiliate_id: "a1", kind: "payout_paid", status: "sent" });
+  });
+  it('sendPayoutRejected logs kind "payout_rejected"', async () => {
+    answers.affiliate_emails = { error: null };
+    brevo.send.mockResolvedValueOnce({ ok: false, error: "x" });
+    const input = { name: "Test Person", amountPkr: 3500, reason: "Wrong number", pageUrl: "https://pharmacozyme.com/affiliate/t", supportWa: "https://wa.me/1" };
+    expect(await sendPayoutRejected(who, input)).toBe(false);
+    expect(calls.find((c) => c.op === "insert")!.args[0]).toMatchObject({ kind: "payout_rejected", status: "failed" });
   });
 });
 
