@@ -13,6 +13,7 @@ import { TEAMS, type CommissionMode, type Team } from "@/lib/affiliates/service"
 import type { AffiliateRow } from "@/lib/data/affiliates";
 import type { AffiliateEmailRow } from "@/lib/data/affiliate-emails";
 import { AffiliateLeaderboardTab, type AdminBoards } from "./AffiliateLeaderboardTab";
+import { AffiliateEmailsTab } from "./AffiliateEmailsTab";
 
 const INPUT =
   "w-full min-w-0 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 font-body text-sm max-md:min-h-11 max-md:text-base focus:outline-none focus:ring-2 focus:ring-pz-primary/20";
@@ -20,7 +21,7 @@ const LABEL = "mb-1.5 block font-headline text-xs font-bold uppercase tracking-w
 
 const STATUS_LABEL: Record<AffiliateRow["status"], string> = { applied: "Applied", accepted: "Accepted", dropped: "Dropped", left: "Left" };
 
-type Tab = "applications" | "affiliates" | "leaderboard";
+type Tab = "applications" | "affiliates" | "leaderboard" | "emails";
 
 const KIND_LABEL: Record<AffiliateEmailRow["kind"], string> = { accepted: "Welcome email", dropped: "Dropped email", left: "Left email", progress: "Progress email", motivation: "Motivation email" };
 
@@ -328,11 +329,15 @@ export function AffiliatesAdmin({
   emailFailedIds = [],
   boards = null,
   boardUrl = null,
+  emailMessage = "",
+  emailMessageFailed = false,
 }: {
   initial: AffiliateRow[];
   emailFailedIds?: string[];
   boards?: AdminBoards | null;
   boardUrl?: string | null;
+  emailMessage?: string;
+  emailMessageFailed?: boolean;
 }) {
   const router = useRouter();
   const confirmTop = useConfirm();
@@ -366,7 +371,7 @@ export function AffiliatesAdmin({
   return (
     <div className="min-w-0 space-y-4">
       <div role="tablist" className="flex gap-2">
-        {([["applications", "Applications"], ["affiliates", "Affiliates"], ["leaderboard", "Leaderboard"]] as const).map(([k, label]) => (
+        {([["applications", "Applications"], ["affiliates", "Affiliates"], ["leaderboard", "Leaderboard"], ["emails", "Emails"]] as const).map(([k, label]) => (
           <button
             key={k}
             type="button"
@@ -384,6 +389,8 @@ export function AffiliatesAdmin({
 
       {tab === "leaderboard" ? (
         <AffiliateLeaderboardTab boards={boards} boardUrl={boardUrl} />
+      ) : tab === "emails" ? (
+        <AffiliateEmailsTab initialMessage={emailMessage} messageFailed={emailMessageFailed} />
       ) : shown.length === 0 ? (
         <EmptyState icon={Users} title={tab === "applications" ? "No applications waiting" : "No affiliates yet"} description={tab === "applications" ? "New applications show up here." : "Accepted affiliates show up here."} />
       ) : (
@@ -410,7 +417,7 @@ export function AffiliatesAdmin({
         </ul>
       )}
 
-      {tab !== "leaderboard" ? (
+      {tab !== "leaderboard" && tab !== "emails" ? (
         <div className="border-t border-pz-outline-variant pt-4">
           <Button type="button" variant="outline" onClick={() => void clearOld.run()} disabled={clearOld.pending}>Clear old email history</Button>
           <p className="mt-1 font-body text-xs text-pz-on-surface-variant">Deletes records of emails older than 90 days, to keep the database small.</p>
