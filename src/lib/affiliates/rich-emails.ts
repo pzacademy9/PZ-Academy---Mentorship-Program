@@ -27,6 +27,8 @@ export type ProgressInput = {
   message: string;
   /** The affiliate's private page, where Request payout lives. */
   pageUrl: string;
+  /** True when a payout request is already waiting: the email must not invite a second one. */
+  hasPendingPayout?: boolean;
 };
 
 export type MotivationInput = {
@@ -49,7 +51,7 @@ function pill(text: string, bg: string, color: string): string {
 function bar(current: number, target: number, color: string, money = false): string {
   const pct = target > 0 ? Math.min(100, Math.max(0, Math.round((current / target) * 100))) : 0;
   const label = money
-    ? `${pkr(current)} / ${pkr(target)} (${pct}%)`
+    ? `${formatPayoutPkr(current)} / ${pkr(target)} (${pct}%)`
     : `${Math.round(current)} / ${target} (${pct}%)`;
   return (
     `<div style="background:#e2e8f0;border-radius:50px;height:10px;overflow:hidden;margin:8px 0 4px;">` +
@@ -222,11 +224,11 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
   const needWd = Math.max(0, WITHDRAW_PKR - i.balancePkr);
 
   let banners = "";
-  if (canWithdraw) {
+  if (canWithdraw && !i.hasPendingPayout) {
     banners +=
       `<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:16px 18px;margin-bottom:18px;text-align:center;">` +
       `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#15803d;">Payout Available</p>` +
-      `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">Your available balance is <strong>${esc(pkr(i.balancePkr))}</strong>, which meets the minimum of ${esc(pkr(WITHDRAW_PKR))}.<br>` +
+      `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">Your available balance is <strong>${esc(formatPayoutPkr(i.balancePkr))}</strong>, which meets the minimum of ${esc(pkr(WITHDRAW_PKR))}.<br>` +
       `Open your page and press Request payout.</p>` +
       `<div style="margin-top:12px;">${btn("Open my page", i.pageUrl, "#1a73e8")}</div></div>`;
   }
@@ -274,7 +276,7 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
     bar(i.paid, CERT_TARGET, "#0b7a3b") +
     `</div><div><table width="100%" cellpadding="0" cellspacing="0"><tr>` +
     `<td style="font-size:13px;color:#0d1b2a;">Withdrawal (${esc(pkr(WITHDRAW_PKR))})</td>` +
-    `<td align="right">${canWithdraw ? pill("Eligible", "#e6f7ee", "#0b7a3b") : pill(`PKR ${Math.ceil(needWd).toLocaleString("en-US")} more`, "#fce8e6", "#c62828")}</td></tr></table>` +
+    `<td align="right">${canWithdraw ? pill(i.hasPendingPayout ? "Payout requested" : "Eligible", "#e6f7ee", "#0b7a3b") : pill(`PKR ${Math.ceil(needWd).toLocaleString("en-US")} more`, "#fce8e6", "#c62828")}</td></tr></table>` +
     bar(i.balancePkr, WITHDRAW_PKR, "#f59e0b", true) +
     `</div></div>` +
     `<div style="text-align:center;margin-bottom:24px;">${waBtn("Message us on WhatsApp", i.supportWa)}</div>`;

@@ -299,16 +299,37 @@ describe("runProgressEmails", () => {
     expect(sentInput()).toMatchObject({ commissionPkr: 2000, balancePkr: 1200 });
   });
 
-  it("a failed payouts read does not stop the email: held falls back to 0 and the error is logged", async () => {
+  it("a failed payouts read sends nothing, logs, and releases the rows for a retry", async () => {
     use({ affiliates: [aff("a1")], affiliate_commissions: [com("a1")] }, (op, base) =>
       op.table === "affiliate_payouts" ? { data: null, error: { message: "boom" } } : base(op),
     );
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await runProgressEmails(NOW);
-    expect(r.sent).toBe(1);
-    expect(sentInput().balancePkr).toBe(500);
+    expect(m.sendProgress).not.toHaveBeenCalled();
+    expect(r).toEqual({ affiliates: 1, sent: 0, failed: 1, skipped: 0 });
+    expect(commissions().map((c) => [c.progress_emailed_at, c.progress_attempts])).toEqual([[null, 1]]);
     expect(err).toHaveBeenCalled();
     err.mockRestore();
+  });
+
+  it("tells the email whether a payout request is waiting", async () => {
+    use({
+      affiliates: [aff("a1")],
+      affiliate_commissions: [com("a1", { commission_pkr: 2000, commission: 2000 })],
+      affiliate_payouts: [{ id: "p1", affiliate_id: "a1", amount_pkr: 500, status: "pending" }],
+    });
+    await runProgressEmails(NOW);
+    expect(sentInput().hasPendingPayout).toBe(true);
+  });
+
+  it("says no request is waiting when only paid payouts exist", async () => {
+    use({
+      affiliates: [aff("a1")],
+      affiliate_commissions: [com("a1", { commission_pkr: 2000, commission: 2000 })],
+      affiliate_payouts: [{ id: "p1", affiliate_id: "a1", amount_pkr: 500, status: "paid" }],
+    });
+    await runProgressEmails(NOW);
+    expect(sentInput().hasPendingPayout).toBe(false);
   });
 
   it("uses last month for the automatic percent", async () => {

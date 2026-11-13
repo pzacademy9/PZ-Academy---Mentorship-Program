@@ -29,7 +29,7 @@ const BADGE: Record<PayoutStatus, string> = {
 const BADGE_LABEL: Record<PayoutStatus, string> = { pending: "Pending", paid: "Paid", rejected: "Rejected" };
 
 function day(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
+  return iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Karachi" }) : "";
 }
 
 type Decision = { action: "paid" } | { action: "reject"; reason: string };
@@ -41,6 +41,8 @@ export function AffiliatePayoutsTab({ initial, failed }: { initial: PayoutRow[];
   const [query, setQuery] = useState("");
   const [rejecting, setRejecting] = useState<PayoutRow | null>(null);
   const [reason, setReason] = useState("");
+  // Cards another admin already decided (the server said 409): their buttons are hidden until a refresh.
+  const [stale, setStale] = useState<Set<string>>(new Set());
 
   const count = (s: PayoutStatus) => rows.filter((r) => r.status === s).length;
   const pending = rows.filter((r) => r.status === "pending");
@@ -61,6 +63,10 @@ export function AffiliatePayoutsTab({ initial, failed }: { initial: PayoutRow[];
         const data = (await res.json().catch(() => null)) as { error?: string; emailSent?: boolean } | null;
         if (!res.ok) {
           toast.error(data?.error ?? "Something went wrong. Please try again.");
+          if (res.status === 409) {
+            setStale((s) => new Set(s).add(row.id));
+            return true; // nothing left to retry, so the reject box can close
+          }
           return false;
         }
         const now = new Date().toISOString();
@@ -185,7 +191,9 @@ export function AffiliatePayoutsTab({ initial, failed }: { initial: PayoutRow[];
               </div>
 
               <div className="min-w-0">
-                {r.status === "pending" ? (
+                {r.status === "pending" && stale.has(r.id) ? (
+                  <p className="font-body text-sm font-semibold text-pz-on-surface">Already decided. Refresh to see the result.</p>
+                ) : r.status === "pending" ? (
                   <div className="grid grid-cols-2 gap-2 md:flex">
                     <Button type="button" variant="outline" className="min-h-11" onClick={() => openReject(r)} disabled={decide.pending}>Reject</Button>
                     <Button type="button" className="min-h-11" onClick={() => void decide.run(r, { action: "paid" })} disabled={decide.pending}>

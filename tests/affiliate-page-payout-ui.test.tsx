@@ -64,6 +64,16 @@ describe("payout balance card", () => {
 });
 
 describe("payout sheet", () => {
+  it("opens a number keyboard for wallets and a text keyboard for Bank", () => {
+    render(<AffiliatePage token="tok" model={model()} />);
+    const dialog = openSheet();
+    const input = within(dialog).getByLabelText("Account number or IBAN");
+    expect(input.getAttribute("inputmode")).toBe("numeric");
+    fireEvent.click(within(dialog).getByRole("radio", { name: /^Bank/ }));
+    expect(within(dialog).getByLabelText("Account number or IBAN").getAttribute("inputmode")).toBe("text");
+    fireEvent.click(within(dialog).getByRole("radio", { name: /^Easypaisa/ }));
+    expect(within(dialog).getByLabelText("Account number or IBAN").getAttribute("inputmode")).toBe("numeric");
+  });
   it("shows three methods, two labelled boxes, the one-go line and Confirm", () => {
     render(<AffiliatePage token="tok" model={model()} />);
     const dialog = openSheet();

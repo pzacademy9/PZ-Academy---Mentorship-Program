@@ -3,6 +3,7 @@
 What was built: an affiliate with PKR 3,500 or more can press **Request payout** on their private page. The whole balance
 is requested and the balance drops at once. You see every request in **Affiliates > Payouts**, pay by hand outside the app,
 then press **Mark paid** (or **Reject** with a reason, which puts the money back). The affiliate gets an email either way.
+If a sale is refunded after a request, the amount on the card can be higher than the affiliate's balance now. Check the Affiliates page before you pay.
 Affiliates is now its own section with its own menu (sidebar on PC, bottom bar on phone).
 
 Do the steps in order. Nothing works until step 1. Test ONLY on the test affiliate (name Test, code TE324). Never use a
@@ -88,13 +89,13 @@ It is safe to run again. You should see "Success. 1 row affected".
 
 ### 3d. Mark paid
 
-1. Press **Mark paid** on the card. It moves to Paid.
-2. Before you press Mark paid in step 1, open Admin > Payouts in a second tab too. After you press it in the first tab,
-   press Mark paid on the same card in the second tab. You should see a short notice that the payout was already decided,
-   and no second email.
-3. Open the inbox of hamzaansari4you@gmail.com. A "paid" email should arrive within a minute. Tell me which tab it
+1. First open Admin > Payouts in two tabs, so the same card shows in both.
+2. In the first tab, press **Mark paid** on the card. It moves to Paid.
+3. In the second tab, press Mark paid on the same card. You should see a short notice that the payout was already
+   decided, the buttons on that card go away, and no second email is sent.
+4. Open the inbox of hamzaansari4you@gmail.com. A "paid" email should arrive within a minute. Tell me which tab it
    landed in (Primary, Promotions or Spam). The amount must read **PKR 4,120.75**, with the method and the date.
-4. Open the private page. The history row now says Paid. The balance is still 0.
+5. Open the private page. The history row now says Paid. The balance is still 0.
 
 ### 3e. A second request, then Reject
 

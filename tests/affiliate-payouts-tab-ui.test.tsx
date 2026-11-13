@@ -117,6 +117,21 @@ describe("AffiliatePayoutsTab", () => {
     expect(screen.getByRole("button", { name: "Pending (1)" })).toBeTruthy();
   });
 
+  it("after a 409 the card loses its buttons and says it was decided elsewhere", async () => {
+    fetchMock().mockResolvedValue(reply(409, { error: "This payout was already decided." }));
+    render(<AffiliatePayoutsTab initial={[row()]} failed={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark paid" }));
+    await waitFor(() => expect(screen.getByText("Already decided. Refresh to see the result.")).toBeTruthy());
+    expect(toast.error).toHaveBeenCalledWith("This payout was already decided.");
+    expect(screen.queryByRole("button", { name: "Mark paid" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
+  });
+
+  it("shows dates in Pakistan time (20:00 UTC is the next day)", () => {
+    render(<AffiliatePayoutsTab initial={[row({ requestedAt: "2026-11-10T20:00:00Z" })]} failed={false} />);
+    expect(screen.getByText("Asked on 11 Nov 2026")).toBeTruthy();
+  });
+
   it("paid cards show the paid date and rejected cards show the reason", () => {
     render(<AffiliatePayoutsTab initial={rows} failed={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Paid (1)" }));

@@ -59,6 +59,12 @@ describe("PATCH /api/admin/affiliates/payouts/[id]", () => {
     expect(input.pageUrl).toContain("/affiliate/tok1");
   });
 
+  it("writes the paid date in Pakistan time (20:00 UTC is already the next day)", async () => {
+    d.decidePayout.mockResolvedValue({ ok: true, row: decided({ decidedAt: "2026-11-13T20:00:00Z" }) });
+    await patch({ action: "paid" });
+    expect(d.sendPaid.mock.calls[0][1].paidOn).toBe("14 Nov 2026");
+  });
+
   it("keeps the decision when the email fails and says emailSent false", async () => {
     d.decidePayout.mockResolvedValue({ ok: true, row: decided() });
     d.sendPaid.mockResolvedValue(false);

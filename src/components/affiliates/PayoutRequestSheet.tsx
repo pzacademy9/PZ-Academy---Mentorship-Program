@@ -147,7 +147,7 @@ export function PayoutRequestSheet({
           </div>
           <div>
             <label htmlFor="payout-number" className="mb-1 block text-xs font-semibold text-landing-deep">Account number or IBAN</label>
-            <input id="payout-number" type="text" inputMode="text" autoComplete="off" value={number} onChange={(e) => setNumber(e.target.value)} className={FIELD} />
+            <input id="payout-number" type="text" inputMode={method === "bank" ? "text" : "numeric"} autoComplete="off" value={number} onChange={(e) => setNumber(e.target.value)} className={FIELD} />
             <p className="mt-1 text-[11px] text-landing-muted">11 digits for JazzCash or Easypaisa, or a 24-character IBAN for Bank.</p>
           </div>
         </div>

@@ -50,6 +50,25 @@ describe("progressEmail", () => {
     expect(r.html).toContain("10%");
   });
 
+  it("keeps the cents of the available balance in the banner and the bar", () => {
+    const html = progressEmail(base({ balancePkr: 4120.75 })).html;
+    expect(html).toContain("<strong>PKR 4,120.75</strong>");
+    expect(html).toContain("PKR 4,120.75 / PKR 3,500");
+    expect(html).not.toContain("PKR 4,120 ");
+    expect(html).not.toContain("PKR 4,120<");
+  });
+
+  it("with a request already waiting: no Payout Available banner and the goal says Payout requested", () => {
+    const html = progressEmail(base({ balancePkr: 3500, hasPendingPayout: true })).html;
+    expect(html).not.toContain("Payout Available");
+    expect(html).not.toContain("Request payout");
+    expect(html).toContain("Payout requested");
+    expect(html).not.toContain(">Eligible<");
+    const plain = progressEmail(base({ balancePkr: 3500 })).html;
+    expect(plain).toContain("Payout Available");
+    expect(plain).toContain(">Eligible<");
+  });
+
   it("at balance >= 3500 tells the affiliate to press Request payout and links to pageUrl; below it shows neither", () => {
     const old = "Please send your payment details on WhatsApp";
     const hi = progressEmail(base({ balancePkr: 3500 })).html;

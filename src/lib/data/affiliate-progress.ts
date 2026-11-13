@@ -140,15 +140,19 @@ export async function runProgressEmails(
     const rank = me && me.paid >= 1 ? me.rank : null;
     const gap = rank !== null ? gapFor(board.rows, affiliateId) : null;
 
-    // Payouts that are pending or paid are off the balance. A failed read must not stop the email: count 0 held.
-    let held = 0;
+    // Payouts that are pending or paid are off the balance. A failed read returns false so the email is retried:
+    // sending with 0 held would show money that is already pending or paid.
     const { data: payouts, error: payoutsError } = await admin
       .from("affiliate_payouts")
-      .select("amount_pkr")
+      .select("amount_pkr, status")
       .eq("affiliate_id", affiliateId)
       .in("status", ["pending", "paid"]);
-    if (payoutsError) console.error("[affiliate-progress] could not read payouts, using 0 held");
-    else held = (payouts ?? []).reduce((t, p) => t + Number(p.amount_pkr), 0);
+    if (payoutsError) {
+      console.error("[affiliate-progress] could not read payouts, will retry");
+      return false;
+    }
+    const held = (payouts ?? []).reduce((t, p) => t + Number(p.amount_pkr), 0);
+    const hasPendingPayout = (payouts ?? []).some((p) => p.status === "pending");
 
     const input: ProgressInput = {
       name: a.name,
@@ -163,6 +167,7 @@ export async function runProgressEmails(
       supportWa,
       message,
       pageUrl: a.token ? affiliateLink(a.token) : "",
+      hasPendingPayout,
     };
     return sendProgress({ id: a.id, name: a.name, email: a.email }, input);
   };

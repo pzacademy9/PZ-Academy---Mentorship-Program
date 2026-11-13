@@ -24,7 +24,7 @@ async function notify(row: PayoutRow, input: z.infer<typeof body>): Promise<bool
     const pageUrl = a.token ? affiliateLink(a.token) : base;
     const who = { id: a.id, name: a.name, email: a.email };
     if (input.action === "paid") {
-      const paidOn = new Date(row.decidedAt ?? Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const paidOn = new Date(row.decidedAt ?? Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Karachi" });
       return await sendPayoutPaid(who, { name: a.name, amountPkr: row.amountPkr, method: row.method, paidOn, pageUrl, supportWa: affiliateSupportWa() });
     }
     return await sendPayoutRejected(who, { name: a.name, amountPkr: row.amountPkr, reason: input.reason, pageUrl, supportWa: affiliateSupportWa() });
