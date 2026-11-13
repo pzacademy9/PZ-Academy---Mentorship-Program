@@ -14,7 +14,7 @@ const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
 
 import { PUT } from "@/app/api/admin/affiliates/email-message/route";
-import { getEmailMessage, setEmailMessage } from "@/lib/data/affiliate-email-settings";
+import { getEmailMessage, readEmailMessage, setEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { acceptedEmail } from "@/lib/affiliates/emails";
 import { messageBlockPlain } from "@/lib/affiliates/rich-emails";
 
@@ -36,6 +36,20 @@ describe("getEmailMessage", () => {
     expect(await getEmailMessage()).toBe("");
     db.state.handler = () => ({ data: { message: "Hi team" }, error: null });
     expect(await getEmailMessage()).toBe("Hi team");
+  });
+});
+
+describe("readEmailMessage", () => {
+  it("throws when the read fails, but getEmailMessage still returns an empty text", async () => {
+    db.state.handler = () => ({ data: null, error: { message: "boom" } });
+    await expect(readEmailMessage()).rejects.toBeTruthy();
+    expect(await getEmailMessage()).toBe("");
+  });
+  it('returns "" only when the row is missing', async () => {
+    db.state.handler = () => ({ data: null, error: null });
+    expect(await readEmailMessage()).toBe("");
+    db.state.handler = () => ({ data: { message: "Hi" }, error: null });
+    expect(await readEmailMessage()).toBe("Hi");
   });
 });
 

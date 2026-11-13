@@ -291,6 +291,23 @@ describe("runProgressEmails", () => {
     expect(sentInput().percent).toBe(10);
   });
 
+  it("stops starting new affiliates once the time budget has passed", async () => {
+    use({
+      affiliates: [aff("a1"), aff("a2"), aff("a3")],
+      affiliate_commissions: [com("a1"), com("a2"), com("a3")],
+    });
+    m.getAffiliateBoard.mockResolvedValue(board([brow("a1", 1), brow("a2", 1), brow("a3", 1)]));
+    // Run start = 0; the first affiliate is checked at 1s, the second at 41s (past the 40s budget).
+    const ticks = [0, 1_000, 41_000, 42_000, 43_000];
+    let i = 0;
+    const clock = () => ticks[Math.min(i++, ticks.length - 1)];
+    const r = await runProgressEmails(NOW, { clock });
+    expect(r).toEqual({ affiliates: 1, sent: 1, failed: 0, skipped: 0 });
+    expect(m.sendProgress).toHaveBeenCalledTimes(1);
+    // The rest stay pending for the next run.
+    expect(commissions().filter((c) => c.progress_emailed_at === null)).toHaveLength(2);
+  });
+
   it("processes at most 40 affiliates, oldest first", async () => {
     const affs = Array.from({ length: 45 }, (_, i) => aff(`x${String(i).padStart(2, "0")}`));
     const rows = affs.map((a, i) => com(a.id, { created_at: new Date(Date.UTC(2026, 10, 1, 0, 45 - i)).toISOString() }));

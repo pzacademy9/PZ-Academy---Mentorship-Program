@@ -94,6 +94,7 @@ export async function sendMotivationBatch(ids: string[], opts: { includeSent: bo
     let claim = admin.from("affiliates").update({ motivation_emailed_at: stamp }).eq("id", id);
     claim = previous === null ? claim.is("motivation_emailed_at", null) : claim.eq("motivation_emailed_at", previous);
     const { data: claimed, error: claimError } = await claim.select("id");
+    if (claimError) console.error("[affiliate-motivation] could not claim an affiliate");
     if (claimError || !claimed || claimed.length === 0) {
       result.skipped++;
       continue;

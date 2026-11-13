@@ -136,8 +136,9 @@ export function AffiliateEmailsTab({
     }
     const notReached = ids.length - (sent + failed + skipped);
     const lines: string[] = [];
-    if (limit) lines.push(`Daily limit reached. ${people(notReached)} left for tomorrow.`);
+    if (limit && notReached > 0) lines.push(`Daily limit reached. ${people(notReached)} left for tomorrow.`);
     else if (broke) lines.push(`Stopped. Sent ${sent}. ${people(notReached)} ${notReached === 1 ? "was" : "were"} not reached.`);
+    else if (limit) lines.push(`Done. Sent ${sent}. Today's limit is now used up.`);
     else lines.push(`Done. Sent ${sent}.`);
     if (failed > 0) lines.push(`${failed} ${failed === 1 ? "email" : "emails"} could not be sent. They stay on the list so you can try again.`);
     if (skipped > 0) lines.push(`${people(skipped)} ${skipped === 1 ? "was" : "were"} skipped (no email address, or already handled).`);

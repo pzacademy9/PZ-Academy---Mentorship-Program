@@ -40,9 +40,13 @@ export async function countSentLast24h(): Promise<number> {
       .select("id", { count: "exact", head: true })
       .eq("status", "sent")
       .gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
-    if (error) return 300;
+    if (error) {
+      console.error("[affiliate-emails] could not count today's sends");
+      return 300;
+    }
     return count ?? 0;
   } catch {
+    console.error("[affiliate-emails] could not count today's sends");
     return 300;
   }
 }

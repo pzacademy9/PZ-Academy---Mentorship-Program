@@ -27,6 +27,8 @@ import type { ProgressInput, TopRow } from "@/lib/affiliates/rich-emails";
 const MAX_ATTEMPTS = 5;
 const MAX_AFFILIATES = 40;
 const DAILY_LIMIT = 300;
+// The cron route allows 60 seconds; stop starting new affiliates after 40 so a started send can finish.
+const TIME_BUDGET_MS = 40_000;
 const PENDING_READ_LIMIT = 2000;
 const TOP_N = 10;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -44,7 +46,12 @@ function topRows(board: AffiliateBoard, affiliateId: string): TopRow[] {
   return pick.map((r) => ({ rank: r.rank, publicName: r.publicName, team: r.team, paid: r.paid, isMe: r.affiliateId === affiliateId }));
 }
 
-export async function runProgressEmails(now: Date = new Date()): Promise<ProgressRunResult> {
+export async function runProgressEmails(
+  now: Date = new Date(),
+  opts: { clock?: () => number } = {},
+): Promise<ProgressRunResult> {
+  const clock = opts.clock ?? Date.now;
+  const startedAt = clock();
   const admin = createAdminSupabase();
   const stamp = now.toISOString();
   const result: ProgressRunResult = { affiliates: 0, sent: 0, failed: 0, skipped: 0 };
@@ -75,7 +82,8 @@ export async function runProgressEmails(now: Date = new Date()): Promise<Progres
 
   // Marks rows handled without an email (not accepted, no code, no email address).
   const markHandled = async (ids: string[]) => {
-    await admin.from("affiliate_commissions").update({ progress_emailed_at: stamp }).in("id", ids).is("progress_emailed_at", null);
+    const { error } = await admin.from("affiliate_commissions").update({ progress_emailed_at: stamp }).in("id", ids).is("progress_emailed_at", null);
+    if (error) console.error("[affiliate-progress] could not mark rows as handled");
   };
 
   // Gives back exactly the claimed rows, one more attempt each. The rows are ours while claimed, so read-then-write is safe.
@@ -147,6 +155,8 @@ export async function runProgressEmails(now: Date = new Date()): Promise<Progres
   };
 
   for (const [affiliateId, ids] of batch) {
+    // Time budget: the rest is picked up by the next run (5 minutes later).
+    if (clock() - startedAt >= TIME_BUDGET_MS) break;
     result.affiliates++;
 
     const { data: a, error: aError } = await admin
@@ -178,6 +188,7 @@ export async function runProgressEmails(now: Date = new Date()): Promise<Progres
       .in("id", ids)
       .is("progress_emailed_at", null)
       .select("id, progress_attempts");
+    if (claimError) console.error("[affiliate-progress] could not claim rows");
     const claimed: Claimed[] = claimError ? [] : ((claimedData ?? []) as Claimed[]);
     if (claimed.length === 0) {
       // Another run has them (or the claim failed and nothing changed).

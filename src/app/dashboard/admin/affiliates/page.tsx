@@ -1,7 +1,7 @@
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listAffiliates } from "@/lib/data/affiliates";
 import { affiliatesWithFailedEmail } from "@/lib/data/affiliate-emails";
-import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
+import { readEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { getAffiliateBoard, getBoardToken } from "@/lib/data/affiliate-leaderboard";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
@@ -30,7 +30,7 @@ export default async function AdminAffiliatesPage() {
   let emailMessage = "";
   let emailMessageFailed = false;
   try {
-    emailMessage = await getEmailMessage();
+    emailMessage = await readEmailMessage();
   } catch (e) {
     console.error("admin affiliates: email message failed", e);
     emailMessageFailed = true;

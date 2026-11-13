@@ -194,6 +194,15 @@ describe("AffiliateEmailsTab: Motivation send", () => {
     expect(fetchMock().mock.calls.filter((c) => c[1]?.method === "POST")).toHaveLength(2);
   });
 
+  it("does not claim people are left over when the limit was used up by this very send", async () => {
+    route(people(10), () => ({ sent: 10, failed: 0, skipped: 0, limitReached: true, remainingToday: 0 }));
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send to 10 people" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Send to 10 people" }));
+    await waitFor(() => expect(screen.getByText("Done. Sent 10. Today's limit is now used up.")).toBeTruthy());
+    expect(screen.queryByText(/left for tomorrow/)).toBeNull();
+  });
+
   it("tells failed and skipped counts in plain words and refreshes the list", async () => {
     route(people(5), () => ({ sent: 3, failed: 1, skipped: 1, limitReached: false, remainingToday: 100 }));
     render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);

@@ -5,13 +5,19 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 
 export const MESSAGE_MAX = 1000;
 
-/** The saved message, or "" if the row is missing or the read fails. Never throws. */
+/** The saved message, "" only when the row is missing. THROWS when the read fails (the admin page needs to know). */
+export async function readEmailMessage(): Promise<string> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin.from("affiliate_email_settings").select("message").maybeSingle();
+  if (error) throw error;
+  if (!data) return "";
+  return typeof data.message === "string" ? data.message : "";
+}
+
+/** The saved message, or "" if the row is missing or the read fails. Never throws (used by the send paths). */
 export async function getEmailMessage(): Promise<string> {
   try {
-    const admin = createAdminSupabase();
-    const { data, error } = await admin.from("affiliate_email_settings").select("message").maybeSingle();
-    if (error || !data) return "";
-    return typeof data.message === "string" ? data.message : "";
+    return await readEmailMessage();
   } catch {
     return "";
   }
