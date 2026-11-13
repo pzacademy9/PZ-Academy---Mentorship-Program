@@ -4,12 +4,13 @@ import { affiliatesWithFailedEmail } from "@/lib/data/affiliate-emails";
 import { readEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { getAffiliateBoard, getBoardToken } from "@/lib/data/affiliate-leaderboard";
 import { listAdminPayouts, type PayoutRow } from "@/lib/data/affiliate-payouts";
+import { parseAffiliatesTab } from "@/lib/affiliates/hub-routes";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
 export const metadata = { title: "Affiliates — PZ Academy" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminAffiliatesPage() {
+export default async function AdminAffiliatesPage({ searchParams }: { searchParams?: { tab?: string } }) {
   await requireAdminPage("sales_hub");
   const [rows, failed] = await Promise.all([listAffiliates(), affiliatesWithFailedEmail()]);
   // The leaderboard is an extra tab: if it cannot load, the other two tabs must still work.
@@ -57,7 +58,7 @@ export default async function AdminAffiliatesPage() {
           Read each application, then accept or drop it. Accepted affiliates get their code and private link by email.
         </p>
       </div>
-      <AffiliatesAdmin initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} />
+      <AffiliatesAdmin tab={parseAffiliatesTab(searchParams?.tab)} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} />
     </div>
   );
 }

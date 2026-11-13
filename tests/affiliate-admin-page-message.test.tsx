@@ -28,13 +28,13 @@ beforeEach(() => {
 describe("admin affiliates page: message read", () => {
   it("passes the failed flag when the message read throws", async () => {
     m.readEmailMessage.mockRejectedValue(new Error("db down"));
-    const p = propsOf((await AdminAffiliatesPage()) as ReactElement);
+    const p = propsOf((await AdminAffiliatesPage({})) as ReactElement);
     expect(p.emailMessageFailed).toBe(true);
     expect(p.emailMessage).toBe("");
   });
   it("passes the saved text and no failure when the read works", async () => {
     m.readEmailMessage.mockResolvedValue("Hi");
-    const p = propsOf((await AdminAffiliatesPage()) as ReactElement);
+    const p = propsOf((await AdminAffiliatesPage({})) as ReactElement);
     expect(p.emailMessageFailed).toBe(false);
     expect(p.emailMessage).toBe("Hi");
   });
@@ -43,9 +43,24 @@ describe("admin affiliates page: message read", () => {
 describe("admin affiliates page: payouts read", () => {
   it("passes an empty list and the failed flag when the payouts read throws", async () => {
     pay.list.mockRejectedValue(new Error("db down"));
-    const kids = ((await AdminAffiliatesPage()) as ReactElement).props.children as ReactElement[];
+    const kids = ((await AdminAffiliatesPage({})) as ReactElement).props.children as ReactElement[];
     const p = kids[kids.length - 1].props as { payouts: unknown[]; payoutsFailed: boolean };
     expect(p.payoutsFailed).toBe(true);
     expect(p.payouts).toEqual([]);
+  });
+});
+
+describe("admin affiliates page: section from the address", () => {
+  const tabOf = async (sp?: { tab?: string }) => {
+    m.readEmailMessage.mockResolvedValue("");
+    const kids = ((await AdminAffiliatesPage({ searchParams: sp })) as ReactElement).props.children as ReactElement[];
+    return (kids[kids.length - 1].props as { tab: string }).tab;
+  };
+  it("opens the section named in ?tab=", async () => {
+    expect(await tabOf({ tab: "payouts" })).toBe("payouts");
+  });
+  it("opens Applications for a missing or mistyped tab", async () => {
+    expect(await tabOf({})).toBe("applications");
+    expect(await tabOf({ tab: "nope" })).toBe("applications");
   });
 });
