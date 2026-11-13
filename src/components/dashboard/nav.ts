@@ -2,11 +2,12 @@ import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
   GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
-  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp, ScrollText,
+  ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp, ScrollText, Wallet,
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { MEDIA_AREAS, type Area } from "@/lib/team/areas";
 import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
+import { affiliatesTabHref } from "@/lib/affiliates/hub-routes";
 
 export interface NavItem {
   label: string;
@@ -113,3 +114,16 @@ export const SALES_HUB_ITEMS: HubNavItem[] = [
 ];
 
 export const SALES_HUB_BACK: NavItem = { label: "Back to Admin", shortLabel: "Admin", href: "/dashboard/admin", icon: ArrowLeft, roles: ADMINS };
+
+const AFFILIATE_ROLES: Role[] = ["admin", "manager", "super_admin"];
+
+/** The Affiliates hub menu: each section is a tab of the one Affiliates page. */
+export const AFFILIATES_HUB_ITEMS: NavItem[] = [
+  { label: "Applications", href: affiliatesTabHref("applications"), icon: ClipboardList, roles: AFFILIATE_ROLES },
+  { label: "Affiliates", href: affiliatesTabHref("affiliates"), icon: Users, roles: AFFILIATE_ROLES },
+  { label: "Payouts", href: affiliatesTabHref("payouts"), icon: Wallet, roles: AFFILIATE_ROLES },
+  { label: "Leaderboard", href: affiliatesTabHref("leaderboard"), icon: Trophy, roles: AFFILIATE_ROLES },
+  { label: "Emails", href: affiliatesTabHref("emails"), icon: Megaphone, roles: AFFILIATE_ROLES },
+];
+
+export const AFFILIATES_HUB_BACK: NavItem = { label: "Back to Admin", shortLabel: "Admin", href: "/dashboard/admin", icon: ArrowLeft, roles: AFFILIATE_ROLES };

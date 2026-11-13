@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   progressEmail,
+  payoutPaidEmail,
+  payoutRejectedEmail,
   welcomeEmailRich,
   motivationEmail,
   messageBlockRich,
@@ -27,6 +29,7 @@ function base(over: Partial<ProgressInput> = {}): ProgressInput {
     top,
     supportWa: "https://wa.me/923001234567",
     message: "",
+    pageUrl: "https://pharmacozyme.com/affiliate/tok123",
     ...over,
   };
 }
@@ -47,10 +50,37 @@ describe("progressEmail", () => {
     expect(r.html).toContain("10%");
   });
 
-  it("shows the green withdraw banner only when balancePkr >= 3500, with the line \"Please send your payment details on WhatsApp\"", () => {
-    const line = "Please send your payment details on WhatsApp";
-    expect(progressEmail(base({ balancePkr: 3499.99 })).html).not.toContain(line);
-    expect(progressEmail(base({ balancePkr: 3500 })).html).toContain(line);
+  it("keeps the cents of the available balance in the banner and the bar", () => {
+    const html = progressEmail(base({ balancePkr: 4120.75 })).html;
+    expect(html).toContain("<strong>PKR 4,120.75</strong>");
+    expect(html).toContain("PKR 4,120.75 / PKR 3,500");
+    expect(html).not.toContain("PKR 4,120 ");
+    expect(html).not.toContain("PKR 4,120<");
+  });
+
+  it("with a request already waiting: no Payout Available banner and the goal says Payout requested", () => {
+    const html = progressEmail(base({ balancePkr: 3500, hasPendingPayout: true })).html;
+    expect(html).not.toContain("Payout Available");
+    expect(html).not.toContain("Request payout");
+    expect(html).toContain("Payout requested");
+    expect(html).not.toContain(">Eligible<");
+    const plain = progressEmail(base({ balancePkr: 3500 })).html;
+    expect(plain).toContain("Payout Available");
+    expect(plain).toContain(">Eligible<");
+  });
+
+  it("at balance >= 3500 tells the affiliate to press Request payout and links to pageUrl; below it shows neither", () => {
+    const old = "Please send your payment details on WhatsApp";
+    const hi = progressEmail(base({ balancePkr: 3500 })).html;
+    expect(hi).toContain("Request payout");
+    expect(hi).toContain('href="https://pharmacozyme.com/affiliate/tok123"');
+    expect(hi).toContain(">Open my page</a>");
+    expect(hi).not.toContain(old);
+    expect(hi.slice(hi.indexOf("Payout Available"), hi.indexOf("Open my page"))).not.toContain("!");
+    const lo = progressEmail(base({ balancePkr: 3499.99 })).html;
+    expect(lo).not.toContain("Request payout");
+    expect(lo).not.toContain('href="https://pharmacozyme.com/affiliate/tok123"');
+    expect(lo).not.toContain(old);
   });
 
   it("shows the certificate banner only when paid >= 10", () => {
@@ -196,5 +226,47 @@ describe("welcomeEmailRich", () => {
     expect(r.html).not.toContain("<b>x");
     expect(r.html).not.toContain("http://bad.com");
     expect(r.html).toContain("Hi team");
+  });
+});
+
+describe("payout emails", () => {
+  const paid = () =>
+    payoutPaidEmail({ name: "Sara <b>M</b>", amountPkr: 3500, method: "jazzcash", paidOn: "13 Nov 2026", pageUrl: "https://pharmacozyme.com/affiliate/tok123", supportWa: "https://wa.me/1" });
+  const rej = () =>
+    payoutRejectedEmail({ name: "Sara", amountPkr: 4200, reason: "<script>x</script> wrong number", pageUrl: "https://pharmacozyme.com/affiliate/tok123", supportWa: "https://wa.me/1" });
+
+  it("paid email: exact subject, amount, no exclamation mark, escaped name, page button", () => {
+    const r = paid();
+    expect(r.subject).toBe("Sara <b>M</b>, your payout of PKR 3,500 has been sent");
+    expect(r.html).toContain("PKR 3,500");
+    expect(r.html.replace("<!DOCTYPE html>", "")).not.toContain("!");
+    expect(r.html).not.toContain("<b>M</b>");
+    expect(r.html).toContain("&lt;b&gt;M&lt;/b&gt;");
+    expect(r.html).toContain('href="https://pharmacozyme.com/affiliate/tok123"');
+  });
+
+  it("rejected email: exact subject, escapes the reason, states it, amount back in balance, no exclamation mark", () => {
+    const r = rej();
+    expect(r.subject).toBe("Sara, an update on your payout request");
+    expect(r.html).toContain("&lt;script&gt;");
+    expect(r.html).not.toContain("<script>");
+    expect(r.html).toContain("wrong number");
+    expect(r.html).toContain("PKR 4,200");
+    expect(r.html).toContain("back in your balance");
+    expect(r.html.replace("<!DOCTYPE html>", "")).not.toContain("!");
+  });
+
+  it("uses no sales words", () => {
+    for (const h of [paid().html, rej().html]) {
+      expect(h).not.toMatch(/congratulations|amazing|claim|free|offer|bonus/i);
+    }
+  });
+
+  it("payout emails keep the cents of a fractional amount", () => {
+    const a = payoutPaidEmail({ name: "Sara", amountPkr: 4120.75, method: "bank", paidOn: "13 Nov 2026", pageUrl: "https://pharmacozyme.com/affiliate/t", supportWa: "https://wa.me/1" });
+    expect(a.subject).toBe("Sara, your payout of PKR 4,120.75 has been sent");
+    expect(a.html).toContain("PKR 4,120.75");
+    const b = payoutRejectedEmail({ name: "Sara", amountPkr: 4120.75, reason: "x", pageUrl: "https://pharmacozyme.com/affiliate/t", supportWa: "https://wa.me/1" });
+    expect(b.html).toContain("PKR 4,120.75");
   });
 });

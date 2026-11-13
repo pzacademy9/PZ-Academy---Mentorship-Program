@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
@@ -9,7 +9,8 @@ import type { Area } from "@/lib/team/areas";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { isSalesHubPath } from "@/lib/crm/sales-hub-routes";
-import { navForRole, activeHrefFor, splitMobileNav, SALES_HUB_ITEMS, SALES_HUB_BACK, type NavItem, type HubGroup } from "./nav";
+import { AFFILIATES_HUB_BASE, isAffiliatesHubPath, parseAffiliatesTab, affiliatesTabHref } from "@/lib/affiliates/hub-routes";
+import { navForRole, activeHrefFor, splitMobileNav, SALES_HUB_ITEMS, SALES_HUB_BACK, AFFILIATES_HUB_ITEMS, AFFILIATES_HUB_BACK, type NavItem, type HubGroup } from "./nav";
 
 const HUB_GROUPS: HubGroup[] = ["Overview", "Audience", "Outreach", "Team"];
 
@@ -21,9 +22,14 @@ interface SidebarProps {
 
 export function Sidebar({ role, areas }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const hubMode = (role === "admin" || role === "super_admin") && isSalesHubPath(pathname);
-  const items: NavItem[] = hubMode ? [...SALES_HUB_ITEMS, SALES_HUB_BACK] : navForRole(role, areas);
-  const activeHref = activeHrefFor(items, pathname);
+  const normalItems = navForRole(role, areas);
+  // The Affiliates hub is for whoever can see the Affiliates page (it needs the same area as its menu entry).
+  const affiliatesHub = !hubMode && isAffiliatesHubPath(pathname) && normalItems.some((i) => i.href === AFFILIATES_HUB_BASE);
+  const items: NavItem[] = hubMode ? [...SALES_HUB_ITEMS, SALES_HUB_BACK] : affiliatesHub ? [...AFFILIATES_HUB_ITEMS, AFFILIATES_HUB_BACK] : normalItems;
+  // The hub items differ only by ?tab=, which activeHrefFor cannot see, so read it here.
+  const activeHref = affiliatesHub ? affiliatesTabHref(parseAffiliatesTab(searchParams?.get("tab"))) : activeHrefFor(items, pathname);
   const { bar, more, moreActive } = splitMobileNav(items, activeHref);
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -74,6 +80,20 @@ export function Sidebar({ role, areas }: SidebarProps) {
                     </Link>
                   ))}
                 </div>
+              ))}
+            </>
+          ) : affiliatesHub ? (
+            <>
+              <Link href={AFFILIATES_HUB_BACK.href} className={desktopLink(false)}>
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                Back to Admin
+              </Link>
+              <p className="px-3 pt-2 font-headline font-bold text-pz-secondary text-sm">Affiliates</p>
+              {AFFILIATES_HUB_ITEMS.map((item) => (
+                <Link key={item.href} href={item.href} className={desktopLink(item.href === activeHref)}>
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </Link>
               ))}
             </>
           ) : (

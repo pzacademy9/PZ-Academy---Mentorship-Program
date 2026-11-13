@@ -6,7 +6,7 @@ import { sendAffiliateEmail } from "@/lib/brevo-affiliates";
 import { logAffiliateEmail, type AffiliateEmailKind } from "@/lib/data/affiliate-emails";
 import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { droppedEmail, leftEmail } from "./emails";
-import { messageBlockPlain, welcomeEmailRich, progressEmail, motivationEmail, type ProgressInput, type MotivationInput } from "./rich-emails";
+import { messageBlockPlain, welcomeEmailRich, progressEmail, motivationEmail, payoutPaidEmail, payoutRejectedEmail, type ProgressInput, type MotivationInput } from "./rich-emails";
 import { affiliateGroupWa, affiliateLink, affiliateSupportWa } from "./contact";
 
 async function deliver(
@@ -51,5 +51,7 @@ export async function sendAccepted(a: { id: string; name: string; email: string;
 }
 export const sendProgress = (a: { id: string; name: string; email: string }, input: ProgressInput) => deliver(a, "progress", progressEmail(input));
 export const sendMotivation = (a: { id: string; name: string; email: string }, input: MotivationInput) => deliver(a, "motivation", motivationEmail(input));
+export const sendPayoutPaid = (a: { id: string; name: string; email: string }, input: Parameters<typeof payoutPaidEmail>[0]) => deliver(a, "payout_paid", payoutPaidEmail(input));
+export const sendPayoutRejected = (a: { id: string; name: string; email: string }, input: Parameters<typeof payoutRejectedEmail>[0]) => deliver(a, "payout_rejected", payoutRejectedEmail(input));
 export const sendDropped = (a: { id: string; name: string; email: string }) => deliver(a, "dropped", droppedEmail({ name: a.name }));
 export const sendLeft = (a: { id: string; name: string; email: string }) => deliver(a, "left", leftEmail({ name: a.name }));

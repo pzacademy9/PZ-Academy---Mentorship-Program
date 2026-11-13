@@ -33,19 +33,20 @@ beforeEach(() => {
 });
 
 describe("AffiliatesAdmin", () => {
-  it("has the Applications, Affiliates Leaderboard and Emails tabs, with applicants under Applications", () => {
-    render(<AffiliatesAdmin initial={[base, accepted]} />);
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Applications", "Affiliates", "Leaderboard", "Emails"]);
+  it("shows the section given by the tab prop, with applicants under Applications, and has no in-page tab strip", () => {
+    const { rerender } = render(<AffiliatesAdmin tab="applications" initial={[base, accepted]} />);
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.getByText("Test Person")).toBeTruthy();
     expect(screen.queryByText("Sara Khan")).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    rerender(<AffiliatesAdmin tab="affiliates" initial={[base, accepted]} />);
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.getByText("Sara Khan")).toBeTruthy();
     expect(screen.getByText("SK321")).toBeTruthy();
     expect(screen.queryByText("Test Person")).toBeNull();
   });
 
   it("the card list cannot scroll sideways on a phone", () => {
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     const list = screen.getByTestId("affiliate-cards");
     expect(list.className).toMatch(/min-w-0|w-full/);
     const html = list.outerHTML;
@@ -54,7 +55,7 @@ describe("AffiliatesAdmin", () => {
   });
 
   it("opens the application with every answer, a code field and a team picker", () => {
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     const d = within(screen.getByRole("dialog"));
     expect(d.getByText("Test University")).toBeTruthy();
@@ -68,7 +69,7 @@ describe("AffiliatesAdmin", () => {
 
   it("accepts with the typed code and team", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP500", emailSent: true }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     const d = within(screen.getByRole("dialog"));
     fireEvent.change(d.getByLabelText(/code/i), { target: { value: "tp500" } });
@@ -84,7 +85,7 @@ describe("AffiliatesAdmin", () => {
 
   it("an empty code field sends no code, so the next one is made", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP321", emailSent: true }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(fetchMock()).toHaveBeenCalled());
@@ -93,7 +94,7 @@ describe("AffiliatesAdmin", () => {
 
   it("when the email was not sent it says so and shows Resend", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP321", emailSent: false }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
     expect(await screen.findByText(/Email not sent/i)).toBeTruthy();
@@ -105,7 +106,7 @@ describe("AffiliatesAdmin", () => {
 
   it("when the discount code did not switch on it says so and shows Resend", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP321", emailSent: true, promoFailed: true }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/discount code/i)));
@@ -114,7 +115,7 @@ describe("AffiliatesAdmin", () => {
 
   it("Resend says when the discount code is still not on", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, code: "TP321", emailSent: false }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
     await screen.findByText(/Email not sent/i);
@@ -125,7 +126,7 @@ describe("AffiliatesAdmin", () => {
 
   it("shows the plain server message when the code is taken", async () => {
     fetchMock().mockResolvedValue(reply(409, { error: "That code is already taken. Try another." }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("That code is already taken. Try another."));
@@ -133,7 +134,7 @@ describe("AffiliatesAdmin", () => {
 
   it("Drop asks first and does nothing when the owner says no", async () => {
     confirmFn.mockResolvedValue(false);
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Drop" }));
     await waitFor(() => expect(confirmFn).toHaveBeenCalled());
@@ -142,7 +143,7 @@ describe("AffiliatesAdmin", () => {
 
   it("Drop sends the drop after a yes", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, emailSent: true }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Drop" }));
     await waitFor(() => expect(fetchMock()).toHaveBeenCalled());
@@ -155,8 +156,7 @@ describe("AffiliatesAdmin", () => {
         ? reply(200, { affiliate: accepted, link: "https://pharmacozyme.com/affiliate/tok123" })
         : reply(200, { ok: true, emailSent: true }),
     );
-    render(<AffiliatesAdmin initial={[accepted]} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} />);
     fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
     const d = within(screen.getByRole("dialog"));
     fireEvent.click(await d.findByRole("button", { name: /copy private link/i }));
@@ -187,21 +187,18 @@ describe("email history in the admin screen", () => {
     );
 
   it("flags a card whose last email failed", () => {
-    render(<AffiliatesAdmin initial={[accepted]} emailFailedIds={["a2"]} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} emailFailedIds={["a2"]} />);
     expect(screen.getByText("Email failed")).toBeTruthy();
   });
 
   it("shows no flag when nothing failed", () => {
-    render(<AffiliatesAdmin initial={[accepted]} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} />);
     expect(screen.queryByText("Email failed")).toBeNull();
   });
 
   it("lists each email with its result and why it failed", async () => {
     get();
-    render(<AffiliatesAdmin initial={[accepted]} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} />);
     fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
     const d = within(screen.getByRole("dialog"));
     expect(await d.findByText(/Affiliate email is not set up/)).toBeTruthy();
@@ -212,8 +209,7 @@ describe("email history in the admin screen", () => {
 
   it("Clear history asks first, then clears only this person's emails", async () => {
     get();
-    render(<AffiliatesAdmin initial={[accepted]} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} />);
     fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
     const d = within(screen.getByRole("dialog"));
     fireEvent.click(await d.findByRole("button", { name: /clear history/i }));
@@ -226,8 +222,7 @@ describe("email history in the admin screen", () => {
   it("does not clear when the owner says no", async () => {
     get();
     confirmFn.mockResolvedValue(false);
-    render(<AffiliatesAdmin initial={[accepted]} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} />);
     fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
     fireEvent.click(await within(screen.getByRole("dialog")).findByRole("button", { name: /clear history/i }));
     await waitFor(() => expect(confirmFn).toHaveBeenCalled());
@@ -236,7 +231,7 @@ describe("email history in the admin screen", () => {
 
   it("a page-level button clears history older than 90 days after a yes", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, removed: 5 }));
-    render(<AffiliatesAdmin initial={[base]} />);
+    render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /clear old email history/i }));
     await waitFor(() => expect(fetchMock()).toHaveBeenCalled());
     expect(fetchMock().mock.calls[0][0]).toBe("/api/admin/affiliates/emails?olderThanDays=90");
@@ -257,8 +252,7 @@ describe("AffiliatesAdmin leaderboard tab", () => {
   const boards = { month: teams(month), all: teams(all) };
   const URL_ = "https://pharmacozyme.com/affiliate-board/TOKENTOKENTOKENTOKEN1234";
   const open = () => {
-    render(<AffiliatesAdmin initial={[accepted]} boards={boards} boardUrl={URL_} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Leaderboard" }));
+    render(<AffiliatesAdmin tab="leaderboard" initial={[accepted]} boards={boards} boardUrl={URL_} />);
   };
 
   it("shows this month first with full names, registered and paid, then switches to all time", () => {
@@ -323,8 +317,7 @@ describe("AffiliatesAdmin leaderboard tab", () => {
   });
 
   it("an empty board shows a friendly message and no share actions", () => {
-    render(<AffiliatesAdmin initial={[]} boards={{ month: { period: "month", rows: [], teams: [] }, all: { period: "all", rows: [], teams: [] } }} boardUrl={URL_} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Leaderboard" }));
+    render(<AffiliatesAdmin tab="leaderboard" initial={[]} boards={{ month: { period: "month", rows: [], teams: [] }, all: { period: "all", rows: [], teams: [] } }} boardUrl={URL_} />);
     expect(screen.getByText("No affiliates on the board yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Share podium/ })).toBeNull();
     expect((screen.getByRole("button", { name: "Copy for WhatsApp" }) as HTMLButtonElement).disabled).toBe(true);
@@ -333,8 +326,7 @@ describe("AffiliatesAdmin leaderboard tab", () => {
     fetchMock().mockImplementation(async (_u: string, init?: RequestInit) =>
       init?.method === "PUT" ? reply(200, { ok: true }) : reply(200, { candidates: [] }),
     );
-    render(<AffiliatesAdmin initial={[base]} emailMessage="" emailMessageFailed />);
-    fireEvent.click(screen.getByRole("tab", { name: "Emails" }));
+    render(<AffiliatesAdmin tab="emails" initial={[base]} emailMessage="" emailMessageFailed />);
     expect(screen.getByText(/could not be loaded/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Message text"), { target: { value: "New words" } });
     fireEvent.click(screen.getByRole("button", { name: "Save message" }));
@@ -345,13 +337,12 @@ describe("AffiliatesAdmin leaderboard tab", () => {
     fetchMock().mockImplementation(async (_u: string, init?: RequestInit) =>
       init?.method === "PUT" ? reply(200, { ok: true }) : reply(200, { candidates: [] }),
     );
-    render(<AffiliatesAdmin initial={[base]} emailMessage="Old words" />);
-    fireEvent.click(screen.getByRole("tab", { name: "Emails" }));
+    const { rerender } = render(<AffiliatesAdmin tab="emails" initial={[base]} emailMessage="Old words" />);
     fireEvent.change(screen.getByLabelText("Message text"), { target: { value: "New words" } });
     fireEvent.click(screen.getByRole("button", { name: "Save message" }));
     await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Saved/));
-    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Emails" }));
+    rerender(<AffiliatesAdmin tab="affiliates" initial={[base]} emailMessage="Old words" />);
+    rerender(<AffiliatesAdmin tab="emails" initial={[base]} emailMessage="Old words" />);
     expect((screen.getByLabelText("Message text") as HTMLTextAreaElement).value).toBe("New words");
   });
 });

@@ -13,7 +13,8 @@ const ctx = (t = token) => ({ params: Promise.resolve({ token: t }) });
 const good = {
   name: "Sara Khan", code: "SK321", team: "Blue", percent: 8, paidCount: 3, toNextStep: 7, earnedPkr: 800, balancePkr: 800, waiting: [],
   totals: { views: 1, registered: 1, paid: 1 }, links: [], supportWa: "https://wa.me/923155614490",
-  rank: { all: null, month: null, boardUrl: "" },
+  rank: { all: null, month: null, boardUrl: "" }, affiliateId: "aff-1",
+  payout: { minimum: 3500, canRequest: false, pendingPkr: null, history: [] },
 };
 
 beforeEach(() => {
@@ -30,6 +31,13 @@ describe("the private affiliate page route", () => {
     render(await Page(ctx()));
     expect(screen.getByText("Hello, Sara Khan")).toBeTruthy();
     expect(m.model).toHaveBeenCalledWith(token);
+  });
+  it("never sends the affiliate id to the browser, and gives the page the route token", async () => {
+    const tree = (await Page(ctx())) as { props: { children: { props: Record<string, unknown> } } };
+    const props = tree.props.children.props;
+    expect(props.token).toBe(token);
+    expect("affiliateId" in (props.model as object)).toBe(false);
+    expect((props.model as { name: string }).name).toBe("Sara Khan");
   });
   it("an unknown, dropped or malformed token gets the same neutral page with nothing about why", async () => {
     m.model.mockResolvedValue(null);

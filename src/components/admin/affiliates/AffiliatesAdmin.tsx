@@ -14,6 +14,9 @@ import type { AffiliateRow } from "@/lib/data/affiliates";
 import type { AffiliateEmailRow } from "@/lib/data/affiliate-emails";
 import { AffiliateLeaderboardTab, type AdminBoards } from "./AffiliateLeaderboardTab";
 import { AffiliateEmailsTab } from "./AffiliateEmailsTab";
+import { AffiliatePayoutsTab } from "./AffiliatePayoutsTab";
+import type { PayoutRow } from "@/lib/data/affiliate-payouts";
+import type { AffiliatesTab } from "@/lib/affiliates/hub-routes";
 
 const INPUT =
   "w-full min-w-0 rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2.5 font-body text-sm max-md:min-h-11 max-md:text-base focus:outline-none focus:ring-2 focus:ring-pz-primary/20";
@@ -21,9 +24,7 @@ const LABEL = "mb-1.5 block font-headline text-xs font-bold uppercase tracking-w
 
 const STATUS_LABEL: Record<AffiliateRow["status"], string> = { applied: "Applied", accepted: "Accepted", dropped: "Dropped", left: "Left" };
 
-type Tab = "applications" | "affiliates" | "leaderboard" | "emails";
-
-const KIND_LABEL: Record<AffiliateEmailRow["kind"], string> = { accepted: "Welcome email", dropped: "Dropped email", left: "Left email", progress: "Progress email", motivation: "Motivation email" };
+const KIND_LABEL: Record<AffiliateEmailRow["kind"], string> = { accepted: "Welcome email", dropped: "Dropped email", left: "Left email", progress: "Progress email", motivation: "Motivation email", payout_paid: "Payout sent email", payout_rejected: "Payout update email" };
 
 function stamp(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -325,19 +326,26 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
 
 /** Admin: applications and affiliates, with a detail sheet for each. */
 export function AffiliatesAdmin({
+  tab,
   initial,
   emailFailedIds = [],
   boards = null,
   boardUrl = null,
   emailMessage = "",
   emailMessageFailed = false,
+  payouts = [],
+  payoutsFailed = false,
 }: {
+  /** The section to show; the sidebar and bottom bar are the navigation. */
+  tab: AffiliatesTab;
   initial: AffiliateRow[];
   emailFailedIds?: string[];
   boards?: AdminBoards | null;
   boardUrl?: string | null;
   emailMessage?: string;
   emailMessageFailed?: boolean;
+  payouts?: PayoutRow[];
+  payoutsFailed?: boolean;
 }) {
   const router = useRouter();
   const confirmTop = useConfirm();
@@ -362,9 +370,8 @@ export function AffiliatesAdmin({
     }
   });
 
-  const [tab, setTab] = useState<Tab>("applications");
   const [openId, setOpenId] = useState<string | null>(null);
-  // The Emails tab unmounts when you leave it, so the last saved message lives here.
+  // The Emails section unmounts when you leave it, so the last saved message lives here.
   const [savedMessage, setSavedMessage] = useState(emailMessage);
   const [messageFailed, setMessageFailed] = useState(emailMessageFailed);
 
@@ -373,24 +380,9 @@ export function AffiliatesAdmin({
 
   return (
     <div className="min-w-0 space-y-4">
-      <div role="tablist" className="flex gap-2">
-        {([["applications", "Applications"], ["affiliates", "Affiliates"], ["leaderboard", "Leaderboard"], ["emails", "Emails"]] as const).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            onClick={() => setTab(k)}
-            className={`min-h-11 rounded-md border px-4 font-body text-sm font-semibold ${
-              tab === k ? "border-pz-solid-forest bg-pz-solid-forest text-white" : "border-pz-outline-variant bg-pz-surface-container-lowest text-pz-on-surface"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "leaderboard" ? (
+      {tab === "payouts" ? (
+        <AffiliatePayoutsTab initial={payouts} failed={payoutsFailed} />
+      ) : tab === "leaderboard" ? (
         <AffiliateLeaderboardTab boards={boards} boardUrl={boardUrl} />
       ) : tab === "emails" ? (
         <AffiliateEmailsTab initialMessage={savedMessage} messageFailed={messageFailed} onSaved={(text) => { setSavedMessage(text); setMessageFailed(false); }} />
@@ -420,7 +412,7 @@ export function AffiliatesAdmin({
         </ul>
       )}
 
-      {tab !== "leaderboard" && tab !== "emails" ? (
+      {tab !== "leaderboard" && tab !== "emails" && tab !== "payouts" ? (
         <div className="border-t border-pz-outline-variant pt-4">
           <Button type="button" variant="outline" onClick={() => void clearOld.run()} disabled={clearOld.pending}>Clear old email history</Button>
           <p className="mt-1 font-body text-xs text-pz-on-surface-variant">Deletes records of emails older than 90 days, to keep the database small.</p>

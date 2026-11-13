@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { vi, it, expect } from "vitest";
 
 let path = "/dashboard/admin/sales-hub/contacts";
-vi.mock("next/navigation", () => ({ usePathname: () => path }));
+vi.mock("next/navigation", () => ({ usePathname: () => path, useSearchParams: () => new URLSearchParams() }));
 
 import { Sidebar } from "@/components/dashboard/Sidebar";
 

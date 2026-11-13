@@ -9,10 +9,12 @@ vi.mock("@/lib/data/landing-agent-stats", () => ({ listPublishedLinkPages: pages
 const lb = vi.hoisted(() => ({ rank: vi.fn(), token: vi.fn() }));
 vi.mock("@/lib/data/affiliate-leaderboard", () => ({ getAffiliateRank: lb.rank, getBoardToken: lb.token }));
 
+vi.mock("@/lib/data/affiliate-payouts", () => ({ listAffiliateHistory: vi.fn().mockResolvedValue([]) }));
+
 import { buildPageModel, getAffiliatePageModel } from "@/lib/data/affiliate-page";
 
 const affiliate = {
-  name: "Sara Khan", code: "SK321", team: "Blue", commissionMode: "automatic" as const, manualPercent: null as number | null,
+  id: "aff-1", name: "Sara Khan", code: "SK321", team: "Blue", commissionMode: "automatic" as const, manualPercent: null as number | null,
   openingSecured: 0, openingCommission: 0, openingWithdrawn: 0,
 };
 const pg = [
@@ -29,7 +31,7 @@ const com = (over: Partial<{ currency: string; commission: number; commissionPkr
 const input = (over: Record<string, unknown> = {}) => ({
   affiliate, commissions: [] as ReturnType<typeof com>[], stats: [] as { pageId: string; views: number; registered: number; paid: number }[],
   pages: pg, baseUrl: "https://pz.test", supportWa: "https://wa.me/1", now: NOW,
-  rank: { all: null, month: null, boardUrl: "" }, ...over,
+  rank: { all: null, month: null, boardUrl: "" }, payouts: [], ...over,
 });
 const many = (n: number, over: Parameters<typeof com>[0] = {}) => Array.from({ length: n }, () => com(over));
 
