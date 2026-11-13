@@ -164,6 +164,53 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_payouts: {
+        Row: {
+          account_number: string
+          account_title: string
+          affiliate_id: string
+          amount_pkr: number
+          decided_at: string | null
+          id: string
+          method: string
+          reject_reason: string | null
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          account_number: string
+          account_title: string
+          affiliate_id: string
+          amount_pkr: number
+          decided_at?: string | null
+          id?: string
+          method: string
+          reject_reason?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          account_number?: string
+          account_title?: string
+          affiliate_id?: string
+          amount_pkr?: number
+          decided_at?: string | null
+          id?: string
+          method?: string
+          reject_reason?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_payouts_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_commissions: {
         Row: {
           affiliate_id: string
