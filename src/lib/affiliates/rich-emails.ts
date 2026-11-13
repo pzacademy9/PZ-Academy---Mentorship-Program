@@ -81,7 +81,7 @@ function wrap(grad: string, icon: string, title: string, subtitle: string, body:
     `<div style="padding:28px 28px 10px;">${body}</div>` +
     `<div style="margin:0 28px;border-top:1px solid #f1f5f9;padding:16px 0 22px;text-align:center;">` +
     `<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.9;">${help}` +
-    `<strong style="color:#1a73e8;">Team Marketing - Pharmacozyme</strong></p></div>` +
+    `<strong style="color:#1a73e8;">Pharmacozyme Affiliate Support</strong></p></div>` +
     `</td></tr></table></td></tr></table></body></html>`
   );
 }
@@ -155,7 +155,7 @@ export function messageBlockRich(message: string): string {
   if (!inner) return "";
   return (
     `<div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:12px;padding:16px 18px;margin-bottom:20px;">` +
-    `<p style="margin:0 0 10px;font-size:14px;font-weight:800;color:#9a3412;">&#128218; Message from the team</p>${inner}</div>`
+    `<p style="margin:0 0 10px;font-size:14px;font-weight:800;color:#9a3412;">&#128218; A note from the team</p>${inner}</div>`
   );
 }
 
@@ -176,18 +176,18 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
     banners +=
       `<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:16px 18px;margin-bottom:18px;text-align:center;">` +
       `<p style="margin:0 0 4px;font-size:20px;line-height:1;">&#127881;</p>` +
-      `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#15803d;">You Can Withdraw Your Commission!</p>` +
+      `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#15803d;">Withdrawal Now Available</p>` +
       `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">Your commission balance is now <strong>${esc(pkr(i.balancePkr))}</strong>, which meets the withdrawal threshold of ${esc(pkr(WITHDRAW_PKR))}.<br>` +
-      `Message us on WhatsApp with your payment details</p>` +
-      `<div style="margin-top:12px;">${waBtn("Request Withdrawal on WhatsApp", i.supportWa)}</div></div>`;
+      `Please send your payment details on WhatsApp</p>` +
+      `<div style="margin-top:12px;">${waBtn("Withdrawal Request on WhatsApp", i.supportWa)}</div></div>`;
   }
   if (hasCert) {
     banners +=
       `<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:12px;padding:16px 18px;margin-bottom:18px;text-align:center;">` +
       `<p style="margin:0 0 4px;font-size:20px;line-height:1;">&#127941;</p>` +
-      `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#1d4ed8;">Certificate Unlocked!</p>` +
-      `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">You have <strong>${i.paid} paid participants</strong>, so your Certificate of Achievement is now ready.<br>Contact us on WhatsApp to receive your official certificate.</p>` +
-      `<div style="margin-top:12px;">${waBtn("Claim Your Certificate", i.supportWa)}</div></div>`;
+      `<p style="margin:4px 0;font-size:15px;font-weight:800;color:#1d4ed8;">Certificate Now Available</p>` +
+      `<p style="margin:0;font-size:13px;color:#374151;line-height:1.75;">You have <strong>${i.paid} paid participants</strong>, so your Certificate of Achievement is ready.<br>Please contact us on WhatsApp to receive it.</p>` +
+      `<div style="margin-top:12px;">${waBtn("Certificate Request on WhatsApp", i.supportWa)}</div></div>`;
   }
 
   const statBox = (value: string, color: string, label: string, last = false): string =>
@@ -201,8 +201,8 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
     : "";
 
   const body =
-    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello, ${esc(i.name)}!</p>` +
-    `<p style="font-size:14px;color:#475569;line-height:1.85;margin:0 0 20px;">A new paid registration was just counted under your promo code <strong>${esc(i.code)}</strong>. Here is your updated performance summary.</p>` +
+    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
+    `<p style="font-size:14px;color:#475569;line-height:1.85;margin:0 0 20px;">A new paid registration has been recorded under your code <strong>${esc(i.code)}</strong>. Here is your current summary.</p>` +
     messageBlockRich(i.message) +
     banners +
     `<div style="background:#1e1b4b;border-radius:14px;padding:20px;margin-bottom:20px;text-align:center;">` +
@@ -221,18 +221,18 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
     `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:20px;">` +
     `<div style="margin-bottom:12px;"><table width="100%" cellpadding="0" cellspacing="0"><tr>` +
     `<td style="font-size:13px;color:#0d1b2a;">Certificate (${CERT_TARGET} participants)</td>` +
-    `<td align="right">${hasCert ? pill("Earned!", "#e6f7ee", "#0b7a3b") : pill(`${needCert} more needed`, "#fce8e6", "#c62828")}</td></tr></table>` +
+    `<td align="right">${hasCert ? pill("Completed", "#e6f7ee", "#0b7a3b") : pill(`${needCert} more needed`, "#fce8e6", "#c62828")}</td></tr></table>` +
     bar(i.paid, CERT_TARGET, "#0b7a3b") +
     `</div><div><table width="100%" cellpadding="0" cellspacing="0"><tr>` +
     `<td style="font-size:13px;color:#0d1b2a;">Withdrawal (${esc(pkr(WITHDRAW_PKR))})</td>` +
-    `<td align="right">${canWithdraw ? pill("Eligible! Request Now", "#e6f7ee", "#0b7a3b") : pill(`PKR ${Math.ceil(needWd).toLocaleString("en-US")} more`, "#fce8e6", "#c62828")}</td></tr></table>` +
+    `<td align="right">${canWithdraw ? pill("Eligible", "#e6f7ee", "#0b7a3b") : pill(`PKR ${Math.ceil(needWd).toLocaleString("en-US")} more`, "#fce8e6", "#c62828")}</td></tr></table>` +
     bar(i.balancePkr, WITHDRAW_PKR, "#f59e0b", true) +
     `</div></div>` +
     `<div style="text-align:center;margin-bottom:24px;">${waBtn("Message us on WhatsApp", i.supportWa)}</div>`;
 
   return {
-    subject: "Performance Update - Pharmacozyme Affiliate",
-    html: wrap("#1e1b4b", "&#128202;", "Performance Update", "Pharmacozyme Affiliate Programme", body, i.supportWa),
+    subject: `${i.name}, a new paid registration under your code ${i.code}`,
+    html: wrap("#1e1b4b", "&#128202;", "Your Affiliate Summary", "Pharmacozyme Affiliate Programme", body, i.supportWa),
   };
 }
 
