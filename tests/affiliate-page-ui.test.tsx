@@ -15,6 +15,7 @@ const model = (over: Partial<AffiliatePageModel> = {}): AffiliatePageModel => ({
   ],
   supportWa: "https://wa.me/923155614490",
   rank: { all: null, month: null, boardUrl: "" },
+  payout: { minimum: 3500, canRequest: true, pendingPkr: null, history: [] },
   ...over,
 });
 

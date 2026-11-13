@@ -17,6 +17,8 @@ import {
 } from "@/lib/affiliates/commission";
 import { affiliateSupportWa } from "@/lib/affiliates/contact";
 import { getAffiliateRank, getBoardToken, type OwnRank } from "@/lib/data/affiliate-leaderboard";
+import { listAffiliateHistory, type HistoryRow } from "@/lib/data/affiliate-payouts";
+import { WITHDRAW_PKR, availableBalance, canRequest } from "@/lib/affiliates/payouts";
 
 // Tokens are 24 random bytes in base64url (32 characters). Anything else never reaches the database.
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,64}$/;
@@ -40,7 +42,10 @@ export type AffiliatePageModel = {
   /** Paid participants still needed THIS month to earn 10% NEXT month (Automatic mode only); null once reached or in Manual mode. */
   toNextStep: number | null;
   earnedPkr: number;
+  /** The available balance: earned minus withdrawn minus payouts that are pending or paid. */
   balancePkr: number;
+  /** Payout request state: the minimum, whether a request can be made now, the pending amount (if any) and the history. */
+  payout: { minimum: number; canRequest: boolean; pendingPkr: number | null; history: HistoryRow[] };
   /** Foreign commission the owner has not converted to PKR yet, per currency. */
   waiting: { currency: string; amount: number }[];
   totals: { views: number; registered: number; paid: number };
@@ -67,6 +72,7 @@ export type PageModelInput = {
   baseUrl: string;
   supportWa: string;
   rank: AffiliatePageModel["rank"];
+  payouts: HistoryRow[];
   /** Defaults to now. Passed in by tests. */
   now?: Date;
 };
@@ -87,6 +93,12 @@ export function buildPageModel(i: PageModelInput): AffiliatePageModel {
     now,
   });
   const split = splitCommissions(i.commissions);
+  const held = i.payouts.filter((p) => p.status === "pending" || p.status === "paid").reduce((t, p) => t + p.amountPkr, 0);
+  const available = availableBalance(
+    balancePkr({ openingCommission: a.openingCommission, openingWithdrawn: a.openingWithdrawn, pkrCommissions: [split.earnedPkr] }),
+    held,
+  );
+  const pending = i.payouts.find((p) => p.status === "pending");
   const byPage = new Map(i.stats.map((s) => [s.pageId, s]));
   const ref = a.code.toLowerCase();
   return {
@@ -100,7 +112,8 @@ export function buildPageModel(i: PageModelInput): AffiliatePageModel {
     lastMonthPaid,
     toNextStep: a.commissionMode === "automatic" && monthPaid < AUTO_STEP ? AUTO_STEP - monthPaid : null,
     earnedPkr: round2(a.openingCommission + split.earnedPkr),
-    balancePkr: balancePkr({ openingCommission: a.openingCommission, openingWithdrawn: a.openingWithdrawn, pkrCommissions: [split.earnedPkr] }),
+    balancePkr: available,
+    payout: { minimum: WITHDRAW_PKR, canRequest: canRequest(available), pendingPkr: pending ? pending.amountPkr : null, history: i.payouts },
     waiting: split.waiting,
     totals: i.stats.reduce(
       (t, s) => ({ views: t.views + s.views, registered: t.registered + s.registered, paid: t.paid + s.paid }),
@@ -135,6 +148,8 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
   ]);
   if (commissions.error) throw commissions.error;
   if (stats.error) throw stats.error;
+
+  const payouts = await listAffiliateHistory(row.id);
 
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   // The rank card is a bonus: if it cannot load, the rest of the page must still show.
@@ -175,5 +190,6 @@ export async function getAffiliatePageModel(token: string): Promise<AffiliatePag
     baseUrl,
     supportWa: affiliateSupportWa(),
     rank,
+    payouts,
   });
 }

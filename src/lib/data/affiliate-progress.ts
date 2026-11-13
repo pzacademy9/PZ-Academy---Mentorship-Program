@@ -22,6 +22,7 @@ import {
   previousMonthKey,
   splitCommissions,
 } from "@/lib/affiliates/commission";
+import { availableBalance } from "@/lib/affiliates/payouts";
 import type { ProgressInput, TopRow } from "@/lib/affiliates/rich-emails";
 
 const MAX_ATTEMPTS = 5;
@@ -138,12 +139,22 @@ export async function runProgressEmails(
     const rank = me && me.paid >= 1 ? me.rank : null;
     const gap = rank !== null ? gapFor(board.rows, affiliateId) : null;
 
+    // Payouts that are pending or paid are off the balance. A failed read must not stop the email: count 0 held.
+    let held = 0;
+    const { data: payouts, error: payoutsError } = await admin
+      .from("affiliate_payouts")
+      .select("amount_pkr")
+      .eq("affiliate_id", affiliateId)
+      .in("status", ["pending", "paid"]);
+    if (payoutsError) console.error("[affiliate-progress] could not read payouts, using 0 held");
+    else held = (payouts ?? []).reduce((t, p) => t + Number(p.amount_pkr), 0);
+
     const input: ProgressInput = {
       name: a.name,
       code: a.code,
       paid: paidSoFar(a.opening_secured, live),
       commissionPkr: round2(openingCommission + split.earnedPkr),
-      balancePkr: balancePkr({ openingCommission, openingWithdrawn: Number(a.opening_withdrawn), pkrCommissions: [split.earnedPkr] }),
+      balancePkr: availableBalance(balancePkr({ openingCommission, openingWithdrawn: Number(a.opening_withdrawn), pkrCommissions: [split.earnedPkr] }), held),
       percent,
       rank,
       gapLine: gapLine(gap ?? { kind: "none" }),
