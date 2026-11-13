@@ -329,4 +329,17 @@ describe("AffiliatesAdmin leaderboard tab", () => {
     expect(screen.queryByRole("button", { name: /Share podium/ })).toBeNull();
     expect((screen.getByRole("button", { name: "Copy for WhatsApp" }) as HTMLButtonElement).disabled).toBe(true);
   });
+  it("keeps the saved message when you leave the Emails tab and come back", async () => {
+    fetchMock().mockImplementation(async (_u: string, init?: RequestInit) =>
+      init?.method === "PUT" ? reply(200, { ok: true }) : reply(200, { candidates: [] }),
+    );
+    render(<AffiliatesAdmin initial={[base]} emailMessage="Old words" />);
+    fireEvent.click(screen.getByRole("tab", { name: "Emails" }));
+    fireEvent.change(screen.getByLabelText("Message text"), { target: { value: "New words" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save message" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Saved/));
+    fireEvent.click(screen.getByRole("tab", { name: "Affiliates" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Emails" }));
+    expect((screen.getByLabelText("Message text") as HTMLTextAreaElement).value).toBe("New words");
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,16 @@ const sentOn = (iso: string): string => new Date(iso).toLocaleDateString("en-GB"
 const people = (n: number): string => `${n} ${n === 1 ? "person" : "people"}`;
 
 /** Admin: the message added to Progress and Welcome emails, and the Motivation send. */
-export function AffiliateEmailsTab({ initialMessage, messageFailed }: { initialMessage: string; messageFailed: boolean }) {
+export function AffiliateEmailsTab({
+  initialMessage,
+  messageFailed,
+  onSaved,
+}: {
+  initialMessage: string;
+  messageFailed: boolean;
+  /** Tells the parent the new saved text, so it survives a switch to another tab. */
+  onSaved?: (message: string) => void;
+}) {
   const [message, setMessage] = useState(initialMessage);
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -33,16 +42,22 @@ export function AffiliateEmailsTab({ initialMessage, messageFailed }: { initialM
   const [progress, setProgress] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string[]>([]);
 
+  // Only the newest list request may change the screen, so a slow old answer cannot overwrite it.
+  const latest = useRef(0);
+
   const load = useCallback(async (withSent: boolean): Promise<boolean> => {
+    const mine = ++latest.current;
     try {
       const res = await fetch(`/api/admin/affiliates/motivation${withSent ? "?includeSent=1" : ""}`);
       const data = (await res.json().catch(() => null)) as { candidates?: Candidate[] } | null;
+      if (mine !== latest.current) return true;
       if (!res.ok || !Array.isArray(data?.candidates)) return false;
       setList(data.candidates);
-      setPicked(new Set(data.candidates.map((c) => c.id)));
+      // People who already got the email are shown but not ticked, so one tap cannot email them twice.
+      setPicked(new Set(data.candidates.filter((c) => c.sentAt === null).map((c) => c.id)));
       return true;
     } catch {
-      return false;
+      return mine !== latest.current;
     }
   }, []);
 
@@ -71,6 +86,7 @@ export function AffiliateEmailsTab({ initialMessage, messageFailed }: { initialM
         toast.error(data?.error ?? "Could not save the message. Please try again.");
         return;
       }
+      onSaved?.(message);
       setSaved(
         message.trim() === ""
           ? "Saved. The message is switched off, so progress and welcome emails go out without it."
@@ -199,7 +215,11 @@ export function AffiliateEmailsTab({ initialMessage, messageFailed }: { initialM
               aria-checked={includeSent}
               aria-labelledby="aff-switch-label"
               disabled={busy}
-              onClick={() => setIncludeSent((v) => !v)}
+              onClick={() => {
+                setProgress(null);
+                setOutcome([]);
+                setIncludeSent((v) => !v);
+              }}
               className={`relative inline-flex min-h-11 w-14 shrink-0 items-center rounded-full disabled:opacity-50`}
             >
               <span className={`absolute inset-x-0 h-7 rounded-full border border-pz-outline-variant ${includeSent ? "bg-pz-solid-forest" : "bg-pz-surface-container-high"}`} />

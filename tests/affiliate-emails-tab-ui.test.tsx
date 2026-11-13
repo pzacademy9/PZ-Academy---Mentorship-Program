@@ -81,16 +81,52 @@ describe("AffiliateEmailsTab: message box", () => {
 });
 
 describe("AffiliateEmailsTab: Motivation send", () => {
-  it("lists everyone ticked, with the switch off and a Send button", async () => {
+  it("ticks the people not yet emailed, with the switch off and a Send button", async () => {
     route([...people(2), { id: "s", name: "Sent Person", email: "s@example.com", sentAt: "2026-11-03T10:00:00Z" }]);
     render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
     await waitFor(() => expect(screen.getByText("Person 0")).toBeTruthy());
-    expect(screen.getAllByRole("checkbox").every((c) => (c as HTMLInputElement).checked)).toBe(true);
+    expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).map((c) => c.checked)).toEqual([true, true, false]);
     expect(screen.getAllByText("Not sent yet")).toHaveLength(2);
     expect(screen.getByText(/Sent 3 Nov/)).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Also show people who already got it" }).getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByRole("button", { name: "Send to 3 people" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send to 2 people" })).toBeTruthy();
     expect(fetchMock().mock.calls[0][0]).toBe("/api/admin/affiliates/motivation");
+  });
+
+  it("with the switch on, people who already got it show but are not ticked, and are never sent", async () => {
+    const all = [...people(2), { id: "old", name: "Old Person", email: "o@example.com", sentAt: "2026-11-03T10:00:00Z" }];
+    route(all);
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
+    await waitFor(() => expect(screen.getByText("Person 0")).toBeTruthy());
+    fireEvent.click(screen.getByRole("switch"));
+    await waitFor(() => expect(screen.getByText("Old Person")).toBeTruthy());
+    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes.map((b) => b.checked)).toEqual([true, true, false]);
+    fireEvent.click(screen.getByRole("button", { name: "Send to 2 people" }));
+    await waitFor(() => expect(screen.getByText("Done. Sent 2.")).toBeTruthy());
+    const post = fetchMock().mock.calls.filter((c) => c[1]?.method === "POST").map((c) => JSON.parse(c[1].body))[0];
+    expect(post.ids).toEqual(["id0", "id1"]);
+    expect(post.includeSent).toBe(true);
+  });
+
+  it("after a send and reload, the people just emailed are not ticked again", async () => {
+    let gets = 0;
+    fetchMock().mockImplementation(async (_u: string, init?: RequestInit) => {
+      if (init?.method === "POST") return reply(200, okSend(JSON.parse(String(init.body))));
+      gets++;
+      // First load (switch on): two new. Reload after the send: they now have a sent date.
+      const sentAt = gets >= 3 ? "2026-11-13T10:00:00Z" : null;
+      return reply(200, { candidates: people(2, sentAt) });
+    });
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} />);
+    await waitFor(() => expect(screen.getByText("Person 0")).toBeTruthy());
+    fireEvent.click(screen.getByRole("switch"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send to 2 people" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Send to 2 people" }));
+    await waitFor(() => expect(screen.getByText("Done. Sent 2.")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText(/^Sent \d+ \w+$/)).toHaveLength(2));
+    expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).every((b) => !b.checked)).toBe(true);
+    expect((screen.getByRole("button", { name: "Send to 0 people" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("the switch asks for the people who already got it", async () => {

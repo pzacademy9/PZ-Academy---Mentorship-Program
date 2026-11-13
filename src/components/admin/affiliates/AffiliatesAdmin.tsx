@@ -364,6 +364,8 @@ export function AffiliatesAdmin({
 
   const [tab, setTab] = useState<Tab>("applications");
   const [openId, setOpenId] = useState<string | null>(null);
+  // The Emails tab unmounts when you leave it, so the last saved message lives here.
+  const [savedMessage, setSavedMessage] = useState(emailMessage);
 
   const shown = initial.filter((r) => (tab === "applications" ? r.status === "applied" : r.status !== "applied"));
   const open = initial.find((r) => r.id === openId) ?? null;
@@ -390,7 +392,7 @@ export function AffiliatesAdmin({
       {tab === "leaderboard" ? (
         <AffiliateLeaderboardTab boards={boards} boardUrl={boardUrl} />
       ) : tab === "emails" ? (
-        <AffiliateEmailsTab initialMessage={emailMessage} messageFailed={emailMessageFailed} />
+        <AffiliateEmailsTab initialMessage={savedMessage} messageFailed={emailMessageFailed} onSaved={setSavedMessage} />
       ) : shown.length === 0 ? (
         <EmptyState icon={Users} title={tab === "applications" ? "No applications waiting" : "No affiliates yet"} description={tab === "applications" ? "New applications show up here." : "Accepted affiliates show up here."} />
       ) : (
