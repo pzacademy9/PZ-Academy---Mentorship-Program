@@ -39,22 +39,22 @@ function topTable(html: string): string {
 describe("progressEmail", () => {
   it("shows the stat boxes with paid, PKR commission, rank and percent", () => {
     const r = progressEmail(base());
-    expect(r.subject).toBe("Performance Update - Pharmacozyme Affiliate");
+    expect(r.subject).toContain("a new paid registration under your code");
     expect(r.html).toContain(">7<");
     expect(r.html).toContain("PKR 2,100");
     expect(r.html).toContain("#2");
     expect(r.html).toContain("10%");
   });
 
-  it("shows the green withdraw banner only when balancePkr >= 3500, with the line \"Message us on WhatsApp with your payment details\"", () => {
-    const line = "Message us on WhatsApp with your payment details";
+  it("shows the green withdraw banner only when balancePkr >= 3500, with the line \"Please send your payment details on WhatsApp\"", () => {
+    const line = "Please send your payment details on WhatsApp";
     expect(progressEmail(base({ balancePkr: 3499.99 })).html).not.toContain(line);
     expect(progressEmail(base({ balancePkr: 3500 })).html).toContain(line);
   });
 
   it("shows the certificate banner only when paid >= 10", () => {
-    expect(progressEmail(base({ paid: 9 })).html).not.toContain("Certificate Unlocked");
-    expect(progressEmail(base({ paid: 10 })).html).toContain("Certificate Unlocked");
+    expect(progressEmail(base({ paid: 9 })).html).not.toContain("Certificate Now Available");
+    expect(progressEmail(base({ paid: 10 })).html).toContain("Certificate Now Available");
   });
 
   it("marks the affiliate's own top-10 row and shows no money for other rows", () => {
@@ -100,7 +100,7 @@ describe("progressEmail", () => {
     const html = progressEmail(base({ balancePkr: 3499.6 })).html;
     expect(html).not.toContain("PKR 0 more");
     expect(html).toContain("PKR 1 more");
-    expect(html).not.toContain("You Can Withdraw");
+    expect(html).not.toContain("Withdrawal Now Available");
   });
 
   it("includes the message block when a message is given", () => {
