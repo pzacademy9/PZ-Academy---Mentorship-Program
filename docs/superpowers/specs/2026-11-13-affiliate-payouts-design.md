@@ -21,6 +21,10 @@ Easypaisa or bank) and needs one place that holds every request, what was paid, 
 - Request is by the page button **only**. The Progress email stops saying "message us on WhatsApp to withdraw" and
   points to the private page instead (owner ruling).
 
+- Affiliates becomes its own section, like the Sales Hub (owner request 2026-11-13): opening it swaps the sidebar (PC) and
+  the bottom bar (phone) to Applications, Affiliates, Payouts, Leaderboard, Emails and "Back to Admin". The tab strip
+  inside the page goes away; the sidebar is the navigation.
+
 ## Non-goals and anti-goals
 
 - No partial payouts, no bulk Mark paid, no CSV export, no SMS/WhatsApp notices, no receipts or batch numbers, no
@@ -70,7 +74,9 @@ refuse under 3,500, insert one pending row for the **whole** balance, return the
 tighten): title 2 to 80 characters; JazzCash/Easypaisa number is 11 digits starting 03 (spaces and dashes removed); bank
 is a 24-character Pakistani IBAN (`PK` + 22). Errors are plain sentences.
 
-**Admin:** a fifth tab **Payouts** in `AffiliatesAdmin` with a count badge for pending. Phone: one card per request.
+**Navigation:** `Sidebar` gets an Affiliates hub mode, entered when the path is under `/dashboard/admin/affiliates`, the way `isSalesHubPath` enters Sales Hub mode (`src/components/dashboard/Sidebar.tsx`, `nav.ts`). Hub items link to `/dashboard/admin/affiliates?tab=<applications|affiliates|payouts|leaderboard|emails>`; the page reads `searchParams.tab` and `AffiliatesAdmin` shows that section (default applications) with no tab strip. Same 4-plus-More bottom bar rule as the Sales Hub. The main admin menu keeps its single Affiliates entry. Rejected alternative: five separate routes, which would split the large `AffiliatesAdmin` component for no gain the owner asked for.
+
+**Admin:** a **Payouts** section in `AffiliatesAdmin`. Phone: one card per request.
 PC: a table. Filter Pending / Paid / Rejected with counts, a search box (name, code), a copy button for the account
 number, the affiliate's name beside the account title. `POST /api/admin/affiliates/payouts` with `{ id, action: "paid" }`
 or `{ id, action: "reject", reason }`. Acts only on a row that is still `pending` (a second click is a harmless no-op).

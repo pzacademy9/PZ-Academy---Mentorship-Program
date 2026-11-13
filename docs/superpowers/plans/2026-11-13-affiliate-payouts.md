@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let an affiliate with a balance of PKR 3,500 or more request their whole balance from their private page, and let the owner mark it paid or reject it from a new Payouts tab, with emails to the affiliate on both outcomes.
+**Goal:** Let an affiliate with a balance of PKR 3,500 or more request their whole balance from their private page, and let the owner mark it paid or reject it from a new Payouts section, with emails to the affiliate on both outcomes.
 
 **Architecture:** A new service-role table `affiliate_payouts` is the single record. Balance shown anywhere = existing `balancePkr()` minus payouts that are pending or paid, so a rejection returns the money with no extra step. Request is a token-guarded API route; admin actions are an admin-guarded API route; both go through one data module.
 
@@ -25,6 +25,7 @@
 
 - Two taps, or two tabs, on Request payout: exactly one pending row (test in Task 3).
 - Balance 3,499.99 refused, 3,500.00 accepted; foreign-currency "waiting" amounts never counted (Tasks 2, 3).
+- A bookmarked or mistyped `?tab=` value, or none at all: the page opens on Applications, never blank (Task 8).
 - Account number typed with spaces or dashes ("0300-123 4567"): accepted and stored clean; letters in a wallet number refused (Task 2).
 - Admin presses Mark paid or Reject twice, or on an already-decided row: second press changes nothing and says so (Task 3, Task 7).
 - Email fails to send after Mark paid or Reject: the decision stays, the admin is told, the failure is logged (Task 6, Task 7).
@@ -152,7 +153,7 @@
 **Files:**
 - Create: `src/app/api/admin/affiliates/payouts/[id]/route.ts`
 - Create: `src/components/admin/affiliates/AffiliatePayoutsTab.tsx`
-- Modify: `src/components/admin/affiliates/AffiliatesAdmin.tsx` (new `"payouts"` tab with a pending-count badge; props gain `payouts: PayoutRow[]` and `payoutsFailed: boolean`)
+- Modify: `src/components/admin/affiliates/AffiliatesAdmin.tsx` (new `"payouts"` section; its tab strip is removed in Task 8; props gain `payouts: PayoutRow[]` and `payoutsFailed: boolean`)
 - Modify: `src/app/dashboard/admin/affiliates/page.tsx` (load `listAdminPayouts()` in try/catch; on failure pass `[]` and `payoutsFailed: true`)
 - Test: `tests/affiliate-payout-decision-route.test.ts`, `tests/affiliate-payouts-tab-ui.test.tsx`
 
@@ -167,7 +168,23 @@
 - [ ] **Step 4: Run** both test files plus `tests/affiliates-admin-ui.test.tsx`: pass.
 - [ ] **Step 5: Commit** `feat(affiliates): admin Payouts tab`.
 
-### Task 8: Affiliate page UI
+### Task 8: Affiliates hub navigation (sidebar and bottom bar)
+
+**Files:**
+- Modify: `src/components/dashboard/nav.ts` (add `AFFILIATES_HUB_ITEMS` and `AFFILIATES_HUB_BACK`), `src/components/dashboard/Sidebar.tsx` (hub mode), `src/components/admin/affiliates/AffiliatesAdmin.tsx` (read the section from a prop, remove the tab strip), `src/app/dashboard/admin/affiliates/page.tsx` (read `searchParams.tab`)
+- Create: `src/lib/affiliates/hub-routes.ts`
+- Test: `tests/affiliates-hub-nav.test.ts`, `tests/affiliates-hub-sidebar.test.tsx` (model on `tests/sales-hub-nav.test.ts` and `tests/sales-hub-sidebar.test.tsx`)
+
+**Interfaces:**
+- Produces: `AFFILIATES_HUB_BASE = "/dashboard/admin/affiliates"`; `export type AffiliatesTab = "applications" | "affiliates" | "payouts" | "leaderboard" | "emails"`; `export function parseAffiliatesTab(v: string | undefined): AffiliatesTab` (unknown or missing gives `"applications"`); `export function affiliatesTabHref(t: AffiliatesTab): string`; `export function isAffiliatesHubPath(pathname: string): boolean`; `AFFILIATES_HUB_ITEMS: NavItem[]` in the order Applications, Affiliates, Payouts, Leaderboard, Emails with `href` from `affiliatesTabHref`; `AFFILIATES_HUB_BACK` (label "Back to Admin", shortLabel "Admin", href `/dashboard/admin`). `AffiliatesAdmin` gains prop `tab: AffiliatesTab`.
+
+- [ ] **Step 1: Write the failing tests:** `parseAffiliatesTab("payouts")` is `"payouts"`, `parseAffiliatesTab("x")` and `undefined` are `"applications"`; `isAffiliatesHubPath` true for the base and for `/dashboard/admin/affiliates/anything`, false for `/dashboard/admin` and `/dashboard/admin/affiliates-x`; rendering `Sidebar` with role admin at `/dashboard/admin/affiliates?tab=payouts` shows "Back to Admin" and the five items and NOT the normal admin items, and the Payouts item is marked current while Applications is not; at `/dashboard/admin/courses` the normal admin nav shows; the phone bar shows four items plus More, and More lists the rest; a manager without the `sales_hub` area does not get hub mode items (the page itself stays guarded as today).
+- [ ] **Step 2: Run to see them fail.**
+- [ ] **Step 3: Implement.** In `Sidebar.tsx` active state for hub items comes from `useSearchParams().get("tab")` through `parseAffiliatesTab`, since `activeHrefFor` only sees the path; keep the Sales Hub branch untouched. Update `AffiliatesAdmin` and the page to use the `tab` prop and drop the in-page tab strip; keep the `unmount on leave` saved-message behaviour that `savedMessage` state already handles.
+- [ ] **Step 4: Run** both new tests, `tests/sales-hub-sidebar.test.tsx`, `tests/dashboard-nav.test.ts`, `tests/affiliates-admin-ui.test.tsx`, `tests/affiliate-admin-page-message.test.tsx`: pass (update the admin tests that clicked tab buttons to pass the `tab` prop instead).
+- [ ] **Step 5: Commit** `feat(affiliates): Affiliates hub navigation`.
+
+### Task 9: Affiliate page UI
 
 **Files:**
 - Modify: `src/components/affiliates/AffiliatePage.tsx` (Balance card states, request sheet/dialog, history list)
@@ -184,11 +201,11 @@
 - [ ] **Step 4: Run** the new test and the existing `tests/affiliate-page*.test.tsx` files: pass; then `tsc --noEmit` and eslint on all touched paths.
 - [ ] **Step 5: Commit** `feat(affiliates): payout request on the affiliate page`.
 
-### Task 9: Owner steps and final checks
+### Task 10: Owner steps and final checks
 
 **Files:**
 - Create: `docs/superpowers/plans/2026-11-13-affiliate-payouts-owner-steps.md`
 
 - [ ] **Step 1:** Write the owner steps in plain short words: paste `0114_affiliate_payouts.sql` after the code is live; test on the owner's own test affiliate (code TE324, email hamzaansari4you@gmail.com): insert a test commission by SQL so the balance reaches 3,500, request on the page, check the admin card, Mark paid, check the paid email's tab, request again, Reject with a reason, check the balance returned and the rejected email; then clean-up SQL for the test rows (the owner pastes it). Never use a real affiliate.
-- [ ] **Step 2:** Run the full set once: `tsc --noEmit`, eslint on `src/lib/affiliates src/lib/data src/components/affiliates src/components/admin/affiliates src/app/api src/app/dashboard/admin/affiliates tests`, and every test file touched by Tasks 1 to 8. Report anything failing that is not in the known-failing list.
+- [ ] **Step 2:** Run the full set once: `tsc --noEmit`, eslint on `src/lib/affiliates src/lib/data src/components/affiliates src/components/admin/affiliates src/app/api src/app/dashboard/admin/affiliates tests`, and every test file touched by Tasks 1 to 9. Owner steps also include a phone check of the Affiliates bottom bar. Report anything failing that is not in the known-failing list.
 - [ ] **Step 3: Commit** `docs: affiliate payouts owner steps`.
