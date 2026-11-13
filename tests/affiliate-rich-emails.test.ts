@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   progressEmail,
+  welcomeEmailRich,
   motivationEmail,
   messageBlockRich,
   messageBlockPlain,
@@ -169,5 +170,31 @@ describe("motivationEmail", () => {
   it("builds with a null leader line and empty top", () => {
     const r = motivationEmail({ name: "Z", code: "Z", leaderLine: null, top: [], supportWa: "x" });
     expect(r.html).toContain("</html>");
+  });
+});
+
+describe("welcomeEmailRich", () => {
+  const w = {
+    name: "Sana",
+    code: "SANA10",
+    team: "Team Blue",
+    link: "https://example.com/a/tok",
+    supportWa: "https://wa.me/1",
+    groupWa: "https://chat.whatsapp.com/x",
+  };
+  it("shows the details, both links and a personal subject", () => {
+    const r = welcomeEmailRich(w);
+    expect(r.subject).toBe("Sana, your Pharmacozyme affiliate details");
+    expect(r.html).toContain("SANA10");
+    expect(r.html).toContain("Team Blue");
+    expect(r.html).toContain(`href="https://example.com/a/tok"`);
+    expect(r.html).toContain(`href="https://chat.whatsapp.com/x"`);
+    expect(r.html.replace("<!DOCTYPE html>", "")).not.toContain("!");
+  });
+  it("escapes values, drops non-https links and includes the message block", () => {
+    const r = welcomeEmailRich({ ...w, name: "<b>x</b>", link: "http://bad.com", messageHtml: messageBlockPlain("Hi team") });
+    expect(r.html).not.toContain("<b>x");
+    expect(r.html).not.toContain("http://bad.com");
+    expect(r.html).toContain("Hi team");
   });
 });

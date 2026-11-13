@@ -236,6 +236,44 @@ export function progressEmail(i: ProgressInput): { subject: string; html: string
   };
 }
 
+export type WelcomeInput = {
+  name: string;
+  code: string;
+  team: string;
+  link: string;
+  supportWa: string;
+  groupWa: string;
+  /** Pre-rendered message block (messageBlockPlain). */
+  messageHtml?: string;
+};
+
+function btn(label: string, href: string, bg: string): string {
+  if (!isHttps(href)) return "";
+  return `<a href="${safeUrl(href)}" style="display:inline-block;padding:12px 24px;background:${bg};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;margin:4px;">${esc(label)}</a>`;
+}
+
+// Same look as the Progress email, with calm wording (no exclamation marks, no sales words) so mail apps file it in Primary.
+export function welcomeEmailRich(i: WelcomeInput): { subject: string; html: string } {
+  const para = (t: string): string => `<p style="font-size:14px;color:#475569;line-height:1.85;margin:0 0 16px;">${t}</p>`;
+  const body =
+    `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello ${esc(i.name)},</p>` +
+    para("Your application to the Pharmacozyme Affiliate Programme has been accepted. Welcome to the team.") +
+    (i.messageHtml ?? "") +
+    `<div style="background:#f0fdf4;border-left:4px solid #0b7a3b;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:20px;">` +
+    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0b7a3b;">Your Details</p>` +
+    `<p style="margin:0;font-size:13px;color:#374151;line-height:1.8;">Promo code: <strong>${esc(i.code)}</strong><br>Team: ${esc(i.team)}<br>Commission: 8% to 10% of what the student pays</p></div>` +
+    `<div style="background:#eff6ff;border-left:4px solid #1a73e8;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:20px;">` +
+    `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#1a73e8;">How It Works</p>` +
+    `<p style="margin:0;font-size:13px;color:#374151;line-height:1.8;">Students who use ${esc(i.code)} receive a 10% reduction in their registration fee. You receive 8% commission on every paid registration. With 10 or more paid participants in a month, your commission is 10% for the whole of the next month. Commission is counted only after the student has paid.</p></div>` +
+    para(`At ${CERT_TARGET} paid participants you receive a Certificate of Achievement. You can request a payout once your commission reaches ${esc(pkr(WITHDRAW_PKR))} or more.`) +
+    para("Your private page is linked below. Please keep the link to yourself, because anyone who has it can open your page.") +
+    `<div style="text-align:center;margin-bottom:24px;">${btn("Open my page", i.link, "#1a73e8")}${btn("Join our WhatsApp group", i.groupWa, "#25D366")}</div>`;
+  return {
+    subject: `${i.name}, your Pharmacozyme affiliate details`,
+    html: wrap("#1e1b4b", "&#129309;", "Your Affiliate Details", "Pharmacozyme Affiliate Programme", body, i.supportWa),
+  };
+}
+
 export function motivationEmail(i: MotivationInput): { subject: string; html: string } {
   const body =
     `<p style="font-size:16px;font-weight:700;color:#0d1b2a;margin:0 0 6px;">Hello, ${esc(i.name)}!</p>` +

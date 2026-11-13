@@ -38,6 +38,7 @@ export function AffiliateEmailsTab({
   const [includeSent, setIncludeSent] = useState(false);
   const [list, setList] = useState<Candidate[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string[]>([]);
@@ -149,6 +150,8 @@ export function AffiliateEmailsTab({
   });
 
   const busy = send.pending;
+  const needle = query.trim().toLowerCase();
+  const shown = (list ?? []).filter((c) => needle === "" || c.name.toLowerCase().includes(needle) || (c.email ?? "").toLowerCase().includes(needle));
   const count = picked.size;
   const sendLabel = busy ? "Sending..." : `Send to ${people(count)}`;
 
@@ -199,8 +202,8 @@ export function AffiliateEmailsTab({
         </p>
       </section>
 
-      <section aria-label="Send Motivation emails" className={`${CARD} relative min-w-0 space-y-4`}>
-        <div className="md:pr-52">
+      <section aria-label="Send Motivation emails" className={`${CARD} min-w-0 space-y-4`}>
+        <div>
           <h2 className="font-headline text-lg font-bold text-pz-secondary">Send Motivation emails</h2>
           <p className="mt-1 font-body text-sm text-pz-on-surface-variant">
             For affiliates with no paid sale yet. Each person gets it once.
@@ -244,14 +247,27 @@ export function AffiliateEmailsTab({
           <>
             <div className="flex items-center justify-between gap-3 border-b border-pz-outline-variant pb-1">
               <p className="font-body text-sm text-pz-on-surface-variant">
-                <span className="font-headline text-base font-bold text-pz-secondary">{people(count)}</span> picked
+                <span className="font-headline text-base font-bold text-pz-secondary">{people(count)}</span> picked{needle !== "" ? ` (${shown.length} shown)` : ""}
               </p>
               <button type="button" className={LINK_BTN} disabled={busy} onClick={() => setPicked(new Set())}>
                 Select none
               </button>
             </div>
-            <ul data-testid="motivation-list" className="max-h-[28rem] min-w-0 divide-y divide-pz-outline-variant overflow-y-auto">
-              {list.map((c) => (
+            <input
+              type="search"
+              aria-label="Search affiliates"
+              placeholder="Search by name or email"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-pz-outline-variant bg-pz-surface-container-lowest px-3 font-body text-sm text-pz-on-surface"
+            />
+            <ul
+              data-testid="motivation-list"
+              tabIndex={0}
+              aria-label="Affiliate list"
+              className="max-h-[28rem] min-w-0 divide-y divide-pz-outline-variant overflow-y-auto overscroll-contain"
+            >
+              {shown.map((c) => (
                 <li key={c.id} className="min-w-0">
                   <label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3 py-2">
                     <input
@@ -277,7 +293,7 @@ export function AffiliateEmailsTab({
                 </li>
               ))}
             </ul>
-            {list.length === 0 ? <p className="font-body text-sm text-pz-on-surface-variant">Nobody to show.</p> : null}
+            {shown.length === 0 ? <p className="font-body text-sm text-pz-on-surface-variant">{list.length === 0 ? "Nobody to show." : "Nobody matches your search."}</p> : null}
           </>
         )}
 
@@ -289,8 +305,8 @@ export function AffiliateEmailsTab({
         ) : null}
 
         {list !== null && list.length > 0 ? (
-          <div className="sticky bottom-0 -mx-4 border-t border-pz-outline-variant bg-pz-surface-container-lowest p-3 md:absolute md:right-6 md:top-6 md:mx-0 md:border-0 md:bg-transparent md:p-0">
-            <Button type="button" className="min-h-11 w-full md:w-auto" onClick={() => void send.run()} disabled={busy || count === 0}>
+          <div className="sticky bottom-0 -mx-4 border-t border-pz-outline-variant bg-pz-surface-container-lowest p-3 md:-mx-6 md:px-6">
+            <Button type="button" className="min-h-11 w-full" onClick={() => void send.run()} disabled={busy || count === 0}>
               {sendLabel}
             </Button>
           </div>

@@ -5,8 +5,8 @@ import "server-only";
 import { sendAffiliateEmail } from "@/lib/brevo-affiliates";
 import { logAffiliateEmail, type AffiliateEmailKind } from "@/lib/data/affiliate-emails";
 import { getEmailMessage } from "@/lib/data/affiliate-email-settings";
-import { acceptedEmail, droppedEmail, leftEmail } from "./emails";
-import { messageBlockPlain, progressEmail, motivationEmail, type ProgressInput, type MotivationInput } from "./rich-emails";
+import { droppedEmail, leftEmail } from "./emails";
+import { messageBlockPlain, welcomeEmailRich, progressEmail, motivationEmail, type ProgressInput, type MotivationInput } from "./rich-emails";
 import { affiliateGroupWa, affiliateLink, affiliateSupportWa } from "./contact";
 
 async function deliver(
@@ -38,7 +38,7 @@ export async function sendAccepted(a: { id: string; name: string; email: string;
   return deliver(
     a,
     "accepted",
-    acceptedEmail({
+    welcomeEmailRich({
       name: a.name,
       code: a.code,
       team: a.team ? `Team ${a.team}` : "Not set yet",
