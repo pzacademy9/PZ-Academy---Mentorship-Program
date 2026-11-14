@@ -15,6 +15,8 @@ import type { AffiliateEmailRow } from "@/lib/data/affiliate-emails";
 import { AffiliateLeaderboardTab, type AdminBoards } from "./AffiliateLeaderboardTab";
 import { AffiliateEmailsTab } from "./AffiliateEmailsTab";
 import { AffiliatesList } from "./AffiliatesList";
+import { AffiliateApplicationsTab } from "./AffiliateApplicationsTab";
+import { DropReasonDialog } from "./DropReasonDialog";
 import type { AffiliateTemplates } from "./AffiliateMessagePicker";
 import type { MotivationSendRow } from "@/lib/data/affiliate-motivation-sends";
 import { AffiliatePayoutsTab } from "./AffiliatePayoutsTab";
@@ -99,6 +101,7 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
   const [link, setLink] = useState<string | null>(null);
   const [emailNotSent, setEmailNotSent] = useState(false);
   const [emails, setEmails] = useState<AffiliateEmailRow[]>([]);
+  const [dropOpen, setDropOpen] = useState(false);
 
   useEffect(() => {
     if (row.status === "applied") return;
@@ -133,16 +136,10 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
     router.refresh();
   });
 
-  const drop = useAsyncAction(async () => {
-    const yes = await confirm({
-      title: `Drop ${row.name}?`,
-      description: "They will get an email saying their affiliate status is Dropped.",
-      confirmLabel: "Drop",
-      destructive: true,
-    });
-    if (!yes) return;
-    const { ok, data } = await call(row.id, { action: "drop" });
+  const drop = useAsyncAction(async (reason: string) => {
+    const { ok, data } = await call(row.id, { action: "drop", reason });
     if (!ok) return;
+    setDropOpen(false);
     toast.success(data?.emailSent === false ? "Dropped. Email not sent." : "Dropped.");
     router.refresh();
     onClose();
@@ -250,7 +247,7 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={() => void accept.run()} disabled={accept.pending}>Accept</Button>
-            <Button type="button" variant="outline" onClick={() => void drop.run()} disabled={drop.pending}>Drop</Button>
+            <Button type="button" variant="outline" onClick={() => setDropOpen(true)} disabled={drop.pending}>Drop</Button>
           </div>
         </div>
       ) : null}
@@ -319,10 +316,12 @@ function Detail({ row, onClose }: { row: AffiliateRow; onClose: () => void }) {
           </div>
           <div className="flex flex-wrap gap-2 border-t border-pz-outline-variant pt-4">
             <Button type="button" variant="outline" onClick={() => void leave.run()} disabled={leave.pending}>Mark as left</Button>
-            <Button type="button" variant="outline" onClick={() => void drop.run()} disabled={drop.pending}>Drop</Button>
+            <Button type="button" variant="outline" onClick={() => setDropOpen(true)} disabled={drop.pending}>Drop</Button>
           </div>
         </div>
       ) : null}
+
+      <DropReasonDialog name={row.name} open={dropOpen} pending={drop.pending} onCancel={() => setDropOpen(false)} onConfirm={(reason) => void drop.run(reason)} />
     </div>
   );
 }
@@ -386,7 +385,7 @@ export function AffiliatesAdmin({
   const [savedMessage, setSavedMessage] = useState(emailMessage);
   const [messageFailed, setMessageFailed] = useState(emailMessageFailed);
 
-  const shown = initial.filter((r) => (tab === "applications" ? r.status === "applied" : r.status !== "applied"));
+  const shown = initial.filter((r) => r.status !== "applied");
   const open = initial.find((r) => r.id === openId) ?? null;
 
   return (
@@ -397,40 +396,13 @@ export function AffiliatesAdmin({
         <AffiliateLeaderboardTab boards={boards} boardUrl={boardUrl} />
       ) : tab === "emails" ? (
         <AffiliateEmailsTab initialMessage={savedMessage} messageFailed={messageFailed} onSaved={(text) => { setSavedMessage(text); setMessageFailed(false); }} sends={sends} sendsFailed={sendsFailed} onSent={() => router.refresh()} />
+      ) : tab === "applications" ? (
+        <AffiliateApplicationsTab rows={initial} onOpen={setOpenId} onClearOld={() => void clearOld.run()} />
       ) : shown.length === 0 ? (
-        <EmptyState icon={Users} title={tab === "applications" ? "No applications waiting" : "No affiliates yet"} description={tab === "applications" ? "New applications show up here." : "Accepted affiliates show up here."} />
-      ) : tab === "affiliates" ? (
-        <AffiliatesList rows={shown} templates={templates} templatesFailed={templatesFailed} emailFailedIds={emailFailedIds} onOpen={setOpenId} />
+        <EmptyState icon={Users} title="No affiliates yet" description="Accepted affiliates show up here." />
       ) : (
-        <ul data-testid="affiliate-cards" className="w-full min-w-0 space-y-2">
-          {shown.map((r) => (
-            <li key={r.id} className="min-w-0">
-              <button
-                type="button"
-                onClick={() => setOpenId(r.id)}
-                className="w-full min-w-0 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 text-left"
-              >
-                <span className="block break-words font-headline text-base font-bold text-pz-secondary">{r.name}</span>
-                <span className="mt-1 block break-words font-body text-sm text-pz-on-surface-variant">{r.email}</span>
-                <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-xs text-pz-on-surface-variant">
-                  <span>{STATUS_LABEL[r.status]}</span>
-                  {emailFailedIds.includes(r.id) ? <span className="font-bold text-pz-danger">Email failed</span> : null}
-                  {r.code ? <span className="font-mono font-bold text-pz-on-surface">{r.code}</span> : null}
-                  {r.team ? <span>Team {r.team}</span> : null}
-                  <span>{when(r.status === "applied" ? r.createdAt : r.acceptedAt ?? r.createdAt)}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <AffiliatesList rows={shown} templates={templates} templatesFailed={templatesFailed} emailFailedIds={emailFailedIds} onOpen={setOpenId} />
       )}
-
-      {tab !== "leaderboard" && tab !== "emails" && tab !== "payouts" ? (
-        <div className="border-t border-pz-outline-variant pt-4">
-          <Button type="button" variant="outline" onClick={() => void clearOld.run()} disabled={clearOld.pending}>Clear old email history</Button>
-          <p className="mt-1 font-body text-xs text-pz-on-surface-variant">Deletes records of emails older than 90 days, to keep the database small.</p>
-        </div>
-      ) : null}
 
       <Dialog open={open !== null} onOpenChange={(o) => !o && setOpenId(null)}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-xl overflow-y-auto">
