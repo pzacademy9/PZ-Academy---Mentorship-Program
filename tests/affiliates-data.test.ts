@@ -19,7 +19,7 @@ function chain(table: string): unknown {
 }
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => ({ from: (t: string) => chain(t), rpc: async () => ({ data: 321, error: null }) }) }));
 
-import { createApplication, listAffiliates, getAffiliateDetail } from "@/lib/data/affiliates";
+import { createApplication, listAffiliates, getAffiliateDetail, dropAffiliate } from "@/lib/data/affiliates";
 import type { AffiliateApplication } from "@/lib/validations/affiliate-application";
 
 const app: AffiliateApplication = {
@@ -73,5 +73,21 @@ describe("listAffiliates and getAffiliateDetail", () => {
     await getAffiliateDetail("a1");
     const select = calls.find((c) => c.op === "select")!.args[0] as string;
     expect(select).toMatch(/token/);
+  });
+});
+
+describe("dropAffiliate", () => {
+  it("saves the trimmed reason with the status change", async () => {
+    answers["affiliates:one"] = { data: { id: "a1" }, error: null };
+    const r = await dropAffiliate("a1", "  Never posted  ");
+    expect(r).toEqual({ ok: true });
+    const update = calls.find((c) => c.op === "update")!.args[0] as Record<string, unknown>;
+    expect(update.status).toBe("dropped");
+    expect(update.drop_reason).toBe("Never posted");
+  });
+  it("the list and detail select drop_reason", async () => {
+    answers.affiliates = { data: [], error: null };
+    await listAffiliates();
+    expect(calls.find((c) => c.op === "select")!.args[0] as string).toMatch(/drop_reason/);
   });
 });

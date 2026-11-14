@@ -16,7 +16,7 @@ const base: AffiliateRow = {
   cityCountry: "Lahore, Pakistan",
   answers: { status: "student", organization: "Test University", field: "PharmD", why: "I help my class.", hoursPerWeek: "4-6", ratings: { marketing: 4, eventPromotion: 3, onlineEngagement: 5, communication: 2 }, commissionExperience: { yes: true, details: "Sold passes" } },
   code: null, team: null, commissionMode: "automatic", manualPercent: null, openingSecured: 0, openingCommission: 0, openingWithdrawn: 0,
-  isImported: false, termsAcceptedAt: "2026-11-01T00:00:00Z", termsVersion: "v", acceptedAt: null, droppedAt: null, leftAt: null, createdAt: "2026-11-01T00:00:00Z",
+  isImported: false, termsAcceptedAt: "2026-11-01T00:00:00Z", termsVersion: "v", acceptedAt: null, droppedAt: null, dropReason: null, leftAt: null, createdAt: "2026-11-01T00:00:00Z",
 };
 const accepted: AffiliateRow = { ...base, id: "a2", status: "accepted", name: "Sara Khan", email: "sara@example.com", code: "SK321", team: "Blue", acceptedAt: "2026-11-02T00:00:00Z" };
 

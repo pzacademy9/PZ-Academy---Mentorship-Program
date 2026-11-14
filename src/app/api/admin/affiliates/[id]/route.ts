@@ -13,7 +13,7 @@ type Ctx = { params: Promise<{ id: string }> };
 const team = z.enum(TEAMS).nullable();
 const body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("accept"), code: z.string().max(10).optional(), team: team.optional() }),
-  z.object({ action: z.literal("drop") }),
+  z.object({ action: z.literal("drop"), reason: z.string().trim().min(1).max(500) }),
   z.object({ action: z.literal("leave") }),
   z.object({ action: z.literal("resend") }),
   z.object({
@@ -48,7 +48,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (!auth.ok) return auth.response;
   const { id } = await ctx.params;
   const parsed = body.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return fail("That request was not understood.", 400);
+  if (!parsed.success) {
+    const dropIssue = parsed.error.issues.some((i) => i.path[0] === "reason");
+    return fail(dropIssue ? "Please give a reason for dropping." : "That request was not understood.", 400);
+  }
   const input = parsed.data;
 
   try {
@@ -95,7 +98,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ ok: true, emailSent, ...(promo === "failed" ? { promoFailed: true } : {}) });
     }
 
-    const r = input.action === "drop" ? await dropAffiliate(id) : await markAffiliateLeft(id);
+    const r = input.action === "drop" ? await dropAffiliate(id, input.reason) : await markAffiliateLeft(id);
     if (!r.ok) {
       if (r.reason === "not-found") return fail("Not found.", 404);
       if (r.reason === "wrong-status") return fail("This affiliate cannot be changed this way any more.", 409);
