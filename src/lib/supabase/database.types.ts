@@ -23,6 +23,7 @@ export type Database = {
           code_serial: number | null
           commission_mode: string
           created_at: string
+          drop_reason: string | null
           dropped_at: string | null
           email: string
           id: string
@@ -50,6 +51,7 @@ export type Database = {
           code_serial?: number | null
           commission_mode?: string
           created_at?: string
+          drop_reason?: string | null
           dropped_at?: string | null
           email: string
           id?: string
@@ -77,6 +79,7 @@ export type Database = {
           code_serial?: number | null
           commission_mode?: string
           created_at?: string
+          drop_reason?: string | null
           dropped_at?: string | null
           email?: string
           id?: string
@@ -161,6 +164,66 @@ export type Database = {
           id?: boolean
           message?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      affiliate_message_templates: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          subject: string | null
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          subject?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          subject?: string | null
+        }
+        Relationships: []
+      }
+      affiliate_motivation_sends: {
+        Row: {
+          created_at: string
+          failed_count: number
+          html: string
+          id: string
+          recipient_count: number
+          recipients: Json
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          failed_count?: number
+          html: string
+          id?: string
+          recipient_count?: number
+          recipients?: Json
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          failed_count?: number
+          html?: string
+          id?: string
+          recipient_count?: number
+          recipients?: Json
+          subject?: string
         }
         Relationships: []
       }
