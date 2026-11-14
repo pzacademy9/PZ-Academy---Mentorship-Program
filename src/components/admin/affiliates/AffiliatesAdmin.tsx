@@ -14,6 +14,8 @@ import type { AffiliateRow } from "@/lib/data/affiliates";
 import type { AffiliateEmailRow } from "@/lib/data/affiliate-emails";
 import { AffiliateLeaderboardTab, type AdminBoards } from "./AffiliateLeaderboardTab";
 import { AffiliateEmailsTab } from "./AffiliateEmailsTab";
+import { AffiliatesList } from "./AffiliatesList";
+import type { AffiliateTemplates } from "./AffiliateMessagePicker";
 import { AffiliatePayoutsTab } from "./AffiliatePayoutsTab";
 import type { PayoutRow } from "@/lib/data/affiliate-payouts";
 import type { AffiliatesTab } from "@/lib/affiliates/hub-routes";
@@ -335,6 +337,8 @@ export function AffiliatesAdmin({
   emailMessageFailed = false,
   payouts = [],
   payoutsFailed = false,
+  templates = null,
+  templatesFailed = false,
 }: {
   /** The section to show; the sidebar and bottom bar are the navigation. */
   tab: AffiliatesTab;
@@ -346,6 +350,8 @@ export function AffiliatesAdmin({
   emailMessageFailed?: boolean;
   payouts?: PayoutRow[];
   payoutsFailed?: boolean;
+  templates?: AffiliateTemplates | null;
+  templatesFailed?: boolean;
 }) {
   const router = useRouter();
   const confirmTop = useConfirm();
@@ -388,6 +394,8 @@ export function AffiliatesAdmin({
         <AffiliateEmailsTab initialMessage={savedMessage} messageFailed={messageFailed} onSaved={(text) => { setSavedMessage(text); setMessageFailed(false); }} />
       ) : shown.length === 0 ? (
         <EmptyState icon={Users} title={tab === "applications" ? "No applications waiting" : "No affiliates yet"} description={tab === "applications" ? "New applications show up here." : "Accepted affiliates show up here."} />
+      ) : tab === "affiliates" ? (
+        <AffiliatesList rows={shown} templates={templates} templatesFailed={templatesFailed} emailFailedIds={emailFailedIds} onOpen={setOpenId} />
       ) : (
         <ul data-testid="affiliate-cards" className="w-full min-w-0 space-y-2">
           {shown.map((r) => (

@@ -4,7 +4,8 @@ import { affiliatesWithFailedEmail } from "@/lib/data/affiliate-emails";
 import { readEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { getAffiliateBoard, getBoardToken } from "@/lib/data/affiliate-leaderboard";
 import { listAdminPayouts, type PayoutRow } from "@/lib/data/affiliate-payouts";
-import { parseAffiliatesTab } from "@/lib/affiliates/hub-routes";
+import { listAffiliateTemplates, type AffiliateTemplate } from "@/lib/data/affiliate-templates";
+import { parseAffiliatesTab, tabSubtitle } from "@/lib/affiliates/hub-routes";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
 export const metadata = { title: "Affiliates — PZ Academy" };
@@ -46,6 +47,17 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
     console.error("admin affiliates: payouts failed", e);
     payoutsFailed = true;
   }
+  // The message picker is an extra tab feature too: a failed read must not break the list.
+  let templates: { whatsapp: AffiliateTemplate[]; email: AffiliateTemplate[] } | null = null;
+  let templatesFailed = false;
+  try {
+    const all = await listAffiliateTemplates();
+    templates = { whatsapp: all.filter((t) => t.channel === "whatsapp"), email: all.filter((t) => t.channel === "email") };
+  } catch (e) {
+    console.error("admin affiliates: templates failed", e);
+    templatesFailed = true;
+  }
+  const tab = parseAffiliatesTab(searchParams?.tab);
   const boards = month && all ? { month, all } : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   const boardUrl = token ? `${base}/affiliate-board/${token}` : null;
@@ -55,10 +67,10 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
       <div>
         <h1 className="font-headline text-2xl font-bold text-pz-secondary">Affiliates</h1>
         <p className="mt-1 font-body text-sm text-pz-on-surface-variant">
-          Read each application, then accept or drop it. Accepted affiliates get their code and private link by email.
+          {tabSubtitle(tab)}
         </p>
       </div>
-      <AffiliatesAdmin tab={parseAffiliatesTab(searchParams?.tab)} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} />
+      <AffiliatesAdmin tab={tab} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} templates={templates} templatesFailed={templatesFailed} />
     </div>
   );
 }
