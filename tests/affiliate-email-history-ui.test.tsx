@@ -72,3 +72,76 @@ describe("AffiliateEmailHistory", () => {
     expect(document.querySelector("iframe")).toBeNull();
   });
 });
+
+describe("AffiliateEmailHistory: reading view behaviour", () => {
+  const fm = () => fetch as unknown as ReturnType<typeof vi.fn>;
+  const two = [row({ id: "a", subject: "Card A" }), row({ id: "b", subject: "Card B" })];
+
+  it("keeps the newest card when an older fetch answers last", async () => {
+    let resolveA: (v: unknown) => void = () => {};
+    fm().mockImplementation((url: string) =>
+      url.endsWith("/a")
+        ? new Promise((r) => {
+            resolveA = r;
+          })
+        : Promise.resolve({ ok: true, json: async () => ({ html: "<p>B html</p>" }) }),
+    );
+    render(<AffiliateEmailHistory failed={false} sends={two} />);
+    fireEvent.click(screen.getByRole("button", { name: /Card A/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Card B/ }));
+    await waitFor(() => expect(document.querySelector("iframe")?.getAttribute("srcdoc")).toBe("<p>B html</p>"));
+    resolveA({ ok: true, json: async () => ({ html: "<p>A html</p>" }) });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(document.querySelector("iframe")?.getAttribute("srcdoc")).toBe("<p>B html</p>");
+  });
+
+  it("shows Could not open this email. when the fetch throws", async () => {
+    fm().mockRejectedValue(new Error("offline"));
+    render(<AffiliateEmailHistory failed={false} sends={two} />);
+    fireEvent.click(screen.getByRole("button", { name: /Card A/ }));
+    await waitFor(() => expect(screen.getByText("Could not open this email.")).toBeTruthy());
+  });
+
+  it("shows a placeholder until a card is picked", () => {
+    render(<AffiliateEmailHistory failed={false} sends={two} />);
+    expect(screen.getByText("Select an email to read it.")).toBeTruthy();
+    fm().mockResolvedValue({ ok: true, json: async () => ({ html: "<p>x</p>" }) });
+    fireEvent.click(screen.getByRole("button", { name: /Card A/ }));
+    expect(screen.queryByText("Select an email to read it.")).toBeNull();
+  });
+
+  it("opens as a modal dialog with a name, focuses Back, and Back closes it and returns focus to the card", async () => {
+    fm().mockResolvedValue({ ok: true, json: async () => ({ html: "<p>x</p>" }) });
+    render(<AffiliateEmailHistory failed={false} sends={two} />);
+    const card = screen.getByRole("button", { name: /Card A/ });
+    card.focus();
+    fireEvent.click(card);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.getAttribute("aria-label")).toBeTruthy();
+    const back = screen.getByRole("button", { name: "Back" });
+    expect(document.activeElement).toBe(back);
+    fireEvent.click(back);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(card);
+  });
+
+  it("Escape closes the sheet and body scroll is locked while open", async () => {
+    fm().mockResolvedValue({ ok: true, json: async () => ({ html: "<p>x</p>" }) });
+    render(<AffiliateEmailHistory failed={false} sends={two} />);
+    fireEvent.click(screen.getByRole("button", { name: /Card A/ }));
+    expect(document.body.style.overflow).toBe("hidden");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("has a Close button for the reading panel on a wide screen", async () => {
+    fm().mockResolvedValue({ ok: true, json: async () => ({ html: "<p>x</p>" }) });
+    render(<AffiliateEmailHistory failed={false} sends={two} />);
+    fireEvent.click(screen.getByRole("button", { name: /Card A/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Select an email to read it.")).toBeTruthy();
+  });
+});

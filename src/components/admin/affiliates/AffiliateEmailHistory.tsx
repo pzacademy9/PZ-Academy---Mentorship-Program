@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronRight, MailOpen, Users } from "lucide-react";
+import { ArrowLeft, ChevronRight, MailOpen, Users, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { MotivationSendRow } from "@/lib/data/affiliate-motivation-sends";
 
@@ -18,6 +18,46 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
   const [error, setError] = useState(false);
   // Only the newest open request may change the panel, so a slow old answer cannot replace it.
   const latest = useRef(0);
+  const opener = useRef<HTMLElement | null>(null);
+  const backRef = useRef<HTMLButtonElement | null>(null);
+  // On a wide screen the reading panel sits beside the list; only the phone sheet is a modal.
+  const [wide, setWide] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const close = () => {
+    latest.current += 1;
+    setOpenId(null);
+    opener.current?.focus();
+  };
+  const closeRef = useRef(close);
+  closeRef.current = close;
+
+  const modal = openId !== null && !wide;
+  useEffect(() => {
+    if (openId === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [openId]);
+  useEffect(() => {
+    if (!modal) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    backRef.current?.focus();
+    return () => {
+      document.body.style.overflow = before;
+    };
+  }, [modal]);
 
   useEffect(() => {
     if (openId === null) return;
@@ -56,14 +96,19 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
   const open = sends.find((s) => s.id === openId) ?? null;
 
   return (
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       <section aria-label="Sent emails" className="min-w-0 space-y-3">
-        <p className="font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant">Recent sends</p>
+        <p className="font-headline text-sm font-bold text-pz-secondary">
+          Sent emails <span className="font-body text-xs font-semibold text-pz-on-surface-variant">({sends.length})</span>
+        </p>
         {sends.map((s) => (
           <button
             key={s.id}
             type="button"
-            onClick={() => setOpenId(s.id)}
+            onClick={(e) => {
+              opener.current = e.currentTarget;
+              setOpenId(s.id);
+            }}
             aria-pressed={s.id === openId}
             className={`block min-h-11 w-full min-w-0 rounded-2xl border bg-pz-surface-container-lowest p-3.5 text-left ${s.id === openId ? "border-pz-solid-forest" : "border-pz-outline-variant"}`}
           >
@@ -82,7 +127,7 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
                 Sent to {people(s.recipientCount)}
               </span>
               <span className="flex items-center gap-0.5 font-semibold text-pz-primary">
-                View email and names
+                Reading view
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </span>
             </span>
@@ -92,6 +137,8 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
 
       {open ? (
         <section
+          role={wide ? undefined : "dialog"}
+          aria-modal={wide ? undefined : true}
           aria-label="Email details"
           className="fixed inset-0 z-50 flex min-w-0 flex-col overflow-y-auto bg-pz-surface-container-lowest lg:static lg:z-auto lg:self-start lg:rounded-2xl lg:border lg:border-pz-outline-variant"
         >
@@ -99,19 +146,33 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
             <div className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
+                ref={backRef}
                 aria-label="Back"
-                onClick={() => setOpenId(null)}
+                onClick={close}
                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-pz-on-surface lg:hidden"
               >
                 <ArrowLeft className="h-5 w-5" aria-hidden="true" />
               </button>
-              <h3 className="min-w-0 break-words font-headline text-sm font-bold text-pz-secondary">Sent email details</h3>
+              <div className="min-w-0">
+                <p className="hidden font-headline text-xs font-bold text-pz-on-surface-variant lg:block">Selected email</p>
+                <h3 className="min-w-0 break-words font-headline text-sm font-bold text-pz-secondary lg:text-lg">Sent email details</h3>
+              </div>
             </div>
-            {open.failedCount > 0 ? (
-              <span className="shrink-0 rounded-full border border-pz-outline-variant bg-pz-surface-container px-2 py-0.5 font-headline text-xs font-semibold text-pz-danger">
-                {open.failedCount} failed
-              </span>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-2">
+              {open.failedCount > 0 ? (
+                <span className="rounded-full border border-pz-outline-variant bg-pz-surface-container px-2 py-0.5 font-headline text-xs font-semibold text-pz-danger">
+                  {open.failedCount} failed
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={close}
+                className="hidden min-h-11 items-center gap-1 rounded-lg px-2 font-headline text-xs font-semibold text-pz-on-surface-variant lg:inline-flex"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+                Close
+              </button>
+            </div>
           </div>
           <div className="space-y-4 p-4 pb-12 md:p-6">
             <dl className="space-y-1.5 rounded-lg border border-pz-outline-variant bg-pz-surface-container p-3 font-body text-xs text-pz-on-surface-variant">
@@ -124,6 +185,13 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
                 <dd>{when(open.createdAt)}</dd>
               </div>
             </dl>
+
+            <div className="flex flex-wrap items-center gap-2 font-headline text-xs font-semibold">
+              <span className="rounded-md border border-pz-outline-variant bg-pz-surface-container px-3 py-1 text-pz-mid">{open.recipientCount} Delivered</span>
+              {open.failedCount > 0 ? (
+                <span className="rounded-md border border-pz-outline-variant bg-pz-surface-container px-3 py-1 text-pz-danger">{open.failedCount} Failed</span>
+              ) : null}
+            </div>
 
             <div>
               <p className="mb-1.5 font-headline text-xs font-bold uppercase tracking-wide text-pz-on-surface-variant">Email preview</p>
@@ -142,7 +210,12 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
             </div>
 
             <div>
-              <p className="mb-2 font-headline text-xs font-bold text-pz-secondary">Recipients ({open.recipients.length})</p>
+              <p className="mb-2 font-headline text-sm font-bold text-pz-secondary">
+                Recipients{" "}
+                <span className="font-body text-xs font-medium text-pz-on-surface-variant">
+                  ({open.recipients.length} total, {open.recipients.filter((r) => r.ok).length} delivered, {open.recipients.filter((r) => !r.ok).length} failed)
+                </span>
+              </p>
               {open.recipients.length === 0 ? (
                 <p className="font-body text-sm text-pz-on-surface-variant">No names were saved for this send.</p>
               ) : (
@@ -160,7 +233,14 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
             </div>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section
+          aria-label="Email details"
+          className="hidden min-h-48 items-center justify-center rounded-2xl border border-dashed border-pz-outline-variant p-6 text-center lg:flex"
+        >
+          <p className="font-body text-sm text-pz-on-surface-variant">Select an email to read it.</p>
+        </section>
+      )}
     </div>
   );
 }
