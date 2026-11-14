@@ -11,6 +11,15 @@ describe("renderTemplate", () => {
   it("renders special characters in a name literally", () => {
     expect(renderTemplate("Hi {name}", { name: "A$&B", code: null })).toBe("Hi A$&B");
   });
+  it("keeps a name of {code} literal", () => {
+    expect(renderTemplate("Hi {name}, use {code}", { name: "{code}", code: "ABC" })).toBe("Hi {code}, use ABC");
+  });
+  it("keeps a name of $1 literal", () => {
+    expect(renderTemplate("Hi {name}", { name: "$1", code: null })).toBe("Hi $1");
+  });
+  it("keeps a code containing $& literal", () => {
+    expect(renderTemplate("Use {code}", { name: "X", code: "A$&B" })).toBe("Use A$&B");
+  });
   it("replaces every occurrence", () => {
     expect(renderTemplate("{name} {name}", { name: "X", code: null })).toBe("X X");
   });
@@ -25,6 +34,9 @@ describe("whatsappDigits", () => {
   });
   it("drops a leading 00", () => {
     expect(whatsappDigits("0092 300 1234567")).toBe("923001234567");
+  });
+  it("drops a stray 0 after the 92 country code", () => {
+    expect(whatsappDigits("+92 0300 1234567")).toBe("923001234567");
   });
   it("returns null for too few digits", () => {
     expect(whatsappDigits("12345")).toBeNull();

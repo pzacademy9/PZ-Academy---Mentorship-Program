@@ -1,7 +1,7 @@
 /** Pure helpers for messaging and searching affiliates. Safe to import in client code. */
 
 export function renderTemplate(text: string, v: { name: string; code: string | null }): string {
-  return text.replace(/\{name\}/g, () => v.name).replace(/\{code\}/g, () => v.code || "your code");
+  return text.replace(/\{(name|code)\}/g, (_m, k: string) => (k === "name" ? v.name : v.code || "your code"));
 }
 
 /** Digits only. Leading 00 dropped; a single leading 0 becomes 92. Under 8 digits is not a number. */
@@ -9,6 +9,7 @@ export function whatsappDigits(raw: string): string | null {
   let d = raw.replace(/\D/g, "");
   if (d.startsWith("00")) d = d.slice(2);
   else if (d.startsWith("0")) d = "92" + d.slice(1);
+  if (d.length === 13 && d.startsWith("920")) d = "92" + d.slice(3);
   return d.length < 8 ? null : d;
 }
 
