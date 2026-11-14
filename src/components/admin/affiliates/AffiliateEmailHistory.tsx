@@ -213,7 +213,7 @@ export function AffiliateEmailHistory({ sends, failed }: { sends: MotivationSend
               <p className="mb-2 font-headline text-sm font-bold text-pz-secondary">
                 Recipients{" "}
                 <span className="font-body text-xs font-medium text-pz-on-surface-variant">
-                  ({open.recipients.length} total, {open.recipients.filter((r) => r.ok).length} delivered, {open.recipients.filter((r) => !r.ok).length} failed)
+                  ({open.recipientCount + open.failedCount} total, {open.recipientCount} delivered, {open.failedCount} failed)
                 </span>
               </p>
               {open.recipients.length === 0 ? (

@@ -358,6 +358,14 @@ describe("AffiliateEmailsTab: history extras", () => {
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBeTruthy();
     expect(ids[0]).toBe(ids[1]);
+    expect(screen.getByText(/^Stopped[.]/)).toBeTruthy();
+    // A retry is a new press, so it gets a new id.
+    call = 0;
+    fireEvent.click(await screen.findByRole("button", { name: "Send to 60 people" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(2));
+    expect(ids).toHaveLength(4);
+    expect(ids[2]).toBe(ids[3]);
+    expect(ids[2]).not.toBe(ids[0]);
   });
 
   it("keeps the message text and the picks after Send, History, Send", async () => {
