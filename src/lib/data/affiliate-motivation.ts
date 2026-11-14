@@ -9,8 +9,9 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getAffiliateBoard, type AffiliateBoard } from "@/lib/data/affiliate-leaderboard";
 import { countSentLast24h } from "@/lib/data/affiliate-emails";
 import { sendMotivation } from "@/lib/affiliates/send";
+import { recordMotivationSend } from "@/lib/data/affiliate-motivation-sends";
 import { affiliateSupportWa } from "@/lib/affiliates/contact";
-import type { MotivationInput, TopRow } from "@/lib/affiliates/rich-emails";
+import { motivationEmail, type MotivationInput, type TopRow } from "@/lib/affiliates/rich-emails";
 
 /** Motivation stops here so the automatic Progress emails always keep room under Brevo's 300 a day. */
 export const MOTIVATION_DAILY_LIMIT = 250;
@@ -55,7 +56,7 @@ function boardParts(board: AffiliateBoard): Pick<MotivationInput, "leaderLine" |
  * Sends the Motivation email to the given ids (at most 25, duplicates ignored). Every id is checked again here:
  * accepted, no paid sale, has an email and a code, and not already sent unless includeSent.
  */
-export async function sendMotivationBatch(ids: string[], opts: { includeSent: boolean }): Promise<MotivationBatchResult> {
+export async function sendMotivationBatch(ids: string[], opts: { includeSent: boolean; sendId?: string }): Promise<MotivationBatchResult> {
   const unique = Array.from(new Set(ids));
   if (unique.length > MOTIVATION_MAX_IDS) throw new RangeError(`At most ${MOTIVATION_MAX_IDS} people per send.`);
   const result: MotivationBatchResult = { sent: 0, failed: 0, skipped: 0, limitReached: false, remainingToday: 0 };
@@ -74,6 +75,11 @@ export async function sendMotivationBatch(ids: string[], opts: { includeSent: bo
   const board = await getAffiliateBoard("all");
   const parts = boardParts(board);
   const supportWa = affiliateSupportWa();
+
+  // For the send history: who was attempted, and the first email built (an example of what each person got).
+  const sentNames: { name: string }[] = [];
+  const failedNames: { name: string }[] = [];
+  let example: { subject: string; html: string } | null = null;
 
   for (const id of unique) {
     const a = byId.get(id);
@@ -102,16 +108,20 @@ export async function sendMotivationBatch(ids: string[], opts: { includeSent: bo
 
     let ok = false;
     try {
-      ok = await sendMotivation({ id: a.id, name: a.name, email: a.email }, { name: a.name, code: a.code, ...parts, supportWa });
+      const input: MotivationInput = { name: a.name, code: a.code, ...parts, supportWa };
+      if (opts.sendId && !example) example = motivationEmail(input);
+      ok = await sendMotivation({ id: a.id, name: a.name, email: a.email }, input);
     } catch {
       console.error("[affiliate-motivation] could not build or send a Motivation email");
       ok = false;
     }
     if (ok) {
       result.sent++;
+      sentNames.push({ name: a.name });
       continue;
     }
     result.failed++;
+    failedNames.push({ name: a.name });
     // Give the claim back, only if it is still ours.
     const { error: releaseError } = await admin
       .from("affiliates")
@@ -123,5 +133,11 @@ export async function sendMotivationBatch(ids: string[], opts: { includeSent: bo
 
   result.remainingToday = Math.max(0, MOTIVATION_DAILY_LIMIT - (await countSentLast24h()));
   if (result.remainingToday === 0) result.limitReached = true;
+
+  // History: one row per button press. The screen sends its chunks one after another, so the read-then-update inside
+  // recordMotivationSend cannot race. It never throws and never changes what is returned.
+  if (opts.sendId && example && (sentNames.length > 0 || failedNames.length > 0)) {
+    await recordMotivationSend({ id: opts.sendId, subject: example.subject, html: example.html, sent: sentNames, failed: failedNames });
+  }
   return result;
 }

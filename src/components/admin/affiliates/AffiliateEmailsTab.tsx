@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import type { MotivationSendRow } from "@/lib/data/affiliate-motivation-sends";
+import { AffiliateEmailHistory } from "./AffiliateEmailHistory";
 
 // The same limit and counting as the server: .length, nothing smarter.
 const MESSAGE_MAX = 1000;
@@ -26,12 +28,20 @@ export function AffiliateEmailsTab({
   initialMessage,
   messageFailed,
   onSaved,
+  sends = [],
+  sendsFailed = false,
+  onSent,
 }: {
   initialMessage: string;
   messageFailed: boolean;
   /** Tells the parent the new saved text, so it survives a switch to another tab. */
   onSaved?: (message: string) => void;
+  sends?: MotivationSendRow[];
+  sendsFailed?: boolean;
+  /** Called after a send press finishes, so the parent can reload the history. */
+  onSent?: () => void;
 }) {
+  const [view, setView] = useState<"send" | "history">("send");
   const [message, setMessage] = useState(initialMessage);
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -102,6 +112,8 @@ export function AffiliateEmailsTab({
     const ids = (list ?? []).filter((c) => picked.has(c.id)).map((c) => c.id);
     if (ids.length === 0) return;
     setOutcome([]);
+    // One id for the whole press, so every chunk lands in one history row.
+    const sendId = crypto.randomUUID();
     let sent = 0;
     let failed = 0;
     let skipped = 0;
@@ -113,7 +125,7 @@ export function AffiliateEmailsTab({
         const res = await fetch("/api/admin/affiliates/motivation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: ids.slice(i, i + CHUNK), includeSent }),
+          body: JSON.stringify({ ids: ids.slice(i, i + CHUNK), includeSent, sendId }),
         });
         const data = (await res.json().catch(() => null)) as (Partial<BatchResult> & { error?: string }) | null;
         if (!res.ok || !data || typeof data.sent !== "number") {
@@ -147,6 +159,7 @@ export function AffiliateEmailsTab({
     setOutcome(lines);
     // Bring the list back in line with what the server now says.
     await load(includeSent);
+    onSent?.();
   });
 
   const busy = send.pending;
@@ -155,7 +168,26 @@ export function AffiliateEmailsTab({
   const count = picked.size;
   const sendLabel = busy ? "Sending..." : `Send to ${people(count)}`;
 
+  const segment = (key: "send" | "history", label: string) => (
+    <button
+      type="button"
+      aria-pressed={view === key}
+      onClick={() => setView(key)}
+      className={`min-h-11 flex-1 rounded-md px-3 font-headline text-sm font-bold ${view === key ? "bg-pz-solid-forest text-white" : "text-pz-on-surface-variant"}`}
+    >
+      {label}
+    </button>
+  );
+
   return (
+    <div className="min-w-0 space-y-4">
+      <div className="flex gap-1 rounded-lg bg-pz-surface-container p-1">
+        {segment("send", "Send")}
+        {segment("history", "History")}
+      </div>
+      {view === "history" ? (
+        <AffiliateEmailHistory sends={sends} failed={sendsFailed} />
+      ) : (
     <div className="grid min-w-0 gap-6 lg:grid-cols-2">
       <section aria-label="Message for all affiliates" className={`${CARD} self-start space-y-4`}>
         <div>
@@ -312,6 +344,8 @@ export function AffiliateEmailsTab({
           </div>
         ) : null}
       </section>
+    </div>
+      )}
     </div>
   );
 }

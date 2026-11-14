@@ -4,6 +4,8 @@ import { MOTIVATION_MAX_IDS, listMotivationCandidates, sendMotivationBatch } fro
 
 export const dynamic = "force-dynamic";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The zero-sale affiliates for the Motivation list. `?includeSent=1` also shows those who already got it. */
 export async function GET(req: Request) {
   const auth = await requireAdmin("sales_hub");
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  const { ids, includeSent } = (body ?? {}) as { ids?: unknown; includeSent?: unknown };
+  const { ids, includeSent, sendId } = (body ?? {}) as { ids?: unknown; includeSent?: unknown; sendId?: unknown };
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === "string" && id.length > 0)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
@@ -36,8 +38,11 @@ export async function POST(req: Request) {
   if (includeSent !== undefined && typeof includeSent !== "boolean") {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
+  if (sendId !== undefined && (typeof sendId !== "string" || !UUID.test(sendId))) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
   try {
-    return NextResponse.json(await sendMotivationBatch(ids as string[], { includeSent: includeSent === true }));
+    return NextResponse.json(await sendMotivationBatch(ids as string[], { includeSent: includeSent === true, sendId: sendId as string | undefined }));
   } catch {
     return NextResponse.json({ error: "Could not send. Please try again." }, { status: 500 });
   }

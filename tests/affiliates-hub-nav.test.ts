@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AFFILIATES_HUB_BASE, parseAffiliatesTab, affiliatesTabHref, isAffiliatesHubPath } from "@/lib/affiliates/hub-routes";
+import { AFFILIATES_HUB_BASE, parseAffiliatesTab, affiliatesTabHref, isAffiliatesHubPath, tabSubtitle } from "@/lib/affiliates/hub-routes";
 import { AFFILIATES_HUB_ITEMS, AFFILIATES_HUB_BACK, splitMobileNav } from "@/components/dashboard/nav";
 
 describe("affiliates hub routes", () => {
@@ -42,5 +42,17 @@ describe("affiliates hub items", () => {
     const { bar, more } = splitMobileNav(items, items[0].href);
     expect(bar.map((i) => i.label)).toEqual(["Applications", "Affiliates", "Payouts", "Leaderboard"]);
     expect(more.map((i) => i.label)).toEqual(["Emails", "Back to Admin"]);
+  });
+});
+
+describe("tab subtitles", () => {
+  it("gives each of the five tabs its own sentence with no exclamation mark", () => {
+    const tabs = ["applications", "affiliates", "payouts", "leaderboard", "emails"] as const;
+    const subs = tabs.map((t) => tabSubtitle(t));
+    expect(new Set(subs).size).toBe(5);
+    for (const s of subs) {
+      expect(s.length).toBeGreaterThan(10);
+      expect(s).not.toContain("!");
+    }
   });
 });

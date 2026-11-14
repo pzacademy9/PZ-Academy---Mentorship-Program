@@ -313,3 +313,62 @@ describe("/api/admin/affiliates/motivation", () => {
     expect(JSON.stringify(await p.json())).not.toContain("secret");
   });
 });
+
+describe("motivation send history", () => {
+  const H = "affiliate_motivation_sends";
+  const SID = "11111111-1111-4111-8111-111111111111";
+  const hist = () => (store[H] ?? []) as Record<string, unknown>[];
+
+  it("two chunks with the same sendId make one row with summed counts and both name lists", async () => {
+    use({ affiliates: [aff("z1"), aff("z2"), aff("z3")], [H]: [] });
+    m.sendMotivation.mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValue(true);
+    await sendMotivationBatch(["z1", "z2"], { includeSent: false, sendId: SID });
+    await sendMotivationBatch(["z3"], { includeSent: false, sendId: SID });
+    expect(hist()).toHaveLength(1);
+    expect(hist()[0]).toMatchObject({
+      id: SID,
+      recipient_count: 2,
+      failed_count: 1,
+      recipients: [
+        { name: "Name z1", ok: true },
+        { name: "Name z2", ok: false },
+        { name: "Name z3", ok: true },
+      ],
+    });
+    expect(typeof hist()[0].subject).toBe("string");
+    expect(String(hist()[0].html)).toContain("Name z1");
+  });
+
+  it("writes no row when nothing was attempted, or when there is no sendId", async () => {
+    use({ affiliates: [aff("z1", { status: "dropped" }), aff("z2")], [H]: [] });
+    await sendMotivationBatch(["z1"], { includeSent: false, sendId: SID });
+    expect(hist()).toHaveLength(0);
+    m.countSentLast24h.mockResolvedValue(290);
+    await sendMotivationBatch(["z2"], { includeSent: false, sendId: SID });
+    expect(hist()).toHaveLength(0);
+    m.countSentLast24h.mockResolvedValue(0);
+    await sendMotivationBatch(["z2"], { includeSent: false });
+    expect(hist()).toHaveLength(0);
+    expect(db.find(H, "insert")).toHaveLength(0);
+  });
+
+  it("a failing history save never changes the returned counts", async () => {
+    use({ affiliates: [aff("z1")], [H]: [] }, (op, base) => {
+      if (op.table === H) throw new Error("history down");
+      return base(op);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await sendMotivationBatch(["z1"], { includeSent: false, sendId: SID });
+    expect(r).toEqual({ sent: 1, failed: 0, skipped: 0, limitReached: false, remainingToday: 250 });
+  });
+
+  it("the POST route rejects a sendId that is not a uuid string and passes a good one on", async () => {
+    use({ affiliates: [aff("z1")], [H]: [] });
+    expect((await post({ ids: ["z1"], sendId: 5 })).status).toBe(400);
+    expect((await post({ ids: ["z1"], sendId: "not-a-uuid" })).status).toBe(400);
+    expect(m.sendMotivation).not.toHaveBeenCalled();
+    const ok = await post({ ids: ["z1"], sendId: SID });
+    expect(ok.status).toBe(200);
+    expect(hist()).toHaveLength(1);
+  });
+});

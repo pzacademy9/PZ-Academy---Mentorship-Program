@@ -20,7 +20,7 @@ type Row = Database["public"]["Tables"]["affiliates"]["Row"];
 
 // The list never selects `token`: it is a secret that opens the affiliate's private page.
 const LIST_COLUMNS =
-  "id, status, name, email, whatsapp, city_country, answers, code, team, commission_mode, manual_percent, opening_secured, opening_commission, opening_withdrawn, is_imported, terms_accepted_at, terms_version, accepted_at, dropped_at, left_at, created_at";
+  "id, status, name, email, whatsapp, city_country, answers, code, team, commission_mode, manual_percent, opening_secured, opening_commission, opening_withdrawn, is_imported, terms_accepted_at, terms_version, accepted_at, dropped_at, drop_reason, left_at, created_at";
 const DETAIL_COLUMNS = `${LIST_COLUMNS}, token`;
 const UNIQUE_VIOLATION = "23505";
 
@@ -44,6 +44,7 @@ export interface AffiliateRow {
   termsVersion: string | null;
   acceptedAt: string | null;
   droppedAt: string | null;
+  dropReason: string | null;
   leftAt: string | null;
   createdAt: string;
 }
@@ -72,6 +73,7 @@ function mapRow(r: PartialRow): AffiliateRow {
     termsVersion: r.terms_version,
     acceptedAt: r.accepted_at,
     droppedAt: r.dropped_at,
+    dropReason: r.drop_reason,
     leftAt: r.left_at,
     createdAt: r.created_at,
   };
@@ -162,11 +164,11 @@ export function acceptApplication(id: string, opts: { code?: string; team?: Team
 
 export type StatusResult = { ok: true } | { ok: false; reason: "not-found" | "wrong-status" | "db-error" };
 
-async function changeStatus(id: string, from: AffiliateStatus[], to: "dropped" | "left"): Promise<StatusResult> {
+async function changeStatus(id: string, from: AffiliateStatus[], to: "dropped" | "left", reason?: string): Promise<StatusResult> {
   const now = new Date().toISOString();
   const { data, error } = await createAdminSupabase()
     .from("affiliates")
-    .update(to === "dropped" ? { status: to, dropped_at: now, updated_at: now } : { status: to, left_at: now, updated_at: now })
+    .update(to === "dropped" ? { status: to, dropped_at: now, drop_reason: reason?.trim() ?? null, updated_at: now } : { status: to, left_at: now, updated_at: now })
     .eq("id", id)
     .in("status", from)
     .select("id")
@@ -178,7 +180,7 @@ async function changeStatus(id: string, from: AffiliateStatus[], to: "dropped" |
 }
 
 /** An applicant or an accepted affiliate can be dropped. */
-export const dropAffiliate = (id: string) => changeStatus(id, ["applied", "accepted"], "dropped");
+export const dropAffiliate = (id: string, reason: string) => changeStatus(id, ["applied", "accepted"], "dropped", reason);
 /** Only an accepted affiliate can be marked as left. */
 export const markAffiliateLeft = (id: string) => changeStatus(id, ["accepted"], "left");
 

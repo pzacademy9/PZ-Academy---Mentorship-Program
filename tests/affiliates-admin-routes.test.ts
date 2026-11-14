@@ -19,7 +19,9 @@ const d = vi.hoisted(() => ({
   send: vi.fn(),
   ensurePromo: vi.fn(),
   deactivatePromo: vi.fn(),
+  listTemplates: vi.fn(),
 }));
+vi.mock("@/lib/data/affiliate-templates", () => ({ listAffiliateTemplates: d.listTemplates }));
 vi.mock("@/lib/data/affiliate-promo", () => ({ ensureAffiliatePromo: d.ensurePromo, deactivateAffiliatePromo: d.deactivatePromo }));
 vi.mock("@/lib/data/affiliates", () => ({
   listAffiliates: d.listAffiliates,
@@ -32,6 +34,7 @@ vi.mock("@/lib/data/affiliates", () => ({
 vi.mock("@/lib/brevo-affiliates", () => ({ sendAffiliateEmail: d.send }));
 
 import { GET as LIST } from "@/app/api/admin/affiliates/route";
+import { GET as TEMPLATES } from "@/app/api/admin/affiliates/templates/route";
 import { GET as ONE, PATCH } from "@/app/api/admin/affiliates/[id]/route";
 import { areaForPath } from "@/lib/team/areas";
 
@@ -56,7 +59,8 @@ describe("affiliate admin routes: access", () => {
     gate.result = { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
     expect((await LIST(new Request("http://x/api/admin/affiliates") as never)).status).toBe(403);
     expect((await ONE(new Request("http://x") as never, ctx)).status).toBe(403);
-    expect((await patch({ action: "drop" })).status).toBe(403);
+    expect((await patch({ action: "drop", reason: "Not active" })).status).toBe(403);
+    expect((await TEMPLATES()).status).toBe(403);
     expect(gate.area).toBe("sales_hub");
     Object.entries(d).forEach(([k, f]) => expect(f, k).not.toHaveBeenCalled());
   });
@@ -175,7 +179,7 @@ describe("the discount code follows the affiliate", () => {
   it("drop and leave switch the code off, but only when the change went through", async () => {
     d.getAffiliateDetail.mockResolvedValue(row({ status: "accepted" }));
     d.dropAffiliate.mockResolvedValue({ ok: true });
-    await patch({ action: "drop" });
+    await patch({ action: "drop", reason: "Not active" });
     expect(d.deactivatePromo).toHaveBeenCalledWith("a1");
     d.deactivatePromo.mockClear();
     d.markAffiliateLeft.mockResolvedValue({ ok: true });
@@ -183,8 +187,41 @@ describe("the discount code follows the affiliate", () => {
     expect(d.deactivatePromo).toHaveBeenCalledWith("a1");
     d.deactivatePromo.mockClear();
     d.dropAffiliate.mockResolvedValue({ ok: false, reason: "wrong-status" });
-    await patch({ action: "drop" });
+    await patch({ action: "drop", reason: "Not active" });
     expect(d.deactivatePromo).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET templates", () => {
+  it("returns whatsapp and email lists", async () => {
+    const wa = { id: "w", channel: "whatsapp", name: "W", subject: null, body: "b" };
+    const em = { id: "e", channel: "email", name: "E", subject: "s", body: "b" };
+    d.listTemplates.mockImplementation(async (c: string) => (c === "whatsapp" ? [wa] : [em]));
+    const res = await TEMPLATES();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ whatsapp: [wa], email: [em] });
+    expect(gate.area).toBe("sales_hub");
+  });
+  it("gives 500 in plain words when loading fails", async () => {
+    d.listTemplates.mockRejectedValue(new Error("x"));
+    expect((await TEMPLATES()).status).toBe(500);
+  });
+});
+
+describe("PATCH drop reason", () => {
+  it.each([[undefined], ["  "], ["x".repeat(501)]])("drop with reason %j gives 400 and changes nothing", async (reason) => {
+    d.getAffiliateDetail.mockResolvedValue(row());
+    const res = await patch({ action: "drop", reason });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("Please give a reason for dropping.");
+    expect(d.dropAffiliate).not.toHaveBeenCalled();
+    expect(d.send).not.toHaveBeenCalled();
+  });
+  it("passes the trimmed reason to the data layer", async () => {
+    d.getAffiliateDetail.mockResolvedValue(row());
+    d.dropAffiliate.mockResolvedValue({ ok: true });
+    expect((await patch({ action: "drop", reason: "  Never posted  " })).status).toBe(200);
+    expect(d.dropAffiliate).toHaveBeenCalledWith("a1", "Never posted");
   });
 });
 
@@ -192,14 +229,14 @@ describe("PATCH drop / leave / resend / update", () => {
   it("drop sends the dropped email", async () => {
     d.getAffiliateDetail.mockResolvedValue(row());
     d.dropAffiliate.mockResolvedValue({ ok: true });
-    const res = await patch({ action: "drop" });
+    const res = await patch({ action: "drop", reason: "Not active" });
     expect(await res.json()).toEqual({ ok: true, emailSent: true });
     expect(d.send).toHaveBeenCalledTimes(1);
   });
   it("drop on a wrong status gives 409 and sends nothing", async () => {
     d.getAffiliateDetail.mockResolvedValue(row({ status: "left" }));
     d.dropAffiliate.mockResolvedValue({ ok: false, reason: "wrong-status" });
-    expect((await patch({ action: "drop" })).status).toBe(409);
+    expect((await patch({ action: "drop", reason: "Not active" })).status).toBe(409);
     expect(d.send).not.toHaveBeenCalled();
   });
   it("leave marks left and sends the left email", async () => {

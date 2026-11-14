@@ -16,7 +16,7 @@ const base: AffiliateRow = {
   cityCountry: "Lahore, Pakistan",
   answers: { status: "student", organization: "Test University", field: "PharmD", why: "I help my class.", hoursPerWeek: "4-6", ratings: { marketing: 4, eventPromotion: 3, onlineEngagement: 5, communication: 2 }, commissionExperience: { yes: true, details: "Sold passes" } },
   code: null, team: null, commissionMode: "automatic", manualPercent: null, openingSecured: 0, openingCommission: 0, openingWithdrawn: 0,
-  isImported: false, termsAcceptedAt: "2026-11-01T00:00:00Z", termsVersion: "v", acceptedAt: null, droppedAt: null, leftAt: null, createdAt: "2026-11-01T00:00:00Z",
+  isImported: false, termsAcceptedAt: "2026-11-01T00:00:00Z", termsVersion: "v", acceptedAt: null, droppedAt: null, dropReason: null, leftAt: null, createdAt: "2026-11-01T00:00:00Z",
 };
 const accepted: AffiliateRow = { ...base, id: "a2", status: "accepted", name: "Sara Khan", email: "sara@example.com", code: "SK321", team: "Blue", acceptedAt: "2026-11-02T00:00:00Z" };
 
@@ -37,7 +37,7 @@ describe("AffiliatesAdmin", () => {
     const { rerender } = render(<AffiliatesAdmin tab="applications" initial={[base, accepted]} />);
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.getByText("Test Person")).toBeTruthy();
-    expect(screen.queryByText("Sara Khan")).toBeNull();
+    expect(within(screen.getByTestId("decided-list")).getByText("Sara Khan")).toBeTruthy();
     rerender(<AffiliatesAdmin tab="affiliates" initial={[base, accepted]} />);
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(screen.getByText("Sara Khan")).toBeTruthy();
@@ -47,7 +47,7 @@ describe("AffiliatesAdmin", () => {
 
   it("the card list cannot scroll sideways on a phone", () => {
     render(<AffiliatesAdmin tab="applications" initial={[base]} />);
-    const list = screen.getByTestId("affiliate-cards");
+    const list = screen.getByTestId("waiting-list");
     expect(list.className).toMatch(/min-w-0|w-full/);
     const html = list.outerHTML;
     expect(html).not.toMatch(/whitespace-nowrap|overflow-x-(auto|scroll)|min-w-\[/);
@@ -132,22 +132,43 @@ describe("AffiliatesAdmin", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("That code is already taken. Try another."));
   });
 
-  it("Drop asks first and does nothing when the owner says no", async () => {
-    confirmFn.mockResolvedValue(false);
+  it("Drop opens the reason box and does nothing when cancelled", async () => {
     render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Drop" }));
-    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    const reason = await screen.findByLabelText(/Reason/);
+    fireEvent.change(reason, { target: { value: "Not a fit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(fetchMock()).not.toHaveBeenCalled();
+    expect(confirmFn).not.toHaveBeenCalled();
   });
 
-  it("Drop sends the drop after a yes", async () => {
+  it("Drop sends the trimmed reason from the reason box", async () => {
     fetchMock().mockResolvedValue(reply(200, { ok: true, emailSent: true }));
     render(<AffiliatesAdmin tab="applications" initial={[base]} />);
     fireEvent.click(screen.getByRole("button", { name: /Test Person/ }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Drop" }));
+    fireEvent.change(await screen.findByLabelText(/Reason/), { target: { value: "  Not a fit  " } });
+    const dialogs = screen.getAllByRole("dialog");
+    fireEvent.click(within(dialogs[dialogs.length - 1]).getByRole("button", { name: "Drop" }));
     await waitFor(() => expect(fetchMock()).toHaveBeenCalled());
-    expect(JSON.parse(fetchMock().mock.calls[0][1].body)).toEqual({ action: "drop" });
+    expect(JSON.parse(fetchMock().mock.calls[0][1].body)).toEqual({ action: "drop", reason: "Not a fit" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("an accepted affiliate's Drop button also goes through the reason box", async () => {
+    fetchMock().mockImplementation(async (_u: string, init?: { method?: string }) =>
+      !init?.method || init.method === "GET" ? reply(200, { affiliate: accepted, link: null, emails: [] }) : reply(200, { ok: true, emailSent: true }),
+    );
+    render(<AffiliatesAdmin tab="affiliates" initial={[accepted]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Sara Khan/ }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Drop" }));
+    fireEvent.change(await screen.findByLabelText(/Reason/), { target: { value: "Inactive" } });
+    const dialogs = screen.getAllByRole("dialog");
+    fireEvent.click(within(dialogs[dialogs.length - 1]).getByRole("button", { name: "Drop" }));
+    await waitFor(() => expect(fetchMock().mock.calls.some((c) => c[1]?.method === "PATCH")).toBe(true));
+    const patch = fetchMock().mock.calls.find((c) => c[1]?.method === "PATCH")!;
+    expect(JSON.parse(patch[1].body)).toEqual({ action: "drop", reason: "Inactive" });
   });
 
   it("an accepted affiliate: copies the private link, saves commission, marks as left", async () => {

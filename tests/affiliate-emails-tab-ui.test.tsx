@@ -289,3 +289,95 @@ describe("AffiliateEmailsTab: pick and search", () => {
     await waitFor(() => expect(screen.getByTestId("motivation-list").getAttribute("tabindex")).toBe("0"));
   });
 });
+
+describe("AffiliateEmailsTab: history", () => {
+  const sendRow = { id: "s1", createdAt: "2026-11-10T10:00:00Z", subject: "Keep going", recipientCount: 3, failedCount: 0, recipients: [] };
+
+  it("starts on Send and switches to History and back", async () => {
+    route([]);
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} sends={[sendRow]} sendsFailed={false} />);
+    expect(screen.getByRole("button", { name: "Send" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Message text")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.getByText("Sent to 3 people")).toBeTruthy();
+    expect(screen.queryByLabelText("Message text")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(screen.getByLabelText("Message text")).toBeTruthy();
+  });
+
+  it("posts the same sendId in every chunk of one press and calls onSent after", async () => {
+    const bodies: { sendId?: string }[] = [];
+    route(people(30), (b) => {
+      bodies.push(b as { sendId?: string });
+      return okSend(b);
+    });
+    const onSent = vi.fn();
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} onSent={onSent} />);
+    const btn = await screen.findByRole("button", { name: "Send to 30 people" });
+    fireEvent.click(btn);
+    await waitFor(() => expect(onSent).toHaveBeenCalled());
+    expect(bodies).toHaveLength(2);
+    expect(typeof bodies[0].sendId).toBe("string");
+    expect(bodies[0].sendId).toBe(bodies[1].sendId);
+  });
+});
+
+describe("AffiliateEmailsTab: history extras", () => {
+  it("gives a second press a new sendId", async () => {
+    const ids: string[] = [];
+    route(people(2), (b) => {
+      ids.push((b as { sendId?: string }).sendId ?? "");
+      return okSend(b);
+    });
+    const onSent = vi.fn();
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} onSent={onSent} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Send to 2 people" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    fireEvent.click(await screen.findByRole("button", { name: "Send to 2 people" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(2));
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("keeps the same sendId when a later chunk fails", async () => {
+    const ids: string[] = [];
+    let call = 0;
+    fetchMock().mockImplementation(async (_u: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        const b = JSON.parse(String(init.body));
+        ids.push(b.sendId);
+        call += 1;
+        return call === 1 ? reply(200, okSend(b)) : reply(500, { error: "Nope" });
+      }
+      return reply(200, { candidates: people(60) });
+    });
+    const onSent = vi.fn();
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} onSent={onSent} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Send to 60 people" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalled());
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBeTruthy();
+    expect(ids[0]).toBe(ids[1]);
+    expect(screen.getByText(/^Stopped[.]/)).toBeTruthy();
+    // A retry is a new press, so it gets a new id.
+    call = 0;
+    fireEvent.click(await screen.findByRole("button", { name: "Send to 60 people" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(2));
+    expect(ids).toHaveLength(4);
+    expect(ids[2]).toBe(ids[3]);
+    expect(ids[2]).not.toBe(ids[0]);
+  });
+
+  it("keeps the message text and the picks after Send, History, Send", async () => {
+    route(people(3));
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} sends={[]} sendsFailed={false} />);
+    await screen.findByRole("button", { name: "Send to 3 people" });
+    fireEvent.change(screen.getByLabelText("Message text"), { target: { value: "Keep me" } });
+    fireEvent.click(screen.getByText("Person 1"));
+    expect(screen.getByRole("button", { name: "Send to 2 people" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect((screen.getByLabelText("Message text") as HTMLTextAreaElement).value).toBe("Keep me");
+    expect(screen.getByRole("button", { name: "Send to 2 people" })).toBeTruthy();
+  });
+});

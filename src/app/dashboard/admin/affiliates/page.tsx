@@ -4,7 +4,9 @@ import { affiliatesWithFailedEmail } from "@/lib/data/affiliate-emails";
 import { readEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { getAffiliateBoard, getBoardToken } from "@/lib/data/affiliate-leaderboard";
 import { listAdminPayouts, type PayoutRow } from "@/lib/data/affiliate-payouts";
-import { parseAffiliatesTab } from "@/lib/affiliates/hub-routes";
+import { listAffiliateTemplates, type AffiliateTemplate } from "@/lib/data/affiliate-templates";
+import { listMotivationSends, type MotivationSendRow } from "@/lib/data/affiliate-motivation-sends";
+import { parseAffiliatesTab, tabSubtitle } from "@/lib/affiliates/hub-routes";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
 export const metadata = { title: "Affiliates — PZ Academy" };
@@ -46,6 +48,33 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
     console.error("admin affiliates: payouts failed", e);
     payoutsFailed = true;
   }
+  const tab = parseAffiliatesTab(searchParams?.tab);
+  // Templates and send history are extra tab features: each loads only on its own tab, and a failed read must not break the page.
+  let templates: { whatsapp: AffiliateTemplate[]; email: AffiliateTemplate[] } | null = null;
+  let templatesFailed = false;
+  let sends: MotivationSendRow[] = [];
+  let sendsFailed = false;
+  await Promise.all([
+    (async () => {
+      if (tab !== "affiliates") return;
+      try {
+        const all = await listAffiliateTemplates();
+        templates = { whatsapp: all.filter((t) => t.channel === "whatsapp"), email: all.filter((t) => t.channel === "email") };
+      } catch (e) {
+        console.error("admin affiliates: templates failed", e);
+        templatesFailed = true;
+      }
+    })(),
+    (async () => {
+      if (tab !== "emails") return;
+      try {
+        sends = await listMotivationSends();
+      } catch (e) {
+        console.error("admin affiliates: send history failed", e);
+        sendsFailed = true;
+      }
+    })(),
+  ]);
   const boards = month && all ? { month, all } : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   const boardUrl = token ? `${base}/affiliate-board/${token}` : null;
@@ -55,10 +84,10 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
       <div>
         <h1 className="font-headline text-2xl font-bold text-pz-secondary">Affiliates</h1>
         <p className="mt-1 font-body text-sm text-pz-on-surface-variant">
-          Read each application, then accept or drop it. Accepted affiliates get their code and private link by email.
+          {tabSubtitle(tab)}
         </p>
       </div>
-      <AffiliatesAdmin tab={parseAffiliatesTab(searchParams?.tab)} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} />
+      <AffiliatesAdmin tab={tab} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} templates={templates} templatesFailed={templatesFailed} sends={sends} sendsFailed={sendsFailed} />
     </div>
   );
 }
