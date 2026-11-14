@@ -50,4 +50,10 @@ describe("0115 affiliate admin improvements", () => {
     expect(seed).toContain("Pharmacozyme Affiliate Team");
     expect(seed).not.toContain("!");
   });
+
+  it("payout-ready seeds describe the Request payout button and never say dashboard", () => {
+    const seed = sql.slice(sql.toLowerCase().indexOf("insert into"));
+    expect(seed.toLowerCase()).not.toContain("dashboard");
+    expect(seed.match(/Request payout/g)?.length).toBe(2);
+  });
 });

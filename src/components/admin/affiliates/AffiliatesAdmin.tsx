@@ -35,10 +35,6 @@ function stamp(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function when(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
-}
-
 type YesNo = { yes?: boolean; details?: string } | undefined;
 const yesNo = (v: unknown): string => {
   const a = v as YesNo;

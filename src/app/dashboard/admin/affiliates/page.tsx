@@ -48,26 +48,33 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
     console.error("admin affiliates: payouts failed", e);
     payoutsFailed = true;
   }
-  // The message picker is an extra tab feature too: a failed read must not break the list.
+  const tab = parseAffiliatesTab(searchParams?.tab);
+  // Templates and send history are extra tab features: each loads only on its own tab, and a failed read must not break the page.
   let templates: { whatsapp: AffiliateTemplate[]; email: AffiliateTemplate[] } | null = null;
   let templatesFailed = false;
-  try {
-    const all = await listAffiliateTemplates();
-    templates = { whatsapp: all.filter((t) => t.channel === "whatsapp"), email: all.filter((t) => t.channel === "email") };
-  } catch (e) {
-    console.error("admin affiliates: templates failed", e);
-    templatesFailed = true;
-  }
-  // Send history is an extra tab feature too: a failed read must not break the page.
   let sends: MotivationSendRow[] = [];
   let sendsFailed = false;
-  try {
-    sends = await listMotivationSends();
-  } catch (e) {
-    console.error("admin affiliates: send history failed", e);
-    sendsFailed = true;
-  }
-  const tab = parseAffiliatesTab(searchParams?.tab);
+  await Promise.all([
+    (async () => {
+      if (tab !== "affiliates") return;
+      try {
+        const all = await listAffiliateTemplates();
+        templates = { whatsapp: all.filter((t) => t.channel === "whatsapp"), email: all.filter((t) => t.channel === "email") };
+      } catch (e) {
+        console.error("admin affiliates: templates failed", e);
+        templatesFailed = true;
+      }
+    })(),
+    (async () => {
+      if (tab !== "emails") return;
+      try {
+        sends = await listMotivationSends();
+      } catch (e) {
+        console.error("admin affiliates: send history failed", e);
+        sendsFailed = true;
+      }
+    })(),
+  ]);
   const boards = month && all ? { month, all } : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
   const boardUrl = token ? `${base}/affiliate-board/${token}` : null;

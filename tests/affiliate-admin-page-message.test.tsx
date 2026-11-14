@@ -9,6 +9,8 @@ vi.mock("@/lib/data/affiliate-emails", () => ({ affiliatesWithFailedEmail: async
 vi.mock("@/lib/data/affiliate-email-settings", () => ({ readEmailMessage: m.readEmailMessage, getEmailMessage: m.getEmailMessage }));
 const pay = vi.hoisted(() => ({ list: vi.fn() }));
 const tpl = vi.hoisted(() => ({ list: vi.fn() }));
+const snd = vi.hoisted(() => ({ list: vi.fn() }));
+vi.mock("@/lib/data/affiliate-motivation-sends", () => ({ listMotivationSends: snd.list }));
 vi.mock("@/lib/data/affiliate-templates", () => ({ listAffiliateTemplates: tpl.list }));
 vi.mock("@/lib/data/affiliate-payouts", () => ({ listAdminPayouts: pay.list }));
 vi.mock("@/lib/data/affiliate-leaderboard", () => ({ getAffiliateBoard: async () => null, getBoardToken: async () => null }));
@@ -26,6 +28,7 @@ beforeEach(() => {
   m.getEmailMessage.mockReset();
   pay.list.mockReset().mockResolvedValue([]);
   tpl.list.mockReset().mockResolvedValue([]);
+  snd.list.mockReset().mockResolvedValue([]);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -87,7 +90,7 @@ describe("admin affiliates page: templates and subtitle", () => {
   });
   it("passes no templates and the failed flag when the read throws", async () => {
     tpl.list.mockRejectedValue(new Error("db down"));
-    const kids = await kidsOf();
+    const kids = await kidsOf({ tab: "affiliates" });
     const p = kids[kids.length - 1].props as { templates: unknown; templatesFailed: boolean };
     expect(p.templatesFailed).toBe(true);
     expect(p.templates).toBeNull();
@@ -99,5 +102,36 @@ describe("admin affiliates page: templates and subtitle", () => {
       const sub = (header.props as { children: ReactElement[] }).children[1];
       expect((sub.props as { children: string }).children).toBe(tabSubtitle(tab));
     }
+  });
+});
+
+describe("admin affiliates page: per-tab loading", () => {
+  const run = async (tab: string) => {
+    m.readEmailMessage.mockResolvedValue("");
+    return ((await AdminAffiliatesPage({ searchParams: { tab } })) as ReactElement).props.children as ReactElement[];
+  };
+  it("loads neither templates nor sends on Applications", async () => {
+    const kids = await run("applications");
+    expect(tpl.list).not.toHaveBeenCalled();
+    expect(snd.list).not.toHaveBeenCalled();
+    const p = kids[kids.length - 1].props as { templates: unknown; templatesFailed: boolean; sends: unknown[]; sendsFailed: boolean };
+    expect(p.templates).toBeNull();
+    expect(p.templatesFailed).toBe(false);
+    expect(p.sends).toEqual([]);
+    expect(p.sendsFailed).toBe(false);
+  });
+  it("loads only templates on Affiliates", async () => {
+    await run("affiliates");
+    expect(tpl.list).toHaveBeenCalledTimes(1);
+    expect(snd.list).not.toHaveBeenCalled();
+  });
+  it("loads only sends on Emails and flags a failed read", async () => {
+    snd.list.mockRejectedValue(new Error("db down"));
+    const kids = await run("emails");
+    expect(tpl.list).not.toHaveBeenCalled();
+    expect(snd.list).toHaveBeenCalledTimes(1);
+    const p = kids[kids.length - 1].props as { sendsFailed: boolean; sends: unknown[] };
+    expect(p.sendsFailed).toBe(true);
+    expect(p.sends).toEqual([]);
   });
 });
