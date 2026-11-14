@@ -5,6 +5,7 @@ import { readEmailMessage } from "@/lib/data/affiliate-email-settings";
 import { getAffiliateBoard, getBoardToken } from "@/lib/data/affiliate-leaderboard";
 import { listAdminPayouts, type PayoutRow } from "@/lib/data/affiliate-payouts";
 import { listAffiliateTemplates, type AffiliateTemplate } from "@/lib/data/affiliate-templates";
+import { listMotivationSends, type MotivationSendRow } from "@/lib/data/affiliate-motivation-sends";
 import { parseAffiliatesTab, tabSubtitle } from "@/lib/affiliates/hub-routes";
 import { AffiliatesAdmin } from "@/components/admin/affiliates/AffiliatesAdmin";
 
@@ -57,6 +58,15 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
     console.error("admin affiliates: templates failed", e);
     templatesFailed = true;
   }
+  // Send history is an extra tab feature too: a failed read must not break the page.
+  let sends: MotivationSendRow[] = [];
+  let sendsFailed = false;
+  try {
+    sends = await listMotivationSends();
+  } catch (e) {
+    console.error("admin affiliates: send history failed", e);
+    sendsFailed = true;
+  }
   const tab = parseAffiliatesTab(searchParams?.tab);
   const boards = month && all ? { month, all } : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://pharmacozyme.com").replace(/\/+$/, "");
@@ -70,7 +80,7 @@ export default async function AdminAffiliatesPage({ searchParams }: { searchPara
           {tabSubtitle(tab)}
         </p>
       </div>
-      <AffiliatesAdmin tab={tab} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} templates={templates} templatesFailed={templatesFailed} />
+      <AffiliatesAdmin tab={tab} initial={rows} emailFailedIds={Array.from(failed)} boards={boards} boardUrl={boardUrl} emailMessage={emailMessage} emailMessageFailed={emailMessageFailed} payouts={payouts} payoutsFailed={payoutsFailed} templates={templates} templatesFailed={templatesFailed} sends={sends} sendsFailed={sendsFailed} />
     </div>
   );
 }

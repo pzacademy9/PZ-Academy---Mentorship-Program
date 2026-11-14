@@ -289,3 +289,35 @@ describe("AffiliateEmailsTab: pick and search", () => {
     await waitFor(() => expect(screen.getByTestId("motivation-list").getAttribute("tabindex")).toBe("0"));
   });
 });
+
+describe("AffiliateEmailsTab: history", () => {
+  const sendRow = { id: "s1", createdAt: "2026-11-10T10:00:00Z", subject: "Keep going", recipientCount: 3, failedCount: 0, recipients: [] };
+
+  it("starts on Send and switches to History and back", async () => {
+    route([]);
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} sends={[sendRow]} sendsFailed={false} />);
+    expect(screen.getByRole("button", { name: "Send" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Message text")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.getByText("Sent to 3 people")).toBeTruthy();
+    expect(screen.queryByLabelText("Message text")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(screen.getByLabelText("Message text")).toBeTruthy();
+  });
+
+  it("posts the same sendId in every chunk of one press and calls onSent after", async () => {
+    const bodies: { sendId?: string }[] = [];
+    route(people(30), (b) => {
+      bodies.push(b as { sendId?: string });
+      return okSend(b);
+    });
+    const onSent = vi.fn();
+    render(<AffiliateEmailsTab initialMessage="" messageFailed={false} onSent={onSent} />);
+    const btn = await screen.findByRole("button", { name: "Send to 30 people" });
+    fireEvent.click(btn);
+    await waitFor(() => expect(onSent).toHaveBeenCalled());
+    expect(bodies).toHaveLength(2);
+    expect(typeof bodies[0].sendId).toBe("string");
+    expect(bodies[0].sendId).toBe(bodies[1].sendId);
+  });
+});

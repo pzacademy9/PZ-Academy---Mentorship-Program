@@ -16,6 +16,7 @@ import { AffiliateLeaderboardTab, type AdminBoards } from "./AffiliateLeaderboar
 import { AffiliateEmailsTab } from "./AffiliateEmailsTab";
 import { AffiliatesList } from "./AffiliatesList";
 import type { AffiliateTemplates } from "./AffiliateMessagePicker";
+import type { MotivationSendRow } from "@/lib/data/affiliate-motivation-sends";
 import { AffiliatePayoutsTab } from "./AffiliatePayoutsTab";
 import type { PayoutRow } from "@/lib/data/affiliate-payouts";
 import type { AffiliatesTab } from "@/lib/affiliates/hub-routes";
@@ -339,6 +340,8 @@ export function AffiliatesAdmin({
   payoutsFailed = false,
   templates = null,
   templatesFailed = false,
+  sends = [],
+  sendsFailed = false,
 }: {
   /** The section to show; the sidebar and bottom bar are the navigation. */
   tab: AffiliatesTab;
@@ -352,6 +355,8 @@ export function AffiliatesAdmin({
   payoutsFailed?: boolean;
   templates?: AffiliateTemplates | null;
   templatesFailed?: boolean;
+  sends?: MotivationSendRow[];
+  sendsFailed?: boolean;
 }) {
   const router = useRouter();
   const confirmTop = useConfirm();
@@ -391,7 +396,7 @@ export function AffiliatesAdmin({
       ) : tab === "leaderboard" ? (
         <AffiliateLeaderboardTab boards={boards} boardUrl={boardUrl} />
       ) : tab === "emails" ? (
-        <AffiliateEmailsTab initialMessage={savedMessage} messageFailed={messageFailed} onSaved={(text) => { setSavedMessage(text); setMessageFailed(false); }} />
+        <AffiliateEmailsTab initialMessage={savedMessage} messageFailed={messageFailed} onSaved={(text) => { setSavedMessage(text); setMessageFailed(false); }} sends={sends} sendsFailed={sendsFailed} onSent={() => router.refresh()} />
       ) : shown.length === 0 ? (
         <EmptyState icon={Users} title={tab === "applications" ? "No applications waiting" : "No affiliates yet"} description={tab === "applications" ? "New applications show up here." : "Accepted affiliates show up here."} />
       ) : tab === "affiliates" ? (
