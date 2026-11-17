@@ -93,4 +93,11 @@ describe("promoMessage", () => {
     expect(new Set(texts).size).toBe(reasons.length);
     expect(promoMessage("expired")).toBe("This promo code has expired.");
   });
+  it("says only that the code is invalid when a percent is over the limit, never the limit", () => {
+    for (const t of [promoMessage("over_max"), promoMessage("over_max", 30)]) {
+      expect(t).toBe("This promo code is invalid.");
+      expect(t).not.toMatch(/[0-9]/);
+      expect(t.toLowerCase()).not.toContain("maximum");
+    }
+  });
 });

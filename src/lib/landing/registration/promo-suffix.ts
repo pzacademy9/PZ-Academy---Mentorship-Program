@@ -32,14 +32,15 @@ export function effectiveOwnerPromo(p: {
   };
 }
 
-/** An ordinary code typed with a percent, seen as a plain percent code. Only the global ceiling applies. */
+/** An ordinary code typed with a percent, seen as a plain percent code. The ceiling is the code's own cap (when above 0) or the global ceiling, whichever is lower. */
 export function effectiveOrdinaryPromo(p: {
   code: PromoCode;
   typed: string;
   percent: number;
   globalMax: number;
 }): { ok: true; promo: PromoCode } | { ok: false; reason: "over_max"; max: number } {
-  if (p.percent > p.globalMax) return { ok: false, reason: "over_max", max: p.globalMax };
+  const max = Math.min(p.globalMax, p.code.maxDiscountPercent > 0 ? p.code.maxDiscountPercent : p.globalMax);
+  if (p.percent > max) return { ok: false, reason: "over_max", max };
   return {
     ok: true,
     promo: { ...p.code, code: p.typed, type: "percent", value: p.percent, fixedAmounts: {}, maxDiscountPercent: 0 },

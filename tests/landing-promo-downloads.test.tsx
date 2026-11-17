@@ -37,29 +37,48 @@ const spec = () => (globalThis as unknown as { __spec: { rows: string[][]; colum
 
 beforeEach(() => { save.mockReset(); toast.error.mockReset(); });
 
+function openMenu() {
+  const trigger = screen.getByRole("button", { name: "Download PDF" });
+  trigger.focus();
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  return trigger;
+}
+const item = (name: string) => screen.findByRole("menuitem", { name });
+
 describe("PromoDownloads", () => {
-  it("shows all three buttons for people-permitted admins", () => {
+  it("shows only the one button until it is clicked", () => {
     render(<PromoDownloads {...props} />);
-    expect(screen.getByRole("button", { name: "Ordinary codes (PDF)" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sales agent codes (PDF)" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Affiliate codes (PDF)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeTruthy();
+    expect(screen.queryByText("Download as PDF")).toBeNull();
+    expect(screen.queryByRole("menuitem")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ordinary codes/ })).toBeNull();
   });
-  it("hides the people buttons without permission", () => {
+  it("lists the three items for people-permitted admins", async () => {
+    render(<PromoDownloads {...props} />);
+    openMenu();
+    expect(await item("Ordinary codes")).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Sales agent codes" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Affiliate codes" })).toBeTruthy();
+  });
+  it("lists two items without permission", async () => {
     render(<PromoDownloads {...props} canDownloadPeople={false} />);
-    expect(screen.getByRole("button", { name: "Ordinary codes (PDF)" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Sales agent codes (PDF)" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Affiliate codes (PDF)" })).toBeNull();
+    openMenu();
+    expect(await item("Ordinary codes")).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Sales agent codes" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Affiliate codes" })).toBeNull();
   });
   it("downloads ordinary codes straight away", async () => {
     render(<PromoDownloads {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Ordinary codes (PDF)" }));
+    openMenu();
+    fireEvent.click(await item("Ordinary codes"));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0][0]).toMatch(/^pz-promo-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
     expect(spec().rows.map((r) => r[0])).toEqual(["PZ10"]);
   });
   it("asks who will see the agent file, then saves the share version", async () => {
     render(<PromoDownloads {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Sales agent codes (PDF)" }));
+    openMenu();
+    fireEvent.click(await item("Sales agent codes"));
     expect(await screen.findByText("Who will see this file?")).toBeTruthy();
     expect(screen.getByText("Shows name and code only.")).toBeTruthy();
     expect(screen.getByText("Also shows the discount and whether the code is on.")).toBeTruthy();
@@ -70,37 +89,53 @@ describe("PromoDownloads", () => {
   });
   it("saves the me version for affiliates", async () => {
     render(<PromoDownloads {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Affiliate codes (PDF)" }));
+    openMenu();
+    fireEvent.click(await item("Affiliate codes"));
     fireEvent.click(await screen.findByRole("button", { name: /For me/ }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0][0]).toMatch(/^pz-affiliate-codes-/);
     expect(spec().rows[0]).toEqual(["Sara", "SARA-1", "10% off plain", "On"]);
   });
-  it("Escape closes the dialog and focus returns to the button", async () => {
+  it("Escape closes the dialog and focus returns to Download PDF", async () => {
     render(<PromoDownloads {...props} />);
-    const btn = screen.getByRole("button", { name: "Sales agent codes (PDF)" });
-    btn.focus();
-    fireEvent.click(btn);
+    const btn = openMenu();
+    fireEvent.click(await item("Sales agent codes"));
     await screen.findByText("Who will see this file?");
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     await waitFor(() => expect(screen.queryByText("Who will see this file?")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(btn));
+    expect(document.body.style.pointerEvents).not.toBe("none");
+    expect(save).not.toHaveBeenCalled();
+  });
+  it("Escape closes the open menu and focus returns to Download PDF", async () => {
+    render(<PromoDownloads {...props} />);
+    const btn = openMenu();
+    const first = await item("Ordinary codes");
+    fireEvent.keyDown(first, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menuitem")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(btn));
     expect(save).not.toHaveBeenCalled();
   });
   it("tells the owner when there are no codes for the file", async () => {
     render(<PromoDownloads {...props} codes={[code({ id: "9", code: "OFF", active: false })]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Ordinary codes (PDF)" }));
+    openMenu();
+    fireEvent.click(await item("Ordinary codes"));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("There are no codes to put in this file."));
     expect(save).not.toHaveBeenCalled();
   });
-  it("shows a busy state while the file is made", async () => {
+  it("is busy and disabled while the file is made, and a second pick does nothing", async () => {
     render(<PromoDownloads {...props} />);
-    const btn = screen.getByRole("button", { name: "Ordinary codes (PDF)" });
-    fireEvent.click(btn);
+    openMenu();
+    fireEvent.click(await item("Ordinary codes"));
     const busy = screen.getByRole("button", { name: /Making the file/ });
     expect(busy.getAttribute("aria-busy")).toBe("true");
     expect((busy as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => expect(screen.queryByRole("menuitem")).toBeNull());
+    fireEvent.pointerDown(busy, { button: 0, ctrlKey: false });
+    fireEvent.keyDown(busy, { key: "Enter" });
+    expect(screen.queryByRole("menuitem")).toBeNull();
     await waitFor(() => expect(save).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ordinary codes (PDF)" }).getAttribute("aria-busy")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" }).getAttribute("aria-busy")).toBeNull());
+    expect(save).toHaveBeenCalledTimes(1);
   });
 });

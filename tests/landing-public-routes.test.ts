@@ -203,7 +203,7 @@ describe("POST /api/landing/[slug]/quote", () => {
     const p25 = await (await quote(postReq(quoteBody({ promoCode: "TEST-111-25%" })), ctx())).json();
     expect(p25.promo).toMatchObject({ ok: true, discount: 1200, total: 3600 });
   });
-  it("names the maximum when the typed percent is too high", async () => {
+  it("reports over_max when the typed percent is too high", async () => {
     m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? promo({ id: "own-1", code: "TEST-111", value: 0, ownerAgentId: "a-1", isOwnerCode: true, plainPercent: 10, maxPercent: null }) : null));
     const body = await (await quote(postReq(quoteBody({ promoCode: "TEST-111-35%" })), ctx())).json();
     expect(body.promo).toEqual({ ok: false, reason: "over_max", max: 30 });

@@ -29,6 +29,11 @@ describe("resolvePromoWith", () => {
   it("refuses an ordinary-code percent above the global ceiling", async () => {
     expect(await resolvePromoWith("SAVE-40%", deps([base({ code: "SAVE" })]))).toEqual({ promo: null, overMax: 30 });
   });
+  it("applies a code's own cap: PZ-AFT (10% plain, cap 30) typed with 40% is over the limit, plain stays 10%", async () => {
+    const d = deps([base({ id: "aft", code: "PZ-AFT", value: 10, maxDiscountPercent: 30 })], 50);
+    expect(await resolvePromoWith("PZ-AFT-40%", d)).toEqual({ promo: null, overMax: 30 });
+    expect((await resolvePromoWith("PZ-AFT", d)).promo).toMatchObject({ id: "aft", value: 10 });
+  });
   it("uses the longest stored base when the base itself ends in -NN", async () => {
     const d = deps([base({ id: "b10", code: "SAVE-10" })]);
     expect((await resolvePromoWith("SAVE-10-5%", d)).promo).toMatchObject({ id: "b10", value: 5 });
