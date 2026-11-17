@@ -11,7 +11,7 @@ let n = 0;
 const reg = (id: string, o: Record<string, unknown> = {}) => ({
   id, page_id: PAGE, row_type: "individual", lead_registration_id: null, name: `N ${id}`, email: `${id}@x.com`,
   whatsapp: "", profession: "", discovery: "", consent: true, status: "paid", expected_amount: 100, currency: "PKR",
-  promo_code_text: "", created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, ++n)).toISOString(), status_changed_at: null, is_test: false, ...o,
+  promo_code_text: "", created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, ++n)).toISOString(), status_changed_at: null, is_test: false, mode: "live", option_keys: null, region: "", ...o,
 });
 
 let store: Store;
@@ -81,6 +81,15 @@ describe("closeBatch", () => {
     expect(a.fn).toBe("landing_close_batch");
     expect(a.args).toMatchObject({ p_page_id: PAGE, p_page_title: "PMH Batch 1", p_course_id: COURSE, p_created_by: ADMIN });
     expect((a.args.p_rows as unknown[]).length).toBe(1250);
+  });
+  it("sends mode, optionKeys, region and registeredAt in each row", async () => {
+    setup([reg("a", { mode: "recorded", option_keys: ["m1"], region: "UK" })]);
+    await closeBatch({ pageId: PAGE, adminId: ADMIN });
+    const row = (rpcCalls[0].args.p_rows as Record<string, unknown>[])[0];
+    expect((row.purchase as Record<string, unknown>).mode).toBe("recorded");
+    expect(row.optionKeys).toEqual(["m1"]);
+    expect(row.region).toBe("UK");
+    expect(row.registeredAt).toBe(new Date(Date.UTC(2026, 0, 1, 0, 0, 1)).toISOString());
   });
   it("passes a null course through", async () => {
     setup([reg("a")], {}, null);

@@ -23,11 +23,17 @@ export type RegRow = {
   created_at: string;
   status_changed_at: string | null;
   is_test: boolean;
+  mode: "live" | "recorded";
+  option_keys: string[] | null;
+  region: string;
 };
 
 export type CloseRow = {
   rowRef: string;
   bucket: "paid" | "interested";
+  optionKeys: string[];
+  region: string | null;
+  registeredAt: string;
   contact: {
     email: string | null;
     phoneE164: string | null;
@@ -43,6 +49,7 @@ export type CloseRow = {
     rowType: "individual" | "group_leader" | "group_member";
     promoCode: string | null;
     purchasedAt: string;
+    mode: "live" | "recorded" | null;
   };
 };
 
@@ -104,9 +111,18 @@ export function mapRegistrations(regs: RegRow[]): MapResult {
     }
 
     const rawPhone = r.whatsapp.trim();
+    // A member with blank own values takes its lead's.
+    const lead = r.row_type === "member" && r.lead_registration_id ? byId.get(r.lead_registration_id) : undefined;
+    const ownKeys = r.option_keys ?? [];
+    const optionKeys = ownKeys.length > 0 ? ownKeys : (lead?.option_keys ?? []);
+    const region = (r.region ?? "").trim() || (lead?.region ?? "").trim() || null;
+    const mode = r.mode || lead?.mode || null;
     rows.push({
       rowRef: r.id,
       bucket,
+      optionKeys,
+      region,
+      registeredAt: r.created_at,
       contact: {
         email: email === "" ? null : email,
         phoneE164: phone.ok ? phone.e164 : null,
@@ -122,6 +138,7 @@ export function mapRegistrations(regs: RegRow[]): MapResult {
         rowType: ROW_TYPE[r.row_type],
         promoCode: r.promo_code_text.trim() === "" ? null : r.promo_code_text.trim(),
         purchasedAt: r.status_changed_at ?? r.created_at,
+        mode,
       },
     });
     if (bucket === "paid") paid += 1;
