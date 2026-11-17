@@ -12,7 +12,7 @@ import {
   audienceFacets,
   courseNameOf,
 } from "@/lib/data/audience-query";
-import { loadAudienceContacts, loadCohortAudience } from "@/lib/data/cohort-export";
+import { loadAudienceContacts, loadCohortAudience, mapPool } from "@/lib/data/cohort-export";
 import { DEFAULT_AUDIENCE_FILTER, type AudienceFilter } from "@/lib/crm/audience-filter";
 
 const contact = (id: string, o: Record<string, unknown> = {}) => ({
@@ -65,6 +65,64 @@ describe("courseNameOf", () => {
     expect(courseNameOf({ kind: "purchase", courseTitle: null, productLabel: "Individual — PKR 2,700" })).toBe("Unnamed");
     expect(courseNameOf({ kind: "interested", courseTitle: null, sheetName: "Clinical Course (interested)" })).toBe("Clinical Course");
     expect(courseNameOf({ kind: "interested", courseTitle: " Other Course ", sheetName: "Page (interested)" })).toBe("Other Course");
+  });
+});
+
+describe("course names from the import batch", () => {
+  it("purchases with no course and no course in the label are named after their batch's course, then its sheet", async () => {
+    setup({
+      import_batches: [
+        batch("b1", "imported", { course_id: "k-pharm", sheet_name: "Old Sheet One" }),
+        batch("b2", "imported", { sheet_name: "  PPC Batch 3 " }),
+        batch("b3", "imported", { sheet_name: "" }),
+      ],
+      contacts: [contact("a"), contact("b"), contact("c")],
+      contact_purchases: [
+        purchase("p1", "a", { import_batch_id: "b1", product_label: "Individual — PKR 2,700" }),
+        purchase("p2", "b", { import_batch_id: "b2", product_label: "Individual — PKR 2,700" }),
+        purchase("p3", "c", { import_batch_id: "b3", product_label: "Individual — PKR 2,700" }),
+      ],
+    });
+    const f = await audienceFacets();
+    expect(f.courses).toEqual([
+      { name: "Pharmacology Basics", count: 1 },
+      { name: "PPC Batch 3", count: 1 },
+      { name: "Unnamed", count: 1 },
+    ]);
+    expect(await ids({ courses: ["PPC Batch 3"] })).toEqual(["b"]);
+    expect(await ids({ courses: ["Pharmacology Basics"] })).toEqual(["a"]);
+  });
+
+  it("courseNameOf uses batch course, then batch sheet name (without a (paid) suffix)", () => {
+    expect(courseNameOf({ kind: "purchase", courseTitle: null, productLabel: "Individual — PKR 1", batchCourseTitle: "Batch Course", batchSheetName: "S" })).toBe("Batch Course");
+    expect(courseNameOf({ kind: "purchase", courseTitle: null, productLabel: "Individual — PKR 1", batchCourseTitle: null, batchSheetName: "Page X (paid)" })).toBe("Page X");
+    expect(courseNameOf({ kind: "purchase", courseTitle: null, productLabel: "Clinical Course — Individual", batchCourseTitle: "Batch Course", batchSheetName: "S" })).toBe("Clinical Course");
+  });
+});
+
+describe("mapPool", () => {
+  it("keeps result order with several running at once", async () => {
+    let running = 0;
+    let peak = 0;
+    const out = await mapPool(Array.from({ length: 12 }, (_, i) => i), 5, async (n) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((r) => setTimeout(r, (12 - n) * 2));
+      running--;
+      return n * 10;
+    });
+    expect(out).toEqual(Array.from({ length: 12 }, (_, i) => i * 10));
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(5);
+  });
+
+  it("rejects with the first failure", async () => {
+    await expect(
+      mapPool([1, 2, 3], 2, async (n) => {
+        if (n === 2) throw new Error("contacts read failed");
+        return n;
+      }),
+    ).rejects.toThrow("contacts read failed");
   });
 });
 
@@ -360,6 +418,36 @@ describe("loadAudienceContacts (shared with cohorts)", () => {
     expect(direct).toEqual(viaCohort);
     expect(direct.map((c) => c.id)).toEqual(["a", "b", "c"]);
     expect(direct.find((c) => c.id === "c")!.emailSuppressed).toBe(true);
+  });
+
+  it("reads chunks in parallel but returns contacts in id order, with suppression across every chunk", async () => {
+    const n = 1150;
+    const cid = (i: number) => `c${String(i).padStart(5, "0")}`;
+    setup({
+      contacts: Array.from({ length: n }, (_, i) => contact(cid(i))),
+      email_metrics: [
+        { id: "m1", user_email: `${cid(5)}@x.com`, event_type: "spam" },
+        { id: "m2", user_email: `${cid(1149)}@X.com`, event_type: "hard_bounce" },
+      ],
+    });
+    const shuffled = Array.from({ length: n }, (_, i) => cid((i * 7) % n));
+    const out = await loadAudienceContacts(shuffled);
+    expect(out.map((c) => c.id)).toEqual(Array.from({ length: n }, (_, i) => cid(i)));
+    expect(out.filter((c) => c.emailSuppressed).map((c) => c.id)).toEqual([cid(5), cid(1149)]);
+    expect(db.find("contacts", "select").length).toBe(6);
+    expect(db.find("email_metrics", "select").length).toBe(12);
+  });
+
+  it("one failing chunk rejects with the plain message", async () => {
+    const cid = (i: number) => `c${String(i).padStart(5, "0")}`;
+    setup({ contacts: Array.from({ length: 700 }, (_, i) => contact(cid(i))) }, (op, inner) => {
+      const list = op.filters.find(([k, f]) => k === "in" && f === "id")?.[2] as string[] | undefined;
+      if (op.table === "contacts" && list?.includes(cid(450))) {
+        return { data: null, error: { code: "57014", message: "timeout for c00450@x.com" } };
+      }
+      return inner(op);
+    });
+    await expect(loadAudienceContacts(Array.from({ length: 700 }, (_, i) => cid(i)))).rejects.toThrow(/^contacts read failed$/);
   });
 
   it("returns nothing for no ids, without reading", async () => {

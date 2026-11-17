@@ -3,7 +3,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { buildMetaRows, type AudienceContact } from "@/lib/crm/meta-audience";
 import { AUDIENCE_MAX_PEOPLE, type AudienceFilter } from "@/lib/crm/audience-filter";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
-import { chunk, loadAudienceContacts, pageAll, ReadError } from "@/lib/data/cohort-export";
+import { chunk, loadAudienceContacts, mapPool, pageAll, READ_POOL, ReadError } from "@/lib/data/cohort-export";
 
 /**
  * Audience engine for the Meta Audiences page.
@@ -44,6 +44,7 @@ type Registrations = {
 type PurchaseRow = {
   id: string;
   contact_id: string;
+  import_batch_id: string | null;
   product_label: string | null;
   course_id: string | null;
   reg_mode?: string | null;
@@ -61,16 +62,37 @@ type BatchRow = { id: string; sheet_id: string; sheet_name: string; course_id: s
 const UNNAMED = "Unnamed";
 
 export type CourseNameInput =
-  | { kind: "purchase"; courseTitle: string | null; productLabel: string | null }
+  | {
+      kind: "purchase";
+      courseTitle: string | null;
+      productLabel: string | null;
+      /** The purchase's import batch: its course title and sheet name. */
+      batchCourseTitle?: string | null;
+      batchSheetName?: string | null;
+    }
   | { kind: "interested"; courseTitle: string | null; sheetName: string | null };
 
-/** The one course-name rule shared by the filter and the facets. */
+const sheetCourse = (sheetName: string | null | undefined) =>
+  (sheetName ?? "").replace(/\s*\((?:interested|paid)\)\s*$/i, "").trim();
+
+/**
+ * The one course-name rule shared by the filter and the facets.
+ * Purchase: course title, else the label's course part, else the import
+ * batch's course title, else the batch's sheet name, else "Unnamed".
+ * Interested: the batch's course title, else its sheet name.
+ */
 export function courseNameOf(input: CourseNameInput): string {
   const title = input.courseTitle?.trim();
   if (title) return title;
-  if (input.kind === "purchase") return courseNameFromLabel(input.productLabel) || UNNAMED;
-  const sheet = (input.sheetName ?? "").replace(/\s*\(interested\)\s*$/i, "").trim();
-  return sheet || UNNAMED;
+  if (input.kind === "purchase") {
+    return (
+      courseNameFromLabel(input.productLabel) ||
+      input.batchCourseTitle?.trim() ||
+      sheetCourse(input.batchSheetName) ||
+      UNNAMED
+    );
+  }
+  return sheetCourse(input.sheetName) || UNNAMED;
 }
 
 const courseKey = (name: string) => name.trim().toLowerCase();
@@ -106,12 +128,12 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
     withNew
       ? admin
           .from("contact_purchases")
-          .select("id, contact_id, product_label, course_id, reg_mode, purchased_at, created_at")
+          .select("id, contact_id, import_batch_id, product_label, course_id, reg_mode, purchased_at, created_at")
           .order("id", { ascending: true })
           .range(from, to)
       : admin
           .from("contact_purchases")
-          .select("id, contact_id, product_label, course_id, purchased_at, created_at")
+          .select("id, contact_id, import_batch_id, product_label, course_id, purchased_at, created_at")
           .order("id", { ascending: true })
           .range(from, to),
   );
@@ -123,11 +145,11 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
       .order("id", { ascending: true })
       .range(from, to),
   );
+  const batchById = new Map(batches.map((b) => [b.id, b]));
   const interestedBatches = new Map(batches.filter((b) => b.kind === "closed_interested").map((b) => [b.id, b]));
 
-  const interestedRows: InterestedRow[] = [];
-  for (const part of chunk(Array.from(interestedBatches.keys()))) {
-    const rows = await pageAll<InterestedRow>("import_batch_contacts", (from, to) =>
+  const interestedParts = await mapPool(chunk(Array.from(interestedBatches.keys())), READ_POOL, (part) =>
+    pageAll<InterestedRow>("import_batch_contacts", (from, to) =>
       withNew
         ? admin
             .from("import_batch_contacts")
@@ -143,9 +165,9 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
             .order("import_batch_id", { ascending: true })
             .order("contact_id", { ascending: true })
             .range(from, to),
-    );
-    interestedRows.push(...rows);
-  }
+    ),
+  );
+  const interestedRows: InterestedRow[] = interestedParts.flat();
 
   const courseNames = new Map<string, string>();
   const named = (name: string) => {
@@ -158,10 +180,13 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
   const buyers = new Set<string>();
   for (const p of purchases) {
     buyers.add(p.contact_id);
+    const b = p.import_batch_id ? batchById.get(p.import_batch_id) : undefined;
     const name = courseNameOf({
       kind: "purchase",
       courseTitle: p.course_id ? courseTitle.get(p.course_id) ?? null : null,
       productLabel: p.product_label,
+      batchCourseTitle: b?.course_id ? courseTitle.get(b.course_id) ?? null : null,
+      batchSheetName: b?.sheet_name ?? null,
     });
     regs.push({
       contactId: p.contact_id,

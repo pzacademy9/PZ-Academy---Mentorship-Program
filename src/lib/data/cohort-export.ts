@@ -59,6 +59,33 @@ export function chunk<T>(items: T[], size = IN_CHUNK): T[][] {
   return out;
 }
 
+/** How many chunk reads run at once. Small, to stay gentle on the database. */
+export const READ_POOL = 5;
+
+/**
+ * Runs `fn` over `items` with at most `limit` running at once. Results keep
+ * the input order. The first failure rejects the whole call with that error;
+ * nothing new starts after a failure.
+ */
+export async function mapPool<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      const i = next++;
+      try {
+        out[i] = await fn(items[i], i);
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
+  return out;
+}
+
 type BatchRow = { id: string; sheet_name: string; tab_name: string; kind: string };
 
 export async function loadCohortAudience(
@@ -150,15 +177,18 @@ export async function loadAudienceContacts(contactIds: string[]): Promise<Audien
     whatsapp_unsubscribed_at: string | null;
     do_not_contact_at: string | null;
   }> = [];
-  for (const part of chunk(ids)) {
+  // Chunks run a few at a time; results are joined in chunk order, so the
+  // contacts come back in id order exactly as a one-by-one read would.
+  const contactParts = await mapPool(chunk(ids), READ_POOL, async (part) => {
     const { data, error } = await admin
       .from("contacts")
       .select("id, email, phone_e164, full_name, country, email_unsubscribed_at, whatsapp_unsubscribed_at, do_not_contact_at")
       .in("id", part)
       .order("id", { ascending: true });
     if (error) throw new Error("contacts read failed");
-    rows.push(...(data ?? []));
-  }
+    return data ?? [];
+  });
+  for (const part of contactParts) rows.push(...part);
 
   // Suppression: lower(user_email) match. PostgREST cannot filter on lower(),
   // so fetch with case-insensitive ilike (a superset: "_" is a wildcard) and
@@ -170,7 +200,7 @@ export async function loadAudienceContacts(contactIds: string[]): Promise<Audien
   const emails = Array.from(
     new Set(rows.map((r) => r.email?.trim().toLowerCase()).filter((e): e is string => !!e && !unsafe(e))),
   );
-  for (const part of chunk(emails, 100)) {
+  await mapPool(chunk(emails, 100), READ_POOL, async (part) => {
     const orExpr = part.map((e) => `user_email.ilike."${e}"`).join(",");
     const events = await pageAll<{ user_email: string }>("email_metrics", (from, to) =>
       admin
@@ -186,7 +216,7 @@ export async function loadAudienceContacts(contactIds: string[]): Promise<Audien
       const lower = e.user_email.trim().toLowerCase();
       if (wanted.has(lower)) suppressed.add(lower);
     }
-  }
+  });
 
   return rows.map((r) => ({
     id: r.id,
