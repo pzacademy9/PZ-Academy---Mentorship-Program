@@ -24,7 +24,9 @@ export default async function AdminPromoCodesPage() {
     p ? [{ id: p.id, title: p.title, options: p.draft.registration.options.map((o) => ({ key: o.key, label: o.label })) }] : [],
   );
   const agents: AgentChoice[] = salesAgents.map((a) => ({ id: a.id, name: a.fullName || a.email || "Unnamed agent" }));
-  const affiliates = affiliateRows.map((a) => ({ id: a.id, name: a.name }));
+  // Names for the PDF files only: never an email, because these files get shared in groups. Empty without Sales Hub.
+  const downloadAgents = salesAgents.map((a) => ({ id: a.id, name: a.fullName.trim() || "Unnamed agent" }));
+  const affiliates = affiliateRows.map((a) => ({ id: a.id, name: a.name.trim() || "Unnamed affiliate" }));
   const linkPages: LinkPage[] = summaries.filter((s) => s.status === "published").map((s) => ({ slug: s.slug, title: s.title }));
 
   return (
@@ -35,7 +37,7 @@ export default async function AdminPromoCodesPage() {
           Discount codes for the registration form on your landing pages. The server checks every code, so a made-up code never gives a discount.
         </p>
       </div>
-      <PromoCodesManager codes={codes} pages={pages} agents={agents} maxPercent={settings.maxPercent} affiliates={affiliates} canDownloadPeople={canMakeLinks} />
+      <PromoCodesManager codes={codes} pages={pages} agents={agents} maxPercent={settings.maxPercent} downloadAgents={downloadAgents} affiliates={affiliates} canDownloadPeople={canMakeLinks} />
       {canMakeLinks && <AgentLinksPanel agents={agents} pages={linkPages} />}
     </div>
   );

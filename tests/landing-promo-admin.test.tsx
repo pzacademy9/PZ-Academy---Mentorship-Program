@@ -14,6 +14,11 @@ vi.mock("@/lib/data/landing-promo-codes", () => ({ listPromoCodes: data.listProm
 vi.mock("@/lib/data/landing-pages", () => ({ listLandingPages: data.listLandingPages, getLandingPage: data.getLandingPage }));
 vi.mock("@/lib/data/sales-agents", () => ({ listSalesAgents: data.listSalesAgents }));
 vi.mock("@/lib/data/affiliates", () => ({ listAffiliates: data.listAffiliates }));
+const pdf = vi.hoisted(() => ({ save: vi.fn(), specs: [] as { rows: string[][] }[] }));
+vi.mock("@/lib/landing/registration/promo-pdf", async () => {
+  const real = await vi.importActual<typeof import("@/lib/landing/registration/promo-pdf")>("@/lib/landing/registration/promo-pdf");
+  return { ...real, renderPromoPdf: (spec: { rows: string[][] }) => { pdf.specs.push(spec); return { save: pdf.save }; } };
+});
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: data.requireAdminPage, currentUserMayAccess: data.currentUserMayAccess }));
 
 import { PromoCodesManager } from "@/components/admin/landing/promo/PromoCodesManager";
@@ -378,5 +383,31 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     expect(screen.queryByRole("button", { name: /generate link/i })).toBeNull();
     expect(data.listSalesAgents).not.toHaveBeenCalled();
     expect(data.listAffiliates).not.toHaveBeenCalled();
+  });
+
+  it("never prints an agent or affiliate email in a PDF, in Share or For me", async () => {
+    data.requireAdminPage.mockResolvedValue({ user: { id: "admin-user" }, supabase: {} });
+    data.currentUserMayAccess.mockResolvedValue(true);
+    data.listPromoCodes.mockResolvedValue([
+      promo({ id: "o1", code: "NONAME-1", isOwnerCode: true, ownerAgentId: "agent-9", plainPercent: 10 } as Partial<PromoCode>),
+      promo({ id: "o2", code: "AFF-1", isOwnerCode: true, ownerAffiliateId: "aff-9", plainPercent: 10 } as Partial<PromoCode>),
+    ]);
+    data.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
+    data.listLandingPages.mockResolvedValue([]);
+    data.listSalesAgents.mockResolvedValue([{ id: "agent-9", fullName: "  ", email: "secret.agent@pz.test", createdAt: "2026-09-01T00:00:00Z", contactCount: 0 }]);
+    data.listAffiliates.mockResolvedValue([{ id: "aff-9", name: "Sara Khan", email: "secret.aff@pz.test" }]);
+    pdf.specs.length = 0;
+    render(await AdminPromoCodesPage());
+    for (const [btn, mode] of [["Sales agent codes (PDF)", "Share in a group"], ["Sales agent codes (PDF)", "For me"], ["Affiliate codes (PDF)", "For me"]]) {
+      const before = pdf.specs.length;
+      fireEvent.click(screen.getByRole("button", { name: btn }));
+      fireEvent.click(await screen.findByRole("button", { name: new RegExp(mode) }));
+      await waitFor(() => expect(pdf.specs.length).toBe(before + 1));
+      await waitFor(() => expect((screen.getByRole("button", { name: btn }) as HTMLButtonElement).disabled).toBe(false));
+    }
+    const all = JSON.stringify(pdf.specs);
+    expect(all).not.toContain("@");
+    expect(pdf.specs[0].rows[0]).toEqual(["Unnamed agent", "NONAME-1"]);
+    expect(pdf.specs[1].rows[0][0]).toBe("Unnamed agent");
   });
 });
