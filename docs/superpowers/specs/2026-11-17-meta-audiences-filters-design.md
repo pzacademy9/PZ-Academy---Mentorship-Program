@@ -49,8 +49,8 @@ The owner runs Meta ads and today can only download whole cohorts (one imported 
 - Whether a download link carries the saved audience id or the filters.
 - Test plan; owner steps file for pasting 0116.
 
-## Open decision (the owner decides before building)
-Stitch has no Audiences screen. Either the owner agrees to build it from existing parts (Cohorts panel, filter chips from the Contacts/Segment builder, as done for the promo page), or we stop and hand two Stitch prompts (phone 390px and PC 1440px).
+## Decision on design source (owner, 2026-11-17)
+Stitch produced no Audiences screen after two sends and 30+ minutes. The owner agreed to build from existing parts (Cohorts panel, chips and segmented controls from the Contacts/Segment builder, as done for the promo page). The Stitch prompts are kept in `2026-11-17-meta-audiences-stitch-prompts.md` as the copy and layout guide.
 
 ## Calls made after the builder check (the owner can change any of these)
 1. Recorded/Live, course options and region belong to each registration, so they are stored per purchase and per interested-person row. One person can match through different registrations (live course A, recorded course B).
