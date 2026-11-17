@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import type { PromoCode } from "@/lib/landing/registration/promo";
 import {
   type AgentChoice, PROMO_CURRENCIES, PROMO_STATE_LABEL, describeDiscount, draftFromPromo, draftToInput, emptyPromoDraft, normalizeCodeInput,
-  optionChoices, patchFromInput, promoState, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
+  optionChoices, patchFromInput, promoState, whereText, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
 } from "@/lib/landing/registration/promo-form";
 import { CONTROL, HELP, LABEL } from "../registration/styles";
 
@@ -37,12 +37,6 @@ function datesText(p: PromoCode): string {
 }
 function usesText(p: PromoCode): string {
   return p.maxUses === null ? `${p.usedCount} used` : `${p.usedCount} of ${p.maxUses} used`;
-}
-function whereText(p: PromoCode, pages: PromoPageOption[]): string {
-  const where = p.pageIds.length === 0 ? "All pages" : p.pageIds.map((id) => pages.find((x) => x.id === id)?.title ?? "A deleted page").join(", ");
-  if (p.optionKeys.length === 0) return where;
-  const all = pages.flatMap((x) => x.options);
-  return `${where} · only ${p.optionKeys.map((k) => all.find((o) => o.key === k)?.label ?? k).join(", ")}`;
 }
 const toggleIn = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 // Server field names (Task 13's `{ error, field }`) that have a place in this form.
