@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pause, Pencil, Play, Plus, TicketPercent } from "lucide-react";
+import { Pause, Pencil, Play, Plus, TicketPercent, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -86,6 +86,9 @@ function CeilingBox({ maxPercent }: { maxPercent: number }) {
 export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }: { codes: PromoCode[]; pages: PromoPageOption[]; agents?: AgentChoice[]; maxPercent?: number }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Editing>(null);
+  const [deleting, setDeleting] = useState<PromoCode | null>(null);
+  // The dialog is opened by state, not a Dialog trigger, so remember the Delete button to give focus back to it.
+  const deleteOpener = useRef<HTMLElement | null>(null);
   const now = new Date();
 
   const { run: toggleActive, pendingKey } = useAsyncAction(async (p: PromoCode) => {
@@ -103,6 +106,39 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
       toast.error("Could not reach the server. Please try again.");
     }
   }, { getKey: (p) => p.id });
+
+  // The server decides whether a code can go (usedCount here may be stale), so a 409 keeps the row and shows its message.
+  const { run: removeCode, pending: removing } = useAsyncAction(async (p: PromoCode) => {
+    try {
+      const res = await fetch(`/api/admin/landing-promo-codes/${p.id}`, { method: "DELETE" });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) { toast.error(body?.error ?? "Could not delete the promo code."); setDeleting(null); return; }
+      toast.success(`${p.code} deleted.`);
+      setDeleting(null);
+      router.refresh();
+    } catch {
+      toast.error("Could not reach the server. Please try again.");
+    }
+  });
+
+  const deleteDialog = (
+    <Dialog open={deleting !== null} onOpenChange={(o) => { if (!o && !removing) setDeleting(null); }}>
+      {deleting && (
+        <DialogContent className="sm:max-w-md" onCloseAutoFocus={(e) => { e.preventDefault(); deleteOpener.current?.focus(); }}>
+          <DialogHeader>
+            <DialogTitle>{`Delete ${deleting.code}?`}</DialogTitle>
+            <DialogDescription>This removes the code for good. People who already used it are not affected.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={removing} onClick={() => setDeleting(null)}>Keep it</Button>
+            <Button type="button" variant="destructive" disabled={removing} aria-busy={removing || undefined} onClick={() => void removeCode(deleting)}>
+              {removing ? "Deleting…" : "Delete code"}
+            </Button>
+          </div>
+        </DialogContent>
+      )}
+    </Dialog>
+  );
 
   const dialog = (
     <Dialog open={editing !== null} onOpenChange={(o) => { if (!o) setEditing(null); }}>
@@ -144,6 +180,11 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
         {p.active ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
         {p.active ? "Pause" : "Resume"}
       </Button>
+      {!p.isOwnerCode && p.usedCount === 0 && (
+        <Button type="button" variant="ghost" size="sm" className="text-pz-danger" aria-label={`Delete ${p.code}`} onClick={(e) => { deleteOpener.current = e.currentTarget; setDeleting(p); }}>
+          <Trash2 aria-hidden="true" /> Delete
+        </Button>
+      )}
     </div>
   );
   const stateChip = (p: PromoCode) => {
@@ -154,7 +195,8 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
   return (
     <div className="space-y-4">
       <CeilingBox maxPercent={maxPercent} />
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={HELP}>{codes.some((p) => !p.isOwnerCode && p.usedCount > 0) ? "Used codes cannot be deleted. Pause them instead." : ""}</p>
         <Button type="button" onClick={() => setEditing({ mode: "new" })}>
           <Plus aria-hidden="true" /> New promo code
         </Button>
@@ -206,6 +248,7 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
         </table>
       </div>
       {dialog}
+      {deleteDialog}
     </div>
   );
 }

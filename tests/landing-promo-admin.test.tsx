@@ -80,6 +80,72 @@ describe("PromoCodesManager list", () => {
   });
 });
 
+describe("PromoCodesManager delete", () => {
+  const tableOf = () => screen.getByRole("table", { name: "Promo codes" });
+  const openDelete = () => {
+    const btn = within(tableOf()).getByRole("button", { name: "Delete PZ10" });
+    btn.focus();
+    fireEvent.click(btn);
+    return btn;
+  };
+  it("shows Delete for an unused ordinary code only, and says once why used codes cannot be deleted", () => {
+    render(<PromoCodesManager codes={[
+      promo({ usedCount: 0 }),
+      promo({ id: "promo-2", code: "USED5", usedCount: 2 }),
+      promo({ id: "promo-3", code: "OWNER1", usedCount: 0, isOwnerCode: true, ownerAgentId: "agent-1" }),
+    ]} pages={PAGES} />);
+    const table = tableOf();
+    expect(within(table).getByRole("button", { name: "Delete PZ10" })).toBeTruthy();
+    expect(within(table).queryByRole("button", { name: "Delete USED5" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Delete OWNER1" })).toBeNull();
+    expect(screen.getAllByText("Used codes cannot be deleted. Pause them instead.")).toHaveLength(1);
+  });
+  it("does not show the used-codes line when every ordinary code can be deleted", () => {
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    expect(screen.queryByText("Used codes cannot be deleted. Pause them instead.")).toBeNull();
+  });
+  it("opens a confirm dialog, and Escape closes it and returns focus to the Delete button", async () => {
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    const btn = openDelete();
+    const dialog = screen.getByRole("dialog", { name: "Delete PZ10?" });
+    expect(within(dialog).getByText("This removes the code for good. People who already used it are not affected.")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Delete code" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Keep it" })).toBeTruthy();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock()).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(btn);
+  });
+  it("Keep it closes the dialog without deleting", async () => {
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    openDelete();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete PZ10?" })).getByRole("button", { name: "Keep it" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock()).not.toHaveBeenCalled();
+  });
+  it("Delete code sends DELETE for the right id, then toasts and refreshes", async () => {
+    fetchMock().mockResolvedValue(reply(200, { id: "promo-1" }));
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    openDelete();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete PZ10?" })).getByRole("button", { name: "Delete code" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock().mock.calls[0][0]).toBe("/api/admin/landing-promo-codes/promo-1");
+    expect(fetchMock().mock.calls[0][1].method).toBe("DELETE");
+    expect(toast.success).toHaveBeenCalledWith("PZ10 deleted.");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+  it("a 409 shows the server's message and keeps the row", async () => {
+    fetchMock().mockResolvedValue(reply(409, { error: "This code has been used, so it cannot be deleted. Pause it instead." }));
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    openDelete();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete PZ10?" })).getByRole("button", { name: "Delete code" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This code has been used, so it cannot be deleted. Pause it instead."));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(within(tableOf()).getByText("PZ10")).toBeTruthy();
+  });
+});
+
 describe("PromoCodesManager form", () => {
   it("creates a percent code limited to one page and one option", async () => {
     render(<PromoCodesManager codes={[promo()]} pages={PAGES} />);
