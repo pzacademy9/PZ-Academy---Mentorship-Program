@@ -105,4 +105,25 @@ describe("audience filter", () => {
       "Registered, not paid",
     ]);
   });
+
+  it("gives plain messages, never zod wording, for type errors", () => {
+    const generic = "The audience choices are not valid.";
+    const D = DEFAULT_AUDIENCE_FILTER;
+    expect(parseAudienceFilter(null)).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, mode: "x" })).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, who: "everyone" })).toEqual({ ok: false, error: generic });
+    const { from: _from, ...noFrom } = D;
+    void _from;
+    expect(parseAudienceFilter(noFrom)).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, courses: "A" })).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, to: 5 })).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, from: "2026-02-30" })).toEqual({ ok: false, error: "Use a real date, like 2026-01-31." });
+    expect(parseAudienceFilter({ ...D, countries: ["pk"] })).toEqual({ ok: false, error: "A country is not recognised." });
+  });
+
+  it("removes repeated courses (case-insensitive, first spelling kept) and countries", () => {
+    const r = parseAudienceFilter({ ...DEFAULT_AUDIENCE_FILTER, courses: ["Alpha", " alpha ", "Beta", "ALPHA"], countries: ["PK", "AE", "PK"] });
+    expect(r.ok && r.filter.courses).toEqual(["Alpha", "Beta"]);
+    expect(r.ok && r.filter.countries).toEqual(["PK", "AE"]);
+  });
 });

@@ -65,10 +65,45 @@ export type ParsedAudienceFilter =
   | { ok: true; filter: AudienceFilter }
   | { ok: false; error: string };
 
+const GENERIC_ERROR = "The audience choices are not valid.";
+
+const PLAIN_MESSAGES = new Set([
+  "Use a real date, like 2026-01-31.",
+  "A course name is empty.",
+  "A course name is too long.",
+  "Pick at most 50 courses.",
+  "A country is not recognised.",
+  "Pick at most 20 countries.",
+  "The start date is after the end date.",
+]);
+
+function dedupeCourses(list: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of list) {
+    const k = c.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(c);
+  }
+  return out;
+}
+
 export function parseAudienceFilter(input: unknown): ParsedAudienceFilter {
   const r = audienceFilterSchema.safeParse(input);
-  if (r.success) return { ok: true, filter: r.data };
-  return { ok: false, error: r.error.issues[0]?.message ?? "The audience choices are not valid." };
+  if (r.success) {
+    return {
+      ok: true,
+      filter: {
+        ...r.data,
+        courses: dedupeCourses(r.data.courses),
+        countries: Array.from(new Set(r.data.countries)),
+      },
+    };
+  }
+  // Only our own plain sentences reach the owner; zod's wording never does.
+  const msg = r.error.issues.map((i) => i.message).find((m) => PLAIN_MESSAGES.has(m));
+  return { ok: false, error: msg ?? GENERIC_ERROR };
 }
 
 export function encodeAudienceFilter(f: AudienceFilter): string {
