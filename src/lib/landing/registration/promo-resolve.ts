@@ -18,7 +18,9 @@ export interface ResolvedPromo {
 const NONE: ResolvedPromo = { promo: null, overMax: null };
 
 // An owner code whose owner is gone (agent or affiliate deleted) is just an ordinary code: no suffix, no plain percent.
-const isLiveOwnerCode = (p: PromoCode) => p.isOwnerCode === true && (p.ownerAgentId !== null || (p.ownerAffiliateId ?? null) !== null);
+export function isLiveOwnerCode(p: PromoCode): boolean {
+  return p.isOwnerCode === true && (p.ownerAgentId !== null || (p.ownerAffiliateId ?? null) !== null);
+}
 
 export async function resolvePromoWith(raw: string, deps: PromoResolveDeps): Promise<ResolvedPromo> {
   // People type "as47 -10 %": codes never contain spaces, so remove them all.

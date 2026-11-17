@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
   try {
     const resolved = await resolvePromoWith(b.promoCode, { getByCode: getPromoByCode, getMax: async () => (await getPromoSettings()).maxPercent });
-    if (resolved.overMax !== null) return publicJson({ quote, promo: { ok: false, reason: "over_max", max: resolved.overMax } });
+    if (resolved.overMax !== null) return publicJson({ quote, promo: { ok: false, reason: "over_max" } });
     const promoCode = resolved.promo;
     const emailAlreadyUsed = promoCode !== null && promoCode.oneperEmail && isEmail(b.email)
       ? await emailUsedPromo(promoCode.id, b.email)

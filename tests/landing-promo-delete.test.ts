@@ -60,9 +60,24 @@ describe("deletePromoCode", () => {
     expect(deletes()).toHaveLength(0);
   });
   it("owner-code for an owner code, with no delete", async () => {
-    answers.row = { data: row({ is_owner_code: true }), error: null };
+    answers.row = { data: row({ is_owner_code: true, owner_agent_id: "agent-1" }), error: null };
     expect(await deletePromoCode(ID)).toEqual({ ok: false, reason: "owner-code" });
     expect(deletes()).toHaveLength(0);
+  });
+  it("deletes an owner code whose agent and affiliate were both removed",async()=>{
+    answers.row = { data: row({ is_owner_code: true, owner_agent_id: null, owner_affiliate_id: null }), error: null };
+    expect(await deletePromoCode(ID)).toEqual({ ok: true });
+    expect(deletes()).toHaveLength(1);
+  });
+  it("owner-code for an owner code with a live affiliate owner",async()=>{
+    answers.row = { data: row({ is_owner_code: true, owner_affiliate_id: "aff-1" }), error: null };
+    expect(await deletePromoCode(ID)).toEqual({ ok: false, reason: "owner-code" });
+    expect(deletes()).toHaveLength(0);
+  });
+  it("used when an orphaned owner code has a registration",async()=>{
+    answers.row = { data: row({ is_owner_code: true }), error: null };
+    answers.count = { count: 2, error: null };
+    expect(await deletePromoCode(ID)).toEqual({ ok: false, reason: "used" });  expect(deletes()).toHaveLength(0);
   });
   it("used when any registration points at it, with no delete", async () => {
     answers.count = { count: 1, error: null };

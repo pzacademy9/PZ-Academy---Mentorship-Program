@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import { loginSchema, magicLinkSchema } from "@/lib/validations/auth";
 import { roleHome, type Role } from "@/lib/roles";
+import { isRememberablePath } from "@/lib/resume-path";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, Mail as MailOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl") ?? "/dashboard";
+  const returnUrl = searchParams.get("returnUrl");
 
   // Stays true after a successful sign-in so the form remains locked until the redirect lands.
   const [redirecting, setRedirecting] = useState(false);
@@ -43,8 +44,12 @@ export function LoginForm() {
         .select("role")
         .eq("id", data.user.id)
         .single();
-      const home = profile?.role ? roleHome(profile.role as Role) : returnUrl;
-      router.push(home);
+      const target = returnUrl !== null && isRememberablePath(returnUrl)
+        ? returnUrl
+        : profile?.role
+          ? roleHome(profile.role as Role)
+          : "/dashboard";
+      router.push(target);
     } catch {
       setRedirecting(false);
       toast.error("Something went wrong. Please try again.");

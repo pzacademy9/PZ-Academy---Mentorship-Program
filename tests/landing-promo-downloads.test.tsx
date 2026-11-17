@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
@@ -137,5 +139,19 @@ describe("PromoDownloads", () => {
     await waitFor(() => expect(save).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" }).getAttribute("aria-busy")).toBeNull());
     expect(save).toHaveBeenCalledTimes(1);
+  });
+  it.each([["Share in a group"], ["For me"]])("puts focus back on Download PDF once the %s job finishes", async (choice) => {
+    render(<PromoDownloads {...props} />);
+    openMenu();
+    fireEvent.click(await item("Sales agent codes"));
+    fireEvent.click(await screen.findByRole("button", { name: new RegExp(choice) }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const btn = await screen.findByRole("button", { name: "Download PDF" });
+    await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(document.activeElement).toBe(btn));
+  });
+  it("keeps the open menu 16px off the screen edge", () => {
+    const src = readFileSync(join(process.cwd(), "src/components/admin/landing/promo/PromoDownloads.tsx"), "utf8");
+    expect(src).toContain("collisionPadding={16}");
   });
 });

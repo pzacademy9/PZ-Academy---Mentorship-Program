@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { PromoCode } from "@/lib/landing/registration/promo";
+import { isLiveOwnerCode } from "@/lib/landing/registration/promo-resolve";
 
 type Row = Database["public"]["Tables"]["landing_promo_codes"]["Row"];
 type Insert = Database["public"]["Tables"]["landing_promo_codes"]["Insert"];
@@ -166,7 +167,7 @@ export async function deletePromoCode(id: string): Promise<PromoDeleteResult> {
     return { ok: false, reason: "db-error" };
   }
   if (!code) return { ok: false, reason: "not-found" };
-  if (code.isOwnerCode) return { ok: false, reason: "owner-code" };
+  if (isLiveOwnerCode(code)) return { ok: false, reason: "owner-code" };
   const admin = createAdminSupabase();
   const { count, error: countError } = await admin
     .from("landing_registrations")
