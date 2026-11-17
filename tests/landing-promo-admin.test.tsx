@@ -110,6 +110,15 @@ describe("PromoCodesManager delete", () => {
     expect(within(table).queryByRole("button", { name: "Delete OWNER1" })).toBeNull();
     expect(screen.getAllByText("Used codes cannot be deleted. Pause them instead.")).toHaveLength(1);
   });
+  it("shows Delete for an orphaned owner code (no agent, no affiliate) but not a live one", () => {
+    render(<PromoCodesManager codes={[
+      promo({ id: "o1", code: "OWNER1", usedCount: 0, isOwnerCode: true, ownerAgentId: null, ownerAffiliateId: null } as Partial<PromoCode>),
+      promo({ id: "o2", code: "OWNER2", usedCount: 0, isOwnerCode: true, ownerAgentId: "agent-1" } as Partial<PromoCode>),
+    ]} pages={PAGES} />);
+    const table = tableOf();
+    expect(within(table).getByRole("button", { name: "Delete OWNER1" })).toBeTruthy();
+    expect(within(table).queryByRole("button", { name: "Delete OWNER2" })).toBeNull();
+  });
   it("does not show the used-codes line when every ordinary code can be deleted", () => {
     render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
     expect(screen.queryByText("Used codes cannot be deleted. Pause them instead.")).toBeNull();

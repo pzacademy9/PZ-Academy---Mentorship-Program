@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import type { PromoCode } from "@/lib/landing/registration/promo";
+import { isLiveOwnerCode } from "@/lib/landing/registration/promo-resolve";
 import {
   type AgentChoice, PROMO_CURRENCIES, PROMO_STATE_LABEL, describeDiscount, draftFromPromo, draftToInput, emptyPromoDraft, normalizeCodeInput,
   optionChoices, patchFromInput, promoState, whereText, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
@@ -175,7 +176,7 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30, 
         {p.active ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
         {p.active ? "Pause" : "Resume"}
       </Button>
-      {!p.isOwnerCode && p.usedCount === 0 && (
+      {!isLiveOwnerCode(p) && p.usedCount === 0 && (
         <Button type="button" variant="ghost" size="sm" className="text-pz-danger" aria-label={`Delete ${p.code}`} onClick={(e) => { deleteOpener.current = e.currentTarget; setDeleting(p); }}>
           <Trash2 aria-hidden="true" /> Delete
         </Button>
@@ -191,7 +192,7 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30, 
     <div className="space-y-4">
       <CeilingBox maxPercent={maxPercent} />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {codes.some((p) => !p.isOwnerCode && p.usedCount > 0) ? <p className={HELP}>Used codes cannot be deleted. Pause them instead.</p> : <span aria-hidden="true" />}
+        {codes.some((p) => !isLiveOwnerCode(p) && p.usedCount > 0) ? <p className={HELP}>Used codes cannot be deleted. Pause them instead.</p> : <span aria-hidden="true" />}
         <div className="flex flex-wrap items-center gap-2">
           <PromoDownloads codes={codes} pages={pages} agents={downloadAgents} affiliates={affiliates} canDownloadPeople={canDownloadPeople} />
           <Button type="button" className="max-md:min-h-11" onClick={() => setEditing({ mode: "new" })}>

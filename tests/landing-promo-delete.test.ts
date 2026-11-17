@@ -77,7 +77,7 @@ describe("deletePromoCode", () => {
   it("used when an orphaned owner code has a registration",async()=>{
     answers.row = { data: row({ is_owner_code: true }), error: null };
     answers.count = { count: 2, error: null };
-    expect(await deletePromoCode(ID)).toEqual({ ok: false, reason: "used" });
+    expect(await deletePromoCode(ID)).toEqual({ ok: false, reason: "used" });  expect(deletes()).toHaveLength(0);
   });
   it("used when any registration points at it, with no delete", async () => {
     answers.count = { count: 1, error: null };
