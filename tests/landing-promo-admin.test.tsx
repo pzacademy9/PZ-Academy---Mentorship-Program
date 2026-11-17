@@ -94,6 +94,10 @@ describe("PromoCodesManager delete", () => {
     fireEvent.click(btn);
     return btn;
   };
+  it("shows no empty line in the toolbar when no code has been used", () => {
+    const { container } = render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    expect(Array.from(container.querySelectorAll("p")).filter((el) => (el.textContent ?? "").trim() === "")).toHaveLength(0);
+  });
   it("shows Delete for an unused ordinary code only, and says once why used codes cannot be deleted", () => {
     render(<PromoCodesManager codes={[
       promo({ usedCount: 0 }),

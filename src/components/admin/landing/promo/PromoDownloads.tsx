@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,11 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
   // Set while a pick is opening the dialog, so the menu does not pull focus back to the button over it.
   const openingDialog = useRef(false);
 
+  // The button is disabled while a file is made, so a focus call then is lost. Give focus back once it is enabled again.
+  const refocus = useRef(false);
+
   const { run, pendingKey } = useAsyncAction(async (job: Job) => {
+    refocus.current = true;
     try {
       const pdfLib = await import("@/lib/landing/registration/promo-pdf");
       const now = new Date();
@@ -70,6 +74,12 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
   );
 
   const busy = pendingKey !== null;
+  useEffect(() => {
+    if (!busy && refocus.current) {
+      refocus.current = false;
+      opener.current?.focus();
+    }
+  }, [busy]);
   const pick = (kind: Kind) => {
     if (busy) return;
     if (kind === "public") { void run({ kind }); return; }
@@ -90,6 +100,7 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
+          collisionPadding={16}
           className="w-56 max-md:w-[min(20rem,calc(100vw-2rem))] p-2 rounded-xl bg-pz-surface-container-lowest text-pz-on-surface border-pz-outline-variant/40 shadow-lg"
           onCloseAutoFocus={(e) => { if (openingDialog.current) { e.preventDefault(); openingDialog.current = false; } }}
         >
