@@ -8,7 +8,7 @@ There is no SQL to paste. There is no database change. You only need to look at 
 
 - Any ordinary code now accepts a percent after it, like `PZ10-20%`.
 - Ordinary codes that nobody has used now have a Delete button.
-- A "Download as PDF" box on the Promo codes page, with three PDF buttons.
+- A "Download PDF" button on the Promo codes page. It opens a menu with the PDF lists.
 
 ## 1. Make a test code
 
@@ -54,13 +54,13 @@ A test registration does not use up the code. Do not make a real registration ju
 
 ## 7. Download the PDFs
 
-On the Promo codes page, find the box "Download as PDF". It has three buttons.
+On the Promo codes page, press "Download PDF", next to "New promo code". A menu opens. Pick the list.
 
-1. "Ordinary codes (PDF)". The file downloads at once. Open it. It shows each code, its discount, where it works, and its last date. This list is public, so it is fine to share.
-2. "Sales agent codes (PDF)". A box asks "Who will see this file?". Pick one option.
-3. "Affiliate codes (PDF)". The same box appears. Pick one option.
+1. "Ordinary codes". The file downloads at once. Open it. It shows each code, its discount, where it works, and its last date. This list is public, so it is fine to share.
+2. "Sales agent codes". A box asks "Who will see this file?". Pick one option.
+3. "Affiliate codes". The same box appears. Pick one option.
 
-The agent and affiliate buttons show only if you have Sales Hub access.
+The agent and affiliate items show only if you have Sales Hub access.
 
 The two choices:
 

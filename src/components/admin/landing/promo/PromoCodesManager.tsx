@@ -190,12 +190,14 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30, 
   return (
     <div className="space-y-4">
       <CeilingBox maxPercent={maxPercent} />
-      <PromoDownloads codes={codes} pages={pages} agents={downloadAgents} affiliates={affiliates} canDownloadPeople={canDownloadPeople} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={HELP}>{codes.some((p) => !p.isOwnerCode && p.usedCount > 0) ? "Used codes cannot be deleted. Pause them instead." : ""}</p>
-        <Button type="button" onClick={() => setEditing({ mode: "new" })}>
-          <Plus aria-hidden="true" /> New promo code
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <PromoDownloads codes={codes} pages={pages} agents={downloadAgents} affiliates={affiliates} canDownloadPeople={canDownloadPeople} />
+          <Button type="button" className="max-md:min-h-11" onClick={() => setEditing({ mode: "new" })}>
+            <Plus aria-hidden="true" /> New promo code
+          </Button>
+        </div>
       </div>
 
       {/* Phone: cards */}

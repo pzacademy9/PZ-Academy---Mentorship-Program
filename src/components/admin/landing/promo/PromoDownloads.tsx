@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { PromoCode } from "@/lib/landing/registration/promo";
@@ -14,13 +15,14 @@ type Kind = "public" | "agent" | "affiliate";
 type Mode = "share" | "me";
 type Job = { kind: Kind; mode?: Mode };
 
-const BUTTON_LABEL: Record<Kind, string> = {
-  public: "Ordinary codes (PDF)",
-  agent: "Sales agent codes (PDF)",
-  affiliate: "Affiliate codes (PDF)",
+const MENU_LABEL: Record<Kind, string> = {
+  public: "Ordinary codes",
+  agent: "Sales agent codes",
+  affiliate: "Affiliate codes",
 };
+const ITEM = "min-h-11 rounded-lg px-3 py-2.5 text-sm font-headline font-semibold text-pz-on-surface focus:bg-pz-surface-container focus:text-pz-on-surface";
 
-/** Download buttons for the code lists. The PDF builder is loaded on click so jsPDF stays out of the page. */
+/** One "Download PDF" menu for the code lists. The PDF builder is loaded on click so jsPDF stays out of the page. */
 export function PromoDownloads({ codes, pages, agents = [], affiliates = [], canDownloadPeople = false }: {
   codes: PromoCode[];
   pages: PromoPageOption[];
@@ -29,8 +31,10 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
   canDownloadPeople?: boolean;
 }) {
   const [asking, setAsking] = useState<"agent" | "affiliate" | null>(null);
-  // The dialog opens from state, not a trigger, so remember the clicked button to give focus back to it.
-  const opener = useRef<HTMLElement | null>(null);
+  // The dialog opens from state, not a trigger, so keep the menu button to give focus back to it.
+  const opener = useRef<HTMLButtonElement | null>(null);
+  // Set while a pick is opening the dialog, so the menu does not pull focus back to the button over it.
+  const openingDialog = useRef(false);
 
   const { run, pendingKey } = useAsyncAction(async (job: Job) => {
     try {
@@ -53,15 +57,6 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
     }
   }, { getKey: (job) => job.kind });
 
-  const button = (kind: Kind, onClick: (e: React.MouseEvent<HTMLButtonElement>) => void) => {
-    const busy = pendingKey === kind;
-    return (
-      <Button type="button" variant="outline" className="max-md:min-h-11" disabled={pendingKey !== null} loading={busy} onClick={onClick}>
-        <Download aria-hidden="true" /> {busy ? "Making the file…" : BUTTON_LABEL[kind]}
-      </Button>
-    );
-  };
-
   const choose = (mode: Mode) => {
     const kind = asking;
     setAsking(null);
@@ -74,14 +69,35 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
     </button>
   );
 
+  const busy = pendingKey !== null;
+  const pick = (kind: Kind) => {
+    if (busy) return;
+    if (kind === "public") { void run({ kind }); return; }
+    openingDialog.current = true;
+    setAsking(kind);
+  };
+  const item = (kind: Kind) => (
+    <DropdownMenuItem className={ITEM} onSelect={() => pick(kind)}>{MENU_LABEL[kind]}</DropdownMenuItem>
+  );
+
   return (
-    <div className="space-y-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
-      <p className={LABEL}>Download as PDF</p>
-      <div className="flex flex-wrap gap-2">
-        {button("public", () => void run({ kind: "public" }))}
-        {canDownloadPeople && button("agent", (e) => { opener.current = e.currentTarget; setAsking("agent"); })}
-        {canDownloadPeople && button("affiliate", (e) => { opener.current = e.currentTarget; setAsking("affiliate"); })}
-      </div>
+    <>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button ref={opener} type="button" variant="outline" className="max-md:min-h-11" disabled={busy} loading={busy}>
+            <Download aria-hidden="true" /> {busy ? "Making the file…" : "Download PDF"}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-56 max-md:w-[min(20rem,calc(100vw-2rem))] p-2 rounded-xl bg-pz-surface-container-lowest text-pz-on-surface border-pz-outline-variant/40 shadow-lg"
+          onCloseAutoFocus={(e) => { if (openingDialog.current) { e.preventDefault(); openingDialog.current = false; } }}
+        >
+          {item("public")}
+          {canDownloadPeople && item("agent")}
+          {canDownloadPeople && item("affiliate")}
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Dialog open={asking !== null} onOpenChange={(o) => { if (!o) setAsking(null); }}>
         {asking && (
           <DialogContent className="sm:max-w-md" onCloseAutoFocus={(e) => { e.preventDefault(); opener.current?.focus(); }}>
@@ -96,6 +112,6 @@ export function PromoDownloads({ codes, pages, agents = [], affiliates = [], can
           </DialogContent>
         )}
       </Dialog>
-    </div>
+    </>
   );
 }

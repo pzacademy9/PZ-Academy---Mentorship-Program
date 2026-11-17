@@ -398,12 +398,14 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     data.listAffiliates.mockResolvedValue([{ id: "aff-9", name: "Sara Khan", email: "secret.aff@pz.test" }]);
     pdf.specs.length = 0;
     render(await AdminPromoCodesPage());
-    for (const [btn, mode] of [["Sales agent codes (PDF)", "Share in a group"], ["Sales agent codes (PDF)", "For me"], ["Affiliate codes (PDF)", "For me"]]) {
+    for (const [btn, mode] of [["Sales agent codes", "Share in a group"], ["Sales agent codes", "For me"], ["Affiliate codes", "For me"]]) {
       const before = pdf.specs.length;
-      fireEvent.click(screen.getByRole("button", { name: btn }));
+      const trigger = screen.getByRole("button", { name: "Download PDF" });
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+      fireEvent.click(await screen.findByRole("menuitem", { name: btn }));
       fireEvent.click(await screen.findByRole("button", { name: new RegExp(mode) }));
       await waitFor(() => expect(pdf.specs.length).toBe(before + 1));
-      await waitFor(() => expect((screen.getByRole("button", { name: btn }) as HTMLButtonElement).disabled).toBe(false));
+      await waitFor(() => expect((screen.getByRole("button", { name: "Download PDF" }) as HTMLButtonElement).disabled).toBe(false));
     }
     const all = JSON.stringify(pdf.specs);
     expect(all).not.toContain("@");
