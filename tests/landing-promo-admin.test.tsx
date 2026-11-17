@@ -8,11 +8,17 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 const data = vi.hoisted(() => ({
-  listPromoCodes: vi.fn(), getPromoSettings: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), currentUserMayAccess: vi.fn(),
+  listPromoCodes: vi.fn(), getPromoSettings: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), listAffiliates: vi.fn(), currentUserMayAccess: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({ listPromoCodes: data.listPromoCodes, getPromoSettings: data.getPromoSettings }));
 vi.mock("@/lib/data/landing-pages", () => ({ listLandingPages: data.listLandingPages, getLandingPage: data.getLandingPage }));
 vi.mock("@/lib/data/sales-agents", () => ({ listSalesAgents: data.listSalesAgents }));
+vi.mock("@/lib/data/affiliates", () => ({ listAffiliates: data.listAffiliates }));
+const pdf = vi.hoisted(() => ({ save: vi.fn(), specs: [] as { rows: string[][] }[] }));
+vi.mock("@/lib/landing/registration/promo-pdf", async () => {
+  const real = await vi.importActual<typeof import("@/lib/landing/registration/promo-pdf")>("@/lib/landing/registration/promo-pdf");
+  return { ...real, renderPromoPdf: (spec: { rows: string[][] }) => { pdf.specs.push(spec); return { save: pdf.save }; } };
+});
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: data.requireAdminPage, currentUserMayAccess: data.currentUserMayAccess }));
 
 import { PromoCodesManager } from "@/components/admin/landing/promo/PromoCodesManager";
@@ -77,6 +83,72 @@ describe("PromoCodesManager list", () => {
     expect(fetchMock().mock.calls[0][1].method).toBe("PATCH");
     expect(lastBody()).toEqual({ active: false });
     expect(toast.success).toHaveBeenCalledWith("PZ10 paused.");
+  });
+});
+
+describe("PromoCodesManager delete", () => {
+  const tableOf = () => screen.getByRole("table", { name: "Promo codes" });
+  const openDelete = () => {
+    const btn = within(tableOf()).getByRole("button", { name: "Delete PZ10" });
+    btn.focus();
+    fireEvent.click(btn);
+    return btn;
+  };
+  it("shows Delete for an unused ordinary code only, and says once why used codes cannot be deleted", () => {
+    render(<PromoCodesManager codes={[
+      promo({ usedCount: 0 }),
+      promo({ id: "promo-2", code: "USED5", usedCount: 2 }),
+      promo({ id: "promo-3", code: "OWNER1", usedCount: 0, isOwnerCode: true, ownerAgentId: "agent-1" }),
+    ]} pages={PAGES} />);
+    const table = tableOf();
+    expect(within(table).getByRole("button", { name: "Delete PZ10" })).toBeTruthy();
+    expect(within(table).queryByRole("button", { name: "Delete USED5" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Delete OWNER1" })).toBeNull();
+    expect(screen.getAllByText("Used codes cannot be deleted. Pause them instead.")).toHaveLength(1);
+  });
+  it("does not show the used-codes line when every ordinary code can be deleted", () => {
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    expect(screen.queryByText("Used codes cannot be deleted. Pause them instead.")).toBeNull();
+  });
+  it("opens a confirm dialog, and Escape closes it and returns focus to the Delete button", async () => {
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    const btn = openDelete();
+    const dialog = screen.getByRole("dialog", { name: "Delete PZ10?" });
+    expect(within(dialog).getByText("This removes the code for good. People who already used it are not affected.")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Delete code" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Keep it" })).toBeTruthy();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock()).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(btn);
+  });
+  it("Keep it closes the dialog without deleting", async () => {
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    openDelete();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete PZ10?" })).getByRole("button", { name: "Keep it" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock()).not.toHaveBeenCalled();
+  });
+  it("Delete code sends DELETE for the right id, then toasts and refreshes", async () => {
+    fetchMock().mockResolvedValue(reply(200, { id: "promo-1" }));
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    openDelete();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete PZ10?" })).getByRole("button", { name: "Delete code" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock().mock.calls[0][0]).toBe("/api/admin/landing-promo-codes/promo-1");
+    expect(fetchMock().mock.calls[0][1].method).toBe("DELETE");
+    expect(toast.success).toHaveBeenCalledWith("PZ10 deleted.");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+  it("a 409 shows the server's message and keeps the row", async () => {
+    fetchMock().mockResolvedValue(reply(409, { error: "This code has been used, so it cannot be deleted. Pause it instead." }));
+    render(<PromoCodesManager codes={[promo({ usedCount: 0 })]} pages={PAGES} />);
+    openDelete();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete PZ10?" })).getByRole("button", { name: "Delete code" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This code has been used, so it cannot be deleted. Pause it instead."));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(within(tableOf()).getByText("PZ10")).toBeTruthy();
   });
 });
 
@@ -275,6 +347,7 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     data.currentUserMayAccess.mockResolvedValue(true);
     data.listPromoCodes.mockResolvedValue([promo()]);
     data.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
+    data.listAffiliates.mockResolvedValue([]);
     data.listSalesAgents.mockResolvedValue([{ id: "agent-1", fullName: "Ayesha Siddiqui", email: "a@pz.test", createdAt: "2026-09-01T00:00:00Z", contactCount: 4 }]);
     data.listLandingPages.mockResolvedValue([
       { id: "p1", slug: "ppc", kind: "course", title: "PPC Batch 3", status: "draft", revision: 1, publishedAt: null, updatedAt: "2026-10-01T00:00:00Z", hasUnpublishedChanges: true },
@@ -309,5 +382,32 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "Agent links" })).toBeNull();
     expect(screen.queryByRole("button", { name: /generate link/i })).toBeNull();
     expect(data.listSalesAgents).not.toHaveBeenCalled();
+    expect(data.listAffiliates).not.toHaveBeenCalled();
+  });
+
+  it("never prints an agent or affiliate email in a PDF, in Share or For me", async () => {
+    data.requireAdminPage.mockResolvedValue({ user: { id: "admin-user" }, supabase: {} });
+    data.currentUserMayAccess.mockResolvedValue(true);
+    data.listPromoCodes.mockResolvedValue([
+      promo({ id: "o1", code: "NONAME-1", isOwnerCode: true, ownerAgentId: "agent-9", plainPercent: 10 } as Partial<PromoCode>),
+      promo({ id: "o2", code: "AFF-1", isOwnerCode: true, ownerAffiliateId: "aff-9", plainPercent: 10 } as Partial<PromoCode>),
+    ]);
+    data.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
+    data.listLandingPages.mockResolvedValue([]);
+    data.listSalesAgents.mockResolvedValue([{ id: "agent-9", fullName: "  ", email: "secret.agent@pz.test", createdAt: "2026-09-01T00:00:00Z", contactCount: 0 }]);
+    data.listAffiliates.mockResolvedValue([{ id: "aff-9", name: "Sara Khan", email: "secret.aff@pz.test" }]);
+    pdf.specs.length = 0;
+    render(await AdminPromoCodesPage());
+    for (const [btn, mode] of [["Sales agent codes (PDF)", "Share in a group"], ["Sales agent codes (PDF)", "For me"], ["Affiliate codes (PDF)", "For me"]]) {
+      const before = pdf.specs.length;
+      fireEvent.click(screen.getByRole("button", { name: btn }));
+      fireEvent.click(await screen.findByRole("button", { name: new RegExp(mode) }));
+      await waitFor(() => expect(pdf.specs.length).toBe(before + 1));
+      await waitFor(() => expect((screen.getByRole("button", { name: btn }) as HTMLButtonElement).disabled).toBe(false));
+    }
+    const all = JSON.stringify(pdf.specs);
+    expect(all).not.toContain("@");
+    expect(pdf.specs[0].rows[0]).toEqual(["Unnamed agent", "NONAME-1"]);
+    expect(pdf.specs[1].rows[0][0]).toBe("Unnamed agent");
   });
 });

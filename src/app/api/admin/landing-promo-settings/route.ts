@@ -1,5 +1,5 @@
 // src/app/api/admin/landing-promo-settings/route.ts
-// The highest percent anyone may type after an owner code (CODE-NN%). One number for the whole site.
+// The highest percent anyone may type after any code (CODE-NN%). One number for the whole site.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getPromoSettings, setPromoSettings } from "@/lib/data/landing-promo-codes";

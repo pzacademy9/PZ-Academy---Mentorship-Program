@@ -209,6 +209,14 @@ export function describeDiscount(p: Pick<PromoCode, "type" | "value" | "fixedAmo
   return parts.length > 0 ? `${parts.join(" / ")} off` : "No amount set";
 }
 
+/** Where a code works: the pages it covers, then any option restriction. */
+export function whereText(p: PromoCode, pages: PromoPageOption[]): string {
+  const where = p.pageIds.length === 0 ? "All pages" : p.pageIds.map((id) => pages.find((x) => x.id === id)?.title ?? "A deleted page").join(", ");
+  if (p.optionKeys.length === 0) return where;
+  const all = pages.flatMap((x) => x.options);
+  return `${where} · only ${p.optionKeys.map((k) => all.find((o) => o.key === k)?.label ?? k).join(", ")}`;
+}
+
 /** Options of the chosen pages (or every page), one entry per option key. */
 export function optionChoices(pages: PromoPageOption[], pageIds: string[]): { key: string; label: string }[] {
   const scoped = pageIds.length > 0 ? pages.filter((p) => pageIds.includes(p.id)) : pages;

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pause, Pencil, Play, Plus, TicketPercent } from "lucide-react";
+import { Pause, Pencil, Play, Plus, TicketPercent, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils";
 import type { PromoCode } from "@/lib/landing/registration/promo";
 import {
   type AgentChoice, PROMO_CURRENCIES, PROMO_STATE_LABEL, describeDiscount, draftFromPromo, draftToInput, emptyPromoDraft, normalizeCodeInput,
-  optionChoices, patchFromInput, promoState, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
+  optionChoices, patchFromInput, promoState, whereText, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
 } from "@/lib/landing/registration/promo-form";
 import { CONTROL, HELP, LABEL } from "../registration/styles";
+import { PromoDownloads } from "./PromoDownloads";
 
 const ERROR = "block font-body text-xs font-medium text-pz-danger";
 const CHECK_ROW = "flex items-center gap-2 font-body text-sm text-pz-on-surface max-md:min-h-11";
@@ -38,19 +39,13 @@ function datesText(p: PromoCode): string {
 function usesText(p: PromoCode): string {
   return p.maxUses === null ? `${p.usedCount} used` : `${p.usedCount} of ${p.maxUses} used`;
 }
-function whereText(p: PromoCode, pages: PromoPageOption[]): string {
-  const where = p.pageIds.length === 0 ? "All pages" : p.pageIds.map((id) => pages.find((x) => x.id === id)?.title ?? "A deleted page").join(", ");
-  if (p.optionKeys.length === 0) return where;
-  const all = pages.flatMap((x) => x.options);
-  return `${where} · only ${p.optionKeys.map((k) => all.find((o) => o.key === k)?.label ?? k).join(", ")}`;
-}
 const toggleIn = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 // Server field names (Task 13's `{ error, field }`) that have a place in this form.
 const FORM_FIELDS = ["code", "value", "maxDiscountPercent", "fixedAmounts", "pageIds", "maxUses", "startsAt", "endsAt", "ownerAgentId", "plainPercent", "ownPercentMax"] as const;
 
 type Editing = { mode: "new" } | { mode: "edit"; promo: PromoCode } | null;
 
-/** The one site-wide number: the highest percent anyone may type after an owner code (CODE-NN%). */
+/** The one site-wide number: the highest percent anyone may type after any code (CODE-NN%). */
 function CeilingBox({ maxPercent }: { maxPercent: number }) {
   const router = useRouter();
   const [value, setValue] = useState(String(maxPercent));
@@ -75,7 +70,7 @@ function CeilingBox({ maxPercent }: { maxPercent: number }) {
     <form noValidate onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-wrap items-end gap-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
       <label className="block space-y-1">
         <span className={LABEL}>Highest percent anyone may type</span>
-        <span className={`block ${HELP}`}>For personal codes like ALI-1-20%. Anything higher is refused.</span>
+        <span className={`block ${HELP}`}>Applies to every code typed with a percent after it, like PZ10-20%. Anything higher is refused.</span>
         <input aria-label="Highest percent anyone may type after a code" type="number" inputMode="numeric" min={1} max={100} className={cn(CONTROL, "sm:w-32")} value={value} onChange={(e) => setValue(e.target.value)} />
       </label>
       <Button type="submit" variant="outline" disabled={pending} aria-busy={pending || undefined}>{pending ? "Saving…" : "Save maximum"}</Button>
@@ -83,9 +78,12 @@ function CeilingBox({ maxPercent }: { maxPercent: number }) {
   );
 }
 
-export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }: { codes: PromoCode[]; pages: PromoPageOption[]; agents?: AgentChoice[]; maxPercent?: number }) {
+export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30, affiliates = [], downloadAgents = [], canDownloadPeople = false }: { codes: PromoCode[]; pages: PromoPageOption[]; agents?: AgentChoice[]; maxPercent?: number; affiliates?: { id: string; name: string }[]; downloadAgents?: { id: string; name: string }[]; canDownloadPeople?: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Editing>(null);
+  const [deleting, setDeleting] = useState<PromoCode | null>(null);
+  // The dialog is opened by state, not a Dialog trigger, so remember the Delete button to give focus back to it.
+  const deleteOpener = useRef<HTMLElement | null>(null);
   const now = new Date();
 
   const { run: toggleActive, pendingKey } = useAsyncAction(async (p: PromoCode) => {
@@ -103,6 +101,39 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
       toast.error("Could not reach the server. Please try again.");
     }
   }, { getKey: (p) => p.id });
+
+  // The server decides whether a code can go (usedCount here may be stale), so a 409 keeps the row and shows its message.
+  const { run: removeCode, pending: removing } = useAsyncAction(async (p: PromoCode) => {
+    try {
+      const res = await fetch(`/api/admin/landing-promo-codes/${p.id}`, { method: "DELETE" });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) { toast.error(body?.error ?? "Could not delete the promo code."); setDeleting(null); return; }
+      toast.success(`${p.code} deleted.`);
+      setDeleting(null);
+      router.refresh();
+    } catch {
+      toast.error("Could not reach the server. Please try again.");
+    }
+  });
+
+  const deleteDialog = (
+    <Dialog open={deleting !== null} onOpenChange={(o) => { if (!o && !removing) setDeleting(null); }}>
+      {deleting && (
+        <DialogContent className="sm:max-w-md" onCloseAutoFocus={(e) => { e.preventDefault(); deleteOpener.current?.focus(); }}>
+          <DialogHeader>
+            <DialogTitle>{`Delete ${deleting.code}?`}</DialogTitle>
+            <DialogDescription>This removes the code for good. People who already used it are not affected.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={removing} onClick={() => setDeleting(null)}>Keep it</Button>
+            <Button type="button" variant="destructive" disabled={removing} aria-busy={removing || undefined} onClick={() => void removeCode(deleting)}>
+              {removing ? "Deleting…" : "Delete code"}
+            </Button>
+          </div>
+        </DialogContent>
+      )}
+    </Dialog>
+  );
 
   const dialog = (
     <Dialog open={editing !== null} onOpenChange={(o) => { if (!o) setEditing(null); }}>
@@ -144,6 +175,11 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
         {p.active ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
         {p.active ? "Pause" : "Resume"}
       </Button>
+      {!p.isOwnerCode && p.usedCount === 0 && (
+        <Button type="button" variant="ghost" size="sm" className="text-pz-danger" aria-label={`Delete ${p.code}`} onClick={(e) => { deleteOpener.current = e.currentTarget; setDeleting(p); }}>
+          <Trash2 aria-hidden="true" /> Delete
+        </Button>
+      )}
     </div>
   );
   const stateChip = (p: PromoCode) => {
@@ -154,7 +190,9 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
   return (
     <div className="space-y-4">
       <CeilingBox maxPercent={maxPercent} />
-      <div className="flex justify-end">
+      <PromoDownloads codes={codes} pages={pages} agents={downloadAgents} affiliates={affiliates} canDownloadPeople={canDownloadPeople} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={HELP}>{codes.some((p) => !p.isOwnerCode && p.usedCount > 0) ? "Used codes cannot be deleted. Pause them instead." : ""}</p>
         <Button type="button" onClick={() => setEditing({ mode: "new" })}>
           <Plus aria-hidden="true" /> New promo code
         </Button>
@@ -206,6 +244,7 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
         </table>
       </div>
       {dialog}
+      {deleteDialog}
     </div>
   );
 }
