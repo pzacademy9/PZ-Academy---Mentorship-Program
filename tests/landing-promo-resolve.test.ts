@@ -21,9 +21,36 @@ describe("resolvePromoWith", () => {
     expect(await resolvePromoWith("PZ10", d)).toMatchObject({ promo: { code: "PZ10", value: 10 }, overMax: null });
     expect(d.getMax).not.toHaveBeenCalled();
   });
-  it("does not read a suffix on an ordinary (non-owner) code", async () => {
-    const d = deps([base({ code: "SUMMER" })]);
-    expect(await resolvePromoWith("SUMMER-10%", d)).toEqual({ promo: null, overMax: null });
+  it("reads a typed percent on an ordinary code, keeping the base id", async () => {
+    const d = deps([base({ id: "s1", code: "SAVE", value: 10 })]);
+    expect((await resolvePromoWith("save -20 %", d)).promo).toMatchObject({ id: "s1", value: 20, type: "percent" });
+    expect((await resolvePromoWith("SAVE", d)).promo).toMatchObject({ id: "s1", value: 10 });
+  });
+  it("refuses an ordinary-code percent above the global ceiling", async () => {
+    expect(await resolvePromoWith("SAVE-40%", deps([base({ code: "SAVE" })]))).toEqual({ promo: null, overMax: 30 });
+  });
+  it("uses the longest stored base when the base itself ends in -NN", async () => {
+    const d = deps([base({ id: "b10", code: "SAVE-10" })]);
+    expect((await resolvePromoWith("SAVE-10-5%", d)).promo).toMatchObject({ id: "b10", value: 5 });
+  });
+  it("matches a stored code literally named with a percent first", async () => {
+    const d = deps([base({ id: "lit", code: "SAVE-5%", value: 50 }), base({ id: "s1", code: "SAVE" })]);
+    expect((await resolvePromoWith("SAVE-5%", d)).promo).toMatchObject({ id: "lit", value: 50 });
+  });
+  it("leaves judging to applyPromo: a bad base still resolves with a suffix", async () => {
+    const past = new Date(Date.now() - 86400000).toISOString();
+    const cases: Array<[Partial<PromoCode>, string]> = [
+      [{ active: false }, "inactive"],
+      [{ endsAt: past }, "expired"],
+      [{ maxUses: 1, usedCount: 1 }, "exhausted"],
+      [{ pageIds: ["other"] }, "wrong_page"],
+    ];
+    for (const [over, reason] of cases) {
+      const r = await resolvePromoWith("SAVE-10%", deps([base({ code: "SAVE", ...over })]));
+      expect(r.promo, reason).not.toBeNull();
+      const applied = applyPromo({ promo: r.promo, pageId: "x", optionKeys: [], currency: "PKR", total: 1000, now: new Date(), emailAlreadyUsed: false });
+      expect(applied, reason).toEqual({ ok: false, reason });
+    }
   });
   it("gives the plain percent for a plain owner code", async () => {
     const r = await resolvePromoWith("TEST-111", deps([ownerCode()]));
@@ -57,9 +84,10 @@ describe("resolvePromoWith", () => {
       expect((await resolvePromoWith(typed, deps([ownerCode()]))).promo, typed).toMatchObject({ id: "own1", value: 10 });
     }
   });
-  it("ignores the owner behaviour when the owner is gone (agent deleted)", async () => {
+  it("treats a code whose owner is gone (agent deleted) as ordinary: plain value, typed percent still allowed", async () => {
     const orphan = ownerCode({ ownerAgentId: null });
-    expect(await resolvePromoWith("TEST-111-10%", deps([orphan]))).toEqual({ promo: null, overMax: null });
+    expect((await resolvePromoWith("TEST-111-10%", deps([orphan]))).promo).toMatchObject({ id: "own1", value: 10 });
+    expect(await resolvePromoWith("TEST-111-40%", deps([orphan]))).toEqual({ promo: null, overMax: 30 });
   });
   it("answers null for an unknown code and for an unknown suffix base", async () => {
     expect(await resolvePromoWith("NOPE", deps([]))).toEqual({ promo: null, overMax: null });

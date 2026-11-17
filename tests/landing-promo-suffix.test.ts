@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyPromo, type PromoCode } from "@/lib/landing/registration/promo";
-import { effectiveOwnerPromo, parsePromoSuffix } from "@/lib/landing/registration/promo-suffix";
+import { effectiveOrdinaryPromo, effectiveOwnerPromo, parsePromoSuffix } from "@/lib/landing/registration/promo-suffix";
 
 function owner(over: Partial<PromoCode> = {}): PromoCode {
   return {
@@ -55,5 +55,25 @@ describe("effectiveOwnerPromo", () => {
   it("gives no discount but still resolves when the plain percent is 0", () => {
     const r = effectiveOwnerPromo({ owner: owner({ plainPercent: 0 }), typed: "TEST-111", percent: null, globalMax: 30 });
     expect(r.ok && r.promo.value).toBe(0);
+  });
+});
+
+describe("effectiveOrdinaryPromo", () => {
+  const ordinary = (over: Partial<PromoCode> = {}): PromoCode =>
+    owner({ id: "o1", code: "SAVE", value: 10, ownerAgentId: null, isOwnerCode: false, plainPercent: undefined, maxPercent: undefined, ...over });
+  it("builds a percent promo at the typed percent, keeping the base id", () => {
+    const r = effectiveOrdinaryPromo({ code: ordinary(), typed: "SAVE-15%", percent: 15, globalMax: 30 });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.promo).toMatchObject({ type: "percent", value: 15, fixedAmounts: {}, maxDiscountPercent: 0, code: "SAVE-15%", id: "o1" });
+    }
+  });
+  it("refuses a percent above the global ceiling", () => {
+    expect(effectiveOrdinaryPromo({ code: ordinary(), typed: "SAVE-31%", percent: 31, globalMax: 30 })).toEqual({ ok: false, reason: "over_max", max: 30 });
+  });
+  it("gives the typed percent even when the base is a fixed code with its own cap", () => {
+    const r = effectiveOrdinaryPromo({ code: ordinary({ type: "fixed", maxDiscountPercent: 5 }), typed: "SAVE-20%", percent: 20, globalMax: 30 });
+    expect(r.ok && r.promo.value).toBe(20);
+    expect(r.ok && r.promo.maxDiscountPercent).toBe(0);
   });
 });

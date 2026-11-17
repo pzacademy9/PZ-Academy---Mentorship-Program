@@ -1,5 +1,5 @@
 // src/lib/landing/registration/promo-suffix.ts
-// Pure rules for owner codes: "TEST-111-10%" is the owner code TEST-111 asking for 10% off.
+// Pure rules for a percent typed after a code: "TEST-111-10%" is the code TEST-111 asking for 10% off (owner codes and ordinary codes alike).
 import type { PromoCode } from "./promo";
 
 const SUFFIX_RE = /^(.+)-(\d{1,3})%$/;
@@ -29,5 +29,19 @@ export function effectiveOwnerPromo(p: {
   return {
     ok: true,
     promo: { ...p.owner, code: p.typed, type: "percent", value: percent, fixedAmounts: {}, maxDiscountPercent: 0 },
+  };
+}
+
+/** An ordinary code typed with a percent, seen as a plain percent code. Only the global ceiling applies. */
+export function effectiveOrdinaryPromo(p: {
+  code: PromoCode;
+  typed: string;
+  percent: number;
+  globalMax: number;
+}): { ok: true; promo: PromoCode } | { ok: false; reason: "over_max"; max: number } {
+  if (p.percent > p.globalMax) return { ok: false, reason: "over_max", max: p.globalMax };
+  return {
+    ok: true,
+    promo: { ...p.code, code: p.typed, type: "percent", value: p.percent, fixedAmounts: {}, maxDiscountPercent: 0 },
   };
 }

@@ -75,7 +75,7 @@ function CeilingBox({ maxPercent }: { maxPercent: number }) {
     <form noValidate onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-wrap items-end gap-3 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
       <label className="block space-y-1">
         <span className={LABEL}>Highest percent anyone may type</span>
-        <span className={`block ${HELP}`}>For personal codes like ALI-1-20%. Anything higher is refused.</span>
+        <span className={`block ${HELP}`}>Applies to every code typed with a percent after it, like PZ10-20%. Anything higher is refused.</span>
         <input aria-label="Highest percent anyone may type after a code" type="number" inputMode="numeric" min={1} max={100} className={cn(CONTROL, "sm:w-32")} value={value} onChange={(e) => setValue(e.target.value)} />
       </label>
       <Button type="submit" variant="outline" disabled={pending} aria-busy={pending || undefined}>{pending ? "Saving…" : "Save maximum"}</Button>

@@ -1,8 +1,8 @@
 // src/lib/landing/registration/promo-resolve.ts
 // Turns what the customer typed into the promo that applyPromo should judge.
-// Exact stored code first (so every existing code behaves as before); only then a trailing "-NN%" on an owner code.
+// Exact stored code first (so every existing code behaves as before); only then a trailing "-NN%" on any stored code.
 import type { PromoCode } from "./promo";
-import { effectiveOwnerPromo, parsePromoSuffix } from "./promo-suffix";
+import { effectiveOrdinaryPromo, effectiveOwnerPromo, parsePromoSuffix } from "./promo-suffix";
 
 export interface PromoResolveDeps {
   getByCode: (code: string) => Promise<PromoCode | null>;
@@ -30,9 +30,11 @@ export async function resolvePromoWith(raw: string, deps: PromoResolveDeps): Pro
   }
   const s = parsePromoSuffix(typed);
   if (!s) return NONE;
-  const owner = await deps.getByCode(s.base);
-  if (!owner || !isLiveOwnerCode(owner)) return NONE;
-  return fromOwner(owner, typed, s.percent, deps);
+  const base = await deps.getByCode(s.base);
+  if (!base) return NONE;
+  if (isLiveOwnerCode(base)) return fromOwner(base, typed, s.percent, deps);
+  const r = effectiveOrdinaryPromo({ code: base, typed, percent: s.percent, globalMax: await deps.getMax() });
+  return r.ok ? { promo: r.promo, overMax: null } : { promo: null, overMax: r.max };
 }
 
 async function fromOwner(owner: PromoCode, typed: string, percent: number | null, deps: PromoResolveDeps): Promise<ResolvedPromo> {

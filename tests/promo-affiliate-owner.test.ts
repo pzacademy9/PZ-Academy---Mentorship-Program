@@ -35,7 +35,7 @@ describe("an owner code owned by an affiliate behaves like an agent's", () => {
   });
   it("an owner code with no owner at all is just an ordinary code", async () => {
     const orphan = affiliateCode({ ownerAffiliateId: null, ownerAgentId: null, value: 5 });
-    expect(await resolvePromoWith("AB321-15%", deps([orphan]))).toEqual({ promo: null, overMax: null });
+    expect((await resolvePromoWith("AB321-15%", deps([orphan]))).promo).toMatchObject({ id: "a1", value: 15 });
     expect((await resolvePromoWith("AB321", deps([orphan]))).promo).toMatchObject({ value: 5 });
   });
 });
