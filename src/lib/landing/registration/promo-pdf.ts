@@ -104,7 +104,7 @@ export function publicPdfSpec(rows: PublicCodeRow[], madeOn: Date = new Date()):
   return {
     title: "PZ Academy promo codes",
     madeOn,
-    columns: [{ label: "Code", x: MARGIN }, { label: "Discount", x: 62 }, { label: "Works on", x: 112 }, { label: "Valid until", x: 160 }],
+    columns: [{ label: "Code", x: MARGIN }, { label: "Discount", x: 56 }, { label: "Works on", x: 104 }, { label: "Valid until", x: 152 }],
     rows: rows.map((r) => [r.code, r.discount, r.where, r.until]),
   };
 }

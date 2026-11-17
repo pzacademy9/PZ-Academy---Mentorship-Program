@@ -101,3 +101,30 @@ describe("specs and file names", () => {
     expect(promoPdfFileName("affiliate", NOW)).toBe("pz-affiliate-codes-2026-11-17.pdf");
   });
 });
+
+describe("public column widths", () => {
+  it("keeps the full date, even the widest, inside the last column", () => {
+    const spec = publicPdfSpec([], NOW);
+    const pdf = renderPromoPdf(spec);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const last = spec.columns[spec.columns.length - 1];
+    const cut = 194 - last.x - 4;
+    for (const m of months) {
+      for (let d = 1; d <= 31; d++) {
+        const text = `Until ${d} ${m} 2026`;
+        expect(pdf.splitTextToSize(text, cut)[0]).toBe(text);
+      }
+    }
+  });
+  it("leaves room for the discount text in its column", () => {
+    const spec = publicPdfSpec([], NOW);
+    const pdf = renderPromoPdf(spec);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    const [, disc, where] = spec.columns;
+    const text = "10% off (at most 10%)";
+    expect(pdf.splitTextToSize(text, where.x - disc.x - 4)[0]).toBe(text);
+  });
+});
