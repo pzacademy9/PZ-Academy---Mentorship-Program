@@ -15,6 +15,7 @@ import {
   optionChoices, patchFromInput, promoState, whereText, type PromoDraft, type PromoErrors, type PromoPageOption, type PromoStateKey,
 } from "@/lib/landing/registration/promo-form";
 import { CONTROL, HELP, LABEL } from "../registration/styles";
+import { PromoDownloads } from "./PromoDownloads";
 
 const ERROR = "block font-body text-xs font-medium text-pz-danger";
 const CHECK_ROW = "flex items-center gap-2 font-body text-sm text-pz-on-surface max-md:min-h-11";
@@ -77,7 +78,7 @@ function CeilingBox({ maxPercent }: { maxPercent: number }) {
   );
 }
 
-export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }: { codes: PromoCode[]; pages: PromoPageOption[]; agents?: AgentChoice[]; maxPercent?: number }) {
+export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30, affiliates = [], canDownloadPeople = false }: { codes: PromoCode[]; pages: PromoPageOption[]; agents?: AgentChoice[]; maxPercent?: number; affiliates?: { id: string; name: string }[]; canDownloadPeople?: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Editing>(null);
   const [deleting, setDeleting] = useState<PromoCode | null>(null);
@@ -189,6 +190,7 @@ export function PromoCodesManager({ codes, pages, agents = [], maxPercent = 30 }
   return (
     <div className="space-y-4">
       <CeilingBox maxPercent={maxPercent} />
+      <PromoDownloads codes={codes} pages={pages} agents={agents} affiliates={affiliates} canDownloadPeople={canDownloadPeople} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={HELP}>{codes.some((p) => !p.isOwnerCode && p.usedCount > 0) ? "Used codes cannot be deleted. Pause them instead." : ""}</p>
         <Button type="button" onClick={() => setEditing({ mode: "new" })}>

@@ -8,11 +8,12 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...r }: { href: string
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 const data = vi.hoisted(() => ({
-  listPromoCodes: vi.fn(), getPromoSettings: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), currentUserMayAccess: vi.fn(),
+  listPromoCodes: vi.fn(), getPromoSettings: vi.fn(), listLandingPages: vi.fn(), getLandingPage: vi.fn(), requireAdminPage: vi.fn(), listSalesAgents: vi.fn(), listAffiliates: vi.fn(), currentUserMayAccess: vi.fn(),
 }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({ listPromoCodes: data.listPromoCodes, getPromoSettings: data.getPromoSettings }));
 vi.mock("@/lib/data/landing-pages", () => ({ listLandingPages: data.listLandingPages, getLandingPage: data.getLandingPage }));
 vi.mock("@/lib/data/sales-agents", () => ({ listSalesAgents: data.listSalesAgents }));
+vi.mock("@/lib/data/affiliates", () => ({ listAffiliates: data.listAffiliates }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: data.requireAdminPage, currentUserMayAccess: data.currentUserMayAccess }));
 
 import { PromoCodesManager } from "@/components/admin/landing/promo/PromoCodesManager";
@@ -341,6 +342,7 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     data.currentUserMayAccess.mockResolvedValue(true);
     data.listPromoCodes.mockResolvedValue([promo()]);
     data.getPromoSettings.mockResolvedValue({ maxPercent: 30 });
+    data.listAffiliates.mockResolvedValue([]);
     data.listSalesAgents.mockResolvedValue([{ id: "agent-1", fullName: "Ayesha Siddiqui", email: "a@pz.test", createdAt: "2026-09-01T00:00:00Z", contactCount: 4 }]);
     data.listLandingPages.mockResolvedValue([
       { id: "p1", slug: "ppc", kind: "course", title: "PPC Batch 3", status: "draft", revision: 1, publishedAt: null, updatedAt: "2026-10-01T00:00:00Z", hasUnpublishedChanges: true },
@@ -375,5 +377,6 @@ describe("/dashboard/admin/landing-promo-codes page", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "Agent links" })).toBeNull();
     expect(screen.queryByRole("button", { name: /generate link/i })).toBeNull();
     expect(data.listSalesAgents).not.toHaveBeenCalled();
+    expect(data.listAffiliates).not.toHaveBeenCalled();
   });
 });

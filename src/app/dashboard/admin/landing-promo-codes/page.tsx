@@ -2,6 +2,7 @@ import { currentUserMayAccess, requireAdminPage } from "@/lib/auth/require-admin
 import { getPromoSettings, listPromoCodes } from "@/lib/data/landing-promo-codes";
 import { getLandingPage, listLandingPages } from "@/lib/data/landing-pages";
 import { listSalesAgents } from "@/lib/data/sales-agents";
+import { listAffiliates } from "@/lib/data/affiliates";
 import { PromoCodesManager } from "@/components/admin/landing/promo/PromoCodesManager";
 import { AgentLinksPanel } from "@/components/admin/landing/promo/AgentLinksPanel";
 import type { AgentChoice, LinkPage, PromoPageOption } from "@/lib/landing/registration/promo-form";
@@ -12,8 +13,9 @@ export default async function AdminPromoCodesPage() {
   await requireAdminPage("landing_pages");
   // Agent links belong to Sales Hub (their route says so), so only show them to someone who has it.
   const canMakeLinks = await currentUserMayAccess("sales_hub");
-  const [codes, summaries, salesAgents, settings] = await Promise.all([
-    listPromoCodes(), listLandingPages(), canMakeLinks ? listSalesAgents() : Promise.resolve([]), getPromoSettings(),
+  const [codes, summaries, salesAgents, affiliateRows, settings] = await Promise.all([
+    listPromoCodes(), listLandingPages(), canMakeLinks ? listSalesAgents() : Promise.resolve([]),
+    canMakeLinks ? listAffiliates() : Promise.resolve([]), getPromoSettings(),
   ]);
   // Option names come from each page's draft registration settings (what admins edit);
   // getLandingPage runs normalizeContent, so draft.registration is always present (Task 2).
@@ -22,6 +24,7 @@ export default async function AdminPromoCodesPage() {
     p ? [{ id: p.id, title: p.title, options: p.draft.registration.options.map((o) => ({ key: o.key, label: o.label })) }] : [],
   );
   const agents: AgentChoice[] = salesAgents.map((a) => ({ id: a.id, name: a.fullName || a.email || "Unnamed agent" }));
+  const affiliates = affiliateRows.map((a) => ({ id: a.id, name: a.name }));
   const linkPages: LinkPage[] = summaries.filter((s) => s.status === "published").map((s) => ({ slug: s.slug, title: s.title }));
 
   return (
@@ -32,7 +35,7 @@ export default async function AdminPromoCodesPage() {
           Discount codes for the registration form on your landing pages. The server checks every code, so a made-up code never gives a discount.
         </p>
       </div>
-      <PromoCodesManager codes={codes} pages={pages} agents={agents} maxPercent={settings.maxPercent} />
+      <PromoCodesManager codes={codes} pages={pages} agents={agents} maxPercent={settings.maxPercent} affiliates={affiliates} canDownloadPeople={canMakeLinks} />
       {canMakeLinks && <AgentLinksPanel agents={agents} pages={linkPages} />}
     </div>
   );
