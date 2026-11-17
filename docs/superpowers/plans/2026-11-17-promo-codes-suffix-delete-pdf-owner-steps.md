@@ -24,7 +24,7 @@ Use only a test page and a test code. Never use a real participant's registratio
 1. Open your test page.
 2. In the registration form, type the code with a percent after it, like `ZZTEST-20%`.
 3. The price should drop by 20 percent, if 20 is not above the highest allowed percent.
-4. Now type a bigger percent than the highest allowed, like `ZZTEST-99%`. It should not give that discount.
+4. Now type a bigger percent than the highest allowed, like `ZZTEST-99%`. The page should say "The maximum discount is N%." (N is the highest allowed percent) and should not give that discount.
 
 ## 3. The highest percent allowed
 
@@ -44,7 +44,7 @@ Use only a test page and a test code. Never use a real participant's registratio
 2. Under the list you will see: "Used codes cannot be deleted. Pause them instead."
 3. Agent codes and affiliate codes never show Delete.
 
-If you register on your test page with `ZZTEST` to try it, that code counts as used. After that, Delete goes away for it. Pause it instead.
+A test registration does not use up the code. Do not make a real registration just to try it. A real registration sends real emails, and after one the code counts as used and Delete goes away for it. Pause it instead.
 
 ## 6. Delete the test code
 

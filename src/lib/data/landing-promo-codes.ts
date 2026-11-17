@@ -105,7 +105,7 @@ export async function getPromoByCode(code: string): Promise<PromoCode | null> {
 
 const DEFAULT_MAX_PERCENT = 30;
 
-/** The highest percent anyone may type after an owner code. Falls back to 30 if the row is missing. */
+/** The highest percent anyone may type after any code (CODE-NN%). Falls back to 30 if the row is missing. */
 export async function getPromoSettings(): Promise<{ maxPercent: number }> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("landing_promo_settings").select("max_percent").eq("id", true).maybeSingle();

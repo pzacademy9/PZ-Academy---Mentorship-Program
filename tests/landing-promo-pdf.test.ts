@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PromoCode } from "@/lib/landing/registration/promo";
 import type { PromoPageOption } from "@/lib/landing/registration/promo-form";
 import {
-  personCodeRows, personPdfSpec, promoPdfFileName, publicCodeRows, publicPdfSpec, renderPromoPdf,
+  columnTextWidth, layoutCell, personCodeRows, personPdfSpec, promoPdfFileName, publicCodeRows, publicPdfSpec, renderPromoPdf,
 } from "@/lib/landing/registration/promo-pdf";
 
 const NOW = new Date("2026-11-17T08:00:00Z");
@@ -17,6 +17,10 @@ function code(over: Partial<PromoCode>): PromoCode {
 }
 
 describe("publicCodeRows", () => {
+  it("skips a code that gives no discount", () => {
+    const rows = publicCodeRows([code({ code: "ZERO", isOwnerCode: true, type: "percent", value: 0 }), code({ code: "NOAMT", type: "fixed", fixedAmounts: {} })], pages, NOW);
+    expect(rows).toEqual([]);
+  });
   it("keeps only active, non-owner codes", () => {
     const rows = publicCodeRows([
       code({ code: "OK" }),
@@ -109,8 +113,7 @@ describe("public column widths", () => {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(11);
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const last = spec.columns[spec.columns.length - 1];
-    const cut = 194 - last.x - 4;
+    const cut = columnTextWidth(spec.columns, spec.columns.length - 1);
     for (const m of months) {
       for (let d = 1; d <= 31; d++) {
         const text = `Until ${d} ${m} 2026`;
@@ -118,13 +121,53 @@ describe("public column widths", () => {
       }
     }
   });
-  it("leaves room for the discount text in its column", () => {
+  it("wraps a long discount and keeps its last currency", () => {
     const spec = publicPdfSpec([], NOW);
     const pdf = renderPromoPdf(spec);
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    const [, disc, where] = spec.columns;
-    const text = "10% off (at most 10%)";
-    expect(pdf.splitTextToSize(text, where.x - disc.x - 4)[0]).toBe(text);
+    const text = "PKR 2,000 / USD 20 / GBP 15 off";
+    const { lines } = layoutCell(pdf, text, columnTextWidth(spec.columns, 1));
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.join(" ")).toBe(text);
+  });
+});
+
+describe("codes are never cut", () => {
+  const publicCols = () => publicPdfSpec([], NOW).columns;
+  const meCols = () => personPdfSpec("agent", [], "me", NOW).columns;
+  const shareCols = () => personPdfSpec("agent", [], "share", NOW).columns;
+  const codes = ["MDC-WINTER-SALE", "PHARMACOLOGY-2026", "ABCDEFGHIJKLMNOPQRSTUV-2026-AB", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_AB"];
+  for (const [label, cols, idx] of [["public", publicCols, 0], ["me", meCols, 1], ["share", shareCols, 1]] as const) {
+    it("keeps 15 to 40 character codes whole on one line (" + label + ")", () => {
+      const columns = cols();
+      const pdf = renderPromoPdf({ title: "T", madeOn: NOW, columns, rows: [] });
+      pdf.setFont("helvetica", "normal");
+      for (const c of codes) {
+        const { lines, fontSize } = layoutCell(pdf, c, columnTextWidth(columns, idx), "code");
+        expect(lines).toEqual([c]);
+        expect(fontSize).toBeGreaterThanOrEqual(5);
+      }
+    });
+  }
+  it("never loses characters even for an extreme code", () => {
+    const columns = publicCols();
+    const pdf = renderPromoPdf({ title: "T", madeOn: NOW, columns, rows: [] });
+    pdf.setFont("helvetica", "normal");
+    const c = "W".repeat(40);
+    expect(layoutCell(pdf, c, columnTextWidth(columns, 0), "code").lines.join("")).toBe(c);
+  });
+});
+
+describe("row height and pagination", () => {
+  it("wrapped rows take more room and still paginate with the header repeated", () => {
+    const spec = publicPdfSpec(
+      Array.from({ length: 60 }, (_, i) => ({ code: "CODE" + i, discount: "PKR 2,000 / USD 20 / GBP 15 off", where: "A long course name that wraps over several lines in the column", until: "" })),
+      NOW,
+    );
+    const short = publicPdfSpec(Array.from({ length: 60 }, (_, i) => ({ code: "CODE" + i, discount: "10% off", where: "All courses", until: "" })), NOW);
+    const tall = renderPromoPdf(spec);
+    expect(tall.getNumberOfPages()).toBeGreaterThan(renderPromoPdf(short).getNumberOfPages());
+    const out = tall.output();
+    expect((out.match(/Valid until/g) ?? []).length).toBe(tall.getNumberOfPages());
   });
 });

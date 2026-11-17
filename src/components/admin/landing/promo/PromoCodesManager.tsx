@@ -45,7 +45,7 @@ const FORM_FIELDS = ["code", "value", "maxDiscountPercent", "fixedAmounts", "pag
 
 type Editing = { mode: "new" } | { mode: "edit"; promo: PromoCode } | null;
 
-/** The one site-wide number: the highest percent anyone may type after an owner code (CODE-NN%). */
+/** The one site-wide number: the highest percent anyone may type after any code (CODE-NN%). */
 function CeilingBox({ maxPercent }: { maxPercent: number }) {
   const router = useRouter();
   const [value, setValue] = useState(String(maxPercent));
