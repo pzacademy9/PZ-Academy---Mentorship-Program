@@ -309,13 +309,13 @@ describe("promo codes", () => {
     await submit(ppcPayload({ promoCode: "TEST-111" }));
     expect(inputOf().promo).toMatchObject({ ok: true, total: 4320 });
   });
-  it("422 with the maximum named when the typed percent is too high, before any upload", async () => {
+  it("422 saying only that the code is invalid when the typed percent is too high, before any upload", async () => {
     m.getPromoByCode.mockImplementation(async (c: string) => (c === "TEST-111" ? ownerPromo() : null));
     const res = await submit(ppcPayload({ promoCode: "TEST-111-35%" }));
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.field).toBe("promoCode");
-    expect(body.error).toBe("The maximum discount is 30%.");
+    expect(body.error).toBe("This promo code is invalid.");
     nothingStored();
   });
   it("a 0% plain owner code gives no discount but still credits the owner", async () => {
@@ -325,9 +325,16 @@ describe("promo codes", () => {
     expect(inputOf().promo).toMatchObject({ ok: true, total: 4800 });
     expect(inputOf().agentId).toBe("agent-7");
   });
-  it("a suffix on an ordinary (non-owner) code is not accepted", async () => {
-    m.getPromoByCode.mockImplementation(async (c: string) => (c === "PZ10" ? promo() : null));
-    expect((await submit(ppcPayload({ promoCode: "PZ10-10%" }))).status).toBe(422);
+  it("a suffix on an ordinary code is accepted up to that code's own cap", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "PZ10" ? promo({ maxDiscountPercent: 20 }) : null));
+    expect((await submit(ppcPayload({ promoCode: "PZ10-20%" }))).status).toBe(201);
+  });
+  it("a suffix on an ordinary code above its own cap is 422 and says only invalid", async () => {
+    m.getPromoByCode.mockImplementation(async (c: string) => (c === "PZ10" ? promo({ maxDiscountPercent: 20 }) : null));
+    const res = await submit(ppcPayload({ promoCode: "PZ10-25%" }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("This promo code is invalid.");
+    nothingStored();
   });
   it("422 for a code that does not apply, before any upload", async () => {
     const res = await submit(ppcPayload({ promoCode: "NOPE" }));

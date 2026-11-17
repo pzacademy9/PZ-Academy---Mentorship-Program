@@ -78,10 +78,10 @@ const MESSAGES: Record<PromoFailureReason, string> = {
   wrong_page: "This promo code is not valid for this event.",
   wrong_option: "This promo code does not apply to what you chose.",
   already_used: "You have already used this promo code.",
-  over_max: "That discount is higher than allowed.",
+  over_max: "This promo code is invalid.",
 };
 
-export function promoMessage(reason: PromoFailureReason, maxPercent?: number): string {
-  if (reason === "over_max" && maxPercent !== undefined) return `The maximum discount is ${maxPercent}%.`;
+/** The buyer never sees the limit: a percent over it reads as an invalid code. The second argument is kept only so callers need not change. */
+export function promoMessage(reason: PromoFailureReason, _maxPercent?: number): string {
   return MESSAGES[reason];
 }

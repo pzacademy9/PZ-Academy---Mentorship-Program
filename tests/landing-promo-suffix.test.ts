@@ -71,8 +71,20 @@ describe("effectiveOrdinaryPromo", () => {
   it("refuses a percent above the global ceiling", () => {
     expect(effectiveOrdinaryPromo({ code: ordinary(), typed: "SAVE-31%", percent: 31, globalMax: 30 })).toEqual({ ok: false, reason: "over_max", max: 30 });
   });
-  it("gives the typed percent even when the base is a fixed code with its own cap", () => {
-    const r = effectiveOrdinaryPromo({ code: ordinary({ type: "fixed", maxDiscountPercent: 5 }), typed: "SAVE-20%", percent: 20, globalMax: 30 });
+  it("uses the code's own cap as the ceiling when it is lower than the global one", () => {
+    const capped = ordinary({ maxDiscountPercent: 20 });
+    expect(effectiveOrdinaryPromo({ code: capped, typed: "SAVE-25%", percent: 25, globalMax: 30 })).toEqual({ ok: false, reason: "over_max", max: 20 });
+    expect(effectiveOrdinaryPromo({ code: capped, typed: "SAVE-20%", percent: 20, globalMax: 30 }).ok).toBe(true);
+  });
+  it("uses only the global ceiling when the code has no cap (0)", () => {
+    expect(effectiveOrdinaryPromo({ code: ordinary({ maxDiscountPercent: 0 }), typed: "SAVE-30%", percent: 30, globalMax: 30 }).ok).toBe(true);
+    expect(effectiveOrdinaryPromo({ code: ordinary({ maxDiscountPercent: 0 }), typed: "SAVE-31%", percent: 31, globalMax: 30 })).toEqual({ ok: false, reason: "over_max", max: 30 });
+  });
+  it("never lets a code's cap raise the ceiling above the global one", () => {
+    expect(effectiveOrdinaryPromo({ code: ordinary({ maxDiscountPercent: 50 }), typed: "SAVE-40%", percent: 40, globalMax: 30 })).toEqual({ ok: false, reason: "over_max", max: 30 });
+  });
+  it("gives the typed percent even when the base is a fixed code with a cap above it", () => {
+    const r = effectiveOrdinaryPromo({ code: ordinary({ type: "fixed", maxDiscountPercent: 25 }), typed: "SAVE-20%", percent: 20, globalMax: 30 });
     expect(r.ok && r.promo.value).toBe(20);
     expect(r.ok && r.promo.maxDiscountPercent).toBe(0);
   });
