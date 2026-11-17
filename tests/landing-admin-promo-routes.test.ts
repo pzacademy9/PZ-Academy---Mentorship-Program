@@ -7,9 +7,9 @@ vi.mock("@/lib/auth/require-admin", () => ({
     ? { ok: true, user: { id: "admin-1" } }
     : { ok: false, response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) }),
 }));
-const m = vi.hoisted(() => ({ listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), getOrCreateAgentLink: vi.fn() }));
+const m = vi.hoisted(() => ({ listPromoCodes: vi.fn(), createPromoCode: vi.fn(), updatePromoCode: vi.fn(), getPromoById: vi.fn(), deletePromoCode: vi.fn(), getOrCreateAgentLink: vi.fn() }));
 vi.mock("@/lib/data/landing-promo-codes", () => ({
-  listPromoCodes: m.listPromoCodes, createPromoCode: m.createPromoCode, updatePromoCode: m.updatePromoCode, getPromoById: m.getPromoById,
+  listPromoCodes: m.listPromoCodes, createPromoCode: m.createPromoCode, updatePromoCode: m.updatePromoCode, getPromoById: m.getPromoById, deletePromoCode: m.deletePromoCode,
 }));
 vi.mock("@/lib/data/landing-agent-links", async (orig) => ({
   ...(await orig<typeof import("@/lib/data/landing-agent-links")>()),
@@ -17,7 +17,7 @@ vi.mock("@/lib/data/landing-agent-links", async (orig) => ({
 }));
 
 import { GET as listPromos, POST as createPromo } from "@/app/api/admin/landing-promo-codes/route";
-import { PATCH as patchPromo } from "@/app/api/admin/landing-promo-codes/[id]/route";
+import { PATCH as patchPromo, DELETE as deletePromo } from "@/app/api/admin/landing-promo-codes/[id]/route";
 import { POST as agentLink } from "@/app/api/admin/landing-agent-links/route";
 import { AgentLinkError } from "@/lib/data/landing-agent-links";
 import { promoIssues } from "@/lib/validations/landing-promo";
@@ -44,6 +44,7 @@ describe("admin gate", () => {
       () => listPromos(),
       () => createPromo(req(input())),
       () => patchPromo(req({ active: false }, "PATCH"), ctx()),
+      () => deletePromo(req({}, "DELETE"), ctx()),
       () => agentLink(req({ agentId: ID })),
     ];
     for (const call of calls) expect((await call()).status).toBe(403);
@@ -159,6 +160,37 @@ describe("PATCH merges the patch into the stored row before checking the rules",
     expect((await patchPromo(req({ value: 5 }, "PATCH"), ctx())).status).toBe(404);
     m.updatePromoCode.mockResolvedValue({ ok: false, reason: "invalid" });
     expect((await patchPromo(req({ active: true }, "PATCH"), ctx())).status).toBe(400);
+  });
+});
+
+describe("DELETE /api/admin/landing-promo-codes/[id]", () => {
+  const del = (id = ID) => deletePromo(req({}, "DELETE"), ctx(id));
+  it("deletes and answers the id", async () => {
+    m.deletePromoCode.mockResolvedValue({ ok: true });
+    const res = await del();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: ID });
+    expect(m.deletePromoCode).toHaveBeenCalledWith(ID);
+  });
+  it("404 for a malformed id without touching data", async () => {
+    expect((await del("not-a-uuid")).status).toBe(404);
+    expect(m.deletePromoCode).not.toHaveBeenCalled();
+  });
+  it("maps each refusal to its status and plain message", async () => {
+    m.deletePromoCode.mockResolvedValue({ ok: false, reason: "not-found" });
+    const nf = await del();
+    expect(nf.status).toBe(404);
+    expect(await nf.json()).toEqual({ error: "Promo code not found" });
+    m.deletePromoCode.mockResolvedValue({ ok: false, reason: "used" });
+    const used = await del();
+    expect(used.status).toBe(409);
+    expect(await used.json()).toEqual({ error: "This code has been used, so it cannot be deleted. Pause it instead." });
+    m.deletePromoCode.mockResolvedValue({ ok: false, reason: "owner-code" });
+    const owner = await del();
+    expect(owner.status).toBe(409);
+    expect(await owner.json()).toEqual({ error: "This code belongs to a person. Change it from their own screen." });
+    m.deletePromoCode.mockResolvedValue({ ok: false, reason: "db-error" });
+    expect((await del()).status).toBe(500);
   });
 });
 

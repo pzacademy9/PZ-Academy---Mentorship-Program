@@ -151,6 +151,34 @@ export async function updatePromoCode(id: string, patch: Partial<PromoCodeInput>
   return { ok: true, id: data.id };
 }
 
+export type PromoDeleteResult = { ok: true } | { ok: false; reason: "not-found" | "owner-code" | "used" | "db-error" };
+
+/**
+ * Deletes an unused ordinary code. landing_registrations.promo_code_id is "on delete set null", so deleting a used
+ * code would silently orphan a sale's credit link; the database cannot refuse that, so this check is the only guard.
+ * Owner codes (agent/affiliate) are managed from their own screens. Every registration row counts, test rows too.
+ */
+export async function deletePromoCode(id: string): Promise<PromoDeleteResult> {
+  let code: PromoCode | null;
+  try {
+    code = await getPromoById(id);
+  } catch {
+    return { ok: false, reason: "db-error" };
+  }
+  if (!code) return { ok: false, reason: "not-found" };
+  if (code.isOwnerCode) return { ok: false, reason: "owner-code" };
+  const admin = createAdminSupabase();
+  const { count, error: countError } = await admin
+    .from("landing_registrations")
+    .select("id", { count: "exact", head: true })
+    .eq("promo_code_id", id);
+  if (countError) return { ok: false, reason: "db-error" };
+  if ((count ?? 0) > 0) return { ok: false, reason: "used" };
+  const { error } = await admin.from("landing_promo_codes").delete().eq("id", id);
+  if (error) return { ok: false, reason: "db-error" };
+  return { ok: true };
+}
+
 /**
  * True when this email already has a real (non-test) registration that used the promo.
  * Throws on a read error: a one-per-email code must not be granted on a DB blip.

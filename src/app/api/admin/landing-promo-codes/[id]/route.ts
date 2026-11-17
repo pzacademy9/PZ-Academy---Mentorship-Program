@@ -1,7 +1,7 @@
 // src/app/api/admin/landing-promo-codes/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { getPromoById, updatePromoCode } from "@/lib/data/landing-promo-codes";
+import { deletePromoCode, getPromoById, updatePromoCode } from "@/lib/data/landing-promo-codes";
 import { isPageId } from "@/lib/validations/landing";
 import { firstIssue, promoIssues, promoPatchSchema } from "@/lib/validations/landing-promo";
 
@@ -48,4 +48,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Could not save the promo code" }, { status: 500 });
   }
   return NextResponse.json({ id: result.id });
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin("landing_pages");
+  if (!auth.ok) return auth.response;
+  const { id } = await params;
+  if (!isPageId(id)) return NextResponse.json({ error: "Promo code not found" }, { status: 404 });
+
+  const result = await deletePromoCode(id);
+  if (!result.ok) {
+    if (result.reason === "not-found") return NextResponse.json({ error: "Promo code not found" }, { status: 404 });
+    if (result.reason === "used") {
+      return NextResponse.json({ error: "This code has been used, so it cannot be deleted. Pause it instead." }, { status: 409 });
+    }
+    if (result.reason === "owner-code") {
+      return NextResponse.json({ error: "This code belongs to a person. Change it from their own screen." }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not delete the promo code" }, { status: 500 });
+  }
+  return NextResponse.json({ id });
 }
