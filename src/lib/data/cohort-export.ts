@@ -15,14 +15,37 @@ export const IN_CHUNK = 200;
 
 const SUPPRESSION_EVENTS = ["hard_bounce", "blocked", "spam", "invalid_email", "unsubscribed"];
 
-type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message?: string } | null }>;
+type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message?: string; code?: string } | null }>;
+
+/**
+ * True when a database error says a column or table is missing (migration not
+ * pasted yet): Postgres 42703 / 42P01, PostgREST PGRST204 / PGRST205, or a
+ * message naming the schema cache or a missing relation/column.
+ */
+export function isMissingSchemaError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code && ["42703", "42P01", "PGRST204", "PGRST205"].includes(error.code)) return true;
+  return /schema cache|does not exist/i.test(error.message ?? "");
+}
+
+/** Error thrown by pageAll. Carries only the label, the code and the missing-schema flag, never row data. */
+export class ReadError extends Error {
+  readonly code: string | null;
+  readonly missingSchema: boolean;
+  constructor(label: string, error: { message?: string; code?: string }) {
+    super(`${label} read failed`);
+    this.name = "ReadError";
+    this.code = error.code ?? null;
+    this.missingSchema = isMissingSchemaError(error);
+  }
+}
 
 /** Reads every page of a query. `build` must apply a stable, unique ordering. */
 export async function pageAll<T>(label: string, build: (from: number, to: number) => PageResult<T>): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await build(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(`${label} read failed`);
+    if (error) throw new ReadError(label, error);
     const rows = data ?? [];
     out.push(...rows);
     if (rows.length < PAGE_SIZE) break;
@@ -103,6 +126,20 @@ export async function loadCohortAudience(
   }
   for (const id of interestedList) if (!buyers.has(id)) contactIds.add(id);
 
+  const contacts = await loadAudienceContacts(Array.from(contactIds));
+  return { contacts, names };
+}
+
+/**
+ * Contact rows for an audience, with the email suppression flag worked out.
+ * Shared by the cohort export and the Audiences engine. Ids are de-duplicated
+ * and read in sorted order; ids with no contact row are skipped.
+ */
+export async function loadAudienceContacts(contactIds: string[]): Promise<AudienceContact[]> {
+  const ids = Array.from(new Set(contactIds)).sort();
+  if (ids.length === 0) return [];
+  const admin = createAdminSupabase();
+
   const rows: Array<{
     id: string;
     email: string | null;
@@ -113,7 +150,7 @@ export async function loadCohortAudience(
     whatsapp_unsubscribed_at: string | null;
     do_not_contact_at: string | null;
   }> = [];
-  for (const part of chunk(Array.from(contactIds).sort())) {
+  for (const part of chunk(ids)) {
     const { data, error } = await admin
       .from("contacts")
       .select("id, email, phone_e164, full_name, country, email_unsubscribed_at, whatsapp_unsubscribed_at, do_not_contact_at")
@@ -151,7 +188,7 @@ export async function loadCohortAudience(
     }
   }
 
-  const contacts: AudienceContact[] = rows.map((r) => ({
+  return rows.map((r) => ({
     id: r.id,
     email: r.email,
     phoneE164: r.phone_e164,
@@ -163,6 +200,4 @@ export async function loadCohortAudience(
     emailSuppressed:
       !!r.email && (unsafe(r.email.trim().toLowerCase()) || suppressed.has(r.email.trim().toLowerCase())),
   }));
-
-  return { contacts, names };
 }
