@@ -48,6 +48,8 @@ export const metadata: Metadata = {
     description: "Medical & health sciences education platform by Pharmacozyme.",
     siteName: "PZ Academy",
   },
+  appleWebApp: { capable: true, title: "PZ Academy", statusBarStyle: "default" },
+  icons: { apple: "/pz-logo.png" },
 };
 
 export const viewport: Viewport = {

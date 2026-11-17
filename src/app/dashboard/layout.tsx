@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { type Role } from "@/lib/roles";
@@ -8,6 +9,7 @@ import { Topbar } from "@/components/dashboard/Topbar";
 import { getNotificationSummary } from "@/lib/data/notifications";
 import { runInBackground } from "@/lib/landing/registration/background";
 import { linkGuestRegistrations } from "@/lib/landing/registration/link-student";
+import { ResumeTracker } from "@/components/ResumeTracker";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
@@ -42,6 +44,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen bg-pz-surface dark:bg-pz-surface">
+      <Suspense fallback={null}>
+        <ResumeTracker />
+      </Suspense>
       <Sidebar role={role} areas={areas} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
