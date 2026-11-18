@@ -13,8 +13,13 @@ import {
 } from "@/lib/crm/audience-filter";
 import type { AudienceFacets } from "@/lib/data/audience-query";
 import type { SavedAudience } from "@/lib/data/audience-saved";
+import { AudienceCheckStep } from "@/components/admin/crm/AudienceCheckStep";
+import { AudienceDownloadStep } from "@/components/admin/crm/AudienceDownloadStep";
+import type { AudiencePreview } from "@/lib/crm/audience-preview";
 import { AudienceFilters } from "@/components/admin/crm/AudienceFilters";
-import { AudienceResultCard, type CountState } from "@/components/admin/crm/AudienceResultCard";
+import type { CountState } from "@/components/admin/crm/AudienceResultCard";
+import { AudienceStepper, type AudienceStep } from "@/components/admin/crm/AudienceStepper";
+import { AudienceSummary, ChoiceSentence } from "@/components/admin/crm/AudienceSummary";
 import { BringInDialog } from "@/components/admin/crm/BringInDialog";
 
 const COUNT_URL = "/api/admin/crm/audiences/count";
@@ -31,7 +36,7 @@ async function readError(res: Response): Promise<string> {
   return typeof json.error === "string" ? json.error : GENERIC;
 }
 
-// Shown once, inside the result card next to the downloads.
+// Shown once, inside the summary card.
 function IgnoredWarning({ choices }: { choices: string[] }) {
   if (choices.length === 0) return null;
   return (
@@ -67,6 +72,13 @@ export function AudiencesPanel({
   const [statusFlag, setStatusFlag] = useState<boolean | null>(null);
   const [renameName, setRenameName] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [step, setStep] = useState<AudienceStep>(1);
+  // Set when a saved audience is loaded: go to step 2 once its own count has finished.
+  // The last choices that had a finished count; a recount of the same choices keeps the later steps open.
+  const [reachedKey, setReachedKey] = useState<string | null>(null);
+  // The preview belongs to the choices it was fetched for; it is never used for any other key.
+  const [previewState, setPreviewState] = useState<{ key: string; preview: AudiencePreview } | null>(null);
+  const [goToCheckKey, setGoToCheckKey] = useState<string | null>(null);
 
   const key = encodeAudienceFilter(filter);
   const filterRef = useRef(filter);
@@ -97,6 +109,8 @@ export function AudiencesPanel({
       const data = await res.json();
       if (!c.signal.aborted) {
         setCount({ status: "done", key: k, data });
+        // Only a count that can go on unlocks the later steps.
+        setReachedKey(!data.tooLarge && !data.needsUpdate && data.inFile > 0 ? k : null);
         setStatusFlag(!!data?.statusNeedsUpdate);
       }
     } catch {
@@ -119,8 +133,41 @@ export function AudiencesPanel({
 
   useEffect(() => () => ctrl.current?.abort(), []);
 
+  // A number for the current choices unlocks the later steps; any change to the choices locks them again.
+  const preview = previewState && previewState.key === key ? previewState.preview : null;
+  // 2 after a usable count for these choices; 3 only once the list for these choices has been looked at.
+  const maxStep: AudienceStep = reachedKey === key ? (preview ? 3 : 2) : 1;
+
+  // If the number is being recounted (for example after Bring in), later steps lock and we return to step 1.
+  useEffect(() => {
+    if (step > maxStep) setStep(maxStep);
+  }, [step, maxStep]);
+
+  // Move keyboard focus to the new step heading whenever the step changes (not on first mount).
+  const stepMounted = useRef(false);
+  useEffect(() => {
+    if (!stepMounted.current) {
+      stepMounted.current = true;
+      return;
+    }
+    document.querySelector<HTMLElement>("[data-step-heading]")?.focus();
+  }, [step]);
+
+  useEffect(() => {
+    if (goToCheckKey === null || count.key !== goToCheckKey || count.status === "idle" || count.status === "loading") return;
+    setGoToCheckKey(null);
+    if (count.status === "done" && count.data.inFile > 0 && !count.data.tooLarge && !count.data.needsUpdate) setStep(2);
+  }, [count, goToCheckKey]);
+
   const changeFilter = (f: AudienceFilter) => {
     setFilter(f);
+    // Same choices again (for example Reset on the defaults): the finished count still stands.
+    if (encodeAudienceFilter(f) !== key) {
+      setReachedKey(null);
+      setPreviewState(null);
+      setStep(1);
+    }
+    setGoToCheckKey(null);
     setSavedId("");
     setRenamingId(null);
   };
@@ -131,9 +178,24 @@ export function AudiencesPanel({
     setRenamingId(null);
     const item = saved.find((s) => s.id === id);
     if (!item || item.invalid || !item.filter) return; // needs checking: cannot be loaded
+    const k = encodeAudienceFilter(item.filter);
     setFilter(item.filter);
     setSavedId(item.id);
     setSavedOpen(false);
+    if (k === key) {
+      // Same choices as now: no recount happens by itself, so go on or count once.
+      if (reachedKey === key) {
+        setStep(2);
+      } else {
+        setGoToCheckKey(k);
+        void runCount(item.filter);
+      }
+      return;
+    }
+    setReachedKey(null);
+    setPreviewState(null);
+    setStep(1);
+    setGoToCheckKey(k);
   }
 
   const { run: save, pending: saving } = useAsyncAction(async () => {
@@ -212,11 +274,13 @@ export function AudiencesPanel({
     } catch {
       // The page still works with the older choices.
     }
-    // Another server instance may have older data: ask this count to read fresh.
+    // Another server instance may have older data: ask this count to read fresh, and look at the list again.
+    setPreviewState(null);
     void runCount(filterRef.current, true);
   }, [runCount]);
 
   const ignored = count.status === "done" && count.key === key ? count.data.ignoredChoices : [];
+  const sentence = <ChoiceSentence filter={filter} />;
 
   return (
     <div className="space-y-6">
@@ -327,9 +391,35 @@ export function AudiencesPanel({
         </p>
       )}
 
+      <AudienceStepper step={step} maxStep={maxStep} onGo={setStep} />
+
+      {step === 2 && (
+        <AudienceCheckStep
+          filter={filter}
+          filterKey={key}
+          preview={preview}
+          sentence={sentence}
+          onLoaded={(k, p) => setPreviewState({ key: k, preview: p })}
+          onBack={() => setStep(1)}
+          onNext={() => setStep(3)}
+        />
+      )}
+
+      {step === 3 && preview && (
+        <AudienceDownloadStep
+          filter={filter}
+          filterKey={key}
+          preview={preview}
+          sentence={sentence}
+          ignored={<IgnoredWarning choices={ignored} />}
+          onBack={() => setStep(2)}
+        />
+      )}
+
+      {step === 1 && (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <h2 className="font-headline text-lg font-bold text-pz-secondary">1. Who do you want?</h2>
+          <h2 data-step-heading tabIndex={-1} className="font-headline text-lg font-bold text-pz-secondary outline-none">Who do you want?</h2>
           {(statusFlag ?? facets.statusNeedsUpdate) && !needsUpdate && (
             <p className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm text-pz-on-surface-variant">
               <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -337,13 +427,14 @@ export function AudiencesPanel({
             </p>
           )}
           <AudienceFilters filter={filter} facets={facets} onChange={changeFilter} />
-          <button type="button" onClick={() => changeFilter(DEFAULT_AUDIENCE_FILTER)} className={textButton}>
-            Reset filters
-          </button>
         </div>
 
-        <AudienceResultCard
-          className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 self-end lg:bottom-auto lg:top-4 lg:self-start"
+        <AudienceSummary
+          filter={filter}
+          nextLabel="Next: Check the list"
+          onNext={() => setStep(2)}
+          onReset={() => changeFilter(DEFAULT_AUDIENCE_FILTER)}
+          className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 max-h-[50dvh] self-end overflow-y-auto lg:bottom-auto lg:top-20 lg:max-h-none lg:self-start lg:overflow-visible"
           count={count}
           currentKey={key}
           onCheck={() => void runCount(filter)}
@@ -395,6 +486,7 @@ export function AudiencesPanel({
           }
         />
       </div>
+      )}
     </div>
   );
 }

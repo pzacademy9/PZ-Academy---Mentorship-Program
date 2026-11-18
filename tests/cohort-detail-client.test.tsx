@@ -14,6 +14,13 @@ describe("cohort detail header", () => {
     expect(screen.getByText(/8 of 10 rows still attached/)).toBeTruthy();
   });
 
+  it("a cohort with no course says Course not set", () => {
+    render(<CohortDetailClient cohort={detail({ courseTitle: null })} />);
+    const el = screen.getByText("Course not set");
+    expect(el.getAttribute("class")).toContain("text-pz-danger");
+    expect(screen.queryByText("untagged")).toBeNull();
+  });
+
   it("interested cohorts show a people count instead of rows attached", () => {
     render(<CohortDetailClient cohort={detail({ kind: "closed_interested", purchaseCount: 0, rowsImported: 42, contactCount: 42 })} />);
     expect(screen.getByText(/42 people/)).toBeTruthy();

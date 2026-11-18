@@ -11,7 +11,7 @@ export default async function SalesHubContactsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-headline font-bold text-2xl text-pz-secondary">Contacts</h1>
-        <p className="font-body text-pz-on-surface-variant text-sm mt-1">Everyone imported from your sheets. Search, filter and select people to act on.</p>
+        <p className="font-body text-pz-on-surface-variant text-sm mt-1">Everyone who has registered or bought. Find people, then choose what to do.</p>
       </div>
       <ContactsPanel initialRows={contacts.rows} initialTotal={contacts.total} />
     </div>
