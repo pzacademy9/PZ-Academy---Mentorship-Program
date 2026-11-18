@@ -13,6 +13,9 @@ import {
 } from "@/lib/crm/audience-filter";
 import type { AudienceFacets } from "@/lib/data/audience-query";
 import type { SavedAudience } from "@/lib/data/audience-saved";
+import { AudienceCheckStep } from "@/components/admin/crm/AudienceCheckStep";
+import { AudienceDownloadStep } from "@/components/admin/crm/AudienceDownloadStep";
+import type { AudiencePreview } from "@/lib/crm/audience-preview";
 import { AudienceFilters } from "@/components/admin/crm/AudienceFilters";
 import type { CountState } from "@/components/admin/crm/AudienceResultCard";
 import { AudienceStepper, type AudienceStep } from "@/components/admin/crm/AudienceStepper";
@@ -73,6 +76,8 @@ export function AudiencesPanel({
   // Set when a saved audience is loaded: go to step 2 once its own count has finished.
   // The last choices that had a finished count; a recount of the same choices keeps the later steps open.
   const [reachedKey, setReachedKey] = useState<string | null>(null);
+  // The preview belongs to the choices it was fetched for; it is never used for any other key.
+  const [previewState, setPreviewState] = useState<{ key: string; preview: AudiencePreview } | null>(null);
   const [goToCheckKey, setGoToCheckKey] = useState<string | null>(null);
 
   const key = encodeAudienceFilter(filter);
@@ -129,6 +134,7 @@ export function AudiencesPanel({
 
   // A number for the current choices unlocks the later steps; any change to the choices locks them again.
   const maxStep: AudienceStep = reachedKey === key ? 3 : 1;
+  const preview = previewState && previewState.key === key ? previewState.preview : null;
 
   // If the number is being recounted (for example after Bring in), later steps lock and we return to step 1.
   useEffect(() => {
@@ -144,6 +150,7 @@ export function AudiencesPanel({
   const changeFilter = (f: AudienceFilter) => {
     setFilter(f);
     setReachedKey(null);
+    setPreviewState(null);
     setStep(1);
     setGoToCheckKey(null);
     setSavedId("");
@@ -158,6 +165,7 @@ export function AudiencesPanel({
     if (!item || item.invalid || !item.filter) return; // needs checking: cannot be loaded
     setFilter(item.filter);
     setReachedKey(null);
+    setPreviewState(null);
     setSavedId(item.id);
     setSavedOpen(false);
     setStep(1);
@@ -240,7 +248,8 @@ export function AudiencesPanel({
     } catch {
       // The page still works with the older choices.
     }
-    // Another server instance may have older data: ask this count to read fresh.
+    // Another server instance may have older data: ask this count to read fresh, and look at the list again.
+    setPreviewState(null);
     void runCount(filterRef.current, true);
   }, [runCount]);
 
@@ -357,16 +366,20 @@ export function AudiencesPanel({
 
       <AudienceStepper step={step} maxStep={maxStep} onGo={setStep} />
 
-      {step !== 1 && (
-        <section className="space-y-4 rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
-          <h2 className="font-headline text-lg font-bold text-pz-secondary">{step === 2 ? "Check the list" : "Download"}</h2>
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setStep(step === 3 ? 2 : 1)} className={textButton}>Back</button>
-            {step === 2 && (
-              <button type="button" onClick={() => setStep(3)} className={textButton}>Next: Download</button>
-            )}
-          </div>
-        </section>
+      {step === 2 && (
+        <AudienceCheckStep
+          filter={filter}
+          filterKey={key}
+          preview={preview}
+          total={count.status === "done" && count.key === key ? count.data.total : undefined}
+          onLoaded={(k, p) => setPreviewState({ key: k, preview: p })}
+          onBack={() => setStep(1)}
+          onNext={() => setStep(3)}
+        />
+      )}
+
+      {step === 3 && preview && (
+        <AudienceDownloadStep filter={filter} filterKey={key} preview={preview} onBack={() => setStep(2)} />
       )}
 
       {step === 1 && (
