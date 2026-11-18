@@ -701,12 +701,36 @@ describe("registration cache (60 seconds)", () => {
     expect(countryReads()).toBeGreaterThan(n);
   });
 
-  it("facets share the same cached registrations", async () => {
+  it("facets always read fresh: a warm cache does not hide new data, and facets do not feed the cache", async () => {
     seed();
     await countAudience(F());
     const purchases = reads("contact_purchases");
     await audienceFacets();
-    expect(reads("contact_purchases")).toBe(purchases);
+    expect(reads("contact_purchases")).toBeGreaterThan(purchases);
+    const afterFacets = reads("contact_purchases");
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBe(afterFacets);
+  });
+
+  it("count with fresh:true bypasses the cache and does not fill it", async () => {
+    seed();
+    await countAudience(F());
+    const warm = reads("contact_purchases");
+    await countAudience(F(), { fresh: true });
+    expect(reads("contact_purchases")).toBeGreaterThan(warm);
+    clearAudienceCache();
+    await countAudience(F(), { fresh: true });
+    const afterFresh = reads("contact_purchases");
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBeGreaterThan(afterFresh);
+    const filled = reads("contact_purchases");
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBe(filled);
+  });
+
+  it("facets default every status to 0 when the status column exists", async () => {
+    seed();
+    expect((await audienceFacets()).statusCounts).toEqual({ paid: 2, reserved: 0, pending: 0, part_paid: 0, free: 0 });
   });
 
   it("an error is never cached", async () => {
@@ -784,8 +808,9 @@ describe("registration cache: concurrency and safety", () => {
     const one = reads("contact_purchases");
     clearAudienceCache();
     await Promise.all([countAudience(F()), countAudience(F({ statuses: ["paid"] })), audienceFacets()]);
-    expect(reads("contact_purchases")).toBe(one * 2);
-    expect(reads("courses")).toBe(2);
+    // The two counts share one read; facets read fresh on their own.
+    expect(reads("contact_purchases")).toBe(one * 3);
+    expect(reads("courses")).toBe(3);
   });
 
   it("a rejected shared read lets the next call retry", async () => {

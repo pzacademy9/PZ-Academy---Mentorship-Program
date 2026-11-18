@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { parseAudienceFilter } from "@/lib/crm/audience-filter";
 import { countAudience } from "@/lib/data/audience-query";
@@ -15,11 +16,18 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "The audience choices are not valid." }, { status: 400 });
   }
+  // Optional: read fresh (used by the page right after Bring in). Never part of the saved filter.
+  let fresh = false;
+  if (body && typeof body === "object" && "fresh" in body) {
+    const f = z.boolean().safeParse((body as { fresh?: unknown }).fresh);
+    if (!f.success) return NextResponse.json({ error: "The audience choices are not valid." }, { status: 400 });
+    fresh = f.data;
+  }
   const parsed = parseAudienceFilter(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    const c = await countAudience(parsed.filter);
+    const c = await countAudience(parsed.filter, { fresh });
     return NextResponse.json({
       total: c.total,
       inFile: c.inFile,

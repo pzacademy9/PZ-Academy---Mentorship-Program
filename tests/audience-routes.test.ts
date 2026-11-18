@@ -74,6 +74,18 @@ describe("count route", () => {
     expect((await countPOST(post("/count", "not json"))).status).toBe(400);
     expect(q.countAudience).not.toHaveBeenCalled();
   });
+  it("forwards a validated fresh flag; default is not fresh; a non-boolean is a 400", async () => {
+    q.countAudience.mockResolvedValue({
+      total: 1, inFile: 1, leftOut: { noContact: 0, doNotContact: 0 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],
+    });
+    await countPOST(post("/count", F));
+    expect(q.countAudience).toHaveBeenLastCalledWith(expect.anything(), { fresh: false });
+    await countPOST(post("/count", { ...F, fresh: true }));
+    expect(q.countAudience).toHaveBeenLastCalledWith(expect.anything(), { fresh: true });
+    q.countAudience.mockClear();
+    expect((await countPOST(post("/count", { ...F, fresh: "yes" }))).status).toBe(400);
+    expect(q.countAudience).not.toHaveBeenCalled();
+  });
   it("returns only the numbers", async () => {
     q.countAudience.mockResolvedValue({
       total: 10, inFile: 8, leftOut: { noContact: 1, doNotContact: 1 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],

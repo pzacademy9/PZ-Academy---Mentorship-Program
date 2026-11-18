@@ -9,6 +9,9 @@ import type { SavedAudience } from "@/lib/data/audience-saved";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => async () => true }));
+vi.mock("@/components/admin/crm/BringInDialog", () => ({
+  BringInDialog: ({ onDone }: { onDone: () => void }) => <button type="button" onClick={onDone}>Finish bring in</button>,
+}));
 
 const facets = (over: Partial<AudienceFacets> = {}): AudienceFacets => ({
   courses: [
@@ -253,13 +256,13 @@ describe("audiences panel", () => {
   it("explains what Reserved means", () => {
     renderPanel();
     expect(
-      screen.getByText("Reserved: people you added by hand so they can pay before registration closes."),
+      screen.getByText("Reserved: a seat is held until they pay, for example people you added by hand."),
     ).toBeTruthy();
   });
 
   it("the count response statusNeedsUpdate shows one plain note in step 1", async () => {
     renderPanel();
-    const note = /Reserved, Pending and Part-paid cannot be told apart yet\. One small setup step is waiting\./;
+    const note = /Reserved, Pending, Part-paid and Free cannot be told apart yet\. One small setup step is waiting\./;
     expect(screen.queryByText(note)).toBeNull();
     handler = () => ({ body: countBody({ statusNeedsUpdate: true }) });
     await checkCount();
@@ -294,10 +297,54 @@ describe("audiences panel", () => {
     expect(details.className).toMatch(/max-h-\[60dvh\]/);
   });
 
-  it("step labels 2 and 3 are visible text, not screen-reader only", () => {
+  it("step labels 2 and 3 are screen-reader only on phone and visible from lg up", () => {
     renderPanel();
-    expect(screen.getByRole("heading", { name: "2. Check the number" }).className).not.toMatch(/sr-only/);
-    expect(screen.getByRole("heading", { name: "3. Download" }).className).not.toMatch(/sr-only/);
+    for (const name of ["2. Check the number", "3. Download"]) {
+      const h = screen.getByRole("heading", { name });
+      expect(h.className).toMatch(/\bsr-only\b/);
+      expect(h.className).toMatch(/lg:not-sr-only/);
+    }
+  });
+
+  it("Check count sits in the header row beside Details; Save this audience has its own row", () => {
+    renderPanel();
+    const check = screen.getByRole("button", { name: "Check count" });
+    const details = screen.getByRole("button", { name: "Details" });
+    expect(check.parentElement).toBe(details.parentElement);
+    const save = screen.getByRole("button", { name: "Save this audience" });
+    expect(save.parentElement).not.toBe(check.parentElement);
+  });
+
+  it("a short privacy line stays visible under the downloads", () => {
+    renderPanel();
+    const short = screen.getByText("Plain file: keep it private.");
+    const details = document.querySelector('[id$="-details"]')!;
+    expect(details.contains(short)).toBe(false);
+  });
+
+  it("Part-paid chip is also described as underpaid", () => {
+    renderPanel();
+    const chip = screen.getByRole("button", { name: "Part-paid" });
+    const id = chip.getAttribute("aria-describedby")!;
+    expect(document.getElementById(id)?.textContent).toMatch(/also called underpaid/);
+  });
+
+  it("the first count after Bring in asks for fresh data; later counts do not", async () => {
+    handler = (url) => (url.endsWith("/facets") ? { body: facets() } : { body: countBody() });
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Finish bring in" }));
+    await waitFor(() => expect(countCalls()).toHaveLength(1));
+    expect((lastCountBody() as AudienceFilter & { fresh?: boolean }).fresh).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "UAE" }));
+    await checkCount();
+    expect((lastCountBody() as AudienceFilter & { fresh?: boolean }).fresh).toBeUndefined();
+  });
+
+  it("a finished count alone decides the setup note, even if facets said it was needed", async () => {
+    renderPanel({ f: facets({ statusNeedsUpdate: true }) });
+    expect(screen.getAllByText(/cannot be told apart yet/)).toHaveLength(1);
+    await checkCount();
+    await waitFor(() => expect(screen.queryByText(/cannot be told apart yet/)).toBeNull());
   });
 
   it("the setup note goes away when a later count no longer needs it", async () => {

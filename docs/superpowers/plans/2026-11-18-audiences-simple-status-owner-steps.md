@@ -10,7 +10,9 @@
 ## 2. Fill in the statuses
 
 1. Open Audiences in the admin area.
-2. Press Bring in once more.
+2. Press Bring in. Tick every landing page that was already brought in
+   before (you can tick up to 20 pages each time you press it; if you have
+   more, press it again for the rest).
 3. Wait until it says it is finished.
 
 ## What changes for you
@@ -19,8 +21,7 @@
   Reserved, Part-paid or Free.
 - Recorded or Live for old rows is guessed from the words in their sheet or
   registration text.
-- Nothing you can see changes until the new Audiences page is out, and no
-  one is emailed.
+- No one is emailed.
 
 ## 3. Check it worked
 

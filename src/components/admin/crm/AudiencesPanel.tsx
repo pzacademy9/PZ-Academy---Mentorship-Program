@@ -63,7 +63,8 @@ export function AudiencesPanel({
   const [savedOpen, setSavedOpen] = useState(false);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [statusFlag, setStatusFlag] = useState(false);
+  // null until a count has finished; then the latest count alone decides.
+  const [statusFlag, setStatusFlag] = useState<boolean | null>(null);
   const [renameName, setRenameName] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
 
@@ -74,7 +75,7 @@ export function AudiencesPanel({
   const ctrl = useRef<AbortController | null>(null);
   const firstRender = useRef(true);
 
-  const runCount = useCallback(async (f: AudienceFilter) => {
+  const runCount = useCallback(async (f: AudienceFilter, fresh = false) => {
     if (timer.current) clearTimeout(timer.current);
     ctrl.current?.abort();
     const c = new AbortController();
@@ -85,7 +86,7 @@ export function AudiencesPanel({
       const res = await fetch(COUNT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f),
+        body: JSON.stringify(fresh ? { ...f, fresh: true } : f),
         signal: c.signal,
       });
       if (!res.ok) {
@@ -211,7 +212,8 @@ export function AudiencesPanel({
     } catch {
       // The page still works with the older choices.
     }
-    void runCount(filterRef.current);
+    // Another server instance may have older data: ask this count to read fresh.
+    void runCount(filterRef.current, true);
   }, [runCount]);
 
   const ignored = count.status === "done" && count.key === key ? count.data.ignoredChoices : [];
@@ -328,10 +330,10 @@ export function AudiencesPanel({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <h2 className="font-headline text-lg font-bold text-pz-secondary">1. Who do you want?</h2>
-          {(facets.statusNeedsUpdate || statusFlag) && !needsUpdate && (
+          {(statusFlag ?? facets.statusNeedsUpdate) && !needsUpdate && (
             <p className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm text-pz-on-surface-variant">
               <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Reserved, Pending and Part-paid cannot be told apart yet. One small setup step is waiting.</span>
+              <span>Reserved, Pending, Part-paid and Free cannot be told apart yet. One small setup step is waiting.</span>
             </p>
           )}
           <AudienceFilters filter={filter} facets={facets} onChange={changeFilter} />

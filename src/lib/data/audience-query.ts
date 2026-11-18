@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { buildMetaRows, type AudienceContact } from "@/lib/crm/meta-audience";
-import { AUDIENCE_MAX_PEOPLE, type AudienceFilter, type AudienceStatus } from "@/lib/crm/audience-filter";
+import { AUDIENCE_MAX_PEOPLE, AUDIENCE_STATUSES, type AudienceFilter, type AudienceStatus } from "@/lib/crm/audience-filter";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { chunk, loadAudienceContacts, mapPool, pageAll, READ_POOL, ReadError } from "@/lib/data/cohort-export";
 
@@ -15,6 +15,8 @@ import { chunk, loadAudienceContacts, mapPool, pageAll, READ_POOL, ReadError } f
  * country is checked on the person. Nothing here returns or throws an email
  * or a phone number except loadAudienceFile, which feeds the download.
  */
+
+const ALL_STATUSES = AUDIENCE_STATUSES.map((s) => s.value);
 
 export type AudienceCount = {
   total: number;
@@ -419,8 +421,8 @@ export async function resolveAudienceContactIds(
   return { ids, needsUpdate: false, statusNeedsUpdate, ignoredChoices };
 }
 
-export async function countAudience(f: AudienceFilter): Promise<AudienceCount> {
-  const r = await resolveAudienceContactIds(f);
+export async function countAudience(f: AudienceFilter, opts: { fresh?: boolean } = {}): Promise<AudienceCount> {
+  const r = await resolveAudienceContactIds(f, opts);
   const base = { tooLarge: false, needsUpdate: r.needsUpdate, statusNeedsUpdate: r.statusNeedsUpdate, ignoredChoices: r.ignoredChoices };
   const none = { noContact: 0, doNotContact: 0 };
   if (r.needsUpdate) return { ...base, total: 0, inFile: 0, leftOut: none };
@@ -477,12 +479,17 @@ export type AudienceFacets = {
   statusNeedsUpdate: boolean;
 };
 
+/**
+ * Runs on page load and after Bring in, so it always reads fresh (the cache
+ * is per server instance and a Bring in may have run on another one). It
+ * does not fill the cache either.
+ */
 export async function audienceFacets(): Promise<AudienceFacets> {
   let needsUpdate = false;
   let statusNeedsUpdate = false;
   let data: Registrations;
   try {
-    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered());
+    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered(true));
   } catch (e) {
     if (!isMissingSchema(e)) throw e;
     // Before 0116 is pasted the old columns still name every course.
@@ -507,9 +514,11 @@ export async function audienceFacets(): Promise<AudienceFacets> {
   );
 
   const statusCounts: Partial<Record<AudienceStatus, number>> = {};
+  // With the status column present, a status nobody has shows 0 (not blank).
+  if (!needsUpdate && !statusNeedsUpdate) for (const s of ALL_STATUSES) statusCounts[s] = 0;
   for (const [k, set] of Array.from(byStatus)) statusCounts[k] = set.size;
 
-  const countryOf = await loadCountries();
+  const countryOf = await loadCountries(true);
   const byCountry = new Map<string, number>();
   let unknownCountry = 0;
   for (const id of Array.from(everyone)) {

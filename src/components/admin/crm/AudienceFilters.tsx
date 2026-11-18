@@ -146,6 +146,7 @@ export function AudienceFilters({
                 key={value}
                 on={filter.statuses.includes(value)}
                 onClick={() => set({ statuses: toggleStatus(filter.statuses, value) })}
+                describedBy={value === "part_paid" ? `${ids}-part-paid` : undefined}
                 ariaLabel={num === undefined ? undefined : `${label}, ${num.toLocaleString("en-US")} ${num === 1 ? "person" : "people"}`}
               >
                 {label}
@@ -158,8 +159,9 @@ export function AudienceFilters({
             );
           })}
         </div>
+        <span id={`${ids}-part-paid`} className="sr-only">Part-paid is also called underpaid.</span>
         <p className="font-body text-xs text-pz-on-surface-variant">
-          Reserved: people you added by hand so they can pay before registration closes.
+          Reserved: a seat is held until they pay, for example people you added by hand.
         </p>
       </FilterCard>
 

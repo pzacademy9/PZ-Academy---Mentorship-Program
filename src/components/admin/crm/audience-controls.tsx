@@ -7,17 +7,20 @@ export function Chip({
   onClick,
   children,
   ariaLabel,
+  describedBy,
 }: {
   on: boolean;
   onClick: () => void;
   children: React.ReactNode;
   ariaLabel?: string;
+  describedBy?: string;
 }) {
   return (
     <button
       type="button"
       aria-pressed={on}
       aria-label={ariaLabel}
+      aria-describedby={describedBy}
       onClick={onClick}
       className={cn(
         "inline-flex min-h-11 items-center rounded-full px-4 py-2 font-body text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

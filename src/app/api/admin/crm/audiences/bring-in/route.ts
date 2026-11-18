@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
       }
     }
   } finally {
-    // New people may have been added (even if pages failed or the run was cut short): the next count must read them.
+    // This only clears the cache of the server instance that handled this request; other instances keep
+    // theirs for up to 60 seconds. The page compensates: its facets read and the count after Bring in
+    // ask for fresh data. New people may have been added even if pages failed or the run was cut short.
     clearAudienceCache();
   }
   return NextResponse.json({ pages });

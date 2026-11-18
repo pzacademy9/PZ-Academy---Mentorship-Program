@@ -105,22 +105,32 @@ export function AudienceResultCard({
         className,
       )}
     >
-      <h2 className="font-headline text-xs font-bold text-pz-secondary lg:text-sm">2. Check the number</h2>
+      <h2 className="sr-only font-headline text-sm font-bold text-pz-secondary lg:not-sr-only">2. Check the number</h2>
       <div className="flex items-start justify-between gap-3">
         {/* Only the counts are announced, not the buttons or the privacy note. */}
         <div aria-live="polite" className="min-w-0 flex-1">{body}</div>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={detailsId}
-          onClick={() => setOpen((v) => !v)}
-          className="min-h-11 shrink-0 font-body text-sm text-pz-primary underline lg:hidden"
-        >
-          Details
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={onCheck}
+            disabled={fresh && count.status === "loading"}
+            className="min-h-11 font-body text-sm text-pz-primary underline disabled:opacity-50"
+          >
+            Check count
+          </button>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={detailsId}
+            onClick={() => setOpen((v) => !v)}
+            className="min-h-11 font-body text-sm text-pz-primary underline lg:hidden"
+          >
+            Details
+          </button>
+        </div>
       </div>
       {ignored}
-      <h2 className="font-headline text-xs font-bold text-pz-secondary lg:text-sm">3. Download</h2>
+      <h2 className="sr-only font-headline text-sm font-bold text-pz-secondary lg:not-sr-only">3. Download</h2>
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
         {canDownload ? (
           <Button asChild className="min-h-11 whitespace-normal">
@@ -143,23 +153,14 @@ export function AudienceResultCard({
           </Button>
         )}
       </div>
+      <p className="font-body text-xs text-pz-on-surface-variant lg:hidden">Plain file: keep it private.</p>
       <div id={detailsId} className={detailsClass}>
         <p id={noteId} className="font-body text-xs text-pz-on-surface-variant">
           The plain file has real emails and phone numbers. Keep it private and delete it after uploading.
         </p>
       </div>
-      {/* Outside the collapsible details so they stay reachable on phone. */}
-      <div className="flex flex-wrap items-start gap-x-4">
-        <button
-          type="button"
-          onClick={onCheck}
-          disabled={fresh && count.status === "loading"}
-          className="min-h-11 font-body text-sm text-pz-primary underline disabled:opacity-50"
-        >
-          Check count
-        </button>
-        <div className="flex-1">{save}</div>
-      </div>
+      {/* Outside the collapsible details so the form stays visible when open. */}
+      <div>{save}</div>
     </section>
   );
 }

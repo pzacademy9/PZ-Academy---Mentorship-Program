@@ -54,4 +54,4 @@ Files: `src/lib/data/audience-query.ts`, `src/app/api/admin/crm/audiences/bring-
 - Count with statuses [] equals the old "both".
 
 ## Owner steps after merge
-Paste 0117 (one statement), open Audiences, press Bring in once more.
+Paste 0117 (the whole file, in one go), open Audiences, press Bring in once more.
