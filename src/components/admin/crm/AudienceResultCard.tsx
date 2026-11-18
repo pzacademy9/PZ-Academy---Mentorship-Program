@@ -63,7 +63,7 @@ export function AudienceResultCard({
   const noteId = `${ids}-plain-note`;
   const detailsId = `${ids}-details`;
   // On phone the details sit behind the toggle; from lg up they are always shown.
-  const detailsClass = cn("space-y-3", !open && "hidden lg:block");
+  const detailsClass = cn("max-h-[60dvh] space-y-3 overflow-y-auto", !open && "hidden lg:block");
 
   let body: React.ReactNode;
   if (fresh && count.status === "loading") {
@@ -105,7 +105,7 @@ export function AudienceResultCard({
         className,
       )}
     >
-      <h2 className="sr-only font-headline text-sm font-bold text-pz-secondary lg:not-sr-only">2. Check the number</h2>
+      <h2 className="font-headline text-xs font-bold text-pz-secondary lg:text-sm">2. Check the number</h2>
       <div className="flex items-start justify-between gap-3">
         {/* Only the counts are announced, not the buttons or the privacy note. */}
         <div aria-live="polite" className="min-w-0 flex-1">{body}</div>
@@ -120,7 +120,7 @@ export function AudienceResultCard({
         </button>
       </div>
       {ignored}
-      <h2 className="sr-only font-headline text-sm font-bold text-pz-secondary lg:not-sr-only">3. Download</h2>
+      <h2 className="font-headline text-xs font-bold text-pz-secondary lg:text-sm">3. Download</h2>
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
         {canDownload ? (
           <Button asChild className="min-h-11 whitespace-normal">
@@ -147,17 +147,18 @@ export function AudienceResultCard({
         <p id={noteId} className="font-body text-xs text-pz-on-surface-variant">
           The plain file has real emails and phone numbers. Keep it private and delete it after uploading.
         </p>
-        <div className="flex flex-wrap items-start gap-x-4">
-          <button
-            type="button"
-            onClick={onCheck}
-            disabled={fresh && count.status === "loading"}
-            className="min-h-11 font-body text-sm text-pz-primary underline disabled:opacity-50"
-          >
-            Check count
-          </button>
-          <div className="flex-1">{save}</div>
-        </div>
+      </div>
+      {/* Outside the collapsible details so they stay reachable on phone. */}
+      <div className="flex flex-wrap items-start gap-x-4">
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={fresh && count.status === "loading"}
+          className="min-h-11 font-body text-sm text-pz-primary underline disabled:opacity-50"
+        >
+          Check count
+        </button>
+        <div className="flex-1">{save}</div>
       </div>
     </section>
   );

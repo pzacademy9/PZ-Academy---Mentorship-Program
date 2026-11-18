@@ -283,6 +283,34 @@ describe("audiences panel", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("Check count and the save form stay outside the collapsible details", () => {
+    renderPanel();
+    const details = document.querySelector('[id$="-details"]')!;
+    expect(details).toBeTruthy();
+    expect(details.contains(screen.getByRole("button", { name: "Check count" }))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Save this audience" }));
+    const input = screen.getByPlaceholderText("Name, for example Gulf recorded buyers");
+    expect(details.contains(input)).toBe(false);
+    expect(details.className).toMatch(/max-h-\[60dvh\]/);
+  });
+
+  it("step labels 2 and 3 are visible text, not screen-reader only", () => {
+    renderPanel();
+    expect(screen.getByRole("heading", { name: "2. Check the number" }).className).not.toMatch(/sr-only/);
+    expect(screen.getByRole("heading", { name: "3. Download" }).className).not.toMatch(/sr-only/);
+  });
+
+  it("the setup note goes away when a later count no longer needs it", async () => {
+    renderPanel();
+    handler = () => ({ body: countBody({ statusNeedsUpdate: true }) });
+    await checkCount();
+    expect(screen.getAllByText(/cannot be told apart yet/)).toHaveLength(1);
+    handler = () => ({ body: countBody({ statusNeedsUpdate: false }) });
+    fireEvent.click(screen.getByRole("button", { name: "UAE" }));
+    await checkCount();
+    await waitFor(() => expect(screen.queryByText(/cannot be told apart yet/)).toBeNull());
+  });
+
   it("only one cannot-be-used line when nobody asked not to be contacted", async () => {
     handler = () => ({ body: countBody({ leftOut: { noContact: 5, doNotContact: 0 } }) });
     renderPanel();
@@ -385,11 +413,13 @@ describe("audiences panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save name" }));
     await waitFor(() => expect(within(screen.getByRole("dialog")).getByText("Gulf two")).toBeTruthy());
     const patch = calls.find((c) => c.init?.method === "PATCH")!;
+    expect(document.activeElement).toBe(screen.getByRole("dialog").querySelector("h2"));
     expect(patch.url).toBe(`/api/admin/crm/audiences/saved/${good.id}`);
     expect(JSON.parse(String(patch.init?.body))).toEqual({ name: "Gulf two" });
     fireEvent.click(screen.getByRole("button", { name: "Delete Gulf two" }));
     await waitFor(() => expect(within(screen.getByRole("dialog")).getByText("Nothing saved yet.")).toBeTruthy());
     expect(calls.some((c) => c.init?.method === "DELETE")).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("dialog").querySelector("h2"));
   });
 
   it("Reset filters restores the defaults", () => {

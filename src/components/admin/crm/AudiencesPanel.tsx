@@ -61,6 +61,7 @@ export function AudiencesPanel({
   const [saveName, setSaveName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedOpen, setSavedOpen] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [statusFlag, setStatusFlag] = useState(false);
   const [renameName, setRenameName] = useState("");
@@ -95,7 +96,7 @@ export function AudiencesPanel({
       const data = await res.json();
       if (!c.signal.aborted) {
         setCount({ status: "done", key: k, data });
-        if (data?.statusNeedsUpdate) setStatusFlag(true);
+        setStatusFlag(!!data?.statusNeedsUpdate);
       }
     } catch {
       if (!c.signal.aborted) setCount({ status: "error", key: k, error: "Could not count. Please try again." });
@@ -173,6 +174,7 @@ export function AudiencesPanel({
       const { item } = (await res.json()) as { item: SavedAudience };
       setSaved((prev) => prev.map((s) => (s.id === item.id ? item : s)));
       setRenamingId(null);
+      titleRef.current?.focus();
       toast.success("Name changed.");
     } catch {
       setRenameError(GENERIC);
@@ -195,6 +197,7 @@ export function AudiencesPanel({
       }
       setSaved((prev) => prev.filter((s) => s.id !== target.id));
       setSavedId((cur) => (cur === target.id ? "" : cur));
+      titleRef.current?.focus();
       toast.success("Saved audience deleted.");
     } catch {
       toast.error(GENERIC);
@@ -230,7 +233,7 @@ export function AudiencesPanel({
             </DialogTrigger>
             <DialogContent className="md:max-w-xl">
               <DialogHeader>
-                <DialogTitle className="font-headline text-pz-secondary">Saved audiences</DialogTitle>
+                <DialogTitle ref={titleRef} tabIndex={-1} className="font-headline text-pz-secondary outline-none">Saved audiences</DialogTitle>
                 <DialogDescription className="font-body text-pz-on-surface-variant">
                   Load a list you saved before, change its name, or delete it.
                 </DialogDescription>
@@ -254,7 +257,7 @@ export function AudiencesPanel({
                               className={`${fieldClass} w-full`}
                             />
                             <button type="button" onClick={() => void rename()} disabled={renamingBusy} className={textButton}>
-                              {renamingBusy ? "Saving…" : "Save name"}
+                              {renamingBusy ? "Savingâ€¦" : "Save name"}
                             </button>
                             <button type="button" onClick={() => setRenamingId(null)} disabled={renamingBusy} className={textButton}>
                               Cancel

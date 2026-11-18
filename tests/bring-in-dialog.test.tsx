@@ -93,7 +93,7 @@ describe("bring-in dialog", () => {
     expect((screen.getByLabelText(/Pharmacovigilance - Batch 3/) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText(/OPD Practice - Batch 1/) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(bringIn);
-    await screen.findByText(/Brought in 180 paid, 40 interested\. 4 left out: no email or phone, or no consent\./);
+    await screen.findByText(/Brought in 180 paid, 40 interested\. 4 cannot be used: no email or phone, or no consent\./);
     await screen.findByText(/Could not bring this page in/);
     expect(calls).toHaveLength(2);
     for (const c of calls) {
