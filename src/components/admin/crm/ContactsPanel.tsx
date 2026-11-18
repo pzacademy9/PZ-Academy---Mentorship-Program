@@ -1,48 +1,42 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ResponsiveList } from "@/components/ui/responsive-list";
+import { ContactsActions } from "@/components/admin/crm/ContactsActions";
+import { ContactsList } from "@/components/admin/crm/ContactsList";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { SELECTED_CONTACTS_STORAGE_KEY } from "@/lib/crm/segment";
 import { ASSIGN_CONTACTS_STORAGE_KEY } from "@/lib/crm/assignment";
-
-type ContactRow = {
-  id: string;
-  fullName: string;
-  email: string | null;
-  phoneE164: string | null;
-  country: string | null;
-  discoverySource: string;
-  purchaseCount: number;
-  productLabels: string[];
-  unsubscribed: boolean;
-};
+import type { ContactRow } from "@/lib/data/admin-crm-contacts";
 
 type BatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number };
 
-/** Course names for the list cell, falling back to the raw label when it names no course. */
-function courseSummary(labels: string[]): string {
-  const names = labels.map((l) => courseNameFromLabel(l) || l);
-  return Array.from(new Set(names)).join(", ");
-}
+const PAGE_SIZE = 50;
 
 export function ContactsPanel({ initialRows, initialTotal }: { initialRows: ContactRow[]; initialTotal: number }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [search, setSearch] = useState("");
+  // The search text that produced the rows on screen; paging reuses it rather
+  // than whatever is half-typed in the box.
+  const [applied, setApplied] = useState({ search: "", courseName: "", importBatchId: "" });
+  const appliedSearch = applied.search;
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  // The request that failed, so "Try again" repeats exactly that attempt.
+  const failedAttempt = useRef<{ page: number; next?: { search?: string; courseName?: string; importBatchId?: string } }>({ page: 1 });
   const [courseName, setCourseName] = useState("");
   const [importBatchId, setImportBatchId] = useState("");
   const [courseOptions, setCourseOptions] = useState<string[]>([]);
   const [batches, setBatches] = useState<BatchOption[]>([]);
   const [busy, setBusy] = useState(false);
+  // True while Previous/Next is loading, so the Search button only says
+  // "Searching…" for a real search.
+  const [pagingOnly, setPagingOnly] = useState(false);
   // Selection persists across searches deliberately — an admin narrowing
   // down to find specific people across a few searches expects earlier
   // picks to still be checked, not silently dropped.
@@ -80,28 +74,52 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       .catch(() => {});
   }, []);
 
-  async function runSearch(next?: { courseName?: string; importBatchId?: string }) {
-    const params = new URLSearchParams({ limit: "50", offset: "0" });
-    if (search.trim() !== "") params.set("search", search.trim());
-    const course = next?.courseName ?? courseName;
-    const batch = next?.importBatchId ?? importBatchId;
+  async function loadPage(
+    targetPage: number,
+    next?: { search?: string; courseName?: string; importBatchId?: string },
+    paging = false,
+  ) {
+    // Paging uses the last filters that actually loaded, never a failed attempt.
+    const q = next?.search ?? applied.search;
+    const course = next?.courseName ?? applied.courseName;
+    const batch = next?.importBatchId ?? applied.importBatchId;
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String((targetPage - 1) * PAGE_SIZE) });
+    if (q !== "") params.set("search", q);
     if (course !== "") params.set("courseName", course);
     if (batch !== "") params.set("importBatchId", batch);
 
     const ticket = ++latestSearch.current;
     setBusy(true);
+    setPagingOnly(paging);
     try {
       const res = await fetch(`/api/admin/crm/contacts?${params.toString()}`);
-      if (!res.ok || ticket !== latestSearch.current) return;
+      if (ticket !== latestSearch.current) return;
+      if (!res.ok) { failedAttempt.current = { page: targetPage, next }; setError("load"); return; }
       const json = await res.json();
       if (ticket !== latestSearch.current) return;
+      const lastPage = Math.max(1, Math.ceil(json.total / PAGE_SIZE));
+      if (targetPage > lastPage) {
+        // The total shrank under us: show the last page that exists instead
+        // of an empty one. The recursive call takes over the ticket and busy flag.
+        void loadPage(lastPage, next, paging);
+        return;
+      }
       // Local state update, not router.refresh() — refresh() cannot reach a
       // mounted client component's own useState.
       setRows(json.rows);
       setTotal(json.total);
+      setPage(targetPage);
+      setApplied({ search: q, courseName: course, importBatchId: batch });
+      setError(null);
+    } catch {
+      if (ticket === latestSearch.current) { failedAttempt.current = { page: targetPage, next }; setError("load"); }
     } finally {
       if (ticket === latestSearch.current) setBusy(false);
     }
+  }
+
+  function runSearch(next?: { courseName?: string; importBatchId?: string }) {
+    return loadPage(1, { search: search.trim(), courseName, importBatchId, ...next });
   }
 
   function toggleSelected(id: string) {
@@ -180,214 +198,141 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     }
   });
 
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
-          placeholder="Search name, email, or phone"
-          className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
-        />
+  const filtered = applied.search !== "" || applied.courseName !== "" || applied.importBatchId !== "";
+
+  const convertForm = (
+    <div className="space-y-3">
+      <div className="flex gap-3 flex-wrap">
+        <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
+          <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "course"} onChange={() => setBulkProgramMode("course")} />
+          Existing course
+        </label>
+        <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
+          <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "label"} onChange={() => setBulkProgramMode("label")} />
+          Other program (type a name)
+        </label>
+      </div>
+      {bulkProgramMode === "course" ? (
+        <select aria-label="Course to mark" value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base">
+          <option value="">Select a course…</option>
+          {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+      ) : (
+        <input aria-label="Program name" value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
+      )}
+      <input type="date" aria-label="Converted on" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           variant="bare"
           size="bare"
-          loading={busy}
-          onClick={() => runSearch()}
+          loading={bulkSaving}
+          onClick={() => markSelectedConverted()}
+          disabled={bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === ""}
           className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
         >
-          {busy ? "Searching…" : "Search"}
+          {bulkSaving ? "Saving…" : `Mark ${selected.size} converted`}
         </Button>
-      </div>
-
-      <div className="flex gap-2 flex-wrap items-center">
-        <select
-          value={courseName}
-          onChange={(e) => { setCourseName(e.target.value); void runSearch({ courseName: e.target.value }); }}
-          className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
+        <button
+          type="button"
+          onClick={() => setShowBulkConvertForm(false)}
+          className="font-body text-sm text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
         >
-          <option value="">All courses</option>
-          {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <select
-          value={importBatchId}
-          onChange={(e) => { setImportBatchId(e.target.value); void runSearch({ importBatchId: e.target.value }); }}
-          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
-        >
-          <option value="">All cohorts</option>
-          {batches.map((b) => (
-            <option key={b.id} value={b.id}>{b.sheetName} — {b.tabName} ({b.rowsImported})</option>
-          ))}
-        </select>
-
-        {(courseName !== "" || importBatchId !== "") && (
-          <button
-            onClick={() => { setCourseName(""); setImportBatchId(""); void runSearch({ courseName: "", importBatchId: "" }); }}
-            className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
-          >
-            Clear filters
-          </button>
-        )}
+          Cancel
+        </button>
       </div>
+    </div>
+  );
 
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="font-body text-xs text-pz-on-surface-variant">
-          Showing {rows.length} of {total} contacts
-        </p>
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 md:p-5 space-y-3">
+        <h2 className="flex items-center gap-2 font-headline text-sm font-bold uppercase tracking-wide text-pz-secondary">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pz-primary text-xs text-pz-on-primary">1</span>{" "}
+          Find people
+        </h2>
 
-        {selected.size > 0 && (
-          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap bg-pz-surface-container-high rounded-2xl md:rounded-full px-4 py-1.5">
-            <span className="font-body text-xs font-semibold">{selected.size} selected</span>
-            <button
-              onClick={useSelectedInCampaign}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Use in new campaign
-            </button>
-            <button
-              onClick={useSelectedInWhatsApp}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Use in WhatsApp batch
-            </button>
-            <button
-              onClick={assignSelectedToAgent}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Assign to a sales agent
-            </button>
-            <button
-              onClick={() => setShowBulkConvertForm((v) => !v)}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Mark {selected.size} selected as converted…
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="font-body text-xs text-pz-on-surface-variant hover:text-pz-secondary  max-md:min-h-11"
-            >
-              Clear
-            </button>
-          </div>
-        )}
-
-        {selected.size > 0 && showBulkConvertForm && (
-          <div className="bg-pz-surface-container-high rounded-2xl p-4 space-y-3 mt-2">
-            <div className="flex gap-3 flex-wrap">
-              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
-                <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "course"} onChange={() => setBulkProgramMode("course")} />
-                Existing course
-              </label>
-              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
-                <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "label"} onChange={() => setBulkProgramMode("label")} />
-                Other program (type a name)
-              </label>
-            </div>
-            {bulkProgramMode === "course" ? (
-              <select value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base">
-                <option value="">Select a course…</option>
-                {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            ) : (
-              <input value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
-            )}
-            <input type="date" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
-            <Button
-              variant="bare"
-              size="bare"
-              loading={bulkSaving}
-              onClick={() => markSelectedConverted()}
-              disabled={bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === ""}
-              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
-            >
-              {bulkSaving ? "Saving…" : `Mark ${selected.size} converted`}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <ResponsiveList
-        rows={rows}
-        getKey={(c) => c.id}
-        empty={
-          <EmptyState
-            icon={Users}
-            title="No contacts yet"
-            description="Use the Import tab to bring in a cohort sheet."
-            action={{ label: "Import contacts", href: "/dashboard/admin/sales-hub/import" }}
+        <div className="flex gap-2 flex-wrap">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+            aria-label="Search by name, email or phone"
+            placeholder="Search name, email, or phone"
+            className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
           />
-        }
-        mobile={{
-          title: (c) => c.fullName || c.email || "—",
-          meta: (c) => [
-            c.email,
-            c.phoneE164 ?? "Phone needs review",
-            c.productLabels.length > 0 ? courseSummary(c.productLabels) : null,
-            c.unsubscribed ? "Unsubscribed" : null,
-          ].filter(Boolean),
-          href: (c) => `/dashboard/admin/sales-hub/contacts/${c.id}`,
-        }}
-        selection={{
-          isSelected: (c) => selected.has(c.id),
-          onToggle: (c) => toggleSelected(c.id),
-          label: (c) => `Select ${c.fullName || c.email || c.id}`,
-        }}
-        table={
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-body text-sm">
-                <thead className="text-pz-on-surface-variant text-xs uppercase">
-                  <tr>
-                    <th className="py-2 w-8">
-                      <input
-                        type="checkbox"
-                        checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
-                        onChange={toggleSelectAllVisible}
-                        aria-label="Select all shown"
-                      />
-                    </th>
-                    <th>Name</th><th>Email</th><th>Phone</th><th>Registered for</th><th>Country</th><th>Source</th><th>Purchases</th>
-                  </tr>
-                </thead>
-                {rows.map((c) => (
-                  <tbody key={c.id}>
-                      <tr className="border-t border-pz-outline-variant">
-                        <td className="py-2">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(c.id)}
-                            onChange={() => toggleSelected(c.id)}
-                            aria-label={`Select ${c.fullName || c.email || c.id}`}
-                          />
-                        </td>
-                        <td>
-                          <Link href={`/dashboard/admin/sales-hub/contacts/${c.id}`} className="text-left underline">
-                            {c.fullName || "—"}
-                          </Link>
-                          {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}
-                        </td>
-                        <td>{c.email ?? "—"}</td>
-                        <td className={c.phoneE164 ? "" : "text-pz-danger"}>{c.phoneE164 ?? "needs review"}</td>
-                        <td className="max-w-[260px]">
-                          {c.productLabels.length === 0 ? "—" : (
-                            // Course names read; the full labels (price, promo, tier)
-                            // stay one hover away and are shown on the contact detail page.
-                            <span title={c.productLabels.join("\n")} className="line-clamp-2">
-                              {courseSummary(c.productLabels)}
-                            </span>
-                          )}
-                        </td>
-                        <td>{c.country ?? "—"}</td>
-                        <td>{c.discoverySource}</td>
-                        <td className="tabular-nums">{c.purchaseCount}</td>
-                      </tr>
-                  </tbody>
-                ))}
-              </table>
-            </div>
-        }
-      />
+          <Button
+            variant="bare"
+            size="bare"
+            loading={busy && !pagingOnly}
+            onClick={() => void runSearch()}
+            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
+          >
+            {busy && !pagingOnly ? "Searching…" : "Search"}
+          </Button>
+        </div>
+
+        <div className="flex gap-2 flex-wrap items-center">
+          <select
+            aria-label="Course"
+            value={courseName}
+            onChange={(e) => { setCourseName(e.target.value); void runSearch({ courseName: e.target.value }); }}
+            className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
+          >
+            <option value="">All courses</option>
+            {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <select
+            aria-label="Class group"
+            value={importBatchId}
+            onChange={(e) => { setImportBatchId(e.target.value); void runSearch({ importBatchId: e.target.value }); }}
+            className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
+          >
+            <option value="">All class groups</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.sheetName} — {b.tabName} ({b.rowsImported})</option>
+            ))}
+          </select>
+
+          {(courseName !== "" || importBatchId !== "" || applied.search !== "" || search !== "") && (
+            <button
+              onClick={() => { setSearch(""); setCourseName(""); setImportBatchId(""); void loadPage(1, { search: "", courseName: "", importBatchId: "" }); }}
+              className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </section>
+
+      <p role="status" className="sr-only">{busy ? "Loading people…" : ""}</p>
+
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-4">
+        <ContactsList
+          rows={rows}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          busy={busy}
+          error={error}
+          selected={selected}
+          filtered={filtered}
+          onToggle={toggleSelected}
+          onToggleAllShown={toggleSelectAllVisible}
+          onPage={(p) => void loadPage(p, undefined, true)}
+          onRetry={() => void loadPage(failedAttempt.current.page, failedAttempt.current.next)}
+        />
+        <div className="sticky z-10 mt-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:bottom-4 max-xl:max-h-[50vh] max-xl:overflow-y-auto xl:mt-0 xl:col-start-2 xl:row-start-1 xl:top-20 xl:bottom-auto">
+          <ContactsActions
+            count={selected.size}
+            onEmail={useSelectedInCampaign}
+            onWhatsApp={useSelectedInWhatsApp}
+            onAssign={assignSelectedToAgent}
+            onClear={() => { setSelected(new Set()); setShowBulkConvertForm(false); }}
+            convert={{ open: showBulkConvertForm, onOpenChange: setShowBulkConvertForm, children: convertForm }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
