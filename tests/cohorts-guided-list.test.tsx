@@ -199,7 +199,7 @@ describe("cohorts guided: phone cards and menu focus", () => {
 
   it("the phone card tap targets do not repeat the same min-height class", () => {
     render(<CohortsPanel initialCohorts={[cohort()]} />);
-    for (const el of screen.getByTestId("cohort-cards").querySelectorAll("[class]")) {
+    for (const el of Array.from(screen.getByTestId("cohort-cards").querySelectorAll("[class]"))) {
       expect(el.getAttribute("class")).not.toMatch(/max-md:min-h-11/);
     }
   });
