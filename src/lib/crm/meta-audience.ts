@@ -164,6 +164,12 @@ export function metaCsvFilename(
     .replace(/^-+|-+$/g, "")
     .slice(0, MAX_SLUG)
     .replace(/-+$/g, "");
-  const day = date.toISOString().slice(0, 10);
+  // Pakistan date (en-CA prints YYYY-MM-DD), so the name matches the owner's day.
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Karachi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
   return `${slug}${variant === "plain" ? "-plain" : ""}-meta-audience-${day}.csv`;
 }
