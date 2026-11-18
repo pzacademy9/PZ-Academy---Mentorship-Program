@@ -14,7 +14,9 @@ import {
 import type { AudienceFacets } from "@/lib/data/audience-query";
 import type { SavedAudience } from "@/lib/data/audience-saved";
 import { AudienceFilters } from "@/components/admin/crm/AudienceFilters";
-import { AudienceResultCard, type CountState } from "@/components/admin/crm/AudienceResultCard";
+import type { CountState } from "@/components/admin/crm/AudienceResultCard";
+import { AudienceStepper, type AudienceStep } from "@/components/admin/crm/AudienceStepper";
+import { AudienceSummary } from "@/components/admin/crm/AudienceSummary";
 import { BringInDialog } from "@/components/admin/crm/BringInDialog";
 
 const COUNT_URL = "/api/admin/crm/audiences/count";
@@ -31,7 +33,7 @@ async function readError(res: Response): Promise<string> {
   return typeof json.error === "string" ? json.error : GENERIC;
 }
 
-// Shown once, inside the result card next to the downloads.
+// Shown once, inside the summary card.
 function IgnoredWarning({ choices }: { choices: string[] }) {
   if (choices.length === 0) return null;
   return (
@@ -67,6 +69,9 @@ export function AudiencesPanel({
   const [statusFlag, setStatusFlag] = useState<boolean | null>(null);
   const [renameName, setRenameName] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [step, setStep] = useState<AudienceStep>(1);
+  // Set when a saved audience is loaded: go to step 2 once its own count has finished.
+  const [goToCheckKey, setGoToCheckKey] = useState<string | null>(null);
 
   const key = encodeAudienceFilter(filter);
   const filterRef = useRef(filter);
@@ -119,8 +124,24 @@ export function AudiencesPanel({
 
   useEffect(() => () => ctrl.current?.abort(), []);
 
+  // A number for the current choices unlocks the later steps; any change to the choices locks them again.
+  const maxStep: AudienceStep = count.status === "done" && count.key === key ? 3 : 1;
+
+  // If the number is being recounted (for example after Bring in), later steps lock and we return to step 1.
+  useEffect(() => {
+    if (step > maxStep) setStep(1);
+  }, [step, maxStep]);
+
+  useEffect(() => {
+    if (goToCheckKey === null || count.key !== goToCheckKey || count.status === "idle" || count.status === "loading") return;
+    setGoToCheckKey(null);
+    if (count.status === "done" && count.data.inFile > 0 && !count.data.tooLarge && !count.data.needsUpdate) setStep(2);
+  }, [count, goToCheckKey]);
+
   const changeFilter = (f: AudienceFilter) => {
     setFilter(f);
+    setStep(1);
+    setGoToCheckKey(null);
     setSavedId("");
     setRenamingId(null);
   };
@@ -134,6 +155,8 @@ export function AudiencesPanel({
     setFilter(item.filter);
     setSavedId(item.id);
     setSavedOpen(false);
+    setStep(1);
+    setGoToCheckKey(encodeAudienceFilter(item.filter));
   }
 
   const { run: save, pending: saving } = useAsyncAction(async () => {
@@ -327,9 +350,24 @@ export function AudiencesPanel({
         </p>
       )}
 
+      <AudienceStepper step={step} maxStep={maxStep} onGo={setStep} />
+
+      {step !== 1 && (
+        <section className="space-y-4 rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4">
+          <h2 className="font-headline text-lg font-bold text-pz-secondary">{step === 2 ? "Check the list" : "Download"}</h2>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => setStep(step === 3 ? 2 : 1)} className={textButton}>Back</button>
+            {step === 2 && (
+              <button type="button" onClick={() => setStep(3)} className={textButton}>Next: Download</button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {step === 1 && (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <h2 className="font-headline text-lg font-bold text-pz-secondary">1. Who do you want?</h2>
+          <h2 className="font-headline text-lg font-bold text-pz-secondary">Who do you want?</h2>
           {(statusFlag ?? facets.statusNeedsUpdate) && !needsUpdate && (
             <p className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm text-pz-on-surface-variant">
               <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -337,12 +375,13 @@ export function AudiencesPanel({
             </p>
           )}
           <AudienceFilters filter={filter} facets={facets} onChange={changeFilter} />
-          <button type="button" onClick={() => changeFilter(DEFAULT_AUDIENCE_FILTER)} className={textButton}>
-            Reset filters
-          </button>
         </div>
 
-        <AudienceResultCard
+        <AudienceSummary
+          filter={filter}
+          nextLabel="Next: Check the list"
+          onNext={() => setStep(2)}
+          onReset={() => changeFilter(DEFAULT_AUDIENCE_FILTER)}
           className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 self-end lg:bottom-auto lg:top-4 lg:self-start"
           count={count}
           currentKey={key}
@@ -395,6 +434,7 @@ export function AudiencesPanel({
           }
         />
       </div>
+      )}
     </div>
   );
 }
