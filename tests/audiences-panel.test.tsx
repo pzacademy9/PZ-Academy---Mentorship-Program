@@ -96,42 +96,24 @@ describe("audiences panel", () => {
     expect(screen.getByRole("button", { name: "Pharmacovigilance" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("shows the three count lines and the left-out reasons", async () => {
+  it("shows the count, the uploadable number and the left-out reasons", async () => {
     renderPanel();
     await checkCount();
     expect(screen.getByText("1,284 people match")).toBeTruthy();
-    expect(screen.getByText("1,196 will go in the file")).toBeTruthy();
+    expect(screen.getByText("1,196 uploadable to Meta")).toBeTruthy();
     expect(screen.getByText("61 cannot be used: no email or phone")).toBeTruthy();
     expect(screen.getByText("27 asked not to be contacted")).toBeTruthy();
     expect(screen.queryByText(/left out/i)).toBeNull();
   });
 
-  it("download links carry f= for the chosen filter and format=plain for the plain one", async () => {
+  it("step 1 has no download links; Next stays off until a count has people", async () => {
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "OPD Practice" }));
-    fireEvent.click(screen.getByRole("radio", { name: "Live" }));
-    await checkCount();
-    const meta = screen.getByRole("link", { name: /Download for Meta/ });
-    const plain = screen.getByRole("link", { name: /Download plain version/ });
-    expect(meta.hasAttribute("download")).toBe(true);
-    const metaUrl = new URL(meta.getAttribute("href")!, "http://x");
-    const plainUrl = new URL(plain.getAttribute("href")!, "http://x");
-    expect(metaUrl.pathname).toBe("/api/admin/crm/audiences/export");
-    expect(metaUrl.searchParams.get("format")).toBeNull();
-    expect(plainUrl.searchParams.get("format")).toBe("plain");
-    const decoded = decodeAudienceFilter(metaUrl.searchParams.get("f")!);
-    expect(decoded).toEqual({ ok: true, filter: { ...DEFAULT_AUDIENCE_FILTER, courses: ["OPD Practice"], mode: "live" } });
-    expect(plainUrl.searchParams.get("f")).toBe(metaUrl.searchParams.get("f"));
-  });
-
-  it("downloads are disabled buttons before a count and when nobody would go in the file", async () => {
-    renderPanel();
-    expect(screen.queryByRole("link", { name: /Download for Meta/ })).toBeNull();
-    expect((screen.getByRole("button", { name: /Download for Meta/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("link", { name: /Download/ })).toBeNull();
+    const next = () => screen.getByRole("button", { name: /Next: Check the list/ }) as HTMLButtonElement;
+    expect(next().disabled).toBe(true);
     handler = () => ({ body: countBody({ total: 3, inFile: 0, leftOut: { noContact: 3, doNotContact: 0 } }) });
     await checkCount();
-    expect(screen.queryByRole("link", { name: /Download/ })).toBeNull();
-    expect((screen.getByRole("button", { name: /Download plain version/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(next().disabled).toBe(true);
   });
 
   it("too large: only the plain message, no numbers, no download links", async () => {
@@ -145,7 +127,7 @@ describe("audiences panel", () => {
     expect(screen.queryByRole("link", { name: /Download/ })).toBeNull();
   });
 
-  it("names ignored choices next to the downloads", async () => {
+  it("names ignored choices in the summary card", async () => {
     handler = () => ({ body: countBody({ ignoredChoices: ["Old Course"] }) });
     renderPanel();
     await checkCount();
@@ -155,7 +137,7 @@ describe("audiences panel", () => {
     expect(screen.getAllByText(/no longer exist and are ignored/)).toHaveLength(1);
   });
 
-  it("only the counts are announced, not the buttons or the privacy note", async () => {
+  it("only the counts are announced, not the buttons", async () => {
     renderPanel();
     await checkCount();
     const card = screen.getByTestId("audience-result");
@@ -164,7 +146,7 @@ describe("audiences panel", () => {
     expect(live).toHaveLength(1);
     expect(live[0].getAttribute("aria-live")).toBe("polite");
     expect(live[0].textContent).toContain("1,284 people match");
-    expect(live[0].textContent).not.toMatch(/Download|Keep it private|Check count/);
+    expect(live[0].textContent).not.toMatch(/Next: Check|Check count/);
   });
 
   it("a failed count shows a plain error line", async () => {
@@ -175,12 +157,13 @@ describe("audiences panel", () => {
     expect(screen.queryByRole("link", { name: /Download/ })).toBeNull();
   });
 
-  it("changing a filter makes the count stale and disables downloads", async () => {
+  it("changing a filter makes the count stale and turns Next off", async () => {
     renderPanel();
     await checkCount();
-    expect(screen.getByRole("link", { name: /Download for Meta/ })).toBeTruthy();
+    const next = () => screen.getByRole("button", { name: /Next: Check the list/ }) as HTMLButtonElement;
+    expect(next().disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "UAE" }));
-    expect(screen.queryByRole("link", { name: /Download for Meta/ })).toBeNull();
+    expect(next().disabled).toBe(true);
   });
 
   it("counts once, 400 ms after the last change", async () => {
@@ -219,11 +202,11 @@ describe("audiences panel", () => {
     expect(screen.queryByText(/any of them|left out/i)).toBeNull();
   });
 
-  it("page has three numbered steps", () => {
+  it("page opens on step 1 with the progress strip", () => {
     renderPanel();
-    expect(screen.getByRole("heading", { name: "1. Who do you want?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "2. Check the number" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "3. Download" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Who do you want?" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1 Who" }).getAttribute("aria-current")).toBe("step");
+    expect(screen.getByRole("button", { name: "3 Download" })).toBeTruthy();
   });
 
   it("status chips toggle and send statuses in the count body; old Who radios are gone", async () => {
@@ -274,12 +257,9 @@ describe("audiences panel", () => {
     expect(screen.getAllByText(/cannot be told apart yet/)).toHaveLength(1);
   });
 
-  it("result card: plain note describes the plain button, Details toggle expands", async () => {
+  it("summary card: Details toggle expands", async () => {
     renderPanel();
     await checkCount();
-    const plain = screen.getByRole("link", { name: /Download plain version/ });
-    const noteId = plain.getAttribute("aria-describedby")!;
-    expect(document.getElementById(noteId)?.textContent).toMatch(/real emails and phone numbers/);
     const toggle = screen.getByRole("button", { name: "Details" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(toggle);
@@ -297,13 +277,11 @@ describe("audiences panel", () => {
     expect(details.className).toMatch(/max-h-\[60dvh\]/);
   });
 
-  it("step labels 2 and 3 are screen-reader only on phone and visible from lg up", () => {
+  it("the Your list heading is screen-reader only on phone and visible from lg up", () => {
     renderPanel();
-    for (const name of ["2. Check the number", "3. Download"]) {
-      const h = screen.getByRole("heading", { name });
-      expect(h.className).toMatch(/\bsr-only\b/);
-      expect(h.className).toMatch(/lg:not-sr-only/);
-    }
+    const h = screen.getByRole("heading", { name: "Your list" });
+    expect(h.className).toMatch(/\bsr-only\b/);
+    expect(h.className).toMatch(/lg:not-sr-only/);
   });
 
   it("Check count sits in the header row beside Details; Save this audience has its own row", () => {
@@ -313,13 +291,6 @@ describe("audiences panel", () => {
     expect(check.parentElement).toBe(details.parentElement);
     const save = screen.getByRole("button", { name: "Save this audience" });
     expect(save.parentElement).not.toBe(check.parentElement);
-  });
-
-  it("a short privacy line stays visible under the downloads", () => {
-    renderPanel();
-    const short = screen.getByText("Plain file: keep it private.");
-    const details = document.querySelector('[id$="-details"]')!;
-    expect(details.contains(short)).toBe(false);
   });
 
   it("Part-paid chip is also described as underpaid", () => {
@@ -469,12 +440,12 @@ describe("audiences panel", () => {
     expect(document.activeElement).toBe(screen.getByRole("dialog").querySelector("h2"));
   });
 
-  it("Reset filters restores the defaults", () => {
+  it("Reset all filters restores the defaults", () => {
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "UAE" }));
     fireEvent.click(screen.getByRole("radio", { name: "Live" }));
     fireEvent.click(screen.getByRole("button", { name: "Paid" }));
-    fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset all filters" }));
     expect(screen.getByRole("button", { name: "UAE" }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByRole("radio", { name: "Either" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("button", { name: "Paid" }).getAttribute("aria-pressed")).toBe("false");
