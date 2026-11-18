@@ -28,7 +28,7 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
           {cohort.sheetName} — {cohort.tabName}
         </h1>
         <p className="font-body text-sm text-pz-on-surface-variant mt-1">
-          {cohort.courseTitle ? <span>{cohort.courseTitle}</span> : <span className="text-pz-danger">untagged</span>}
+          {cohort.courseTitle ? <span>{cohort.courseTitle}</span> : <span className="text-pz-danger">Course not set</span>}
           {" · "}Imported {formatDatePkt(cohort.createdAt)} ·{" "}
           {cohort.kind === "closed_interested"
             ? `${cohort.contactCount} ${cohort.contactCount === 1 ? "person" : "people"}`

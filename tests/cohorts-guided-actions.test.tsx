@@ -69,6 +69,22 @@ describe("cohorts guided: what do you want to do", () => {
     expect(within(area()).getByText(/including ones hidden by your search/)).toBeTruthy();
   });
 
+  it("ticks that are all hidden by the search say so instead of asking to tick", () => {
+    render(<CohortsPanel initialCohorts={[cohort({ id: "a", sheetName: "Alpha" }), cohort({ id: "b", sheetName: "Beta" }), cohort({ id: "c", sheetName: "Gamma" })]} />);
+    fireEvent.click(table().getByLabelText("Select Alpha, Tab A"));
+    fireEvent.click(table().getByLabelText("Select Beta, Tab A"));
+    fireEvent.change(screen.getByLabelText("Search by sheet or tab name"), { target: { value: "gamma" } });
+    expect(within(area()).getByText("2 ticked, hidden by your search")).toBeTruthy();
+    expect(within(area()).queryByText("Tick cohorts to download them")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Search by sheet or tab name"), { target: { value: "beta" } });
+    expect(within(area()).getByText("1 cohort selected")).toBeTruthy();
+  });
+
+  it("one hidden tick is singular", () => {
+    render(<CohortsActions cohorts={[]} atLimit={false} hiddenTicks={1} />);
+    expect(screen.getByText("1 ticked, hidden by your search")).toBeTruthy();
+  });
+
   it("does not take focus on load", () => {
     render(<CohortsPanel initialCohorts={[cohort()]} />);
     expect(document.activeElement).toBe(document.body);
@@ -87,7 +103,7 @@ describe("cohorts guided: page frame", () => {
     expect(cls).toContain("max-xl:sticky");
     expect(cls).toContain("bottom-[calc(4.5rem+env(safe-area-inset-bottom))]");
     expect(cls).toContain("lg:bottom-4");
-    expect(cls).toContain("max-xl:max-h-[50vh]");
+    expect(cls).toContain("max-xl:max-h-[50dvh]");
     expect(cls).toContain("max-xl:overflow-y-auto");
     expect(cls).toContain("xl:sticky");
     expect(cls).toContain("xl:top-20");

@@ -13,10 +13,12 @@ const ITEM =
 export function CohortRowMenu({
   cohort,
   busy,
+  locked,
   onDelete,
 }: {
   cohort: CohortRow;
-  busy: boolean;
+  busy: boolean; // this row is being deleted
+  locked: boolean; // any row is being deleted
   onDelete: (c: CohortRow) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -33,11 +35,11 @@ export function CohortRowMenu({
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
   }, [open]);
 
   const closeToButton = () => {
@@ -77,13 +79,14 @@ export function CohortRowMenu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-busy={busy}
         aria-controls={menuId}
         aria-label={`More for ${cohort.sheetName}, ${cohort.tabName}`}
         onClick={() => setOpen((o) => !o)}
         className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl px-2 font-body text-sm text-pz-on-surface hover:bg-pz-surface-container-low md:min-h-9"
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-        <span>More</span>
+        <span>{busy ? "Deleting…" : "More"}</span>
       </button>
       {open && (
         <div
@@ -110,7 +113,7 @@ export function CohortRowMenu({
             role="menuitem"
             type="button"
             tabIndex={-1}
-            disabled={busy}
+            disabled={busy || locked}
             onClick={() => {
               closeToButton();
               onDelete(cohort);

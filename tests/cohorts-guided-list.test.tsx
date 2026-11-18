@@ -127,7 +127,7 @@ describe("cohorts guided: row menu", () => {
   it("an outside mousedown closes it", () => {
     render(<CohortsPanel initialCohorts={[cohort()]} />);
     fireEvent.click(table().getByRole("button", { name: /More/ }));
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
     expect(table().queryByRole("menu")).toBeNull();
   });
 
@@ -195,6 +195,31 @@ describe("cohorts guided: phone cards and menu focus", () => {
     expect(del.disabled).toBe(true);
     expect(del.className).toContain("disabled:opacity-50");
     expect(del.className).toContain("disabled:cursor-not-allowed");
+  });
+
+  it("while a delete runs, More shows Deleting… and is busy, and Delete is disabled on every row", () => {
+    confirmMock.mockImplementation(() => new Promise<boolean>(() => {}));
+    render(<CohortsPanel initialCohorts={[cohort({ id: "a", sheetName: "One" }), cohort({ id: "b", sheetName: "Two" })]} />);
+    const [moreA, moreB] = table().getAllByRole("button", { name: /^More/ });
+    fireEvent.click(moreA);
+    fireEvent.click(within(table().getByRole("menu")).getByRole("menuitem", { name: "Delete" }));
+    expect(moreA.getAttribute("aria-busy")).toBe("true");
+    expect(moreA.textContent).toContain("Deleting…");
+    expect(moreB.getAttribute("aria-busy")).not.toBe("true");
+    expect(moreB.textContent).toContain("More");
+    fireEvent.click(moreB);
+    const other = within(table().getByRole("menu")).getByRole("menuitem", { name: "Delete" }) as HTMLButtonElement;
+    expect(other.disabled).toBe(true);
+  });
+
+  it("long one-word names wrap on the phone card instead of pushing the page sideways", () => {
+    render(<CohortsPanel initialCohorts={[cohort({ sheetName: "A".repeat(80), tabName: "B".repeat(80), courseTitle: "C".repeat(80) })]} />);
+    const c = cards();
+    for (const text of ["A".repeat(80), "B".repeat(80), "C".repeat(80)]) {
+      const el = c.getByText(text);
+      const wrap = el.closest("a, p") as HTMLElement;
+      expect(wrap.getAttribute("class")).toContain("[overflow-wrap:anywhere]");
+    }
   });
 
   it("the phone card tap targets do not repeat the same min-height class", () => {

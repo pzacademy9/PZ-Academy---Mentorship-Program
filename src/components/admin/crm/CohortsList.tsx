@@ -73,11 +73,11 @@ export function CohortsList({
                 />
               </label>
               <div className="min-w-0 flex-1 py-1 pr-3 font-body text-sm text-pz-on-surface">
-                <Link href={cohortHref(c)} className="inline-flex min-h-11 items-center break-words font-medium underline">
+                <Link href={cohortHref(c)} className="inline-flex min-h-11 items-center break-words font-medium underline [overflow-wrap:anywhere]">
                   {c.sheetName}
                 </Link>
-                <p className="break-words text-pz-on-surface-variant">{c.tabName}</p>
-                <p className="break-words">{course(c)}</p>
+                <p className="break-words text-pz-on-surface-variant [overflow-wrap:anywhere]">{c.tabName}</p>
+                <p className="break-words [overflow-wrap:anywhere]">{course(c)}</p>
                 <p className="break-words">
                   {people(c)} · {formatDatePkt(c.createdAt)}
                 </p>
@@ -87,7 +87,7 @@ export function CohortsList({
               </div>
             </div>
             <div className="border-t border-pz-outline-variant px-2 py-1">
-              <CohortRowMenu cohort={c} busy={removing && busyId === c.id} onDelete={onDelete} />
+              <CohortRowMenu cohort={c} busy={removing && busyId === c.id} locked={removing} onDelete={onDelete} />
             </div>
           </li>
         ))}
@@ -128,7 +128,7 @@ export function CohortsList({
                 <td className="py-2 pr-3 tabular-nums">{people(c)}</td>
                 <td className="py-2 pr-3">{formatDatePkt(c.createdAt)}</td>
                 <td className="w-48 py-2">
-                  <CohortRowMenu cohort={c} busy={removing && busyId === c.id} onDelete={onDelete} />
+                  <CohortRowMenu cohort={c} busy={removing && busyId === c.id} locked={removing} onDelete={onDelete} />
                 </td>
               </tr>
             ))}

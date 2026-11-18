@@ -25,7 +25,7 @@ export function CohortsActions({
     <section
       data-testid="cohorts-actions"
       aria-labelledby="cohorts-actions-heading"
-      className="z-30 space-y-2 rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-3 max-xl:sticky max-xl:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-xl:max-h-[50vh] max-xl:overflow-y-auto lg:bottom-4 xl:sticky xl:bottom-auto xl:top-20 xl:p-4"
+      className="z-30 space-y-2 rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-3 max-xl:sticky max-xl:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-xl:max-h-[50dvh] max-xl:overflow-y-auto lg:bottom-4 xl:sticky xl:bottom-auto xl:top-20 xl:p-4"
     >
       <h2 id="cohorts-actions-heading" className="font-headline text-lg text-pz-on-surface">
         3. What do you want to do?
@@ -55,7 +55,9 @@ export function CohortsActions({
           </p>
         </>
       ) : (
-        <p className="font-body text-sm text-pz-on-surface-variant">Tick cohorts to download them</p>
+        <p className="font-body text-sm text-pz-on-surface-variant">
+          {hiddenTicks > 0 ? `${hiddenTicks} ticked, hidden by your search` : "Tick cohorts to download them"}
+        </p>
       )}
       {atLimit ? (
         <p className="font-body text-xs text-pz-on-surface-variant">

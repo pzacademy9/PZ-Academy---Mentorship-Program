@@ -19,7 +19,7 @@ const row: CohortRow = {
 };
 const detail: CohortDetail = { ...row, contacts: [] };
 
-describe("cohort dates are pinned to Pakistan time", () => {
+function datesAreInPakistanTime() {
   it("CohortsPanel prints the Pakistan date", () => {
     const { container } = render(<CohortsPanel initialCohorts={[row]} />);
     expect(container.textContent).toContain("13 Oct 2026");
@@ -31,4 +31,14 @@ describe("cohort dates are pinned to Pakistan time", () => {
     expect(container.textContent).toContain("13 Oct 2026");
     expect(container.textContent).not.toContain("12 Oct 2026");
   });
+}
+
+describe("cohort dates are pinned to Pakistan time (machine in UTC)", () => {
+  beforeAll(() => { process.env.TZ = "UTC"; });
+  datesAreInPakistanTime();
+});
+
+describe("cohort dates are pinned to Pakistan time (machine in Asia/Karachi)", () => {
+  beforeAll(() => { process.env.TZ = "Asia/Karachi"; });
+  datesAreInPakistanTime();
 });
