@@ -151,7 +151,7 @@ export async function getCohortDetail(id: string): Promise<CohortDetail | null> 
   let purchaseCount = 0;
 
   if (batch.kind === "closed_interested") {
-    // Interested cohorts have no purchases: membership lives in import_batch_contacts.
+    // Interested cohorts have no purchases of their own (a landing page's can include people who bought another course): membership lives in import_batch_contacts.
     const members = await pageAll<{ contact_id: string; contacts: unknown }>("import_batch_contacts", (from, to) =>
       admin
         .from("import_batch_contacts")
