@@ -8,46 +8,14 @@ import { Layers, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ResponsiveList } from "@/components/ui/responsive-list";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
-import { formatDatePkt } from "@/lib/format";
+import { cohortExportUrl, cohortPlainUrl } from "@/lib/crm/cohort-export-url";
+import type { CohortRow } from "@/lib/data/admin-crm-import";
+import { CohortsList } from "./CohortsList";
 
-type Cohort = {
-  id: string;
-  sheetName: string;
-  tabName: string;
-  rowsImported: number;
-  createdAt: string;
-  courseId: string | null;
-  courseTitle: string | null;
-  purchaseCount: number;
-  kind: "imported" | "closed_paid" | "closed_interested";
-  contactCount: number;
-};
+type Cohort = CohortRow;
 
 const MAX_SELECTED = 20;
-const exportHref = (ids: string[]) => `/api/admin/crm/cohorts/export?ids=${ids.join(",")}`;
-const plainHref = (ids: string[]) => `${exportHref(ids)}&format=plain`;
-const KIND_BADGE: Record<Cohort["kind"], string | null> = {
-  imported: null,
-  closed_paid: "Closed batch: paid",
-  closed_interested: "Interested, not paid",
-};
-
-function KindBadge({ kind }: { kind: Cohort["kind"] }) {
-  const text = KIND_BADGE[kind];
-  if (!text) return null;
-  return (
-    <span className="ml-2 px-1.5 py-0.5 rounded-full bg-pz-primary-container text-pz-on-primary-container text-[10px] font-bold uppercase">
-      {text}
-    </span>
-  );
-}
-
-function peopleText(c: Cohort) {
-  return `${c.contactCount} ${c.contactCount === 1 ? "person" : "people"}`;
-}
-const showImportedNote = (c: Cohort) => c.kind !== "closed_interested" && c.contactCount !== c.rowsImported;
 
 export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
   const router = useRouter();
@@ -55,7 +23,6 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [ticked, setTicked] = useState<string[]>([]);
-  const checkLabel = (c: Cohort) => `Select ${c.sheetName}, ${c.tabName}`;
   const filtered =
     search.trim() === ""
       ? cohorts
@@ -104,28 +71,32 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
         Need a list made by a question, like recorded buyers in UAE?{" "}
         <Link href="/dashboard/admin/sales-hub/audiences" className="inline-flex min-h-11 items-center underline">Use Audiences</Link>.
       </p>
+      <h2 className="font-headline text-lg text-pz-on-surface">1. Find a cohort</h2>
       {cohorts.length > 0 && (
         <input
+          type="search"
+          aria-label="Search by sheet or tab name"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by sheet or tab name…"
-          className="rounded-xl border border-pz-outline-variant px-3 py-1.5 font-body text-sm w-64 max-md:w-full max-md:min-h-11 max-md:text-base"
+          className="w-64 rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-1.5 font-body text-sm max-md:min-h-11 max-md:w-full max-md:text-base"
         />
       )}
+      <h2 className="pt-2 font-headline text-lg text-pz-on-surface">2. Pick cohorts</h2>
       {cohorts.length > 0 && (
         <div data-testid="meta-toolbar" className="space-y-1">
           {selected.length === 0 ? (
             <Button variant="outline" size="sm" disabled>Download selected for Meta (0)</Button>
           ) : (
             <Button asChild variant="outline" size="sm">
-              <a href={exportHref(selected)} download>Download selected for Meta ({selected.length})</a>
+              <a href={cohortExportUrl(selected)} download>Download selected for Meta ({selected.length})</a>
             </Button>
           )}
           {selected.length === 0 ? (
             <Button variant="outline" size="sm" disabled className="ml-2">Download selected, plain (0)</Button>
           ) : (
             <Button asChild variant="outline" size="sm" className="ml-2">
-              <a href={plainHref(selected)} download>Download selected, plain ({selected.length})</a>
+              <a href={cohortPlainUrl(selected)} download>Download selected, plain ({selected.length})</a>
             </Button>
           )}
           <p className="font-body text-xs text-pz-on-surface-variant">
@@ -149,113 +120,14 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
       ) : filtered.length === 0 ? (
         <EmptyState icon={SearchX} title="No cohorts match" description={`Nothing matches "${search}".`} />
       ) : (
-        <ResponsiveList
-          rows={filtered}
-          getKey={(c) => c.id}
-          selection={{ isSelected: (c) => selected.includes(c.id), onToggle: (c) => toggle(c.id), label: checkLabel }}
-          mobile={{
-            title: (c) => (
-              <>
-                <Link href={`/dashboard/admin/sales-hub/cohorts/${c.id}`} className="inline-flex min-h-11 items-center underline">
-                  {c.sheetName}
-                </Link>
-                <KindBadge kind={c.kind} />
-              </>
-            ),
-            meta: (c) => [
-              c.tabName,
-              <span key="course" className={c.courseTitle ? "" : "text-pz-danger"}>{c.courseTitle ?? "untagged"}</span>,
-              `${peopleText(c)}${showImportedNote(c) ? ` (of ${c.rowsImported} imported)` : ""} · ${formatDatePkt(c.createdAt)}`,
-              ...(c.contactCount === 0
-                ? [<span key="no-download">No people to download</span>]
-                : [
-                    <a key="download" href={exportHref([c.id])} download className="inline-flex min-h-11 items-center underline">
-                      Download for Meta
-                    </a>,
-                    <a key="download-plain" href={plainHref([c.id])} download className="inline-flex min-h-11 items-center underline">
-                      Download plain version
-                    </a>,
-                  ]),
-              <Button
-                key="delete"
-                variant="bare"
-                size="bare"
-                loading={busyId === c.id}
-                disabled={removing}
-                onClick={() => remove(c)}
-                className="min-h-11 min-w-11 text-pz-danger font-body text-sm"
-              >
-                {busyId === c.id ? "Deleting…" : "delete"}
-              </Button>,
-            ],
-          }}
-          table={
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-body text-sm">
-                <thead className="text-pz-on-surface-variant text-xs uppercase">
-                  <tr>
-                    <th className="py-2"><span className="sr-only">Select</span></th>
-                    <th>Sheet</th>
-                    <th>Tab</th>
-                    <th>Course</th>
-                    <th>People</th>
-                    <th>Imported</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((c) => (
-                    <tr key={c.id} className="border-t border-pz-outline-variant">
-                      <td className="py-2">
-                        <input
-                          type="checkbox"
-                          aria-label={checkLabel(c)}
-                          checked={selected.includes(c.id)}
-                          disabled={atLimit && !selected.includes(c.id)}
-                          onChange={() => toggle(c.id)}
-                        />
-                      </td>
-                      <td>
-                        <Link href={`/dashboard/admin/sales-hub/cohorts/${c.id}`} className="underline">
-                          {c.sheetName}
-                        </Link>
-                        <KindBadge kind={c.kind} />
-                      </td>
-                      <td>{c.tabName}</td>
-                      <td className={c.courseTitle ? "" : "text-pz-danger"}>{c.courseTitle ?? "untagged"}</td>
-                      <td className="tabular-nums">
-                        <span>{peopleText(c)}</span>
-                        {showImportedNote(c) && (
-                          <span className="text-pz-on-surface-variant"> (of {c.rowsImported} imported)</span>
-                        )}
-                      </td>
-                      <td>{formatDatePkt(c.createdAt)}</td>
-                      <td>
-                        {c.contactCount === 0 ? (
-                          <span className="mr-3 text-pz-on-surface-variant">No people to download</span>
-                        ) : (
-                          <>
-                            <a href={exportHref([c.id])} download className="mr-3 underline">Download for Meta</a>
-                            <a href={plainHref([c.id])} download className="mr-3 underline">Download plain version</a>
-                          </>
-                        )}
-                        <Button
-                          variant="bare"
-                          size="bare"
-                          loading={busyId === c.id}
-                          disabled={removing}
-                          onClick={() => remove(c)}
-                          className="text-pz-danger font-body text-sm"
-                        >
-                          {busyId === c.id ? "Deleting…" : "delete"}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          }
+        <CohortsList
+          cohorts={filtered}
+          selected={selected}
+          atLimit={atLimit}
+          busyId={busyId}
+          removing={removing}
+          onToggle={toggle}
+          onDelete={remove}
         />
       )}
     </div>

@@ -16,12 +16,16 @@ const view = (rows: CohortRow[]) => {
   render(<CohortsPanel initialCohorts={rows} />);
   return within(screen.getByRole("table"));
 };
+const openMenus = (t: ReturnType<typeof within>) => {
+  for (const b of t.getAllByRole("button", { name: /^More/ })) fireEvent.click(b);
+};
 const toolbar = () => screen.getByTestId("meta-toolbar");
 
 describe("cohorts panel: download for Meta", () => {
   it("each row has a Download for Meta link with the right href", () => {
     const t = view([cohort({ id: "a" }), cohort({ id: "b", sheetName: "Other" })]);
-    const links = t.getAllByRole("link", { name: /Download for Meta/ });
+    openMenus(t);
+    const links = t.getAllByRole("menuitem", { name: /Download for Meta/ });
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
       "/api/admin/crm/cohorts/export?ids=a",
       "/api/admin/crm/cohorts/export?ids=b",
@@ -49,10 +53,11 @@ describe("cohorts panel: download for Meta", () => {
       cohort({ id: "e", sheetName: "Empty", kind: "closed_interested", contactCount: 0, purchaseCount: 0, rowsImported: 0 }),
       cohort({ id: "f", sheetName: "Full" }),
     ]);
-    expect(t.getAllByRole("link", { name: /Download for Meta/ }).map((l) => l.getAttribute("href"))).toEqual([
+    openMenus(t);
+    expect(t.getAllByRole("menuitem", { name: /Download for Meta/ }).map((l) => l.getAttribute("href"))).toEqual([
       "/api/admin/crm/cohorts/export?ids=f",
     ]);
-    expect(t.getAllByRole("link", { name: /Download plain version/ })).toHaveLength(1);
+    expect(t.getAllByRole("menuitem", { name: /Download plain version/ })).toHaveLength(1);
     expect(t.getByText("No people to download")).toBeTruthy();
   });
 
@@ -83,7 +88,8 @@ describe("cohorts panel: download for Meta", () => {
     const t = view([cohort({ id: "a", sheetName: "One" }), cohort({ id: "b", sheetName: "Two" })]);
     fireEvent.click(t.getByLabelText("Select One, Tab A"));
     fireEvent.click(t.getByLabelText("Select Two, Tab A"));
-    fireEvent.click(t.getAllByRole("button", { name: "delete" })[0]);
+    fireEvent.click(t.getAllByRole("button", { name: /^More/ })[0]);
+    fireEvent.click(within(t.getByRole("menu")).getByRole("menuitem", { name: "Delete" }));
     await waitFor(() => expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ })).toBeTruthy());
     expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ }).getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=b");
     vi.unstubAllGlobals();
@@ -121,7 +127,8 @@ describe("cohorts panel: download for Meta", () => {
 describe("cohorts panel: plain download", () => {
   it("each table row has a plain link with format=plain and download", () => {
     const t = view([cohort({ id: "a" }), cohort({ id: "b", sheetName: "Other" })]);
-    const links = t.getAllByRole("link", { name: /Download plain version/ });
+    openMenus(t);
+    const links = t.getAllByRole("menuitem", { name: /Download plain version/ });
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
       "/api/admin/crm/cohorts/export?ids=a&format=plain",
       "/api/admin/crm/cohorts/export?ids=b&format=plain",
@@ -129,9 +136,10 @@ describe("cohorts panel: plain download", () => {
     expect(links[0].hasAttribute("download")).toBe(true);
   });
 
-  it("the mobile list also has the plain link", () => {
+  it("the phone list also has a menu with the plain link", () => {
     render(<CohortsPanel initialCohorts={[cohort({ id: "m" })]} />);
-    const links = screen.getAllByRole("link", { name: /Download plain version/, hidden: true });
+    for (const b of screen.getAllByRole("button", { name: /^More/, hidden: true })) fireEvent.click(b);
+    const links = screen.getAllByRole("menuitem", { name: /Download plain version/, hidden: true });
     expect(links.length).toBeGreaterThanOrEqual(2);
     for (const l of links) {
       expect(l.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=m&format=plain");
