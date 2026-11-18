@@ -49,7 +49,7 @@ const contact = {
   id: "a", email: "a@x.com", phoneE164: "+923001234567", fullName: "Ann Lee", country: "PK",
   emailUnsubscribedAt: null, whatsappUnsubscribedAt: null, doNotContactAt: null, emailSuppressed: false,
 };
-const F = { ...DEFAULT_AUDIENCE_FILTER, who: "paid" as const };
+const F = { ...DEFAULT_AUDIENCE_FILTER, statuses: ["paid" as const] };
 const enc = encodeAudienceFilter(F);
 
 let errSpy: ReturnType<typeof vi.spyOn>;
@@ -69,7 +69,7 @@ describe("count route", () => {
     expect(q.countAudience).not.toHaveBeenCalled();
   });
   it("400 on a bad filter or bad json", async () => {
-    expect((await countPOST(post("/count", { ...F, who: "nobody" }))).status).toBe(400);
+    expect((await countPOST(post("/count", { ...F, statuses: ["nobody"] }))).status).toBe(400);
     expect((await countPOST(post("/count", "not json"))).status).toBe(400);
     expect(q.countAudience).not.toHaveBeenCalled();
   });
@@ -112,7 +112,7 @@ describe("export route", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-only-meta-audience-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-meta-audience-\d{4}-\d{2}-\d{2}\.csv$/);
     const text = await res.text();
     expect(text.split("\n")[0]).toBe("email,phone,fn,ln,country");
     expect(text).not.toContain("a@x.com");
@@ -120,7 +120,7 @@ describe("export route", () => {
   it("plain is attachment-only and readable", async () => {
     q.loadAudienceFile.mockResolvedValue({ contacts: [contact], tooLarge: false, needsUpdate: false });
     const res = await exportGET(get(`/export?f=${enc}&format=plain`));
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-only-plain-meta-audience-/);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-plain-meta-audience-/);
     expect(await res.text()).toBe("email,phone,fn,ln,country\na@x.com,+923001234567,Ann,Lee,PK\n");
   });
   it("413 when too large", async () => {

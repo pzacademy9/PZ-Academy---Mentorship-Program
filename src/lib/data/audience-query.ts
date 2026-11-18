@@ -258,12 +258,14 @@ export async function resolveAudienceContactIds(
     else ignoredChoices.push(c);
   }
 
+  const legacyWho = f.statuses.length === 0 ? "both" : f.statuses.length === 1 && f.statuses[0] === "paid" ? "paid" : !f.statuses.includes("paid") ? "unpaid" : "both";
   const dated = !!(f.from || f.to);
   const matched = new Set<string>();
   for (const r of data.regs) {
     if (matched.has(r.contactId)) continue;
-    if (f.who === "paid" && !r.paid) continue;
-    if (f.who === "unpaid" && r.paid) continue;
+    // TODO(task3): replace this temporary paid/unpaid mapping with the real status filter.
+    if (legacyWho === "paid" && !r.paid) continue;
+    if (legacyWho === "unpaid" && r.paid) continue;
     if (chosen.size > 0 && !chosen.has(r.courseKey)) continue;
     if (f.mode !== "either" && r.mode !== f.mode) continue;
     if (dated) {

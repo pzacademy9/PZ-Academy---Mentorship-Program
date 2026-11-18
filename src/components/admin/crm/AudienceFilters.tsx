@@ -13,7 +13,19 @@ const MODE_OPTIONS: { value: AudienceFilter["mode"]; label: string }[] = [
   { value: "recorded", label: "Recorded" },
   { value: "live", label: "Live" },
 ];
-const WHO_OPTIONS: { value: AudienceFilter["who"]; label: string }[] = [
+// Temporary: Task 4 replaces this with status tick-boxes.
+type Who = "paid" | "unpaid" | "both";
+const WHO_STATUSES: Record<Who, AudienceFilter["statuses"]> = {
+  paid: ["paid"],
+  unpaid: ["reserved", "pending", "part_paid", "free"],
+  both: [],
+};
+function whoOf(statuses: AudienceFilter["statuses"]): Who {
+  if (statuses.length === 1 && statuses[0] === "paid") return "paid";
+  if (statuses.length === 4 && !statuses.includes("paid")) return "unpaid";
+  return "both";
+}
+const WHO_OPTIONS: { value: Who; label: string }[] = [
   { value: "paid", label: "Paid" },
   { value: "unpaid", label: "Registered, not paid" },
   { value: "both", label: "Both" },
@@ -140,7 +152,7 @@ export function AudienceFilters({
       </FilterCard>
 
       <FilterCard titleId={`${ids}-who`} title="Who">
-        <SegmentedControl label="Who" value={filter.who} options={WHO_OPTIONS} onChange={(who) => set({ who })} />
+        <SegmentedControl label="Who" value={whoOf(filter.statuses)} options={WHO_OPTIONS} onChange={(who) => set({ statuses: WHO_STATUSES[who] })} />
       </FilterCard>
 
       <FilterCard titleId={`${ids}-dates`} title="Registered between">

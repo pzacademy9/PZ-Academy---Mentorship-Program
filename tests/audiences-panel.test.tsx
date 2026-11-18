@@ -83,7 +83,7 @@ describe("audiences panel", () => {
       courses: ["Pharmacovigilance"],
       mode: "recorded",
       countries: ["AE", "unknown"],
-      who: "paid",
+      statuses: ["paid"],
       from: "2026-01-01",
       to: null,
     });
@@ -249,7 +249,7 @@ describe("audiences panel", () => {
     const good: SavedAudience = {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Gulf",
-      filter: { ...DEFAULT_AUDIENCE_FILTER, countries: ["AE"], who: "paid" },
+      filter: { ...DEFAULT_AUDIENCE_FILTER, countries: ["AE"], statuses: ["paid"] },
       invalid: false,
       createdAt: "2026-11-17T10:00:00Z",
     };

@@ -180,12 +180,12 @@ describe("resolveAudienceContactIds", () => {
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" })],
       import_batch_contacts: [interested("bi", "a"), interested("bi", "b")],
     });
-    expect(await ids({ who: "unpaid" })).toEqual(["b"]);
-    expect(await ids({ who: "unpaid", courses: ["Clinical Course"] })).toEqual(["b"]);
-    expect(await ids({ who: "paid" })).toEqual(["a"]);
-    expect(await ids({ who: "both" })).toEqual(["a", "b"]);
+    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"] })).toEqual(["b"]);
+    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"], courses: ["Clinical Course"] })).toEqual(["b"]);
+    expect(await ids({ statuses: ["paid"] })).toEqual(["a"]);
+    expect(await ids({ statuses: [] })).toEqual(["a", "b"]);
     // a's interest in Clinical Course does not count: a has a purchase.
-    expect(await ids({ who: "both", courses: ["Clinical Course"] })).toEqual(["b"]);
+    expect(await ids({ statuses: [], courses: ["Clinical Course"] })).toEqual(["b"]);
   });
 
   it("(c) two chosen courses mean either one, compared case-insensitively", async () => {
@@ -300,12 +300,12 @@ describe("resolveAudienceContactIds", () => {
       contact_purchases: Array.from({ length: n }, (_, i) => purchase(`p${String(i).padStart(5, "0")}`, cid(i))),
       import_batch_contacts: Array.from({ length: n }, (_, i) => interested("bi", `z${i}`)),
     });
-    const r = await ids({ countries: ["AE"], who: "paid" });
+    const r = await ids({ countries: ["AE"], statuses: ["paid"] });
     expect(r).toHaveLength(650);
     for (const op of db.state.ops.filter((o) => o.op === "select")) {
       for (const [k, , v] of op.filters) if (k === "in") expect((v as unknown[]).length).toBeLessThanOrEqual(200);
     }
-    expect(await ids({ who: "unpaid" })).toHaveLength(n);
+    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"] })).toHaveLength(n);
     expect(db.find("contact_purchases", "select").every((o) => o.range)).toBe(true);
     expect(db.find("import_batch_contacts", "select").every((o) => o.range)).toBe(true);
   });

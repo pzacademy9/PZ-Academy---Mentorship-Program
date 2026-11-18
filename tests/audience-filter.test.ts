@@ -6,6 +6,7 @@ import {
   encodeAudienceFilter,
   decodeAudienceFilter,
   describeAudienceFilter,
+  AUDIENCE_STATUSES,
   type AudienceFilter,
 } from "@/lib/crm/audience-filter";
 
@@ -13,7 +14,7 @@ const filled: AudienceFilter = {
   courses: ["A", "B"],
   mode: "recorded",
   countries: ["AE", "SA"],
-  who: "paid",
+  statuses: ["paid"],
   from: "2026-01-01",
   to: "2026-02-01",
 };
@@ -21,7 +22,7 @@ const filled: AudienceFilter = {
 describe("audience filter", () => {
   it("has the documented defaults", () => {
     expect(DEFAULT_AUDIENCE_FILTER).toEqual({
-      courses: [], mode: "either", countries: [], who: "both", from: null, to: null,
+      courses: [], mode: "either", countries: [], statuses: [], from: null, to: null,
     });
     expect(AUDIENCE_MAX_PEOPLE).toBe(50000);
   });
@@ -95,14 +96,14 @@ describe("audience filter", () => {
       "Courses: A, B",
       "Recorded only",
       "Countries: UAE, Saudi Arabia",
-      "Paid only",
+      "Paid",
       "From 2026-01-01",
       "To 2026-02-01",
     ]);
-    expect(describeAudienceFilter({ ...DEFAULT_AUDIENCE_FILTER, mode: "live", who: "unpaid", countries: ["PK", "unknown", "GB"] })).toEqual([
+    expect(describeAudienceFilter({ ...DEFAULT_AUDIENCE_FILTER, mode: "live", statuses: ["reserved", "pending", "part_paid", "free"], countries: ["PK", "unknown", "GB"] })).toEqual([
       "Live only",
       "Countries: Pakistan, Not known, GB",
-      "Registered, not paid",
+      "Reserved, Pending, Part-paid and Free",
     ]);
   });
 
@@ -112,6 +113,8 @@ describe("audience filter", () => {
     expect(parseAudienceFilter(null)).toEqual({ ok: false, error: generic });
     expect(parseAudienceFilter({ ...D, mode: "x" })).toEqual({ ok: false, error: generic });
     expect(parseAudienceFilter({ ...D, who: "everyone" })).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, statuses: ["paid", "refunded"] })).toEqual({ ok: false, error: generic });
+    expect(parseAudienceFilter({ ...D, statuses: "paid" })).toEqual({ ok: false, error: generic });
     const { from: _from, ...noFrom } = D;
     void _from;
     expect(parseAudienceFilter(noFrom)).toEqual({ ok: false, error: generic });
@@ -125,5 +128,67 @@ describe("audience filter", () => {
     const r = parseAudienceFilter({ ...DEFAULT_AUDIENCE_FILTER, courses: ["Alpha", " alpha ", "Beta", "ALPHA"], countries: ["PK", "AE", "PK"] });
     expect(r.ok && r.filter.courses).toEqual(["Alpha", "Beta"]);
     expect(r.ok && r.filter.countries).toEqual(["PK", "AE"]);
+  });
+});
+
+describe("audience statuses", () => {
+  const { statuses: _s, ...base } = DEFAULT_AUDIENCE_FILTER;
+  void _s;
+
+  it("lists the five statuses in the fixed order with plain labels", () => {
+    expect(AUDIENCE_STATUSES).toEqual([
+      { value: "paid", label: "Paid" },
+      { value: "reserved", label: "Reserved" },
+      { value: "pending", label: "Pending" },
+      { value: "part_paid", label: "Part-paid" },
+      { value: "free", label: "Free" },
+    ]);
+  });
+
+  it("accepts the new shape and de-duplicates", () => {
+    const r = parseAudienceFilter({ ...base, statuses: ["paid", "free", "paid"] });
+    expect(r).toEqual({ ok: true, filter: { ...base, statuses: ["paid", "free"] } });
+  });
+
+  it("converts the old who field", () => {
+    const f = (who: string) => {
+      const r = parseAudienceFilter({ ...base, who });
+      return r.ok ? r.filter : r;
+    };
+    expect(f("paid")).toEqual({ ...base, statuses: ["paid"] });
+    expect(f("unpaid")).toEqual({ ...base, statuses: ["reserved", "pending", "part_paid", "free"] });
+    expect(f("both")).toEqual({ ...base, statuses: [] });
+    expect(Object.keys(f("paid"))).not.toContain("who");
+  });
+
+  it("lets statuses win over who", () => {
+    const r = parseAudienceFilter({ ...base, who: "paid", statuses: ["free"] });
+    expect(r).toEqual({ ok: true, filter: { ...base, statuses: ["free"] } });
+  });
+
+  it("treats a filter with neither field as everyone", () => {
+    expect(parseAudienceFilter(base)).toEqual({ ok: true, filter: { ...base, statuses: [] } });
+  });
+
+  it("still opens an old encoded link and re-encodes in the new shape", () => {
+    const legacy = { ...base, who: "unpaid" };
+    const bytes = new TextEncoder().encode(JSON.stringify(legacy));
+    const old = btoa(String.fromCharCode.apply(null, Array.from(bytes))).split("+").join("-").split("/").join("_").replace(/=+$/, "");
+    const r = decodeAudienceFilter(old);
+    expect(r).toEqual({ ok: true, filter: { ...base, statuses: ["reserved", "pending", "part_paid", "free"] } });
+    if (!r.ok) throw new Error("unreachable");
+    const again = encodeAudienceFilter(r.filter);
+    const json = new TextDecoder().decode(Uint8Array.from(atob(again.replace(/-/g, "+").replace(/_/g, "/") + "==".slice(0, (4 - (again.length % 4)) % 4)), (c) => c.charCodeAt(0)));
+    expect(json).not.toContain("who");
+    expect(decodeAudienceFilter(again)).toEqual(r);
+  });
+
+  it("describes statuses in the fixed order in plain words", () => {
+    const d = (statuses: AudienceFilter["statuses"]) => describeAudienceFilter({ ...DEFAULT_AUDIENCE_FILTER, statuses });
+    expect(d([])).toEqual(["Everyone who registered or bought"]);
+    expect(d(["paid"])).toEqual(["Paid"]);
+    expect(d(["reserved", "paid"])).toEqual(["Paid and Reserved"]);
+    expect(d(["pending", "reserved", "paid"])).toEqual(["Paid, Reserved and Pending"]);
+    expect(d(["free", "part_paid"])).toEqual(["Part-paid and Free"]);
   });
 });
