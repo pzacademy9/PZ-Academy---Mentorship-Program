@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ContactsActions } from "@/components/admin/crm/ContactsActions";
 import { ContactsList } from "@/components/admin/crm/ContactsList";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
@@ -195,6 +196,49 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
 
   const filtered = applied.search !== "" || applied.courseName !== "" || applied.importBatchId !== "";
 
+  const convertForm = (
+    <div className="space-y-3">
+      <div className="flex gap-3 flex-wrap">
+        <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
+          <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "course"} onChange={() => setBulkProgramMode("course")} />
+          Existing course
+        </label>
+        <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
+          <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "label"} onChange={() => setBulkProgramMode("label")} />
+          Other program (type a name)
+        </label>
+      </div>
+      {bulkProgramMode === "course" ? (
+        <select aria-label="Course to mark" value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base">
+          <option value="">Select a course�</option>
+          {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+      ) : (
+        <input aria-label="Program name" value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
+      )}
+      <input type="date" aria-label="Converted on" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          variant="bare"
+          size="bare"
+          loading={bulkSaving}
+          onClick={() => markSelectedConverted()}
+          disabled={bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === ""}
+          className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
+        >
+          {bulkSaving ? "Saving�" : `Mark ${selected.size} converted`}
+        </Button>
+        <button
+          type="button"
+          onClick={() => setShowBulkConvertForm(false)}
+          className="font-body text-sm text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 md:p-5 space-y-3">
@@ -257,94 +301,34 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         </div>
       </section>
 
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        {selected.size > 0 && (
-          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap bg-pz-surface-container-high rounded-2xl md:rounded-full px-4 py-1.5">
-            <span className="font-body text-xs font-semibold">{selected.size} selected</span>
-            <button
-              onClick={useSelectedInCampaign}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Use in new campaign
-            </button>
-            <button
-              onClick={useSelectedInWhatsApp}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Use in WhatsApp batch
-            </button>
-            <button
-              onClick={assignSelectedToAgent}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Assign to a sales agent
-            </button>
-            <button
-              onClick={() => setShowBulkConvertForm((v) => !v)}
-              className="font-body text-xs font-semibold text-pz-primary hover:underline  max-md:min-h-11"
-            >
-              Mark {selected.size} selected as converted…
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="font-body text-xs text-pz-on-surface-variant hover:text-pz-secondary  max-md:min-h-11"
-            >
-              Clear
-            </button>
-          </div>
-        )}
-
-        {selected.size > 0 && showBulkConvertForm && (
-          <div className="bg-pz-surface-container-high rounded-2xl p-4 space-y-3 mt-2">
-            <div className="flex gap-3 flex-wrap">
-              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
-                <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "course"} onChange={() => setBulkProgramMode("course")} />
-                Existing course
-              </label>
-              <label className="flex items-center gap-1.5 text-sm font-body cursor-pointer max-md:min-h-11">
-                <input type="radio" name="bulkProgramMode" checked={bulkProgramMode === "label"} onChange={() => setBulkProgramMode("label")} />
-                Other program (type a name)
-              </label>
-            </div>
-            {bulkProgramMode === "course" ? (
-              <select value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base">
-                <option value="">Select a course…</option>
-                {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            ) : (
-              <input value={bulkLabel} onChange={(e) => setBulkLabel(e.target.value)} placeholder="Program name" className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
-            )}
-            <input type="date" value={bulkConvertedAt} onChange={(e) => setBulkConvertedAt(e.target.value)} className="rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base" />
-            <Button
-              variant="bare"
-              size="bare"
-              loading={bulkSaving}
-              onClick={() => markSelectedConverted()}
-              disabled={bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === ""}
-              className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
-            >
-              {bulkSaving ? "Saving…" : `Mark ${selected.size} converted`}
-            </Button>
-          </div>
-        )}
-      </div>
-
       <p role="status" className="sr-only">{busy ? "Loading people…" : ""}</p>
 
-      <ContactsList
-        rows={rows}
-        total={total}
-        page={page}
-        pageSize={PAGE_SIZE}
-        busy={busy}
-        error={error}
-        selected={selected}
-        filtered={filtered}
-        onToggle={toggleSelected}
-        onToggleAllShown={toggleSelectAllVisible}
-        onPage={(p) => void loadPage(p)}
-        onRetry={() => void loadPage(failedAttempt.current.page, failedAttempt.current.next)}
-      />
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-4">
+        <ContactsList
+          rows={rows}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          busy={busy}
+          error={error}
+          selected={selected}
+          filtered={filtered}
+          onToggle={toggleSelected}
+          onToggleAllShown={toggleSelectAllVisible}
+          onPage={(p) => void loadPage(p)}
+          onRetry={() => void loadPage(failedAttempt.current.page, failedAttempt.current.next)}
+        />
+        <div className="sticky z-10 mt-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:max-h-[50vh] max-md:overflow-y-auto md:mt-0 md:col-start-2 md:row-start-1 md:top-4 md:bottom-auto">
+          <ContactsActions
+            count={selected.size}
+            onEmail={useSelectedInCampaign}
+            onWhatsApp={useSelectedInWhatsApp}
+            onAssign={assignSelectedToAgent}
+            onClear={() => { setSelected(new Set()); setShowBulkConvertForm(false); }}
+            convert={{ open: showBulkConvertForm, onOpenChange: setShowBulkConvertForm, children: convertForm }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

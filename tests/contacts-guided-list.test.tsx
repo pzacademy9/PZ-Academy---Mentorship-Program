@@ -112,19 +112,19 @@ describe("Contacts find people + list", () => {
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     await screen.findByText("Showing 1 to 50 of 2,111 people");
     expect((screen.getByLabelText("Select Person 0") as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByText("1 selected")).toBeTruthy();
+    expect(screen.getByText("1 person selected")).toBeTruthy();
   });
 
   it("Select all shown ticks only the current page", async () => {
     mount();
     fireEvent.click(screen.getByLabelText("Select all shown"));
-    expect(screen.getByText("50 selected")).toBeTruthy();
+    expect(screen.getByText("50 people selected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("Showing 51 to 100 of 2,111 people");
     expect((screen.getByLabelText("Select all shown") as HTMLInputElement).checked).toBe(false);
     expect((screen.getByLabelText("Select Person 50") as HTMLInputElement).checked).toBe(false);
     fireEvent.click(screen.getByLabelText("Select all shown"));
-    expect(screen.getByText("100 selected")).toBeTruthy();
+    expect(screen.getByText("100 people selected")).toBeTruthy();
   });
 
   it("an older answer arriving last does not replace newer rows", async () => {
