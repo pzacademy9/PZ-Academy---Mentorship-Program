@@ -69,6 +69,8 @@ export type CourseNameInput =
       /** The purchase's import batch: its course title and sheet name. */
       batchCourseTitle?: string | null;
       batchSheetName?: string | null;
+      /** The batch came from a landing page (sheet_id "landing:<page id>"). */
+      batchIsLanding?: boolean;
     }
   | { kind: "interested"; courseTitle: string | null; sheetName: string | null };
 
@@ -80,11 +82,18 @@ const sheetCourse = (sheetName: string | null | undefined) =>
  * Purchase: course title, else the label's course part, else the import
  * batch's course title, else the batch's sheet name, else "Unnamed".
  * Interested: the batch's course title, else its sheet name.
+ * A landing-page batch with no linked course is named after its page title
+ * (the sheet name without " (paid)"), the same name its interested people get.
  */
 export function courseNameOf(input: CourseNameInput): string {
   const title = input.courseTitle?.trim();
   if (title) return title;
   if (input.kind === "purchase") {
+    const batchTitle = input.batchCourseTitle?.trim();
+    if (input.batchIsLanding && !batchTitle) {
+      const page = sheetCourse(input.batchSheetName);
+      if (page) return page;
+    }
     return (
       courseNameFromLabel(input.productLabel) ||
       input.batchCourseTitle?.trim() ||
@@ -187,6 +196,7 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
       productLabel: p.product_label,
       batchCourseTitle: b?.course_id ? courseTitle.get(b.course_id) ?? null : null,
       batchSheetName: b?.sheet_name ?? null,
+      batchIsLanding: !!b?.sheet_id?.startsWith("landing:"),
     });
     regs.push({
       contactId: p.contact_id,
@@ -301,13 +311,26 @@ export async function countAudience(f: AudienceFilter): Promise<AudienceCount> {
   };
 }
 
-export async function loadAudienceFile(
-  f: AudienceFilter,
-): Promise<{ contacts: AudienceContact[]; tooLarge: boolean; needsUpdate: boolean }> {
+export type AudienceFile = {
+  contacts: AudienceContact[];
+  tooLarge: boolean;
+  needsUpdate: boolean;
+  ignoredChoices: string[];
+  /** Courses were chosen and none of them exists any more: nothing is read. */
+  allCoursesGone: boolean;
+};
+
+export async function loadAudienceFile(f: AudienceFilter): Promise<AudienceFile> {
   const r = await resolveAudienceContactIds(f);
-  if (r.needsUpdate) return { contacts: [], tooLarge: false, needsUpdate: true };
-  if (r.ids.length > AUDIENCE_MAX_PEOPLE) return { contacts: [], tooLarge: true, needsUpdate: false };
-  return { contacts: await loadAudienceContacts(r.ids), tooLarge: false, needsUpdate: false };
+  const ignoredChoices = r.ignoredChoices;
+  const none = { contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices, allCoursesGone: false };
+  if (r.needsUpdate) return { ...none, needsUpdate: true };
+  const ignoredKeys = new Set(ignoredChoices.map(courseKey));
+  const allCoursesGone = f.courses.length > 0 && f.courses.every((c) => ignoredKeys.has(courseKey(c)));
+  // A download never widens to everyone because the chosen courses are gone.
+  if (allCoursesGone) return { ...none, allCoursesGone: true };
+  if (r.ids.length > AUDIENCE_MAX_PEOPLE) return { ...none, tooLarge: true };
+  return { ...none, contacts: await loadAudienceContacts(r.ids) };
 }
 
 export type AudienceFacets = {
@@ -349,7 +372,8 @@ export async function audienceFacets(): Promise<AudienceFacets> {
     if (!countryOf.has(id)) continue;
     const c = countryOf.get(id) ?? null;
     if (c === null) unknownCountry++;
-    else byCountry.set(c, (byCountry.get(c) ?? 0) + 1);
+    // Only two-letter codes become chips; the filter rejects anything else.
+    else if (/^[A-Z]{2}$/.test(c)) byCountry.set(c, (byCountry.get(c) ?? 0) + 1);
   }
   const countries = Array.from(byCountry, ([code, count]) => ({ code, count })).sort((a, b) =>
     a.code.localeCompare(b.code),

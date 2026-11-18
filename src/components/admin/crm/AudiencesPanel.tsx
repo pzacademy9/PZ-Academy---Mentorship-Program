@@ -28,10 +28,11 @@ async function readError(res: Response): Promise<string> {
   return typeof json.error === "string" ? json.error : GENERIC;
 }
 
-function IgnoredWarning({ choices, alert = false }: { choices: string[]; alert?: boolean }) {
+// Shown once, inside the result card next to the downloads.
+function IgnoredWarning({ choices }: { choices: string[] }) {
   if (choices.length === 0) return null;
   return (
-    <p role={alert ? "alert" : undefined} className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm font-semibold text-pz-danger">
+    <p role="alert" className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm font-semibold text-pz-danger">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <span>These choices no longer exist and are ignored: {choices.join(", ")}</span>
     </p>
@@ -287,8 +288,6 @@ export function AudiencesPanel({
         </p>
       )}
 
-      <IgnoredWarning choices={ignored} />
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <h2 className="font-headline text-lg font-bold text-pz-secondary">Who to include</h2>
@@ -303,7 +302,7 @@ export function AudiencesPanel({
           count={count}
           currentKey={key}
           onCheck={() => void runCount(filter)}
-          ignored={<IgnoredWarning choices={ignored} alert />}
+          ignored={<IgnoredWarning choices={ignored} />}
           save={
             saveOpen ? (
               <form

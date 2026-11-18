@@ -143,6 +143,20 @@ describe("audiences panel", () => {
     await checkCount();
     const warn = within(screen.getByTestId("audience-result")).getByText(/no longer exist and are ignored: Old Course/);
     expect(warn).toBeTruthy();
+    // Shown once on the page, not again above the filters.
+    expect(screen.getAllByText(/no longer exist and are ignored/)).toHaveLength(1);
+  });
+
+  it("only the counts are announced, not the buttons or the privacy note", async () => {
+    renderPanel();
+    await checkCount();
+    const card = screen.getByTestId("audience-result");
+    expect(card.getAttribute("aria-live")).toBeNull();
+    const live = card.querySelectorAll("[aria-live]");
+    expect(live).toHaveLength(1);
+    expect(live[0].getAttribute("aria-live")).toBe("polite");
+    expect(live[0].textContent).toContain("1,284 people match");
+    expect(live[0].textContent).not.toMatch(/Download|Keep it private|Check count/);
   });
 
   it("a failed count shows a plain error line", async () => {

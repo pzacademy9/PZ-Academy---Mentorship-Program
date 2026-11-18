@@ -45,13 +45,22 @@ export async function GET(request: NextRequest) {
 
     const file = await loadAudienceFile(filter);
     if (file.needsUpdate) return err(NEEDS_UPDATE, 409);
+    // Never widen to everyone because every chosen course is gone.
+    if (file.allCoursesGone) {
+      return err("The courses chosen for this audience no longer exist. Choose the courses again.", 400);
+    }
     if (file.tooLarge) return err("This is too many people for one file. Narrow the choices and try again.", 413);
 
-    const built = plain ? buildPlainRows(file.contacts).rows : buildMetaRows(file.contacts).rows;
-    if (built.length === 0) return err("Nobody to download for these choices.", 400);
-    const csv = plain
-      ? toPlainCsv(buildPlainRows(file.contacts).rows)
-      : toMetaCsv(buildMetaRows(file.contacts).rows);
+    // Rows are built once and reused for the empty check and the file.
+    let csv: string | null;
+    if (plain) {
+      const rows = buildPlainRows(file.contacts).rows;
+      csv = rows.length > 0 ? toPlainCsv(rows) : null;
+    } else {
+      const rows = buildMetaRows(file.contacts).rows;
+      csv = rows.length > 0 ? toMetaCsv(rows) : null;
+    }
+    if (csv === null) return err("Nobody to download for these choices.", 400);
     return new NextResponse(csv, {
       status: 200,
       headers: {

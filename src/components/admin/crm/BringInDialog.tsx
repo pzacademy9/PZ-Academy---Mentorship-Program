@@ -12,7 +12,31 @@ import { BRING_IN_MAX_PAGES } from "@/lib/validations/audience";
 type LandingPage = AudienceFacets["landingPages"][number];
 type PageResult = { id: string; ok: boolean; paidAdded: number; interestedAdded: number; skipped: number; error?: string };
 
-const GENERIC = "Could not bring these pages in. Please try again.";
+const UNFINISHED = "This page did not finish. Press Bring in again to retry it.";
+
+const failed = (id: string, error: string): PageResult => ({ id, ok: false, paidAdded: 0, interestedAdded: 0, skipped: 0, error });
+
+/**
+ * One page per request, so a long "Select all" never runs past the server's
+ * time limit. Any answer that is not a page result (a timeout page, a
+ * dropped connection) becomes a plain line for that page only.
+ */
+async function bringInOne(id: string): Promise<PageResult> {
+  try {
+    const res = await fetch("/api/admin/crm/audiences/bring-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageIds: [id] }),
+    });
+    const json = (await res.json().catch(() => null)) as { pages?: PageResult[]; error?: unknown } | null;
+    const page = res.ok && json && Array.isArray(json.pages) ? json.pages.find((p) => p.id === id) : undefined;
+    if (page) return page;
+    if (json && typeof json.error === "string") return failed(id, json.error);
+    return failed(id, UNFINISHED);
+  } catch {
+    return failed(id, UNFINISHED);
+  }
+}
 
 function resultLine(r: PageResult): string {
   if (!r.ok) return r.error ?? "Could not bring this page in. Please try again.";
@@ -25,7 +49,7 @@ export function BringInDialog({ landingPages, onDone }: { landingPages: LandingP
   const [picked, setPicked] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<PageResult[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ at: number; of: number } | null>(null);
 
   const titleOf = (id: string) => landingPages.find((p) => p.id === id)?.title ?? "A page";
   const tooMany = picked.length > BRING_IN_MAX_PAGES;
@@ -35,7 +59,7 @@ export function BringInDialog({ landingPages, onDone }: { landingPages: LandingP
     if (next) {
       setPicked([]);
       setResults(null);
-      setError(null);
+      setProgress(null);
     }
     setOpen(next);
   }
@@ -44,26 +68,21 @@ export function BringInDialog({ landingPages, onDone }: { landingPages: LandingP
 
   async function bringIn() {
     if (running || picked.length === 0 || tooMany) return;
+    const ids = [...picked];
     setRunning(true);
-    setError(null);
-    setResults(null);
+    setResults([]);
     try {
-      const res = await fetch("/api/admin/crm/audiences/bring-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageIds: picked }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { pages?: PageResult[]; error?: unknown };
-      if (!res.ok || !Array.isArray(json.pages)) {
-        setError(typeof json.error === "string" ? json.error : GENERIC);
-        return;
+      // One page at a time; a failed page never stops the rest.
+      for (let i = 0; i < ids.length; i++) {
+        setProgress({ at: i + 1, of: ids.length });
+        const result = await bringInOne(ids[i]);
+        setResults((prev) => [...(prev ?? []), result]);
       }
-      setResults(json.pages);
-      if (json.pages.some((p) => p.ok)) onDone();
-    } catch {
-      setError(GENERIC);
     } finally {
+      setProgress(null);
       setRunning(false);
+      // Even an unfinished page may have been partly copied, so always refresh.
+      onDone();
     }
   }
 
@@ -133,7 +152,11 @@ export function BringInDialog({ landingPages, onDone }: { landingPages: LandingP
         )}
 
         <div aria-live="polite" className="space-y-1">
-          {error && <p className="font-body text-sm text-pz-danger">{error}</p>}
+          {progress && (
+            <p className="font-body text-sm font-semibold text-pz-on-surface-variant tabular-nums">
+              {`Page ${progress.at} of ${progress.of}`}
+            </p>
+          )}
           {results?.map((r) => (
             <p key={r.id} className={`font-body text-sm ${r.ok ? "text-pz-on-surface-variant" : "text-pz-danger"}`}>
               <span className="font-semibold">{titleOf(r.id)}:</span> {resultLine(r)}
@@ -143,7 +166,7 @@ export function BringInDialog({ landingPages, onDone }: { landingPages: LandingP
 
         <DialogFooter className="gap-2">
           <Button variant="outline" className="min-h-11" disabled={running} onClick={() => changeOpen(false)}>
-            {results ? "Close" : "Cancel"}
+            {results && !running ? "Close" : "Cancel"}
           </Button>
           {landingPages.length > 0 && (
             <Button className="min-h-11" loading={running} disabled={picked.length === 0 || tooMany} onClick={bringIn}>

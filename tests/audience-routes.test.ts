@@ -135,6 +135,27 @@ describe("export route", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Nobody to download for these choices." });
   });
+  it("400 when every chosen course no longer exists, never a wider file (f= and saved=)", async () => {
+    const GONE = "The courses chosen for this audience no longer exist. Choose the courses again.";
+    const FC = { ...F, courses: ["Gone Course"] };
+    q.loadAudienceFile.mockResolvedValue({
+      contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course"], allCoursesGone: true,
+    });
+    const res = await exportGET(get(`/export?f=${encodeAudienceFilter(FC)}`));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: GONE });
+    s.getSavedAudience.mockResolvedValue({ needsUpdate: false, item: { id: U1, name: "Old", filter: FC, invalid: false } });
+    const saved = await exportGET(get(`/export?saved=${U1}`));
+    expect(saved.status).toBe(400);
+    expect(await saved.json()).toEqual({ error: GONE });
+  });
+  it("some chosen courses gone: the file still downloads", async () => {
+    q.loadAudienceFile.mockResolvedValue({
+      contacts: [contact], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course"], allCoursesGone: false,
+    });
+    const res = await exportGET(get(`/export?f=${encodeAudienceFilter({ ...F, courses: ["Gone Course", "Live One"] })}`));
+    expect(res.status).toBe(200);
+  });
   it("409 when the update is missing", async () => {
     q.loadAudienceFile.mockResolvedValue({ contacts: [], tooLarge: false, needsUpdate: true });
     expect((await exportGET(get(`/export?f=${enc}`))).status).toBe(409);

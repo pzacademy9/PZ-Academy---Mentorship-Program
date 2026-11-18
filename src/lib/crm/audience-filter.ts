@@ -147,5 +147,5 @@ export function describeAudienceFilter(f: AudienceFilter): string[] {
   else if (f.who === "unpaid") lines.push("Registered, not paid");
   if (f.from) lines.push(`From ${f.from}`);
   if (f.to) lines.push(`To ${f.to}`);
-  return lines.length > 0 ? lines : ["Everyone in the CRM"];
+  return lines.length > 0 ? lines : ["Everyone who registered or bought"];
 }

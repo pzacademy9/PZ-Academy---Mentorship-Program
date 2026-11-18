@@ -98,6 +98,36 @@ describe("course names from the import batch", () => {
     expect(courseNameOf({ kind: "purchase", courseTitle: null, productLabel: "Individual — PKR 1", batchCourseTitle: null, batchSheetName: "Page X (paid)" })).toBe("Page X");
     expect(courseNameOf({ kind: "purchase", courseTitle: null, productLabel: "Clinical Course — Individual", batchCourseTitle: "Batch Course", batchSheetName: "S" })).toBe("Clinical Course");
   });
+
+  it("a landing page with no linked course gives its paid and interested people one course name", async () => {
+    setup({
+      import_batches: [
+        batch("bp", "closed_paid", { sheet_id: "landing:page-pv", sheet_name: "PV Batch 3 [Weekend] (paid)" }),
+        batch("bi", "closed_interested", { sheet_id: "landing:page-pv", sheet_name: " PV Batch 3 [Weekend] (interested)" }),
+      ],
+      contacts: [contact("a"), contact("b")],
+      contact_purchases: [
+        purchase("p1", "a", { import_batch_id: "bp", product_label: "PV Batch 3 [Weekend] — Individual — PKR 2,700" }),
+      ],
+      import_batch_contacts: [interested("bi", "b")],
+    });
+    const f = await audienceFacets();
+    expect(f.courses).toEqual([{ name: "PV Batch 3 [Weekend]", count: 2 }]);
+    expect(await ids({ courses: ["PV Batch 3 [Weekend]"] })).toEqual(["a", "b"]);
+    expect(
+      courseNameOf({
+        kind: "purchase", courseTitle: null, productLabel: "PV Batch 3 [Weekend] — Individual",
+        batchCourseTitle: null, batchSheetName: "PV Batch 3 [Weekend] (paid)", batchIsLanding: true,
+      }),
+    ).toBe("PV Batch 3 [Weekend]");
+    // An imported (non-landing) sheet keeps the label rule.
+    expect(
+      courseNameOf({
+        kind: "purchase", courseTitle: null, productLabel: "PV Batch 3 [Weekend] — Individual",
+        batchCourseTitle: null, batchSheetName: "Old sheet", batchIsLanding: false,
+      }),
+    ).toBe("PV Batch 3");
+  });
 });
 
 describe("mapPool", () => {
@@ -347,6 +377,30 @@ describe("loadAudienceFile", () => {
     expect(r.contacts.map((c) => c.id)).toEqual(["a"]);
     expect(r.contacts[0].emailSuppressed).toBe(true);
   });
+
+  it("reports ignored choices; when every chosen course is gone it reads no contacts", async () => {
+    setup({
+      contacts: [contact("a"), contact("b")],
+      contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" }), purchase("p2", "b", { course_id: "k-clin" })],
+    });
+    const some = await loadAudienceFile(F({ courses: ["Gone Course", "Pharmacology Basics"] }));
+    expect(some.ignoredChoices).toEqual(["Gone Course"]);
+    expect(some.allCoursesGone).toBe(false);
+    expect(some.contacts.map((c) => c.id)).toEqual(["a"]);
+
+    db.reset();
+    setup({
+      contacts: [contact("a"), contact("b")],
+      contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" }), purchase("p2", "b", { course_id: "k-clin" })],
+    });
+    const none = await loadAudienceFile(F({ courses: ["Gone Course", "Other Gone"] }));
+    expect(none).toEqual({ contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course", "Other Gone"], allCoursesGone: true });
+    expect(db.find("contacts", "select")).toHaveLength(0);
+
+    const noCourses = await loadAudienceFile(F());
+    expect(noCourses.allCoursesGone).toBe(false);
+    expect(noCourses.ignoredChoices).toEqual([]);
+  });
 });
 
 describe("audienceFacets", () => {
@@ -390,6 +444,26 @@ describe("audienceFacets", () => {
       { id: "page-2", title: "Page Two", registrations: 1, alreadyBrought: false },
       { id: "page-1", title: "Page One", registrations: 2, alreadyBrought: true },
     ]);
+  });
+
+  it("lists only two-letter country codes; blanks count as not known, other values are dropped", async () => {
+    setup({
+      contacts: [
+        contact("a", { country: "ae" }),
+        contact("b", { country: " " }),
+        contact("c", { country: "Pakistan" }),
+        contact("d", { country: "P1" }),
+        contact("e", { country: null }),
+        contact("f", { country: "PK" }),
+      ],
+      contact_purchases: ["a", "b", "c", "d", "e", "f"].map((id, i) => purchase(`p${i}`, id, { course_id: "k-pharm" })),
+    });
+    const f = await audienceFacets();
+    expect(f.countries).toEqual([
+      { code: "AE", count: 1 },
+      { code: "PK", count: 1 },
+    ]);
+    expect(f.unknownCountry).toBe(2);
   });
 
   it("before the update, still lists courses and answers needsUpdate", async () => {

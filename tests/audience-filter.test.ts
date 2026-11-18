@@ -87,7 +87,7 @@ describe("audience filter", () => {
   });
 
   it("describes the default", () => {
-    expect(describeAudienceFilter(DEFAULT_AUDIENCE_FILTER)).toEqual(["Everyone in the CRM"]);
+    expect(describeAudienceFilter(DEFAULT_AUDIENCE_FILTER)).toEqual(["Everyone who registered or bought"]);
   });
 
   it("describes a filled filter", () => {

@@ -87,13 +87,13 @@ export function AudienceResultCard({
     <section
       data-testid="audience-result"
       aria-label="Result"
-      aria-live="polite"
       className={cn(
         "space-y-3 rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 shadow-xl lg:shadow-none",
         className,
       )}
     >
-      {body}
+      {/* Only the counts are announced, not the buttons or the privacy note. */}
+      <div aria-live="polite">{body}</div>
       {ignored}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
         {canDownload ? (
