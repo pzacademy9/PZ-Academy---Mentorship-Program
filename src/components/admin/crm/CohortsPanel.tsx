@@ -10,7 +10,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
-import { formatDate } from "@/lib/format";
+import { formatDatePkt } from "@/lib/format";
 
 type Cohort = {
   id: string;
@@ -165,7 +165,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
             meta: (c) => [
               c.tabName,
               <span key="course" className={c.courseTitle ? "" : "text-pz-danger"}>{c.courseTitle ?? "untagged"}</span>,
-              `${peopleText(c)}${showImportedNote(c) ? ` (of ${c.rowsImported} imported)` : ""} · ${formatDate(c.createdAt)}`,
+              `${peopleText(c)}${showImportedNote(c) ? ` (of ${c.rowsImported} imported)` : ""} · ${formatDatePkt(c.createdAt)}`,
               ...(c.contactCount === 0
                 ? [<span key="no-download">No people to download</span>]
                 : [
@@ -229,7 +229,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
                           <span className="text-pz-on-surface-variant"> (of {c.rowsImported} imported)</span>
                         )}
                       </td>
-                      <td>{formatDate(c.createdAt)}</td>
+                      <td>{formatDatePkt(c.createdAt)}</td>
                       <td>
                         {c.contactCount === 0 ? (
                           <span className="mr-3 text-pz-on-surface-variant">No people to download</span>
