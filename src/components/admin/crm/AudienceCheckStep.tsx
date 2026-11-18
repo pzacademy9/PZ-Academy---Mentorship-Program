@@ -45,19 +45,19 @@ export function AudienceCheckStep({
   filter,
   filterKey,
   preview,
-  total,
   onLoaded,
   onBack,
   onNext,
+  sentence,
 }: {
   filter: AudienceFilter;
   filterKey: string;
   // The panel keeps the loaded preview (only if it belongs to these choices) so step 3 can reuse it.
   preview: AudiencePreview | null;
-  total?: number;
   onLoaded: (key: string, preview: AudiencePreview) => void;
   onBack: () => void;
   onNext: () => void;
+  sentence?: React.ReactNode;
 }) {
   const [failure, setFailure] = useState<Failure | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -79,6 +79,7 @@ export function AudienceCheckStep({
   }, [filterKey, have, attempt]);
 
   const error = !have && failure && failure.key === filterKey ? failure.error : null;
+  // Worked out from the preview alone, so the two numbers can never disagree.
   const sum = preview ? preview.inFile + preview.leftOut.noContact + preview.leftOut.doNotContact : 0;
 
   let body: React.ReactNode;
@@ -106,7 +107,7 @@ export function AudienceCheckStep({
     body = (
       <>
         <p className="font-body text-sm text-pz-on-surface-variant">
-          {`Only people with an email or phone can go to Meta: ${n(preview.inFile)} of ${n(total ?? sum)}`}
+          {`Only people with an email or phone can go to Meta: ${n(preview.inFile)} of ${n(sum)}`}
         </p>
         <h3 className="font-headline text-base font-bold text-pz-secondary">A few people from this list</h3>
         <ul className="divide-y divide-pz-outline-variant rounded-xl border border-pz-outline-variant">
@@ -124,7 +125,8 @@ export function AudienceCheckStep({
 
   return (
     <section aria-label="Check the list" className={stepCard}>
-      <h2 className="font-headline text-lg font-bold text-pz-secondary">Check the list</h2>
+      <h2 data-step-heading tabIndex={-1} className="font-headline text-lg font-bold text-pz-secondary outline-none">Check the list</h2>
+      {sentence}
       {body}
       {preview && <LeftOutLines preview={preview} />}
       <div className="flex flex-wrap items-center gap-3">

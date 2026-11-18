@@ -19,7 +19,7 @@ import type { AudiencePreview } from "@/lib/crm/audience-preview";
 import { AudienceFilters } from "@/components/admin/crm/AudienceFilters";
 import type { CountState } from "@/components/admin/crm/AudienceResultCard";
 import { AudienceStepper, type AudienceStep } from "@/components/admin/crm/AudienceStepper";
-import { AudienceSummary } from "@/components/admin/crm/AudienceSummary";
+import { AudienceSummary, ChoiceSentence } from "@/components/admin/crm/AudienceSummary";
 import { BringInDialog } from "@/components/admin/crm/BringInDialog";
 
 const COUNT_URL = "/api/admin/crm/audiences/count";
@@ -109,7 +109,8 @@ export function AudiencesPanel({
       const data = await res.json();
       if (!c.signal.aborted) {
         setCount({ status: "done", key: k, data });
-        setReachedKey(k);
+        // Only a count that can go on unlocks the later steps.
+        setReachedKey(!data.tooLarge && !data.needsUpdate && data.inFile > 0 ? k : null);
         setStatusFlag(!!data?.statusNeedsUpdate);
       }
     } catch {
@@ -133,13 +134,24 @@ export function AudiencesPanel({
   useEffect(() => () => ctrl.current?.abort(), []);
 
   // A number for the current choices unlocks the later steps; any change to the choices locks them again.
-  const maxStep: AudienceStep = reachedKey === key ? 3 : 1;
   const preview = previewState && previewState.key === key ? previewState.preview : null;
+  // 2 after a usable count for these choices; 3 only once the list for these choices has been looked at.
+  const maxStep: AudienceStep = reachedKey === key ? (preview ? 3 : 2) : 1;
 
   // If the number is being recounted (for example after Bring in), later steps lock and we return to step 1.
   useEffect(() => {
-    if (step > maxStep) setStep(1);
+    if (step > maxStep) setStep(maxStep);
   }, [step, maxStep]);
+
+  // Move keyboard focus to the new step heading whenever the step changes (not on first mount).
+  const stepMounted = useRef(false);
+  useEffect(() => {
+    if (!stepMounted.current) {
+      stepMounted.current = true;
+      return;
+    }
+    document.querySelector<HTMLElement>("[data-step-heading]")?.focus();
+  }, [step]);
 
   useEffect(() => {
     if (goToCheckKey === null || count.key !== goToCheckKey || count.status === "idle" || count.status === "loading") return;
@@ -149,9 +161,12 @@ export function AudiencesPanel({
 
   const changeFilter = (f: AudienceFilter) => {
     setFilter(f);
-    setReachedKey(null);
-    setPreviewState(null);
-    setStep(1);
+    // Same choices again (for example Reset on the defaults): the finished count still stands.
+    if (encodeAudienceFilter(f) !== key) {
+      setReachedKey(null);
+      setPreviewState(null);
+      setStep(1);
+    }
     setGoToCheckKey(null);
     setSavedId("");
     setRenamingId(null);
@@ -163,13 +178,24 @@ export function AudiencesPanel({
     setRenamingId(null);
     const item = saved.find((s) => s.id === id);
     if (!item || item.invalid || !item.filter) return; // needs checking: cannot be loaded
+    const k = encodeAudienceFilter(item.filter);
     setFilter(item.filter);
-    setReachedKey(null);
-    setPreviewState(null);
     setSavedId(item.id);
     setSavedOpen(false);
+    if (k === key) {
+      // Same choices as now: no recount happens by itself, so go on or count once.
+      if (reachedKey === key) {
+        setStep(2);
+      } else {
+        setGoToCheckKey(k);
+        void runCount(item.filter);
+      }
+      return;
+    }
+    setReachedKey(null);
+    setPreviewState(null);
     setStep(1);
-    setGoToCheckKey(encodeAudienceFilter(item.filter));
+    setGoToCheckKey(k);
   }
 
   const { run: save, pending: saving } = useAsyncAction(async () => {
@@ -254,6 +280,7 @@ export function AudiencesPanel({
   }, [runCount]);
 
   const ignored = count.status === "done" && count.key === key ? count.data.ignoredChoices : [];
+  const sentence = <ChoiceSentence filter={filter} />;
 
   return (
     <div className="space-y-6">
@@ -371,7 +398,7 @@ export function AudiencesPanel({
           filter={filter}
           filterKey={key}
           preview={preview}
-          total={count.status === "done" && count.key === key ? count.data.total : undefined}
+          sentence={sentence}
           onLoaded={(k, p) => setPreviewState({ key: k, preview: p })}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
@@ -379,13 +406,20 @@ export function AudiencesPanel({
       )}
 
       {step === 3 && preview && (
-        <AudienceDownloadStep filter={filter} filterKey={key} preview={preview} onBack={() => setStep(2)} />
+        <AudienceDownloadStep
+          filter={filter}
+          filterKey={key}
+          preview={preview}
+          sentence={sentence}
+          ignored={<IgnoredWarning choices={ignored} />}
+          onBack={() => setStep(2)}
+        />
       )}
 
       {step === 1 && (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <h2 className="font-headline text-lg font-bold text-pz-secondary">Who do you want?</h2>
+          <h2 data-step-heading tabIndex={-1} className="font-headline text-lg font-bold text-pz-secondary outline-none">Who do you want?</h2>
           {(statusFlag ?? facets.statusNeedsUpdate) && !needsUpdate && (
             <p className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm text-pz-on-surface-variant">
               <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -400,7 +434,7 @@ export function AudiencesPanel({
           nextLabel="Next: Check the list"
           onNext={() => setStep(2)}
           onReset={() => changeFilter(DEFAULT_AUDIENCE_FILTER)}
-          className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 self-end lg:bottom-auto lg:top-4 lg:self-start"
+          className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 max-h-[50dvh] self-end overflow-y-auto lg:bottom-auto lg:top-4 lg:max-h-none lg:self-start lg:overflow-visible"
           count={count}
           currentKey={key}
           onCheck={() => void runCount(filter)}

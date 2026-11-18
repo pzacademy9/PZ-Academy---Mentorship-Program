@@ -8,6 +8,15 @@ import type { CountState } from "@/components/admin/crm/AudienceResultCard";
 const n = (v: number) => v.toLocaleString("en-US");
 const people = (v: number) => `${n(v)} ${v === 1 ? "person" : "people"}`;
 
+// The plain sentence of what is chosen. On phone the summary bar clamps it to two lines.
+export function ChoiceSentence({ filter, clamp = false }: { filter: AudienceFilter; clamp?: boolean }) {
+  return (
+    <p className={cn("rounded-xl bg-pz-primary-container p-2 font-body text-sm text-pz-on-primary-container lg:p-3", clamp && "line-clamp-2 lg:line-clamp-none")}>
+      {`You are choosing: ${describeAudienceFilter(filter).join(" · ")}`}
+    </p>
+  );
+}
+
 // The "Your list" card: the plain sentence, the count, and the one big button to go on.
 export function AudienceSummary({
   filter,
@@ -82,9 +91,7 @@ export function AudienceSummary({
       )}
     >
       <h2 className="sr-only font-headline text-sm font-bold text-pz-secondary lg:not-sr-only">Your list</h2>
-      <p className="rounded-xl bg-pz-primary-container p-2 font-body text-sm text-pz-on-primary-container lg:p-3">
-        {`You are choosing: ${describeAudienceFilter(filter).join(" · ")}`}
-      </p>
+      <ChoiceSentence filter={filter} clamp />
       <div className="flex items-start justify-between gap-3">
         {/* Only the counts are announced, not the buttons. */}
         <div aria-live="polite" className="min-w-0 flex-1">{body}</div>
@@ -109,6 +116,9 @@ export function AudienceSummary({
         </div>
       </div>
       <div id={detailsId} className={detailsClass}>
+        <p className="font-body text-xs text-pz-on-surface-variant lg:hidden">
+          {`All your choices: ${describeAudienceFilter(filter).join(" · ")}`}
+        </p>
         {data && !data.tooLarge && !data.needsUpdate && (
           <div className="space-y-0.5 font-body text-xs text-pz-on-surface-variant tabular-nums">
             {data.leftOut.noContact > 0 && <p>{`${n(data.leftOut.noContact)} cannot be used: no email or phone`}</p>}
