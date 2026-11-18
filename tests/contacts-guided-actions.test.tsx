@@ -143,4 +143,23 @@ describe("What do you want to do area", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(screen.getByText("Tick people to see what you can do")).toBeTruthy();
   });
+
+  it("the More menu is in flow, not absolutely positioned, so a scroll area cannot clip it", () => {
+    mount(); pick(1); openMore();
+    const cls = screen.getByRole("menu").className;
+    expect(cls).not.toMatch(/absolute|bottom-full/);
+  });
+
+  it("Tab from the menu closes it and focuses More, without trapping focus", () => {
+    mount(); pick(1); openMore();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Tab" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "More" }));
+  });
+
+  it("choosing Mark as converted focuses the form's first control", () => {
+    mount(); pick(1); openMore();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Mark as converted" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("Existing course"));
+  });
 });

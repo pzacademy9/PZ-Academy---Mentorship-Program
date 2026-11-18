@@ -21,6 +21,7 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
   const [menuOpen, setMenuOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const wasConvertOpen = useRef(false);
 
   // Move focus into the menu when it opens.
@@ -32,6 +33,11 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
   useEffect(() => {
     if (wasConvertOpen.current && !convert.open) moreRef.current?.focus();
     wasConvertOpen.current = convert.open;
+  }, [convert.open]);
+
+  // Choosing "Mark as converted" puts focus on the form's first control.
+  useEffect(() => {
+    if (convert.open) formRef.current?.querySelector<HTMLElement>("input, select, button")?.focus();
   }, [convert.open]);
 
   // A click elsewhere closes the menu.
@@ -70,7 +76,8 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
       e.preventDefault();
       items[items.length - 1]?.focus();
     } else if (e.key === "Tab") {
-      closeMenu(false);
+      // Focus goes to More first, so Tab carries on from there.
+      closeMenu(true);
     }
   }
 
@@ -102,7 +109,7 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
             >
               Send an email
             </Button>
-            <div className="relative">
+            <div>
               <button
                 ref={moreRef}
                 type="button"
@@ -113,19 +120,6 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
               >
                 More
               </button>
-              {menuOpen && (
-                <div
-                  ref={menuRef}
-                  role="menu"
-                  aria-label="More actions"
-                  onKeyDown={onMenuKeyDown}
-                  className="absolute right-0 z-20 w-60 rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-1 shadow-lg bottom-full mb-2 md:bottom-auto md:top-full md:mt-2 md:mb-0"
-                >
-                  <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => choose(onWhatsApp)}>Send on WhatsApp</button>
-                  <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => choose(onAssign)}>Give to a sales agent</button>
-                  <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => choose(() => convert.onOpenChange(true))}>Mark as converted</button>
-                </div>
-              )}
             </div>
             <button
               type="button"
@@ -136,8 +130,23 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
             </button>
           </div>
 
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              role="menu"
+              aria-label="More actions"
+              onKeyDown={onMenuKeyDown}
+              className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-1"
+            >
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => choose(onWhatsApp)}>Send on WhatsApp</button>
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => choose(onAssign)}>Give to a sales agent</button>
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => choose(() => convert.onOpenChange(true))}>Mark as converted</button>
+            </div>
+          )}
+
           {convert.open && (
             <div
+              ref={formRef}
               role="group"
               aria-label="Mark as converted"
               onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); convert.onOpenChange(false); } }}

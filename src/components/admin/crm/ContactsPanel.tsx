@@ -210,7 +210,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       </div>
       {bulkProgramMode === "course" ? (
         <select aria-label="Course to mark" value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="w-full rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base">
-          <option value="">Select a course…</option>
+          <option value="">Select a courseâ€¦</option>
           {courseChoices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
       ) : (
@@ -226,7 +226,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
           disabled={bulkProgramMode === "course" ? !bulkCourseId : bulkLabel.trim() === ""}
           className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
         >
-          {bulkSaving ? "Saving…" : `Mark ${selected.size} converted`}
+          {bulkSaving ? "Savingâ€¦" : `Mark ${selected.size} converted`}
         </Button>
         <button
           type="button"
