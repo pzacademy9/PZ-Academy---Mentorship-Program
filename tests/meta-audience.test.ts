@@ -123,6 +123,17 @@ describe("metaCsvFilename", () => {
     expect(name).toBe("dit-batch-1-paid-meta-audience-2026-10-24.csv");
   });
 
+  it("uses the Pakistan date, not the UTC date", () => {
+    // 21:30 UTC on the 18th is 02:30 on the 19th in Pakistan (UTC+5).
+    expect(
+      metaCsvFilename(["DIT Batch 1 (paid)"], new Date("2026-11-18T21:30:00Z")),
+    ).toBe("dit-batch-1-paid-meta-audience-2026-11-19.csv");
+    // 18:59 UTC is 23:59 on the same day in Pakistan.
+    expect(
+      metaCsvFilename(["DIT Batch 1 (paid)"], new Date("2026-11-18T18:59:00Z")),
+    ).toBe("dit-batch-1-paid-meta-audience-2026-11-18.csv");
+  });
+
   it("caps the slug at 80 characters", () => {
     const name = metaCsvFilename(
       ["x".repeat(200)],
