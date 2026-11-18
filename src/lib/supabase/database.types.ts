@@ -1947,6 +1947,7 @@ export type Database = {
           region: string | null
           option_keys: string[]
           registered_at: string | null
+          reg_status: string | null
         }
         Insert: {
           contact_id: string
@@ -1955,6 +1956,7 @@ export type Database = {
           region?: string | null
           option_keys?: string[]
           registered_at?: string | null
+          reg_status?: string | null
         }
         Update: {
           contact_id?: string
@@ -1963,6 +1965,7 @@ export type Database = {
           region?: string | null
           option_keys?: string[]
           registered_at?: string | null
+          reg_status?: string | null
         }
         Relationships: [
           {

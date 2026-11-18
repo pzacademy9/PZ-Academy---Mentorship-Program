@@ -140,4 +140,18 @@ describe("mapRegistrations", () => {
     expect(row.bucket).toBe("interested");
     expect(row.registeredAt).toBe("2026-10-01T10:00:00Z");
   });
+
+  it("carries the registration status on the row", () => {
+    expect(mapRegistrations([reg({ status: "reserved" })]).rows[0].status).toBe("reserved");
+    expect(mapRegistrations([reg({ status: "paid" })]).rows[0].status).toBe("paid");
+  });
+
+  it("lets a member with a blank status take its lead's, and keeps its own otherwise", () => {
+    const lead = reg({ id: "L", row_type: "lead", status: "reserved", consent: true });
+    const blank = reg({ id: "M", row_type: "member", lead_registration_id: "L", email: "m@x.com", status: "" });
+    const own = reg({ id: "N", row_type: "member", lead_registration_id: "L", email: "n@x.com", status: "pending" });
+    const rows = mapRegistrations([lead, blank, own]).rows;
+    expect(rows.find((r) => r.rowRef === "M")!.status).toBe("reserved");
+    expect(rows.find((r) => r.rowRef === "N")!.status).toBe("pending");
+  });
 });

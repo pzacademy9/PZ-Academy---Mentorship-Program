@@ -31,6 +31,7 @@ export type RegRow = {
 export type CloseRow = {
   rowRef: string;
   bucket: "paid" | "interested";
+  status: string;
   optionKeys: string[];
   region: string | null;
   registeredAt: string;
@@ -117,9 +118,11 @@ export function mapRegistrations(regs: RegRow[]): MapResult {
     const optionKeys = ownKeys.length > 0 ? ownKeys : (lead?.option_keys ?? []);
     const region = (r.region ?? "").trim() || (lead?.region ?? "").trim() || null;
     const mode = r.mode || lead?.mode || null;
+    const status = r.status.trim() || (lead?.status ?? "").trim();
     rows.push({
       rowRef: r.id,
       bucket,
+      status,
       optionKeys,
       region,
       registeredAt: r.created_at,
