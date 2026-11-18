@@ -23,6 +23,7 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
   const menuRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const wasConvertOpen = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   // Move focus into the menu when it opens.
   useEffect(() => {
@@ -31,7 +32,7 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
 
   // Cancel, Escape or a finished save all close the form; focus goes back to More.
   useEffect(() => {
-    if (wasConvertOpen.current && !convert.open) moreRef.current?.focus();
+    if (wasConvertOpen.current && !convert.open) (moreRef.current ?? headingRef.current)?.focus();
     wasConvertOpen.current = convert.open;
   }, [convert.open]);
 
@@ -87,8 +88,8 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
   }
 
   return (
-    <section className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 shadow-lg md:shadow-sm space-y-3">
-      <h2 className="max-md:sr-only flex items-center gap-2 font-headline text-sm font-bold uppercase tracking-wide text-pz-secondary">
+    <section className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 shadow-lg xl:shadow-sm space-y-3">
+      <h2 ref={headingRef} tabIndex={-1} className="max-md:sr-only focus:outline-none flex items-center gap-2 font-headline text-sm font-bold uppercase tracking-wide text-pz-secondary">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pz-primary text-xs text-pz-on-primary">3</span>{" "}
         What do you want to do?
       </h2>
@@ -123,7 +124,7 @@ export function ContactsActions({ count, onEmail, onWhatsApp, onAssign, onClear,
             </div>
             <button
               type="button"
-              onClick={onClear}
+              onClick={() => { onClear(); headingRef.current?.focus(); }}
               className="font-body text-xs text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
             >
               Clear

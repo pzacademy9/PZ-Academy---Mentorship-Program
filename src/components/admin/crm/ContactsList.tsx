@@ -60,7 +60,7 @@ export function ContactsList({
       )}
 
       {rows.length === 0 ? (
-        filtered ? (
+        error ? null : filtered ? (
           <p className="font-body text-sm text-pz-on-surface-variant text-center py-10">No one matches. Try a shorter search.</p>
         ) : (
           <EmptyState

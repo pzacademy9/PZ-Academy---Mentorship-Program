@@ -34,6 +34,9 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
   const [courseOptions, setCourseOptions] = useState<string[]>([]);
   const [batches, setBatches] = useState<BatchOption[]>([]);
   const [busy, setBusy] = useState(false);
+  // True while Previous/Next is loading, so the Search button only says
+  // "Searching…" for a real search.
+  const [pagingOnly, setPagingOnly] = useState(false);
   // Selection persists across searches deliberately — an admin narrowing
   // down to find specific people across a few searches expects earlier
   // picks to still be checked, not silently dropped.
@@ -74,6 +77,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
   async function loadPage(
     targetPage: number,
     next?: { search?: string; courseName?: string; importBatchId?: string },
+    paging = false,
   ) {
     // Paging uses the last filters that actually loaded, never a failed attempt.
     const q = next?.search ?? applied.search;
@@ -86,6 +90,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
 
     const ticket = ++latestSearch.current;
     setBusy(true);
+    setPagingOnly(paging);
     try {
       const res = await fetch(`/api/admin/crm/contacts?${params.toString()}`);
       if (ticket !== latestSearch.current) return;
@@ -96,8 +101,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       if (targetPage > lastPage) {
         // The total shrank under us: show the last page that exists instead
         // of an empty one. The recursive call takes over the ticket and busy flag.
-        setTotal(json.total);
-        void loadPage(lastPage, next);
+        void loadPage(lastPage, next, paging);
         return;
       }
       // Local state update, not router.refresh() — refresh() cannot reach a
@@ -259,11 +263,11 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
           <Button
             variant="bare"
             size="bare"
-            loading={busy}
+            loading={busy && !pagingOnly}
             onClick={() => void runSearch()}
             className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
           >
-            {busy ? "Searching…" : "Search"}
+            {busy && !pagingOnly ? "Searching…" : "Search"}
           </Button>
         </div>
 
@@ -303,7 +307,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
 
       <p role="status" className="sr-only">{busy ? "Loading people…" : ""}</p>
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-4">
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-4">
         <ContactsList
           rows={rows}
           total={total}
@@ -315,10 +319,10 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
           filtered={filtered}
           onToggle={toggleSelected}
           onToggleAllShown={toggleSelectAllVisible}
-          onPage={(p) => void loadPage(p)}
+          onPage={(p) => void loadPage(p, undefined, true)}
           onRetry={() => void loadPage(failedAttempt.current.page, failedAttempt.current.next)}
         />
-        <div className="sticky z-10 mt-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:max-h-[50vh] max-md:overflow-y-auto md:mt-0 md:col-start-2 md:row-start-1 md:top-4 md:bottom-auto">
+        <div className="sticky z-10 mt-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:bottom-4 max-xl:max-h-[50vh] max-xl:overflow-y-auto xl:mt-0 xl:col-start-2 xl:row-start-1 xl:top-20 xl:bottom-auto">
           <ContactsActions
             count={selected.size}
             onEmail={useSelectedInCampaign}

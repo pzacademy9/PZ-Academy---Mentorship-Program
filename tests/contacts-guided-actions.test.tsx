@@ -136,12 +136,14 @@ describe("What do you want to do area", () => {
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Marked 2 contacts converted."));
     expect(conversionCalls[0]).toMatchObject({ contactIds: ["c0", "c1"], program: { kind: "course", courseId: "course1" } });
     expect(screen.getByText("Tick people to see what you can do")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: /What do you want to do/ }));
   });
 
-  it("Clear empties the picks", () => {
+  it("Clear empties the picks and sends focus to the step 3 heading", () => {
     mount(); pick(2);
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(screen.getByText("Tick people to see what you can do")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: /What do you want to do/ }));
   });
 
   it("the More menu is in flow, not absolutely positioned, so a scroll area cannot clip it", () => {
