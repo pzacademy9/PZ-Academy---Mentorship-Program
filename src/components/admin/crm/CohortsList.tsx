@@ -62,7 +62,7 @@ export function CohortsList({
         {cohorts.map((c) => (
           <li key={c.id} className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest">
             <div className="flex items-start">
-              <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center max-md:min-h-11 max-md:min-w-11">
+              <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center">
                 <input
                   type="checkbox"
                   className="h-5 w-5 accent-pz-primary"
@@ -73,7 +73,7 @@ export function CohortsList({
                 />
               </label>
               <div className="min-w-0 flex-1 py-1 pr-3 font-body text-sm text-pz-on-surface">
-                <Link href={cohortHref(c)} className="inline-flex min-h-11 items-center break-words font-medium underline max-md:min-h-11">
+                <Link href={cohortHref(c)} className="inline-flex min-h-11 items-center break-words font-medium underline">
                   {c.sheetName}
                 </Link>
                 <p className="break-words text-pz-on-surface-variant">{c.tabName}</p>

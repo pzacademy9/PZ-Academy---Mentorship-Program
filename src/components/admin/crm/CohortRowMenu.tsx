@@ -28,7 +28,7 @@ export function CohortRowMenu({
   const items = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
 
   useEffect(() => {
-    if (open) items()[0]?.focus();
+    if (open) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -112,10 +112,10 @@ export function CohortRowMenu({
             tabIndex={-1}
             disabled={busy}
             onClick={() => {
-              setOpen(false);
+              closeToButton();
               onDelete(cohort);
             }}
-            className={`${ITEM} text-pz-danger`}
+            className={`${ITEM} text-pz-danger disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {busy ? "Deleting…" : "Delete"}
           </button>

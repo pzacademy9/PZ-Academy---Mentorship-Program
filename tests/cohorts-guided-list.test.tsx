@@ -141,6 +141,70 @@ describe("cohorts guided: row menu", () => {
   });
 });
 
+describe("cohorts guided: phone cards and menu focus", () => {
+  const cards = () => within(screen.getByTestId("cohort-cards"));
+
+  it("a phone card shows sheet link, Course not set, the badge and its menu", () => {
+    render(<CohortsPanel initialCohorts={[cohort({ id: "p1", courseTitle: null, kind: "closed_interested", contactCount: 3, rowsImported: 3 })]} />);
+    expect(cards().getByRole("link", { name: "DIT Batch 1" }).getAttribute("href")).toBe("/dashboard/admin/sales-hub/cohorts/p1");
+    expect(cards().getByText("Course not set")).toBeTruthy();
+    expect(cards().getByText("Interested, not paid")).toBeTruthy();
+    expect(cards().getByText("3 people", { exact: false })).toBeTruthy();
+    expect(cards().getByRole("button", { name: /^More/ })).toBeTruthy();
+  });
+
+  it("a 0-people phone card menu has no download links", () => {
+    render(<CohortsPanel initialCohorts={[cohort({ contactCount: 0, rowsImported: 0, purchaseCount: 0 })]} />);
+    fireEvent.click(cards().getByRole("button", { name: /^More/ }));
+    const menu = cards().getByRole("menu");
+    expect(within(menu).getByText("No people to download")).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: /Download/ })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "Delete" })).toBeTruthy();
+  });
+
+  it("Tab closes the menu and puts focus on More", () => {
+    render(<CohortsPanel initialCohorts={[cohort()]} />);
+    const more = table().getByRole("button", { name: /More/ });
+    fireEvent.click(more);
+    fireEvent.keyDown(table().getByRole("menu"), { key: "Tab" });
+    expect(table().queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(more);
+  });
+
+  it("choosing Delete puts focus back on More, and it stays there when the confirm is cancelled", async () => {
+    confirmMock.mockImplementation(async () => false);
+    vi.stubGlobal("fetch", vi.fn());
+    render(<CohortsPanel initialCohorts={[cohort()]} />);
+    const more = table().getByRole("button", { name: /More/ });
+    fireEvent.click(more);
+    fireEvent.click(within(table().getByRole("menu")).getByRole("menuitem", { name: "Delete" }));
+    expect(document.activeElement).toBe(more);
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(document.activeElement).toBe(more);
+    vi.unstubAllGlobals();
+  });
+
+  it("while a delete is running, the Delete item is disabled and looks it", () => {
+    confirmMock.mockImplementation(() => new Promise<boolean>(() => {}));
+    render(<CohortsPanel initialCohorts={[cohort()]} />);
+    const more = table().getByRole("button", { name: /More/ });
+    fireEvent.click(more);
+    fireEvent.click(within(table().getByRole("menu")).getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(more);
+    const del = within(table().getByRole("menu")).getByRole("menuitem", { name: "Deleting…" }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(del.className).toContain("disabled:opacity-50");
+    expect(del.className).toContain("disabled:cursor-not-allowed");
+  });
+
+  it("the phone card tap targets do not repeat the same min-height class", () => {
+    render(<CohortsPanel initialCohorts={[cohort()]} />);
+    for (const el of screen.getByTestId("cohort-cards").querySelectorAll("[class]")) {
+      expect(el.getAttribute("class")).not.toMatch(/max-md:min-h-11/);
+    }
+  });
+});
+
 describe("cohorts guided: delete", () => {
   it("asks first with the same title and warning, then deletes and drops the row", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
