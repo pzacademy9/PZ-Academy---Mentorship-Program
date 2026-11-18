@@ -1,6 +1,6 @@
 // tests/audience-guided-steps.test.tsx
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { AudiencesPanel } from "@/components/admin/crm/AudiencesPanel";
 import { AudienceStepper } from "@/components/admin/crm/AudienceStepper";
 import { AudienceSummary } from "@/components/admin/crm/AudienceSummary";
@@ -38,11 +38,21 @@ const countBody = (over: Record<string, unknown> = {}) => ({
 });
 
 let body: Record<string, unknown>;
+// When set, count calls wait for it, so a test can look at the page while a count is still running.
+let gate: Promise<void> | null;
+let fetchCalls: { url: string; body: Record<string, unknown> }[];
 beforeEach(() => {
   body = countBody();
+  gate = null;
+  fetchCalls = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({ ok: true, status: 200, json: async () => body }) as unknown as Response),
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const isCount = String(url).endsWith("/count");
+      if (isCount) fetchCalls.push({ url: String(url), body: JSON.parse(String(init?.body ?? "{}")) });
+      if (isCount && gate) await gate;
+      return { ok: true, status: 200, json: async () => body } as unknown as Response;
+    }),
   );
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -168,14 +178,25 @@ describe("guided page, step 1", () => {
     expect(next().disabled).toBe(true);
   });
 
-  it("a same-choices recount (Bring in) keeps the user on step 2", async () => {
+  it("a same-choices recount (Bring in) keeps the user on step 2, while counting and after", async () => {
     renderPanel();
     await check();
     fireEvent.click(next());
+    expect(screen.getByRole("button", { name: "2 Check" }).getAttribute("aria-current")).toBe("step");
+    let release!: () => void;
+    gate = new Promise<void>((r) => { release = r; });
+    const before = fetchCalls.length;
     fireEvent.click(screen.getByRole("button", { name: "Finish bring in" }));
-    await waitFor(() => expect((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(1));
+    // The recount itself has started (fresh data asked for) and is still running.
+    await waitFor(() => expect(fetchCalls.length).toBe(before + 1));
+    expect(fetchCalls[before].body.fresh).toBe(true);
+    // Let the loading state render, then check the user was not moved.
+    await act(async () => { await Promise.resolve(); });
     expect(screen.getByRole("button", { name: "2 Check" }).getAttribute("aria-current")).toBe("step");
     expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
+    await act(async () => { release(); await Promise.resolve(); });
+    await waitFor(() => expect(fetchCalls.length).toBe(before + 1));
+    expect(screen.getByRole("button", { name: "2 Check" }).getAttribute("aria-current")).toBe("step");
   });
 
   it("loading a saved audience while on step 2 goes back to step 1 straight away", async () => {
