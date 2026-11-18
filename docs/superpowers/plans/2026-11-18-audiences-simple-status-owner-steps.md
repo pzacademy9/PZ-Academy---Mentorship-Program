@@ -4,7 +4,7 @@
 
 1. Open Supabase, then SQL Editor, then a new query.
 2. Open the file `supabase/migrations/0117_audience_status.sql`.
-3. Copy the whole file, paste it in as one statement, press Run.
+3. Copy the whole file, paste it in, and run the whole file in one go (it holds three statements). Press Run once.
 4. It is safe to run twice. If it says "Success", you are done.
 
 ## 2. Fill in the statuses
@@ -17,6 +17,8 @@
 
 - The CRM now remembers whether each interested person is Pending,
   Reserved, Part-paid or Free.
+- Recorded or Live for old rows is guessed from the words in their sheet or
+  registration text.
 - Nothing you can see changes until the new Audiences page is out, and no
   one is emailed.
 

@@ -2,11 +2,22 @@ import { cn } from "@/lib/utils";
 
 /** Small building blocks for the Audiences page: a toggle chip, a segmented control and a filter card. */
 
-export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+export function Chip({
+  on,
+  onClick,
+  children,
+  ariaLabel,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  ariaLabel?: string;
+}) {
   return (
     <button
       type="button"
       aria-pressed={on}
+      aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
         "inline-flex min-h-11 items-center rounded-full px-4 py-2 font-body text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
