@@ -19,7 +19,7 @@ const view = (rows: CohortRow[]) => {
 const openMenus = (t: ReturnType<typeof within>) => {
   for (const b of t.getAllByRole("button", { name: /^More/ })) fireEvent.click(b);
 };
-const toolbar = () => screen.getByTestId("meta-toolbar");
+const toolbar = () => screen.getByTestId("cohorts-actions");
 
 describe("cohorts panel: download for Meta", () => {
   it("each row has a Download for Meta link with the right href", () => {
@@ -33,18 +33,17 @@ describe("cohorts panel: download for Meta", () => {
     expect(links[0].hasAttribute("download")).toBe(true);
   });
 
-  it("nothing ticked leaves the toolbar button disabled", () => {
+  it("nothing ticked shows no download links, only the hint", () => {
     view([cohort()]);
-    const btn = within(toolbar()).getByRole("button", { name: /Download selected for Meta \(0\)/ }) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-    expect(screen.getByText(/Upload the downloaded file in Meta Ads Manager/)).toBeTruthy();
+    expect(within(toolbar()).queryByRole("link")).toBeNull();
+    expect(within(toolbar()).getByText("Tick cohorts to download them")).toBeTruthy();
   });
 
   it("ticking two rows enables the selected link carrying both ids", () => {
     const t = view([cohort({ id: "a", sheetName: "One" }), cohort({ id: "b", sheetName: "Two" })]);
     fireEvent.click(t.getByLabelText("Select One, Tab A"));
     fireEvent.click(t.getByLabelText("Select Two, Tab A"));
-    const link = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(2\)/ });
+    const link = within(toolbar()).getByRole("link", { name: "Download for Meta" });
     expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b");
   });
 
@@ -79,7 +78,7 @@ describe("cohorts panel: download for Meta", () => {
     const last = t.getByLabelText("Select Sheet 20, Tab A") as HTMLInputElement;
     expect(last.disabled).toBe(true);
     fireEvent.click(last);
-    expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(20\)/ })).toBeTruthy();
+    expect(within(toolbar()).getByRole("link", { name: "Download for Meta" })).toBeTruthy();
     expect(screen.getByText(/most 20/)).toBeTruthy();
   });
 
@@ -90,8 +89,8 @@ describe("cohorts panel: download for Meta", () => {
     fireEvent.click(t.getByLabelText("Select Two, Tab A"));
     fireEvent.click(t.getAllByRole("button", { name: /^More/ })[0]);
     fireEvent.click(within(t.getByRole("menu")).getByRole("menuitem", { name: "Delete" }));
-    await waitFor(() => expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ })).toBeTruthy());
-    expect(within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ }).getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=b");
+    await waitFor(() => expect(within(toolbar()).getByRole("link", { name: "Download for Meta" })).toBeTruthy());
+    expect(within(toolbar()).getByRole("link", { name: "Download for Meta" }).getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=b");
     vi.unstubAllGlobals();
   });
 
@@ -101,10 +100,10 @@ describe("cohorts panel: download for Meta", () => {
     fireEvent.click(t.getByLabelText("Select Beta, Tab A"));
     const search = screen.getByPlaceholderText(/Search by sheet/);
     fireEvent.change(search, { target: { value: "alpha" } });
-    const link = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(1\)/ });
+    const link = within(toolbar()).getByRole("link", { name: "Download for Meta" });
     expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a");
     fireEvent.change(search, { target: { value: "" } });
-    const back = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(2\)/ });
+    const back = within(toolbar()).getByRole("link", { name: "Download for Meta" });
     expect(back.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b");
   });
 
@@ -119,7 +118,7 @@ describe("cohorts panel: download for Meta", () => {
     expect(x.checked).toBe(false);
     expect(screen.getByText(/including ones hidden by your search/)).toBeTruthy();
     fireEvent.change(search, { target: { value: "" } });
-    const link = within(toolbar()).getByRole("link", { name: /Download selected for Meta \(20\)/ });
+    const link = within(toolbar()).getByRole("link", { name: "Download for Meta" });
     expect(link.getAttribute("href")?.split("=")[1].split(",")).toHaveLength(20);
   });
 });
@@ -147,10 +146,12 @@ describe("cohorts panel: plain download", () => {
     }
   });
 
-  it("toolbar plain button is disabled with nothing ticked and the helper shows", () => {
-    view([cohort()]);
-    const btn = within(toolbar()).getByRole("button", { name: /Download selected, plain \(0\)/ }) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+  it("the plain link only appears once something is ticked, and then the privacy and upload notes show", () => {
+    const t = view([cohort()]);
+    expect(within(toolbar()).queryByRole("link", { name: "Download plain version" })).toBeNull();
+    fireEvent.click(t.getByLabelText("Select DIT Batch 1, Tab A"));
+    expect(within(toolbar()).getByRole("link", { name: "Download plain version" })).toBeTruthy();
+    expect(screen.getByText(/Upload the downloaded file in Meta Ads Manager/)).toBeTruthy();
     expect(
       screen.getByText("The plain file has real emails and phone numbers. Meta scrambles it for you when you upload. Keep it private and delete it after uploading."),
     ).toBeTruthy();
@@ -160,7 +161,7 @@ describe("cohorts panel: plain download", () => {
     const t = view([cohort({ id: "a", sheetName: "One" }), cohort({ id: "b", sheetName: "Two" })]);
     fireEvent.click(t.getByLabelText("Select One, Tab A"));
     fireEvent.click(t.getByLabelText("Select Two, Tab A"));
-    const link = within(toolbar()).getByRole("link", { name: /Download selected, plain \(2\)/ });
+    const link = within(toolbar()).getByRole("link", { name: "Download plain version" });
     expect(link.getAttribute("href")).toBe("/api/admin/crm/cohorts/export?ids=a,b&format=plain");
     expect(link.hasAttribute("download")).toBe(true);
   });

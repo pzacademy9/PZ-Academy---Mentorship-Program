@@ -5,12 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Layers, SearchX } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
-import { cohortExportUrl, cohortPlainUrl } from "@/lib/crm/cohort-export-url";
 import type { CohortRow } from "@/lib/data/admin-crm-import";
+import { CohortsActions } from "./CohortsActions";
 import { CohortsList } from "./CohortsList";
 
 type Cohort = CohortRow;
@@ -83,33 +82,6 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
         />
       )}
       <h2 className="pt-2 font-headline text-lg text-pz-on-surface">2. Pick cohorts</h2>
-      {cohorts.length > 0 && (
-        <div data-testid="meta-toolbar" className="space-y-1">
-          {selected.length === 0 ? (
-            <Button variant="outline" size="sm" disabled>Download selected for Meta (0)</Button>
-          ) : (
-            <Button asChild variant="outline" size="sm">
-              <a href={cohortExportUrl(selected)} download>Download selected for Meta ({selected.length})</a>
-            </Button>
-          )}
-          {selected.length === 0 ? (
-            <Button variant="outline" size="sm" disabled className="ml-2">Download selected, plain (0)</Button>
-          ) : (
-            <Button asChild variant="outline" size="sm" className="ml-2">
-              <a href={cohortPlainUrl(selected)} download>Download selected, plain ({selected.length})</a>
-            </Button>
-          )}
-          <p className="font-body text-xs text-pz-on-surface-variant">
-            Upload the downloaded file in Meta Ads Manager: Audiences, Create audience, Custom audience, Customer list.
-          </p>
-          <p className="font-body text-xs text-pz-on-surface-variant">
-            The plain file has real emails and phone numbers. Meta scrambles it for you when you upload. Keep it private and delete it after uploading.
-          </p>
-          {atLimit && (
-            <p className="font-body text-xs text-pz-on-surface-variant">You can pick at most 20 cohorts at a time{liveCount > selected.length ? ", including ones hidden by your search" : ""}.</p>
-          )}
-        </div>
-      )}
       {cohorts.length === 0 ? (
         <EmptyState
           icon={Layers}
@@ -117,18 +89,29 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
           description="Each imported sheet tab becomes a cohort."
           action={{ label: "Import a sheet", href: "/dashboard/admin/sales-hub/import" }}
         />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={SearchX} title="No cohorts match" description={`Nothing matches "${search}".`} />
       ) : (
-        <CohortsList
-          cohorts={filtered}
-          selected={selected}
-          atLimit={atLimit}
-          busyId={busyId}
-          removing={removing}
-          onToggle={toggle}
-          onDelete={remove}
-        />
+        <div className="space-y-3 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-6 xl:space-y-0">
+          <div className="min-w-0">
+            {filtered.length === 0 ? (
+              <EmptyState icon={SearchX} title="No cohorts match" description={`Nothing matches "${search}".`} />
+            ) : (
+              <CohortsList
+                cohorts={filtered}
+                selected={selected}
+                atLimit={atLimit}
+                busyId={busyId}
+                removing={removing}
+                onToggle={toggle}
+                onDelete={remove}
+              />
+            )}
+          </div>
+          <CohortsActions
+            cohorts={selected.flatMap((id) => filtered.find((c) => c.id === id) ?? [])}
+            atLimit={atLimit}
+            hiddenTicks={liveCount - selected.length}
+          />
+        </div>
       )}
     </div>
   );

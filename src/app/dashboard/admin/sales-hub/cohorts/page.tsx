@@ -13,7 +13,7 @@ export default async function SalesHubCohortsPage() {
       <CohortsTabs active="cohorts" />
       <div>
         <h1 className="font-headline font-bold text-2xl text-pz-secondary">Cohorts</h1>
-        <p className="font-body text-pz-on-surface-variant text-sm mt-1">Group contacts by course and intake.</p>
+        <p className="font-body text-pz-on-surface-variant text-sm mt-1">Each imported sheet becomes a cohort. Pick the ones you want, then download them for Meta.</p>
       </div>
       <CohortsPanel initialCohorts={cohorts} />
     </div>
