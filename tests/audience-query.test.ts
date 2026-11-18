@@ -768,3 +768,68 @@ describe("registration cache (60 seconds)", () => {
     expect((await loadAudienceFile(F())).contacts).toHaveLength(3);
   });
 });
+
+describe("registration cache: concurrency and safety", () => {
+  let t: number;
+  const reads = (table: string) => db.state.ops.filter((o) => o.table === table && o.op === "select").length;
+  const seed = (wrap?: Parameters<typeof setup>[1]) => {
+    t = 1_000_000;
+    setAudienceClock(() => t);
+    setup({ contacts: [contact("a"), contact("b")], contact_purchases: [purchase("p1", "a"), purchase("p2", "b")] }, wrap);
+  };
+
+  it("two concurrent counts on a cold cache make ONE set of registration reads", async () => {
+    seed();
+    await countAudience(F());
+    const one = reads("contact_purchases");
+    clearAudienceCache();
+    await Promise.all([countAudience(F()), countAudience(F({ statuses: ["paid"] })), audienceFacets()]);
+    expect(reads("contact_purchases")).toBe(one * 2);
+    expect(reads("courses")).toBe(2);
+  });
+
+  it("a rejected shared read lets the next call retry", async () => {
+    let fail = true;
+    seed((op, inner) => {
+      if (fail && op.table === "contact_purchases") return { data: null, error: { code: "XX000", message: "boom" } };
+      return inner(op);
+    });
+    const both = await Promise.allSettled([countAudience(F()), countAudience(F())]);
+    expect(both.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+    fail = false;
+    expect((await countAudience(F())).total).toBe(2);
+  });
+
+  it("a clear during an in-flight read stops that stale result from being stored", async () => {
+    seed();
+    const inFlight = countAudience(F());
+    clearAudienceCache();
+    await inFlight;
+    store.contact_purchases.push(purchase("p3", "c"));
+    store.contacts.push(contact("c"));
+    expect((await countAudience(F())).total).toBe(3);
+  });
+
+  it("a fresh download read does not join the pending read", async () => {
+    seed();
+    await countAudience(F());
+    const one = reads("contact_purchases");
+    clearAudienceCache();
+    await Promise.all([countAudience(F()), loadAudienceFile(F())]);
+    expect(reads("contact_purchases")).toBe(one * 3);
+  });
+
+  it("callers sorting or changing their results never change the cache", async () => {
+    seed();
+    const r = await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    r.ids.reverse();
+    r.ids.push("zzz");
+    const facets = await audienceFacets();
+    facets.courses.length = 0;
+    facets.countries.length = 0;
+    const again = await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    expect(again.ids).toEqual(["a", "b"]);
+    expect((await audienceFacets()).countries).toEqual([{ code: "PK", count: 2 }]);
+    expect((await countAudience(F())).total).toBe(2);
+  });
+});

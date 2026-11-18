@@ -271,9 +271,15 @@ async function loadRegistrations(withNew: boolean, withStatus = false): Promise<
 export const AUDIENCE_CACHE_MS = 60_000;
 
 type Cached<T> = { at: number; value: T };
+type Pending<T> = { gen: number; promise: Promise<T> };
+type RegResult = { data: Registrations; statusNeedsUpdate: boolean };
 let clock: () => number = () => Date.now();
-let regCache: Cached<{ data: Registrations; statusNeedsUpdate: boolean }> | null = null;
+/** Bumped by every clear: a read that began under an older value never stores its result. */
+let generation = 0;
+let regCache: Cached<RegResult> | null = null;
 let countryCache: Cached<Map<string, string | null>> | null = null;
+let regPending: Pending<RegResult> | null = null;
+let countryPending: Pending<Map<string, string | null>> | null = null;
 
 /** Tests only: replace the clock; null restores the real one. */
 export function setAudienceClock(fn: (() => number) | null): void {
@@ -281,39 +287,84 @@ export function setAudienceClock(fn: (() => number) | null): void {
 }
 
 export function clearAudienceCache(): void {
+  generation++;
   regCache = null;
   countryCache = null;
+  regPending = null;
+  countryPending = null;
 }
 
-const isLive = (c: Cached<unknown> | null): c is Cached<unknown> => !!c && clock() - c.at < AUDIENCE_CACHE_MS && clock() >= c.at;
+const isLive = (c: Cached<unknown> | null): boolean => !!c && clock() - c.at >= 0 && clock() - c.at < AUDIENCE_CACHE_MS;
 
-/**
- * Full read first; if only 0117 is missing, retry without reg_status
- * (statusNeedsUpdate). A missing 0116 column rethrows the missing-schema error.
- */
-async function loadRegistrationsTiered(fresh = false): Promise<{ data: Registrations; statusNeedsUpdate: boolean }> {
-  if (!fresh && isLive(regCache)) return regCache!.value;
+/** Full read first; if only 0117 is missing, retry without reg_status. `cacheable` is false for that fallback. */
+async function readRegistrationsTiered(): Promise<{ value: RegResult; cacheable: boolean }> {
   try {
     const data = await loadRegistrations(true, true);
-    const value = Object.freeze({ data: Object.freeze({ ...data, regs: Object.freeze(data.regs) as Registration[] }), statusNeedsUpdate: false });
-    if (!fresh) regCache = { at: clock(), value };
-    return value;
+    data.regs.forEach((r) => Object.freeze(r));
+    const value = Object.freeze({
+      data: Object.freeze({ ...data, regs: Object.freeze(data.regs) as Registration[] }),
+      statusNeedsUpdate: false,
+    });
+    return { value, cacheable: true };
   } catch (e) {
     if (!isMissingSchema(e)) throw e;
   }
-  return { data: await loadRegistrations(true, false), statusNeedsUpdate: true };
+  return { value: { data: await loadRegistrations(true, false), statusNeedsUpdate: true }, cacheable: false };
+}
+
+/**
+ * Cached read. Concurrent callers on a cold cache share one in-flight read; a
+ * rejected read is dropped so the next call retries. A download (`fresh`)
+ * neither joins nor feeds the cache.
+ */
+function cachedRead<T>(
+  fresh: boolean,
+  get: () => Cached<T> | null,
+  set: (c: Cached<T> | null) => void,
+  getPending: () => Pending<T> | null,
+  setPending: (p: Pending<T> | null) => void,
+  read: () => Promise<{ value: T; cacheable: boolean }>,
+): Promise<T> {
+  if (fresh) return read().then((r) => r.value);
+  const hit = get();
+  if (hit && isLive(hit)) return Promise.resolve(hit.value);
+  const joined = getPending();
+  if (joined && joined.gen === generation) return joined.promise;
+  const startedUnder = generation;
+  const promise = read().then((r) => {
+    if (startedUnder === generation && r.cacheable) set({ at: clock(), value: r.value });
+    return r.value;
+  });
+  const entry: Pending<T> = { gen: startedUnder, promise };
+  setPending(entry);
+  const done = () => {
+    if (getPending() === entry) setPending(null);
+  };
+  promise.then(done, done);
+  return promise;
+}
+
+function loadRegistrationsTiered(fresh = false): Promise<RegResult> {
+  return cachedRead(fresh, () => regCache, (c) => (regCache = c), () => regPending, (p) => (regPending = p), readRegistrationsTiered);
 }
 
 /** id -> country (upper case, or null) for every contact. Narrow, paged. */
-async function loadCountries(fresh = false): Promise<Map<string, string | null>> {
-  if (!fresh && isLive(countryCache)) return countryCache!.value;
-  const admin = createAdminSupabase();
-  const rows = await pageAll<{ id: string; country: string | null }>("contacts", (from, to) =>
-    admin.from("contacts").select("id, country").order("id", { ascending: true }).range(from, to),
+function loadCountries(fresh = false): Promise<Map<string, string | null>> {
+  return cachedRead(
+    fresh,
+    () => countryCache,
+    (c) => (countryCache = c),
+    () => countryPending,
+    (p) => (countryPending = p),
+    async () => {
+      const admin = createAdminSupabase();
+      const rows = await pageAll<{ id: string; country: string | null }>("contacts", (from, to) =>
+        admin.from("contacts").select("id, country").order("id", { ascending: true }).range(from, to),
+      );
+      const value = new Map(rows.map((r): [string, string | null] => [r.id, r.country?.trim() ? r.country.trim().toUpperCase() : null]));
+      return { value, cacheable: true };
+    },
   );
-  const map = new Map(rows.map((r): [string, string | null] => [r.id, r.country?.trim() ? r.country.trim().toUpperCase() : null]));
-  if (!fresh) countryCache = { at: clock(), value: map };
-  return map;
 }
 
 export async function resolveAudienceContactIds(

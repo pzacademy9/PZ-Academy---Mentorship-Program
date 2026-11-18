@@ -305,4 +305,11 @@ describe("bring-in route", () => {
     await bringPOST(post("/bring-in", { pageIds: ["nope"] }));
     expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
   });
+  it("clears the cache once per request even when EVERY page fails", async () => {
+    c.closeBatch.mockRejectedValue(new Error("boom"));
+    q.clearAudienceCache.mockClear();
+    const res = await bringPOST(post("/bring-in", { pageIds: [U1, U2] }));
+    expect(res.status).toBe(200);
+    expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
+  });
 });

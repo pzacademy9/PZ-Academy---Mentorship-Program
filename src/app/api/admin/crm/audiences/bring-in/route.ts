@@ -29,23 +29,26 @@ export async function POST(request: NextRequest) {
 
   // One page at a time; a page that fails never stops the rest.
   const pages: PageResult[] = [];
-  for (const id of ids) {
-    try {
-      const r = await closeBatch({ pageId: id, adminId: auth.user.id });
-      pages.push({ id, ok: true, paidAdded: r.paidAdded, interestedAdded: r.interestedAdded, skipped: r.skipped });
-    } catch (e) {
-      console.error("[audiences] bring-in failed", e instanceof Error ? e.name : "unknown");
-      pages.push({
-        id,
-        ok: false,
-        paidAdded: 0,
-        interestedAdded: 0,
-        skipped: 0,
-        error: "Could not bring this page in. Please try again.",
-      });
+  try {
+    for (const id of ids) {
+      try {
+        const r = await closeBatch({ pageId: id, adminId: auth.user.id });
+        pages.push({ id, ok: true, paidAdded: r.paidAdded, interestedAdded: r.interestedAdded, skipped: r.skipped });
+      } catch (e) {
+        console.error("[audiences] bring-in failed", e instanceof Error ? e.name : "unknown");
+        pages.push({
+          id,
+          ok: false,
+          paidAdded: 0,
+          interestedAdded: 0,
+          skipped: 0,
+          error: "Could not bring this page in. Please try again.",
+        });
+      }
     }
+  } finally {
+    // New people may have been added (even if pages failed or the run was cut short): the next count must read them.
+    clearAudienceCache();
   }
-  // New people may have been added (even if some pages failed): the next count must read them.
-  clearAudienceCache();
   return NextResponse.json({ pages });
 }
