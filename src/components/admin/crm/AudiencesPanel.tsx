@@ -434,7 +434,7 @@ export function AudiencesPanel({
           nextLabel="Next: Check the list"
           onNext={() => setStep(2)}
           onReset={() => changeFilter(DEFAULT_AUDIENCE_FILTER)}
-          className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 max-h-[50dvh] self-end overflow-y-auto lg:bottom-auto lg:top-4 lg:max-h-none lg:self-start lg:overflow-visible"
+          className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 max-h-[50dvh] self-end overflow-y-auto lg:bottom-auto lg:top-20 lg:max-h-none lg:self-start lg:overflow-visible"
           count={count}
           currentKey={key}
           onCheck={() => void runCount(filter)}
