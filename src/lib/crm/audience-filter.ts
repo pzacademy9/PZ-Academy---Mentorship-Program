@@ -5,13 +5,27 @@ import { z } from "zod";
  * from server routes, the server engine and client components.
  */
 
+export type AudienceStatus = "paid" | "reserved" | "pending" | "part_paid" | "free";
+
+/** Fixed display order, with plain labels. */
+export const AUDIENCE_STATUSES: { value: AudienceStatus; label: string }[] = [
+  { value: "paid", label: "Paid" },
+  { value: "reserved", label: "Reserved" },
+  { value: "pending", label: "Pending" },
+  { value: "part_paid", label: "Part-paid" },
+  { value: "free", label: "Free" },
+];
+
+const STATUS_VALUES = AUDIENCE_STATUSES.map((s) => s.value) as [AudienceStatus, ...AudienceStatus[]];
+
 export type AudienceFilter = {
   /** Course display names. Empty = no restriction. */
   courses: string[];
   mode: "either" | "recorded" | "live";
   /** ISO 3166 alpha-2 codes (upper case) plus the literal "unknown". Empty = no restriction. */
   countries: string[];
-  who: "paid" | "unpaid" | "both";
+  /** Registration statuses to include. Empty = everyone. */
+  statuses: AudienceStatus[];
   /** YYYY-MM-DD */
   from: string | null;
   to: string | null;
@@ -21,7 +35,7 @@ export const DEFAULT_AUDIENCE_FILTER: AudienceFilter = {
   courses: [],
   mode: "either",
   countries: [],
-  who: "both",
+  statuses: [],
   from: null,
   to: null,
 };
@@ -45,21 +59,35 @@ const dateField = z
   .refine(isRealDate, { message: "Use a real date, like 2026-01-31." })
   .nullable();
 
-export const audienceFilterSchema = z
+const LEGACY_WHO: Record<"paid" | "unpaid" | "both", AudienceStatus[]> = {
+  paid: ["paid"],
+  unpaid: ["reserved", "pending", "part_paid", "free"],
+  both: [],
+};
+
+const filterObject = z
   .object({
     courses: z.array(z.string().trim().min(1, "A course name is empty.").max(200, "A course name is too long.")).max(50, "Pick at most 50 courses."),
     mode: z.enum(["either", "recorded", "live"]),
     countries: z
       .array(z.string().regex(/^(?:[A-Z]{2}|unknown)$/, "A country is not recognised."))
       .max(20, "Pick at most 20 countries."),
-    who: z.enum(["paid", "unpaid", "both"]),
+    /** Old shape, still accepted so saved audiences and old links keep working. */
+    who: z.enum(["paid", "unpaid", "both"]).optional(),
+    statuses: z.array(z.enum(STATUS_VALUES)).optional(),
     from: dateField,
     to: dateField,
-  })
+  });
+
+export const audienceFilterSchema = filterObject
   .refine((f) => !(f.from && f.to) || f.from <= f.to, {
     message: "The start date is after the end date.",
     path: ["to"],
-  });
+  })
+  .transform(({ who, statuses, ...rest }) => ({
+    ...rest,
+    statuses: statuses ?? (who ? LEGACY_WHO[who] : []),
+  }));
 
 export type ParsedAudienceFilter =
   | { ok: true; filter: AudienceFilter }
@@ -98,6 +126,7 @@ export function parseAudienceFilter(input: unknown): ParsedAudienceFilter {
         ...r.data,
         courses: dedupeCourses(r.data.courses),
         countries: Array.from(new Set(r.data.countries)),
+        statuses: Array.from(new Set(r.data.statuses)),
       },
     };
   }
@@ -143,8 +172,9 @@ export function describeAudienceFilter(f: AudienceFilter): string[] {
   if (f.countries.length > 0) {
     lines.push(`Countries: ${f.countries.map((c) => COUNTRY_NAMES[c] ?? c).join(", ")}`);
   }
-  if (f.who === "paid") lines.push("Paid only");
-  else if (f.who === "unpaid") lines.push("Registered, not paid");
+  const chosen = AUDIENCE_STATUSES.filter((s) => f.statuses.includes(s.value)).map((s) => s.label);
+  if (chosen.length === 1) lines.push(chosen[0]);
+  else if (chosen.length > 1) lines.push(`${chosen.slice(0, -1).join(", ")} and ${chosen[chosen.length - 1]}`);
   if (f.from) lines.push(`From ${f.from}`);
   if (f.to) lines.push(`To ${f.to}`);
   return lines.length > 0 ? lines : ["Everyone who registered or bought"];

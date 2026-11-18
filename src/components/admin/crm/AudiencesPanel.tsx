@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Info } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import {
@@ -57,7 +60,11 @@ export function AudiencesPanel({
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  // null until a count has finished; then the latest count alone decides.
+  const [statusFlag, setStatusFlag] = useState<boolean | null>(null);
   const [renameName, setRenameName] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
 
@@ -68,7 +75,7 @@ export function AudiencesPanel({
   const ctrl = useRef<AbortController | null>(null);
   const firstRender = useRef(true);
 
-  const runCount = useCallback(async (f: AudienceFilter) => {
+  const runCount = useCallback(async (f: AudienceFilter, fresh = false) => {
     if (timer.current) clearTimeout(timer.current);
     ctrl.current?.abort();
     const c = new AbortController();
@@ -79,7 +86,7 @@ export function AudiencesPanel({
       const res = await fetch(COUNT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f),
+        body: JSON.stringify(fresh ? { ...f, fresh: true } : f),
         signal: c.signal,
       });
       if (!res.ok) {
@@ -88,7 +95,10 @@ export function AudiencesPanel({
         return;
       }
       const data = await res.json();
-      if (!c.signal.aborted) setCount({ status: "done", key: k, data });
+      if (!c.signal.aborted) {
+        setCount({ status: "done", key: k, data });
+        setStatusFlag(!!data?.statusNeedsUpdate);
+      }
     } catch {
       if (!c.signal.aborted) setCount({ status: "error", key: k, error: "Could not count. Please try again." });
     }
@@ -112,21 +122,18 @@ export function AudiencesPanel({
   const changeFilter = (f: AudienceFilter) => {
     setFilter(f);
     setSavedId("");
-    setRenaming(false);
+    setRenamingId(null);
   };
 
   const selected = saved.find((s) => s.id === savedId) ?? null;
 
   function loadSaved(id: string) {
-    setRenaming(false);
-    if (id === "") {
-      setSavedId("");
-      return;
-    }
+    setRenamingId(null);
     const item = saved.find((s) => s.id === id);
     if (!item || item.invalid || !item.filter) return; // needs checking: cannot be loaded
     setFilter(item.filter);
     setSavedId(item.id);
+    setSavedOpen(false);
   }
 
   const { run: save, pending: saving } = useAsyncAction(async () => {
@@ -153,10 +160,10 @@ export function AudiencesPanel({
   });
 
   const { run: rename, pending: renamingBusy } = useAsyncAction(async () => {
-    if (!selected) return;
+    if (!renamingId) return;
     setRenameError(null);
     try {
-      const res = await fetch(`${SAVED_URL}/${selected.id}`, {
+      const res = await fetch(`${SAVED_URL}/${renamingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: renameName }),
@@ -167,30 +174,31 @@ export function AudiencesPanel({
       }
       const { item } = (await res.json()) as { item: SavedAudience };
       setSaved((prev) => prev.map((s) => (s.id === item.id ? item : s)));
-      setRenaming(false);
+      setRenamingId(null);
+      titleRef.current?.focus();
       toast.success("Name changed.");
     } catch {
       setRenameError(GENERIC);
     }
   });
 
-  const { run: remove, pending: removing } = useAsyncAction(async () => {
-    if (!selected) return;
+  const { run: remove, pending: removing } = useAsyncAction(async (target: SavedAudience) => {
     const ok = await confirm({
       title: "Delete this saved audience?",
-      description: `"${selected.name}" will be removed from the list. Nobody in the CRM is changed.`,
+      description: `"${target.name}" will be removed from the list. Nobody in the CRM is changed.`,
       confirmLabel: "Delete",
       destructive: true,
     });
     if (!ok) return;
     try {
-      const res = await fetch(`${SAVED_URL}/${selected.id}`, { method: "DELETE" });
+      const res = await fetch(`${SAVED_URL}/${target.id}`, { method: "DELETE" });
       if (!res.ok) {
         toast.error(await readError(res));
         return;
       }
-      setSaved((prev) => prev.filter((s) => s.id !== selected.id));
-      setSavedId("");
+      setSaved((prev) => prev.filter((s) => s.id !== target.id));
+      setSavedId((cur) => (cur === target.id ? "" : cur));
+      titleRef.current?.focus();
       toast.success("Saved audience deleted.");
     } catch {
       toast.error(GENERIC);
@@ -204,7 +212,8 @@ export function AudiencesPanel({
     } catch {
       // The page still works with the older choices.
     }
-    void runCount(filterRef.current);
+    // Another server instance may have older data: ask this count to read fresh.
+    void runCount(filterRef.current, true);
   }, [runCount]);
 
   const ignored = count.status === "done" && count.key === key ? count.data.ignoredChoices : [];
@@ -215,67 +224,97 @@ export function AudiencesPanel({
         <div>
           <h1 className="font-headline text-2xl font-bold text-pz-secondary">Audiences</h1>
           <p className="mt-1 font-body text-sm text-pz-on-surface-variant">
-            Build a list of people for Meta ads. Choose who to include, check the count, then download.
+            Build a list of people for Meta ads in three steps: choose who, check the number, download.
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <BringInDialog landingPages={facets.landingPages} onDone={() => void refreshAfterBringIn()} />
-          <div className="flex flex-col gap-1">
-            <label htmlFor="saved-audiences" className="font-body text-xs font-medium text-pz-on-surface-variant">
-              Saved audiences
-            </label>
-            <select id="saved-audiences" value={savedId} onChange={(e) => loadSaved(e.target.value)} className={fieldClass}>
-              <option value="">{saved.length === 0 ? "None saved yet" : "Choose one"}</option>
-              {saved.map((s) => (
-                <option key={s.id} value={s.id} disabled={s.invalid || !s.filter}>
-                  {s.invalid || !s.filter ? `${s.name} (needs checking)` : s.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Dialog open={savedOpen} onOpenChange={(o) => { setSavedOpen(o); if (!o) setRenamingId(null); }}>
+            <DialogTrigger asChild>
+              <button type="button" className={textButton}>Saved audiences</button>
+            </DialogTrigger>
+            <DialogContent className="md:max-w-xl">
+              <DialogHeader>
+                <DialogTitle ref={titleRef} tabIndex={-1} className="font-headline text-pz-secondary outline-none">Saved audiences</DialogTitle>
+                <DialogDescription className="font-body text-pz-on-surface-variant">
+                  Load a list you saved before, change its name, or delete it.
+                </DialogDescription>
+              </DialogHeader>
+              {saved.length === 0 ? (
+                <p className="font-body text-sm text-pz-on-surface-variant">Nothing saved yet.</p>
+              ) : (
+                <ul className="max-h-[50dvh] space-y-2 overflow-y-auto">
+                  {saved.map((s) => {
+                    const unusable = s.invalid || !s.filter;
+                    return (
+                      <li key={s.id} className="space-y-2 rounded-xl border border-pz-outline-variant p-3">
+                        {renamingId === s.id ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label htmlFor="rename-audience" className="sr-only">New name</label>
+                            <input
+                              id="rename-audience"
+                              value={renameName}
+                              maxLength={80}
+                              onChange={(e) => setRenameName(e.target.value)}
+                              className={`${fieldClass} w-full`}
+                            />
+                            <button type="button" onClick={() => void rename()} disabled={renamingBusy} className={textButton}>
+                              {renamingBusy ? "Saving…" : "Save name"}
+                            </button>
+                            <button type="button" onClick={() => setRenamingId(null)} disabled={renamingBusy} className={textButton}>
+                              Cancel
+                            </button>
+                            {renameError && <p className="w-full font-body text-sm text-pz-danger">{renameError}</p>}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-x-3">
+                            <span className="min-w-0 flex-1 font-body text-sm">
+                              {unusable ? `${s.name} (needs checking)` : s.name}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Load ${s.name}`}
+                              disabled={unusable}
+                              onClick={() => loadSaved(s.id)}
+                              className={textButton}
+                            >
+                              Load
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Rename ${s.name}`}
+                              onClick={() => {
+                                setRenameName(s.name);
+                                setRenameError(null);
+                                setRenamingId(s.id);
+                              }}
+                              className={textButton}
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${s.name}`}
+                              onClick={() => void remove(s)}
+                              disabled={removing}
+                              className={`${textButton} text-pz-danger`}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       {selected && (
-        <div className="flex flex-wrap items-center gap-3">
-          {renaming ? (
-            <>
-              <label htmlFor="rename-audience" className="sr-only">New name</label>
-              <input
-                id="rename-audience"
-                value={renameName}
-                maxLength={80}
-                onChange={(e) => setRenameName(e.target.value)}
-                className={`${fieldClass} w-full sm:w-72`}
-              />
-              <button type="button" onClick={() => void rename()} disabled={renamingBusy} className={textButton}>
-                {renamingBusy ? "Saving…" : "Save name"}
-              </button>
-              <button type="button" onClick={() => setRenaming(false)} disabled={renamingBusy} className={textButton}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="font-body text-sm text-pz-on-surface-variant">Loaded: {selected.name}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setRenameName(selected.name);
-                  setRenameError(null);
-                  setRenaming(true);
-                }}
-                className={textButton}
-              >
-                Rename
-              </button>
-              <button type="button" onClick={() => void remove()} disabled={removing} className={`${textButton} text-pz-danger`}>
-                {removing ? "Deleting…" : "Delete"}
-              </button>
-            </>
-          )}
-          {renameError && <p className="w-full font-body text-sm text-pz-danger">{renameError}</p>}
-        </div>
+        <p className="font-body text-sm text-pz-on-surface-variant">Loaded: {selected.name}</p>
       )}
 
       {needsUpdate && (
@@ -290,7 +329,13 @@ export function AudiencesPanel({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <h2 className="font-headline text-lg font-bold text-pz-secondary">Who to include</h2>
+          <h2 className="font-headline text-lg font-bold text-pz-secondary">1. Who do you want?</h2>
+          {(statusFlag ?? facets.statusNeedsUpdate) && !needsUpdate && (
+            <p className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm text-pz-on-surface-variant">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>Reserved, Pending, Part-paid and Free cannot be told apart yet. One small setup step is waiting.</span>
+            </p>
+          )}
           <AudienceFilters filter={filter} facets={facets} onChange={changeFilter} />
           <button type="button" onClick={() => changeFilter(DEFAULT_AUDIENCE_FILTER)} className={textButton}>
             Reset filters

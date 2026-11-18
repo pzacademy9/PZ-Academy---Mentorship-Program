@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { buildMetaRows, type AudienceContact } from "@/lib/crm/meta-audience";
-import { AUDIENCE_MAX_PEOPLE, type AudienceFilter } from "@/lib/crm/audience-filter";
+import { AUDIENCE_MAX_PEOPLE, AUDIENCE_STATUSES, type AudienceFilter, type AudienceStatus } from "@/lib/crm/audience-filter";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { chunk, loadAudienceContacts, mapPool, pageAll, READ_POOL, ReadError } from "@/lib/data/cohort-export";
 
@@ -16,12 +16,16 @@ import { chunk, loadAudienceContacts, mapPool, pageAll, READ_POOL, ReadError } f
  * or a phone number except loadAudienceFile, which feeds the download.
  */
 
+const ALL_STATUSES = AUDIENCE_STATUSES.map((s) => s.value);
+
 export type AudienceCount = {
   total: number;
   inFile: number;
   leftOut: { noContact: number; doNotContact: number };
   tooLarge: boolean;
   needsUpdate: boolean;
+  /** 0117 is not pasted: every interested person counts as Pending. */
+  statusNeedsUpdate: boolean;
   ignoredChoices: string[];
 };
 
@@ -31,7 +35,7 @@ type Registration = {
   mode: "live" | "recorded" | null;
   /** YYYY-MM-DD (UTC date part) or null when unknown. */
   date: string | null;
-  paid: boolean;
+  status: AudienceStatus;
 };
 
 type Registrations = {
@@ -56,6 +60,7 @@ type InterestedRow = {
   contact_id: string;
   reg_mode?: string | null;
   registered_at?: string | null;
+  reg_status?: string | null;
 };
 type BatchRow = { id: string; sheet_id: string; sheet_name: string; course_id: string | null; kind: string };
 
@@ -116,6 +121,26 @@ function modeOf(v: string | null | undefined): "live" | "recorded" | null {
   return v === "live" || v === "recorded" ? v : null;
 }
 
+/** "Live" or "Recorded" written in free text; both or neither gives null. */
+export function modeFromLabel(text: string | null | undefined): "live" | "recorded" | null {
+  if (!text) return null;
+  const live = /\blive\b/i.test(text);
+  const recorded = /\brecorded\b/i.test(text);
+  if (live === recorded) return null;
+  return live ? "live" : "recorded";
+}
+
+/** Landing registration status text -> audience status; unknown or blank is Pending. */
+function statusOf(v: string | null | undefined): AudienceStatus {
+  switch (v?.trim().toLowerCase()) {
+    case "paid": return "paid";
+    case "reserved": return "reserved";
+    case "underpaid": return "part_paid";
+    case "free": return "free";
+    default: return "pending";
+  }
+}
+
 function isMissingSchema(e: unknown): boolean {
   return e instanceof ReadError && e.missingSchema;
 }
@@ -123,9 +148,10 @@ function isMissingSchema(e: unknown): boolean {
 /**
  * Reads every registration. `withNew` selects the 0116 columns (recorded/live,
  * registration time); without them only course and purchase dates are known,
- * which is enough for the facets before the update is pasted.
+ * which is enough for the facets before the update is pasted. `withStatus`
+ * also selects the 0117 reg_status column of the interested rows.
  */
-async function loadRegistrations(withNew: boolean): Promise<Registrations> {
+async function loadRegistrations(withNew: boolean, withStatus = false): Promise<Registrations> {
   const admin = createAdminSupabase();
 
   const courses = await pageAll<{ id: string; title: string }>("courses", (from, to) =>
@@ -159,7 +185,15 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
 
   const interestedParts = await mapPool(chunk(Array.from(interestedBatches.keys())), READ_POOL, (part) =>
     pageAll<InterestedRow>("import_batch_contacts", (from, to) =>
-      withNew
+      withNew && withStatus
+        ? admin
+            .from("import_batch_contacts")
+            .select("import_batch_id, contact_id, reg_mode, registered_at, reg_status")
+            .in("import_batch_id", part)
+            .order("import_batch_id", { ascending: true })
+            .order("contact_id", { ascending: true })
+            .range(from, to)
+        : withNew
         ? admin
             .from("import_batch_contacts")
             .select("import_batch_id, contact_id, reg_mode, registered_at")
@@ -201,9 +235,9 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
     regs.push({
       contactId: p.contact_id,
       courseKey: named(name),
-      mode: modeOf(p.reg_mode),
+      mode: modeOf(p.reg_mode) ?? modeFromLabel(p.product_label),
       date: datePart(p.purchased_at ?? p.created_at),
-      paid: true,
+      status: "paid",
     });
   }
 
@@ -219,32 +253,132 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
     regs.push({
       contactId: r.contact_id,
       courseKey: named(name),
-      mode: modeOf(r.reg_mode),
+      mode: modeOf(r.reg_mode) ?? modeFromLabel(b?.sheet_name),
       date: datePart(r.registered_at),
-      paid: false,
+      status: statusOf(r.reg_status),
     });
   }
 
   return { regs, courseNames, batches };
 }
 
+/**
+ * Short in-memory cache (per server instance) of the two reads every filter
+ * change shares: the registrations and the contact country map. Only a fully
+ * successful read is kept; an error, a missing-schema result and the
+ * "0117 not pasted" fallback are never kept, so pasting a migration works at
+ * once. Contact details (consent, email) are never cached. Callers must treat
+ * cached values as read-only. Downloads pass `fresh` and skip the cache.
+ */
+export const AUDIENCE_CACHE_MS = 60_000;
+
+type Cached<T> = { at: number; value: T };
+type Pending<T> = { gen: number; promise: Promise<T> };
+type RegResult = { data: Registrations; statusNeedsUpdate: boolean };
+let clock: () => number = () => Date.now();
+/** Bumped by every clear: a read that began under an older value never stores its result. */
+let generation = 0;
+let regCache: Cached<RegResult> | null = null;
+let countryCache: Cached<Map<string, string | null>> | null = null;
+let regPending: Pending<RegResult> | null = null;
+let countryPending: Pending<Map<string, string | null>> | null = null;
+
+/** Tests only: replace the clock; null restores the real one. */
+export function setAudienceClock(fn: (() => number) | null): void {
+  clock = fn ?? (() => Date.now());
+}
+
+export function clearAudienceCache(): void {
+  generation++;
+  regCache = null;
+  countryCache = null;
+  regPending = null;
+  countryPending = null;
+}
+
+const isLive = (c: Cached<unknown> | null): boolean => !!c && clock() - c.at >= 0 && clock() - c.at < AUDIENCE_CACHE_MS;
+
+/** Full read first; if only 0117 is missing, retry without reg_status. `cacheable` is false for that fallback. */
+async function readRegistrationsTiered(): Promise<{ value: RegResult; cacheable: boolean }> {
+  try {
+    const data = await loadRegistrations(true, true);
+    data.regs.forEach((r) => Object.freeze(r));
+    const value = Object.freeze({
+      data: Object.freeze({ ...data, regs: Object.freeze(data.regs) as Registration[] }),
+      statusNeedsUpdate: false,
+    });
+    return { value, cacheable: true };
+  } catch (e) {
+    if (!isMissingSchema(e)) throw e;
+  }
+  return { value: { data: await loadRegistrations(true, false), statusNeedsUpdate: true }, cacheable: false };
+}
+
+/**
+ * Cached read. Concurrent callers on a cold cache share one in-flight read; a
+ * rejected read is dropped so the next call retries. A download (`fresh`)
+ * neither joins nor feeds the cache.
+ */
+function cachedRead<T>(
+  fresh: boolean,
+  get: () => Cached<T> | null,
+  set: (c: Cached<T> | null) => void,
+  getPending: () => Pending<T> | null,
+  setPending: (p: Pending<T> | null) => void,
+  read: () => Promise<{ value: T; cacheable: boolean }>,
+): Promise<T> {
+  if (fresh) return read().then((r) => r.value);
+  const hit = get();
+  if (hit && isLive(hit)) return Promise.resolve(hit.value);
+  const joined = getPending();
+  if (joined && joined.gen === generation) return joined.promise;
+  const startedUnder = generation;
+  const promise = read().then((r) => {
+    if (startedUnder === generation && r.cacheable) set({ at: clock(), value: r.value });
+    return r.value;
+  });
+  const entry: Pending<T> = { gen: startedUnder, promise };
+  setPending(entry);
+  const done = () => {
+    if (getPending() === entry) setPending(null);
+  };
+  promise.then(done, done);
+  return promise;
+}
+
+function loadRegistrationsTiered(fresh = false): Promise<RegResult> {
+  return cachedRead(fresh, () => regCache, (c) => (regCache = c), () => regPending, (p) => (regPending = p), readRegistrationsTiered);
+}
+
 /** id -> country (upper case, or null) for every contact. Narrow, paged. */
-async function loadCountries(): Promise<Map<string, string | null>> {
-  const admin = createAdminSupabase();
-  const rows = await pageAll<{ id: string; country: string | null }>("contacts", (from, to) =>
-    admin.from("contacts").select("id, country").order("id", { ascending: true }).range(from, to),
+function loadCountries(fresh = false): Promise<Map<string, string | null>> {
+  return cachedRead(
+    fresh,
+    () => countryCache,
+    (c) => (countryCache = c),
+    () => countryPending,
+    (p) => (countryPending = p),
+    async () => {
+      const admin = createAdminSupabase();
+      const rows = await pageAll<{ id: string; country: string | null }>("contacts", (from, to) =>
+        admin.from("contacts").select("id, country").order("id", { ascending: true }).range(from, to),
+      );
+      const value = new Map(rows.map((r): [string, string | null] => [r.id, r.country?.trim() ? r.country.trim().toUpperCase() : null]));
+      return { value, cacheable: true };
+    },
   );
-  return new Map(rows.map((r) => [r.id, r.country?.trim() ? r.country.trim().toUpperCase() : null]));
 }
 
 export async function resolveAudienceContactIds(
   f: AudienceFilter,
-): Promise<{ ids: string[]; needsUpdate: boolean; ignoredChoices: string[] }> {
+  opts: { fresh?: boolean } = {},
+): Promise<{ ids: string[]; needsUpdate: boolean; statusNeedsUpdate: boolean; ignoredChoices: string[] }> {
   let data: Registrations;
+  let statusNeedsUpdate: boolean;
   try {
-    data = await loadRegistrations(true);
+    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered(opts.fresh));
   } catch (e) {
-    if (isMissingSchema(e)) return { ids: [], needsUpdate: true, ignoredChoices: [] };
+    if (isMissingSchema(e)) return { ids: [], needsUpdate: true, statusNeedsUpdate: false, ignoredChoices: [] };
     throw e;
   }
 
@@ -262,8 +396,7 @@ export async function resolveAudienceContactIds(
   const matched = new Set<string>();
   for (const r of data.regs) {
     if (matched.has(r.contactId)) continue;
-    if (f.who === "paid" && !r.paid) continue;
-    if (f.who === "unpaid" && r.paid) continue;
+    if (f.statuses.length > 0 && !f.statuses.includes(r.status)) continue;
     if (chosen.size > 0 && !chosen.has(r.courseKey)) continue;
     if (f.mode !== "either" && r.mode !== f.mode) continue;
     if (dated) {
@@ -277,7 +410,7 @@ export async function resolveAudienceContactIds(
   let ids = Array.from(matched);
   if (f.countries.length > 0) {
     const wanted = new Set(f.countries);
-    const countries = await loadCountries();
+    const countries = await loadCountries(opts.fresh);
     ids = ids.filter((id) => {
       const c = countries.get(id) ?? null;
       return c === null ? wanted.has("unknown") : wanted.has(c);
@@ -285,12 +418,12 @@ export async function resolveAudienceContactIds(
   }
   ids.sort();
 
-  return { ids, needsUpdate: false, ignoredChoices };
+  return { ids, needsUpdate: false, statusNeedsUpdate, ignoredChoices };
 }
 
-export async function countAudience(f: AudienceFilter): Promise<AudienceCount> {
-  const r = await resolveAudienceContactIds(f);
-  const base = { tooLarge: false, needsUpdate: r.needsUpdate, ignoredChoices: r.ignoredChoices };
+export async function countAudience(f: AudienceFilter, opts: { fresh?: boolean } = {}): Promise<AudienceCount> {
+  const r = await resolveAudienceContactIds(f, opts);
+  const base = { tooLarge: false, needsUpdate: r.needsUpdate, statusNeedsUpdate: r.statusNeedsUpdate, ignoredChoices: r.ignoredChoices };
   const none = { noContact: 0, doNotContact: 0 };
   if (r.needsUpdate) return { ...base, total: 0, inFile: 0, leftOut: none };
   // Over the limit nobody's details are read: the page only says it is too many.
@@ -315,15 +448,17 @@ export type AudienceFile = {
   contacts: AudienceContact[];
   tooLarge: boolean;
   needsUpdate: boolean;
+  statusNeedsUpdate: boolean;
   ignoredChoices: string[];
   /** Courses were chosen and none of them exists any more: nothing is read. */
   allCoursesGone: boolean;
 };
 
 export async function loadAudienceFile(f: AudienceFilter): Promise<AudienceFile> {
-  const r = await resolveAudienceContactIds(f);
+  // A download always reads fresh: a file never uses cached data.
+  const r = await resolveAudienceContactIds(f, { fresh: true });
   const ignoredChoices = r.ignoredChoices;
-  const none = { contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices, allCoursesGone: false };
+  const none = { contacts: [], tooLarge: false, needsUpdate: false, statusNeedsUpdate: r.statusNeedsUpdate, ignoredChoices, allCoursesGone: false };
   if (r.needsUpdate) return { ...none, needsUpdate: true };
   const ignoredKeys = new Set(ignoredChoices.map(courseKey));
   const allCoursesGone = f.courses.length > 0 && f.courses.every((c) => ignoredKeys.has(courseKey(c)));
@@ -338,14 +473,23 @@ export type AudienceFacets = {
   countries: { code: string; count: number }[];
   unknownCountry: number;
   landingPages: { id: string; title: string; registrations: number; alreadyBrought: boolean }[];
+  /** People (distinct contacts) per status, ignoring every other filter. */
+  statusCounts: Partial<Record<AudienceStatus, number>>;
   needsUpdate: boolean;
+  statusNeedsUpdate: boolean;
 };
 
+/**
+ * Runs on page load and after Bring in, so it always reads fresh (the cache
+ * is per server instance and a Bring in may have run on another one). It
+ * does not fill the cache either.
+ */
 export async function audienceFacets(): Promise<AudienceFacets> {
   let needsUpdate = false;
+  let statusNeedsUpdate = false;
   let data: Registrations;
   try {
-    data = await loadRegistrations(true);
+    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered(true));
   } catch (e) {
     if (!isMissingSchema(e)) throw e;
     // Before 0116 is pasted the old columns still name every course.
@@ -355,8 +499,12 @@ export async function audienceFacets(): Promise<AudienceFacets> {
 
   const people = new Map<string, Set<string>>();
   const everyone = new Set<string>();
+  const byStatus = new Map<AudienceStatus, Set<string>>();
   for (const r of data.regs) {
     everyone.add(r.contactId);
+    let st = byStatus.get(r.status);
+    if (!st) byStatus.set(r.status, (st = new Set()));
+    st.add(r.contactId);
     let set = people.get(r.courseKey);
     if (!set) people.set(r.courseKey, (set = new Set()));
     set.add(r.contactId);
@@ -365,7 +513,12 @@ export async function audienceFacets(): Promise<AudienceFacets> {
     (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
 
-  const countryOf = await loadCountries();
+  const statusCounts: Partial<Record<AudienceStatus, number>> = {};
+  // With the status column present, a status nobody has shows 0 (not blank).
+  if (!needsUpdate && !statusNeedsUpdate) for (const s of ALL_STATUSES) statusCounts[s] = 0;
+  for (const [k, set] of Array.from(byStatus)) statusCounts[k] = set.size;
+
+  const countryOf = await loadCountries(true);
   const byCountry = new Map<string, number>();
   let unknownCountry = 0;
   for (const id of Array.from(everyone)) {
@@ -407,5 +560,5 @@ export async function audienceFacets(): Promise<AudienceFacets> {
     alreadyBrought: brought.has(`landing:${p.id}`),
   }));
 
-  return { courses, countries, unknownCountry, landingPages, needsUpdate };
+  return { courses, countries, unknownCountry, landingPages, statusCounts, needsUpdate, statusNeedsUpdate };
 }

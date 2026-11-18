@@ -11,6 +11,10 @@ import {
   loadAudienceFile,
   audienceFacets,
   courseNameOf,
+  clearAudienceCache,
+  setAudienceClock,
+  AUDIENCE_CACHE_MS,
+  modeFromLabel,
 } from "@/lib/data/audience-query";
 import { loadAudienceContacts, loadCohortAudience, mapPool } from "@/lib/data/cohort-export";
 import { DEFAULT_AUDIENCE_FILTER, type AudienceFilter } from "@/lib/crm/audience-filter";
@@ -53,7 +57,11 @@ function setup(s: Partial<Store>, wrap?: (op: Op, inner: (op: Op) => Res) => Res
     return res;
   };
 }
-beforeEach(() => db.reset());
+beforeEach(() => {
+  db.reset();
+  clearAudienceCache();
+  setAudienceClock(null);
+});
 
 const F = (o: Partial<AudienceFilter> = {}): AudienceFilter => ({ ...DEFAULT_AUDIENCE_FILTER, ...o });
 const ids = async (o: Partial<AudienceFilter> = {}) => (await resolveAudienceContactIds(F(o))).ids;
@@ -156,6 +164,115 @@ describe("mapPool", () => {
   });
 });
 
+describe("modeFromLabel", () => {
+  it("finds exactly one of the words Live or Recorded, as whole words", () => {
+    expect(modeFromLabel("Clinical Course — Live — PKR 1,000")).toBe("live");
+    expect(modeFromLabel("Recorded — Individual")).toBe("recorded");
+    expect(modeFromLabel("LIVE class")).toBe("live");
+    expect(modeFromLabel("Live and Recorded")).toBeNull();
+    expect(modeFromLabel("Individual — PKR 2,700")).toBeNull();
+    expect(modeFromLabel("Free delivery, stay alive, liver")).toBeNull();
+    expect(modeFromLabel(null)).toBeNull();
+  });
+});
+
+describe("status of a registration", () => {
+  const withStatus = () =>
+    setup({
+      import_batches: [batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" })],
+      contacts: ["a", "r", "p", "u", "f", "n", "x", "z"].map((i) => contact(i)),
+      contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" })],
+      import_batch_contacts: [
+        interested("bi", "a", { reg_status: "reserved" }),
+        interested("bi", "r", { reg_status: "reserved" }),
+        interested("bi", "p", { reg_status: "pending" }),
+        interested("bi", "u", { reg_status: "underpaid" }),
+        interested("bi", "f", { reg_status: "free" }),
+        interested("bi", "n", { reg_status: null }),
+        interested("bi", "x", { reg_status: "  " }),
+        interested("bi", "z", { reg_status: "weird" }),
+      ],
+    });
+
+  it("purchases are paid; interested rows use reg_status; underpaid is part-paid; blank or unknown is pending", async () => {
+    withStatus();
+    expect(await ids({ statuses: ["paid"] })).toEqual(["a"]);
+    expect(await ids({ statuses: ["reserved"] })).toEqual(["r"]);
+    expect(await ids({ statuses: ["pending"] })).toEqual(["n", "p", "x", "z"]);
+    expect(await ids({ statuses: ["part_paid"] })).toEqual(["u"]);
+    expect(await ids({ statuses: ["free"] })).toEqual(["f"]);
+    expect(await ids({ statuses: ["reserved", "free"] })).toEqual(["f", "r"]);
+    expect((await ids({ statuses: [] })).length).toBe(8);
+  });
+
+  it("status, course and date must hold on one registration", async () => {
+    setup({
+      import_batches: [batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" })],
+      contacts: [contact("a")],
+      import_batch_contacts: [interested("bi", "a", { reg_status: "reserved", registered_at: "2026-01-02T00:00:00+00:00" })],
+    });
+    expect(await ids({ statuses: ["reserved"], from: "2026-01-01" })).toEqual(["a"]);
+    expect(await ids({ statuses: ["reserved"], from: "2026-02-01" })).toEqual([]);
+    expect(await ids({ statuses: ["pending"], from: "2026-01-01" })).toEqual([]);
+  });
+
+  it("before 0117 (no reg_status column) it retries without it, every interested row is pending, and flags statusNeedsUpdate", async () => {
+    setup(
+      {
+        import_batches: [batch("bi", "closed_interested")],
+        contacts: [contact("a"), contact("b")],
+        import_batch_contacts: [interested("bi", "a"), interested("bi", "b")],
+      },
+      (op, inner) => {
+        if (op.table === "import_batch_contacts" && op.columns?.includes("reg_status")) {
+          return { data: null, error: { code: "42703", message: "column import_batch_contacts.reg_status does not exist" } };
+        }
+        return inner(op);
+      },
+    );
+    const r = await resolveAudienceContactIds(F({ statuses: ["pending"] }));
+    expect(r).toEqual({ ids: ["a", "b"], needsUpdate: false, statusNeedsUpdate: true, ignoredChoices: [] });
+    expect((await resolveAudienceContactIds(F({ statuses: ["reserved"] }))).ids).toEqual([]);
+    expect(await countAudience(F())).toMatchObject({ needsUpdate: false, statusNeedsUpdate: true, total: 2 });
+    expect(await loadAudienceFile(F())).toMatchObject({ needsUpdate: false, statusNeedsUpdate: true });
+    expect((await audienceFacets()).statusNeedsUpdate).toBe(true);
+  });
+
+  it("with the column present statusNeedsUpdate is false", async () => {
+    withStatus();
+    expect((await resolveAudienceContactIds(F())).statusNeedsUpdate).toBe(false);
+    expect((await countAudience(F())).statusNeedsUpdate).toBe(false);
+    expect((await loadAudienceFile(F())).statusNeedsUpdate).toBe(false);
+  });
+
+  it("facets count people per status, ignoring other filters", async () => {
+    withStatus();
+    const f = await audienceFacets();
+    expect(f.statusCounts).toEqual({ paid: 1, reserved: 1, pending: 4, part_paid: 1, free: 1 });
+    expect(f.statusNeedsUpdate).toBe(false);
+  });
+});
+
+describe("mode from the text when reg_mode is empty", () => {
+  it("purchase uses its label; interested uses the batch sheet name; reg_mode wins", async () => {
+    setup({
+      import_batches: [
+        batch("b1", "closed_interested", { sheet_name: "Clinical Course Recorded (interested)" }),
+        batch("b2", "closed_interested", { sheet_name: "Other (interested)" }),
+      ],
+      contacts: ["a", "b", "c", "d", "e"].map((i) => contact(i)),
+      contact_purchases: [
+        purchase("p1", "a", { product_label: "Clinical Course — Live — PKR 1" }),
+        purchase("p2", "b", { product_label: "Clinical Course — Live — PKR 1", reg_mode: "recorded" }),
+        purchase("p3", "c", { product_label: "Clinical Course — Live and Recorded" }),
+      ],
+      import_batch_contacts: [interested("b1", "d"), interested("b2", "e")],
+    });
+    expect(await ids({ mode: "live" })).toEqual(["a"]);
+    expect(await ids({ mode: "recorded" })).toEqual(["b", "d"]);
+  });
+});
+
 describe("resolveAudienceContactIds", () => {
   it("(a) recorded matches through the recorded landing purchase, never through the imported one", async () => {
     setup({
@@ -180,12 +297,12 @@ describe("resolveAudienceContactIds", () => {
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" })],
       import_batch_contacts: [interested("bi", "a"), interested("bi", "b")],
     });
-    expect(await ids({ who: "unpaid" })).toEqual(["b"]);
-    expect(await ids({ who: "unpaid", courses: ["Clinical Course"] })).toEqual(["b"]);
-    expect(await ids({ who: "paid" })).toEqual(["a"]);
-    expect(await ids({ who: "both" })).toEqual(["a", "b"]);
+    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"] })).toEqual(["b"]);
+    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"], courses: ["Clinical Course"] })).toEqual(["b"]);
+    expect(await ids({ statuses: ["paid"] })).toEqual(["a"]);
+    expect(await ids({ statuses: [] })).toEqual(["a", "b"]);
     // a's interest in Clinical Course does not count: a has a purchase.
-    expect(await ids({ who: "both", courses: ["Clinical Course"] })).toEqual(["b"]);
+    expect(await ids({ statuses: [], courses: ["Clinical Course"] })).toEqual(["b"]);
   });
 
   it("(c) two chosen courses mean either one, compared case-insensitively", async () => {
@@ -251,7 +368,7 @@ describe("resolveAudienceContactIds", () => {
       }
       return inner(op);
     });
-    expect(await resolveAudienceContactIds(F())).toEqual({ ids: [], needsUpdate: true, ignoredChoices: [] });
+    expect(await resolveAudienceContactIds(F())).toEqual({ ids: [], needsUpdate: true, statusNeedsUpdate: false, ignoredChoices: [] });
     const count = await countAudience(F());
     expect(count).toMatchObject({ total: 0, inFile: 0, needsUpdate: true, tooLarge: false });
     expect(await loadAudienceFile(F())).toMatchObject({ contacts: [], tooLarge: false });
@@ -284,10 +401,10 @@ describe("resolveAudienceContactIds", () => {
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" }), purchase("p2", "b", { course_id: "k-clin" })],
     });
     expect(await resolveAudienceContactIds(F({ courses: ["Gone Course", "Pharmacology Basics"] }))).toEqual({
-      ids: ["a"], needsUpdate: false, ignoredChoices: ["Gone Course"],
+      ids: ["a"], needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: ["Gone Course"],
     });
     expect(await resolveAudienceContactIds(F({ courses: ["Gone Course"] }))).toEqual({
-      ids: ["a", "b"], needsUpdate: false, ignoredChoices: ["Gone Course"],
+      ids: ["a", "b"], needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: ["Gone Course"],
     });
   });
 
@@ -300,12 +417,12 @@ describe("resolveAudienceContactIds", () => {
       contact_purchases: Array.from({ length: n }, (_, i) => purchase(`p${String(i).padStart(5, "0")}`, cid(i))),
       import_batch_contacts: Array.from({ length: n }, (_, i) => interested("bi", `z${i}`)),
     });
-    const r = await ids({ countries: ["AE"], who: "paid" });
+    const r = await ids({ countries: ["AE"], statuses: ["paid"] });
     expect(r).toHaveLength(650);
     for (const op of db.state.ops.filter((o) => o.op === "select")) {
       for (const [k, , v] of op.filters) if (k === "in") expect((v as unknown[]).length).toBeLessThanOrEqual(200);
     }
-    expect(await ids({ who: "unpaid" })).toHaveLength(n);
+    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"] })).toHaveLength(n);
     expect(db.find("contact_purchases", "select").every((o) => o.range)).toBe(true);
     expect(db.find("import_batch_contacts", "select").every((o) => o.range)).toBe(true);
   });
@@ -326,7 +443,7 @@ describe("countAudience", () => {
     });
     const c = await countAudience(F());
     expect(c).toEqual({
-      total: 5, inFile: 2, leftOut: { noContact: 2, doNotContact: 1 }, tooLarge: false, needsUpdate: false, ignoredChoices: [],
+      total: 5, inFile: 2, leftOut: { noContact: 2, doNotContact: 1 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],
     });
     expect(c.total).toBe(c.inFile + c.leftOut.noContact + c.leftOut.doNotContact);
     const json = JSON.stringify(c);
@@ -394,7 +511,7 @@ describe("loadAudienceFile", () => {
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" }), purchase("p2", "b", { course_id: "k-clin" })],
     });
     const none = await loadAudienceFile(F({ courses: ["Gone Course", "Other Gone"] }));
-    expect(none).toEqual({ contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course", "Other Gone"], allCoursesGone: true });
+    expect(none).toEqual({ contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course", "Other Gone"], allCoursesGone: true, statusNeedsUpdate: false });
     expect(db.find("contacts", "select")).toHaveLength(0);
 
     const noCourses = await loadAudienceFile(F());
@@ -528,5 +645,216 @@ describe("loadAudienceContacts (shared with cohorts)", () => {
     setup({});
     expect(await loadAudienceContacts([])).toEqual([]);
     expect(db.state.ops).toHaveLength(0);
+  });
+});
+
+describe("registration cache (60 seconds)", () => {
+  let t: number;
+  const reads = (table: string) => db.state.ops.filter((o) => o.table === table && o.op === "select").length;
+  const seed = (wrap?: Parameters<typeof setup>[1]) => {
+    t = 1_000_000;
+    setAudienceClock(() => t);
+    setup({ contacts: [contact("a"), contact("b")], contact_purchases: [purchase("p1", "a"), purchase("p2", "b")] }, wrap);
+  };
+
+  it("a second count inside 60s makes no new registration reads, but contact details are read again", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    const contacts = reads("contacts");
+    expect(purchases).toBeGreaterThan(0);
+    t += AUDIENCE_CACHE_MS - 1;
+    await countAudience(F({ statuses: ["paid"] }));
+    expect(reads("contact_purchases")).toBe(purchases);
+    expect(reads("courses")).toBe(1);
+    expect(reads("contacts")).toBeGreaterThan(contacts);
+  });
+
+  it("re-reads after 60s", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    t += AUDIENCE_CACHE_MS;
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBeGreaterThan(purchases);
+  });
+
+  it("clearAudienceCache forces a re-read", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    clearAudienceCache();
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBeGreaterThan(purchases);
+  });
+
+  it("the country list is cached too", async () => {
+    seed();
+    const countryReads = () => db.state.ops.filter((o) => o.table === "contacts" && o.columns === "id, country").length;
+    await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    const n = countryReads();
+    expect(n).toBeGreaterThan(0);
+    await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    expect(countryReads()).toBe(n);
+    t += AUDIENCE_CACHE_MS;
+    await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    expect(countryReads()).toBeGreaterThan(n);
+  });
+
+  it("facets always read fresh: a warm cache does not hide new data, and facets do not feed the cache", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    await audienceFacets();
+    expect(reads("contact_purchases")).toBeGreaterThan(purchases);
+    const afterFacets = reads("contact_purchases");
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBe(afterFacets);
+  });
+
+  it("count with fresh:true bypasses the cache and does not fill it", async () => {
+    seed();
+    await countAudience(F());
+    const warm = reads("contact_purchases");
+    await countAudience(F(), { fresh: true });
+    expect(reads("contact_purchases")).toBeGreaterThan(warm);
+    clearAudienceCache();
+    await countAudience(F(), { fresh: true });
+    const afterFresh = reads("contact_purchases");
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBeGreaterThan(afterFresh);
+    const filled = reads("contact_purchases");
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBe(filled);
+  });
+
+  it("facets default every status to 0 when the status column exists", async () => {
+    seed();
+    expect((await audienceFacets()).statusCounts).toEqual({ paid: 2, reserved: 0, pending: 0, part_paid: 0, free: 0 });
+  });
+
+  it("an error is never cached", async () => {
+    let fail = true;
+    seed((op, inner) => {
+      if (fail && op.table === "contact_purchases") return { data: null, error: { code: "XX000", message: "boom" } };
+      return inner(op);
+    });
+    await expect(countAudience(F())).rejects.toBeTruthy();
+    fail = false;
+    expect((await countAudience(F())).total).toBe(2);
+  });
+
+  it("a missing-schema result is never cached, so pasting the migration takes effect at once", async () => {
+    let missing = true;
+    seed((op, inner) => {
+      if (missing && op.table === "contact_purchases" && op.columns?.includes("reg_mode")) {
+        return { data: null, error: { code: "42703", message: "column contact_purchases.reg_mode does not exist" } };
+      }
+      return inner(op);
+    });
+    expect((await countAudience(F())).needsUpdate).toBe(true);
+    missing = false;
+    expect(await countAudience(F())).toMatchObject({ needsUpdate: false, total: 2 });
+  });
+
+  it("a result without 0117 (statusNeedsUpdate) is not cached either", async () => {
+    let missing = true;
+    seed((op, inner) => {
+      if (missing && op.table === "import_batch_contacts" && op.columns?.includes("reg_status")) {
+        return { data: null, error: { code: "42703", message: "column import_batch_contacts.reg_status does not exist" } };
+      }
+      return inner(op);
+    });
+    store.import_batches = [batch("bi", "closed_interested")];
+    store.import_batch_contacts = [interested("bi", "a")];
+    expect((await countAudience(F())).statusNeedsUpdate).toBe(true);
+    missing = false;
+    expect((await countAudience(F())).statusNeedsUpdate).toBe(false);
+  });
+
+  it("the download always reads fresh, even when the cache is warm, and never feeds the cache", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    await loadAudienceFile(F());
+    const afterFile = reads("contact_purchases");
+    expect(afterFile).toBeGreaterThan(purchases);
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBe(afterFile);
+  });
+
+  it("a download never uses stale data", async () => {
+    seed();
+    expect((await countAudience(F())).total).toBe(2);
+    store.contact_purchases.push(purchase("p3", "c"));
+    store.contacts.push(contact("c"));
+    expect((await countAudience(F())).total).toBe(2);
+    expect((await loadAudienceFile(F())).contacts).toHaveLength(3);
+  });
+});
+
+describe("registration cache: concurrency and safety", () => {
+  let t: number;
+  const reads = (table: string) => db.state.ops.filter((o) => o.table === table && o.op === "select").length;
+  const seed = (wrap?: Parameters<typeof setup>[1]) => {
+    t = 1_000_000;
+    setAudienceClock(() => t);
+    setup({ contacts: [contact("a"), contact("b")], contact_purchases: [purchase("p1", "a"), purchase("p2", "b")] }, wrap);
+  };
+
+  it("two concurrent counts on a cold cache make ONE set of registration reads", async () => {
+    seed();
+    await countAudience(F());
+    const one = reads("contact_purchases");
+    clearAudienceCache();
+    await Promise.all([countAudience(F()), countAudience(F({ statuses: ["paid"] })), audienceFacets()]);
+    // The two counts share one read; facets read fresh on their own.
+    expect(reads("contact_purchases")).toBe(one * 3);
+    expect(reads("courses")).toBe(3);
+  });
+
+  it("a rejected shared read lets the next call retry", async () => {
+    let fail = true;
+    seed((op, inner) => {
+      if (fail && op.table === "contact_purchases") return { data: null, error: { code: "XX000", message: "boom" } };
+      return inner(op);
+    });
+    const both = await Promise.allSettled([countAudience(F()), countAudience(F())]);
+    expect(both.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+    fail = false;
+    expect((await countAudience(F())).total).toBe(2);
+  });
+
+  it("a clear during an in-flight read stops that stale result from being stored", async () => {
+    seed();
+    const inFlight = countAudience(F());
+    clearAudienceCache();
+    await inFlight;
+    store.contact_purchases.push(purchase("p3", "c"));
+    store.contacts.push(contact("c"));
+    expect((await countAudience(F())).total).toBe(3);
+  });
+
+  it("a fresh download read does not join the pending read", async () => {
+    seed();
+    await countAudience(F());
+    const one = reads("contact_purchases");
+    clearAudienceCache();
+    await Promise.all([countAudience(F()), loadAudienceFile(F())]);
+    expect(reads("contact_purchases")).toBe(one * 3);
+  });
+
+  it("callers sorting or changing their results never change the cache", async () => {
+    seed();
+    const r = await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    r.ids.reverse();
+    r.ids.push("zzz");
+    const facets = await audienceFacets();
+    facets.courses.length = 0;
+    facets.countries.length = 0;
+    const again = await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    expect(again.ids).toEqual(["a", "b"]);
+    expect((await audienceFacets()).countries).toEqual([{ code: "PK", count: 2 }]);
+    expect((await countAudience(F())).total).toBe(2);
   });
 });

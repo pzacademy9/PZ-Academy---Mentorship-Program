@@ -12,6 +12,7 @@ const q = vi.hoisted(() => ({
   countAudience: vi.fn(),
   loadAudienceFile: vi.fn(),
   audienceFacets: vi.fn(),
+  clearAudienceCache: vi.fn(),
 }));
 vi.mock("@/lib/data/audience-query", () => q);
 const s = vi.hoisted(() => ({
@@ -49,7 +50,7 @@ const contact = {
   id: "a", email: "a@x.com", phoneE164: "+923001234567", fullName: "Ann Lee", country: "PK",
   emailUnsubscribedAt: null, whatsappUnsubscribedAt: null, doNotContactAt: null, emailSuppressed: false,
 };
-const F = { ...DEFAULT_AUDIENCE_FILTER, who: "paid" as const };
+const F = { ...DEFAULT_AUDIENCE_FILTER, statuses: ["paid" as const] };
 const enc = encodeAudienceFilter(F);
 
 let errSpy: ReturnType<typeof vi.spyOn>;
@@ -69,18 +70,30 @@ describe("count route", () => {
     expect(q.countAudience).not.toHaveBeenCalled();
   });
   it("400 on a bad filter or bad json", async () => {
-    expect((await countPOST(post("/count", { ...F, who: "nobody" }))).status).toBe(400);
+    expect((await countPOST(post("/count", { ...F, statuses: ["nobody"] }))).status).toBe(400);
     expect((await countPOST(post("/count", "not json"))).status).toBe(400);
+    expect(q.countAudience).not.toHaveBeenCalled();
+  });
+  it("forwards a validated fresh flag; default is not fresh; a non-boolean is a 400", async () => {
+    q.countAudience.mockResolvedValue({
+      total: 1, inFile: 1, leftOut: { noContact: 0, doNotContact: 0 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],
+    });
+    await countPOST(post("/count", F));
+    expect(q.countAudience).toHaveBeenLastCalledWith(expect.anything(), { fresh: false });
+    await countPOST(post("/count", { ...F, fresh: true }));
+    expect(q.countAudience).toHaveBeenLastCalledWith(expect.anything(), { fresh: true });
+    q.countAudience.mockClear();
+    expect((await countPOST(post("/count", { ...F, fresh: "yes" }))).status).toBe(400);
     expect(q.countAudience).not.toHaveBeenCalled();
   });
   it("returns only the numbers", async () => {
     q.countAudience.mockResolvedValue({
-      total: 10, inFile: 8, leftOut: { noContact: 1, doNotContact: 1 }, tooLarge: false, needsUpdate: false, ignoredChoices: [],
+      total: 10, inFile: 8, leftOut: { noContact: 1, doNotContact: 1 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],
     });
     const res = await countPOST(post("/count", F));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Object.keys(body).sort()).toEqual(["ignoredChoices", "inFile", "leftOut", "needsUpdate", "tooLarge", "total"]);
+    expect(Object.keys(body).sort()).toEqual(["ignoredChoices", "inFile", "leftOut", "needsUpdate", "statusNeedsUpdate", "tooLarge", "total"]);
     expect(JSON.stringify(body)).not.toContain("@");
   });
   it("500 is generic and logs only the step", async () => {
@@ -112,7 +125,7 @@ describe("export route", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-only-meta-audience-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-meta-audience-\d{4}-\d{2}-\d{2}\.csv$/);
     const text = await res.text();
     expect(text.split("\n")[0]).toBe("email,phone,fn,ln,country");
     expect(text).not.toContain("a@x.com");
@@ -120,7 +133,7 @@ describe("export route", () => {
   it("plain is attachment-only and readable", async () => {
     q.loadAudienceFile.mockResolvedValue({ contacts: [contact], tooLarge: false, needsUpdate: false });
     const res = await exportGET(get(`/export?f=${enc}&format=plain`));
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-only-plain-meta-audience-/);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename=paid-plain-meta-audience-/);
     expect(await res.text()).toBe("email,phone,fn,ln,country\na@x.com,+923001234567,Ann,Lee,PK\n");
   });
   it("413 when too large", async () => {
@@ -249,7 +262,7 @@ describe("saved routes", () => {
 
 describe("facets route", () => {
   it("returns the facets", async () => {
-    q.audienceFacets.mockResolvedValue({ courses: [], countries: [], unknownCountry: 0, landingPages: [], needsUpdate: false });
+    q.audienceFacets.mockResolvedValue({ courses: [], countries: [], unknownCountry: 0, landingPages: [], statusCounts: {}, needsUpdate: false, statusNeedsUpdate: false });
     const res = await facetsGET();
     expect(res.status).toBe(200);
     expect((await res.json()).needsUpdate).toBe(false);
@@ -294,5 +307,21 @@ describe("bring-in route", () => {
     expect(JSON.stringify(body)).not.toContain("a@x.com");
     expect(JSON.stringify(errSpy.mock.calls)).not.toContain("a@x.com");
     expect(errSpy.mock.calls[0][0]).toBe("[audiences] bring-in failed");
+  });
+  it("clears the audience cache after a run, even when a page fails", async () => {
+    c.closeBatch.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({
+      paidAdded: 1, interestedAdded: 0, contactsCreated: 0, contactsMerged: 0, skipped: 0,
+    });
+    await bringPOST(post("/bring-in", { pageIds: [U1, U2] }));
+    expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
+    await bringPOST(post("/bring-in", { pageIds: ["nope"] }));
+    expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
+  });
+  it("clears the cache once per request even when EVERY page fails", async () => {
+    c.closeBatch.mockRejectedValue(new Error("boom"));
+    q.clearAudienceCache.mockClear();
+    const res = await bringPOST(post("/bring-in", { pageIds: [U1, U2] }));
+    expect(res.status).toBe(200);
+    expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
   });
 });

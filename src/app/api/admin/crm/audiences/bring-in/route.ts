@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { clearAudienceCache } from "@/lib/data/audience-query";
 import { closeBatch } from "@/lib/data/landing-close-batch";
 import { BRING_IN_MAX_PAGES, bringInSchema, firstPlainMessage } from "@/lib/validations/audience";
 
@@ -28,21 +29,28 @@ export async function POST(request: NextRequest) {
 
   // One page at a time; a page that fails never stops the rest.
   const pages: PageResult[] = [];
-  for (const id of ids) {
-    try {
-      const r = await closeBatch({ pageId: id, adminId: auth.user.id });
-      pages.push({ id, ok: true, paidAdded: r.paidAdded, interestedAdded: r.interestedAdded, skipped: r.skipped });
-    } catch (e) {
-      console.error("[audiences] bring-in failed", e instanceof Error ? e.name : "unknown");
-      pages.push({
-        id,
-        ok: false,
-        paidAdded: 0,
-        interestedAdded: 0,
-        skipped: 0,
-        error: "Could not bring this page in. Please try again.",
-      });
+  try {
+    for (const id of ids) {
+      try {
+        const r = await closeBatch({ pageId: id, adminId: auth.user.id });
+        pages.push({ id, ok: true, paidAdded: r.paidAdded, interestedAdded: r.interestedAdded, skipped: r.skipped });
+      } catch (e) {
+        console.error("[audiences] bring-in failed", e instanceof Error ? e.name : "unknown");
+        pages.push({
+          id,
+          ok: false,
+          paidAdded: 0,
+          interestedAdded: 0,
+          skipped: 0,
+          error: "Could not bring this page in. Please try again.",
+        });
+      }
     }
+  } finally {
+    // This only clears the cache of the server instance that handled this request; other instances keep
+    // theirs for up to 60 seconds. The page compensates: its facets read and the count after Bring in
+    // ask for fresh data. New people may have been added even if pages failed or the run was cut short.
+    clearAudienceCache();
   }
   return NextResponse.json({ pages });
 }

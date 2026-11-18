@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { AudienceFilter } from "@/lib/crm/audience-filter";
+import { AUDIENCE_STATUSES, type AudienceFilter } from "@/lib/crm/audience-filter";
 import type { AudienceFacets } from "@/lib/data/audience-query";
 import { Chip, FilterCard, SegmentedControl } from "@/components/admin/crm/audience-controls";
 
@@ -13,12 +13,6 @@ const MODE_OPTIONS: { value: AudienceFilter["mode"]; label: string }[] = [
   { value: "recorded", label: "Recorded" },
   { value: "live", label: "Live" },
 ];
-const WHO_OPTIONS: { value: AudienceFilter["who"]; label: string }[] = [
-  { value: "paid", label: "Paid" },
-  { value: "unpaid", label: "Registered, not paid" },
-  { value: "both", label: "Both" },
-];
-
 function countryName(code: string): string {
   if (code === "AE") return "UAE";
   try {
@@ -29,6 +23,10 @@ function countryName(code: string): string {
 }
 
 const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
+// Keeps the fixed display order whatever order the chips were ticked in.
+const toggleStatus = (list: AudienceFilter["statuses"], v: AudienceFilter["statuses"][number]) =>
+  AUDIENCE_STATUSES.map((s) => s.value).filter((x) => (x === v ? !list.includes(v) : list.includes(x)));
 
 const dateInput =
   "min-h-11 w-full rounded-xl border border-pz-outline-variant bg-pz-surface-container-lowest px-3 py-2 font-body text-base md:text-sm";
@@ -61,7 +59,7 @@ export function AudienceFilters({
       <FilterCard
         titleId={`${ids}-course`}
         title="Course"
-        helper="Pick one or several. A person matches if they registered for any of them. Pick none for every course."
+        helper="Pick one or more courses. Pick none for every course."
       >
         <div className="flex flex-wrap gap-2">
           {shown.map((name) => (
@@ -120,7 +118,7 @@ export function AudienceFilters({
         <SegmentedControl label="Recorded or live" value={filter.mode} options={MODE_OPTIONS} onChange={(mode) => set({ mode })} />
         {filter.mode !== "either" && (
           <p className="font-body text-xs text-pz-on-surface-variant">
-            People from old imported sheets have no recorded or live value, so they are left out when you pick one.
+            Older sheets may not say Recorded or Live, so those people only appear under Either.
           </p>
         )}
       </FilterCard>
@@ -139,8 +137,32 @@ export function AudienceFilters({
         <p className="font-body text-xs text-pz-on-surface-variant">Country comes from the phone number.</p>
       </FilterCard>
 
-      <FilterCard titleId={`${ids}-who`} title="Who">
-        <SegmentedControl label="Who" value={filter.who} options={WHO_OPTIONS} onChange={(who) => set({ who })} />
+      <FilterCard titleId={`${ids}-status`} title="Payment status" helper="Tick none to include everyone.">
+        <div className="flex flex-wrap gap-2">
+          {AUDIENCE_STATUSES.map(({ value, label }) => {
+            const num = facets.statusCounts[value];
+            return (
+              <Chip
+                key={value}
+                on={filter.statuses.includes(value)}
+                onClick={() => set({ statuses: toggleStatus(filter.statuses, value) })}
+                describedBy={value === "part_paid" ? `${ids}-part-paid` : undefined}
+                ariaLabel={num === undefined ? undefined : `${label}, ${num.toLocaleString("en-US")} ${num === 1 ? "person" : "people"}`}
+              >
+                {label}
+                {num !== undefined && (
+                  <span aria-hidden="true" className="ml-2 text-xs tabular-nums opacity-80">
+                    {num.toLocaleString("en-US")}
+                  </span>
+                )}
+              </Chip>
+            );
+          })}
+        </div>
+        <span id={`${ids}-part-paid`} className="sr-only">Part-paid is also called underpaid.</span>
+        <p className="font-body text-xs text-pz-on-surface-variant">
+          Reserved: a seat is held until they pay, for example people you added by hand.
+        </p>
       </FilterCard>
 
       <FilterCard titleId={`${ids}-dates`} title="Registered between">

@@ -41,7 +41,7 @@ async function bringInOne(id: string): Promise<PageResult> {
 function resultLine(r: PageResult): string {
   if (!r.ok) return r.error ?? "Could not bring this page in. Please try again.";
   const main = `Brought in ${r.paidAdded.toLocaleString("en-US")} paid, ${r.interestedAdded.toLocaleString("en-US")} interested.`;
-  return r.skipped > 0 ? `${main} ${r.skipped.toLocaleString("en-US")} left out: no email or phone, or no consent.` : main;
+  return r.skipped > 0 ? `${main} ${r.skipped.toLocaleString("en-US")} cannot be used: no email or phone, or no consent.` : main;
 }
 
 export function BringInDialog({ landingPages, onDone }: { landingPages: LandingPage[]; onDone: () => void }) {
