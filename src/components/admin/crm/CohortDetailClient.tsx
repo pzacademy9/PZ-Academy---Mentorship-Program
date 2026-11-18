@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveList } from "@/components/ui/responsive-list";
-import { formatDate } from "@/lib/format";
+import { formatDatePkt } from "@/lib/format";
 import type { CohortDetail } from "@/lib/data/admin-crm-import";
 
 export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
@@ -28,8 +28,8 @@ export function CohortDetailClient({ cohort }: { cohort: CohortDetail }) {
           {cohort.sheetName} — {cohort.tabName}
         </h1>
         <p className="font-body text-sm text-pz-on-surface-variant mt-1">
-          {cohort.courseTitle ? <span>{cohort.courseTitle}</span> : <span className="text-pz-danger">untagged</span>}
-          {" · "}Imported {formatDate(cohort.createdAt)} ·{" "}
+          {cohort.courseTitle ? <span>{cohort.courseTitle}</span> : <span className="text-pz-danger">Course not set</span>}
+          {" · "}Imported {formatDatePkt(cohort.createdAt)} ·{" "}
           {cohort.kind === "closed_interested"
             ? `${cohort.contactCount} ${cohort.contactCount === 1 ? "person" : "people"}`
             : `${cohort.purchaseCount} of ${cohort.rowsImported} rows still attached`}
