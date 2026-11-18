@@ -15,22 +15,23 @@
    time you press it; if you have more, press it again for the rest).
 4. Press Bring in and wait until it says it is finished.
 
-## What changes for you
+## 3. What changes for you
 
-- A person who bought one course but only reserved or registered for
-  another course now shows as Reserved or Pending for that other course
-  (and still shows as Paid for the course they bought).
-- A person who bought the same course never shows as Reserved or Pending
-  for it.
-- Cohorts, "Interested, not paid" for landing pages: the numbers go up,
-  because people who bought a different course are now counted too.
-- No one is emailed.
+1. A person who bought one course but only reserved or registered for
+   another course now shows as Reserved or Pending for that other course
+   (and still shows as Paid for the course they bought).
+2. A person who bought the same course never shows as Reserved or Pending
+   for it.
+3. Cohorts, "Interested, not paid" for landing pages: the numbers go up,
+   because people who bought a different course are now counted too.
+4. The Cohorts download can be a little smaller than the number shown,
+   because people who already bought this course are left out.
+5. No one is emailed.
 
-## 3. Check it worked
+## 4. Check it worked
 
 Run this in the SQL Editor. It only reads, it changes nothing. Run it once
-BEFORE step 2 and once AFTER, and compare. The numbers should go up
-(or stay the same), never down.
+BEFORE step 2 and once AFTER, and compare. The numbers should mostly go up; it can drop a little if someone paid on that page since the last Bring in.
 
 ```sql
 select b.sheet_name, count(ibc.contact_id) as interested_people

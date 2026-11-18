@@ -129,6 +129,29 @@ describe("loadCohortAudience", () => {
     });
   });
 
+  it("falls back to the strict any-purchase rule when source_page_id / course_id cannot be read", async () => {
+    setup({
+      import_batches: [batch("bi", "closed_interested", { source_page_id: "pg1", course_id: "cA" })],
+      contacts: [contact("a"), contact("b")],
+      import_batch_contacts: [
+        { import_batch_id: "bi", contact_id: "a" },
+        { import_batch_id: "bi", contact_id: "b" },
+      ],
+      contact_purchases: [{ id: "p1", contact_id: "b", import_batch_id: "other", course_id: "cB" }],
+    });
+    const inner = db.state.handler;
+    db.state.handler = (op) => {
+      if (op.table !== "import_batches" || op.op !== "select") return inner(op);
+      if (op.columns?.includes("source_page_id")) return { data: null, error: { code: "42703", message: "column does not exist" } };
+      // The plain read returns only the plain columns, as the database would.
+      const res = inner(op);
+      const rows = (res.data as Array<Record<string, unknown>>).map((r) => ({ id: r.id, sheet_name: r.sheet_name, tab_name: r.tab_name, kind: r.kind }));
+      return { ...res, data: rows };
+    };
+    const { contacts } = await loadCohortAudience(["bi"]);
+    expect(contacts.map((c) => c.id)).toEqual(["a"]);
+  });
+
   it("a contact in two selected cohorts appears once", async () => {
     setup({
       import_batches: [batch("b1", "imported"), batch("b2", "closed_paid")],
