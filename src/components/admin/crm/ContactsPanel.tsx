@@ -1,43 +1,32 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ResponsiveList } from "@/components/ui/responsive-list";
+import { ContactsList } from "@/components/admin/crm/ContactsList";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { SELECTED_CONTACTS_STORAGE_KEY } from "@/lib/crm/segment";
 import { ASSIGN_CONTACTS_STORAGE_KEY } from "@/lib/crm/assignment";
-
-type ContactRow = {
-  id: string;
-  fullName: string;
-  email: string | null;
-  phoneE164: string | null;
-  country: string | null;
-  discoverySource: string;
-  purchaseCount: number;
-  productLabels: string[];
-  unsubscribed: boolean;
-};
+import type { ContactRow } from "@/lib/data/admin-crm-contacts";
 
 type BatchOption = { id: string; sheetName: string; tabName: string; rowsImported: number };
 
-/** Course names for the list cell, falling back to the raw label when it names no course. */
-function courseSummary(labels: string[]): string {
-  const names = labels.map((l) => courseNameFromLabel(l) || l);
-  return Array.from(new Set(names)).join(", ");
-}
+const PAGE_SIZE = 50;
 
 export function ContactsPanel({ initialRows, initialTotal }: { initialRows: ContactRow[]; initialTotal: number }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [search, setSearch] = useState("");
+  // The search text that produced the rows on screen; paging reuses it rather
+  // than whatever is half-typed in the box.
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  // The page a failed request was after, so "Try again" repeats that request.
+  const failedPage = useRef(1);
   const [courseName, setCourseName] = useState("");
   const [importBatchId, setImportBatchId] = useState("");
   const [courseOptions, setCourseOptions] = useState<string[]>([]);
@@ -80,28 +69,50 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       .catch(() => {});
   }, []);
 
-  async function runSearch(next?: { courseName?: string; importBatchId?: string }) {
-    const params = new URLSearchParams({ limit: "50", offset: "0" });
-    if (search.trim() !== "") params.set("search", search.trim());
+  async function loadPage(
+    targetPage: number,
+    next?: { search?: string; courseName?: string; importBatchId?: string },
+  ) {
+    const q = next?.search ?? appliedSearch;
     const course = next?.courseName ?? courseName;
     const batch = next?.importBatchId ?? importBatchId;
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String((targetPage - 1) * PAGE_SIZE) });
+    if (q !== "") params.set("search", q);
     if (course !== "") params.set("courseName", course);
     if (batch !== "") params.set("importBatchId", batch);
+    if (next?.search !== undefined) setAppliedSearch(q);
 
     const ticket = ++latestSearch.current;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/crm/contacts?${params.toString()}`);
-      if (!res.ok || ticket !== latestSearch.current) return;
+      if (ticket !== latestSearch.current) return;
+      if (!res.ok) { failedPage.current = targetPage; setError("load"); return; }
       const json = await res.json();
       if (ticket !== latestSearch.current) return;
+      const lastPage = Math.max(1, Math.ceil(json.total / PAGE_SIZE));
+      if (targetPage > lastPage) {
+        // The total shrank under us: show the last page that exists instead
+        // of an empty one. The recursive call takes over the ticket and busy flag.
+        setTotal(json.total);
+        void loadPage(lastPage, next);
+        return;
+      }
       // Local state update, not router.refresh() — refresh() cannot reach a
       // mounted client component's own useState.
       setRows(json.rows);
       setTotal(json.total);
+      setPage(targetPage);
+      setError(null);
+    } catch {
+      if (ticket === latestSearch.current) { failedPage.current = targetPage; setError("load"); }
     } finally {
       if (ticket === latestSearch.current) setBusy(false);
     }
+  }
+
+  function runSearch(next?: { courseName?: string; importBatchId?: string }) {
+    return loadPage(1, { search: search.trim(), ...next });
   }
 
   function toggleSelected(id: string) {
@@ -180,63 +191,70 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     }
   });
 
+  const filtered = appliedSearch !== "" || courseName !== "" || importBatchId !== "";
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
-          placeholder="Search name, email, or phone"
-          className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
-        />
-        <Button
-          variant="bare"
-          size="bare"
-          loading={busy}
-          onClick={() => runSearch()}
-          className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
-        >
-          {busy ? "Searching…" : "Search"}
-        </Button>
-      </div>
+      <section className="rounded-2xl border border-pz-outline-variant bg-pz-surface-container-lowest p-4 md:p-5 space-y-3">
+        <h2 className="flex items-center gap-2 font-headline text-sm font-bold uppercase tracking-wide text-pz-secondary">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pz-primary text-xs text-pz-on-primary">1</span>{" "}
+          Find people
+        </h2>
 
-      <div className="flex gap-2 flex-wrap items-center">
-        <select
-          value={courseName}
-          onChange={(e) => { setCourseName(e.target.value); void runSearch({ courseName: e.target.value }); }}
-          className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
-        >
-          <option value="">All courses</option>
-          {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <select
-          value={importBatchId}
-          onChange={(e) => { setImportBatchId(e.target.value); void runSearch({ importBatchId: e.target.value }); }}
-          className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
-        >
-          <option value="">All cohorts</option>
-          {batches.map((b) => (
-            <option key={b.id} value={b.id}>{b.sheetName} — {b.tabName} ({b.rowsImported})</option>
-          ))}
-        </select>
-
-        {(courseName !== "" || importBatchId !== "") && (
-          <button
-            onClick={() => { setCourseName(""); setImportBatchId(""); void runSearch({ courseName: "", importBatchId: "" }); }}
-            className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
+        <div className="flex gap-2 flex-wrap">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+            placeholder="Search name, email, or phone"
+            className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
+          />
+          <Button
+            variant="bare"
+            size="bare"
+            loading={busy}
+            onClick={() => void runSearch()}
+            className="px-5 py-2 rounded-full bg-pz-primary text-pz-on-primary font-headline text-sm font-semibold max-md:min-h-11"
           >
-            Clear filters
-          </button>
-        )}
-      </div>
+            {busy ? "Searching…" : "Search"}
+          </Button>
+        </div>
+
+        <div className="flex gap-2 flex-wrap items-center">
+          <select
+            aria-label="Course"
+            value={courseName}
+            onChange={(e) => { setCourseName(e.target.value); void runSearch({ courseName: e.target.value }); }}
+            className="max-w-[420px] rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
+          >
+            <option value="">All courses</option>
+            {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <select
+            aria-label="Class group"
+            value={importBatchId}
+            onChange={(e) => { setImportBatchId(e.target.value); void runSearch({ importBatchId: e.target.value }); }}
+            className="rounded-xl border border-pz-outline-variant px-3 py-2 font-body text-sm max-md:w-full max-md:max-w-full max-md:min-h-11 max-md:text-base"
+          >
+            <option value="">All class groups</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.sheetName} — {b.tabName} ({b.rowsImported})</option>
+            ))}
+          </select>
+
+          {(courseName !== "" || importBatchId !== "" || appliedSearch !== "") && (
+            <button
+              onClick={() => { setSearch(""); setCourseName(""); setImportBatchId(""); void loadPage(1, { search: "", courseName: "", importBatchId: "" }); }}
+              className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </section>
 
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="font-body text-xs text-pz-on-surface-variant">
-          Showing {rows.length} of {total} contacts
-        </p>
-
         {selected.size > 0 && (
           <div className="flex items-center gap-x-3 gap-y-1 flex-wrap bg-pz-surface-container-high rounded-2xl md:rounded-full px-4 py-1.5">
             <span className="font-body text-xs font-semibold">{selected.size} selected</span>
@@ -308,85 +326,19 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         )}
       </div>
 
-      <ResponsiveList
+      <ContactsList
         rows={rows}
-        getKey={(c) => c.id}
-        empty={
-          <EmptyState
-            icon={Users}
-            title="No contacts yet"
-            description="Use the Import tab to bring in a cohort sheet."
-            action={{ label: "Import contacts", href: "/dashboard/admin/sales-hub/import" }}
-          />
-        }
-        mobile={{
-          title: (c) => c.fullName || c.email || "—",
-          meta: (c) => [
-            c.email,
-            c.phoneE164 ?? "Phone needs review",
-            c.productLabels.length > 0 ? courseSummary(c.productLabels) : null,
-            c.unsubscribed ? "Unsubscribed" : null,
-          ].filter(Boolean),
-          href: (c) => `/dashboard/admin/sales-hub/contacts/${c.id}`,
-        }}
-        selection={{
-          isSelected: (c) => selected.has(c.id),
-          onToggle: (c) => toggleSelected(c.id),
-          label: (c) => `Select ${c.fullName || c.email || c.id}`,
-        }}
-        table={
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-body text-sm">
-                <thead className="text-pz-on-surface-variant text-xs uppercase">
-                  <tr>
-                    <th className="py-2 w-8">
-                      <input
-                        type="checkbox"
-                        checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
-                        onChange={toggleSelectAllVisible}
-                        aria-label="Select all shown"
-                      />
-                    </th>
-                    <th>Name</th><th>Email</th><th>Phone</th><th>Registered for</th><th>Country</th><th>Source</th><th>Purchases</th>
-                  </tr>
-                </thead>
-                {rows.map((c) => (
-                  <tbody key={c.id}>
-                      <tr className="border-t border-pz-outline-variant">
-                        <td className="py-2">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(c.id)}
-                            onChange={() => toggleSelected(c.id)}
-                            aria-label={`Select ${c.fullName || c.email || c.id}`}
-                          />
-                        </td>
-                        <td>
-                          <Link href={`/dashboard/admin/sales-hub/contacts/${c.id}`} className="text-left underline">
-                            {c.fullName || "—"}
-                          </Link>
-                          {c.unsubscribed && <span className="ml-2 text-xs text-pz-danger">unsubscribed</span>}
-                        </td>
-                        <td>{c.email ?? "—"}</td>
-                        <td className={c.phoneE164 ? "" : "text-pz-danger"}>{c.phoneE164 ?? "needs review"}</td>
-                        <td className="max-w-[260px]">
-                          {c.productLabels.length === 0 ? "—" : (
-                            // Course names read; the full labels (price, promo, tier)
-                            // stay one hover away and are shown on the contact detail page.
-                            <span title={c.productLabels.join("\n")} className="line-clamp-2">
-                              {courseSummary(c.productLabels)}
-                            </span>
-                          )}
-                        </td>
-                        <td>{c.country ?? "—"}</td>
-                        <td>{c.discoverySource}</td>
-                        <td className="tabular-nums">{c.purchaseCount}</td>
-                      </tr>
-                  </tbody>
-                ))}
-              </table>
-            </div>
-        }
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        busy={busy}
+        error={error}
+        selected={selected}
+        filtered={filtered}
+        onToggle={toggleSelected}
+        onToggleAllShown={toggleSelectAllVisible}
+        onPage={(p) => void loadPage(p)}
+        onRetry={() => void loadPage(failedPage.current)}
       />
     </div>
   );
