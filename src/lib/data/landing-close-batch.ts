@@ -20,7 +20,7 @@ export interface CloseBatchResult {
 
 const PAGE_SIZE = 1000;
 const REG_COLUMNS =
-  "id, row_type, lead_registration_id, name, email, whatsapp, profession, discovery, consent, status, expected_amount, currency, promo_code_text, created_at, status_changed_at, is_test";
+  "id, row_type, lead_registration_id, name, email, whatsapp, profession, discovery, consent, status, expected_amount, currency, promo_code_text, created_at, status_changed_at, is_test, mode, option_keys, region";
 
 function check(what: string, error: { message: string } | null): void {
   if (error) throw new Error(`${what} failed: ${error.message}`);

@@ -1055,6 +1055,9 @@ export type Database = {
           product_label: string
           promo_code: string | null
           purchased_at: string | null
+          reg_mode: string | null
+          region: string | null
+          option_keys: string[]
           row_type: Database["public"]["Enums"]["crm_row_type"]
           source_row_ref: string
           source_sheet_id: string
@@ -1071,6 +1074,9 @@ export type Database = {
           product_label?: string
           promo_code?: string | null
           purchased_at?: string | null
+          reg_mode?: string | null
+          region?: string | null
+          option_keys?: string[]
           row_type?: Database["public"]["Enums"]["crm_row_type"]
           source_row_ref: string
           source_sheet_id: string
@@ -1937,14 +1943,26 @@ export type Database = {
         Row: {
           contact_id: string
           import_batch_id: string
+          reg_mode: string | null
+          region: string | null
+          option_keys: string[]
+          registered_at: string | null
         }
         Insert: {
           contact_id: string
           import_batch_id: string
+          reg_mode?: string | null
+          region?: string | null
+          option_keys?: string[]
+          registered_at?: string | null
         }
         Update: {
           contact_id?: string
           import_batch_id?: string
+          reg_mode?: string | null
+          region?: string | null
+          option_keys?: string[]
+          registered_at?: string | null
         }
         Relationships: [
           {
@@ -4887,6 +4905,33 @@ export type Database = {
           updated_at?: string
           warmup_start?: number
           warmup_step?: number
+        }
+        Relationships: []
+      }
+      crm_saved_audiences: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }

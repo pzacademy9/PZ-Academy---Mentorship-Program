@@ -19,6 +19,9 @@ function reg(over: Partial<RegRow> = {}): RegRow {
     created_at: "2026-10-01T10:00:00Z",
     status_changed_at: "2026-10-02T10:00:00Z",
     is_test: false,
+    mode: "live",
+    option_keys: null,
+    region: "",
     ...over,
   };
 }
@@ -99,5 +102,42 @@ describe("mapRegistrations", () => {
     expect(a.contact.discoverySource).toBe("other");
     expect(a.purchase.purchasedAt).toBe("2026-10-01T10:00:00Z");
     expect(mapRegistrations([reg({ discovery: "" })]).rows[0].contact.discoverySource).toBe("unknown");
+  });
+
+  it("carries mode, option keys and region on the row", () => {
+    const row = mapRegistrations([reg({ mode: "recorded", option_keys: ["m1", "m2"], region: "UK" })]).rows[0];
+    expect(row.purchase.mode).toBe("recorded");
+    expect(row.optionKeys).toEqual(["m1", "m2"]);
+    expect(row.region).toBe("UK");
+  });
+
+  it("turns an empty region into null and null option keys into []", () => {
+    const row = mapRegistrations([reg({ region: "", option_keys: null })]).rows[0];
+    expect(row.region).toBeNull();
+    expect(row.optionKeys).toEqual([]);
+  });
+
+  it("lets a member with blank values inherit its lead's", () => {
+    const lead = reg({ id: "L", row_type: "lead", mode: "recorded", option_keys: ["m3"], region: "UAE" });
+    const member = reg({ id: "M", row_type: "member", lead_registration_id: "L", email: "m@x.com", mode: "" as RegRow["mode"], option_keys: null, region: "" });
+    const m = mapRegistrations([lead, member]).rows.find((r) => r.rowRef === "M")!;
+    expect(m.optionKeys).toEqual(["m3"]);
+    expect(m.region).toBe("UAE");
+    expect(m.purchase.mode).toBe("recorded");
+  });
+
+  it("keeps a member's own values when it has them", () => {
+    const lead = reg({ id: "L", row_type: "lead", mode: "recorded", option_keys: ["m3"], region: "UAE" });
+    const member = reg({ id: "M", row_type: "member", lead_registration_id: "L", email: "m@x.com", mode: "live", option_keys: ["m9"], region: "US" });
+    const m = mapRegistrations([lead, member]).rows.find((r) => r.rowRef === "M")!;
+    expect(m.optionKeys).toEqual(["m9"]);
+    expect(m.region).toBe("US");
+    expect(m.purchase.mode).toBe("live");
+  });
+
+  it("carries registeredAt equal to created_at on an interested row", () => {
+    const row = mapRegistrations([reg({ status: "pending" })]).rows[0];
+    expect(row.bucket).toBe("interested");
+    expect(row.registeredAt).toBe("2026-10-01T10:00:00Z");
   });
 });

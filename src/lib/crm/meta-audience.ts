@@ -37,18 +37,24 @@ type AudienceItem = {
   country: string;
 };
 
+/** Why people were left out of a file: do-not-contact, or no usable email or phone. */
+export type AudienceLeftOut = { doNotContact: number; noContact: number };
+
 // Shared privacy rules and dedupe for the hashed and plain exports.
 function collectAudience(contacts: AudienceContact[]): {
   items: AudienceItem[];
   dropped: number;
+  leftOut: AudienceLeftOut;
 } {
   const items: AudienceItem[] = [];
   const seen = new Set<string>();
   let dropped = 0;
+  const leftOut: AudienceLeftOut = { doNotContact: 0, noContact: 0 };
 
   for (const c of contacts) {
     if (c.doNotContactAt) {
       dropped++;
+      leftOut.doNotContact++;
       continue;
     }
     const emailReachable = !c.emailUnsubscribedAt && !c.emailSuppressed;
@@ -58,6 +64,7 @@ function collectAudience(contacts: AudienceContact[]): {
       : (c.phoneE164 ?? "").replace(/\D/g, "");
     if (!email && !phoneDigits) {
       dropped++;
+      leftOut.noContact++;
       continue;
     }
 
@@ -80,14 +87,15 @@ function collectAudience(contacts: AudienceContact[]): {
     });
   }
 
-  return { items, dropped };
+  return { items, dropped, leftOut };
 }
 
 export function buildMetaRows(contacts: AudienceContact[]): {
   rows: MetaRow[];
   dropped: number;
+  leftOut: AudienceLeftOut;
 } {
-  const { items, dropped } = collectAudience(contacts);
+  const { items, dropped, leftOut } = collectAudience(contacts);
   const rows = items.map((i) => ({
     email: hashOrBlank(i.email),
     phone: hashOrBlank(i.phoneDigits),
@@ -95,14 +103,15 @@ export function buildMetaRows(contacts: AudienceContact[]): {
     ln: hashOrBlank(i.last),
     country: hashOrBlank(i.country),
   }));
-  return { rows, dropped };
+  return { rows, dropped, leftOut };
 }
 
 export function buildPlainRows(contacts: AudienceContact[]): {
   rows: PlainRow[];
   dropped: number;
+  leftOut: AudienceLeftOut;
 } {
-  const { items, dropped } = collectAudience(contacts);
+  const { items, dropped, leftOut } = collectAudience(contacts);
   const rows = items.map((i) => ({
     email: i.email,
     phone: i.phoneDigits ? `+${i.phoneDigits}` : "",
@@ -110,7 +119,7 @@ export function buildPlainRows(contacts: AudienceContact[]): {
     ln: i.last.replace(/\s+/g, " "),
     country: i.country.toUpperCase(),
   }));
-  return { rows, dropped };
+  return { rows, dropped, leftOut };
 }
 
 export function toMetaCsv(rows: MetaRow[]): string {

@@ -157,3 +157,15 @@ describe("cohorts panel: plain download", () => {
     expect(link.hasAttribute("download")).toBe(true);
   });
 });
+
+describe("cohorts panel: pointers", () => {
+  it("links to Audiences above the toolbar", () => {
+    view([cohort()]);
+    const link = screen.getByRole("link", { name: /Use Audiences/ });
+    expect(link.getAttribute("href")).toBe("/dashboard/admin/sales-hub/audiences");
+  });
+  it("empty state action says Import a sheet", () => {
+    render(<CohortsPanel initialCohorts={[]} />);
+    expect(screen.getByRole("link", { name: "Import a sheet" }).getAttribute("href")).toBe("/dashboard/admin/sales-hub/import");
+  });
+});

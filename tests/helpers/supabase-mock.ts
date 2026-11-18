@@ -23,6 +23,8 @@ export interface Op {
   head: boolean;
   returning: boolean;
   upsertOptions?: Record<string, unknown>;
+  /** The column list passed to select(), when one was given. */
+  columns?: string;
 }
 export type Store = Record<string, Record<string, unknown>[]>;
 export type RpcHandler = (fn: string, args: unknown, store: Store) => Res;
@@ -51,6 +53,7 @@ export function createSupabaseMock() {
     const b: Record<string, unknown> = {
       select: (_cols?: string, opts?: { count?: string; head?: boolean }) => {
         if (op.op !== "select") op.returning = true;
+        if (_cols !== undefined) op.columns = _cols;
         if (opts?.count) op.count = true;
         if (opts?.head) op.head = true;
         return b;
