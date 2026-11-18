@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       tooLarge: c.tooLarge,
       ignoredChoices: c.ignoredChoices,
       needsUpdate: c.needsUpdate,
+      statusNeedsUpdate: c.statusNeedsUpdate,
     });
   } catch (e) {
     console.error("[audiences] count failed", e instanceof Error ? e.name : "unknown");

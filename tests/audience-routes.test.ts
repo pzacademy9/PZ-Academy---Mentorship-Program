@@ -75,12 +75,12 @@ describe("count route", () => {
   });
   it("returns only the numbers", async () => {
     q.countAudience.mockResolvedValue({
-      total: 10, inFile: 8, leftOut: { noContact: 1, doNotContact: 1 }, tooLarge: false, needsUpdate: false, ignoredChoices: [],
+      total: 10, inFile: 8, leftOut: { noContact: 1, doNotContact: 1 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],
     });
     const res = await countPOST(post("/count", F));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Object.keys(body).sort()).toEqual(["ignoredChoices", "inFile", "leftOut", "needsUpdate", "tooLarge", "total"]);
+    expect(Object.keys(body).sort()).toEqual(["ignoredChoices", "inFile", "leftOut", "needsUpdate", "statusNeedsUpdate", "tooLarge", "total"]);
     expect(JSON.stringify(body)).not.toContain("@");
   });
   it("500 is generic and logs only the step", async () => {
@@ -249,7 +249,7 @@ describe("saved routes", () => {
 
 describe("facets route", () => {
   it("returns the facets", async () => {
-    q.audienceFacets.mockResolvedValue({ courses: [], countries: [], unknownCountry: 0, landingPages: [], needsUpdate: false });
+    q.audienceFacets.mockResolvedValue({ courses: [], countries: [], unknownCountry: 0, landingPages: [], statusCounts: {}, needsUpdate: false, statusNeedsUpdate: false });
     const res = await facetsGET();
     expect(res.status).toBe(200);
     expect((await res.json()).needsUpdate).toBe(false);

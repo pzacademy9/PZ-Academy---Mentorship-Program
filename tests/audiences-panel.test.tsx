@@ -21,7 +21,9 @@ const facets = (over: Partial<AudienceFacets> = {}): AudienceFacets => ({
   ],
   unknownCountry: 412,
   landingPages: [],
+  statusCounts: {},
   needsUpdate: false,
+  statusNeedsUpdate: false,
   ...over,
 });
 

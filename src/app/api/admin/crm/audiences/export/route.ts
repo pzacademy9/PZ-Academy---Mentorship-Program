@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename=${metaCsvFilename(nameLines, new Date(), plain ? "plain" : "hashed")}`,
         "Cache-Control": "no-store",
+        ...(file.statusNeedsUpdate ? { "X-Status-Needs-Update": "1" } : {}),
       },
     });
   } catch (e) {

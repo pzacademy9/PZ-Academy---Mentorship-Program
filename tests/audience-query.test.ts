@@ -11,6 +11,7 @@ import {
   loadAudienceFile,
   audienceFacets,
   courseNameOf,
+  modeFromLabel,
 } from "@/lib/data/audience-query";
 import { loadAudienceContacts, loadCohortAudience, mapPool } from "@/lib/data/cohort-export";
 import { DEFAULT_AUDIENCE_FILTER, type AudienceFilter } from "@/lib/crm/audience-filter";
@@ -156,6 +157,115 @@ describe("mapPool", () => {
   });
 });
 
+describe("modeFromLabel", () => {
+  it("finds exactly one of the words Live or Recorded, as whole words", () => {
+    expect(modeFromLabel("Clinical Course — Live — PKR 1,000")).toBe("live");
+    expect(modeFromLabel("Recorded — Individual")).toBe("recorded");
+    expect(modeFromLabel("LIVE class")).toBe("live");
+    expect(modeFromLabel("Live and Recorded")).toBeNull();
+    expect(modeFromLabel("Individual — PKR 2,700")).toBeNull();
+    expect(modeFromLabel("Free delivery, stay alive, liver")).toBeNull();
+    expect(modeFromLabel(null)).toBeNull();
+  });
+});
+
+describe("status of a registration", () => {
+  const withStatus = () =>
+    setup({
+      import_batches: [batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" })],
+      contacts: ["a", "r", "p", "u", "f", "n", "x", "z"].map((i) => contact(i)),
+      contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" })],
+      import_batch_contacts: [
+        interested("bi", "a", { reg_status: "reserved" }),
+        interested("bi", "r", { reg_status: "reserved" }),
+        interested("bi", "p", { reg_status: "pending" }),
+        interested("bi", "u", { reg_status: "underpaid" }),
+        interested("bi", "f", { reg_status: "free" }),
+        interested("bi", "n", { reg_status: null }),
+        interested("bi", "x", { reg_status: "  " }),
+        interested("bi", "z", { reg_status: "weird" }),
+      ],
+    });
+
+  it("purchases are paid; interested rows use reg_status; underpaid is part-paid; blank or unknown is pending", async () => {
+    withStatus();
+    expect(await ids({ statuses: ["paid"] })).toEqual(["a"]);
+    expect(await ids({ statuses: ["reserved"] })).toEqual(["r"]);
+    expect(await ids({ statuses: ["pending"] })).toEqual(["n", "p", "x", "z"]);
+    expect(await ids({ statuses: ["part_paid"] })).toEqual(["u"]);
+    expect(await ids({ statuses: ["free"] })).toEqual(["f"]);
+    expect(await ids({ statuses: ["reserved", "free"] })).toEqual(["f", "r"]);
+    expect((await ids({ statuses: [] })).length).toBe(8);
+  });
+
+  it("status, course and date must hold on one registration", async () => {
+    setup({
+      import_batches: [batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" })],
+      contacts: [contact("a")],
+      import_batch_contacts: [interested("bi", "a", { reg_status: "reserved", registered_at: "2026-01-02T00:00:00+00:00" })],
+    });
+    expect(await ids({ statuses: ["reserved"], from: "2026-01-01" })).toEqual(["a"]);
+    expect(await ids({ statuses: ["reserved"], from: "2026-02-01" })).toEqual([]);
+    expect(await ids({ statuses: ["pending"], from: "2026-01-01" })).toEqual([]);
+  });
+
+  it("before 0117 (no reg_status column) it retries without it, every interested row is pending, and flags statusNeedsUpdate", async () => {
+    setup(
+      {
+        import_batches: [batch("bi", "closed_interested")],
+        contacts: [contact("a"), contact("b")],
+        import_batch_contacts: [interested("bi", "a"), interested("bi", "b")],
+      },
+      (op, inner) => {
+        if (op.table === "import_batch_contacts" && op.columns?.includes("reg_status")) {
+          return { data: null, error: { code: "42703", message: "column import_batch_contacts.reg_status does not exist" } };
+        }
+        return inner(op);
+      },
+    );
+    const r = await resolveAudienceContactIds(F({ statuses: ["pending"] }));
+    expect(r).toEqual({ ids: ["a", "b"], needsUpdate: false, statusNeedsUpdate: true, ignoredChoices: [] });
+    expect((await resolveAudienceContactIds(F({ statuses: ["reserved"] }))).ids).toEqual([]);
+    expect(await countAudience(F())).toMatchObject({ needsUpdate: false, statusNeedsUpdate: true, total: 2 });
+    expect(await loadAudienceFile(F())).toMatchObject({ needsUpdate: false, statusNeedsUpdate: true });
+    expect((await audienceFacets()).statusNeedsUpdate).toBe(true);
+  });
+
+  it("with the column present statusNeedsUpdate is false", async () => {
+    withStatus();
+    expect((await resolveAudienceContactIds(F())).statusNeedsUpdate).toBe(false);
+    expect((await countAudience(F())).statusNeedsUpdate).toBe(false);
+    expect((await loadAudienceFile(F())).statusNeedsUpdate).toBe(false);
+  });
+
+  it("facets count people per status, ignoring other filters", async () => {
+    withStatus();
+    const f = await audienceFacets();
+    expect(f.statusCounts).toEqual({ paid: 1, reserved: 1, pending: 4, part_paid: 1, free: 1 });
+    expect(f.statusNeedsUpdate).toBe(false);
+  });
+});
+
+describe("mode from the text when reg_mode is empty", () => {
+  it("purchase uses its label; interested uses the batch sheet name; reg_mode wins", async () => {
+    setup({
+      import_batches: [
+        batch("b1", "closed_interested", { sheet_name: "Clinical Course Recorded (interested)" }),
+        batch("b2", "closed_interested", { sheet_name: "Other (interested)" }),
+      ],
+      contacts: ["a", "b", "c", "d", "e"].map((i) => contact(i)),
+      contact_purchases: [
+        purchase("p1", "a", { product_label: "Clinical Course — Live — PKR 1" }),
+        purchase("p2", "b", { product_label: "Clinical Course — Live — PKR 1", reg_mode: "recorded" }),
+        purchase("p3", "c", { product_label: "Clinical Course — Live and Recorded" }),
+      ],
+      import_batch_contacts: [interested("b1", "d"), interested("b2", "e")],
+    });
+    expect(await ids({ mode: "live" })).toEqual(["a"]);
+    expect(await ids({ mode: "recorded" })).toEqual(["b", "d"]);
+  });
+});
+
 describe("resolveAudienceContactIds", () => {
   it("(a) recorded matches through the recorded landing purchase, never through the imported one", async () => {
     setup({
@@ -251,7 +361,7 @@ describe("resolveAudienceContactIds", () => {
       }
       return inner(op);
     });
-    expect(await resolveAudienceContactIds(F())).toEqual({ ids: [], needsUpdate: true, ignoredChoices: [] });
+    expect(await resolveAudienceContactIds(F())).toEqual({ ids: [], needsUpdate: true, statusNeedsUpdate: false, ignoredChoices: [] });
     const count = await countAudience(F());
     expect(count).toMatchObject({ total: 0, inFile: 0, needsUpdate: true, tooLarge: false });
     expect(await loadAudienceFile(F())).toMatchObject({ contacts: [], tooLarge: false });
@@ -284,10 +394,10 @@ describe("resolveAudienceContactIds", () => {
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" }), purchase("p2", "b", { course_id: "k-clin" })],
     });
     expect(await resolveAudienceContactIds(F({ courses: ["Gone Course", "Pharmacology Basics"] }))).toEqual({
-      ids: ["a"], needsUpdate: false, ignoredChoices: ["Gone Course"],
+      ids: ["a"], needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: ["Gone Course"],
     });
     expect(await resolveAudienceContactIds(F({ courses: ["Gone Course"] }))).toEqual({
-      ids: ["a", "b"], needsUpdate: false, ignoredChoices: ["Gone Course"],
+      ids: ["a", "b"], needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: ["Gone Course"],
     });
   });
 
@@ -326,7 +436,7 @@ describe("countAudience", () => {
     });
     const c = await countAudience(F());
     expect(c).toEqual({
-      total: 5, inFile: 2, leftOut: { noContact: 2, doNotContact: 1 }, tooLarge: false, needsUpdate: false, ignoredChoices: [],
+      total: 5, inFile: 2, leftOut: { noContact: 2, doNotContact: 1 }, tooLarge: false, needsUpdate: false, statusNeedsUpdate: false, ignoredChoices: [],
     });
     expect(c.total).toBe(c.inFile + c.leftOut.noContact + c.leftOut.doNotContact);
     const json = JSON.stringify(c);
@@ -394,7 +504,7 @@ describe("loadAudienceFile", () => {
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" }), purchase("p2", "b", { course_id: "k-clin" })],
     });
     const none = await loadAudienceFile(F({ courses: ["Gone Course", "Other Gone"] }));
-    expect(none).toEqual({ contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course", "Other Gone"], allCoursesGone: true });
+    expect(none).toEqual({ contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices: ["Gone Course", "Other Gone"], allCoursesGone: true, statusNeedsUpdate: false });
     expect(db.find("contacts", "select")).toHaveLength(0);
 
     const noCourses = await loadAudienceFile(F());

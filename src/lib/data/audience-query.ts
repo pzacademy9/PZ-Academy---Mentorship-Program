@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { buildMetaRows, type AudienceContact } from "@/lib/crm/meta-audience";
-import { AUDIENCE_MAX_PEOPLE, type AudienceFilter } from "@/lib/crm/audience-filter";
+import { AUDIENCE_MAX_PEOPLE, type AudienceFilter, type AudienceStatus } from "@/lib/crm/audience-filter";
 import { courseNameFromLabel } from "@/lib/crm/product-label";
 import { chunk, loadAudienceContacts, mapPool, pageAll, READ_POOL, ReadError } from "@/lib/data/cohort-export";
 
@@ -22,6 +22,8 @@ export type AudienceCount = {
   leftOut: { noContact: number; doNotContact: number };
   tooLarge: boolean;
   needsUpdate: boolean;
+  /** 0117 is not pasted: every interested person counts as Pending. */
+  statusNeedsUpdate: boolean;
   ignoredChoices: string[];
 };
 
@@ -31,7 +33,7 @@ type Registration = {
   mode: "live" | "recorded" | null;
   /** YYYY-MM-DD (UTC date part) or null when unknown. */
   date: string | null;
-  paid: boolean;
+  status: AudienceStatus;
 };
 
 type Registrations = {
@@ -56,6 +58,7 @@ type InterestedRow = {
   contact_id: string;
   reg_mode?: string | null;
   registered_at?: string | null;
+  reg_status?: string | null;
 };
 type BatchRow = { id: string; sheet_id: string; sheet_name: string; course_id: string | null; kind: string };
 
@@ -116,6 +119,26 @@ function modeOf(v: string | null | undefined): "live" | "recorded" | null {
   return v === "live" || v === "recorded" ? v : null;
 }
 
+/** "Live" or "Recorded" written in free text; both or neither gives null. */
+export function modeFromLabel(text: string | null | undefined): "live" | "recorded" | null {
+  if (!text) return null;
+  const live = /\blive\b/i.test(text);
+  const recorded = /\brecorded\b/i.test(text);
+  if (live === recorded) return null;
+  return live ? "live" : "recorded";
+}
+
+/** Landing registration status text -> audience status; unknown or blank is Pending. */
+function statusOf(v: string | null | undefined): AudienceStatus {
+  switch (v?.trim().toLowerCase()) {
+    case "paid": return "paid";
+    case "reserved": return "reserved";
+    case "underpaid": return "part_paid";
+    case "free": return "free";
+    default: return "pending";
+  }
+}
+
 function isMissingSchema(e: unknown): boolean {
   return e instanceof ReadError && e.missingSchema;
 }
@@ -123,9 +146,10 @@ function isMissingSchema(e: unknown): boolean {
 /**
  * Reads every registration. `withNew` selects the 0116 columns (recorded/live,
  * registration time); without them only course and purchase dates are known,
- * which is enough for the facets before the update is pasted.
+ * which is enough for the facets before the update is pasted. `withStatus`
+ * also selects the 0117 reg_status column of the interested rows.
  */
-async function loadRegistrations(withNew: boolean): Promise<Registrations> {
+async function loadRegistrations(withNew: boolean, withStatus = false): Promise<Registrations> {
   const admin = createAdminSupabase();
 
   const courses = await pageAll<{ id: string; title: string }>("courses", (from, to) =>
@@ -159,7 +183,15 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
 
   const interestedParts = await mapPool(chunk(Array.from(interestedBatches.keys())), READ_POOL, (part) =>
     pageAll<InterestedRow>("import_batch_contacts", (from, to) =>
-      withNew
+      withNew && withStatus
+        ? admin
+            .from("import_batch_contacts")
+            .select("import_batch_id, contact_id, reg_mode, registered_at, reg_status")
+            .in("import_batch_id", part)
+            .order("import_batch_id", { ascending: true })
+            .order("contact_id", { ascending: true })
+            .range(from, to)
+        : withNew
         ? admin
             .from("import_batch_contacts")
             .select("import_batch_id, contact_id, reg_mode, registered_at")
@@ -201,9 +233,9 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
     regs.push({
       contactId: p.contact_id,
       courseKey: named(name),
-      mode: modeOf(p.reg_mode),
+      mode: modeOf(p.reg_mode) ?? modeFromLabel(p.product_label),
       date: datePart(p.purchased_at ?? p.created_at),
-      paid: true,
+      status: "paid",
     });
   }
 
@@ -219,13 +251,26 @@ async function loadRegistrations(withNew: boolean): Promise<Registrations> {
     regs.push({
       contactId: r.contact_id,
       courseKey: named(name),
-      mode: modeOf(r.reg_mode),
+      mode: modeOf(r.reg_mode) ?? modeFromLabel(b?.sheet_name),
       date: datePart(r.registered_at),
-      paid: false,
+      status: statusOf(r.reg_status),
     });
   }
 
   return { regs, courseNames, batches };
+}
+
+/**
+ * Full read first; if only 0117 is missing, retry without reg_status
+ * (statusNeedsUpdate). A missing 0116 column rethrows the missing-schema error.
+ */
+async function loadRegistrationsTiered(): Promise<{ data: Registrations; statusNeedsUpdate: boolean }> {
+  try {
+    return { data: await loadRegistrations(true, true), statusNeedsUpdate: false };
+  } catch (e) {
+    if (!isMissingSchema(e)) throw e;
+  }
+  return { data: await loadRegistrations(true, false), statusNeedsUpdate: true };
 }
 
 /** id -> country (upper case, or null) for every contact. Narrow, paged. */
@@ -239,12 +284,13 @@ async function loadCountries(): Promise<Map<string, string | null>> {
 
 export async function resolveAudienceContactIds(
   f: AudienceFilter,
-): Promise<{ ids: string[]; needsUpdate: boolean; ignoredChoices: string[] }> {
+): Promise<{ ids: string[]; needsUpdate: boolean; statusNeedsUpdate: boolean; ignoredChoices: string[] }> {
   let data: Registrations;
+  let statusNeedsUpdate: boolean;
   try {
-    data = await loadRegistrations(true);
+    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered());
   } catch (e) {
-    if (isMissingSchema(e)) return { ids: [], needsUpdate: true, ignoredChoices: [] };
+    if (isMissingSchema(e)) return { ids: [], needsUpdate: true, statusNeedsUpdate: false, ignoredChoices: [] };
     throw e;
   }
 
@@ -258,14 +304,11 @@ export async function resolveAudienceContactIds(
     else ignoredChoices.push(c);
   }
 
-  const legacyWho = f.statuses.length === 0 ? "both" : f.statuses.length === 1 && f.statuses[0] === "paid" ? "paid" : !f.statuses.includes("paid") ? "unpaid" : "both";
   const dated = !!(f.from || f.to);
   const matched = new Set<string>();
   for (const r of data.regs) {
     if (matched.has(r.contactId)) continue;
-    // TODO(task3): replace this temporary paid/unpaid mapping with the real status filter.
-    if (legacyWho === "paid" && !r.paid) continue;
-    if (legacyWho === "unpaid" && r.paid) continue;
+    if (f.statuses.length > 0 && !f.statuses.includes(r.status)) continue;
     if (chosen.size > 0 && !chosen.has(r.courseKey)) continue;
     if (f.mode !== "either" && r.mode !== f.mode) continue;
     if (dated) {
@@ -287,12 +330,12 @@ export async function resolveAudienceContactIds(
   }
   ids.sort();
 
-  return { ids, needsUpdate: false, ignoredChoices };
+  return { ids, needsUpdate: false, statusNeedsUpdate, ignoredChoices };
 }
 
 export async function countAudience(f: AudienceFilter): Promise<AudienceCount> {
   const r = await resolveAudienceContactIds(f);
-  const base = { tooLarge: false, needsUpdate: r.needsUpdate, ignoredChoices: r.ignoredChoices };
+  const base = { tooLarge: false, needsUpdate: r.needsUpdate, statusNeedsUpdate: r.statusNeedsUpdate, ignoredChoices: r.ignoredChoices };
   const none = { noContact: 0, doNotContact: 0 };
   if (r.needsUpdate) return { ...base, total: 0, inFile: 0, leftOut: none };
   // Over the limit nobody's details are read: the page only says it is too many.
@@ -317,6 +360,7 @@ export type AudienceFile = {
   contacts: AudienceContact[];
   tooLarge: boolean;
   needsUpdate: boolean;
+  statusNeedsUpdate: boolean;
   ignoredChoices: string[];
   /** Courses were chosen and none of them exists any more: nothing is read. */
   allCoursesGone: boolean;
@@ -325,7 +369,7 @@ export type AudienceFile = {
 export async function loadAudienceFile(f: AudienceFilter): Promise<AudienceFile> {
   const r = await resolveAudienceContactIds(f);
   const ignoredChoices = r.ignoredChoices;
-  const none = { contacts: [], tooLarge: false, needsUpdate: false, ignoredChoices, allCoursesGone: false };
+  const none = { contacts: [], tooLarge: false, needsUpdate: false, statusNeedsUpdate: r.statusNeedsUpdate, ignoredChoices, allCoursesGone: false };
   if (r.needsUpdate) return { ...none, needsUpdate: true };
   const ignoredKeys = new Set(ignoredChoices.map(courseKey));
   const allCoursesGone = f.courses.length > 0 && f.courses.every((c) => ignoredKeys.has(courseKey(c)));
@@ -340,14 +384,18 @@ export type AudienceFacets = {
   countries: { code: string; count: number }[];
   unknownCountry: number;
   landingPages: { id: string; title: string; registrations: number; alreadyBrought: boolean }[];
+  /** People (distinct contacts) per status, ignoring every other filter. */
+  statusCounts: Partial<Record<AudienceStatus, number>>;
   needsUpdate: boolean;
+  statusNeedsUpdate: boolean;
 };
 
 export async function audienceFacets(): Promise<AudienceFacets> {
   let needsUpdate = false;
+  let statusNeedsUpdate = false;
   let data: Registrations;
   try {
-    data = await loadRegistrations(true);
+    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered());
   } catch (e) {
     if (!isMissingSchema(e)) throw e;
     // Before 0116 is pasted the old columns still name every course.
@@ -357,8 +405,12 @@ export async function audienceFacets(): Promise<AudienceFacets> {
 
   const people = new Map<string, Set<string>>();
   const everyone = new Set<string>();
+  const byStatus = new Map<AudienceStatus, Set<string>>();
   for (const r of data.regs) {
     everyone.add(r.contactId);
+    let st = byStatus.get(r.status);
+    if (!st) byStatus.set(r.status, (st = new Set()));
+    st.add(r.contactId);
     let set = people.get(r.courseKey);
     if (!set) people.set(r.courseKey, (set = new Set()));
     set.add(r.contactId);
@@ -366,6 +418,9 @@ export async function audienceFacets(): Promise<AudienceFacets> {
   const courses = Array.from(people, ([key, set]) => ({ name: data.courseNames.get(key) ?? key, count: set.size })).sort(
     (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
+
+  const statusCounts: Partial<Record<AudienceStatus, number>> = {};
+  for (const [k, set] of Array.from(byStatus)) statusCounts[k] = set.size;
 
   const countryOf = await loadCountries();
   const byCountry = new Map<string, number>();
@@ -409,5 +464,5 @@ export async function audienceFacets(): Promise<AudienceFacets> {
     alreadyBrought: brought.has(`landing:${p.id}`),
   }));
 
-  return { courses, countries, unknownCountry, landingPages, needsUpdate };
+  return { courses, countries, unknownCountry, landingPages, statusCounts, needsUpdate, statusNeedsUpdate };
 }
