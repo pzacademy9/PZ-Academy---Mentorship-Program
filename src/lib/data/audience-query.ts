@@ -220,9 +220,9 @@ async function loadRegistrations(withNew: boolean, withStatus = false): Promise<
   };
 
   const regs: Registration[] = [];
-  const buyers = new Set<string>();
+  // "contactId|courseKey" for every course a person has paid for.
+  const paidFor = new Set<string>();
   for (const p of purchases) {
-    buyers.add(p.contact_id);
     const b = p.import_batch_id ? batchById.get(p.import_batch_id) : undefined;
     const name = courseNameOf({
       kind: "purchase",
@@ -232,27 +232,31 @@ async function loadRegistrations(withNew: boolean, withStatus = false): Promise<
       batchSheetName: b?.sheet_name ?? null,
       batchIsLanding: !!b?.sheet_id?.startsWith("landing:"),
     });
+    const key = named(name);
+    paidFor.add(`${p.contact_id}|${key}`);
     regs.push({
       contactId: p.contact_id,
-      courseKey: named(name),
+      courseKey: key,
       mode: modeOf(p.reg_mode) ?? modeFromLabel(p.product_label),
       date: datePart(p.purchased_at ?? p.created_at),
       status: "paid",
     });
   }
 
-  // "Registered, not paid" = no purchase at all, in any course.
+  // "Registered, not paid" = unpaid for THIS course: a purchase hides only
+  // the interested row of the same course, not interest in other courses.
   for (const r of interestedRows) {
-    if (buyers.has(r.contact_id)) continue;
     const b = interestedBatches.get(r.import_batch_id);
     const name = courseNameOf({
       kind: "interested",
       courseTitle: b?.course_id ? courseTitle.get(b.course_id) ?? null : null,
       sheetName: b?.sheet_name ?? null,
     });
+    const key = named(name);
+    if (paidFor.has(`${r.contact_id}|${key}`)) continue;
     regs.push({
       contactId: r.contact_id,
-      courseKey: named(name),
+      courseKey: key,
       mode: modeOf(r.reg_mode) ?? modeFromLabel(b?.sheet_name),
       date: datePart(r.registered_at),
       status: statusOf(r.reg_status),

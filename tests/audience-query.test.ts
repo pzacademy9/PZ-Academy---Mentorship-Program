@@ -197,11 +197,12 @@ describe("status of a registration", () => {
   it("purchases are paid; interested rows use reg_status; underpaid is part-paid; blank or unknown is pending", async () => {
     withStatus();
     expect(await ids({ statuses: ["paid"] })).toEqual(["a"]);
-    expect(await ids({ statuses: ["reserved"] })).toEqual(["r"]);
+    // a bought Pharmacology but is reserved for Clinical: per-course rule.
+    expect(await ids({ statuses: ["reserved"] })).toEqual(["a", "r"]);
     expect(await ids({ statuses: ["pending"] })).toEqual(["n", "p", "x", "z"]);
     expect(await ids({ statuses: ["part_paid"] })).toEqual(["u"]);
     expect(await ids({ statuses: ["free"] })).toEqual(["f"]);
-    expect(await ids({ statuses: ["reserved", "free"] })).toEqual(["f", "r"]);
+    expect(await ids({ statuses: ["reserved", "free"] })).toEqual(["a", "f", "r"]);
     expect((await ids({ statuses: [] })).length).toBe(8);
   });
 
@@ -248,7 +249,7 @@ describe("status of a registration", () => {
   it("facets count people per status, ignoring other filters", async () => {
     withStatus();
     const f = await audienceFacets();
-    expect(f.statusCounts).toEqual({ paid: 1, reserved: 1, pending: 4, part_paid: 1, free: 1 });
+    expect(f.statusCounts).toEqual({ paid: 1, reserved: 2, pending: 4, part_paid: 1, free: 1 });
     expect(f.statusNeedsUpdate).toBe(false);
   });
 });
@@ -290,19 +291,45 @@ describe("resolveAudienceContactIds", () => {
     expect(await ids({ mode: "either" })).toEqual(["a", "b"]);
   });
 
-  it("(b) unpaid excludes anyone with any purchase, even in another course", async () => {
+  it("(b) unpaid is judged per course: a purchase only hides interest in the same course", async () => {
     setup({
-      import_batches: [batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" })],
+      import_batches: [
+        batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" }),
+        batch("bj", "closed_interested", { sheet_name: "Pharmacology Basics (interested)" }),
+      ],
       contacts: [contact("a"), contact("b")],
       contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" })],
-      import_batch_contacts: [interested("bi", "a"), interested("bi", "b")],
+      import_batch_contacts: [interested("bi", "a"), interested("bi", "b"), interested("bj", "a")],
     });
-    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"] })).toEqual(["b"]);
-    expect(await ids({ statuses: ["reserved", "pending", "part_paid", "free"], courses: ["Clinical Course"] })).toEqual(["b"]);
+    const unpaid = ["reserved", "pending", "part_paid", "free"] as AudienceFilter["statuses"];
+    // a bought Pharmacology but is still unpaid for Clinical; b is unpaid for Clinical.
+    expect(await ids({ statuses: unpaid })).toEqual(["a", "b"]);
+    expect(await ids({ statuses: unpaid, courses: ["Clinical Course"] })).toEqual(["a", "b"]);
+    // a registered for Pharmacology too, but that one is paid: not pending there.
+    expect(await ids({ statuses: unpaid, courses: ["Pharmacology Basics"] })).toEqual([]);
+    expect(await ids({ statuses: ["pending"], courses: ["Pharmacology Basics"] })).toEqual([]);
+    expect(await ids({ statuses: ["pending"], courses: ["Clinical Course"] })).toEqual(["a", "b"]);
     expect(await ids({ statuses: ["paid"] })).toEqual(["a"]);
+    expect(await ids({ statuses: ["paid"], courses: ["Clinical Course"] })).toEqual([]);
     expect(await ids({ statuses: [] })).toEqual(["a", "b"]);
-    // a's interest in Clinical Course does not count: a has a purchase.
-    expect(await ids({ statuses: [], courses: ["Clinical Course"] })).toEqual(["b"]);
+    // one registration must satisfy course and status together
+    expect(await ids({ statuses: ["paid"], courses: ["Pharmacology Basics"] })).toEqual(["a"]);
+  });
+
+  it("(b2) one person is counted under paid for one course and pending for another", async () => {
+    setup({
+      import_batches: [batch("bi", "closed_interested", { sheet_name: "Clinical Course (interested)" })],
+      contacts: [contact("a")],
+      contact_purchases: [purchase("p1", "a", { course_id: "k-pharm" })],
+      import_batch_contacts: [interested("bi", "a")],
+    });
+    const f = await audienceFacets();
+    expect(f.statusCounts.paid).toBe(1);
+    expect(f.statusCounts.pending).toBe(1);
+    expect(f.courses).toEqual([
+      { name: "Clinical Course", count: 1 },
+      { name: "Pharmacology Basics", count: 1 },
+    ]);
   });
 
   it("(c) two chosen courses mean either one, compared case-insensitively", async () => {

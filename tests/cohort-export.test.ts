@@ -16,7 +16,7 @@ const contact = (id: string, o: Record<string, unknown> = {}) => ({
 });
 const batch = (id: string, kind: string, o: Record<string, unknown> = {}) => ({
   id, sheet_name: `Sheet ${id}`, tab_name: "tab", rows_imported: 0, created_at: "2026-01-01T00:00:00Z",
-  course_id: null, courses: null, kind, ...o,
+  course_id: null, courses: null, kind, source_page_id: null, ...o,
 });
 
 let store: Store;
@@ -53,7 +53,7 @@ describe("loadCohortAudience", () => {
     }
   });
 
-  it("interested cohort exports members minus anyone with a purchase", async () => {
+  it("imported-sheet interested cohort (no source page) exports members minus anyone with any purchase", async () => {
     setup({
       import_batches: [batch("bi", "closed_interested")],
       contacts: [contact("a"), contact("b"), contact("c")],
@@ -66,6 +66,90 @@ describe("loadCohortAudience", () => {
     });
     const { contacts } = await loadCohortAudience(["bi"]);
     expect(contacts.map((c) => c.id).sort()).toEqual(["a", "c"]);
+  });
+
+  describe("landing-page interested cohort (per-page rule)", () => {
+    const landing = () => [
+      batch("bi", "closed_interested", { source_page_id: "pg1", course_id: "cA" }),
+      batch("bp", "closed_paid", { source_page_id: "pg1", course_id: "cA" }),
+      batch("bother", "closed_paid", { source_page_id: "pg2", course_id: "cB" }),
+    ];
+    const members = (ids: string[]) => ids.map((contact_id) => ({ import_batch_id: "bi", contact_id }));
+
+    it("keeps someone who bought another course, drops same-page-paid and same-course buyers", async () => {
+      setup({
+        import_batches: landing(),
+        contacts: ["a", "b", "c", "d", "e"].map((id) => contact(id)),
+        import_batch_contacts: members(["a", "b", "c", "d", "e"]),
+        contact_purchases: [
+          { id: "p1", contact_id: "b", import_batch_id: "bother", course_id: "cB" }, // other course: stays
+          { id: "p2", contact_id: "c", import_batch_id: "bp", course_id: "cA" }, // same page paid batch: dropped
+          { id: "p3", contact_id: "d", import_batch_id: null, course_id: "cA" }, // same course, other path: dropped
+          { id: "p4", contact_id: "e", import_batch_id: null, course_id: null }, // no course, no batch: stays
+        ],
+      });
+      const { contacts } = await loadCohortAudience(["bi"]);
+      expect(contacts.map((c) => c.id).sort()).toEqual(["a", "b", "e"]);
+    });
+
+    it("drops a member of the same page's paid batch even when the purchase has no course", async () => {
+      setup({
+        import_batches: landing(),
+        contacts: [contact("a"), contact("b")],
+        import_batch_contacts: members(["a", "b"]),
+        contact_purchases: [{ id: "p1", contact_id: "a", import_batch_id: "bp", course_id: null }],
+      });
+      const { contacts } = await loadCohortAudience(["bi"]);
+      expect(contacts.map((c) => c.id)).toEqual(["b"]);
+    });
+
+    it("keeps an other-course buyer when only the interested cohort is selected, once, with a purchase cohort too", async () => {
+      setup({
+        import_batches: landing(),
+        contacts: [contact("a"), contact("b"), contact("c")],
+        import_batch_contacts: members(["a", "b", "c"]),
+        contact_purchases: [{ id: "p1", contact_id: "b", import_batch_id: "bother", course_id: "cB" }],
+      });
+      const { contacts } = await loadCohortAudience(["bi", "bother"]);
+      // b is exported once (as a buyer of the selected cohort), never twice.
+      expect(contacts.map((c) => c.id).sort()).toEqual(["a", "b", "c"]);
+      const only = await loadCohortAudience(["bi"]);
+      expect(only.contacts.map((c) => c.id).sort()).toEqual(["a", "b", "c"]);
+    });
+
+    it("selected purchase cohort overlap rule: member of the selected paid cohort is not double-counted", async () => {
+      setup({
+        import_batches: landing(),
+        contacts: [contact("a"), contact("b")],
+        import_batch_contacts: members(["a", "b"]),
+        contact_purchases: [{ id: "p1", contact_id: "a", import_batch_id: "bp", course_id: "cA" }],
+      });
+      const { contacts } = await loadCohortAudience(["bi", "bp"]);
+      expect(contacts.map((c) => c.id).sort()).toEqual(["a", "b"]);
+    });
+  });
+
+  it("falls back to the strict any-purchase rule when source_page_id / course_id cannot be read", async () => {
+    setup({
+      import_batches: [batch("bi", "closed_interested", { source_page_id: "pg1", course_id: "cA" })],
+      contacts: [contact("a"), contact("b")],
+      import_batch_contacts: [
+        { import_batch_id: "bi", contact_id: "a" },
+        { import_batch_id: "bi", contact_id: "b" },
+      ],
+      contact_purchases: [{ id: "p1", contact_id: "b", import_batch_id: "other", course_id: "cB" }],
+    });
+    const inner = db.state.handler;
+    db.state.handler = (op) => {
+      if (op.table !== "import_batches" || op.op !== "select") return inner(op);
+      if (op.columns?.includes("source_page_id")) return { data: null, error: { code: "42703", message: "column does not exist" } };
+      // The plain read returns only the plain columns, as the database would.
+      const res = inner(op);
+      const rows = (res.data as Array<Record<string, unknown>>).map((r) => ({ id: r.id, sheet_name: r.sheet_name, tab_name: r.tab_name, kind: r.kind }));
+      return { ...res, data: rows };
+    };
+    const { contacts } = await loadCohortAudience(["bi"]);
+    expect(contacts.map((c) => c.id)).toEqual(["a"]);
   });
 
   it("a contact in two selected cohorts appears once", async () => {

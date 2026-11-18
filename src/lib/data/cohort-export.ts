@@ -86,7 +86,14 @@ export async function mapPool<T, R>(items: T[], limit: number, fn: (item: T, ind
   return out;
 }
 
-type BatchRow = { id: string; sheet_name: string; tab_name: string; kind: string };
+type BatchRow = {
+  id: string;
+  sheet_name: string;
+  tab_name: string;
+  kind: string;
+  source_page_id?: string | null;
+  course_id?: string | null;
+};
 
 export async function loadCohortAudience(
   cohortIds: string[],
@@ -94,20 +101,30 @@ export async function loadCohortAudience(
   const admin = createAdminSupabase();
   const ids = Array.from(new Set(cohortIds));
 
+  // source_page_id / course_id tell a landing page's interested cohort apart
+  // from an imported sheet. If they cannot be read (migration not pasted),
+  // fall back to the plain columns: every interested cohort then keeps the
+  // strict any-purchase rule, which never exports someone it should not.
   const batches: BatchRow[] = [];
   for (const part of chunk(ids)) {
-    const { data, error } = await admin
+    const full = await admin
       .from("import_batches")
-      .select("id, sheet_name, tab_name, kind")
+      .select("id, sheet_name, tab_name, kind, source_page_id, course_id")
       .in("id", part);
-    if (error) throw new Error("import_batches read failed");
-    batches.push(...((data ?? []) as BatchRow[]));
+    let rows: BatchRow[] = (full.data ?? []) as BatchRow[];
+    if (full.error) {
+      if (!isMissingSchemaError(full.error)) throw new Error("import_batches read failed");
+      const plain = await admin.from("import_batches").select("id, sheet_name, tab_name, kind").in("id", part);
+      if (plain.error) throw new Error("import_batches read failed");
+      rows = (plain.data ?? []) as BatchRow[];
+    }
+    batches.push(...rows);
   }
   if (batches.length === 0) return { contacts: [], names: [] };
 
   const names = batches.map((b) => (b.kind === "imported" ? `${b.sheet_name || "cohort"} ${b.tab_name}`.trim() : b.sheet_name || b.tab_name));
   const purchaseBatchIds = batches.filter((b) => b.kind !== "closed_interested").map((b) => b.id);
-  const interestedBatchIds = batches.filter((b) => b.kind === "closed_interested").map((b) => b.id);
+  const interestedBatches = batches.filter((b) => b.kind === "closed_interested");
 
   const contactIds = new Set<string>();
 
@@ -123,35 +140,81 @@ export async function loadCohortAudience(
     for (const r of rows) contactIds.add(r.contact_id);
   }
 
-  const interestedIds = new Set<string>();
-  for (const part of chunk(interestedBatchIds)) {
-    const rows = await pageAll<{ contact_id: string }>("import_batch_contacts", (from, to) =>
+  // Paid batches of the landing pages whose interested cohorts are selected.
+  const pageIds = Array.from(new Set(interestedBatches.map((b) => b.source_page_id).filter((p): p is string => !!p)));
+  const paidBatchesByPage = new Map<string, Set<string>>();
+  for (const part of chunk(pageIds)) {
+    const { data, error } = await admin
+      .from("import_batches")
+      .select("id, source_page_id")
+      .in("source_page_id", part)
+      .eq("kind", "closed_paid");
+    if (error) throw new Error("import_batches read failed");
+    for (const r of (data ?? []) as Array<{ id: string; source_page_id: string }>) {
+      const set = paidBatchesByPage.get(r.source_page_id) ?? new Set<string>();
+      set.add(r.id);
+      paidBatchesByPage.set(r.source_page_id, set);
+    }
+  }
+
+  const membersByBatch = new Map<string, Set<string>>();
+  for (const part of chunk(interestedBatches.map((b) => b.id))) {
+    const rows = await pageAll<{ import_batch_id: string; contact_id: string }>("import_batch_contacts", (from, to) =>
       admin
         .from("import_batch_contacts")
-        .select("contact_id")
+        .select("import_batch_id, contact_id")
         .in("import_batch_id", part)
         .order("import_batch_id", { ascending: true })
         .order("contact_id", { ascending: true })
         .range(from, to),
     );
-    for (const r of rows) interestedIds.add(r.contact_id);
+    for (const r of rows) {
+      const set = membersByBatch.get(r.import_batch_id) ?? new Set<string>();
+      set.add(r.contact_id);
+      membersByBatch.set(r.import_batch_id, set);
+    }
   }
 
-  // Interested = enquired but never bought: drop anyone with ANY purchase.
-  const interestedList = Array.from(interestedIds).filter((id) => !contactIds.has(id));
-  const buyers = new Set<string>();
-  for (const part of chunk(interestedList)) {
-    const rows = await pageAll<{ contact_id: string }>("contact_purchases", (from, to) =>
-      admin
-        .from("contact_purchases")
-        .select("contact_id")
-        .in("contact_id", part)
-        .order("id", { ascending: true })
-        .range(from, to),
+  // Interested = enquired but not yet bought. An imported sheet's interested
+  // cohort drops anyone with ANY purchase. A landing page's interested cohort
+  // drops only people who bought through that page's paid batch or who hold a
+  // purchase for the same course; buying a different course does not hide them.
+  // Anyone already in a selected purchase cohort is skipped (exported once).
+  const candidates = new Set<string>();
+  for (const set of Array.from(membersByBatch.values())) for (const id of Array.from(set)) if (!contactIds.has(id)) candidates.add(id);
+  const purchasesByContact = new Map<string, Array<{ import_batch_id: string | null; course_id: string | null }>>();
+  for (const part of chunk(Array.from(candidates))) {
+    const rows = await pageAll<{ contact_id: string; import_batch_id: string | null; course_id: string | null }>(
+      "contact_purchases",
+      (from, to) =>
+        admin
+          .from("contact_purchases")
+          .select("contact_id, import_batch_id, course_id")
+          .in("contact_id", part)
+          .order("id", { ascending: true })
+          .range(from, to),
     );
-    for (const r of rows) buyers.add(r.contact_id);
+    for (const r of rows) {
+      const list = purchasesByContact.get(r.contact_id) ?? [];
+      list.push({ import_batch_id: r.import_batch_id, course_id: r.course_id });
+      purchasesByContact.set(r.contact_id, list);
+    }
   }
-  for (const id of interestedList) if (!buyers.has(id)) contactIds.add(id);
+  for (const b of interestedBatches) {
+    const paid = b.source_page_id ? (paidBatchesByPage.get(b.source_page_id) ?? new Set<string>()) : null;
+    for (const id of Array.from(membersByBatch.get(b.id) ?? [])) {
+      if (contactIds.has(id) && !candidates.has(id)) continue;
+      const bought = purchasesByContact.get(id) ?? [];
+      const blocked = paid
+        ? bought.some(
+            (p) =>
+              (p.import_batch_id !== null && paid.has(p.import_batch_id)) ||
+              (!!b.course_id && p.course_id === b.course_id),
+          )
+        : bought.length > 0;
+      if (!blocked) contactIds.add(id);
+    }
+  }
 
   const contacts = await loadAudienceContacts(Array.from(contactIds));
   return { contacts, names };
