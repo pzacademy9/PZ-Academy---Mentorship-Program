@@ -77,7 +77,7 @@ export function ContactsList({
             <span>Select all shown</span>
           </label>
 
-          <div className={`hidden md:grid md:grid-cols-[2.75rem_minmax(0,2fr)_minmax(0,2fr)_9rem] gap-x-3 px-4 py-2 border-b border-pz-outline-variant font-body text-xs uppercase text-pz-on-surface-variant`}>
+          <div className="hidden md:grid md:grid-cols-[2.75rem_minmax(0,2fr)_minmax(0,2fr)_9rem] gap-x-3 px-4 py-2 border-b border-pz-outline-variant font-body text-xs uppercase text-pz-on-surface-variant">
             <span />
             <span>Person</span>
             <span>Registered for</span>
@@ -91,17 +91,19 @@ export function ContactsList({
               const chips = courseNames(c.productLabels);
               return (
                 <li key={c.id} className={`${ROW_GRID} px-4 py-3 border-b last:border-b-0 border-pz-outline-variant`}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(c.id)}
-                    onChange={() => onToggle(c.id)}
-                    aria-label={`Select ${label}`}
-                    className="h-6 w-6 accent-pz-primary mt-0.5 md:mt-0 md:row-span-1 max-md:row-span-4"
-                  />
+                  <label className="flex items-start justify-center cursor-pointer max-md:min-h-11 max-md:min-w-11 max-md:row-span-4 md:items-center">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.id)}
+                      onChange={() => onToggle(c.id)}
+                      aria-label={`Select ${label}`}
+                      className="h-6 w-6 accent-pz-primary max-md:mt-2.5"
+                    />
+                  </label>
                   <div className="min-w-0 max-md:col-start-2">
                     <Link
                       href={`/dashboard/admin/sales-hub/contacts/${c.id}`}
-                      className="font-headline text-sm font-bold text-pz-secondary hover:underline break-words"
+                      className="inline-flex items-center max-md:min-h-11 font-headline text-sm font-bold text-pz-secondary hover:underline break-words"
                     >
                       {name}
                     </Link>

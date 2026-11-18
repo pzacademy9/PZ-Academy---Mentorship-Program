@@ -22,11 +22,12 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
   const [search, setSearch] = useState("");
   // The search text that produced the rows on screen; paging reuses it rather
   // than whatever is half-typed in the box.
-  const [appliedSearch, setAppliedSearch] = useState("");
+  const [applied, setApplied] = useState({ search: "", courseName: "", importBatchId: "" });
+  const appliedSearch = applied.search;
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  // The page a failed request was after, so "Try again" repeats that request.
-  const failedPage = useRef(1);
+  // The request that failed, so "Try again" repeats exactly that attempt.
+  const failedAttempt = useRef<{ page: number; next?: { search?: string; courseName?: string; importBatchId?: string } }>({ page: 1 });
   const [courseName, setCourseName] = useState("");
   const [importBatchId, setImportBatchId] = useState("");
   const [courseOptions, setCourseOptions] = useState<string[]>([]);
@@ -73,21 +74,21 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     targetPage: number,
     next?: { search?: string; courseName?: string; importBatchId?: string },
   ) {
-    const q = next?.search ?? appliedSearch;
-    const course = next?.courseName ?? courseName;
-    const batch = next?.importBatchId ?? importBatchId;
+    // Paging uses the last filters that actually loaded, never a failed attempt.
+    const q = next?.search ?? applied.search;
+    const course = next?.courseName ?? applied.courseName;
+    const batch = next?.importBatchId ?? applied.importBatchId;
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String((targetPage - 1) * PAGE_SIZE) });
     if (q !== "") params.set("search", q);
     if (course !== "") params.set("courseName", course);
     if (batch !== "") params.set("importBatchId", batch);
-    if (next?.search !== undefined) setAppliedSearch(q);
 
     const ticket = ++latestSearch.current;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/crm/contacts?${params.toString()}`);
       if (ticket !== latestSearch.current) return;
-      if (!res.ok) { failedPage.current = targetPage; setError("load"); return; }
+      if (!res.ok) { failedAttempt.current = { page: targetPage, next }; setError("load"); return; }
       const json = await res.json();
       if (ticket !== latestSearch.current) return;
       const lastPage = Math.max(1, Math.ceil(json.total / PAGE_SIZE));
@@ -103,16 +104,17 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
       setRows(json.rows);
       setTotal(json.total);
       setPage(targetPage);
+      setApplied({ search: q, courseName: course, importBatchId: batch });
       setError(null);
     } catch {
-      if (ticket === latestSearch.current) { failedPage.current = targetPage; setError("load"); }
+      if (ticket === latestSearch.current) { failedAttempt.current = { page: targetPage, next }; setError("load"); }
     } finally {
       if (ticket === latestSearch.current) setBusy(false);
     }
   }
 
   function runSearch(next?: { courseName?: string; importBatchId?: string }) {
-    return loadPage(1, { search: search.trim(), ...next });
+    return loadPage(1, { search: search.trim(), courseName, importBatchId, ...next });
   }
 
   function toggleSelected(id: string) {
@@ -191,7 +193,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
     }
   });
 
-  const filtered = appliedSearch !== "" || courseName !== "" || importBatchId !== "";
+  const filtered = applied.search !== "" || applied.courseName !== "" || applied.importBatchId !== "";
 
   return (
     <div className="space-y-4">
@@ -206,6 +208,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+            aria-label="Search by name, email or phone"
             placeholder="Search name, email, or phone"
             className="flex-1 min-w-[240px] rounded-xl border border-pz-outline-variant px-4 py-2 font-body text-sm max-md:min-h-11 max-md:text-base"
           />
@@ -243,7 +246,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
             ))}
           </select>
 
-          {(courseName !== "" || importBatchId !== "" || appliedSearch !== "") && (
+          {(courseName !== "" || importBatchId !== "" || applied.search !== "" || search !== "") && (
             <button
               onClick={() => { setSearch(""); setCourseName(""); setImportBatchId(""); void loadPage(1, { search: "", courseName: "", importBatchId: "" }); }}
               className="font-body text-xs font-semibold text-pz-on-surface-variant hover:text-pz-secondary max-md:min-h-11 max-md:px-2"
@@ -326,6 +329,8 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         )}
       </div>
 
+      <p role="status" className="sr-only">{busy ? "Loading people…" : ""}</p>
+
       <ContactsList
         rows={rows}
         total={total}
@@ -338,7 +343,7 @@ export function ContactsPanel({ initialRows, initialTotal }: { initialRows: Cont
         onToggle={toggleSelected}
         onToggleAllShown={toggleSelectAllVisible}
         onPage={(p) => void loadPage(p)}
-        onRetry={() => void loadPage(failedPage.current)}
+        onRetry={() => void loadPage(failedAttempt.current.page, failedAttempt.current.next)}
       />
     </div>
   );
