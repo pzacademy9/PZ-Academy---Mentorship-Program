@@ -40,6 +40,11 @@ export function ContactsList({
 
   return (
     <div className="space-y-3">
+      <h2 className="flex items-center gap-2 font-headline text-sm font-bold uppercase tracking-wide text-pz-secondary">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pz-primary text-xs text-pz-on-primary">2</span>{" "}
+        Pick people
+      </h2>
+
       {error && (
         <div role="alert" className="flex items-center justify-between flex-wrap gap-2 rounded-2xl bg-pz-surface-container-high px-4 py-3">
           <p className="font-body text-sm text-pz-danger">We could not load this list.</p>
