@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { clearAudienceCache } from "@/lib/data/audience-query";
 import { closeBatch } from "@/lib/data/landing-close-batch";
 import { BRING_IN_MAX_PAGES, bringInSchema, firstPlainMessage } from "@/lib/validations/audience";
 
@@ -44,5 +45,7 @@ export async function POST(request: NextRequest) {
       });
     }
   }
+  // New people may have been added (even if some pages failed): the next count must read them.
+  clearAudienceCache();
   return NextResponse.json({ pages });
 }

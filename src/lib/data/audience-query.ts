@@ -261,12 +261,43 @@ async function loadRegistrations(withNew: boolean, withStatus = false): Promise<
 }
 
 /**
+ * Short in-memory cache (per server instance) of the two reads every filter
+ * change shares: the registrations and the contact country map. Only a fully
+ * successful read is kept; an error, a missing-schema result and the
+ * "0117 not pasted" fallback are never kept, so pasting a migration works at
+ * once. Contact details (consent, email) are never cached. Callers must treat
+ * cached values as read-only. Downloads pass `fresh` and skip the cache.
+ */
+export const AUDIENCE_CACHE_MS = 60_000;
+
+type Cached<T> = { at: number; value: T };
+let clock: () => number = () => Date.now();
+let regCache: Cached<{ data: Registrations; statusNeedsUpdate: boolean }> | null = null;
+let countryCache: Cached<Map<string, string | null>> | null = null;
+
+/** Tests only: replace the clock; null restores the real one. */
+export function setAudienceClock(fn: (() => number) | null): void {
+  clock = fn ?? (() => Date.now());
+}
+
+export function clearAudienceCache(): void {
+  regCache = null;
+  countryCache = null;
+}
+
+const isLive = (c: Cached<unknown> | null): c is Cached<unknown> => !!c && clock() - c.at < AUDIENCE_CACHE_MS && clock() >= c.at;
+
+/**
  * Full read first; if only 0117 is missing, retry without reg_status
  * (statusNeedsUpdate). A missing 0116 column rethrows the missing-schema error.
  */
-async function loadRegistrationsTiered(): Promise<{ data: Registrations; statusNeedsUpdate: boolean }> {
+async function loadRegistrationsTiered(fresh = false): Promise<{ data: Registrations; statusNeedsUpdate: boolean }> {
+  if (!fresh && isLive(regCache)) return regCache!.value;
   try {
-    return { data: await loadRegistrations(true, true), statusNeedsUpdate: false };
+    const data = await loadRegistrations(true, true);
+    const value = Object.freeze({ data: Object.freeze({ ...data, regs: Object.freeze(data.regs) as Registration[] }), statusNeedsUpdate: false });
+    if (!fresh) regCache = { at: clock(), value };
+    return value;
   } catch (e) {
     if (!isMissingSchema(e)) throw e;
   }
@@ -274,21 +305,25 @@ async function loadRegistrationsTiered(): Promise<{ data: Registrations; statusN
 }
 
 /** id -> country (upper case, or null) for every contact. Narrow, paged. */
-async function loadCountries(): Promise<Map<string, string | null>> {
+async function loadCountries(fresh = false): Promise<Map<string, string | null>> {
+  if (!fresh && isLive(countryCache)) return countryCache!.value;
   const admin = createAdminSupabase();
   const rows = await pageAll<{ id: string; country: string | null }>("contacts", (from, to) =>
     admin.from("contacts").select("id, country").order("id", { ascending: true }).range(from, to),
   );
-  return new Map(rows.map((r) => [r.id, r.country?.trim() ? r.country.trim().toUpperCase() : null]));
+  const map = new Map(rows.map((r): [string, string | null] => [r.id, r.country?.trim() ? r.country.trim().toUpperCase() : null]));
+  if (!fresh) countryCache = { at: clock(), value: map };
+  return map;
 }
 
 export async function resolveAudienceContactIds(
   f: AudienceFilter,
+  opts: { fresh?: boolean } = {},
 ): Promise<{ ids: string[]; needsUpdate: boolean; statusNeedsUpdate: boolean; ignoredChoices: string[] }> {
   let data: Registrations;
   let statusNeedsUpdate: boolean;
   try {
-    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered());
+    ({ data, statusNeedsUpdate } = await loadRegistrationsTiered(opts.fresh));
   } catch (e) {
     if (isMissingSchema(e)) return { ids: [], needsUpdate: true, statusNeedsUpdate: false, ignoredChoices: [] };
     throw e;
@@ -322,7 +357,7 @@ export async function resolveAudienceContactIds(
   let ids = Array.from(matched);
   if (f.countries.length > 0) {
     const wanted = new Set(f.countries);
-    const countries = await loadCountries();
+    const countries = await loadCountries(opts.fresh);
     ids = ids.filter((id) => {
       const c = countries.get(id) ?? null;
       return c === null ? wanted.has("unknown") : wanted.has(c);
@@ -367,7 +402,8 @@ export type AudienceFile = {
 };
 
 export async function loadAudienceFile(f: AudienceFilter): Promise<AudienceFile> {
-  const r = await resolveAudienceContactIds(f);
+  // A download always reads fresh: a file never uses cached data.
+  const r = await resolveAudienceContactIds(f, { fresh: true });
   const ignoredChoices = r.ignoredChoices;
   const none = { contacts: [], tooLarge: false, needsUpdate: false, statusNeedsUpdate: r.statusNeedsUpdate, ignoredChoices, allCoursesGone: false };
   if (r.needsUpdate) return { ...none, needsUpdate: true };

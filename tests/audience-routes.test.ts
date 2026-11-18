@@ -12,6 +12,7 @@ const q = vi.hoisted(() => ({
   countAudience: vi.fn(),
   loadAudienceFile: vi.fn(),
   audienceFacets: vi.fn(),
+  clearAudienceCache: vi.fn(),
 }));
 vi.mock("@/lib/data/audience-query", () => q);
 const s = vi.hoisted(() => ({
@@ -294,5 +295,14 @@ describe("bring-in route", () => {
     expect(JSON.stringify(body)).not.toContain("a@x.com");
     expect(JSON.stringify(errSpy.mock.calls)).not.toContain("a@x.com");
     expect(errSpy.mock.calls[0][0]).toBe("[audiences] bring-in failed");
+  });
+  it("clears the audience cache after a run, even when a page fails", async () => {
+    c.closeBatch.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({
+      paidAdded: 1, interestedAdded: 0, contactsCreated: 0, contactsMerged: 0, skipped: 0,
+    });
+    await bringPOST(post("/bring-in", { pageIds: [U1, U2] }));
+    expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
+    await bringPOST(post("/bring-in", { pageIds: ["nope"] }));
+    expect(q.clearAudienceCache).toHaveBeenCalledTimes(1);
   });
 });

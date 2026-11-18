@@ -11,6 +11,9 @@ import {
   loadAudienceFile,
   audienceFacets,
   courseNameOf,
+  clearAudienceCache,
+  setAudienceClock,
+  AUDIENCE_CACHE_MS,
   modeFromLabel,
 } from "@/lib/data/audience-query";
 import { loadAudienceContacts, loadCohortAudience, mapPool } from "@/lib/data/cohort-export";
@@ -54,7 +57,11 @@ function setup(s: Partial<Store>, wrap?: (op: Op, inner: (op: Op) => Res) => Res
     return res;
   };
 }
-beforeEach(() => db.reset());
+beforeEach(() => {
+  db.reset();
+  clearAudienceCache();
+  setAudienceClock(null);
+});
 
 const F = (o: Partial<AudienceFilter> = {}): AudienceFilter => ({ ...DEFAULT_AUDIENCE_FILTER, ...o });
 const ids = async (o: Partial<AudienceFilter> = {}) => (await resolveAudienceContactIds(F(o))).ids;
@@ -638,5 +645,126 @@ describe("loadAudienceContacts (shared with cohorts)", () => {
     setup({});
     expect(await loadAudienceContacts([])).toEqual([]);
     expect(db.state.ops).toHaveLength(0);
+  });
+});
+
+describe("registration cache (60 seconds)", () => {
+  let t: number;
+  const reads = (table: string) => db.state.ops.filter((o) => o.table === table && o.op === "select").length;
+  const seed = (wrap?: Parameters<typeof setup>[1]) => {
+    t = 1_000_000;
+    setAudienceClock(() => t);
+    setup({ contacts: [contact("a"), contact("b")], contact_purchases: [purchase("p1", "a"), purchase("p2", "b")] }, wrap);
+  };
+
+  it("a second count inside 60s makes no new registration reads, but contact details are read again", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    const contacts = reads("contacts");
+    expect(purchases).toBeGreaterThan(0);
+    t += AUDIENCE_CACHE_MS - 1;
+    await countAudience(F({ statuses: ["paid"] }));
+    expect(reads("contact_purchases")).toBe(purchases);
+    expect(reads("courses")).toBe(1);
+    expect(reads("contacts")).toBeGreaterThan(contacts);
+  });
+
+  it("re-reads after 60s", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    t += AUDIENCE_CACHE_MS;
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBeGreaterThan(purchases);
+  });
+
+  it("clearAudienceCache forces a re-read", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    clearAudienceCache();
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBeGreaterThan(purchases);
+  });
+
+  it("the country list is cached too", async () => {
+    seed();
+    const countryReads = () => db.state.ops.filter((o) => o.table === "contacts" && o.columns === "id, country").length;
+    await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    const n = countryReads();
+    expect(n).toBeGreaterThan(0);
+    await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    expect(countryReads()).toBe(n);
+    t += AUDIENCE_CACHE_MS;
+    await resolveAudienceContactIds(F({ countries: ["PK"] }));
+    expect(countryReads()).toBeGreaterThan(n);
+  });
+
+  it("facets share the same cached registrations", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    await audienceFacets();
+    expect(reads("contact_purchases")).toBe(purchases);
+  });
+
+  it("an error is never cached", async () => {
+    let fail = true;
+    seed((op, inner) => {
+      if (fail && op.table === "contact_purchases") return { data: null, error: { code: "XX000", message: "boom" } };
+      return inner(op);
+    });
+    await expect(countAudience(F())).rejects.toBeTruthy();
+    fail = false;
+    expect((await countAudience(F())).total).toBe(2);
+  });
+
+  it("a missing-schema result is never cached, so pasting the migration takes effect at once", async () => {
+    let missing = true;
+    seed((op, inner) => {
+      if (missing && op.table === "contact_purchases" && op.columns?.includes("reg_mode")) {
+        return { data: null, error: { code: "42703", message: "column contact_purchases.reg_mode does not exist" } };
+      }
+      return inner(op);
+    });
+    expect((await countAudience(F())).needsUpdate).toBe(true);
+    missing = false;
+    expect(await countAudience(F())).toMatchObject({ needsUpdate: false, total: 2 });
+  });
+
+  it("a result without 0117 (statusNeedsUpdate) is not cached either", async () => {
+    let missing = true;
+    seed((op, inner) => {
+      if (missing && op.table === "import_batch_contacts" && op.columns?.includes("reg_status")) {
+        return { data: null, error: { code: "42703", message: "column import_batch_contacts.reg_status does not exist" } };
+      }
+      return inner(op);
+    });
+    store.import_batches = [batch("bi", "closed_interested")];
+    store.import_batch_contacts = [interested("bi", "a")];
+    expect((await countAudience(F())).statusNeedsUpdate).toBe(true);
+    missing = false;
+    expect((await countAudience(F())).statusNeedsUpdate).toBe(false);
+  });
+
+  it("the download always reads fresh, even when the cache is warm, and never feeds the cache", async () => {
+    seed();
+    await countAudience(F());
+    const purchases = reads("contact_purchases");
+    await loadAudienceFile(F());
+    const afterFile = reads("contact_purchases");
+    expect(afterFile).toBeGreaterThan(purchases);
+    await countAudience(F());
+    expect(reads("contact_purchases")).toBe(afterFile);
+  });
+
+  it("a download never uses stale data", async () => {
+    seed();
+    expect((await countAudience(F())).total).toBe(2);
+    store.contact_purchases.push(purchase("p3", "c"));
+    store.contacts.push(contact("c"));
+    expect((await countAudience(F())).total).toBe(2);
+    expect((await loadAudienceFile(F())).contacts).toHaveLength(3);
   });
 });
