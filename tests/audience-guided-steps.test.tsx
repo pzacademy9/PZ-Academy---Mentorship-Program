@@ -12,7 +12,9 @@ import type { SavedAudience } from "@/lib/data/audience-saved";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => async () => true }));
-vi.mock("@/components/admin/crm/BringInDialog", () => ({ BringInDialog: () => null }));
+vi.mock("@/components/admin/crm/BringInDialog", () => ({
+  BringInDialog: ({ onDone }: { onDone: () => void }) => <button type="button" onClick={onDone}>Finish bring in</button>,
+}));
 
 const facets: AudienceFacets = {
   courses: [{ name: "Pharmacovigilance", count: 300 }],
@@ -166,14 +168,37 @@ describe("guided page, step 1", () => {
     expect(next().disabled).toBe(true);
   });
 
-  it("a filter change while on step 2 returns to step 1 (via the strip's reset path)", async () => {
+  it("a same-choices recount (Bring in) keeps the user on step 2", async () => {
     renderPanel();
     await check();
     fireEvent.click(next());
-    // Step 2 has no filters; going back and changing one keeps us on step 1.
-    fireEvent.click(screen.getByRole("button", { name: "1 Who" }));
-    fireEvent.click(screen.getByRole("button", { name: "UAE" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finish bring in" }));
+    await waitFor(() => expect((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(1));
+    expect(screen.getByRole("button", { name: "2 Check" }).getAttribute("aria-current")).toBe("step");
+    expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
+  });
+
+  it("loading a saved audience while on step 2 goes back to step 1 straight away", async () => {
+    const saved: SavedAudience = {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Gulf",
+      filter: { ...DEFAULT_AUDIENCE_FILTER, countries: ["AE"] },
+      invalid: false,
+      createdAt: "2026-11-17T10:00:00Z",
+    };
+    renderPanel([saved]);
+    await check();
+    fireEvent.click(next());
+    fireEvent.click(screen.getByRole("button", { name: "Saved audiences" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load Gulf" }));
     expect(screen.getByRole("button", { name: "1 Who" }).getAttribute("aria-current")).toBe("step");
+  });
+
+  it("the sentence is always in the page, outside the phone-hidden details", () => {
+    renderPanel();
+    const sentence = screen.getByText(/You are choosing:/);
+    expect(sentence.closest('[id$="-details"]')).toBeNull();
+    expect(sentence.closest(".hidden")).toBeNull();
   });
 
   it("loading a saved audience goes to step 2 once its count is done", async () => {

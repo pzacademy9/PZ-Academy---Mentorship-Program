@@ -71,6 +71,8 @@ export function AudiencesPanel({
   const [renameError, setRenameError] = useState<string | null>(null);
   const [step, setStep] = useState<AudienceStep>(1);
   // Set when a saved audience is loaded: go to step 2 once its own count has finished.
+  // The last choices that had a finished count; a recount of the same choices keeps the later steps open.
+  const [reachedKey, setReachedKey] = useState<string | null>(null);
   const [goToCheckKey, setGoToCheckKey] = useState<string | null>(null);
 
   const key = encodeAudienceFilter(filter);
@@ -102,6 +104,7 @@ export function AudiencesPanel({
       const data = await res.json();
       if (!c.signal.aborted) {
         setCount({ status: "done", key: k, data });
+        setReachedKey(k);
         setStatusFlag(!!data?.statusNeedsUpdate);
       }
     } catch {
@@ -125,7 +128,7 @@ export function AudiencesPanel({
   useEffect(() => () => ctrl.current?.abort(), []);
 
   // A number for the current choices unlocks the later steps; any change to the choices locks them again.
-  const maxStep: AudienceStep = count.status === "done" && count.key === key ? 3 : 1;
+  const maxStep: AudienceStep = reachedKey === key ? 3 : 1;
 
   // If the number is being recounted (for example after Bring in), later steps lock and we return to step 1.
   useEffect(() => {
@@ -140,6 +143,7 @@ export function AudiencesPanel({
 
   const changeFilter = (f: AudienceFilter) => {
     setFilter(f);
+    setReachedKey(null);
     setStep(1);
     setGoToCheckKey(null);
     setSavedId("");
@@ -153,6 +157,7 @@ export function AudiencesPanel({
     const item = saved.find((s) => s.id === id);
     if (!item || item.invalid || !item.filter) return; // needs checking: cannot be loaded
     setFilter(item.filter);
+    setReachedKey(null);
     setSavedId(item.id);
     setSavedOpen(false);
     setStep(1);

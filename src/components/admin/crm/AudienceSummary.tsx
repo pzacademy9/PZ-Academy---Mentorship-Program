@@ -56,17 +56,12 @@ export function AudienceSummary({
       </p>
     );
   } else if (data) {
-    const { noContact, doNotContact } = data.leftOut;
     body = (
       <div className="space-y-1 font-body">
         <p className="font-headline text-xl font-bold text-pz-secondary tabular-nums lg:text-3xl">{`${people(data.total)} match`}</p>
         <p className="inline-block rounded-full bg-pz-primary-container px-3 py-1 text-sm font-semibold text-pz-on-primary-container tabular-nums">
           {`${n(data.inFile)} uploadable to Meta`}
         </p>
-        <div className={cn("space-y-0.5 text-xs text-pz-on-surface-variant tabular-nums", !open && "hidden lg:block")}>
-          {noContact > 0 && <p>{`${n(noContact)} cannot be used: no email or phone`}</p>}
-          {doNotContact > 0 && <p>{`${n(doNotContact)} asked not to be contacted`}</p>}
-        </div>
       </div>
     );
   } else {
@@ -87,11 +82,9 @@ export function AudienceSummary({
       )}
     >
       <h2 className="sr-only font-headline text-sm font-bold text-pz-secondary lg:not-sr-only">Your list</h2>
-      <div id={detailsId} className={detailsClass}>
-        <p className="rounded-xl bg-pz-primary-container p-3 font-body text-sm text-pz-on-primary-container">
-          {`You are choosing: ${describeAudienceFilter(filter).join(" · ")}`}
-        </p>
-      </div>
+      <p className="rounded-xl bg-pz-primary-container p-2 font-body text-sm text-pz-on-primary-container lg:p-3">
+        {`You are choosing: ${describeAudienceFilter(filter).join(" · ")}`}
+      </p>
       <div className="flex items-start justify-between gap-3">
         {/* Only the counts are announced, not the buttons. */}
         <div aria-live="polite" className="min-w-0 flex-1">{body}</div>
@@ -114,6 +107,14 @@ export function AudienceSummary({
             Details
           </button>
         </div>
+      </div>
+      <div id={detailsId} className={detailsClass}>
+        {data && !data.tooLarge && !data.needsUpdate && (
+          <div className="space-y-0.5 font-body text-xs text-pz-on-surface-variant tabular-nums">
+            {data.leftOut.noContact > 0 && <p>{`${n(data.leftOut.noContact)} cannot be used: no email or phone`}</p>}
+            {data.leftOut.doNotContact > 0 && <p>{`${n(data.leftOut.doNotContact)} asked not to be contacted`}</p>}
+          </div>
+        )}
       </div>
       {ignored}
       <button
