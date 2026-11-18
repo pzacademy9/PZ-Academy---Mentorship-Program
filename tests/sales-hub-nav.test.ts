@@ -3,10 +3,11 @@ import { SALES_HUB_ITEMS, SALES_HUB_BACK, navForRole, activeHrefFor, splitMobile
 it("hub menu has the agreed items in order, grouped", () => {
   expect(SALES_HUB_ITEMS.map((i) => i.label)).toEqual([
     "Overview", "Contacts", "Assign Lists", "Sales Team",
-    "Import", "Merge Review", "Cohorts", "Campaigns", "WhatsApp Batches", "Conversion", "WhatsApp Safety",
+    "Cohorts", "Audiences", "Campaigns", "WhatsApp Batches", "Conversion", "WhatsApp Safety",
   ]);
   const groups = Object.fromEntries(SALES_HUB_ITEMS.map((i) => [i.label, i.group]));
   expect(groups["Contacts"]).toBe("Audience");
+  expect(groups["Audiences"]).toBe("Audience");
   expect(groups["Campaigns"]).toBe("Outreach");
   expect(groups["Assign Lists"]).toBe("Team");
   expect(groups["Overview"]).toBe("Overview");
@@ -24,6 +25,14 @@ it("detail pages highlight their list item; overview does not swallow them", () 
   const items = SALES_HUB_ITEMS;
   expect(activeHrefFor(items, "/dashboard/admin/sales-hub/contacts/abc")).toBe("/dashboard/admin/sales-hub/contacts");
   expect(activeHrefFor(items, "/dashboard/admin/sales-hub")).toBe("/dashboard/admin/sales-hub");
+});
+
+it("Cohorts stays highlighted on the import, merge and cohort detail pages", () => {
+  const cohorts = "/dashboard/admin/sales-hub/cohorts";
+  for (const p of ["/import", "/merge", "/cohorts", "/cohorts/abc"]) {
+    expect(activeHrefFor(SALES_HUB_ITEMS, "/dashboard/admin/sales-hub" + p)).toBe(cohorts);
+  }
+  expect(activeHrefFor(SALES_HUB_ITEMS, "/dashboard/admin/sales-hub/audiences")).toBe("/dashboard/admin/sales-hub/audiences");
 });
 
 it("mobile bar shows Overview, Contacts, Assign Lists, Sales Team; the rest is under More", () => {

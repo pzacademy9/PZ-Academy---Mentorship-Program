@@ -100,6 +100,10 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
 
   return (
     <div className="space-y-3">
+      <p className="font-body text-sm text-pz-on-surface-variant">
+        Need a list made by a question, like recorded buyers in UAE?{" "}
+        <Link href="/dashboard/admin/sales-hub/audiences" className="inline-flex min-h-11 items-center underline">Use Audiences</Link>.
+      </p>
       {cohorts.length > 0 && (
         <input
           value={search}
@@ -140,7 +144,7 @@ export function CohortsPanel({ initialCohorts }: { initialCohorts: Cohort[] }) {
           icon={Layers}
           title="No cohorts imported yet"
           description="Each imported sheet tab becomes a cohort."
-          action={{ label: "Import contacts", href: "/dashboard/admin/sales-hub/import" }}
+          action={{ label: "Import a sheet", href: "/dashboard/admin/sales-hub/import" }}
         />
       ) : filtered.length === 0 ? (
         <EmptyState icon={SearchX} title="No cohorts match" description={`Nothing matches "${search}".`} />

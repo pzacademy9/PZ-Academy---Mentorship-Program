@@ -262,7 +262,7 @@ describe("audiences panel", () => {
 
   it("needsUpdate shows the notice and the filters still render", () => {
     renderPanel({ needsUpdate: true });
-    expect(screen.getByText(/needs one small database update first/i)).toBeTruthy();
+    expect(screen.getByText(/needs one small one-time setup step first/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Pharmacovigilance" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Recorded" })).toBeTruthy();
   });

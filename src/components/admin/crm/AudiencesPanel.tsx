@@ -281,8 +281,8 @@ export function AudiencesPanel({
         <p role="status" className="flex items-start gap-2 rounded-xl bg-pz-surface-container-high p-3 font-body text-sm text-pz-on-surface-variant">
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            This page needs one small database update first. The steps are in the file
-            2026-11-17-meta-audiences-filters-owner-steps.md. Downloads on the Cohorts page still work.
+            This page needs one small one-time setup step first. Ask for it and the page will work.
+            Downloads on the Cohorts page still work.
           </span>
         </p>
       )}

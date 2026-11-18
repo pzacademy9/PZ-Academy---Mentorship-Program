@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getCohortDetail } from "@/lib/data/admin-crm-import";
+import { CohortsTabs } from "@/components/admin/crm/CohortsTabs";
 import { CohortDetailClient } from "@/components/admin/crm/CohortDetailClient";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -15,5 +16,10 @@ export default async function CohortDetailPage({ params }: { params: Promise<{ i
   const cohort = await getCohortDetail(id);
   if (!cohort) notFound();
 
-  return <CohortDetailClient cohort={cohort} />;
+  return (
+    <div className="space-y-6">
+      <CohortsTabs active="cohorts" />
+      <CohortDetailClient cohort={cohort} />
+    </div>
+  );
 }

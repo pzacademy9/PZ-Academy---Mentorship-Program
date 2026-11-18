@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, BookOpen, Calendar, Award, Users, Settings, Clock,
-  GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2,
+  GraduationCap, BarChart3, CreditCard, Video, NotebookPen, Bell, Megaphone, Link2, Target,
   Handshake, UserCheck, Star, MessageCircle, Image, Contact,
   ClipboardList, ClipboardCheck, UserPlus, LifeBuoy, ShieldCheck, ArrowLeft, LayoutTemplate, TicketPercent, Images, Landmark, Trophy, TrendingUp, ScrollText, Wallet,
 } from "lucide-react";
@@ -79,8 +79,15 @@ export function navForRole(role: Role, areas?: readonly Area[]): NavItem[] {
   });
 }
 
+/** Pages that live under another menu item: Import and Merge review are tabs of Cohorts. */
+const HUB_PATH_ALIASES: Record<string, string> = {
+  [`${SALES_HUB_BASE}/import`]: `${SALES_HUB_BASE}/cohorts`,
+  [`${SALES_HUB_BASE}/merge`]: `${SALES_HUB_BASE}/cohorts`,
+};
+
 /** Longest matching href wins; matches `href` exactly or `href + "/"` prefix. */
-export function activeHrefFor(items: NavItem[], pathname: string): string | undefined {
+export function activeHrefFor(items: NavItem[], rawPathname: string): string | undefined {
+  const pathname = HUB_PATH_ALIASES[rawPathname] ?? rawPathname;
   return items
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
@@ -104,9 +111,8 @@ export const SALES_HUB_ITEMS: HubNavItem[] = [
   hub("Audience", "Contacts", hubPath("contacts"), Users),
   hub("Team", "Assign Lists", hubPath("assign"), ClipboardList, "Assign"),
   hub("Team", "Sales Team", hubPath("team"), UserPlus, "Team"),
-  hub("Audience", "Import", hubPath("import"), Link2),
-  hub("Audience", "Merge Review", hubPath("merge"), UserCheck, "Merge"),
   hub("Audience", "Cohorts", hubPath("cohorts"), GraduationCap),
+  hub("Audience", "Audiences", hubPath("audiences"), Target),
   hub("Outreach", "Campaigns", hubPath("campaigns"), Megaphone),
   hub("Outreach", "WhatsApp Batches", hubPath("whatsapp"), MessageCircle, "WhatsApp"),
   hub("Outreach", "Conversion", hubPath("conversion"), BarChart3),
