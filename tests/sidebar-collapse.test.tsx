@@ -87,3 +87,13 @@ it("hub mode collapsed hides group headings and keeps Back to Admin named", () =
   expect(within(aside).queryByText("Sales Hub")).toBeNull();
   expect(within(aside).getByRole("link", { name: "Back to Admin" })).toBeTruthy();
 });
+
+it("aside stays in view and the toggle sits outside the scrolling nav", () => {
+  const { container } = render(<Sidebar role="admin" />);
+  const aside = desktop(container);
+  for (const c of ["lg:sticky", "lg:top-0", "lg:h-screen"]) expect(aside.className).toContain(c);
+  const nav = aside.querySelector("nav") as HTMLElement;
+  expect(nav.className).toContain("overflow-y-auto");
+  const toggle = within(aside).getByRole("button", { name: "Collapse menu" });
+  expect(nav.contains(toggle)).toBe(false);
+});

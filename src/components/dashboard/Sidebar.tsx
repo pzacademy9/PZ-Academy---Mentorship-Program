@@ -89,18 +89,18 @@ export function Sidebar({ role, areas }: SidebarProps) {
       {/* Desktop side nav */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col min-h-screen bg-pz-surface-container shrink-0 border-r border-pz-outline-variant/20 transition-[width] duration-200 motion-reduce:transition-none",
+          "hidden lg:flex flex-col lg:sticky lg:top-0 lg:h-screen bg-pz-surface-container shrink-0 border-r border-pz-outline-variant/20 transition-[width] duration-200 motion-reduce:transition-none",
           collapsed ? "w-16" : "w-60",
         )}
       >
-        <div className={cn("flex items-center gap-3 py-5", collapsed ? "justify-center px-0" : "px-6")}>
+        <div className={cn("flex shrink-0 items-center gap-3 py-5", collapsed ? "justify-center px-0" : "px-6")}>
           <div className="w-8 h-8 rounded-full bg-pz-bright flex items-center justify-center shrink-0">
             <span className="font-headline font-black text-pz-deep dark:text-pz-solid-deep text-xs">PZ</span>
           </div>
           {!collapsed && <span className="font-headline font-bold text-pz-secondary text-sm">PZ Academy</span>}
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 min-h-0 px-3 py-4 space-y-0.5 overflow-y-auto">
           {hubMode ? (
             <>
               {backLink(SALES_HUB_BACK.href)}
@@ -125,7 +125,7 @@ export function Sidebar({ role, areas }: SidebarProps) {
           )}
         </nav>
 
-        <div className="border-t border-pz-outline-variant/20 p-3">
+        <div className="shrink-0 border-t border-pz-outline-variant/20 p-3">
           <button
             type="button"
             onClick={toggleCollapsed}
