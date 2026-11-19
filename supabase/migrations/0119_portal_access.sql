@@ -18,6 +18,8 @@
 --      modules to the same-position module in the new course, and points
 --      the page at the new course. With dry_run = true it only counts and
 --      changes nothing. Lecture progress is not carried over.
+--      A student's chosen modules with no match in the new course are left
+--      as they are, so a limited student never becomes whole-course.
 --
 -- Nothing here sends an email.
 
@@ -246,9 +248,12 @@ begin
     where o.enrollment_id in (select id from _mv_set)
     on conflict do nothing;
 
+    -- only rows that were remapped are removed. A chosen module with no
+    -- counterpart stays, so a student limited to some modules never ends up
+    -- with an empty list (an empty list means the whole course).
     delete from public.enrollment_modules
     where enrollment_id in (select id from _mv_set)
-      and module_id in (select old_id from _mv_map);
+      and module_id in (select old_id from _mv_map where new_id is not null);
 
     -- the batch's finished-module marks follow the same map; marks on a
     -- module with no counterpart are dropped. A mark with no module (an old

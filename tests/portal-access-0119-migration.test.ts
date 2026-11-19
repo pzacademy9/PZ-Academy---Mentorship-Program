@@ -127,3 +127,10 @@ it("refuses a page with no portal and a target with no modules", () => {
   expect(b).toMatch(/v_old is null/i);
   expect(b).toMatch(/not exists \(select 1 from public\.modules where course_id = p_to_course\)/i);
 });
+
+it("deletes only remapped enrollment_modules rows so a restricted student never becomes whole-course", () => {
+  const b = body("move_batch_students");
+  expect(b).toMatch(
+    /delete from public\.enrollment_modules\s+where enrollment_id in \(select id from _mv_set\)\s+and module_id in \(select old_id from _mv_map where new_id is not null\)/i,
+  );
+});
