@@ -46,7 +46,8 @@ To switch a batch to a portal that already exists, use the list in the same card
 
 1. On the Portal access screen, press "Open in Course Builder".
 2. Change the YouTube links, MCQs and PDF links that are different for Batch 3.
-3. When you are happy, publish it. Publishing puts the portal on the public courses page of the website, and students cannot open it until it is published. "Move students" stays off until the portal is published.
+3. When you are happy, publish it. Students cannot open the portal until it is published. "Move students" stays off until the portal is published.
+4. Publishing a batch portal puts it on the website only if it is the newest in its group. The older portal then leaves the website listings by itself. Students of the older batch keep their own portal. The newest portal is the one people can buy as recorded.
 
 Students are not moved yet. Do steps 4 to 6 on the same day, and do not open modules or change Paid status until you have moved students. While students are waiting to move, the "Open modules and emails" area on the Portal access screen is replaced by a note that says "Move students first, then open modules here."
 
