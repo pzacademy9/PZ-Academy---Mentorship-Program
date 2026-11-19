@@ -108,6 +108,7 @@ describe("PortalAccessScreen", () => {
     renderScreen();
     await screen.findByText("0 students will move");
     expect((screen.getByRole("button", { name: "Move students" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Nobody is waiting to move.")).toBeTruthy();
   });
 
   it("the confirm dialog says progress does not carry over and posts to /api/admin/landing/portal/move only on confirm, and Cancel posts nothing", async () => {

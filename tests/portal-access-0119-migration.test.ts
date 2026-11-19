@@ -116,16 +116,33 @@ it("a dry run writes nothing", () => {
   expect(count).toBeGreaterThan(0);
 });
 
-it("refuses when the page already uses the target course", () => {
+it("does not use the page's course to decide who moves, so Move works after the page was repointed", () => {
   const b = body("move_batch_students");
-  expect(b).toMatch(/v_old = p_to_course/i);
-  expect(b).toMatch(/raise exception/i);
+  expect(b).not.toMatch(/already uses that portal/i);
+  expect(b).not.toMatch(/no portal yet/i);
+  expect(b).not.toMatch(/v_old/i);
+  expect(b).not.toMatch(/select course_id into/i);
+  expect(b).toMatch(/e\.course_id <> p_to_course/i);
+  expect(b).toMatch(/Registration page not found/);
 });
 
-it("refuses a page with no portal and a target with no modules", () => {
+it("builds the module map per old course by position", () => {
   const b = body("move_batch_students");
-  expect(b).toMatch(/v_old is null/i);
+  expect(b).toMatch(/row_number\(\) over \(partition by course_id order by order_index, id\)/i);
+  expect(b).toMatch(/row_number\(\) over \(order by order_index, id\)/i);
+});
+
+it("a second run finds nothing: only enrollments off the target are selected", () => {
+  const b = body("move_batch_students");
+  const set = b.slice(b.search(/create temp table _mv_set/i));
+  expect(set.slice(0, set.search(/;/))).toMatch(/e\.course_id <> p_to_course/i);
+});
+
+it("refuses a missing target course and a target with no modules", () => {
+  const b = body("move_batch_students");
+  expect(b).toMatch(/The new portal was not found/);
   expect(b).toMatch(/not exists \(select 1 from public\.modules where course_id = p_to_course\)/i);
+  expect(b).toMatch(/The new portal has no modules yet/);
 });
 
 it("deletes only remapped enrollment_modules rows so a restricted student never becomes whole-course", () => {

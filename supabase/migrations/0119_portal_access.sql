@@ -16,7 +16,10 @@
 --   4. move_batch_students(page, to_course, dry_run): moves the students of
 --      ONE registration page into another course, mapping their opened
 --      modules to the same-position module in the new course, and points
---      the page at the new course. With dry_run = true it only counts and
+--      the page at the new course. It does not matter which course the page
+--      points at: it moves every student linked to this page who is not in
+--      the new course yet. Pressing it again finds nobody to move (0) and
+--      changes nothing; it is not an error. With dry_run = true it only counts and
 --      changes nothing. Lecture progress is not carried over.
 --      A student's chosen modules with no match in the new course are left
 --      as they are, so a limited student never becomes whole-course.
@@ -162,21 +165,13 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_old        uuid;
   v_to_move    int;
   v_already    int;
   v_unmatched  int;
   v_moved      int := 0;
 begin
-  select course_id into v_old from public.landing_pages where id = p_page;
-  if not found then
+  if not exists (select 1 from public.landing_pages where id = p_page) then
     raise exception 'Registration page not found';
-  end if;
-  if v_old is null then
-    raise exception 'This registration has no portal yet';
-  end if;
-  if v_old = p_to_course then
-    raise exception 'This registration already uses that portal';
   end if;
   if not exists (select 1 from public.courses where id = p_to_course) then
     raise exception 'The new portal was not found';
@@ -185,32 +180,37 @@ begin
     raise exception 'The new portal has no modules yet';
   end if;
 
-  -- same position (order_index, then id) in the old and the new course
+  -- who moves: this page's students whose enrollment is not on the new
+  -- course yet, and who have no place in the new course already. The page's
+  -- own course is not used, so this works after the page was pointed at the
+  -- new portal. When everyone is already there this selects nothing.
+  drop table if exists pg_temp._mv_set;
+  create temp table _mv_set on commit drop as
+    select e.id, e.course_id
+    from public.enrollments e
+    where e.landing_registration_id in (
+        select id from public.landing_registrations where page_id = p_page
+      )
+      and e.course_id <> p_to_course
+      and not exists (
+        select 1 from public.enrollments t
+        where t.student_id = e.student_id and t.course_id = p_to_course
+      );
+
+  -- old module -> new module, same position (order_index, then id), worked
+  -- out separately for each old course the students are leaving
   drop table if exists pg_temp._mv_map;
   create temp table _mv_map on commit drop as
     select o.id as old_id, n.id as new_id
     from (
-      select id, row_number() over (order by order_index, id) as rk
-      from public.modules where course_id = v_old
+      select id, row_number() over (partition by course_id order by order_index, id) as rk
+      from public.modules
+      where course_id in (select course_id from _mv_set)
     ) o
     left join (
       select id, row_number() over (order by order_index, id) as rk
       from public.modules where course_id = p_to_course
     ) n on n.rk = o.rk;
-
-  -- this page's students on the old course who are not yet in the new one
-  drop table if exists pg_temp._mv_set;
-  create temp table _mv_set on commit drop as
-    select e.id
-    from public.enrollments e
-    where e.course_id = v_old
-      and e.landing_registration_id in (
-        select id from public.landing_registrations where page_id = p_page
-      )
-      and not exists (
-        select 1 from public.enrollments t
-        where t.student_id = e.student_id and t.course_id = p_to_course
-      );
 
   select count(*) into v_to_move from _mv_set;
 
@@ -223,7 +223,7 @@ begin
         )
     and (
       e.course_id = p_to_course
-      or (e.course_id = v_old and e.id not in (select id from _mv_set))
+      or e.id not in (select id from _mv_set)
     );
 
   select count(*) into v_unmatched from _mv_map where new_id is null;

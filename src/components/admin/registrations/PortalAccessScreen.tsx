@@ -271,6 +271,9 @@ function PortalAccessInner({
                   <p className="font-headline font-black text-2xl text-pz-on-surface">
                     {plural(preview.toMove, "student will move", "students will move")}
                   </p>
+                  {preview.toMove === 0 && (
+                    <p className="font-body text-sm text-pz-on-surface-variant">Nobody is waiting to move.</p>
+                  )}
                   <ul className="space-y-1 font-body text-sm text-pz-on-surface-variant">
                     <li>{preview.alreadyThere} already in this portal</li>
                     {preview.unmatchedModules > 0 && (

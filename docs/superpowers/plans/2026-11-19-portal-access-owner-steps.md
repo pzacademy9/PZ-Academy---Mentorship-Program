@@ -94,7 +94,7 @@ After a move, the first one should show most students under the new portal.
 
 ## If something looks wrong
 
-- Pressing Move a second time: you will see the calm message "This batch already uses that portal." Nothing is changed.
+- Pressing Move a second time: it simply shows 0 students to move and the Move button stays off. Nothing is changed.
 - The "Move students" button is greyed out: there is nobody to move (the first number is 0).
 - A student in two batches: only the students of the batch you are on are moved. The other batch is not touched.
 - The numbers do not look right: do not press Move. Tell me what the three numbers say.
