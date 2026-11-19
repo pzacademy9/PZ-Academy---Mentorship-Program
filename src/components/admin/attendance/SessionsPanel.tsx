@@ -132,6 +132,8 @@ export function SessionsPanel({
           <TodayPanel
             key={cls.id}
             pageId={pageId}
+            slug={overview.slug}
+            batchTitle={overview.title}
             cls={cls}
             session={session}
             rows={rows}

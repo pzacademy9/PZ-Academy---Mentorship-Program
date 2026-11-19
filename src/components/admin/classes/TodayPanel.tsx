@@ -9,7 +9,7 @@ import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { AttendanceTab } from "./AttendanceTab";
 import { ClassActionRow } from "./ClassActionRow";
-import { QuizCard } from "./QuizCard";
+import { QuizTab } from "./QuizTab";
 import { ClassTabs } from "./ClassTabs";
 import { LinksTab } from "./LinksTab";
 import { EditClassDialog } from "./EditClassDialog";
@@ -45,7 +45,7 @@ function clock(iso: string): string {
 }
 
 export function TodayPanel({
-  pageId, cls, session, rows, minPct, sends, nowIso, tab, onTabChange, onNeedAudience,
+  pageId, cls, session, rows, minPct, sends, nowIso, tab, onTabChange, onNeedAudience, slug = null, batchTitle = "",
 }: {
   pageId: string;
   cls: ClassSummary;
@@ -55,6 +55,9 @@ export function TodayPanel({
   sends: SessionSendState | undefined;
   nowIso: string;
   tab: ClassTab;
+  /** The batch's page slug (for the podium picture); null when missing. */
+  slug?: string | null;
+  batchTitle?: string;
   onTabChange: (t: ClassTab) => void;
   /** Called when Send emails is pressed before an audience is chosen. Defaults to switching to the Links tab, then focusing the audience box. */
   onNeedAudience?: () => void;
@@ -160,7 +163,7 @@ export function TodayPanel({
         >
           {t === tab && t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
           {t === tab && t === "attendance" && <AttendanceTab pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} nowIso={nowIso} />}
-          {t === tab && t === "quiz" && <QuizCard pageId={pageId} cls={cls} />}
+          {t === tab && t === "quiz" && <QuizTab pageId={pageId} cls={cls} slug={slug} batchTitle={batchTitle} />}
         </div>
       ))}
 
