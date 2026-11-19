@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const gate = vi.hoisted(() => ({ mode: "ok" as "ok" | "401" | "403", calls: [] as unknown[] }));
+const gate = vi.hoisted(() => ({ mode: "ok" as "ok" | "401" | "403", calls: [] as unknown[], denyOn: null as string | null }));
 vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: async (area: unknown) => {
     gate.calls.push(area);
-    return gate.mode === "ok"
+    return gate.mode === "ok" && gate.denyOn !== area
       ? { ok: true, user: { id: "admin-1" } }
       : { ok: false, response: new Response(JSON.stringify({ error: "x" }), { status: gate.mode === "401" ? 401 : 403 }) };
   },
@@ -32,6 +32,7 @@ let errSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   gate.mode = "ok";
   gate.calls = [];
+  gate.denyOn = null;
   for (const f of Object.values(m)) f.mockReset();
   errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -62,6 +63,22 @@ describe("area per route", () => {
     expect(await run(() => moveGet(get("?")))).toBe("enrollments");
     expect(await run(() => movePost(post({})))).toBe("enrollments");
     expect(await run(() => attachPost(post({})))).toBe("landing_pages");
+  });
+});
+
+describe("duplicate needs both areas", () => {
+  const body = { pageId: PAGE, sourceCourseId: COURSE, title: "X" };
+  it("checks courses and landing_pages", async () => {
+    m.duplicatePortal.mockResolvedValue({ courseId: "new" });
+    expect((await dupPost(post(body))).status).toBe(200);
+    expect(gate.calls).toEqual(["courses", "landing_pages"]);
+  });
+  it("a 403 from either area stops before duplicatePortal", async () => {
+    for (const area of ["courses", "landing_pages"]) {
+      gate.denyOn = area;
+      expect((await dupPost(post(body))).status).toBe(403);
+    }
+    expect(m.duplicatePortal).not.toHaveBeenCalled();
   });
 });
 
