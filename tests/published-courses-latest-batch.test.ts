@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createSupabaseMock } from "./helpers/supabase-mock";
+import { createSupabaseMock, filterValue } from "./helpers/supabase-mock";
 import type { Op, Res } from "./helpers/supabase-mock";
 
 const db = createSupabaseMock();
@@ -59,6 +59,11 @@ describe("getPublishedCourses", () => {
   it("falls back to all published rows when the family select errors", async () => {
     db.state.handler = handler(false);
     expect((await getPublishedCourses()).map((c) => c.id)).toEqual(["old", "solo", "new"]);
+    const selects = db.find("courses", "select").filter((o) => !o.columns?.includes("topic"));
+    expect(selects).toHaveLength(2);
+    expect(selects[0].columns).toContain("family_id");
+    expect(selects[1].columns).not.toContain("family_id");
+    for (const o of selects) expect(filterValue(o, "eq", "is_published")).toBe(true);
   });
 
   it("hides older batch portals when family_id is available", async () => {
