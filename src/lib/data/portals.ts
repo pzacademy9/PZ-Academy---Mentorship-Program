@@ -68,15 +68,26 @@ export async function getPortalOverview(pageId: string): Promise<PortalOverview 
   check("landing_pages read", pe);
   if (!page) return null;
 
-  const { data: courses, error: ce } = await admin
+  // Before migration 0119 is pasted the new columns and the families table do not exist: fall back
+  // to the old columns (ungrouped) so the screen still renders. A failing fallback still throws.
+  let courses: CourseRow[];
+  const first = await admin
     .from("courses")
     .select("id, title, slug, is_published, family_id, batch_label")
     .order("title", { ascending: true });
-  check("courses read", ce);
+  if (first.error) {
+    const old = await admin.from("courses").select("id, title, slug, is_published").order("title", { ascending: true });
+    check("courses read", old.error);
+    courses = ((old.data ?? []) as { id: string; title: string; slug: string; is_published: boolean | null }[]).map((c) => ({
+      ...c,
+      family_id: null,
+      batch_label: null,
+    }));
+  } else {
+    courses = (first.data ?? []) as CourseRow[];
+  }
   const { data: fams, error: fe } = await admin.from("course_families").select("id, name").order("name", { ascending: true });
-  check("course_families read", fe);
-
-  const families = (fams ?? []).map((f) => ({ id: f.id, name: f.name }));
+  const families = fe ? [] : (fams ?? []).map((f) => ({ id: f.id, name: f.name }));
   const nameOf = new Map(families.map((f) => [f.id, f.name]));
   const summarise = (c: CourseRow): PortalSummary => ({
     id: c.id,
@@ -87,7 +98,7 @@ export async function getPortalOverview(pageId: string): Promise<PortalOverview 
     familyName: c.family_id ? nameOf.get(c.family_id) ?? null : null,
     batchLabel: c.batch_label,
   });
-  const all = ((courses ?? []) as CourseRow[]).map(summarise);
+  const all = courses.map(summarise);
   const portal = all.find((c) => c.id === page.course_id) ?? null;
   const siblings = portal ? all.filter((c) => c.id !== portal.id && c.familyId === portal.familyId) : [];
   return { portal, siblings, families, sources: all };

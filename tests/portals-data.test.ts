@@ -56,6 +56,40 @@ describe("getPortalOverview", () => {
   });
 });
 
+describe("getPortalOverview before migration 0119", () => {
+  const mem = () => db.state.handler;
+  const wrap = (breakCourses: boolean, breakFamilies: boolean, breakFallback = false) => {
+    const inner = mem();
+    db.state.handler = (op) => {
+      if (op.table === "courses" && op.op === "select") {
+        const newCols = (op.columns ?? "").includes("family_id");
+        if (newCols && breakCourses) return { data: null, error: { message: "column courses.family_id does not exist" } };
+        if (!newCols && breakFallback) return { data: null, error: { message: "boom" } };
+      }
+      if (op.table === "course_families" && breakFamilies) return { data: null, error: { message: "relation does not exist" } };
+      return inner(op);
+    };
+  };
+  it("returns null family fields when the first select errors and the fallback works", async () => {
+    wrap(true, true);
+    const o = await getPortalOverview(PAGE);
+    expect(o?.portal).toMatchObject({ id: C1, familyId: null, familyName: null, batchLabel: null });
+    expect(o?.families).toEqual([]);
+    expect(o?.siblings.map((s) => s.id).sort()).toEqual([C2, C3]);
+    expect(o?.sources).toHaveLength(3);
+  });
+  it("throws when the fallback select fails too", async () => {
+    wrap(true, true, true);
+    await expect(getPortalOverview(PAGE)).rejects.toThrow();
+  });
+  it("a missing course_families table yields families []", async () => {
+    wrap(false, true);
+    const o = await getPortalOverview(PAGE);
+    expect(o?.families).toEqual([]);
+    expect(o?.portal).toMatchObject({ id: C1, familyId: FAM, familyName: null });
+  });
+});
+
 describe("previewMove and moveStudents", () => {
   it("previewMove maps the RPC keys and passes p_dry_run true", async () => {
     rpcReply = () => ({ data: { to_move: 5, already_there: 2, unmatched_modules: 1, moved: 0 }, error: null });
