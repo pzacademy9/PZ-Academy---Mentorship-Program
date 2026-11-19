@@ -151,3 +151,22 @@ it("deletes only remapped enrollment_modules rows so a restricted student never 
     /delete from public\.enrollment_modules\s+where enrollment_id in \(select id from _mv_set\)\s+and module_id in \(select old_id from _mv_map where new_id is not null\)/i,
   );
 });
+
+it("moves at most one enrollment per student so the unique (student, course) key cannot abort the call", () => {
+  const b = body("move_batch_students");
+  const set = b.slice(b.search(/create temp table _mv_set/i));
+  expect(set.slice(0, set.search(/;/))).toMatch(
+    /select distinct on \(e\.student_id\) e\.id, e\.course_id[\s\S]*?order by e\.student_id, e\.id/i,
+  );
+});
+
+it("remaps landing_batch_state without colliding on (page_id, module_id)", () => {
+  const b = body("move_batch_students");
+  expect(b).toMatch(/select distinct on \(mp\.new_id\)/i);
+  expect(b).toMatch(
+    /not exists \(\s*select 1 from public\.landing_batch_state x\s+where x\.page_id = p_page and x\.module_id = mp\.new_id/i,
+  );
+  expect(b).toMatch(
+    /delete from public\.landing_batch_state\s+where page_id = p_page\s+and module_id in \(select old_id from _mv_map\)/i,
+  );
+});

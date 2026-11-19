@@ -183,10 +183,12 @@ begin
   -- who moves: this page's students whose enrollment is not on the new
   -- course yet, and who have no place in the new course already. The page's
   -- own course is not used, so this works after the page was pointed at the
-  -- new portal. When everyone is already there this selects nothing.
+  -- new portal. When everyone is already there this selects nothing. A
+  -- student with two linked enrollments moves only one of them (the other
+  -- counts as already there), so the one-place-per-course rule is safe.
   drop table if exists pg_temp._mv_set;
   create temp table _mv_set on commit drop as
-    select e.id, e.course_id
+    select distinct on (e.student_id) e.id, e.course_id
     from public.enrollments e
     where e.landing_registration_id in (
         select id from public.landing_registrations where page_id = p_page
@@ -195,7 +197,8 @@ begin
       and not exists (
         select 1 from public.enrollments t
         where t.student_id = e.student_id and t.course_id = p_to_course
-      );
+      )
+    order by e.student_id, e.id;
 
   -- old module -> new module, same position (order_index, then id), worked
   -- out separately for each old course the students are leaving
@@ -255,17 +258,32 @@ begin
     where enrollment_id in (select id from _mv_set)
       and module_id in (select old_id from _mv_map where new_id is not null);
 
-    -- the batch's finished-module marks follow the same map; marks on a
-    -- module with no counterpart are dropped. A mark with no module (an old
-    -- whole-course mark) is left alone.
+    -- the batch's finished-module marks follow the same map. One mark is
+    -- kept per new module, and none is moved onto a module that already has
+    -- a mark for this page. Every other mark on an old module (no match, or
+    -- a duplicate) is dropped. A mark with no module (an old whole-course
+    -- mark) is left alone.
+    drop table if exists pg_temp._mv_state;
+    create temp table _mv_state on commit drop as
+      select distinct on (mp.new_id) s.id, mp.new_id
+      from public.landing_batch_state s
+      join _mv_map mp on mp.old_id = s.module_id
+      where s.page_id = p_page
+        and mp.new_id is not null
+        and not exists (
+          select 1 from public.landing_batch_state x
+          where x.page_id = p_page and x.module_id = mp.new_id
+        )
+      order by mp.new_id, s.finished_at, s.id;
+
     update public.landing_batch_state s
-    set module_id = mp.new_id
-    from _mv_map mp
-    where s.page_id = p_page and s.module_id = mp.old_id and mp.new_id is not null;
+    set module_id = st.new_id
+    from _mv_state st
+    where s.id = st.id;
 
     delete from public.landing_batch_state
     where page_id = p_page
-      and module_id in (select old_id from _mv_map where new_id is null);
+      and module_id in (select old_id from _mv_map);
 
     update public.enrollments
     set course_id = p_to_course
