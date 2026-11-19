@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarClock, FileUp, MessageSquareText, Pencil, Users, Video } from "lucide-react";
+import { CalendarClock, FileUp, Pencil, Video } from "lucide-react";
 import { formatPkt, isoToPktInput } from "@/lib/attendance/rules";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
@@ -10,10 +10,11 @@ import type { SessionSendState } from "@/lib/data/session-emails";
 import { AttendanceCard } from "./AttendanceCard";
 import { ClassActionRow } from "./ClassActionRow";
 import { QuizCard } from "./QuizCard";
-import { FeedbackCard } from "./FeedbackCard";
+import { ClassTabs } from "./ClassTabs";
+import { LinksTab } from "./LinksTab";
 import { EditClassDialog } from "./EditClassDialog";
-import { FoldCard } from "./FoldCard";
-import { attendanceStatus, feedbackStatus, nextAction, quizStatus } from "@/lib/classes/card-status";
+import { attendanceStatus, nextAction, quizStatus } from "@/lib/classes/card-status";
+import { CLASS_TABS, classPanelId, classTabId, type ClassTab } from "@/lib/classes/tabs";
 import { cardCls, primaryBtn, quietBtn } from "./styles";
 
 /** The single next step for a class. */
@@ -44,7 +45,7 @@ function clock(iso: string): string {
 }
 
 export function TodayPanel({
-  pageId, cls, session, rows, minPct, sends, nowIso, onNeedAudience,
+  pageId, cls, session, rows, minPct, sends, nowIso, tab, onTabChange, onNeedAudience,
 }: {
   pageId: string;
   cls: ClassSummary;
@@ -53,26 +54,36 @@ export function TodayPanel({
   minPct: number;
   sends: SessionSendState | undefined;
   nowIso: string;
-  /** Called when Send emails is pressed before an audience is chosen. Defaults to scrolling to #class-audience. */
+  tab: ClassTab;
+  onTabChange: (t: ClassTab) => void;
+  /** Called when Send emails is pressed before an audience is chosen. Defaults to switching to the Links tab, then focusing the audience box. */
   onNeedAudience?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [opened, setOpened] = useState<Record<"attendance" | "quiz" | "feedback", boolean>>({ attendance: false, quiz: false, feedback: false });
-  const needAudience = onNeedAudience ?? (() => document.getElementById("class-audience")?.scrollIntoView?.({ behavior: "smooth", block: "center" }));
+  const needAudience =
+    onNeedAudience ??
+    (() => {
+      onTabChange("links");
+      // Wait for the Links tab to show, then bring the audience box into view and focus its first choice.
+      requestAnimationFrame(() => {
+        const box = document.getElementById("class-audience");
+        box?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        box?.querySelector<HTMLElement>("[role='radio']")?.focus();
+      });
+    });
   const step = nextStep(cls);
   const action = nextAction(cls);
   const quizHref = `/dashboard/admin/enrollments/registrations/campaign/${pageId}/sessions/${cls.id}/quiz`;
-  const toggle = (k: "attendance" | "quiz" | "feedback") => setOpened((cur) => ({ ...cur, [k]: !cur[k] }));
   function runAction() {
+    // The attendance link and the feedback link both live on the Links tab.
     if (action.target === null || action.target === "quiz") return;
-    const k = action.target;
-    setOpened((cur) => ({ ...cur, [k]: true }));
-    // Wait for the fold to open, then bring it into view (below the sticky top bar) and focus its header.
-    requestAnimationFrame(() => {
-      document.getElementById(`fold-${k}-fold`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      document.getElementById(`fold-${k}-header`)?.focus();
-    });
+    onTabChange("links");
+    requestAnimationFrame(() => document.getElementById(classPanelId("links"))?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   }
+  const counts: Partial<Record<ClassTab, string>> = {
+    attendance: attendanceStatus(cls).line,
+    quiz: quizStatus(cls).line,
+  };
 
   return (
     <div className="space-y-4">
@@ -124,15 +135,14 @@ export function TodayPanel({
         </div>
       </section>
 
-      <FoldCard id="fold-attendance" icon={<Users className="size-5" />} title="Attendance" status={attendanceStatus(cls)} open={opened.attendance} onToggle={() => toggle("attendance")}>
-        <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />
-      </FoldCard>
-      <FoldCard id="fold-quiz" icon={<FileUp className="size-5" />} title="Quiz results" status={quizStatus(cls)} open={opened.quiz} onToggle={() => toggle("quiz")}>
-        <QuizCard pageId={pageId} cls={cls} />
-      </FoldCard>
-      <FoldCard id="fold-feedback" icon={<MessageSquareText className="size-5" />} title="Feedback" status={feedbackStatus(cls)} open={opened.feedback} onToggle={() => toggle("feedback")}>
-        <FeedbackCard pageId={pageId} cls={cls} />
-      </FoldCard>
+      <ClassTabs active={tab} onChange={onTabChange} counts={counts} panelId={classPanelId} />
+      {CLASS_TABS.filter((t) => t === tab).map((t) => (
+        <div key={t} role="tabpanel" id={classPanelId(t)} aria-labelledby={classTabId(t)}>
+          {t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
+          {t === "attendance" && <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />}
+          {t === "quiz" && <QuizCard pageId={pageId} cls={cls} />}
+        </div>
+      ))}
 
       {editing && <EditClassDialog pageId={pageId} session={session} nextNumber={cls.number} sends={sends} onClose={() => setEditing(false)} />}
     </div>

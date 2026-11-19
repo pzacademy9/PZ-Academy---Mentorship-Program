@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 
 const h = vi.hoisted(() => ({
   addSession: vi.fn(),
@@ -22,7 +23,10 @@ const h = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: h.refresh }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: h.refresh, replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("sonner", () => ({ toast: { success: h.success, error: h.error } }));
 vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => h.confirm }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions", () => ({
@@ -52,6 +56,7 @@ import { SessionsPanel } from "@/components/admin/attendance/SessionsPanel";
 import type { ClassSummary, ClassOverview } from "@/lib/data/class-overview";
 import type { SessionRow, GridRow } from "@/lib/data/attendance";
 import type { SessionSendState } from "@/lib/data/session-emails";
+import type { ClassTab } from "@/lib/classes/tabs";
 
 const PAGE = "00000000-0000-4000-8000-000000000001";
 const NOW = "2026-11-10T07:00:00.000Z";
@@ -76,10 +81,16 @@ const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   ...over,
 } as SessionRow);
 
-function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridRow[]; sends?: SessionSendState } = {}) {
-  return render(
-    <TodayPanel pageId={PAGE} cls={c} session={s} rows={extra.rows ?? []} minPct={75} sends={extra.sends} nowIso={NOW} />,
-  );
+function Harness({ c, s, extra }: { c: ClassSummary; s: SessionRow; extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab } }) {
+  const [tab, setTab] = useState<ClassTab>(extra.tab ?? "links");
+  return <TodayPanel pageId={PAGE} cls={c} session={s} rows={extra.rows ?? []} minPct={75} sends={extra.sends} nowIso={NOW} tab={tab} onTabChange={setTab} />;
+}
+function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab } = {}) {
+  return render(<Harness c={c} s={s} extra={extra} />);
+}
+/** The same panel opened on the Attendance tab. */
+function attPanel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridRow[]; sends?: SessionSendState } = {}) {
+  return panel(c, s, { ...extra, tab: "attendance" });
 }
 
 beforeEach(() => {
@@ -119,23 +130,21 @@ describe("TodayPanel banner", () => {
 });
 
 describe("cards", () => {
-  it("copy link button is first and email second on the attendance card, copy first on feedback", () => {
-    panel(summary());
+  it("copy link button is first and email second on the attendance card", () => {
+    attPanel(summary());
     const att = screen.getByTestId("attendance-card");
     const attButtons = within(att).getAllByRole("button");
     expect(attButtons[0].textContent).toMatch(/Copy link/);
     expect(attButtons[1].textContent).toMatch(/Email Zoom link now/);
     expect(attButtons[2].textContent).toMatch(/Send me a test/);
-    const fb = screen.getByTestId("feedback-card");
-    expect(within(fb).getAllByRole("button")[0].textContent).toMatch(/Copy link/);
     expect(att.textContent).toMatch(/38\s*of 52 present/);
   });
 
-  it("feedback card shows Copy link first and Email to students second", () => {
+  it("the feedback box on the Links tab shows Email to students and See responses", () => {
     panel(summary());
-    const buttons = within(screen.getByTestId("feedback-card")).getAllByRole("button");
-    expect(buttons[0].textContent).toMatch(/Copy link/);
-    expect(buttons[1].textContent).toMatch(/Email to students/);
+    const fb = screen.getByTestId("feedback-card");
+    expect(within(fb).getByRole("button", { name: "Email to students" })).toBeTruthy();
+    expect(within(fb).getByRole("link", { name: "See responses" })).toBeTruthy();
   });
 
   it("email button confirms before sending", async () => {
@@ -159,23 +168,24 @@ describe("cards", () => {
 
   it("no email button when the class has no feedback link", () => {
     panel(summary({ feedbackLink: null, feedbackSessionId: null }));
-    expect(within(screen.getByTestId("feedback-card")).queryByRole("button", { name: /Email to students/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Email to students/ })).toBeNull();
   });
 
   it("class with no feedback shows Create missing feedback links", async () => {
     panel(summary({ feedbackLink: null, feedbackSessionId: null }));
-    const fb = screen.getByTestId("feedback-card");
-    fireEvent.click(within(fb).getByRole("button", { name: "Create missing feedback links" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create missing feedback links" }));
     await waitFor(() => expect(h.createMissing).toHaveBeenCalledWith(PAGE));
   });
 
   it("quiz card links to the upload screen, or to the results once saved", () => {
-    const { unmount } = panel(summary());
+    const { unmount } = panel(summary(), session(), { tab: "quiz" });
     expect(screen.getByRole("link", { name: "Upload Kahoot file" }).getAttribute("href")).toMatch(/\/sessions\/s1\/quiz$/);
     unmount();
-    panel(summary({ quiz: { saved: true, players: 54 } }));
+    const b = panel(summary({ quiz: { saved: true, players: 54 } }), session(), { tab: "quiz" });
     expect(screen.getByRole("link", { name: "Open quiz results" })).toBeTruthy();
     expect(screen.getByText("54 players")).toBeTruthy();
+    b.unmount();
+    panel(summary({ quiz: { saved: true, players: 54 } }));
     expect(screen.getByRole("link", { name: "See responses" }).getAttribute("href")).toBe("/dashboard/admin/feedback/f1");
   });
 });
@@ -300,13 +310,13 @@ describe("EditClassDialog rules", () => {
 
 describe("attendance card actions", () => {
   it("first send uses the reminder; a second send asks and then re-sends the plain class details", async () => {
-    const { unmount } = panel(summary());
+    const { unmount } = attPanel(summary());
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.sendReminderNow).toHaveBeenCalledWith("s1"));
     expect(h.resendClassDetails).not.toHaveBeenCalled();
     unmount();
 
-    panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
+    attPanel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.resendClassDetails).toHaveBeenCalledWith("s1"));
     expect(h.emailUpdatedTime).not.toHaveBeenCalled();
@@ -314,7 +324,7 @@ describe("attendance card actions", () => {
 
   it("asks before the first real send and sends nothing when you say no", async () => {
     h.confirm.mockResolvedValueOnce(false);
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/test/i);
@@ -323,7 +333,7 @@ describe("attendance card actions", () => {
 
   it("Email people who have not got it asks, then sends only to them", async () => {
     h.emailMissingOnly.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /haven.t got it/ }));
     await waitFor(() => expect(h.emailMissingOnly).toHaveBeenCalledWith("s1"));
     expect(h.sendReminderNow).not.toHaveBeenCalled();
@@ -332,21 +342,21 @@ describe("attendance card actions", () => {
 
   it("saying no to the only-missing question sends nothing", async () => {
     h.confirm.mockResolvedValueOnce(false);
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /haven.t got it/ }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.emailMissingOnly).not.toHaveBeenCalled();
   });
 
   it("the repeat send warns that people who already got it get it again", async () => {
-    panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
+    attPanel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
   });
 
   it("after only a time-change email the main button also warns that people already got it", async () => {
-    panel(summary(), session(), { sends: { reminderAt: null, updateAt: "2026-11-09T10:00:00.000Z" } });
+    attPanel(summary(), session(), { sends: { reminderAt: null, updateAt: "2026-11-09T10:00:00.000Z" } });
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
@@ -354,7 +364,7 @@ describe("attendance card actions", () => {
 
   it("Email new Zoom link under More settings asks first, then sends the changed-link email", async () => {
     h.emailNewZoomLink.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(screen.getByRole("button", { name: "Email new Zoom link" }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/everyone/i);
@@ -363,38 +373,38 @@ describe("attendance card actions", () => {
 
   it("Send me a test sends a test copy without asking", async () => {
     h.sendTestEmailToMe.mockResolvedValue({ ok: true, message: "Test email sent to a@b.c" });
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Send me a test/ }));
     await waitFor(() => expect(h.sendTestEmailToMe).toHaveBeenCalledWith("s1"));
     expect(h.sendReminderNow).not.toHaveBeenCalled();
   });
 
   it("Email updated time under More settings keeps the updated-time email", async () => {
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(screen.getByRole("button", { name: "Email updated time" }));
     await waitFor(() => expect(h.emailUpdatedTime).toHaveBeenCalledWith("s1"));
   });
 
   it("shows when the reminder and the time change email went out", () => {
-    panel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: "2026-11-09T12:00:00.000Z" } });
+    attPanel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: "2026-11-09T12:00:00.000Z" } });
     const att = screen.getByTestId("attendance-card");
     expect(att.textContent).toMatch(/Reminder email sent .*Class details email sent/);
   });
 
   it("shows when no reminder has gone out yet", () => {
-    panel(summary(), session({ audience: { mode: "live", modules: "all" } } as Partial<SessionRow>));
+    attPanel(summary(), session({ audience: { mode: "live", modules: "all" } } as Partial<SessionRow>));
     expect(screen.getByTestId("attendance-card").textContent).toMatch(/Reminder email not sent yet/);
   });
 
   it("Mark everyone present marks the selected class", async () => {
-    panel(summary());
+    attPanel(summary());
     fireEvent.click(screen.getByRole("button", { name: "Mark everyone present" }));
     await waitFor(() => expect(h.markEveryonePresent).toHaveBeenCalledWith("s1"));
   });
 
   it("the attendance list shows only this class, with no whole-batch columns or minimum field", () => {
     const row: GridRow = { personId: "p1", pzId: "PZ-1", name: "Ayesha Khan", marks: {}, started: 1, marked: 0, pct: 0, meetsMin: false };
-    panel(summary(), session(), { rows: [row] });
+    attPanel(summary(), session(), { rows: [row] });
     const att = screen.getByTestId("attendance-card");
     expect(within(att).getByText("S1")).toBeTruthy();
     expect(within(att).queryByText("Attended")).toBeNull();
@@ -459,22 +469,19 @@ describe("phone-first Classes screen", () => {
     expect(link.getAttribute("href")).toMatch(/\/sessions\/s1\/quiz$/);
   });
 
-  it("for an upcoming class the button opens the Attendance fold", () => {
-    panel(summary({ status: "upcoming" }));
-    const fold = screen.getByRole("button", { name: /^Attendance/ });
-    expect(fold.getAttribute("aria-expanded")).toBe("false");
+  it("for an upcoming class the button shows the links on the Links tab", () => {
+    panel(summary({ status: "upcoming" }), session(), { tab: "attendance" });
+    expect(screen.getByRole("tab", { name: "Attendance" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
-    expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByTestId("attendance-card")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Links and emails" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("group", { name: "Attendance link" })).toBeTruthy();
   });
 
-  it("opening one fold leaves the others as they were", () => {
-    panel(summary({ quiz: { saved: true, players: 5 } }));
-    fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^Feedback/ }));
-    expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: /^Feedback/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: /^Quiz results/ }).getAttribute("aria-expanded")).toBe("false");
+  it("only the open tab's panel is on the page", () => {
+    panel(summary({ quiz: { saved: true, players: 5 } }), session(), { tab: "quiz" });
+    expect(screen.getByTestId("quiz-card")).toBeTruthy();
+    expect(screen.queryByTestId("attendance-card")).toBeNull();
+    expect(screen.queryByTestId("feedback-card")).toBeNull();
   });
 
   it("no next-step button when everything is done", () => {
@@ -484,11 +491,10 @@ describe("phone-first Classes screen", () => {
     expect(within(box).queryByRole("link")).toBeNull();
   });
 
-  it("each fold header shows its one-line status", () => {
+  it("each tab shows its one-line status", () => {
     panel(summary({ feedbackCount: 18, feedbackAvg: 4.6 }));
-    expect(screen.getByRole("button", { name: /^Attendance/ }).textContent).toContain("38 of 52 present");
-    expect(screen.getByRole("button", { name: /^Quiz results/ }).textContent).toContain("Not uploaded yet");
-    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("18 answers · 4.6 average");
+    expect(screen.getByRole("tab", { name: "Attendance" }).textContent).toContain("38 of 52 present");
+    expect(screen.getByRole("tab", { name: "Quiz and podium" }).textContent).toContain("Not uploaded yet");
   });
 
   it("the day list scrolls sideways on a phone", () => {
@@ -519,16 +525,13 @@ describe("phone-first Classes screen", () => {
     expect(chip.querySelector("span[aria-hidden='true'].rounded-full")!.className).toContain("bg-emerald-600");
   });
 
-  it("the next-step button scrolls the fold into view and moves focus to its header", async () => {
+  it("the next-step button scrolls the Links panel into view, every time", async () => {
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
-    panel(summary({ status: "upcoming" }));
+    panel(summary({ status: "upcoming" }), session(), { tab: "attendance" });
     fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
     await waitFor(() => expect(scroll).toHaveBeenCalled());
-    expect((scroll.mock.instances[0] as HTMLElement).id).toBe("fold-attendance-fold");
-    expect(document.activeElement).toBe(document.getElementById("fold-attendance-header"));
-    // tapping again after folding by hand scrolls again
-    fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
+    expect((scroll.mock.instances[0] as HTMLElement).id).toBe("class-panel-links");
     scroll.mockClear();
     fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
     await waitFor(() => expect(scroll).toHaveBeenCalled());

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarPlus, Settings2 } from "lucide-react";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
@@ -11,6 +12,7 @@ import { saveMinPct } from "@/app/dashboard/admin/enrollments/registrations/camp
 import { ClassList } from "@/components/admin/classes/ClassList";
 import { BatchSummary } from "@/components/admin/classes/BatchSummary";
 import { PortalVisibilitySwitch } from "@/components/admin/classes/PortalVisibilitySwitch";
+import { parseClassTab, type ClassTab } from "@/lib/classes/tabs";
 import { TodayPanel } from "@/components/admin/classes/TodayPanel";
 import { EditClassDialog } from "@/components/admin/classes/EditClassDialog";
 import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn } from "@/components/admin/classes/styles";
@@ -69,8 +71,19 @@ export function SessionsPanel({
   sends: Record<string, SessionSendState>;
   nowIso: string;
 }) {
-  const [selectedId, setSelectedId] = useState(overview.selectedId);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [selectedId, setSelectedId] = useState(() => {
+    const fromUrl = searchParams.get("class");
+    return fromUrl && overview.classes.some((c) => c.id === fromUrl) ? fromUrl : overview.selectedId;
+  });
+  const [tab, setTab] = useState<ClassTab>(() => parseClassTab(searchParams.get("tab")));
   const [adding, setAdding] = useState(false);
+  function go(id: string, t: ClassTab) {
+    setSelectedId(id);
+    setTab(t);
+    router.replace(`?class=${id}&tab=${t}`, { scroll: false });
+  }
   const setupHref = `${BASE}/campaign/${pageId}/sessions/setup`;
 
   useEffect(() => {
@@ -112,7 +125,7 @@ export function SessionsPanel({
             </button>
             <Link href={setupHref} className={`${quietBtn} w-full`}>Edit all classes</Link>
           </div>
-          <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />
+          <ClassList classes={overview.classes} selectedId={cls.id} onSelect={(id) => go(id, tab)} />
         </div>
         {session && (
           <div className="min-w-0">
@@ -125,6 +138,8 @@ export function SessionsPanel({
             minPct={minPct}
             sends={sends[cls.id]}
             nowIso={nowIso}
+            tab={tab}
+            onTabChange={(t) => go(cls.id, t)}
           />
           </div>
         )}

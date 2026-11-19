@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn() }));
 vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions", () => ({ addSession: vi.fn(), saveSession: vi.fn(), setOverride: vi.fn(), sendReminderNow: vi.fn(), emailUpdatedTime: vi.fn(), resendClassDetails: vi.fn(), markEveryonePresent: vi.fn(), toggleMark: vi.fn(), saveMinPct: vi.fn(), removeSession: vi.fn(), emailFeedbackLink: vi.fn(), sendTestEmailToMe: vi.fn(), emailMissingOnly: vi.fn(), emailNewZoomLink: vi.fn(), openProgramReport: vi.fn(), loadClassEmailHistory: vi.fn(async () => ({ ok: true, rounds: [] })) }));
@@ -39,7 +39,7 @@ describe("Classes page layout", () => {
     render(<SessionsPanel pageId={PAGE} overview={overview} sessions={[session]} rows={[]} minPct={75} sends={{}} nowIso="2026-11-10T07:00:00.000Z" pageStatus="published" showInPortal={null} />);
     const grid = screen.getByRole("button", { name: /Day 1/ }).closest("div.grid")!;
     expect(grid.className).toContain("minmax(0,1fr)");
-    const right = screen.getByTestId("attendance-card").closest("div.grid > div:not(:first-child)") as HTMLElement;
+    const right = screen.getByRole("tabpanel").closest("div.grid > div:not(:first-child)") as HTMLElement;
     expect(right.className).toContain("min-w-0");
   });
 
