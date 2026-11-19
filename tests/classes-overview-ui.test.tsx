@@ -98,23 +98,23 @@ beforeEach(() => {
 describe("TodayPanel banner", () => {
   it("banner names the next step for each state", () => {
     const { unmount } = panel(summary({ status: "upcoming" }));
-    expect(screen.getByRole("status").textContent).toMatch(/Share the attendance link with students/);
+    expect(screen.getByRole("status", { name: "Next step" }).textContent).toMatch(/Share the attendance link with students/);
     unmount();
 
     const a = panel(summary());
-    expect(screen.getByRole("status").textContent).toMatch(/Upload today's quiz results/);
+    expect(screen.getByRole("status", { name: "Next step" }).textContent).toMatch(/Upload today's quiz results/);
     a.unmount();
 
     const b = panel(summary({ status: "done" }));
-    expect(screen.getByRole("status").textContent).toMatch(/Upload this class's quiz results/);
+    expect(screen.getByRole("status", { name: "Next step" }).textContent).toMatch(/Upload this class's quiz results/);
     b.unmount();
 
     const c = panel(summary({ quiz: { saved: true, players: 54 } }));
-    expect(screen.getByRole("status").textContent).toMatch(/Check feedback responses/);
+    expect(screen.getByRole("status", { name: "Next step" }).textContent).toMatch(/Check feedback responses/);
     c.unmount();
 
     panel(summary({ quiz: { saved: true, players: 54 }, feedbackCount: 12, feedbackAvg: 4.5 }));
-    expect(screen.getByRole("status").textContent).toMatch(/All done for this class/);
+    expect(screen.getByRole("status", { name: "Next step" }).textContent).toMatch(/All done for this class/);
   });
 });
 
@@ -454,7 +454,7 @@ describe("phone-first Classes screen", () => {
 
   it("next step has one big button: a link to the quiz page when the quiz is missing", () => {
     panel(summary());
-    const box = screen.getByRole("status");
+    const box = screen.getByRole("status", { name: "Next step" });
     const link = within(box).getByRole("link", { name: "Upload quiz results" });
     expect(link.getAttribute("href")).toMatch(/\/sessions\/s1\/quiz$/);
   });
@@ -463,7 +463,7 @@ describe("phone-first Classes screen", () => {
     panel(summary({ status: "upcoming" }));
     const fold = screen.getByRole("button", { name: /^Attendance/ });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
     expect(screen.getByRole("button", { name: /^Attendance/ }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("attendance-card")).toBeTruthy();
   });
@@ -479,7 +479,7 @@ describe("phone-first Classes screen", () => {
 
   it("no next-step button when everything is done", () => {
     panel(summary({ quiz: { saved: true, players: 54 }, feedbackCount: 12, feedbackAvg: 4.5 }));
-    const box = screen.getByRole("status");
+    const box = screen.getByRole("status", { name: "Next step" });
     expect(within(box).queryByRole("button")).toBeNull();
     expect(within(box).queryByRole("link")).toBeNull();
   });
@@ -523,14 +523,14 @@ describe("phone-first Classes screen", () => {
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
     panel(summary({ status: "upcoming" }));
-    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
     await waitFor(() => expect(scroll).toHaveBeenCalled());
     expect((scroll.mock.instances[0] as HTMLElement).id).toBe("fold-attendance-fold");
     expect(document.activeElement).toBe(document.getElementById("fold-attendance-header"));
     // tapping again after folding by hand scrolls again
     fireEvent.click(screen.getByRole("button", { name: /^Attendance/ }));
     scroll.mockClear();
-    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Show attendance link" }));
+    fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
     await waitFor(() => expect(scroll).toHaveBeenCalled());
   });
 

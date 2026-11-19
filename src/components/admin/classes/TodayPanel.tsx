@@ -8,6 +8,7 @@ import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { AttendanceCard } from "./AttendanceCard";
+import { ClassActionRow } from "./ClassActionRow";
 import { QuizCard } from "./QuizCard";
 import { FeedbackCard } from "./FeedbackCard";
 import { EditClassDialog } from "./EditClassDialog";
@@ -43,7 +44,7 @@ function clock(iso: string): string {
 }
 
 export function TodayPanel({
-  pageId, cls, session, rows, minPct, sends, nowIso,
+  pageId, cls, session, rows, minPct, sends, nowIso, onNeedAudience,
 }: {
   pageId: string;
   cls: ClassSummary;
@@ -52,9 +53,12 @@ export function TodayPanel({
   minPct: number;
   sends: SessionSendState | undefined;
   nowIso: string;
+  /** Called when Send emails is pressed before an audience is chosen. Defaults to scrolling to #class-audience. */
+  onNeedAudience?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [opened, setOpened] = useState<Record<"attendance" | "quiz" | "feedback", boolean>>({ attendance: false, quiz: false, feedback: false });
+  const needAudience = onNeedAudience ?? (() => document.getElementById("class-audience")?.scrollIntoView?.({ behavior: "smooth", block: "center" }));
   const step = nextStep(cls);
   const action = nextAction(cls);
   const quizHref = `/dashboard/admin/enrollments/registrations/campaign/${pageId}/sessions/${cls.id}/quiz`;
@@ -102,7 +106,8 @@ export function TodayPanel({
             Open Zoom link
           </a>
         )}
-        <div role="status" className="rounded-lg border border-pz-primary/40 bg-pz-primary/10 p-4">
+        <ClassActionRow cls={cls} session={session} sends={sends} now={new Date(nowIso)} onNeedAudience={needAudience} />
+        <div role="status" aria-label="Next step" className="rounded-lg border border-pz-primary/40 bg-pz-primary/10 p-4">
           <p className="font-headline text-lg font-bold text-pz-on-surface">Next step: {step.title}</p>
           <p className="text-base text-pz-on-surface-variant">{step.hint}</p>
           {action.target === "quiz" && (
