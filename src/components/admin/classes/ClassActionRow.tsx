@@ -64,7 +64,7 @@ export function ClassActionRow({
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-3">
         <CopyButton url={cls.attendanceLink} label="Copy attendance link" className={solid} />
         {cls.feedbackLink ? (
           <CopyButton url={cls.feedbackLink} label="Copy feedback link" className={outlined} />

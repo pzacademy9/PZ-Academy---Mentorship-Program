@@ -314,3 +314,25 @@ describe("tab panels", () => {
     }
   });
 });
+
+describe("long text cannot stretch the page on a phone", () => {
+  it("the link cards sit in a shrinkable column and the URL truncates inside its box", () => {
+    const long = "https://x.test/attend/" + "a".repeat(200);
+    panel([summary({ attendanceLink: long })], [session()]);
+    const card = screen.getByRole("group", { name: "Attendance link" });
+    expect(card.parentElement!.className).toContain("grid-cols-[minmax(0,1fr)]");
+    expect(card.className).toContain("min-w-0");
+    const url = within(card).getByText(long);
+    expect(url.className).toContain("min-w-0");
+    expect(url.className).toContain("truncate");
+  });
+
+  it("the action row grid and the class heading can shrink and wrap", () => {
+    panel([summary({ title: "A very long class title ".repeat(10), speaker: "Dr " + "x".repeat(80) })], [session()]);
+    const copy = screen.getByRole("button", { name: "Copy attendance link" });
+    expect(copy.parentElement!.className).toContain("grid-cols-[minmax(0,1fr)]");
+    expect(screen.getByRole("heading", { level: 2, name: /A very long class title/ }).className).toContain("break-words");
+    expect(screen.getByText(/^Speaker:/).className).toContain("break-words");
+  });
+});
+

@@ -107,7 +107,7 @@ export function TodayPanel({
             <span className="rounded-full bg-pz-surface-container-high px-3 py-1 text-base font-headline font-bold text-pz-on-surface-variant">
               Day {cls.number} · {STATUS_LABEL[cls.status]}
             </span>
-            <h2 className="mt-2 font-headline text-2xl font-bold text-pz-on-surface">{cls.title || `Day ${cls.number}`}</h2>
+            <h2 className="mt-2 break-words font-headline text-2xl font-bold text-pz-on-surface">{cls.title || `Day ${cls.number}`}</h2>
           </div>
           <button type="button" className={`${quietBtn} max-md:w-full`} onClick={() => setEditing(true)}>
             <Pencil className="size-5" aria-hidden />
@@ -119,7 +119,7 @@ export function TodayPanel({
           {formatPkt(cls.startsAt)}
           {cls.endsAt ? ` to ${clock(cls.endsAt)}` : ""}
         </p>
-        {cls.speaker && <p className="text-base text-pz-on-surface-variant">Speaker: {cls.speaker}</p>}
+        {cls.speaker && <p className="break-words text-base text-pz-on-surface-variant">Speaker: {cls.speaker}</p>}
         {session.zoom_url && (
           <a
             href={session.zoom_url}

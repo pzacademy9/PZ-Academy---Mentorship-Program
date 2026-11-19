@@ -28,7 +28,7 @@ function LinkCard({ title, hint, url }: { title: string; hint: string; url: stri
     }
   }
   return (
-    <div role="group" aria-label={title} className="space-y-2 rounded-xl border border-pz-outline-variant/60 bg-pz-surface-container-lowest p-4">
+    <div role="group" aria-label={title} className="min-w-0 space-y-2 rounded-xl border border-pz-outline-variant/60 bg-pz-surface-container-lowest p-4">
       <h3 className="font-headline text-lg font-bold text-pz-on-surface">{title}</h3>
       <div className="flex items-center gap-2 rounded-lg border border-pz-outline-variant/60 bg-pz-surface-container-low pl-3">
         <code className="min-w-0 flex-1 truncate text-base text-pz-on-surface-variant">{url}</code>
@@ -85,12 +85,12 @@ export function LinksTab({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
         <LinkCard title="Attendance link" hint="Share this link so students can mark themselves present." url={cls.attendanceLink} />
         {cls.feedbackLink && cls.feedbackSessionId ? (
           <LinkCard title="Feedback link" hint="Share this link at the end of class so students can rate it." url={cls.feedbackLink} />
         ) : (
-          <div role="group" aria-label="Feedback link" className="space-y-2 rounded-xl border border-pz-outline-variant/60 bg-pz-surface-container-lowest p-4">
+          <div role="group" aria-label="Feedback link" className="min-w-0 space-y-2 rounded-xl border border-pz-outline-variant/60 bg-pz-surface-container-lowest p-4">
             <h3 className="font-headline text-lg font-bold text-pz-on-surface">Feedback link</h3>
             <p className="text-base text-pz-on-surface-variant">This class has no feedback link yet.</p>
             <button type="button" className={`${primaryBtn} max-md:w-full`} disabled={busy} onClick={createFeedback}>
