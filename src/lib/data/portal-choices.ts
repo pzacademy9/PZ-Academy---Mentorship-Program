@@ -65,8 +65,8 @@ export async function listChoiceGroups(pageId: string): Promise<ChoiceOverview> 
 
 /**
  * Records the chosen options on every row of this page with exactly this label and no choice yet, then
- * queues enrollment for the Paid ones that changed (which releases the safety hold). Never emails anyone.
- * Running it again changes nothing and queues nothing.
+ * queues enrollment for the Paid ones holding those options (which releases the safety hold). Never emails anyone.
+ * Running it again changes no rows and safely re-queues (retry).
  */
 export async function applyChoice(p: { pageId: string; label: string; optionKeys: string[] }): Promise<{ updated: number; queued: number }> {
   const keys = Array.from(new Set(p.optionKeys.map((k) => k.trim()).filter((k) => k !== "")));
@@ -87,12 +87,37 @@ export async function applyChoice(p: { pageId: string; label: string; optionKeys
   check("landing_registrations update", error);
   const updatedRows = (data ?? []) as unknown as { id: string; status: string; is_test: boolean }[];
 
+  // Queue for every Paid, non-test row of this label that holds exactly these keys, not only the rows
+  // just changed: enqueueEnrollmentSync is an upsert, so a repeat Apply safely retries a failed queue step.
+  const same = new Set(keys);
+  const paidIds: string[] = [];
+  for (let from = 0; ; from += READ_SIZE) {
+    const { data: page, error: re } = await createAdminSupabase()
+      .from("landing_registrations")
+      .select("id, option_keys")
+      .eq("page_id", p.pageId)
+      .eq("option_label", p.label)
+      .eq("status", "paid")
+      .eq("is_test", false)
+      .order("id", { ascending: true })
+      .range(from, from + READ_SIZE - 1);
+    check("landing_registrations read", re);
+    const rows = (page ?? []) as unknown as { id: string; option_keys: string[] | null }[];
+    for (const r of rows) {
+      const k = r.option_keys ?? [];
+      if (k.length === same.size && k.every((x) => same.has(x))) paidIds.push(r.id);
+    }
+    if (rows.length < READ_SIZE) break;
+  }
   let queued = 0;
-  for (const row of updatedRows) {
-    if (row.status !== "paid" || row.is_test) continue;
-    const ok = await enqueueEnrollmentSync(row.id);
-    if (ok) queued += 1;
-    runInBackground(ok ? runJobsFor(row.id) : runJobsDirect(row.id, ["enrollment_sync"]));
+  for (const id of paidIds) {
+    try {
+      const ok = await enqueueEnrollmentSync(id);
+      if (ok) queued += 1;
+      runInBackground(ok ? runJobsFor(id) : runJobsDirect(id, ["enrollment_sync"]));
+    } catch {
+      // this row is retried by the next Apply or the next status change; keep going with the others
+    }
   }
   return { updated: updatedRows.length, queued };
 }

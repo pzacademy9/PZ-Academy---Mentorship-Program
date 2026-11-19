@@ -154,15 +154,44 @@ describe("applyChoice", () => {
     expect(db.find("landing_registrations", "update")).toHaveLength(0);
   });
 
-  it("a second applyChoice updates 0 and queues 0", async () => {
-    store.landing_registrations = [reg("r1"), reg("r2")];
-    expect(await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] })).toEqual({ updated: 2, queued: 2 });
-    jobs.enqueueEnrollmentSync.mockClear();
-    expect(await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] })).toEqual({ updated: 0, queued: 0 });
-    expect(jobs.enqueueEnrollmentSync).not.toHaveBeenCalled();
+  it("a label with leading or trailing spaces round-trips and updates", async () => {
+    const odd = " Live - Module 1 - Individual ";
+    store.landing_registrations = [reg("r1", { option_label: odd })];
+    const o = await listChoiceGroups(PAGE);
+    expect(o.groups[0].label).toBe(odd);
+    expect(await applyChoice({ pageId: PAGE, label: o.groups[0].label, optionKeys: ["m1"] })).toEqual({ updated: 1, queued: 1 });
+    expect(store.landing_registrations[0].option_keys).toEqual(["m1"]);
   });
 
-  it("applyChoice queues enrollment_sync only for Paid rows that were updated", async () => {
+  it("a second applyChoice updates 0 and re-queues only Paid rows holding the applied keys", async () => {
+    store.landing_registrations = [
+      reg("r1"), reg("r2"),
+      reg("pending1", { status: "pending" }),
+      reg("test1", { is_test: true }),
+      reg("other-keys", { option_keys: ["m2"] }),
+      reg("other-label", { option_label: "Live - Module 2 - Individual" }),
+    ];
+    expect(await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] })).toEqual({ updated: 4, queued: 2 });
+    jobs.enqueueEnrollmentSync.mockClear();
+    expect(await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] })).toEqual({ updated: 0, queued: 2 });
+    expect(jobs.enqueueEnrollmentSync.mock.calls.map((c) => c[0]).sort()).toEqual(["r1", "r2"]);
+    const byId = Object.fromEntries(store.landing_registrations.map((r) => [r.id as string, r.option_keys]));
+    expect(byId["other-keys"]).toEqual(["m2"]);
+    expect(byId["other-label"]).toEqual([]);
+  });
+
+  it("a throw while queuing one row does not stop the others and the count stays honest", async () => {
+    store.landing_registrations = [reg("r1"), reg("r2"), reg("r3")];
+    jobs.enqueueEnrollmentSync.mockImplementation(async (id: string) => {
+      if (id === "r2") throw new Error("queue down");
+      return true;
+    });
+    const res = await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] });
+    expect(res).toEqual({ updated: 3, queued: 2 });
+    expect(jobs.enqueueEnrollmentSync).toHaveBeenCalledTimes(3);
+  });
+
+  it("applyChoice queues enrollment_sync only for Paid rows holding the applied keys", async () => {
     store.landing_registrations = [
       reg("paid1"),
       reg("pending1", { status: "pending" }),
@@ -171,9 +200,9 @@ describe("applyChoice", () => {
       reg("other-label", { option_label: "Live - Module 2 - Individual" }),
     ];
     const res = await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] });
-    expect(res).toEqual({ updated: 3, queued: 1 });
-    expect(jobs.enqueueEnrollmentSync.mock.calls).toEqual([["paid1"]]);
-    expect(bg.runInBackground).toHaveBeenCalledTimes(1);
+    expect(res).toEqual({ updated: 3, queued: 2 });
+    expect(jobs.enqueueEnrollmentSync.mock.calls.map((c) => c[0]).sort()).toEqual(["done", "paid1"]);
+    expect(bg.runInBackground).toHaveBeenCalledTimes(2);
     expect(jobs.runJobsFor).toHaveBeenCalledWith("paid1");
   });
 

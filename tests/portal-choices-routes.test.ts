@@ -59,12 +59,12 @@ describe("choices routes", () => {
     expect(m.listChoiceGroups).not.toHaveBeenCalled();
   });
 
-  it("POST passes cleaned values and returns the counts", async () => {
+  it("POST passes the exact label (untrimmed) and cleaned keys and returns the counts", async () => {
     m.applyChoice.mockResolvedValue({ updated: 2, queued: 1 });
     const res = await POST(post({ pageId: PAGE, label: "  Live - Full Course  ", optionKeys: [" full "] }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ updated: 2, queued: 1 });
-    expect(m.applyChoice).toHaveBeenCalledWith({ pageId: PAGE, label: "Live - Full Course", optionKeys: ["full"] });
+    expect(m.applyChoice).toHaveBeenCalledWith({ pageId: PAGE, label: "  Live - Full Course  ", optionKeys: ["full"] });
   });
 
   it("POST returns 400 for a missing label or empty optionKeys", async () => {
