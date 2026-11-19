@@ -100,6 +100,14 @@ export function toolsForRole(role: Role, areas?: readonly Area[]): AdminToolCard
   });
 }
 
+/** The "Send a notice" button on Notifications: super admin, or anyone with the notifications area. */
+export function canSendNotice(role: Role, areas?: readonly Area[]): boolean {
+  if (role === "super_admin") return true;
+  if (role !== "admin" && role !== "manager") return false;
+  if (!areas) return role !== "manager";
+  return areas.includes("notifications");
+}
+
 /**
  * Pages that live under another menu item. Exact keys (Import and Merge review are tabs of Cohorts)
  * and prefix keys (a key plus "/..."): the tool pages sit under Settings, the notice page under Notifications.
