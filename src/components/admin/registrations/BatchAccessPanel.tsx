@@ -100,10 +100,9 @@ function formatDay(iso: string): string {
 const primaryBtn =
   "inline-flex items-center justify-center gap-2 px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-bold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
-export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; title: string }[] }) {
-  const [pageId, setPageId] = useState(pageOptions[0]?.id ?? "");
+export function BatchAccessPanel({ pageId }: { pageId: string }) {
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [loading, setLoading] = useState(pageOptions.length > 0);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [audience, setAudience] = useState<Audience>("live");
@@ -221,41 +220,6 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-pz-surface-container-lowest border border-pz-outline-variant/40 p-5 space-y-2">
-        <label htmlFor="batch-page" className="block font-label text-xs font-semibold text-pz-primary uppercase tracking-wide">
-          Landing page
-        </label>
-        <select
-          id="batch-page"
-          value={pageId}
-          disabled={running || previewing}
-          onChange={(e) => {
-            setPageId(e.target.value);
-            setBatchStrip(null);
-            setLinkStrip(null);
-            setActionError(null);
-            setCrmStrip(null);
-            setCrmError(null);
-          }}
-          className="w-full max-w-xl rounded-lg bg-pz-surface-container-low px-3.5 py-2.5 font-headline font-bold text-sm max-md:text-base text-pz-on-surface focus:outline-none focus:ring-2 focus:ring-pz-primary/40 disabled:opacity-60"
-        >
-          {pageOptions.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-        {overview?.courseTitle && (
-          <p className="font-body text-sm text-pz-on-surface-variant">
-            Course: <strong className="font-headline text-pz-on-surface">{overview.courseTitle}</strong>
-          </p>
-        )}
-      </div>
-
-      {pageOptions.length === 0 && (
-        <p className="font-body text-sm text-pz-on-surface-variant">There are no landing pages yet.</p>
-      )}
-
       {loading && (
         <p role="status" className="font-body text-sm text-pz-on-surface-variant">
           Loading…
@@ -312,8 +276,8 @@ export function BatchAccessPanel({ pageOptions }: { pageOptions: { id: string; t
           <h3 className="font-headline font-bold text-xl text-pz-on-surface mb-2">{noCourse ? "This page has no course yet." : "This course has no modules yet."}</h3>
           <p className="font-body text-sm text-pz-on-surface-variant max-w-md">
             {noCourse
-              ? "Add a course to this page, or pick another page above, to open modules for students."
-              : "Add modules to this course, or pick another page above, to open them for students."}
+              ? "Pick a portal for this batch above to open modules for students."
+              : "Add modules to this course to open them for students."}
           </p>
         </div>
       )}

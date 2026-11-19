@@ -3,10 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { BatchAccessPanel } from "@/components/admin/registrations/BatchAccessPanel";
 
-const PAGES = [
-  { id: "p1", title: "PPC Masterclass" },
-  { id: "p2", title: "Draft Page" },
-];
 const OVERVIEW = {
   courseTitle: "PPC Course",
   modules: [
@@ -31,7 +27,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 async function ready() {
-  render(<BatchAccessPanel pageOptions={PAGES} />);
+  render(<BatchAccessPanel pageId="p1" />);
   await screen.findByText("Module 2");
 }
 
@@ -110,14 +106,14 @@ describe("BatchAccessPanel", () => {
 
   it("shows the empty state when the page has no course", async () => {
     fetchMock.mockImplementation(async () => json({ courseTitle: null, modules: [], recordedPaid: 0 }));
-    render(<BatchAccessPanel pageOptions={PAGES} />);
+    render(<BatchAccessPanel pageId="p1" />);
     await screen.findByText("This page has no course yet.");
     expect(screen.queryByRole("button", { name: "Send link" })).toBeNull();
   });
 
   it("shows an error when the overview cannot load", async () => {
     fetchMock.mockImplementation(async () => json({}, false));
-    render(<BatchAccessPanel pageOptions={PAGES} />);
+    render(<BatchAccessPanel pageId="p1" />);
     await screen.findByText("Something went wrong. Please try again.");
   });
 
@@ -180,7 +176,7 @@ describe("BatchAccessPanel", () => {
 
   it("paid=0 confirm text reads sensibly", async () => {
     fetchMock.mockImplementation(async () => json({ courseTitle: "PPC", modules: [{ id: "m9", title: "Module 9", finishedAt: null, paidLive: 0, opened: 0 }], recordedPaid: 0 }));
-    render(<BatchAccessPanel pageOptions={PAGES} />);
+    render(<BatchAccessPanel pageId="p1" />);
     await screen.findByText("Module 9");
     fireEvent.click(screen.getByRole("button", { name: "Batch finished" }));
     const dialog = await screen.findByRole("dialog");
@@ -204,7 +200,13 @@ describe("BatchAccessPanel", () => {
 
   it("no modules shows different empty text from no course", async () => {
     fetchMock.mockImplementation(async () => json({ courseTitle: "PPC", modules: [], recordedPaid: 0 }));
-    render(<BatchAccessPanel pageOptions={PAGES} />);
+    render(<BatchAccessPanel pageId="p1" />);
     await screen.findByText("This course has no modules yet.");
+  });
+
+  it("the actions panel no longer renders a registration picker", async () => {
+    await ready();
+    expect(screen.queryByLabelText("Landing page")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 });
