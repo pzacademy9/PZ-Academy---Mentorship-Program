@@ -32,7 +32,7 @@ describe("suggestOptions", () => {
   it("a token matching two options is not confident", () => {
     const dup: ChoiceOption[] = [
       { key: "a", label: "Module 3", kind: "module", moduleIds: [] },
-      { key: "b", label: "Workshop 3", kind: "module", moduleIds: [] },
+      { key: "b", label: "M3", kind: "module", moduleIds: [] },
     ];
     const r = suggestOptions("Live - M3 - Individual", dup);
     expect(r.confident).toBe(false);
@@ -42,6 +42,27 @@ describe("suggestOptions", () => {
   });
   it("no options gives no keys", () => {
     expect(suggestOptions("Live — Full Course – Individual", [])).toEqual({ keys: [], confident: false });
+  });
+});
+
+describe("suggestOptions number matching is exact", () => {
+  const mod = (n: number): ChoiceOption => ({ key: `m${n}`, label: `Module ${n}`, kind: "module", moduleIds: [] });
+  it("M1 does not match Module 12 or Module 10", () => {
+    expect(suggestOptions("Live - Modules: M1 - Individual", [mod(12), mod(10)])).toEqual({ keys: [], confident: false });
+  });
+  it("M1 against Module 1 and Module 10 is exactly m1 and confident", () => {
+    expect(suggestOptions("Live - Module 1 - Individual", [mod(1), mod(10)])).toEqual({ keys: ["m1"], confident: true });
+  });
+  it("M2 does not match Workshop 2026", () => {
+    const w: ChoiceOption = { key: "w", label: "Workshop 2026", kind: "module", moduleIds: [] };
+    expect(suggestOptions("Live - M2 - Individual", [w])).toEqual({ keys: [], confident: false });
+  });
+  it("a key with digits that is not a module number does not match", () => {
+    const k: ChoiceOption = { key: "opt-2026", label: "Extra", kind: "module", moduleIds: [] };
+    expect(suggestOptions("Live - M2 - Individual", [k]).keys).toEqual([]);
+  });
+  it("Module 12 matches only M12", () => {
+    expect(suggestOptions("Live - M12 - Individual", [mod(1), mod(2), mod(12)])).toEqual({ keys: ["m12"], confident: true });
   });
 });
 

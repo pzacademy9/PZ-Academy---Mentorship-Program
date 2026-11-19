@@ -21,8 +21,12 @@ export function splitLabel(label: string): { mode: "live" | "recorded" | null; o
   return { mode, optionText: parts.join(" - ") };
 }
 
-function hasNumber(text: string, n: string): boolean {
-  return new RegExp(`(?<!\d)${n}(?!\d)`).test(text.toLowerCase());
+/** The module number an option stands for, read strictly from "Module 3" / "M3" (label) or "m3" / "module-3" (key). */
+function moduleNumber(o: ChoiceOption): string | null {
+  const l = /^(?:module|m)\s*(\d+)$/.exec(o.label.toLowerCase().trim());
+  if (l) return String(Number(l[1]));
+  const k = /^(?:module|m)[-_ ]?(\d+)$/.exec(o.key.toLowerCase().trim());
+  return k ? String(Number(k[1])) : null;
 }
 
 export function suggestOptions(label: string, options: readonly ChoiceOption[]): { keys: string[]; confident: boolean } {
@@ -37,7 +41,7 @@ export function suggestOptions(label: string, options: readonly ChoiceOption[]):
       hits = options.filter((o) => o.kind === "bundle");
     } else {
       const m = /^(?:m|module)?\s*(\d+)$/.exec(token);
-      if (m) hits = options.filter((o) => o.kind === "module" && (hasNumber(o.label, m[1]) || hasNumber(o.key, m[1])));
+      if (m) hits = options.filter((o) => o.kind === "module" && moduleNumber(o) === String(Number(m[1])));
     }
     if (hits.length === 1) {
       if (!keys.includes(hits[0].key)) keys.push(hits[0].key);
