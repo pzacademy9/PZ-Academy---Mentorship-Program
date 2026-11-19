@@ -77,3 +77,13 @@ The owner wants:
 - Duplicated portals start unpublished, so nothing shows publicly until the owner publishes.
 - Moving students also repoints the registration page, so new sign-ups of that batch join the new portal.
 - Module mapping by position: assumes the copy still has the same module order. If the admin reorders or deletes modules in the copy BEFORE moving, those students' open modules map by what still matches; unmatched ones stay closed and are counted in the preview.
+
+## Addendum: website visibility of batch portals (2026-11-19, owner decision)
+
+The owner chose: batch portals are hidden from the website listings, except ONE portal per course family, the latest, which stays on sale as the recorded course (like the current one).
+
+- **Rule:** a published course that belongs to a family (`courses.family_id` is set) shows in the public listings (`getPublishedCourses`: home page, Courses, Workshops, Webinars) only if it is the newest published course in its family (greatest `created_at`). Every other published course of that family is left out of the listings. Courses with no family are unchanged.
+- **Why "newest published":** an unpublished Batch 4 copy never hides Batch 3. When Batch 4 is published, it takes the shop slot and Batch 3 leaves the listing without anyone doing anything.
+- **Not changed:** direct links (`/courses/<slug>`, `/portal/<slug>`, `/enroll/<slug>`) still work for hidden batch portals, so enrolled students and registration pages are not affected. Only the listings change.
+- **Calls I made (owner can change):** "latest" means newest by created date, not a manual pick; a family with only one published portal shows that portal as before; before migration 0119 is pasted the listings behave exactly as today.
+- **Owner steps:** Step 4 says publishing a batch portal puts it on the website only when it is the newest in its group, and the older one leaves the website at that moment.
