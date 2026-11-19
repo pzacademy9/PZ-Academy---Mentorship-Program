@@ -3,6 +3,8 @@ import { createSupabaseMock, memoryHandler, type Store } from "./helpers/supabas
 
 const db = createSupabaseMock();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabase: () => db.client }));
+const revalidate = vi.hoisted(() => ({ revalidateLandingSlug: vi.fn() }));
+vi.mock("@/lib/data/landing-revalidate", () => revalidate);
 
 import { getPortalOverview, previewMove, moveStudents, duplicatePortal, attachPortal, setPortalGroup } from "@/lib/data/portals";
 import { PortalError } from "@/lib/data/portal-errors";
@@ -15,6 +17,7 @@ let rpcReply: (fn: string) => { data: unknown; error: { message: string } | null
 
 beforeEach(() => {
   db.reset();
+  revalidate.revalidateLandingSlug.mockReset();
   rpcCalls = [];
   rpcReply = () => ({ data: null, error: null });
   store = {
@@ -24,7 +27,7 @@ beforeEach(() => {
       { id: C2, title: "PPC Batch 4", slug: "ppc-4", is_published: false, family_id: FAM, batch_label: "Batch 4" },
       { id: C3, title: "Loose", slug: "loose", is_published: true, family_id: null, batch_label: null },
     ],
-    landing_pages: [{ id: PAGE, course_id: C1 }],
+    landing_pages: [{ id: PAGE, slug: "ppc-3-page", is_main_page: false, course_id: C1 }],
   };
   db.state.handler = memoryHandler(store, (fn, args) => {
     rpcCalls.push({ fn, args: args as Record<string, unknown> });
@@ -106,15 +109,39 @@ describe("previewMove and moveStudents", () => {
     await expect(previewMove(PAGE, C2)).rejects.toThrow();
   });
   it("turns known raised messages into a calm PortalError", async () => {
-    rpcReply = () => ({ data: null, error: { message: "This registration already uses that portal" } });
-    const e = await previewMove(PAGE, C1).catch((x) => x);
-    expect(e).toBeInstanceOf(PortalError);
-    expect(e.status).toBe(409);
-    expect(e.message).toBe("This batch already uses that portal.");
     rpcReply = () => ({ data: null, error: { message: "The new portal has no modules yet" } });
     const e2 = await moveStudents(PAGE, C2).catch((x) => x);
     expect(e2).toBeInstanceOf(PortalError);
+    expect(e2.status).toBe(409);
     expect(e2.message).toBe("That portal has no modules yet.");
+  });
+  it("maps the main-page refusal and the modules-mismatch refusal to 409, for preview and move", async () => {
+    rpcReply = () => ({ data: null, error: { message: "This batch is the website's main page for its course. Untick Main page first." } });
+    for (const run of [() => previewMove(PAGE, C2), () => moveStudents(PAGE, C2)]) {
+      const e = await run().catch((x) => x);
+      expect(e).toBeInstanceOf(PortalError);
+      expect(e.status).toBe(409);
+      expect(e.message).toBe("This batch is the website's main page for its course. Untick Main page first.");
+    }
+    rpcReply = () => ({ data: null, error: { message: "Some students chose modules the new portal does not have. Make the modules match first." } });
+    const e = await previewMove(PAGE, C2).catch((x) => x);
+    expect(e).toBeInstanceOf(PortalError);
+    expect(e.status).toBe(409);
+    expect(e.message).toBe("Some students chose modules the new portal does not have. Make the modules match first.");
+  });
+  it("a function-not-found error (migration not pasted) becomes a calm 409 for preview, move and duplicate", async () => {
+    const calm = "The database change has not been pasted yet.";
+    rpcReply = () => ({ data: null, error: { code: "PGRST202", message: "Could not find the function public.move_batch_students" } as never });
+    for (const run of [() => previewMove(PAGE, C2), () => moveStudents(PAGE, C2)]) {
+      const e = await run().catch((x) => x);
+      expect(e).toBeInstanceOf(PortalError);
+      expect(e.status).toBe(409);
+      expect(e.message).toBe(calm);
+    }
+    rpcReply = () => ({ data: null, error: { message: "Could not find the function public.duplicate_course(p_source) in the schema cache" } });
+    const d = await duplicatePortal({ pageId: PAGE, sourceCourseId: C1, title: "X", familyId: null, newFamilyName: null, batchLabel: null }).catch((x) => x);
+    expect(d).toBeInstanceOf(PortalError);
+    expect(d.message).toBe(calm);
   });
 });
 
@@ -140,6 +167,21 @@ describe("duplicatePortal", () => {
     expect(rpcCalls).toHaveLength(0);
     expect(store.course_families).toHaveLength(1);
   });
+  it("refuses a main page before creating the copy or touching anything", async () => {
+    store.landing_pages[0].is_main_page = true;
+    const e = await duplicatePortal(base).catch((x) => x);
+    expect(e).toBeInstanceOf(PortalError);
+    expect(e.status).toBe(409);
+    expect(e.message).toBe("This batch is the website's main page for its course. Untick Main page first.");
+    expect(rpcCalls).toHaveLength(0);
+    expect(store.landing_pages[0].course_id).toBe(C1);
+    expect(store.landing_pages[0].is_main_page).toBe(true);
+    expect(store.course_families).toHaveLength(1);
+  });
+  it("refreshes the public page cache after pointing the page at the copy", async () => {
+    await duplicatePortal(base);
+    expect(revalidate.revalidateLandingSlug).toHaveBeenCalledWith("ppc-3-page");
+  });
   it("rejects a blank title before any database call", async () => {
     await expect(duplicatePortal({ ...base, title: "   " })).rejects.toBeInstanceOf(PortalError);
     expect(db.state.ops).toHaveLength(0);
@@ -150,6 +192,25 @@ describe("attachPortal and setPortalGroup", () => {
   it("attachPortal points the page at an existing course", async () => {
     await attachPortal(PAGE, C2);
     expect(store.landing_pages[0].course_id).toBe(C2);
+  });
+  it("attachPortal refuses a main page and leaves it alone", async () => {
+    store.landing_pages[0].is_main_page = true;
+    const e = await attachPortal(PAGE, C2).catch((x) => x);
+    expect(e).toBeInstanceOf(PortalError);
+    expect(e.status).toBe(409);
+    expect(e.message).toBe("This batch is the website's main page for its course. Untick Main page first.");
+    expect(store.landing_pages[0].course_id).toBe(C1);
+    expect(store.landing_pages[0].is_main_page).toBe(true);
+    expect(revalidate.revalidateLandingSlug).not.toHaveBeenCalled();
+  });
+  it("attachPortal refreshes the public page cache", async () => {
+    await attachPortal(PAGE, C2);
+    expect(revalidate.revalidateLandingSlug).toHaveBeenCalledWith("ppc-3-page");
+  });
+  it("setPortalGroup returns the family id used, or null", async () => {
+    expect(await setPortalGroup({ courseId: C3, familyId: null, newFamilyName: "Fresh", batchLabel: null })).toBe(store.course_families[1].id);
+    expect(await setPortalGroup({ courseId: C3, familyId: FAM, newFamilyName: null, batchLabel: null })).toBe(FAM);
+    expect(await setPortalGroup({ courseId: C3, familyId: null, newFamilyName: null, batchLabel: null })).toBeNull();
   });
   it("attachPortal rejects an unknown page and leaves pages alone", async () => {
     await expect(attachPortal("ghost", C2)).rejects.toBeInstanceOf(PortalError);

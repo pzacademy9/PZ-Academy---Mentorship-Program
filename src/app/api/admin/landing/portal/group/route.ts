@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
   try {
-    await setPortalGroup(parsed.data);
-    return NextResponse.json({ ok: true });
+    const familyId = await setPortalGroup(parsed.data);
+    return NextResponse.json({ ok: true, familyId: familyId ?? null });
   } catch (e) {
     return portalErrorResponse(e, "group");
   }

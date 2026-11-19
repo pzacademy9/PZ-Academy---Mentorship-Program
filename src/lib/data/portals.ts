@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { PortalError } from "@/lib/data/portal-errors";
+import { revalidateLandingSlug } from "@/lib/data/landing-revalidate";
 
 export type PortalSummary = {
   id: string;
@@ -23,11 +24,16 @@ function check(what: string, error: { message: string } | null): void {
   if (error) throw new Error(`${what} failed: ${error.message}`);
 }
 
+const MAIN_PAGE_TEXT = "This batch is the website's main page for its course. Untick Main page first.";
+const MODULES_MISMATCH_TEXT = "Some students chose modules the new portal does not have. Make the modules match first.";
+const NOT_PASTED_TEXT = "The database change has not been pasted yet.";
+
 /** Known messages raised by the SQL functions become calm errors; anything else is a plain failure. */
-function mapRpcError(error: { message?: string }): never {
+function mapRpcError(error: { message?: string; code?: string }): never {
   const m = error.message ?? "";
-  if (m.includes("already uses that portal")) throw new PortalError("This batch already uses that portal.", 409);
-  if (m.includes("has no portal yet")) throw new PortalError("This batch has no portal yet. Pick one first.", 409);
+  if (error.code === "PGRST202" || m.includes("Could not find the function")) throw new PortalError(NOT_PASTED_TEXT, 409);
+  if (m.includes("main page for its course")) throw new PortalError(MAIN_PAGE_TEXT, 409);
+  if (m.includes("chose modules the new portal does not have")) throw new PortalError(MODULES_MISMATCH_TEXT, 409);
   if (m.includes("has no modules yet")) throw new PortalError("That portal has no modules yet.", 409);
   if (m.includes("Registration page not found")) throw new PortalError("That registration page was not found.", 404);
   if (m.includes("new portal was not found")) throw new PortalError("That portal was not found.", 404);
@@ -48,10 +54,18 @@ async function ensureFamily(name: string): Promise<string> {
   return (data as { id: string }).id;
 }
 
-async function requirePage(pageId: string): Promise<void> {
-  const { data, error } = await createAdminSupabase().from("landing_pages").select("id").eq("id", pageId).maybeSingle();
+/** Reads the page, or throws 404. A main page is refused here (409): repointing it would break the website's main-page rule. */
+async function requireRepointablePage(pageId: string): Promise<{ slug: string }> {
+  const { data, error } = await createAdminSupabase()
+    .from("landing_pages")
+    .select("id, slug, is_main_page")
+    .eq("id", pageId)
+    .maybeSingle();
   check("landing_pages read", error);
   if (!data) throw new PortalError("That registration page was not found.", 404);
+  const page = data as unknown as { slug: string; is_main_page: boolean | null };
+  if (page.is_main_page) throw new PortalError(MAIN_PAGE_TEXT, 409);
+  return { slug: page.slug };
 }
 
 async function requireCourse(courseId: string): Promise<void> {
@@ -114,7 +128,7 @@ export async function duplicatePortal(p: {
 }): Promise<{ courseId: string }> {
   const title = p.title.trim();
   if (!title) throw new PortalError("A name is needed for the new portal.", 400);
-  await requirePage(p.pageId);
+  const page = await requireRepointablePage(p.pageId);
   const familyId = p.newFamilyName?.trim() ? await ensureFamily(p.newFamilyName) : p.familyId;
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc(
@@ -125,14 +139,16 @@ export async function duplicatePortal(p: {
   const courseId = String(data);
   const { error: ue } = await admin.from("landing_pages").update({ course_id: courseId } as never).eq("id", p.pageId);
   check("landing_pages update", ue);
+  revalidateLandingSlug(page.slug);
   return { courseId };
 }
 
 export async function attachPortal(pageId: string, courseId: string): Promise<void> {
-  await requirePage(pageId);
+  const page = await requireRepointablePage(pageId);
   await requireCourse(courseId);
   const { error } = await createAdminSupabase().from("landing_pages").update({ course_id: courseId } as never).eq("id", pageId);
   check("landing_pages update", error);
+  revalidateLandingSlug(page.slug);
 }
 
 export async function setPortalGroup(p: {
@@ -140,7 +156,7 @@ export async function setPortalGroup(p: {
   familyId: string | null;
   newFamilyName: string | null;
   batchLabel: string | null;
-}): Promise<void> {
+}): Promise<string | null> {
   await requireCourse(p.courseId);
   const familyId = p.newFamilyName?.trim() ? await ensureFamily(p.newFamilyName) : p.familyId;
   const { error } = await createAdminSupabase()
@@ -148,6 +164,7 @@ export async function setPortalGroup(p: {
     .update({ family_id: familyId, batch_label: p.batchLabel?.trim() || null } as never)
     .eq("id", p.courseId);
   check("courses update", error);
+  return familyId ?? null;
 }
 
 async function runMove(pageId: string, toCourseId: string, dryRun: boolean): Promise<Record<string, number>> {

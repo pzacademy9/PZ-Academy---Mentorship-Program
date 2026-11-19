@@ -123,14 +123,17 @@ describe("move", () => {
     m.moveStudents.mockRejectedValue(new Error("secret db detail"));
     const res = await movePost(post({ pageId: PAGE, toCourseId: COURSE }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual(GENERIC);
-    expect(JSON.stringify(errSpy.mock.calls)).not.toContain("secret");
+    const body = await res.json();
+    expect(body).toEqual(GENERIC);
+    expect(JSON.stringify(body)).not.toContain("secret");
+    // the server log may carry the detail so it can be diagnosed; the response never does
+    expect(JSON.stringify(errSpy.mock.calls)).toContain("secret db detail");
   });
   it("POST maps a PortalError to its status and calm message", async () => {
-    m.moveStudents.mockRejectedValue(new PortalError("This batch already uses that portal.", 409));
+    m.moveStudents.mockRejectedValue(new PortalError("That portal has no modules yet.", 409));
     const res = await movePost(post({ pageId: PAGE, toCourseId: COURSE }));
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "This batch already uses that portal." });
+    expect(await res.json()).toEqual({ error: "That portal has no modules yet." });
   });
   it("POST 400 for bad input", async () => {
     expect((await movePost(post({ pageId: PAGE }))).status).toBe(400);
@@ -143,6 +146,13 @@ describe("attach and group", () => {
     expect((await attachPost(post({ pageId: PAGE, courseId: COURSE }))).status).toBe(200);
     expect(m.attachPortal).toHaveBeenCalledWith(PAGE, COURSE);
     expect((await attachPost(post({ pageId: PAGE }))).status).toBe(400);
+  });
+  it("group returns the family id used, so the screen can keep the group", async () => {
+    m.setPortalGroup.mockResolvedValue("fam-9");
+    const res = await groupPost(post({ courseId: COURSE, newFamilyName: "PPC" }));
+    expect(await res.json()).toEqual({ ok: true, familyId: "fam-9" });
+    m.setPortalGroup.mockResolvedValue(null);
+    expect(await (await groupPost(post({ courseId: COURSE }))).json()).toEqual({ ok: true, familyId: null });
   });
   it("group calls the helper with nulls for missing optionals", async () => {
     m.setPortalGroup.mockResolvedValue(undefined);
