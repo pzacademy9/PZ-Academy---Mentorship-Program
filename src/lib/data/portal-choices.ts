@@ -4,7 +4,7 @@ import { PortalError } from "@/lib/data/portal-errors";
 import { normalizeContent } from "@/lib/landing/content";
 import { suggestOptions, type ChoiceOption } from "@/lib/landing/registration/match-choice";
 import type { ChoiceGroup, ChoiceOverview } from "@/lib/landing/registration/choice-types";
-import { enqueueEnrollmentSync, runJobsFor, runJobsDirect } from "@/lib/data/landing-jobs";
+import { enqueueEnrollmentSync, runJobsDirect } from "@/lib/data/landing-jobs";
 import { runInBackground } from "@/lib/landing/registration/background";
 
 function check(what: string, error: { message: string } | null): void {
@@ -65,7 +65,7 @@ export async function listChoiceGroups(pageId: string): Promise<ChoiceOverview> 
 
 /**
  * Records the chosen options on every row of this page with exactly this label and no choice yet, then
- * queues enrollment for the Paid ones holding those options (which releases the safety hold). Never emails anyone.
+ * queues enrollment for the Paid ones holding those options (which releases the safety hold). Only the enrollment_sync job is run (never other jobs), so nobody is emailed.
  * Running it again changes no rows and safely re-queues (retry).
  */
 export async function applyChoice(p: { pageId: string; label: string; optionKeys: string[] }): Promise<{ updated: number; queued: number }> {
@@ -114,8 +114,10 @@ export async function applyChoice(p: { pageId: string; label: string; optionKeys
     try {
       const ok = await enqueueEnrollmentSync(id);
       if (ok) queued += 1;
-      runInBackground(ok ? runJobsFor(id) : runJobsDirect(id, ["enrollment_sync"]));
-    } catch {
+      // Only the enrollment job runs here: runJobsFor would also run any other due job (maybe an email).
+      runInBackground(runJobsDirect(id, ["enrollment_sync"]));
+    } catch (e) {
+      console.error(`[portal-choices] enrollment queue failed for ${id}: ${e instanceof Error ? e.message : String(e)}`);
       // this row is retried by the next Apply or the next status change; keep going with the others
     }
   }

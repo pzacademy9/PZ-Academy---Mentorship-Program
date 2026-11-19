@@ -203,7 +203,24 @@ describe("applyChoice", () => {
     expect(res).toEqual({ updated: 3, queued: 2 });
     expect(jobs.enqueueEnrollmentSync.mock.calls.map((c) => c[0]).sort()).toEqual(["done", "paid1"]);
     expect(bg.runInBackground).toHaveBeenCalledTimes(2);
-    expect(jobs.runJobsFor).toHaveBeenCalledWith("paid1");
+    expect(jobs.runJobsFor).not.toHaveBeenCalled();
+  });
+
+  it("runs only the enrollment_sync job for each row, never the full job runner", async () => {
+    store.landing_registrations = [reg("r1"), reg("r2")];
+    await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] });
+    expect(jobs.runJobsFor).not.toHaveBeenCalled();
+    expect(jobs.runJobsDirect.mock.calls.map((c) => [c[0], c[1]]).sort()).toEqual([["r1", ["enrollment_sync"]], ["r2", ["enrollment_sync"]]]);
+  });
+
+  it("logs a queue failure with the registration id and message only", async () => {
+    store.landing_registrations = [reg("r1")];
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    jobs.enqueueEnrollmentSync.mockRejectedValue(new Error("queue down"));
+    await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] });
+    expect(spy.mock.calls.flat().join(" ")).toContain("r1");
+    expect(spy.mock.calls.flat().join(" ")).toContain("queue down");
+    spy.mockRestore();
   });
 
   it("falls back to a direct run when the queue cannot be written", async () => {
