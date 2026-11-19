@@ -10,16 +10,16 @@ import type { SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { useSessionEmails } from "./useSessionEmails";
+import { dsDivider, dsLime, dsMuted, dsOutline } from "./ds";
 
-const btn =
-  "inline-flex w-full items-center justify-center gap-2 px-4 min-h-12 rounded-lg font-headline text-base font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-const solid = `${btn} bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container`;
-const outlined = `${btn} border-2 border-pz-primary bg-pz-surface-container-lowest text-pz-primary hover:bg-pz-surface-container-low`;
+// Copy attendance link is the one main (lime) button here; the others are forest outline.
+const solid = `${dsLime} w-full`;
+const outlined = `${dsOutline} w-full`;
 
 const DOT: Record<ReminderTone, string> = {
-  ok: "bg-emerald-600",
+  ok: "bg-[#7ED957] dark:bg-emerald-600",
   warn: "bg-amber-500",
-  idle: "bg-pz-outline-variant",
+  idle: "bg-[#D4EACC] dark:bg-pz-outline-variant",
 };
 
 function CopyButton({ url, label, className }: { url: string; label: string; className: string }) {
@@ -35,7 +35,7 @@ function CopyButton({ url, label, className }: { url: string; label: string; cla
   }
   return (
     <button type="button" onClick={copy} className={className}>
-      {copied ? <Check className="size-5" aria-hidden /> : <Copy className="size-5" aria-hidden />}
+      {copied ? <Check className="size-5" strokeWidth={1.75} aria-hidden /> : <Copy className="size-5" strokeWidth={1.75} aria-hidden />}
       {copied ? "Copied" : label}
     </button>
   );
@@ -70,18 +70,18 @@ export function ClassActionRow({
           <CopyButton url={cls.feedbackLink} label="Copy feedback link" className={outlined} />
         ) : (
           <button type="button" disabled className={outlined}>
-            <Copy className="size-5" aria-hidden />
+            <Copy className="size-5" strokeWidth={1.75} aria-hidden />
             Copy feedback link
           </button>
         )}
         <button type="button" className={outlined} disabled={emails.busy} onClick={onSend}>
-          <Mail className="size-5" aria-hidden />
+          <Mail className="size-5" strokeWidth={1.75} aria-hidden />
           Send emails
         </button>
       </div>
-      {!cls.feedbackLink && <p className="text-base text-pz-on-surface-variant">This class has no feedback link yet</p>}
-      <div className="border-t border-pz-outline-variant/60 pt-3">
-        <p role="status" className="flex items-center gap-2 text-base text-pz-on-surface">
+      {!cls.feedbackLink && <p className={`text-base ${dsMuted}`}>This class has no feedback link yet</p>}
+      <div className={`pt-3 ${dsDivider}`}>
+        <p role="status" className="flex items-center gap-2 font-fredoka text-base text-[#1A2E1F] dark:text-pz-on-surface">
           <span data-tone={line.tone} className={cn("size-2.5 shrink-0 rounded-full", DOT[line.tone])} aria-hidden />
           {line.text}
         </p>

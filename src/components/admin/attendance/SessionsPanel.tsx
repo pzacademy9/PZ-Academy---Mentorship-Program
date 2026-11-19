@@ -16,7 +16,7 @@ import { parseClassTab, type ClassTab } from "@/lib/classes/tabs";
 import { TodayPanel } from "@/components/admin/classes/TodayPanel";
 import { useAutoRefresh } from "@/components/admin/classes/useAutoRefresh";
 import { EditClassDialog } from "@/components/admin/classes/EditClassDialog";
-import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn } from "@/components/admin/classes/styles";
+import { dsCard, dsField, dsLabel, dsLime, dsForest, dsOutline, dsHeading, dsMuted, dsDivider } from "@/components/admin/classes/ds";
 
 const BASE = "/dashboard/admin/enrollments/registrations";
 
@@ -31,28 +31,28 @@ function BatchSettings({ pageId, minPct, pageStatus, showInPortal }: { pageId: s
     });
   }
   return (
-    <details className={cardCls}>
-      <summary className="flex min-h-12 cursor-pointer items-center gap-2 font-headline text-lg font-bold text-pz-on-surface">
-        <Settings2 className="size-5" aria-hidden />
+    <details className={dsCard}>
+      <summary className={`flex min-h-12 cursor-pointer items-center gap-2 text-lg ${dsHeading}`}>
+        <Settings2 className="size-5" strokeWidth={1.75} aria-hidden />
         <span>
           Batch settings
-          <span className="block text-base font-normal text-pz-on-surface-variant">Pass mark and student portal</span>
+          <span className={`block font-poppins text-base font-normal tracking-normal ${dsMuted}`}>Pass mark and student portal</span>
         </span>
       </summary>
       <div className="mt-3 space-y-2">
-        <label htmlFor="min-pct" className={labelCls}>Minimum attendance to pass (%)</label>
+        <label htmlFor="min-pct" className={dsLabel}>Minimum attendance to pass (%)</label>
         <div className="flex flex-col gap-2 md:flex-row md:items-end">
           <input
             id="min-pct" type="number" min={0} max={100} value={min} onChange={(e) => setMin(e.target.value)}
-            className={`${fieldCls} md:w-32`}
+            className={`${dsField} md:w-32`}
           />
-          <button type="button" className={`${quietBtn} max-md:w-full`} onClick={save} disabled={busy}>Save minimum</button>
+          <button type="button" className={`${dsOutline} max-md:w-full`} onClick={save} disabled={busy}>Save minimum</button>
         </div>
-        <p className="text-base text-pz-on-surface-variant">
+        <p className={`text-base ${dsMuted}`}>
           The percentage counts classes that have already started. Each class has its own attendance link, shown on the Links and emails tab.
         </p>
       </div>
-      <div className="mt-4 border-t border-pz-outline-variant/60 pt-4">
+      <div className={`mt-4 pt-4 ${dsDivider}`}>
         <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
       </div>
     </details>
@@ -95,13 +95,13 @@ export function SessionsPanel({
 
   if (overview.classes.length === 0) {
     return (
-      <div className="space-y-4">
-        <section className={`${cardCls} space-y-4 text-center`}>
-          <h2 className="font-headline text-2xl font-bold text-pz-on-surface">No classes yet</h2>
-          <p className="text-base text-pz-on-surface-variant">Pick the days this batch meets and we will create each class, its attendance link and its feedback link.</p>
-          <Link href={setupHref} className={`${primaryBtn} max-md:w-full`}>Set up classes</Link>
+      <div className="space-y-4 font-poppins">
+        <section className={`${dsCard} space-y-4 text-center`}>
+          <h2 className={`text-2xl ${dsHeading}`}>No classes yet</h2>
+          <p className={`text-base ${dsMuted}`}>Pick the days this batch meets and we will create each class, its attendance link and its feedback link.</p>
+          <Link href={setupHref} className={`${dsLime} max-md:w-full`}>Set up classes</Link>
         </section>
-        <section className={cardCls}>
+        <section className={dsCard}>
           <PortalVisibilitySwitch pageId={pageId} status={pageStatus} showInPortal={showInPortal} />
         </section>
       </div>
@@ -116,16 +116,16 @@ export function SessionsPanel({
   const last = byNumber.find((s) => !s.custom_time && !s.custom_zoom) ?? byNumber[0];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-poppins">
       <BatchSummary feedback={overview.batchFeedback} pageId={pageId} programId={overview.programId} rows={rows} minPct={minPct} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="min-w-0 space-y-3">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-            <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
-              <CalendarPlus className="size-5" aria-hidden />
+            <button type="button" className={`${dsForest} w-full`} onClick={() => setAdding(true)}>
+              <CalendarPlus className="size-5" strokeWidth={1.75} aria-hidden />
               Add a class
             </button>
-            <Link href={setupHref} className={`${quietBtn} w-full`}>Edit all classes</Link>
+            <Link href={setupHref} className={`${dsOutline} w-full`}>Edit all classes</Link>
           </div>
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={(id) => go(id, tab)} />
         </div>

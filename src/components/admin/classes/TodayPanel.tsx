@@ -15,7 +15,7 @@ import { LinksTab } from "./LinksTab";
 import { EditClassDialog } from "./EditClassDialog";
 import { attendanceStatus, nextAction, quizStatus } from "@/lib/classes/card-status";
 import { CLASS_TABS, classPanelId, classTabId, type ClassTab } from "@/lib/classes/tabs";
-import { cardCls, primaryBtn, quietBtn } from "./styles";
+import { dsBadgeNeutral, dsCard, dsDivider, dsForest, dsHeading, dsLime, dsLink, dsMuted, dsQuiet } from "./ds";
 
 /** The single next step for a class. */
 export function nextStep(c: ClassSummary): { title: string; hint: string } {
@@ -100,48 +100,48 @@ export function TodayPanel({
 
   return (
     <div className="space-y-4">
-      <section className={`${cardCls} space-y-3`}>
+      <section className={`${dsCard} space-y-3`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="rounded-full bg-pz-surface-container-high px-3 py-1 text-base font-headline font-bold text-pz-on-surface-variant">
+            <span className={dsBadgeNeutral}>
               Day {cls.number} · {STATUS_LABEL[cls.status]}
             </span>
-            <h2 className="mt-2 break-words font-headline text-2xl font-bold text-pz-on-surface">{cls.title || `Day ${cls.number}`}</h2>
+            <h2 className={`mt-2 break-words text-2xl md:text-3xl ${dsHeading}`}>{cls.title || `Day ${cls.number}`}</h2>
           </div>
-          <button type="button" className={`${quietBtn} max-md:w-full`} onClick={() => setEditing(true)}>
-            <Pencil className="size-5" aria-hidden />
+          <button type="button" className={`${dsQuiet} max-md:w-full`} onClick={() => setEditing(true)}>
+            <Pencil className="size-5" strokeWidth={1.75} aria-hidden />
             Edit this class
           </button>
         </div>
-        <p className="flex items-center gap-2 text-base text-pz-on-surface-variant">
-          <CalendarClock className="size-5 shrink-0" aria-hidden />
+        <p className={`flex items-center gap-2 text-base ${dsMuted}`}>
+          <CalendarClock className="size-5 shrink-0" strokeWidth={1.75} aria-hidden />
           {formatPkt(cls.startsAt)}
           {cls.endsAt ? ` to ${clock(cls.endsAt)}` : ""}
         </p>
-        {cls.speaker && <p className="break-words text-base text-pz-on-surface-variant">Speaker: {cls.speaker}</p>}
+        {cls.speaker && <p className={`break-words text-base ${dsMuted}`}>Speaker: {cls.speaker}</p>}
         {session.zoom_url && (
           <a
             href={session.zoom_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-12 items-center gap-2 text-base font-headline font-bold text-pz-primary"
+            className={`inline-flex min-h-12 items-center gap-2 text-base font-semibold underline ${dsLink}`}
           >
-            <Video className="size-5" aria-hidden />
+            <Video className="size-5" strokeWidth={1.75} aria-hidden />
             Open Zoom link
           </a>
         )}
         <ClassActionRow cls={cls} session={session} sends={sends} now={new Date(nowIso)} onNeedAudience={needAudience} />
-        <div role="status" aria-label="Next step" className="rounded-lg border border-pz-primary/40 bg-pz-primary/10 p-4">
-          <p className="font-headline text-lg font-bold text-pz-on-surface">Next step: {step.title}</p>
-          <p className="text-base text-pz-on-surface-variant">{step.hint}</p>
+        <div role="status" aria-label="Next step" className={`pt-4 ${dsDivider}`}>
+          <p className="flex items-center gap-2 font-montserrat text-lg font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface"><span aria-hidden className="size-2.5 shrink-0 rounded-full bg-[#7ED957] dark:bg-pz-primary" />Next step: {step.title}</p>
+          <p className={`text-base ${dsMuted}`}>{step.hint}</p>
           {action.target === "quiz" && (
-            <Link href={quizHref} className={`${primaryBtn} mt-3 w-full`}>
-              <FileUp className="size-5" aria-hidden />
+            <Link href={quizHref} className={`${dsLime} mt-3 w-full`}>
+              <FileUp className="size-5" strokeWidth={1.75} aria-hidden />
               {action.label}
             </Link>
           )}
           {action.target !== null && action.target !== "quiz" && (
-            <button type="button" className={`${primaryBtn} mt-3 w-full`} onClick={runAction}>
+            <button type="button" className={`${dsForest} mt-3 w-full`} onClick={runAction}>
               {action.label}
             </button>
           )}

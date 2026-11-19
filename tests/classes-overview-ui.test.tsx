@@ -514,7 +514,7 @@ describe("phone-first Classes screen", () => {
   it("each day chip has a status dot", () => {
     render(<SessionsPanel pageId={PAGE} overview={overview2([summary({ status: "done" })])} sessions={[session()]} rows={[]} minPct={75} sends={{}} nowIso={NOW} pageStatus="published" showInPortal={null} />);
     const chip = screen.getByRole("button", { name: /Day 1/ });
-    expect(chip.querySelector("span[aria-hidden='true'].rounded-full")!.className).toContain("bg-emerald-600");
+    expect(chip.querySelector("span[aria-hidden='true'].rounded-full")!.className).toContain("bg-[#196432]");
   });
 
   it("the next-step button scrolls the Links panel into view, every time", async () => {

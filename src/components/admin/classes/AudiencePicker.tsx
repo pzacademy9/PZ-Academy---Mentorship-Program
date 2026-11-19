@@ -6,7 +6,7 @@ import { AUDIENCE_PRESETS, audienceFromJson, presetLiveWithModule, type Audience
 import type { RecipientPreview } from "@/lib/data/audience-preview";
 import { RecipientPreviewLists } from "@/components/admin/shared/RecipientPreviewLists";
 import { previewClassAudience, saveClassAudience } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
-import { fieldCls, labelCls, primaryBtn } from "./styles";
+import { dsField, dsLabel, dsLime, dsMuted, dsSelected, dsIdle, dsFocus } from "./ds";
 
 const MODULE = "module";
 type Choice = typeof MODULE | string | null;
@@ -119,19 +119,20 @@ export function AudiencePicker({
 
   const rowCls = (on: boolean) =>
     cn(
-      "flex min-h-12 w-full items-center gap-3 rounded-lg border px-4 text-left font-headline text-base font-bold transition-colors",
-      on ? "border-pz-primary bg-pz-primary/10 text-pz-on-surface" : "border-pz-outline-variant/60 text-pz-on-surface-variant hover:text-pz-on-surface",
+      "flex min-h-12 w-full items-center gap-3 rounded-2xl border px-4 text-left font-poppins text-base font-semibold text-[#1A2E1F] transition-colors dark:text-pz-on-surface",
+      dsFocus,
+      on ? dsSelected : dsIdle,
     );
   const dot = (on: boolean) => (
-    <span aria-hidden className={cn("flex size-5 shrink-0 items-center justify-center rounded-full border-2", on ? "border-pz-primary" : "border-pz-outline-variant")}>
-      {on && <span className="size-2.5 rounded-full bg-pz-primary" />}
+    <span aria-hidden className={cn("flex size-5 shrink-0 items-center justify-center rounded-full border-2", on ? "border-[#196432] dark:border-pz-primary" : "border-[#D4EACC] dark:border-pz-outline-variant")}>
+      {on && <span className="size-2.5 rounded-full bg-[#7ED957] dark:bg-pz-primary" />}
     </span>
   );
 
   return (
-    <div data-testid="audience-picker" className="space-y-3 rounded-lg bg-pz-surface-container-low p-4">
-      <h4 className="font-headline text-lg font-bold text-pz-on-surface">Who gets this</h4>
-      <p className="text-base text-pz-on-surface-variant">Choose who receives this class&apos;s emails. Nobody is emailed until you choose.</p>
+    <div data-testid="audience-picker" className="space-y-3 font-poppins">
+      <h4 className="font-montserrat text-lg font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface">Who gets this</h4>
+      <p className={`text-base ${dsMuted}`}>Choose who receives this class&apos;s emails. Nobody is emailed until you choose.</p>
       <div role="radiogroup" aria-label="Who gets this" className="space-y-2">
         <button type="button" role="radio" aria-checked={choice === MODULE} className={rowCls(choice === MODULE)} onClick={() => pick(MODULE)}>
           {dot(choice === MODULE)}
@@ -139,7 +140,7 @@ export function AudiencePicker({
         </button>
         {choice === MODULE && (
           <div className="pl-2">
-            <label htmlFor={`aud-module-${sessionId}`} className={labelCls}>Module number (1 to 12)</label>
+            <label htmlFor={`aud-module-${sessionId}`} className={dsLabel}>Module number (1 to 12)</label>
             <input
               id={`aud-module-${sessionId}`}
               type="number"
@@ -147,7 +148,7 @@ export function AudiencePicker({
               min={1}
               max={12}
               required
-              className={fieldCls}
+              className={dsField}
               value={moduleText}
               onChange={(e) => changeModule(e.target.value)}
             />
@@ -161,17 +162,17 @@ export function AudiencePicker({
         ))}
       </div>
 
-      {previewing && <p role="status" className="text-base text-pz-on-surface-variant">Loading the list...</p>}
+      {previewing && <p role="status" className={`text-base ${dsMuted}`}>Loading the list...</p>}
       {previewError && <p role="alert" className="text-base text-red-700 dark:text-red-300">{previewError}</p>}
       {preview && (
         <RecipientPreviewLists preview={preview} receivingTitle="Will get this email" notReceivingTitle="Will not get this email" />
       )}
 
-      <button type="button" className={`${primaryBtn} max-md:w-full`} disabled={!listShown || saving} onClick={save}>
+      <button type="button" className={`${dsLime} max-md:w-full`} disabled={!listShown || saving} onClick={save}>
         {saving ? "Saving..." : "Save who gets this"}
       </button>
       {audience && !listShown && !saving && (
-        <p className="text-base text-pz-on-surface-variant">Look at the two lists above, then save.</p>
+        <p className={`text-base ${dsMuted}`}>Look at the two lists above, then save.</p>
       )}
       {note && (
         <p role={note.ok ? "status" : "alert"} className={cn("text-base", note.ok ? "text-emerald-800 dark:text-emerald-200" : "text-red-700 dark:text-red-300")}>

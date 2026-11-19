@@ -6,7 +6,7 @@ import { FileUp, ListChecks } from "lucide-react";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import { podiumImageUrl } from "@/lib/progress/leaderboard";
 import { SharePodium } from "@/components/progress/portal/SharePodium";
-import { cardCls, primaryBtn, quietBtn } from "./styles";
+import { dsCard, dsHeading, dsLime, dsMuted, dsOutline, dsWell } from "./ds";
 
 const NO_PODIUM_YET = "The podium picture is ready once this batch is shown on the Progress page and quiz results are saved.";
 
@@ -18,38 +18,38 @@ export function QuizTab({ pageId, cls, slug, batchTitle }: { pageId: string; cls
   const canShow = saved && !!slug && !!cls.id && Number.isFinite(cls.number);
 
   return (
-    <div className="space-y-4">
-      <section data-testid="quiz-card" className={`${cardCls} space-y-4`}>
+    <div className="space-y-4 font-poppins">
+      <section data-testid="quiz-card" className={`${dsCard} space-y-4`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-headline text-xl font-bold text-pz-on-surface">Quiz results</h3>
+          <h3 className={`text-xl ${dsHeading}`}>Quiz results</h3>
           <span
-            className={`rounded-full px-3 py-1 text-base font-headline font-bold ${
+            className={`rounded-full px-3 py-0.5 font-fredoka text-[15px] font-medium ${
               saved
-                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                ? "bg-[#E3F6DA] text-[#0F3D22] dark:bg-emerald-900/40 dark:text-emerald-200"
+                : "bg-[#EAF5E4] text-[#4D6B54] dark:bg-amber-900/40 dark:text-amber-100"
             }`}
           >
             {saved ? "Saved" : "Not uploaded yet"}
           </span>
         </div>
-        <p className="text-base text-pz-on-surface-variant">
+        <p className={`text-base ${dsMuted}`}>
           {saved
             ? `${players} players`
             : "After the live quiz, download the report from Kahoot and upload it here to score your students."}
         </p>
-        <Link href={href} className={`${saved ? quietBtn : primaryBtn} max-md:w-full`}>
-          {saved ? <ListChecks className="size-5" aria-hidden /> : <FileUp className="size-5" aria-hidden />}
+        <Link href={href} className={`${saved ? dsOutline : dsLime} max-md:w-full`}>
+          {saved ? <ListChecks className="size-5" strokeWidth={1.75} aria-hidden /> : <FileUp className="size-5" strokeWidth={1.75} aria-hidden />}
           {saved ? "Open quiz results" : "Upload Kahoot file"}
         </Link>
       </section>
 
-      <section className={`${cardCls} space-y-4`}>
-        <h3 className="font-headline text-xl font-bold text-pz-on-surface">Podium</h3>
+      <section className={`${dsCard} space-y-4`}>
+        <h3 className={`text-xl ${dsHeading}`}>Podium</h3>
         {!saved ? (
-          <p className="text-base text-pz-on-surface-variant">The podium appears after you save the quiz results.</p>
+          <p className={`text-base ${dsMuted}`}>The podium appears after you save the quiz results.</p>
         ) : canShow && !broken ? (
           <>
-            <div className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl border border-pz-outline-variant/60 bg-pz-surface-container-low">
+            <div className={`mx-auto aspect-square w-full max-w-sm overflow-hidden ${dsWell}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={podiumImageUrl(slug as string, "square", cls.id)}
@@ -64,7 +64,7 @@ export function QuizTab({ pageId, cls, slug, batchTitle }: { pageId: string; cls
             </div>
           </>
         ) : (
-          <p className="text-base text-pz-on-surface-variant">{NO_PODIUM_YET}</p>
+          <p className={`text-base ${dsMuted}`}>{NO_PODIUM_YET}</p>
         )}
       </section>
     </div>
