@@ -161,4 +161,41 @@ describe("PortalAccessScreen", () => {
     await waitFor(() => expect(posts("/api/admin/landing/portal/attach")).toHaveLength(1));
     expect(JSON.parse(posts("/api/admin/landing/portal/attach")[0][1].body)).toEqual({ pageId: PAGE, courseId: C2 });
   });
+
+  it("remounts the actions panel for a new portal so it reloads its modules", async () => {
+    const view = renderScreen();
+    await screen.findByText("Module 1");
+    const batchGets = () => fetchMock.mock.calls.filter((c) => String(c[0]).includes("/api/admin/landing/batch?pageId=")).length;
+    const before = batchGets();
+    view.rerender(<PortalAccessScreen pageId={PAGE} pageTitle="PPC Batch 3" overview={{ ...OVERVIEW, portal: sibling, siblings: [portal] }} />);
+    await waitFor(() => expect(batchGets()).toBe(before + 1));
+  });
+
+  it("a slow earlier preview does not overwrite a newer one", async () => {
+    const releases: ((r: Response) => void)[] = [];
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return Promise.resolve(json({ moved: 1 }));
+      if (String(url).includes("/portal/move")) return new Promise<Response>((r) => releases.push(r));
+      return Promise.resolve(json(PANEL));
+    });
+    renderScreen();
+    await waitFor(() => expect(releases).toHaveLength(1));
+    releases[0](json({ toMove: 3, alreadyThere: 0, unmatchedModules: 0 }));
+    await screen.findByText("3 students will move");
+    const moveOnce = async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Move students" }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Move students" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    };
+    await moveOnce(); // refresh #2 held
+    await waitFor(() => expect(releases).toHaveLength(2));
+    await moveOnce(); // refresh #3 held
+    await waitFor(() => expect(releases).toHaveLength(3));
+    releases[2](json({ toMove: 0, alreadyThere: 4, unmatchedModules: 0 }));
+    await screen.findByText("0 students will move");
+    releases[1](json({ toMove: 5, alreadyThere: 0, unmatchedModules: 0 }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByText("0 students will move")).toBeTruthy();
+  });
 });

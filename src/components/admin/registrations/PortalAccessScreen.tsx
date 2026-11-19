@@ -23,7 +23,14 @@ const quietBtn =
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-export function PortalAccessScreen({
+type ScreenProps = { pageId: string; pageTitle: string; overview: PortalOverview | null };
+
+/** Keyed by the portal: a new portal remounts everything (form fields, move result, modules panel) with fresh state. */
+export function PortalAccessScreen(props: ScreenProps) {
+  return <PortalAccessInner key={props.overview?.portal?.id ?? "none"} {...props} />;
+}
+
+function PortalAccessInner({
   pageId,
   pageTitle,
   overview,
@@ -33,6 +40,7 @@ export function PortalAccessScreen({
   overview: PortalOverview | null;
 }) {
   const router = useRouter();
+  const ticket = useRef(0);
   const duplicateBtn = useRef<HTMLButtonElement>(null);
   const moveBtn = useRef<HTMLButtonElement>(null);
   const portal = overview?.portal ?? null;
@@ -54,23 +62,20 @@ export function PortalAccessScreen({
 
   const loadPreview = useCallback(async () => {
     if (!portalId) return;
+    const mine = ++ticket.current;
     setPreviewError(null);
     const r = await callPortal<MovePreview>(
       `/api/admin/landing/portal/move?pageId=${encodeURIComponent(pageId)}&toCourseId=${encodeURIComponent(portalId)}`,
     );
+    // A slow older answer must never replace a newer one.
+    if (mine !== ticket.current) return;
     if (r.ok) setPreview(r.data);
     else setPreviewError(r.message);
   }, [pageId, portalId]);
 
   useEffect(() => {
-    setPreview(null);
-    setMoveResult(null);
-    setFamilyId(portal?.familyId ?? "");
-    setBatchLabel(portal?.batchLabel ?? "");
-    setNewFamily("");
     void loadPreview();
-    // portal fields are re-read when the portal id changes or the server hands over a refreshed overview
-  }, [loadPreview, portal?.familyId, portal?.batchLabel]);
+  }, [loadPreview]);
 
   async function attach(courseId: string) {
     if (!courseId || courseId === portalId) return;
