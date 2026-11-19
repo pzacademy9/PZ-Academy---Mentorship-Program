@@ -21,8 +21,13 @@
 --      the new course yet. Pressing it again finds nobody to move (0) and
 --      changes nothing; it is not an error. With dry_run = true it only counts and
 --      changes nothing. Lecture progress is not carried over.
---      A student's chosen modules with no match in the new course are left
---      as they are, so a limited student never becomes whole-course.
+--      Students who can open the new course also get its first lesson (and
+--      the first lesson of each open module) unlocked, the same way the
+--      normal enrolment rules do. This shows as a "lesson unlocked" notice in
+--      the app; no email is sent.
+--      It refuses (changing nothing) when a moving student chose modules the
+--      new portal does not have, and when the page is the website's main page
+--      for its course (untick Main page first).
 --
 -- Nothing here sends an email.
 
@@ -169,8 +174,14 @@ declare
   v_already    int;
   v_unmatched  int;
   v_moved      int := 0;
+  v_main       boolean;
+  v_page_course uuid;
 begin
-  if not exists (select 1 from public.landing_pages where id = p_page) then
+  select coalesce(lp.is_main_page, false), lp.course_id
+    into v_main, v_page_course
+  from public.landing_pages lp
+  where lp.id = p_page;
+  if not found then
     raise exception 'Registration page not found';
   end if;
   if not exists (select 1 from public.courses where id = p_to_course) then
@@ -178,6 +189,9 @@ begin
   end if;
   if not exists (select 1 from public.modules where course_id = p_to_course) then
     raise exception 'The new portal has no modules yet';
+  end if;
+  if v_main and v_page_course is distinct from p_to_course then
+    raise exception 'This batch is the website''s main page for its course. Untick Main page first.';
   end if;
 
   -- who moves: this page's students whose enrollment is not on the new
@@ -215,6 +229,18 @@ begin
       from public.modules where course_id = p_to_course
     ) n on n.rk = o.rk;
 
+  -- a moving student who chose modules the new portal has no match for would
+  -- be left holding marks on the old course: refuse instead of leaving them
+  if exists (
+    select 1
+    from public.enrollment_modules em
+    join _mv_map mp on mp.old_id = em.module_id
+    where em.enrollment_id in (select id from _mv_set)
+      and mp.new_id is null
+  ) then
+    raise exception 'Some students chose modules the new portal does not have. Make the modules match first.';
+  end if;
+
   select count(*) into v_to_move from _mv_set;
 
   -- already there: this page's students already on the new course, plus
@@ -251,9 +277,9 @@ begin
     where o.enrollment_id in (select id from _mv_set)
     on conflict do nothing;
 
-    -- only rows that were remapped are removed. A chosen module with no
-    -- counterpart stays, so a student limited to some modules never ends up
-    -- with an empty list (an empty list means the whole course).
+    -- every chosen module of a moving student has a counterpart here (the
+    -- check above refuses otherwise), so a student limited to some modules
+    -- never ends up with an empty list (an empty list means the whole course).
     delete from public.enrollment_modules
     where enrollment_id in (select id from _mv_set)
       and module_id in (select old_id from _mv_map where new_id is not null);
@@ -289,6 +315,34 @@ begin
     set course_id = p_to_course
     where id in (select id from _mv_set);
     get diagnostics v_moved = row_count;
+
+    -- Lesson access needs a lesson_progress row marked 'unlocked'. The new
+    -- portal's lessons are new rows, so moved students have none yet, and the
+    -- normal unlock triggers cannot help (the open-module trigger ran before
+    -- the course changed; the enrolment trigger sees nothing new). Same rules
+    -- as unlock_first_lesson_on_enroll and unlock_first_lesson_on_module_open.
+    -- Progress is only ever added here, never deleted.
+    -- first lesson of the first module each moved student can open
+    insert into public.lesson_progress (student_id, lesson_id, status)
+    select distinct on (e.id) e.student_id, l.id, 'unlocked'
+    from public.enrollments e
+    join public.modules m on m.course_id = p_to_course
+    join public.lessons l on l.module_id = m.id
+    where e.id in (select id from _mv_set) and e.status = 'active' and e.portal_open
+      and public._module_open_for(e.student_id, m.id)
+    order by e.id, m.order_index, m.id, l.order_index, l.id
+    on conflict (student_id, lesson_id) do update set status = 'unlocked' where lesson_progress.status = 'locked';
+
+    -- Live: first lesson of every open module
+    insert into public.lesson_progress (student_id, lesson_id, status)
+    select distinct on (o.enrollment_id, o.module_id) e.student_id, l.id, 'unlocked'
+    from public.enrollment_open_modules o
+    join public.enrollments e on e.id = o.enrollment_id
+    join public.lessons l on l.module_id = o.module_id
+    where o.enrollment_id in (select id from _mv_set) and e.status = 'active' and e.portal_open
+      and public._module_open_for(e.student_id, o.module_id)
+    order by o.enrollment_id, o.module_id, l.order_index, l.id
+    on conflict (student_id, lesson_id) do update set status = 'unlocked' where lesson_progress.status = 'locked';
 
     update public.landing_pages
     set course_id = p_to_course

@@ -170,3 +170,40 @@ it("remaps landing_batch_state without colliding on (page_id, module_id)", () =>
     /delete from public\.landing_batch_state\s+where page_id = p_page\s+and module_id in \(select old_id from _mv_map\)/i,
   );
 });
+
+it("unlocks lessons for moved students after the enrollments update, inside the not-dry-run guard, and never deletes progress", () => {
+  const b = body("move_batch_students");
+  const guard = b.search(/if not p_dry_run then/i);
+  const upd = b.search(/update public\.enrollments\s+set course_id = p_to_course/i);
+  const ins: number[] = [];
+  const re = /insert into public\.lesson_progress/gi;
+  let w: RegExpExecArray | null;
+  while ((w = re.exec(b)) !== null) ins.push(w.index);
+  expect(ins).toHaveLength(2);
+  for (const i of ins) {
+    expect(i).toBeGreaterThan(upd);
+    expect(i).toBeGreaterThan(guard);
+  }
+  expect(b).toMatch(/_module_open_for\(e\.student_id, m\.id\)/);
+  expect(b).toMatch(/_module_open_for\(e\.student_id, o\.module_id\)/);
+  expect(b).toMatch(/on conflict \(student_id, lesson_id\) do update set status = 'unlocked' where lesson_progress\.status = 'locked'/i);
+  expect(sql).not.toMatch(/delete from public\.lesson_progress/i);
+});
+
+it("refuses a main page whose course would change, in dry run and real run alike", () => {
+  const b = body("move_batch_students");
+  expect(b).toMatch(/is_main_page/);
+  expect(b).toMatch(/This batch is the website''s main page for its course\. Untick Main page first\./);
+  const main = b.search(/Untick Main page first/);
+  expect(main).toBeLessThan(b.search(/if not p_dry_run then/i));
+  expect(main).toBeLessThan(b.search(/create temp table _mv_set/i));
+});
+
+it("refuses when a moving student chose modules the new portal does not have", () => {
+  const b = body("move_batch_students");
+  expect(b).toMatch(/Some students chose modules the new portal does not have\. Make the modules match first\./);
+  const at = b.search(/Some students chose modules/);
+  expect(at).toBeGreaterThan(b.search(/create temp table _mv_map/i));
+  expect(at).toBeLessThan(b.search(/if not p_dry_run then/i));
+  expect(b).toMatch(/from public\.enrollment_modules em\s+join _mv_map mp on mp\.old_id = em\.module_id/i);
+});
