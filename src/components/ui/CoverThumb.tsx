@@ -16,7 +16,7 @@ export function CoverThumb({
 }) {
   const [failed, setFailed] = useState(false);
   const showImage = isAllowedCoverUrl(url) && !failed;
-  const letter = (title.trim().charAt(0) || "?").toUpperCase();
+  const letter = (Array.from(title.trim())[0] ?? "?").toUpperCase();
 
   return (
     <div className={cn("aspect-[16/9] overflow-hidden rounded-t-xl", className)}>

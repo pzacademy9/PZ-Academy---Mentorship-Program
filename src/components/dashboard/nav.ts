@@ -122,12 +122,15 @@ const ROUTE_ALIASES: Record<string, string> = {
   "/dashboard/admin/notifications": "/dashboard/notifications",
 };
 
-function aliasFor(pathname: string): string | undefined {
-  if (ROUTE_ALIASES[pathname]) return ROUTE_ALIASES[pathname];
-  const key = Object.keys(ROUTE_ALIASES)
+/** Alias targets for a path, best first: the exact key, then prefix keys, longest first. */
+function aliasTargets(pathname: string): string[] {
+  const out: string[] = [];
+  if (ROUTE_ALIASES[pathname]) out.push(ROUTE_ALIASES[pathname]);
+  Object.keys(ROUTE_ALIASES)
     .filter((k) => pathname.startsWith(`${k}/`))
-    .sort((a, b) => b.length - a.length)[0];
-  return key ? ROUTE_ALIASES[key] : undefined;
+    .sort((a, b) => b.length - a.length)
+    .forEach((k) => out.push(ROUTE_ALIASES[k]));
+  return out;
 }
 
 /**
@@ -135,8 +138,8 @@ function aliasFor(pathname: string): string | undefined {
  * its target is in this list, so a hub menu (which has no Settings entry) keeps resolving its own pages.
  */
 export function activeHrefFor(items: NavItem[], rawPathname: string): string | undefined {
-  const target = aliasFor(rawPathname);
-  const pathname = target && items.some((i) => i.href === target) ? target : rawPathname;
+  const target = aliasTargets(rawPathname).find((t) => items.some((i) => i.href === t));
+  const pathname = target ?? rawPathname;
   return items
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;

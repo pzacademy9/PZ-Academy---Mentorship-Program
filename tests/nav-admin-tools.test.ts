@@ -62,3 +62,11 @@ describe("hub mode keeps working", () => {
     expect(activeHrefFor(SALES_HUB_ITEMS, `${SALES_HUB_BASE}/import`)).toBe(`${SALES_HUB_BASE}/cohorts`);
   });
 });
+
+describe("activeHrefFor alias fallthrough", () => {
+  it("a manager in normal mode on Sales Hub Import highlights Settings when Cohorts is absent", () => {
+    const items = navForRole("manager", ["sales_hub"]);
+    expect(items.some((i) => i.href === `${SALES_HUB_BASE}/cohorts`)).toBe(false);
+    expect(activeHrefFor(items, `${SALES_HUB_BASE}/import`)).toBe("/dashboard/settings");
+  });
+});

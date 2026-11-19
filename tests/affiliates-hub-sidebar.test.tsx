@@ -79,3 +79,16 @@ it("people who cannot see Affiliates never get hub mode", () => {
   const { container } = render(<Sidebar role="mentor" />);
   expect(side(container).queryByRole("link", { name: "Payouts" })).toBeNull();
 });
+
+it("collapsed Affiliates menu hides the heading and keeps accessible names", () => {
+  window.localStorage.setItem("pz.sidebar.collapsed", "1");
+  path = "/dashboard/admin/affiliates";
+  query = "tab=payouts";
+  const { container } = render(<Sidebar role="admin" />);
+  const d = side(container);
+  expect(d.queryByText("Affiliates", { selector: "p" })).toBeNull();
+  expect(d.queryByText("Payouts")).toBeNull();
+  expect(d.getByRole("link", { name: "Back to Admin" }).getAttribute("title")).toBe("Back to Admin");
+  expect(d.getByRole("link", { name: "Payouts" })).toBeTruthy();
+  window.localStorage.clear();
+});

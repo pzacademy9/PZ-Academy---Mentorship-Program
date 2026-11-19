@@ -50,7 +50,7 @@ function ProgramRow({ row }: { row: ProgramListRow }) {
     <tr className="hover:bg-pz-surface-container-low transition-colors group">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
-          <CoverThumb url={row.thumbnailUrl} title={row.title} className="w-16 shrink-0 rounded-md" />
+          <CoverThumb key={row.thumbnailUrl ?? "none"} url={row.thumbnailUrl} title={row.title} className="w-16 shrink-0 rounded-md" />
           <div className={cn("w-2 h-2 rounded-full", row.isPublished ? "bg-pz-primary" : "bg-pz-surface-dim")} />
           <span
             className={cn(
@@ -204,7 +204,11 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
                   title: (r) => r.title,
                   meta: (r) => [r.slug, `PKR ${r.pricePkr.toLocaleString()} · ${r.isPublished ? "Published" : "Draft"}`],
                   href: (r) => `/dashboard/admin/courses/${r.id}`,
-                  cover: (r) => <CoverThumb url={r.thumbnailUrl} title={r.title} />,
+                  cover: (r) => (
+                    <Link href={`/dashboard/admin/courses/${r.id}`} tabIndex={-1} aria-hidden="true" className="block">
+                      <CoverThumb key={r.thumbnailUrl ?? "none"} url={r.thumbnailUrl} title={r.title} />
+                    </Link>
+                  ),
                 }}
                 empty={
                   <EmptyState

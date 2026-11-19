@@ -3,6 +3,7 @@
 // there is deliberately no agent-scope path here. Test rows are never returned.
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import type { Candidate } from "@/lib/landing/participants/types";
 import { applyHeadFilters, HEAD_ROW_TYPES, LIST_ROW_TYPES, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
@@ -83,7 +84,8 @@ export async function listCampaigns(): Promise<Campaign[]> {
     if (!c) continue;
     c.title = p.title;
     c.pageStatus = p.status === "published" || p.status === "closed" ? p.status : "draft";
-    c.coverUrl = (p.course_id ? thumbs.get(p.course_id) : undefined) ?? (p.class_cover_url || null);
+    const candidates = [p.course_id ? thumbs.get(p.course_id) : undefined, p.class_cover_url];
+    c.coverUrl = candidates.find((u): u is string => isAllowedCoverUrl(u)) ?? null;
   }
   return Array.from(byPage.values()); // Map keeps first-seen order: newest registration first
 }

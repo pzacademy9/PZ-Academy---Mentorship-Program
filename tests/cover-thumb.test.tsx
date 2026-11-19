@@ -39,3 +39,14 @@ describe("CoverThumb", () => {
     expect(screen.getByText("G")).toBeTruthy();
   });
 });
+
+describe("CoverThumb placeholder letter", () => {
+  it("uses a whole emoji, not half a surrogate pair", () => {
+    render(<CoverThumb url={null} title="🎓 Course" />);
+    expect(screen.getByText("🎓")).toBeTruthy();
+  });
+  it("uses the first Urdu letter", () => {
+    render(<CoverThumb url={null} title="  اردو کورس" />);
+    expect(screen.getByText("ا")).toBeTruthy();
+  });
+});

@@ -55,3 +55,14 @@ describe("ProgramLibraryTable covers", () => {
     expect(root.className).not.toContain("rounded-t-xl");
   });
 });
+
+describe("ProgramLibraryTable phone card cover tap", () => {
+  it("wraps the phone cover in a link to the program that is not a tab stop", () => {
+    const { container } = render(<ProgramLibraryTable rows={[row({ thumbnailUrl: COVER })]} />);
+    const card = container.querySelector('[data-testid="responsive-cards"]') as HTMLElement;
+    const link = card.querySelector("img")!.closest("a") as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("/dashboard/admin/courses/c1");
+    expect(link.getAttribute("tabindex")).toBe("-1");
+    expect(link.getAttribute("aria-hidden")).toBe("true");
+  });
+});
