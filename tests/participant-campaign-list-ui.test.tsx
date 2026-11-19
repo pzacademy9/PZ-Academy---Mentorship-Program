@@ -6,7 +6,7 @@ import type { Campaign } from "@/lib/data/participant-campaigns";
 
 const camp = (over: Partial<Campaign> = {}): Campaign => ({
   pageId: "pg1", title: "TMC Batch 1", pageStatus: "published", total: 7,
-  counts: { pending: 3, reserved: 1, underpaid: 0, paid: 2, free: 1 }, ...over,
+  counts: { pending: 3, reserved: 1, underpaid: 0, paid: 2, free: 1 }, coverUrl: null, ...over,
 });
 
 describe("campaign list UI", () => {
