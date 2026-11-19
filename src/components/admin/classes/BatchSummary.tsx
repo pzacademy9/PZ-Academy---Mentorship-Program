@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { toast } from "sonner";
-import { Award, ExternalLink, Star, Users } from "lucide-react";
+import { Award, ChevronDown, ExternalLink, Star, Users } from "lucide-react";
 import { openProgramReport } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { summarizeAttendance, summarizeFeedback } from "@/lib/classes/summary";
 import type { GridRow } from "@/lib/data/attendance";
 import { cardCls, quietBtn } from "@/components/admin/classes/styles";
-import { FoldCard } from "@/components/admin/classes/FoldCard";
 
 export function BatchSummary({
   pageId, feedback, programId, rows, minPct,
@@ -20,7 +19,6 @@ export function BatchSummary({
   minPct: number;
 }) {
   const [busy, startTransition] = useTransition();
-  const [open, setOpen] = useState(false);
   function openReport() {
     startTransition(async () => {
       const res = await openProgramReport(pageId);
@@ -36,8 +34,18 @@ export function BatchSummary({
   ].join(" · ");
 
   return (
-    <FoldCard id="fold-batch" icon={<Award className="size-5" />} title="Batch results" status={{ line: headline, badge: null, tone: "idle" }} open={open} onToggle={() => setOpen((o) => !o)}>
-    <div className="grid gap-4 md:grid-cols-2">
+    <details id="fold-batch" className="group scroll-mt-20">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 rounded-xl border border-pz-outline-variant/60 bg-pz-surface-container-lowest p-3 [&::-webkit-details-marker]:hidden">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-pz-surface-container text-pz-primary" aria-hidden>
+          <Award className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-headline text-lg font-bold text-pz-on-surface">Batch results</span>
+          <span className="block text-base text-pz-on-surface-variant">{headline}</span>
+        </span>
+        <ChevronDown aria-hidden className="size-5 shrink-0 text-pz-on-surface-variant transition-transform group-open:rotate-180" />
+      </summary>
+    <div className="mt-2 grid gap-4 md:grid-cols-2">
       <section className={`${cardCls} space-y-3`} aria-labelledby="batch-feedback-title">
         <h2 id="batch-feedback-title" className="flex items-center gap-2 font-headline text-lg font-bold text-pz-on-surface">
           <Star className="size-5" aria-hidden />
@@ -98,6 +106,6 @@ export function BatchSummary({
         )}
       </section>
     </div>
-    </FoldCard>
+    </details>
   );
 }

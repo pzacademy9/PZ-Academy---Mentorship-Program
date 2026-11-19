@@ -103,7 +103,7 @@ export function SessionsPanel({
   return (
     <div className="space-y-4">
       <BatchSummary feedback={overview.batchFeedback} pageId={pageId} programId={overview.programId} rows={rows} minPct={minPct} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="min-w-0 space-y-3">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
             <button type="button" className={`${quietBtn} w-full`} onClick={() => setAdding(true)}>
@@ -115,6 +115,7 @@ export function SessionsPanel({
           <ClassList classes={overview.classes} selectedId={cls.id} onSelect={setSelectedId} />
         </div>
         {session && (
+          <div className="min-w-0">
           <TodayPanel
             key={cls.id}
             pageId={pageId}
@@ -125,6 +126,7 @@ export function SessionsPanel({
             sends={sends[cls.id]}
             nowIso={nowIso}
           />
+          </div>
         )}
       </div>
       <BatchSettings pageId={pageId} minPct={minPct} pageStatus={pageStatus} showInPortal={showInPortal} />

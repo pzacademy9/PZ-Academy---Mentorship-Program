@@ -28,6 +28,8 @@ export type ClassSummary = {
 };
 export type ClassOverview = {
   title: string;
+  /** The landing page's slug; null when missing. */
+  slug: string | null;
   classes: ClassSummary[];
   selectedId: string;
   batchFeedback: ReturnType<typeof summarizeFeedback>;
@@ -39,15 +41,16 @@ const pktDay = (iso: string) => isoToPktInput(iso).slice(0, 10);
 
 export async function getClassOverview(pageId: string, now: Date = new Date()): Promise<ClassOverview> {
   const admin = createAdminSupabase();
-  const { data: page, error: pageErr } = await admin.from("landing_pages").select("title, feedback_program_id").eq("id", pageId).maybeSingle();
+  const { data: page, error: pageErr } = await admin.from("landing_pages").select("title, slug, feedback_program_id").eq("id", pageId).maybeSingle();
   if (pageErr) throw new Error(`batch read failed: ${pageErr.message}`);
-  const pageRow = page as { title: string; feedback_program_id: string | null } | null;
+  const pageRow = page as { title: string; slug: string | null; feedback_program_id: string | null } | null;
   const title = pageRow?.title ?? "";
+  const slug = pageRow?.slug ?? null;
 
   const sessions = (await listSessions(pageId)).sort(
     (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime() || a.number - b.number,
   );
-  if (sessions.length === 0) return { title, classes: [], selectedId: "", batchFeedback: summarizeFeedback([]), programId: pageRow?.feedback_program_id ?? null };
+  if (sessions.length === 0) return { title, slug, classes: [], selectedId: "", batchFeedback: summarizeFeedback([]), programId: pageRow?.feedback_program_id ?? null };
 
   const ids = sessions.map((s) => s.id);
   const live = new Set(await livePersonIds(pageId));
@@ -108,5 +111,5 @@ export async function getClassOverview(pageId: string, now: Date = new Date()): 
     classes.find((c) => c.status === "today") ?? classes.find((c) => c.status === "upcoming") ?? classes[classes.length - 1];
 
   const batchFeedback = summarizeFeedback(classes.map((c) => ({ number: c.number, responses: c.feedbackCount, avg: c.feedbackAvg })));
-  return { title, classes, selectedId: selected.id, batchFeedback, programId: pageRow?.feedback_program_id ?? null };
+  return { title, slug, classes, selectedId: selected.id, batchFeedback, programId: pageRow?.feedback_program_id ?? null };
 }
