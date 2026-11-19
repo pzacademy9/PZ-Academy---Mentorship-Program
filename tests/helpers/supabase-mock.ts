@@ -128,7 +128,7 @@ function matches(row: Record<string, unknown>, filters: Op["filters"]): boolean 
   return filters.every(([kind, key, value]) => {
     const v = row[key];
     switch (kind) {
-      case "eq": return v === value;
+      case "eq": return Array.isArray(v) && value === "{}" ? v.length === 0 : v === value;
       case "neq": return v !== value;
       case "in": return Array.isArray(value) && value.includes(v);
       case "is": return value === null ? v === null || v === undefined : v === value;
