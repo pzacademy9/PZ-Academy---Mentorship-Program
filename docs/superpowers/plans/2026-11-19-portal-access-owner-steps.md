@@ -34,15 +34,21 @@ The group is set on the Portal access screen, so we start from a PPC batch.
    - "Batch label": type `Batch 3`.
 4. Press "Copy portal".
 
-This makes a new portal with the same modules, lectures and MCQs. It starts as Not published. No students are copied and no emails are sent.
+This makes a new portal with the same modules, lectures, MCQs and module notes. It starts as Not published. No students are copied and no emails are sent.
+
+This batch now uses the new portal straight away. New sign-ups join it.
+
+If a red message says "This batch is the website's main page for its course. Untick Main page first.", the batch is ticked as the main page for its course. Untick Main page on the batch first, then try again. Nothing was changed.
+
+To switch a batch to a portal that already exists, use the list in the same card ("Portals in the ... group", or "Other portals" when this portal has no group), pick the portal, then press "Use this portal".
 
 ## Step 4: Change what differs in the new portal
 
 1. On the Portal access screen, press "Open in Course Builder".
 2. Change the YouTube links, MCQs and PDF links that are different for Batch 3.
-3. When you are happy, publish it.
+3. When you are happy, publish it. Publishing puts the portal on the public courses page of the website, and students cannot open it until it is published. "Move students" stays off until the portal is published.
 
-You can take your time here. Students are not moved yet.
+Students are not moved yet. Do steps 4 to 6 on the same day, and do not open modules or change Paid status until you have moved students. While students are waiting to move, the "Open modules and emails" area on the Portal access screen is replaced by a note that says "Move students first, then open modules here."
 
 ## Step 5: Read the three numbers
 
@@ -51,7 +57,8 @@ You can take your time here. Students are not moved yet.
    - "N students will move".
    - "N already in this portal".
    - "N modules could not be matched" (this line only shows if there are some).
-3. If "modules could not be matched" shows a number, check that the new portal has the same modules in the same order as the old one. Students with a module that cannot be matched keep what they had; they are never opened up to the whole course.
+3. If "modules could not be matched" shows a number, the old portal has more modules than the new one. Check that the new portal has the same modules in the same order as the old one. If any student chose modules the new portal does not have, a red message says "Some students chose modules the new portal does not have. Make the modules match first." and nobody is moved until the modules match.
+4. Do not delete the old portal or its modules after a move.
 
 ## Step 6: Move the students
 
@@ -62,6 +69,7 @@ What to expect:
 
 - No emails are sent.
 - Progress in the old portal does not carry over. Students start fresh in the new portal.
+- Students start fresh in the new portal; they may see a "lesson unlocked" notice in the app. No email is sent.
 - This batch now points to the new portal.
 - The page then says "Moved N students."
 
@@ -92,10 +100,20 @@ order by f.name nulls last, c.title;
 
 After a move, the first one should show most students under the new portal.
 
+Paid registrations with no linked enrollment. They are never moved, and a later sheet sync would give them a second enrollment in the copy. This should be 0:
+
+```sql
+select count(*) from public.landing_registrations r
+where r.page_id = 'PAGE-ID-HERE' and r.status = 'paid'
+  and not exists (select 1 from public.enrollments e where e.landing_registration_id = r.id);
+```
+
 ## If something looks wrong
 
 - Pressing Move a second time: it simply shows 0 students to move and the Move button stays off. Nothing is changed.
 - The "Move students" button is greyed out: there is nobody to move (the first number is 0).
 - A student in two batches: only the students of the batch you are on are moved. The other batch is not touched.
 - The numbers do not look right: do not press Move. Tell me what the three numbers say.
+- Marks left on old modules: when nobody is movable (for example the page was pointed at a copy by "Duplicate a portal" and everybody had already moved), the batch's "module finished" marks stay on the old portal's modules. Tell me and I will check them.
+- A red message "The database change has not been pasted yet." means Step 1 was not done. Do Step 1, then reload the page.
 - A red message appears: copy the words and send them to me.

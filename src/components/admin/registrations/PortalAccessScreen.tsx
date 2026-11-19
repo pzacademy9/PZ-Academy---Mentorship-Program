@@ -57,6 +57,8 @@ function PortalAccessInner({
   const [batchLabel, setBatchLabel] = useState(portal?.batchLabel ?? "");
   const [groupBusy, setGroupBusy] = useState(false);
   const [groupMessage, setGroupMessage] = useState<{ text: string; bad: boolean } | null>(null);
+  const [pick, setPick] = useState(portalId ?? "");
+  const [panelKey, setPanelKey] = useState(0);
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
 
@@ -94,7 +96,7 @@ function PortalAccessInner({
     if (!portalId) return;
     setGroupBusy(true);
     setGroupMessage(null);
-    const r = await callPortal<{ ok: boolean }>("/api/admin/landing/portal/group", {
+    const r = await callPortal<{ ok: boolean; familyId?: string | null }>("/api/admin/landing/portal/group", {
       courseId: portalId,
       familyId: familyId || null,
       newFamilyName: newFamily.trim() || null,
@@ -105,6 +107,8 @@ function PortalAccessInner({
       setGroupMessage({ text: r.message, bad: true });
       return;
     }
+    // keep the group a new name just created, so a second save does not clear it
+    setFamilyId(r.data.familyId ?? "");
     setNewFamily("");
     setGroupMessage({ text: "Saved.", bad: false });
     router.refresh();
@@ -228,13 +232,13 @@ function PortalAccessInner({
             </div>
             <div>
               <label htmlFor="portal-pick" className={fieldLabel}>
-                {portal ? (groupName ? `Portals in the ${groupName} group` : "Portals in this group") : "Pick a portal"}
+                {portal ? (groupName ? `Portals in the ${groupName} group` : "Other portals") : "Pick a portal"}
               </label>
               <select
                 id="portal-pick"
-                value={portalId ?? ""}
+                value={pick}
                 disabled={attachBusy}
-                onChange={(e) => void attach(e.target.value)}
+                onChange={(e) => setPick(e.target.value)}
                 className={field}
               >
                 {!portal && <option value="">Choose a portal</option>}
@@ -242,6 +246,14 @@ function PortalAccessInner({
                   <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
               </select>
+              <button
+                type="button"
+                disabled={attachBusy || !pick || pick === portalId}
+                onClick={() => void attach(pick)}
+                className={`mt-3 ${quietBtn}`}
+              >
+                Use this portal
+              </button>
               {attachError && (
                 <p role="alert" className="font-body text-sm text-pz-danger mt-2">{attachError}</p>
               )}
@@ -285,10 +297,15 @@ function PortalAccessInner({
               <p className="rounded-lg bg-pz-surface-container-low p-3.5 font-body text-sm text-pz-on-surface-variant">
                 Their progress in the old portal does not carry over. No emails are sent.
               </p>
+              {!portal.published && (
+                <p className="rounded-lg bg-pz-secondary-fixed/40 p-3.5 font-body text-sm text-pz-on-surface">
+                  Publish this portal first. Students cannot open it until it is published.
+                </p>
+              )}
               <button
                 ref={moveBtn}
                 type="button"
-                disabled={!preview || preview.toMove === 0}
+                disabled={!preview || preview.toMove === 0 || !portal.published}
                 onClick={() => setMoveOpen(true)}
                 className={`w-full ${primaryBtn}`}
               >
@@ -308,7 +325,13 @@ function PortalAccessInner({
           <ListChecks className="w-5 h-5 text-pz-primary" aria-hidden="true" />
           <h2 id="modules-title" className="font-headline font-bold text-lg text-pz-on-surface">Open modules and emails</h2>
         </div>
-        <BatchAccessPanel pageId={pageId} />
+        {preview && preview.toMove > 0 ? (
+          <p className="rounded-xl bg-pz-surface-container-low p-4 font-body text-sm text-pz-on-surface-variant">
+            Move students first, then open modules here.
+          </p>
+        ) : (
+          <BatchAccessPanel key={panelKey} pageId={pageId} />
+        )}
       </section>
 
       <PortalDuplicateDialog
@@ -330,6 +353,7 @@ function PortalAccessInner({
           returnFocusRef={moveBtn}
           onDone={(moved) => {
             setMoveResult(`Moved ${plural(moved, "student", "students")}.`);
+            setPanelKey((k) => k + 1);
             void loadPreview();
           }}
         />

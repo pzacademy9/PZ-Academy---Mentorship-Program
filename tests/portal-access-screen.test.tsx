@@ -13,11 +13,18 @@ const C1 = "22222222-2222-4222-8222-222222222222";
 const C2 = "33333333-3333-4333-8333-333333333333";
 const FAM = "44444444-4444-4444-8444-444444444444";
 
-const portal = { id: C1, title: "PPC batch 3 portal", slug: "ppc-3", published: false, familyId: FAM, familyName: "PPC", batchLabel: "Batch 3" };
+const portal = { id: C1, title: "PPC batch 3 portal", slug: "ppc-3", published: true, familyId: FAM, familyName: "PPC", batchLabel: "Batch 3" };
 const sibling = { id: C2, title: "PPC batch 2 portal", slug: "ppc-2", published: true, familyId: FAM, familyName: "PPC", batchLabel: "Batch 2" };
 const OVERVIEW: PortalOverview = {
   portal,
   siblings: [sibling],
+  families: [{ id: FAM, name: "PPC" }],
+  sources: [portal, sibling],
+};
+const UNPUBLISHED: PortalOverview = { ...OVERVIEW, portal: { ...portal, published: false }, sources: [{ ...portal, published: false }, sibling] };
+const UNGROUPED: PortalOverview = {
+  portal: { ...portal, familyId: null, familyName: null },
+  siblings: [{ ...sibling, familyId: null, familyName: null }],
   families: [{ id: FAM, name: "PPC" }],
   sources: [portal, sibling],
 };
@@ -49,7 +56,7 @@ function renderScreen(overview: PortalOverview | null = OVERVIEW) {
 
 describe("PortalAccessScreen", () => {
   it("shows the portal name, group chip, batch chip and Not published chip", () => {
-    renderScreen();
+    renderScreen(UNPUBLISHED);
     expect(screen.getByRole("heading", { name: "PPC batch 3 portal" })).toBeTruthy();
     expect(screen.getByTestId("chip-group").textContent).toBe("PPC");
     expect(screen.getByTestId("chip-batch").textContent).toBe("Batch 3");
@@ -132,7 +139,7 @@ describe("PortalAccessScreen", () => {
 
   it("a second move shows the calm message instead of crashing", async () => {
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-      if (init?.method === "POST") return json({ error: "This batch already uses that portal." }, 409);
+      if (init?.method === "POST") return json({ error: "This batch is the website's main page for its course. Untick Main page first." }, 409);
       if (String(url).includes("/portal/move")) return json(preview);
       return json(PANEL);
     });
@@ -141,7 +148,7 @@ describe("PortalAccessScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Move students" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Move students" }));
-    await screen.findByText("This batch already uses that portal.");
+    await screen.findByText("This batch is the website's main page for its course. Untick Main page first.");
   });
 
   it("the group and batch label form posts to /api/admin/landing/portal/group", async () => {
@@ -156,11 +163,91 @@ describe("PortalAccessScreen", () => {
     });
   });
 
-  it("choosing another portal in the group posts to the attach route", async () => {
+  it("choosing another portal only chooses; Use this portal posts to the attach route", async () => {
     renderScreen();
+    const useBtn = screen.getByRole("button", { name: "Use this portal" }) as HTMLButtonElement;
+    expect(useBtn.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Portals in the PPC group"), { target: { value: C2 } });
+    expect(posts("/api/admin/landing/portal/attach")).toHaveLength(0);
+    expect(useBtn.disabled).toBe(false);
+    fireEvent.click(useBtn);
     await waitFor(() => expect(posts("/api/admin/landing/portal/attach")).toHaveLength(1));
     expect(JSON.parse(posts("/api/admin/landing/portal/attach")[0][1].body)).toEqual({ pageId: PAGE, courseId: C2 });
+  });
+
+  it('labels the list "Other portals" when the portal has no group', () => {
+    renderScreen(UNGROUPED);
+    expect(screen.getByLabelText("Other portals")).toBeTruthy();
+  });
+
+  it("an unpublished portal disables Move students and says to publish first", async () => {
+    renderScreen(UNPUBLISHED);
+    await screen.findByText("48 students will move");
+    expect((screen.getByRole("button", { name: "Move students" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Publish this portal first. Students cannot open it until it is published.")).toBeTruthy();
+  });
+
+  it("a published portal does not show the publish line", async () => {
+    renderScreen();
+    await screen.findByText("48 students will move");
+    expect(screen.queryByText(/Publish this portal first/)).toBeNull();
+    expect((screen.getByRole("button", { name: "Move students" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("while students are waiting to move, the modules panel is replaced by a calm note and returns at 0", async () => {
+    renderScreen();
+    await screen.findByText("48 students will move");
+    expect(screen.getByText("Move students first, then open modules here.")).toBeTruthy();
+    expect(screen.queryByText("Module 1")).toBeNull();
+    preview = { toMove: 0, alreadyThere: 50, unmatchedModules: 0 };
+    fireEvent.click(screen.getByRole("button", { name: "Move students" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Move students" }));
+    await screen.findByText("Module 1");
+    expect(screen.queryByText("Move students first, then open modules here.")).toBeNull();
+  });
+
+  it("the modules panel is shown again when the preview cannot be read", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return json({});
+      if (String(url).includes("/portal/move")) return json({ error: "The database change has not been pasted yet." }, 409);
+      return json(PANEL);
+    });
+    renderScreen();
+    await screen.findByText("The database change has not been pasted yet.");
+    await screen.findByText("Module 1");
+  });
+
+  it("a second save keeps the group made by the first save", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && String(url).includes("/portal/group")) return json({ ok: true, familyId: "new-fam" });
+      if (init?.method === "POST") return json({});
+      if (String(url).includes("/portal/move")) return json(preview);
+      return json(PANEL);
+    });
+    renderScreen(UNGROUPED);
+    fireEvent.change(screen.getByLabelText("Or a new group name"), { target: { value: "Pharma" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save group and batch" }));
+    await screen.findByText("Saved.");
+    fireEvent.change(screen.getByLabelText("Batch label"), { target: { value: "Batch 9" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save group and batch" }));
+    await waitFor(() => expect(posts("/api/admin/landing/portal/group")).toHaveLength(2));
+    const first = JSON.parse(posts("/api/admin/landing/portal/group")[0][1].body);
+    const second = JSON.parse(posts("/api/admin/landing/portal/group")[1][1].body);
+    expect(first.newFamilyName).toBe("Pharma");
+    expect(second).toMatchObject({ familyId: "new-fam", newFamilyName: null, batchLabel: "Batch 9" });
+  });
+
+  it("reloads the modules panel after a successful move", async () => {
+    renderScreen();
+    await screen.findByText("48 students will move");
+    const batchGets = () => fetchMock.mock.calls.filter((c) => String(c[0]).includes("/api/admin/landing/batch?pageId=")).length;
+    preview = { toMove: 0, alreadyThere: 50, unmatchedModules: 0 };
+    const before = batchGets();
+    fireEvent.click(screen.getByRole("button", { name: "Move students" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Move students" }));
+    await waitFor(() => expect(batchGets()).toBeGreaterThan(before));
   });
 
   it("remounts the actions panel for a new portal so it reloads its modules", async () => {
