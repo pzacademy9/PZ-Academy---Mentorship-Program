@@ -263,3 +263,54 @@ describe("Links and emails tab keeps every email and feedback action", () => {
     await waitFor(() => expect(h.createMissing).toHaveBeenCalledWith(PAGE));
   });
 });
+
+describe("tab panels", () => {
+  it("every tab's aria-controls points at a panel in the page; inactive panels are hidden and empty", () => {
+    two();
+    const tabs = screen.getAllByRole("tab");
+    for (const t of tabs) {
+      const panelEl = document.getElementById(t.getAttribute("aria-controls")!);
+      expect(panelEl).toBeTruthy();
+      expect(panelEl!.getAttribute("role")).toBe("tabpanel");
+      expect(panelEl!.getAttribute("aria-labelledby")).toBe(t.id);
+      if (t.getAttribute("aria-selected") === "true") {
+        expect(panelEl!.hasAttribute("hidden")).toBe(false);
+        expect(panelEl!.childElementCount).toBeGreaterThan(0);
+      } else {
+        expect(panelEl!.hasAttribute("hidden")).toBe(true);
+        expect(panelEl!.childElementCount).toBe(0);
+      }
+    }
+    expect(document.querySelectorAll("[role='tabpanel']")).toHaveLength(3);
+  });
+
+  it("the Next step button moves focus to the Links panel", async () => {
+    panel([summary({ status: "upcoming" })], [session()]);
+    fireEvent.click(screen.getByRole("tab", { name: "Attendance" }));
+    fireEvent.click(within(screen.getByRole("status", { name: "Next step" })).getByRole("button", { name: "Show attendance link" }));
+    const links = document.getElementById(classPanelId("links"))!;
+    expect(links.getAttribute("tabindex")).toBe("-1");
+    await waitFor(() => expect(document.activeElement).toBe(links));
+  });
+
+  it("the audience focus retries for a few frames when the box is not there yet", async () => {
+    vi.useFakeTimers();
+    try {
+      panel([summary()], [session({ audience: null } as Partial<SessionRow>)]);
+      const real = document.getElementById.bind(document);
+      let misses = 0;
+      vi.spyOn(document, "getElementById").mockImplementation((id: string) => {
+        if (id === "class-audience" && misses < 3) { misses += 1; return null; }
+        return real(id);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Send emails" }));
+      await vi.advanceTimersByTimeAsync(200);
+      expect(misses).toBe(3);
+      const box = real("class-audience")!;
+      expect(document.activeElement).toBe(box.querySelector("[role='radio']"));
+    } finally {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    }
+  });
+});

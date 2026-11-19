@@ -65,11 +65,18 @@ export function TodayPanel({
     (() => {
       onTabChange("links");
       // Wait for the Links tab to show, then bring the audience box into view and focus its first choice.
-      requestAnimationFrame(() => {
+      // The tab may take a frame or two to mount, so look again for a few frames before giving up.
+      let frames = 0;
+      const look = () => {
         const box = document.getElementById("class-audience");
-        box?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-        box?.querySelector<HTMLElement>("[role='radio']")?.focus();
-      });
+        if (!box) {
+          if (++frames < 5) requestAnimationFrame(look);
+          return;
+        }
+        box.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        box.querySelector<HTMLElement>("[role='radio']")?.focus();
+      };
+      requestAnimationFrame(look);
     });
   const step = nextStep(cls);
   const action = nextAction(cls);
@@ -78,7 +85,11 @@ export function TodayPanel({
     // The attendance link and the feedback link both live on the Links tab.
     if (action.target === null || action.target === "quiz") return;
     onTabChange("links");
-    requestAnimationFrame(() => document.getElementById(classPanelId("links"))?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
+    requestAnimationFrame(() => {
+      const panelEl = document.getElementById(classPanelId("links"));
+      panelEl?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      panelEl?.focus();
+    });
   }
   const counts: Partial<Record<ClassTab, string>> = {
     attendance: attendanceStatus(cls).line,
@@ -136,11 +147,20 @@ export function TodayPanel({
       </section>
 
       <ClassTabs active={tab} onChange={onTabChange} counts={counts} panelId={classPanelId} />
-      {CLASS_TABS.filter((t) => t === tab).map((t) => (
-        <div key={t} role="tabpanel" id={classPanelId(t)} aria-labelledby={classTabId(t)}>
-          {t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
-          {t === "attendance" && <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />}
-          {t === "quiz" && <QuizCard pageId={pageId} cls={cls} />}
+      {CLASS_TABS.map((t) => (
+        // All three panels exist so each tab's aria-controls points at something; only the open one has content.
+        <div
+          key={t}
+          role="tabpanel"
+          id={classPanelId(t)}
+          aria-labelledby={classTabId(t)}
+          tabIndex={-1}
+          hidden={t !== tab}
+          className="scroll-mt-32 outline-none"
+        >
+          {t === tab && t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
+          {t === tab && t === "attendance" && <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />}
+          {t === tab && t === "quiz" && <QuizCard pageId={pageId} cls={cls} />}
         </div>
       ))}
 
