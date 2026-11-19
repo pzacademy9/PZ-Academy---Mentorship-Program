@@ -14,6 +14,7 @@ import { BatchSummary } from "@/components/admin/classes/BatchSummary";
 import { PortalVisibilitySwitch } from "@/components/admin/classes/PortalVisibilitySwitch";
 import { parseClassTab, type ClassTab } from "@/lib/classes/tabs";
 import { TodayPanel } from "@/components/admin/classes/TodayPanel";
+import { useAutoRefresh } from "@/components/admin/classes/useAutoRefresh";
 import { EditClassDialog } from "@/components/admin/classes/EditClassDialog";
 import { cardCls, fieldCls, labelCls, primaryBtn, quietBtn } from "@/components/admin/classes/styles";
 
@@ -48,7 +49,7 @@ function BatchSettings({ pageId, minPct, pageStatus, showInPortal }: { pageId: s
           <button type="button" className={`${quietBtn} max-md:w-full`} onClick={save} disabled={busy}>Save minimum</button>
         </div>
         <p className="text-base text-pz-on-surface-variant">
-          The percentage counts classes that have already started. Each class has its own attendance link, shown in its Attendance card.
+          The percentage counts classes that have already started. Each class has its own attendance link, shown on the Links and emails tab.
         </p>
       </div>
       <div className="mt-4 border-t border-pz-outline-variant/60 pt-4">
@@ -72,6 +73,7 @@ export function SessionsPanel({
   nowIso: string;
 }) {
   const router = useRouter();
+  useAutoRefresh();
   const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = useState(() => {
     const fromUrl = searchParams.get("class");
@@ -137,7 +139,6 @@ export function SessionsPanel({
             cls={cls}
             session={session}
             rows={rows}
-            minPct={minPct}
             sends={sends[cls.id]}
             nowIso={nowIso}
             tab={tab}

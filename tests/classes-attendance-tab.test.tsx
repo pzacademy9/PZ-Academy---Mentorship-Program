@@ -36,7 +36,7 @@ const row = (personId: string, name: string, pzId: string, on = false): GridRow 
 const ROWS = [row("p1", "Ayesha Khan", "Ayesha-1111"), row("p2", "Bilal Ahmed", "Bilal-2222", true), row("p3", "Chen Wei", "Chen-3333")];
 
 function setup(rows = ROWS, s = session()) {
-  return render(<AttendanceTab pageId="pg" cls={cls} session={s} rows={rows} minPct={75} nowIso={NOW} />);
+  return render(<AttendanceTab cls={cls} session={s} rows={rows} nowIso={NOW} />);
 }
 const list = () => screen.getAllByRole("button", { name: /, (present|not marked)$/ });
 
@@ -148,5 +148,12 @@ describe("AttendanceTab", () => {
   it("has no email controls (they live on the Links tab)", () => {
     setup();
     expect(screen.queryByRole("button", { name: /Email|test/ })).toBeNull();
+  });
+});
+
+describe("Mark everyone present with no students", () => {
+  it("is switched off when the class has no students", () => {
+    setup([]);
+    expect((screen.getByRole("button", { name: "Mark everyone present" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

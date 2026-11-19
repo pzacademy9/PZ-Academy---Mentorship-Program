@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attendanceStatus, quizStatus, feedbackStatus, nextAction } from "@/lib/classes/card-status";
+import { attendanceStatus, quizStatus, nextAction } from "@/lib/classes/card-status";
 import type { ClassSummary } from "@/lib/data/class-overview";
 
 const cls = (over: Partial<ClassSummary> = {}): ClassSummary => ({
@@ -33,23 +33,6 @@ describe("quizStatus", () => {
   });
   it("not saved for an upcoming class is calm", () => {
     expect(quizStatus(cls({ status: "upcoming" }))).toEqual({ line: "Not uploaded yet", badge: null, tone: "idle" });
-  });
-});
-
-describe("feedbackStatus", () => {
-  it("no link", () => {
-    expect(feedbackStatus(cls({ feedbackLink: null })).line).toBe("No feedback link yet");
-  });
-  it("link but no answers", () => {
-    expect(feedbackStatus(cls()).line).toBe("No answers yet");
-  });
-  it("one answer with no average has no null in it", () => {
-    expect(feedbackStatus(cls({ feedbackCount: 1 })).line).toBe("1 answer");
-  });
-  it("answers with an average", () => {
-    expect(feedbackStatus(cls({ feedbackCount: 18, feedbackAvg: 4.6 }))).toEqual({
-      line: "18 answers · 4.6 average", badge: "Collecting responses", tone: "ok",
-    });
   });
 });
 

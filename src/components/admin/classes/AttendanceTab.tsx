@@ -27,11 +27,9 @@ function overrideNote(value: WindowOverride, state: keyof typeof WINDOW_LABEL): 
 export function AttendanceTab({
   cls, session, rows, nowIso,
 }: {
-  pageId: string;
   cls: ClassSummary;
   session: SessionRow;
   rows: GridRow[];
-  minPct: number;
   nowIso: string;
 }) {
   const confirm = useConfirm();
@@ -152,7 +150,7 @@ export function AttendanceTab({
           </ul>
         )}
 
-        <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy || marks.busy} onClick={onMarkAll}>
+        <button type="button" className={`${quietBtn} max-md:w-full`} disabled={busy || marks.busy || rows.length === 0} onClick={onMarkAll}>
           Mark everyone present
         </button>
       </div>

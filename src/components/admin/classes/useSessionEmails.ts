@@ -62,6 +62,5 @@ export function useSessionEmails(session: SessionRow, sends: SessionSendState | 
     newZoomLink,
     updatedTime: () => run(() => emailUpdatedTime(session.id)),
     testToMe: () => run(() => sendTestEmailToMe(session.id)),
-    run,
   };
 }

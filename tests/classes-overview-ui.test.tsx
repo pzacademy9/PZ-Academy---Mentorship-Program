@@ -83,7 +83,7 @@ const session = (over: Partial<SessionRow> = {}): SessionRow => ({
 
 function Harness({ c, s, extra }: { c: ClassSummary; s: SessionRow; extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab } }) {
   const [tab, setTab] = useState<ClassTab>(extra.tab ?? "links");
-  return <TodayPanel pageId={PAGE} cls={c} session={s} rows={extra.rows ?? []} minPct={75} sends={extra.sends} nowIso={NOW} tab={tab} onTabChange={setTab} />;
+  return <TodayPanel pageId={PAGE} cls={c} session={s} rows={extra.rows ?? []} sends={extra.sends} nowIso={NOW} tab={tab} onTabChange={setTab} />;
 }
 function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab } = {}) {
   return render(<Harness c={c} s={s} extra={extra} />);
@@ -393,7 +393,8 @@ describe("class email actions", () => {
   });
 
   it("Mark everyone present marks the selected class", async () => {
-    attPanel(summary());
+    const row: GridRow = { personId: "p1", pzId: "PZ-1", name: "Ayesha Khan", marks: {}, started: 1, marked: 0, pct: 0, meetsMin: false };
+    attPanel(summary(), session(), { rows: [row] });
     fireEvent.click(screen.getByRole("button", { name: "Mark everyone present" }));
     await waitFor(() => expect(h.markEveryonePresent).toHaveBeenCalledWith("s1"));
   });

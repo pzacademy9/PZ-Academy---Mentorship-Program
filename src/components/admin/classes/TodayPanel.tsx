@@ -29,7 +29,7 @@ export function nextStep(c: ClassSummary): { title: string; hint: string } {
     };
   }
   if (!c.feedbackLink) {
-    return { title: "Create the feedback link for this class", hint: "Use Create missing feedback links in the Feedback card." };
+    return { title: "Create the feedback link for this class", hint: "Use Create missing feedback links on the Links and emails tab." };
   }
   if (c.feedbackCount === 0) {
     return { title: "Check feedback responses", hint: "No student has answered the feedback form yet." };
@@ -45,13 +45,12 @@ function clock(iso: string): string {
 }
 
 export function TodayPanel({
-  pageId, cls, session, rows, minPct, sends, nowIso, tab, onTabChange, onNeedAudience, slug = null, batchTitle = "",
+  pageId, cls, session, rows, sends, nowIso, tab, onTabChange, onNeedAudience, slug = null, batchTitle = "",
 }: {
   pageId: string;
   cls: ClassSummary;
   session: SessionRow;
   rows: GridRow[];
-  minPct: number;
   sends: SessionSendState | undefined;
   nowIso: string;
   tab: ClassTab;
@@ -162,7 +161,7 @@ export function TodayPanel({
           className="scroll-mt-32 outline-none"
         >
           {t === tab && t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
-          {t === tab && t === "attendance" && <AttendanceTab pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} nowIso={nowIso} />}
+          {t === tab && t === "attendance" && <AttendanceTab cls={cls} session={session} rows={rows} nowIso={nowIso} />}
           {t === tab && t === "quiz" && <QuizTab pageId={pageId} cls={cls} slug={slug} batchTitle={batchTitle} />}
         </div>
       ))}

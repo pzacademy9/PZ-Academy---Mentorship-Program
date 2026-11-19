@@ -3,7 +3,7 @@ import type { SessionRow } from "@/lib/data/attendance";
 import type { SessionSendState } from "@/lib/data/session-emails";
 import { audienceFromJson } from "@/lib/classes/audience";
 
-/** One plain line about the class emails, for the Attendance card and the edit dialog. */
+/** One plain line about the class emails, for the Links and emails tab and the edit dialog. */
 export function emailStatusLine(session: Pick<SessionRow, "email_enabled" | "audience">, sends: SessionSendState | undefined): string {
   if (sends?.reminderAt) {
     const base = `Reminder email sent ${formatPkt(sends.reminderAt)}`;
