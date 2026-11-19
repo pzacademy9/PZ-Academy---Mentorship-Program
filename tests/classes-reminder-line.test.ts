@@ -33,4 +33,16 @@ describe("reminderLine", () => {
   it("lead 0 uses start time", () => {
     expect(reminderLine({ ...base, email_lead_minutes: 0 }, undefined, before).text).toBe(`Reminder will send ${formatPkt("2026-12-01T10:00:00.000Z")}`);
   });
+  it("unparseable start time is idle, no throw", () => {
+    expect(reminderLine({ ...base, starts_at: "not a date" }, undefined, before)).toEqual({ text: "Class time is not set", tone: "idle" });
+  });
+  it("started and switched off says no reminder was sent", () => {
+    expect(reminderLine({ ...base, email_enabled: false }, undefined, new Date("2026-12-01T10:00:00Z"))).toEqual({ text: "No reminder was sent for this class", tone: "idle" });
+  });
+  it("started well after start says no reminder was sent", () => {
+    expect(reminderLine(base, undefined, new Date("2026-12-03T10:00:00Z"))).toEqual({ text: "No reminder was sent for this class", tone: "idle" });
+  });
+  it("sent reminder before the class starts", () => {
+    expect(reminderLine(base, { reminderAt: "2026-12-01T08:55:00.000Z", updateAt: null }, before)).toEqual({ text: `Reminder sent ${formatPkt("2026-12-01T08:55:00.000Z")}`, tone: "ok" });
+  });
 });

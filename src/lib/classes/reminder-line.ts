@@ -12,8 +12,9 @@ export function reminderLine(
   sends: SessionSendState | undefined,
   now: Date,
 ): ReminderLine {
-  if (sends?.reminderAt) return { text: `Reminder sent ${formatPkt(sends.reminderAt)}`, tone: "ok" };
   const startMs = new Date(session.starts_at).getTime();
+  if (Number.isNaN(startMs)) return { text: "Class time is not set", tone: "idle" };
+  if (sends?.reminderAt) return { text: `Reminder sent ${formatPkt(sends.reminderAt)}`, tone: "ok" };
   if (now.getTime() >= startMs) return { text: "No reminder was sent for this class", tone: "idle" };
   if (!session.email_enabled) return { text: "Reminder is switched off", tone: "idle" };
   if (!audienceFromJson(session.audience)) return { text: "Choose who gets the reminder", tone: "warn" };
