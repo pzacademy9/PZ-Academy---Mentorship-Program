@@ -44,19 +44,23 @@ function downloadCsv(rows: ProgramListRow[]) {
   URL.revokeObjectURL(url);
 }
 
-function ProgramRow({ row }: { row: ProgramListRow }) {
+function ProgramRow({ row, showBatch = false }: { row: ProgramListRow; showBatch?: boolean }) {
   return (
     <tr className="hover:bg-pz-surface-container-low transition-colors group">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           <div className={cn("w-2 h-2 rounded-full", row.isPublished ? "bg-pz-primary" : "bg-pz-surface-dim")} />
           <span
+            data-testid={showBatch ? "family-row-title" : undefined}
             className={cn(
               "font-medium transition-colors",
               row.isPublished ? "text-pz-on-surface group-hover:text-pz-primary" : "text-pz-on-surface-variant",
             )}
           >
             {row.title}
+            {showBatch && row.batchLabel && (
+              <span className="ml-2 text-xs font-normal text-pz-on-surface-variant">{row.batchLabel}</span>
+            )}
           </span>
         </div>
       </td>
@@ -86,6 +90,51 @@ function ProgramRow({ row }: { row: ProgramListRow }) {
   );
 }
 
+function FamilyGroup({ name, rows }: { name: string; rows: ProgramListRow[] }) {
+  return (
+    <section
+      data-testid={`family-group-${name}`}
+      className="bg-pz-surface-container-lowest rounded-xl border border-pz-outline-variant overflow-hidden"
+    >
+      <div className="px-4 md:px-6 py-4 border-b border-pz-outline-variant flex items-center justify-between gap-2">
+        <h3 className="font-headline text-lg font-bold text-pz-on-surface min-w-0 break-words">{name}</h3>
+        <span className="shrink-0 text-xs font-bold px-3 py-1 rounded-full bg-pz-primary-container text-pz-on-primary-container">
+          {rows.length} {rows.length === 1 ? "portal" : "portals"}
+        </span>
+      </div>
+      <ResponsiveList
+        rows={rows}
+        getKey={(r) => r.id}
+        mobile={{
+          title: (r) => (r.batchLabel ? `${r.title} · ${r.batchLabel}` : r.title),
+          meta: (r) => [r.slug, `PKR ${r.pricePkr.toLocaleString()} · ${r.isPublished ? "Published" : "Draft"}`],
+          href: (r) => `/dashboard/admin/courses/${r.id}`,
+        }}
+        table={
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-pz-outline-variant bg-pz-surface-container-low text-left text-[10px] uppercase tracking-widest text-pz-on-surface-variant">
+                  <th className="px-6 py-3 font-bold">Course Title</th>
+                  <th className="px-6 py-3 font-bold">Slug</th>
+                  <th className="px-6 py-3 font-bold">Price</th>
+                  <th className="px-6 py-3 font-bold">Status</th>
+                  <th className="px-6 py-3 font-bold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <ProgramRow key={row.id} row={row} showBatch />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
+    </section>
+  );
+}
+
 export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
   const [query, setQuery] = useState("");
   const [publishFilter, setPublishFilter] = useState<PublishFilter>("all");
@@ -105,9 +154,22 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
     for (const section of SECTIONS) byType.set(section.type, []);
     for (const row of filtered) {
       if (row.type === "mentorship") continue; // mentorship is managed separately
+      if (row.familyName) continue; // shown under its family heading instead
       byType.get(row.type as DisplayType)?.push(row);
     }
     return byType;
+  }, [filtered]);
+
+  // Portals with a course family: one group per family (sorted by name), rows sorted by title.
+  const families = useMemo(() => {
+    const byFamily = new Map<string, ProgramListRow[]>();
+    for (const row of filtered) {
+      if (row.type === "mentorship" || !row.familyName) continue;
+      byFamily.set(row.familyName, [...(byFamily.get(row.familyName) ?? []), row]);
+    }
+    return Array.from(byFamily.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, list]) => ({ name, rows: [...list].sort((a, b) => a.title.localeCompare(b.title)) }));
   }, [filtered]);
 
   return (
@@ -169,6 +231,9 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
       </div>
 
       <div className="space-y-8">
+        {families.map((f) => (
+          <FamilyGroup key={f.name} name={f.name} rows={f.rows} />
+        ))}
         {SECTIONS.map((section) => {
           const sectionRows = grouped.get(section.type) ?? [];
           return (
