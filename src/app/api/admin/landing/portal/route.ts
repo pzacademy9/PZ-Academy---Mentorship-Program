@@ -6,7 +6,7 @@ import { portalOverviewQuerySchema } from "@/lib/validations/landing-portal";
 
 /** Portal, siblings, groups and copy sources for one registration page (admin). */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(["enrollments", "landing_pages"]);
+  const auth = await requireAdmin(["enrollments", "landing_pages", "courses"]);
   if (!auth.ok) return auth.response;
 
   const parsed = portalOverviewQuerySchema.safeParse({ pageId: new URL(req.url).searchParams.get("pageId") });

@@ -48,6 +48,18 @@ async function ensureFamily(name: string): Promise<string> {
   return (data as { id: string }).id;
 }
 
+async function requirePage(pageId: string): Promise<void> {
+  const { data, error } = await createAdminSupabase().from("landing_pages").select("id").eq("id", pageId).maybeSingle();
+  check("landing_pages read", error);
+  if (!data) throw new PortalError("That registration page was not found.", 404);
+}
+
+async function requireCourse(courseId: string): Promise<void> {
+  const { data, error } = await createAdminSupabase().from("courses").select("id").eq("id", courseId).maybeSingle();
+  check("courses read", error);
+  if (!data) throw new PortalError("That portal was not found.", 404);
+}
+
 type CourseRow = { id: string; title: string; slug: string; is_published: boolean | null; family_id: string | null; batch_label: string | null };
 
 export async function getPortalOverview(pageId: string): Promise<PortalOverview | null> {
@@ -91,6 +103,7 @@ export async function duplicatePortal(p: {
 }): Promise<{ courseId: string }> {
   const title = p.title.trim();
   if (!title) throw new PortalError("A name is needed for the new portal.", 400);
+  await requirePage(p.pageId);
   const familyId = p.newFamilyName?.trim() ? await ensureFamily(p.newFamilyName) : p.familyId;
   const admin = createAdminSupabase();
   const { data, error } = await admin.rpc(
@@ -105,11 +118,9 @@ export async function duplicatePortal(p: {
 }
 
 export async function attachPortal(pageId: string, courseId: string): Promise<void> {
-  const admin = createAdminSupabase();
-  const { data: course, error: ce } = await admin.from("courses").select("id").eq("id", courseId).maybeSingle();
-  check("courses read", ce);
-  if (!course) throw new PortalError("That portal was not found.", 404);
-  const { error } = await admin.from("landing_pages").update({ course_id: courseId } as never).eq("id", pageId);
+  await requirePage(pageId);
+  await requireCourse(courseId);
+  const { error } = await createAdminSupabase().from("landing_pages").update({ course_id: courseId } as never).eq("id", pageId);
   check("landing_pages update", error);
 }
 
@@ -119,6 +130,7 @@ export async function setPortalGroup(p: {
   newFamilyName: string | null;
   batchLabel: string | null;
 }): Promise<void> {
+  await requireCourse(p.courseId);
   const familyId = p.newFamilyName?.trim() ? await ensureFamily(p.newFamilyName) : p.familyId;
   const { error } = await createAdminSupabase()
     .from("courses")

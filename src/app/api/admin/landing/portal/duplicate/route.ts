@@ -6,7 +6,7 @@ import { duplicatePortalBodySchema } from "@/lib/validations/landing-portal";
 
 /** Copy a portal as a new draft and point the registration page at it (admin). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(["enrollments", "landing_pages"]);
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const parsed = duplicatePortalBodySchema.safeParse(await req.json().catch(() => null));

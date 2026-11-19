@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 /** Count who would move to another portal, changing nothing (admin). */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(["enrollments", "landing_pages"]);
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const sp = new URL(req.url).searchParams;
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
 /** Move this page's students to another portal (admin). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(["enrollments", "landing_pages"]);
+  const auth = await requireAdmin("enrollments");
   if (!auth.ok) return auth.response;
 
   const parsed = moveBodySchema.safeParse(await req.json().catch(() => null));

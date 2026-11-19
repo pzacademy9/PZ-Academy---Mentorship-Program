@@ -101,6 +101,11 @@ describe("duplicatePortal", () => {
     await duplicatePortal(base);
     expect(store.landing_pages[0].course_id).toBe("new-course");
   });
+  it("rejects an unknown page before any RPC call", async () => {
+    await expect(duplicatePortal({ ...base, pageId: "ghost" })).rejects.toBeInstanceOf(PortalError);
+    expect(rpcCalls).toHaveLength(0);
+    expect(store.course_families).toHaveLength(1);
+  });
   it("rejects a blank title before any database call", async () => {
     await expect(duplicatePortal({ ...base, title: "   " })).rejects.toBeInstanceOf(PortalError);
     expect(db.state.ops).toHaveLength(0);
@@ -111,6 +116,14 @@ describe("attachPortal and setPortalGroup", () => {
   it("attachPortal points the page at an existing course", async () => {
     await attachPortal(PAGE, C2);
     expect(store.landing_pages[0].course_id).toBe(C2);
+  });
+  it("attachPortal rejects an unknown page and leaves pages alone", async () => {
+    await expect(attachPortal("ghost", C2)).rejects.toBeInstanceOf(PortalError);
+    expect(store.landing_pages[0].course_id).toBe(C1);
+  });
+  it("setPortalGroup rejects an unknown course", async () => {
+    await expect(setPortalGroup({ courseId: "ghost", familyId: null, newFamilyName: "Fresh", batchLabel: null })).rejects.toBeInstanceOf(PortalError);
+    expect(store.course_families).toHaveLength(1);
   });
   it("attachPortal throws a PortalError for an unknown course", async () => {
     await expect(attachPortal(PAGE, "ghost")).rejects.toBeInstanceOf(PortalError);

@@ -6,7 +6,7 @@ import { groupPortalBodySchema } from "@/lib/validations/landing-portal";
 
 /** Set a portal's group and batch label (admin). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(["enrollments", "landing_pages"]);
+  const auth = await requireAdmin("courses");
   if (!auth.ok) return auth.response;
 
   const parsed = groupPortalBodySchema.safeParse(await req.json().catch(() => null));

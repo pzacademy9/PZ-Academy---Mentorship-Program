@@ -6,7 +6,7 @@ import { attachPortalBodySchema } from "@/lib/validations/landing-portal";
 
 /** Point the registration page at an existing portal (admin). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(["enrollments", "landing_pages"]);
+  const auth = await requireAdmin("landing_pages");
   if (!auth.ok) return auth.response;
 
   const parsed = attachPortalBodySchema.safeParse(await req.json().catch(() => null));

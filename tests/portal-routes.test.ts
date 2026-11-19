@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const gate = vi.hoisted(() => ({ mode: "ok" as "ok" | "401" | "403" }));
+const gate = vi.hoisted(() => ({ mode: "ok" as "ok" | "401" | "403", calls: [] as unknown[] }));
 vi.mock("@/lib/auth/require-admin", () => ({
-  requireAdmin: async () =>
-    gate.mode === "ok"
+  requireAdmin: async (area: unknown) => {
+    gate.calls.push(area);
+    return gate.mode === "ok"
       ? { ok: true, user: { id: "admin-1" } }
-      : { ok: false, response: new Response(JSON.stringify({ error: "x" }), { status: gate.mode === "401" ? 401 : 403 }) },
+      : { ok: false, response: new Response(JSON.stringify({ error: "x" }), { status: gate.mode === "401" ? 401 : 403 }) };
+  },
 }));
 const m = vi.hoisted(() => ({
   getPortalOverview: vi.fn(), duplicatePortal: vi.fn(), attachPortal: vi.fn(),
@@ -29,6 +31,7 @@ const GENERIC = { error: "Something went wrong. Please try again." };
 let errSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   gate.mode = "ok";
+  gate.calls = [];
   for (const f of Object.values(m)) f.mockReset();
   errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -47,6 +50,18 @@ describe("admin gate", () => {
       expect((await groupPost(post({}))).status).toBe(s);
     }
     for (const f of Object.values(m)) expect(f).not.toHaveBeenCalled();
+  });
+});
+
+describe("area per route", () => {
+  it("each route asks for its own area", async () => {
+    const run = async (fn: () => Promise<Response>) => { gate.calls = []; await fn(); return gate.calls[0]; };
+    expect(await run(() => overviewGet(get(`?pageId=${PAGE}`)))).toEqual(["enrollments", "landing_pages", "courses"]);
+    expect(await run(() => dupPost(post({})))).toBe("courses");
+    expect(await run(() => groupPost(post({})))).toBe("courses");
+    expect(await run(() => moveGet(get("?")))).toBe("enrollments");
+    expect(await run(() => movePost(post({})))).toBe("enrollments");
+    expect(await run(() => attachPost(post({})))).toBe("landing_pages");
   });
 });
 
