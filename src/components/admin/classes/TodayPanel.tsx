@@ -7,7 +7,7 @@ import { formatPkt, isoToPktInput } from "@/lib/attendance/rules";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
-import { AttendanceCard } from "./AttendanceCard";
+import { AttendanceTab } from "./AttendanceTab";
 import { ClassActionRow } from "./ClassActionRow";
 import { QuizCard } from "./QuizCard";
 import { ClassTabs } from "./ClassTabs";
@@ -159,7 +159,7 @@ export function TodayPanel({
           className="scroll-mt-32 outline-none"
         >
           {t === tab && t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
-          {t === tab && t === "attendance" && <AttendanceCard pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} sends={sends} nowIso={nowIso} />}
+          {t === tab && t === "attendance" && <AttendanceTab pageId={pageId} cls={cls} session={session} rows={rows} minPct={minPct} nowIso={nowIso} />}
           {t === tab && t === "quiz" && <QuizCard pageId={pageId} cls={cls} />}
         </div>
       ))}

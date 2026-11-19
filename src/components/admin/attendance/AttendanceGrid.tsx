@@ -4,9 +4,10 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMarkToggle } from "./useMarkToggle";
 import { summarizeAttendance } from "@/lib/classes/summary";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
-import { saveMinPct, toggleMark } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
+import { saveMinPct } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 
 const quietBtn =
   "inline-flex items-center justify-center gap-1.5 px-3 py-2 max-md:min-h-11 rounded-lg font-headline text-xs font-medium bg-pz-surface-container-low text-pz-on-surface-variant hover:bg-pz-surface-container-high hover:text-pz-on-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
@@ -23,27 +24,7 @@ export function AttendanceGrid({
 }) {
   const [min, setMin] = useState(String(minPct));
   const [busy, startTransition] = useTransition();
-  // Cells flip at once and are put back if the save fails.
-  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
-  const key = (personId: string, sessionId: string) => `${personId}|${sessionId}`;
-
-  function cell(r: GridRow, s: SessionRow): boolean {
-    const k = key(r.personId, s.id);
-    return k in flipped ? flipped[k] : !!r.marks[s.id];
-  }
-
-  function toggle(r: GridRow, s: SessionRow) {
-    const k = key(r.personId, s.id);
-    const next = !cell(r, s);
-    setFlipped((p) => ({ ...p, [k]: next }));
-    startTransition(async () => {
-      const res = await toggleMark(s.id, r.personId, next);
-      if (!res.ok) {
-        toast.error(res.message ?? "Something went wrong. Please try again.");
-        setFlipped((p) => ({ ...p, [k]: !next }));
-      }
-    });
-  }
+  const { isOn: cell, toggle } = useMarkToggle();
 
   function saveMin() {
     startTransition(async () => {

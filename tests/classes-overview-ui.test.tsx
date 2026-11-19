@@ -130,14 +130,9 @@ describe("TodayPanel banner", () => {
 });
 
 describe("cards", () => {
-  it("copy link button is first and email second on the attendance card", () => {
+  it("the attendance tab shows the present count", () => {
     attPanel(summary());
-    const att = screen.getByTestId("attendance-card");
-    const attButtons = within(att).getAllByRole("button");
-    expect(attButtons[0].textContent).toMatch(/Copy link/);
-    expect(attButtons[1].textContent).toMatch(/Email Zoom link now/);
-    expect(attButtons[2].textContent).toMatch(/Send me a test/);
-    expect(att.textContent).toMatch(/38\s*of 52 present/);
+    expect(screen.getByTestId("attendance-card").textContent).toMatch(/38\s*of 52 present/);
   });
 
   it("the feedback box on the Links tab shows Email to students and See responses", () => {
@@ -308,24 +303,25 @@ describe("EditClassDialog rules", () => {
   });
 });
 
-describe("attendance card actions", () => {
+const AUD = { audience: { mode: "live", modules: "all" } } as Partial<SessionRow>;
+describe("class email actions", () => {
   it("first send uses the reminder; a second send asks and then re-sends the plain class details", async () => {
-    const { unmount } = attPanel(summary());
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    const { unmount } = panel(summary(), session(AUD));
+    fireEvent.click(screen.getByRole("button", { name: "Send emails" }));
     await waitFor(() => expect(h.sendReminderNow).toHaveBeenCalledWith("s1"));
     expect(h.resendClassDetails).not.toHaveBeenCalled();
     unmount();
 
-    attPanel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    panel(summary(), session(AUD), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
+    fireEvent.click(screen.getByRole("button", { name: "Send emails" }));
     await waitFor(() => expect(h.resendClassDetails).toHaveBeenCalledWith("s1"));
     expect(h.emailUpdatedTime).not.toHaveBeenCalled();
   });
 
   it("asks before the first real send and sends nothing when you say no", async () => {
     h.confirm.mockResolvedValueOnce(false);
-    attPanel(summary());
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    panel(summary(), session(AUD));
+    fireEvent.click(screen.getByRole("button", { name: "Send emails" }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/test/i);
     expect(h.sendReminderNow).not.toHaveBeenCalled();
@@ -333,8 +329,8 @@ describe("attendance card actions", () => {
 
   it("Email people who have not got it asks, then sends only to them", async () => {
     h.emailMissingOnly.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
-    attPanel(summary());
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /haven.t got it/ }));
+    panel(summary(), session(AUD));
+    fireEvent.click(screen.getByRole("button", { name: /haven.t got it/ }));
     await waitFor(() => expect(h.emailMissingOnly).toHaveBeenCalledWith("s1"));
     expect(h.sendReminderNow).not.toHaveBeenCalled();
     expect(h.resendClassDetails).not.toHaveBeenCalled();
@@ -342,29 +338,29 @@ describe("attendance card actions", () => {
 
   it("saying no to the only-missing question sends nothing", async () => {
     h.confirm.mockResolvedValueOnce(false);
-    attPanel(summary());
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /haven.t got it/ }));
+    panel(summary(), session(AUD));
+    fireEvent.click(screen.getByRole("button", { name: /haven.t got it/ }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.emailMissingOnly).not.toHaveBeenCalled();
   });
 
   it("the repeat send warns that people who already got it get it again", async () => {
-    attPanel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    panel(summary(), session(AUD), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: null } });
+    fireEvent.click(screen.getByRole("button", { name: "Send emails" }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
   });
 
   it("after only a time-change email the main button also warns that people already got it", async () => {
-    attPanel(summary(), session(), { sends: { reminderAt: null, updateAt: "2026-11-09T10:00:00.000Z" } });
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Email Zoom link now/ }));
+    panel(summary(), session(AUD), { sends: { reminderAt: null, updateAt: "2026-11-09T10:00:00.000Z" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send emails" }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/already got it/);
   });
 
   it("Email new Zoom link under More settings asks first, then sends the changed-link email", async () => {
     h.emailNewZoomLink.mockResolvedValue({ ok: true, message: "Email sent to 3 people" });
-    attPanel(summary());
+    panel(summary(), session(AUD));
     fireEvent.click(screen.getByRole("button", { name: "Email new Zoom link" }));
     await waitFor(() => expect(h.confirm).toHaveBeenCalled());
     expect(h.confirm.mock.calls[0][0].description).toMatch(/everyone/i);
@@ -373,27 +369,27 @@ describe("attendance card actions", () => {
 
   it("Send me a test sends a test copy without asking", async () => {
     h.sendTestEmailToMe.mockResolvedValue({ ok: true, message: "Test email sent to a@b.c" });
-    attPanel(summary());
-    fireEvent.click(within(screen.getByTestId("attendance-card")).getByRole("button", { name: /Send me a test/ }));
+    panel(summary(), session(AUD));
+    fireEvent.click(screen.getByRole("button", { name: /Send me a test/ }));
     await waitFor(() => expect(h.sendTestEmailToMe).toHaveBeenCalledWith("s1"));
     expect(h.sendReminderNow).not.toHaveBeenCalled();
   });
 
   it("Email updated time under More settings keeps the updated-time email", async () => {
-    attPanel(summary());
+    panel(summary(), session(AUD));
     fireEvent.click(screen.getByRole("button", { name: "Email updated time" }));
     await waitFor(() => expect(h.emailUpdatedTime).toHaveBeenCalledWith("s1"));
   });
 
   it("shows when the reminder and the time change email went out", () => {
-    attPanel(summary(), session(), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: "2026-11-09T12:00:00.000Z" } });
-    const att = screen.getByTestId("attendance-card");
+    panel(summary(), session(AUD), { sends: { reminderAt: "2026-11-09T10:00:00.000Z", updateAt: "2026-11-09T12:00:00.000Z" } });
+    const att = screen.getByRole("tabpanel");
     expect(att.textContent).toMatch(/Reminder email sent .*Class details email sent/);
   });
 
   it("shows when no reminder has gone out yet", () => {
-    attPanel(summary(), session({ audience: { mode: "live", modules: "all" } } as Partial<SessionRow>));
-    expect(screen.getByTestId("attendance-card").textContent).toMatch(/Reminder email not sent yet/);
+    panel(summary(), session({ audience: { mode: "live", modules: "all" } } as Partial<SessionRow>));
+    expect(screen.getByRole("tabpanel").textContent).toMatch(/Reminder email not sent yet/);
   });
 
   it("Mark everyone present marks the selected class", async () => {
@@ -402,15 +398,10 @@ describe("attendance card actions", () => {
     await waitFor(() => expect(h.markEveryonePresent).toHaveBeenCalledWith("s1"));
   });
 
-  it("the attendance list shows only this class, with no whole-batch columns or minimum field", () => {
+  it("the attendance list taps one student for this class", () => {
     const row: GridRow = { personId: "p1", pzId: "PZ-1", name: "Ayesha Khan", marks: {}, started: 1, marked: 0, pct: 0, meetsMin: false };
     attPanel(summary(), session(), { rows: [row] });
-    const att = screen.getByTestId("attendance-card");
-    expect(within(att).getByText("S1")).toBeTruthy();
-    expect(within(att).queryByText("Attended")).toBeNull();
-    expect(within(att).queryByText("Meets minimum")).toBeNull();
-    expect(within(att).queryByLabelText(/Minimum attendance/)).toBeNull();
-    fireEvent.click(within(att).getByRole("button", { name: /Ayesha Khan, session 1/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Ayesha Khan/ }));
     expect(h.toggleMark).toHaveBeenCalledWith("s1", "p1", true);
   });
 });
