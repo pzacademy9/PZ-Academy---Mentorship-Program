@@ -1205,9 +1205,28 @@ export type Database = {
           },
         ]
       }
+      course_families: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           banner_url: string | null
+          batch_label: string | null
           certificate_image_url: string | null
           created_at: string
           created_by: string | null
@@ -1215,6 +1234,7 @@ export type Database = {
           duration_text: string | null
           duration_weeks: number | null
           faqs: Json
+          family_id: string | null
           features: string[]
           gas_webapp_url: string | null
           id: string
@@ -1243,6 +1263,7 @@ export type Database = {
         }
         Insert: {
           banner_url?: string | null
+          batch_label?: string | null
           certificate_image_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -1250,6 +1271,7 @@ export type Database = {
           duration_text?: string | null
           duration_weeks?: number | null
           faqs?: Json
+          family_id?: string | null
           features?: string[]
           gas_webapp_url?: string | null
           id?: string
@@ -1278,6 +1300,7 @@ export type Database = {
         }
         Update: {
           banner_url?: string | null
+          batch_label?: string | null
           certificate_image_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -1285,6 +1308,7 @@ export type Database = {
           duration_text?: string | null
           duration_weeks?: number | null
           faqs?: Json
+          family_id?: string | null
           features?: string[]
           gas_webapp_url?: string | null
           id?: string
@@ -1312,6 +1336,13 @@ export type Database = {
           type?: Database["public"]["Enums"]["course_type"]
         }
         Relationships: [
+          {
+            foreignKeyName: "courses_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "course_families"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "courses_created_by_fkey"
             columns: ["created_by"]
@@ -5162,6 +5193,19 @@ export type Database = {
       }
     }
     Functions: {
+      duplicate_course: {
+        Args: {
+          p_source: string
+          p_title: string
+          p_family: string | null
+          p_batch_label: string | null
+        }
+        Returns: string
+      }
+      move_batch_students: {
+        Args: { p_page: string; p_to_course: string; p_dry_run: boolean }
+        Returns: Json
+      }
       next_affiliate_serial: { Args: Record<PropertyKey, never>; Returns: number }
       book_mentorship_sessions: {
         Args: { p_booking_id: string; p_slots: string[] }
