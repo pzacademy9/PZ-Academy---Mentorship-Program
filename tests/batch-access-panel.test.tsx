@@ -204,6 +204,21 @@ describe("BatchAccessPanel", () => {
     await screen.findByText("This course has no modules yet.");
   });
 
+  it("BatchAccessPanel shows \"N people have no recorded choice yet\" when a batch or link result has needsChoice > 0", async () => {
+    await ready();
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (!init?.method) return json(OVERVIEW);
+      if (url.includes("portal-links")) return json({ sent: 1, notOpenYet: 0, waitingForAccount: 0, failed: 0, needsChoice: 1 });
+      return json({ modulesFinished: 1, opened: 1, emailed: 1, alreadyOpen: 0, waitingForAccount: 0, failed: 0, needsChoice: 3 });
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Batch finished" })[1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, open it" }));
+    await screen.findByText(/3 people have no recorded choice yet/);
+    fireEvent.click(screen.getByRole("button", { name: "Send link" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, send it" }));
+    await screen.findByText(/1 person has no recorded choice yet/);
+  });
+
   it("the actions panel no longer renders a registration picker", async () => {
     await ready();
     expect(screen.queryByLabelText("Landing page")).toBeNull();

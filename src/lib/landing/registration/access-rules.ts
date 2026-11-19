@@ -11,10 +11,12 @@ export interface AccessInput {
   moduleIds: string[];
   /** Modules this buyer covers that the owner has marked finished (whole-course buyer: finished set of all course modules). */
   finishedModuleIds: string[];
+  /** Imported row: the lead has a purchase label but no recorded option keys, so what was bought is unknown. */
+  hasLabelWithoutChoice: boolean;
 }
 export interface DesiredEnrollment {
-  /** "skip" = do nothing at all (test row, no course, free row). */
-  action: "skip" | "grant" | "revert";
+  /** "skip" = do nothing at all (test row, no course, free row). "hold" = Paid but the choice is not recorded: change nothing. */
+  action: "skip" | "grant" | "revert" | "hold";
   status: EnrollmentStatusWord;
   portalOpen: boolean;
   accessLevel: "live" | "recorded";
@@ -27,6 +29,7 @@ export function desiredEnrollment(i: AccessInput): DesiredEnrollment {
   const base = { accessLevel: i.mode, moduleIds: i.moduleIds, openModuleIds: [] as string[] };
   if (i.isTest || !i.hasCourse || i.status === "free") return { action: "skip", status: "pending", portalOpen: false, ...base };
   if (i.status === "paid") {
+    if (i.hasLabelWithoutChoice) return { action: "hold", status: "pending", portalOpen: false, ...base };
     const openModuleIds = i.mode === "live" ? i.finishedModuleIds : [];
     const portalOpen = i.mode === "recorded" || openModuleIds.length > 0;
     return { action: "grant", status: "active", portalOpen, ...base, openModuleIds };

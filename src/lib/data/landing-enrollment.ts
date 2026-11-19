@@ -78,11 +78,12 @@ export async function resolveAccess(registrationId: string): Promise<ResolvedAcc
     isTest: registration.isTest,
     moduleIds,
     finishedModuleIds: finished,
+    hasLabelWithoutChoice: lead.optionKeys.length === 0 && lead.optionLabel.trim() !== "",
   });
   return { registration, lead, pageId: page.id, courseId, courseSlug, desired, hasAccount: registration.studentId !== null };
 }
 
-export type SyncOutcome = "skipped" | "granted" | "reverted" | "no-account" | "no-change";
+export type SyncOutcome = "skipped" | "granted" | "reverted" | "no-account" | "no-change" | "needs-choice";
 interface EnrollmentRow {
   id: string;
   status: string;
@@ -170,6 +171,7 @@ export async function syncEnrollmentForRegistration(registrationId: string): Pro
   if (!access) return "skipped";
   const { registration, courseId, desired: d } = access;
   if (d.action === "skip" || !courseId) return "skipped";
+  if (d.action === "hold") return "needs-choice";
   const studentId = registration.studentId;
   if (!studentId) return "no-account";
   const admin = createAdminSupabase();

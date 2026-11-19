@@ -26,7 +26,7 @@ function config() {
 const urls = (keys: string[], mode: "live" | "recorded") => selectWaGroups(config(), keys, mode).map((g) => g.url);
 
 function recordedPortal(courseSlug = "demo") {
-  const desired = desiredEnrollment({ status: "paid", mode: "recorded", hasCourse: true, isTest: false, moduleIds: [], finishedModuleIds: [] });
+  const desired = desiredEnrollment({ status: "paid", mode: "recorded", hasCourse: true, isTest: false, moduleIds: [], finishedModuleIds: [], hasLabelWithoutChoice: false });
   return pickPortalUrl({
     courseSlug, hasAccount: true, desired, mode: "recorded", status: "paid", pastedLink: "", appUrl: "https://app.example.com",
   });

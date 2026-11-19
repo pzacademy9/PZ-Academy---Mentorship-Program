@@ -16,8 +16,8 @@ import type { CloseBatchPreview, CloseBatchResult } from "@/lib/data/landing-clo
 
 type ModuleRow = { id: string; title: string; finishedAt: string | null; paidLive: number; opened: number };
 type Overview = { courseTitle: string | null; modules: ModuleRow[]; recordedPaid: number };
-type BatchResult = { modulesFinished: number; opened: number; emailed: number; alreadyOpen: number; waitingForAccount: number; failed: number };
-type LinkResult = { sent: number; notOpenYet: number; waitingForAccount: number; failed: number };
+type BatchResult = { modulesFinished: number; opened: number; emailed: number; alreadyOpen: number; waitingForAccount: number; failed: number; needsChoice?: number };
+type LinkResult = { sent: number; notOpenYet: number; waitingForAccount: number; failed: number; needsChoice?: number };
 type Audience = "live" | "recorded" | "both";
 
 type Pending =
@@ -34,6 +34,8 @@ const AUDIENCES: { key: Audience; label: string }[] = [
 ];
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const needsChoiceSentence = (n: number) => `${plural(n, "person has", "people have")} no recorded choice yet.`;
 
 function moduleConfirmText(paid: number, opened: number): string {
   if (paid === 0) return "No Live students have paid yet, so nobody will be emailed. Pressing only marks this module as finished.";
@@ -54,6 +56,7 @@ function batchSentence(r: BatchResult): string {
   if (r.alreadyOpen > 0) parts.push(`${plural(r.alreadyOpen, "student already had", "students already had")} it open.`);
   if (r.failed > 0) parts.push(`${plural(r.failed, "email", "emails")} did not send (press again to retry).`);
   if (r.waitingForAccount > 0) parts.push(`${plural(r.waitingForAccount, "student still needs", "students still need")} to sign up.`);
+  if ((r.needsChoice ?? 0) > 0) parts.push(needsChoiceSentence(r.needsChoice ?? 0));
   return parts.join(" ");
 }
 
@@ -62,6 +65,7 @@ function linkSentence(r: LinkResult): { main: string; rest: string[] } {
   if (r.notOpenYet > 0) rest.push(`${plural(r.notOpenYet, "Live student is", "Live students are")} not open yet.`);
   if (r.failed > 0) rest.push(`${plural(r.failed, "email", "emails")} did not send (press again to retry).`);
   if (r.waitingForAccount > 0) rest.push(`${plural(r.waitingForAccount, "student still needs", "students still need")} to sign up.`);
+  if ((r.needsChoice ?? 0) > 0) rest.push(needsChoiceSentence(r.needsChoice ?? 0));
   return { main: `Sent to ${r.sent}.`, rest };
 }
 
