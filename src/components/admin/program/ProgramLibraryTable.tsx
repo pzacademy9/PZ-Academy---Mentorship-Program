@@ -236,6 +236,7 @@ export function ProgramLibraryTable({ rows }: { rows: ProgramListRow[] }) {
         ))}
         {SECTIONS.map((section) => {
           const sectionRows = grouped.get(section.type) ?? [];
+          if (sectionRows.length === 0 && families.length > 0) return null;
           return (
             <section
               key={section.type}

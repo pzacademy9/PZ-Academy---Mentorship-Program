@@ -127,3 +127,16 @@ describe("ProgramLibraryTable grouping", () => {
     expect(screen.getAllByText("Solo Course").length).toBeGreaterThan(0);
   });
 });
+
+describe("ProgramLibraryTable empty states", () => {
+  it("shows no empty-state text when every row is in a family", () => {
+    render(<ProgramLibraryTable rows={[row({ id: "1", title: "PPC A", familyName: "PPC", batchLabel: "Batch 1" })]} />);
+    expect(screen.queryByText(/No courses yet/)).toBeNull();
+    expect(screen.queryByText(/No workshops yet/)).toBeNull();
+  });
+
+  it("still shows the original empty states when nothing is listed", () => {
+    render(<ProgramLibraryTable rows={[]} />);
+    expect(screen.getByText(/No courses yet/)).toBeTruthy();
+  });
+});
