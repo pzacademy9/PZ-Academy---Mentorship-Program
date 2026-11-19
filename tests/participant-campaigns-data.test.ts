@@ -62,13 +62,15 @@ describe("listCampaigns", () => {
       { id: "pgC", title: "C", status: "published", course_id: null, class_cover_url: "https://x/c.png" },
       { id: "pgD", title: "D", status: "published", course_id: null, class_cover_url: null },
       { id: "pgE", title: "E", status: "published", course_id: "c3", class_cover_url: "https://x/e.png" },
+      { id: "pgF", title: "F", status: "published", course_id: "c4", class_cover_url: "https://x/f.png" },
     ];
     store.courses = [
       { id: "c1", thumbnail_url: "https://x/course1.png" },
       { id: "c2", thumbnail_url: null },
-      { id: "c3", thumbnail_url: "" },
+      { id: "c3", thumbnail_url: "https://x/course3.png" },
+      { id: "c4", thumbnail_url: "" },
     ];
-    store.landing_registrations = ["pgA", "pgB", "pgC", "pgD", "pgE"].map((p, k) => reg({ id: `r${k}`, page_id: p, row_type: "lead", ref_id: `R${k}` }));
+    store.landing_registrations = ["pgA", "pgB", "pgC", "pgD", "pgE", "pgF"].map((p, k) => reg({ id: `r${k}`, page_id: p, row_type: "lead", ref_id: `R${k}` }));
     paging.idChunk = 2; // forces the courses lookup into several chunks
     const out = await listCampaigns();
     const cover = (id: string) => out.find((c) => c.pageId === id)!.coverUrl;
@@ -76,14 +78,19 @@ describe("listCampaigns", () => {
     expect(cover("pgB")).toBe("https://x/b.png");
     expect(cover("pgC")).toBe("https://x/c.png");
     expect(cover("pgD")).toBeNull();
-    expect(cover("pgE")).toBe("https://x/e.png");
+    expect(cover("pgE")).toBe("https://x/course3.png"); // c3 sits alone in the second part with c4
+    expect(cover("pgF")).toBe("https://x/f.png");
   });
   it("cover: pages with no course make no courses call", async () => {
     store.landing_pages = [{ id: "pg1", title: "PPC", status: "published", course_id: null, class_cover_url: null }];
     const spy = vi.spyOn(db.client, "from");
-    const out = await listCampaigns();
-    expect(out.find((c) => c.pageId === "pg1")!.coverUrl).toBeNull();
-    expect(spy.mock.calls.some((a) => a[0] === "courses")).toBe(false);
+    try {
+      const out = await listCampaigns();
+      expect(out.find((c) => c.pageId === "pg1")!.coverUrl).toBeNull();
+      expect(spy.mock.calls.some((a) => a[0] === "courses")).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
