@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
 
@@ -18,7 +19,7 @@ export function CoverThumb({
   const letter = (title.trim().charAt(0) || "?").toUpperCase();
 
   return (
-    <div className={`aspect-[16/9] overflow-hidden rounded-t-xl ${className}`.trim()}>
+    <div className={cn("aspect-[16/9] overflow-hidden rounded-t-xl", className)}>
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- Drive covers go through our own /api/cover proxy
         <img

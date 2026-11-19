@@ -47,6 +47,7 @@ export interface ProgramListRow {
   isPublished: boolean;
   sessionCount: number;
   enrollmentCount: number;
+  thumbnailUrl: string | null;
 }
 
 export interface ProgramListStats {
@@ -64,6 +65,7 @@ interface RawCourseRow {
   status: CourseStatus;
   price_pkr: number;
   is_published: boolean;
+  thumbnail_url: string | null;
 }
 
 /**
@@ -79,7 +81,7 @@ export async function listPrograms(): Promise<{ rows: ProgramListRow[]; stats: P
   const [{ data: courses }, { data: modules }, { data: lessons }, { data: enrollments }] = await Promise.all([
     admin
       .from("courses")
-      .select("id, slug, title, type, status, price_pkr, is_published")
+      .select("id, slug, title, type, status, price_pkr, is_published, thumbnail_url")
       .order("title"),
     admin.from("modules").select("id, course_id"),
     admin.from("lessons").select("id, module_id"),
@@ -114,6 +116,7 @@ export async function listPrograms(): Promise<{ rows: ProgramListRow[]; stats: P
     isPublished: c.is_published,
     sessionCount: sessionCountByCourse.get(c.id) ?? 0,
     enrollmentCount: enrollmentCountByCourse.get(c.id) ?? 0,
+    thumbnailUrl: c.thumbnail_url ?? null,
   }));
 
   const published = rows.filter((r) => r.isPublished).length;

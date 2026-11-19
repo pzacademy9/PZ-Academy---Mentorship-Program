@@ -16,6 +16,8 @@ export function ResponsiveList<T>({
     actions?: (row: T) => React.ReactNode;
     /** A full-width strip under the card's main line, outside the card link. */
     footer?: (row: T) => React.ReactNode;
+    /** A full-width image at the very top of the card. */
+    cover?: (row: T) => React.ReactNode;
   };
   /** The existing desktop table, rendered unchanged at md and up. */
   table: React.ReactNode;
@@ -39,6 +41,7 @@ export function ResponsiveList<T>({
           );
           return (
             <li key={getKey(row)} className={cn("rounded-xl border border-border bg-card", rowClass?.(row, index))}>
+              {mobile.cover?.(row)}
               <div className="flex items-stretch">
               {selection && (
                 <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center">
