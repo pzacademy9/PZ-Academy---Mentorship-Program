@@ -15,7 +15,7 @@ import { LinksTab } from "./LinksTab";
 import { EditClassDialog } from "./EditClassDialog";
 import { attendanceStatus, nextAction, quizStatus } from "@/lib/classes/card-status";
 import { CLASS_TABS, classPanelId, classTabId, type ClassTab } from "@/lib/classes/tabs";
-import { dsBadgeNeutral, dsCard, dsDivider, dsForest, dsHeading, dsLime, dsLink, dsMuted, dsQuiet } from "./ds";
+import { dsBadgeNeutral, dsCard, dsDivider, dsForest, dsHeading, dsLink, dsMuted, dsQuiet } from "./ds";
 
 /** The single next step for a class. */
 export function nextStep(c: ClassSummary): { title: string; hint: string } {
@@ -135,7 +135,7 @@ export function TodayPanel({
           <p className="flex items-center gap-2 font-montserrat text-lg font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface"><span aria-hidden className="size-2.5 shrink-0 rounded-full bg-[#7ED957] dark:bg-pz-primary" />Next step: {step.title}</p>
           <p className={`text-base ${dsMuted}`}>{step.hint}</p>
           {action.target === "quiz" && (
-            <Link href={quizHref} className={`${dsLime} mt-3 w-full`}>
+            <Link href={quizHref} className={`${dsForest} mt-3 w-full`}>
               <FileUp className="size-5" strokeWidth={1.75} aria-hidden />
               {action.label}
             </Link>

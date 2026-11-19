@@ -131,7 +131,6 @@ export function AudiencePicker({
 
   return (
     <div data-testid="audience-picker" className="space-y-3 font-poppins">
-      <h4 className="font-montserrat text-lg font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface">Who gets this</h4>
       <p className={`text-base ${dsMuted}`}>Choose who receives this class&apos;s emails. Nobody is emailed until you choose.</p>
       <div role="radiogroup" aria-label="Who gets this" className="space-y-2">
         <button type="button" role="radio" aria-checked={choice === MODULE} className={rowCls(choice === MODULE)} onClick={() => pick(MODULE)}>
