@@ -17,6 +17,7 @@ const ICON = "w-4 h-4 text-pz-on-surface-variant shrink-0";
 
 export function BatchToolsMenu({ pageId, base }: { pageId: string; base: string }) {
   const campaign = `${base}/campaign/${pageId}`;
+  // modal={false}: no page scroll lock or inert background, so opening the menu does not shift the layout (scrollbar jump) on desktop.
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>

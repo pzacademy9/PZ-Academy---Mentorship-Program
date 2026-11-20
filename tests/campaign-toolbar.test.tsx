@@ -100,7 +100,7 @@ describe("CampaignToolbar", () => {
   it("renders the tools slot and the scrolling status tabs", () => {
     setup({}, { toolsSlot: <button type="button">Batch tools</button> });
     expect(screen.getByRole("button", { name: "Batch tools" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /^All/ }).parentElement?.className).toContain("overflow-x-auto");
+    expect(screen.getByRole("link", { name: /^All/ }).parentElement?.className).toContain("max-md:overflow-x-auto");
   });
 
   it("closes the panel when Reset or a quick preset is pressed", () => {
@@ -121,5 +121,78 @@ describe("CampaignToolbar", () => {
       (Array.from(document.querySelectorAll(`input[type="radio"][name="${n}"]`)) as HTMLInputElement[]).find((r) => r.checked)?.value;
     expect(checked("region")).toBe("");
     expect(checked("mode")).toBe("");
+  });
+
+  it("gives the search a fixed width on md and up so the tabs get the rest", () => {
+    setup({});
+    const cls = searchForm().className.split(/\s+/);
+    expect(cls).toContain("md:flex-none");
+    expect(cls).toContain("md:w-72");
+    expect(cls).toContain("lg:w-80");
+    expect(cls).not.toContain("md:flex-1");
+  });
+
+  it("does not send an empty q when the search is submitted blank", () => {
+    setup({});
+    const f = searchForm();
+    fireEvent.submit(f);
+    expect((f.querySelector('input[name="q"]') as HTMLInputElement).disabled).toBe(true);
+    cleanup();
+    setup({ q: "ali" });
+    const f2 = searchForm();
+    fireEvent.submit(f2);
+    expect((f2.querySelector('input[name="q"]') as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it("wires the Filters button to the panel and returns focus to it on close", () => {
+    setup({});
+    const btn = screen.getByRole("button", { name: /Filters/ });
+    expect(btn.getAttribute("aria-controls")).toBeNull();
+    fireEvent.click(btn);
+    const panelId = btn.getAttribute("aria-controls")!;
+    expect(panelId).toBeTruthy();
+    expect(document.getElementById(panelId)).toBeTruthy();
+    expect(document.getElementById(panelId)!.querySelector("form[data-panel-form]")).toBeTruthy();
+    // Escape
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(document.activeElement).toBe(btn);
+    // backdrop
+    fireEvent.click(btn);
+    const backdrop = screen.getByRole("button", { name: "Close filters" });
+    expect(backdrop.getAttribute("tabindex")).toBe("-1");
+    fireEvent.click(backdrop);
+    expect(document.activeElement).toBe(btn);
+    // Reset
+    fireEvent.click(btn);
+    fireEvent.click(screen.getByRole("link", { name: "Reset" }));
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it("names the phone sheet as a dialog", () => {
+    setup({});
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    const labelId = dialog.getAttribute("aria-labelledby")!;
+    expect(document.getElementById(labelId)?.textContent).toBe("Registration Filter Criteria");
+  });
+
+  it("hides Country and What they bought when there are no options", () => {
+    render(<CampaignToolbar basePath={BASE} filters={{}} counts={counts} options={{ regions: [], optionLabels: [] }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    expect(screen.queryByText("Country")).toBeNull();
+    expect(screen.queryByText("What they bought")).toBeNull();
+    expect(screen.getByText("Delivery mode")).toBeTruthy();
+  });
+
+  it("lets a long chip label wrap inside its chip", () => {
+    const long = "Live - Full course with every module and the recorded bundle and extras";
+    render(<CampaignToolbar basePath={BASE} filters={{}} counts={counts} options={{ regions: ["PK"], optionLabels: [long] }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    const chip = screen.getByText(long);
+    expect(chip.className).toContain("break-words");
+    expect(chip.className).toContain("max-w-full");
+    expect(chip.parentElement!.className).toContain("max-w-full");
   });
 });

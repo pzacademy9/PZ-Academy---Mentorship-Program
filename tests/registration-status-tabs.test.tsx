@@ -40,14 +40,18 @@ describe("StatusTabs", () => {
     expect(href).not.toContain("p=");
   });
 
-  it("wraps by default and slides sideways with scroll", () => {
+  it("wraps by default and slides sideways on phone only with scroll", () => {
     const { container, rerender } = render(<StatusTabs basePath={BASE} filters={{}} counts={counts} />);
-    expect((container.firstElementChild as HTMLElement).className).toContain("flex-wrap");
-    expect((container.firstElementChild as HTMLElement).className).not.toContain("overflow-x-auto");
+    const tokens = () => (container.firstElementChild as HTMLElement).className.split(/\s+/);
+    expect(tokens()).toContain("flex-wrap");
+    expect(tokens().some((c) => c.includes("overflow-x-auto"))).toBe(false);
     rerender(<StatusTabs basePath={BASE} filters={{}} counts={counts} scroll />);
-    const cls = (container.firstElementChild as HTMLElement).className;
-    expect(cls).toContain("overflow-x-auto");
-    expect(cls).toContain("flex-nowrap");
-    expect(cls).not.toContain("flex-wrap");
+    expect(tokens()).toContain("max-md:flex-nowrap");
+    expect(tokens()).toContain("max-md:overflow-x-auto");
+    expect(tokens()).toContain("flex-wrap");
+    // nothing scrolls or hides its scrollbar from md upward
+    expect(tokens()).not.toContain("overflow-x-auto");
+    expect(tokens()).not.toContain("flex-nowrap");
+    expect(tokens().filter((c) => c.includes("scrollbar")).every((c) => c.startsWith("max-md:"))).toBe(true);
   });
 });

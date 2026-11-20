@@ -1,12 +1,14 @@
 // tests/participant-campaign-page-ui.test.tsx
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }), usePathname: () => "/x", useSearchParams: () => new URLSearchParams() }));
 import { CampaignRegistrations } from "@/components/admin/registrations/CampaignRegistrations";
 import { RegistrationsTable } from "@/components/admin/registrations/RegistrationsTable";
 import { RegistrationFilters } from "@/components/admin/registrations/RegistrationFilters";
 import { registrationHref } from "@/components/admin/registrations/query";
 import type { RegistrationListRow } from "@/lib/data/landing-registration-admin";
+
+// vi.mock is hoisted, so it still applies to the imports above.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }), usePathname: () => "/x", useSearchParams: () => new URLSearchParams() }));
 
 const row = (i: number, over: Partial<RegistrationListRow> = {}): RegistrationListRow => ({
   id: `r${i}`, refId: null, name: `Person ${i}`, email: `p${i}@x.com`, pageId: "pg1", pageTitle: "TMC Batch 1",

@@ -34,6 +34,8 @@ export function QuickFilters({ basePath, filters, onNavigate }: { basePath: stri
           max={12}
           value={moduleText}
           onChange={(e) => setModuleText(e.target.value)}
+          // Inside the Filters panel form, Enter would submit the whole form; the presets are links, so do nothing.
+          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
           aria-label="Module number (1 to 12)"
           className="min-h-12 w-20 px-3 rounded-lg border border-pz-outline-variant/40 bg-pz-surface-container-lowest text-sm font-body text-pz-on-surface"
         />

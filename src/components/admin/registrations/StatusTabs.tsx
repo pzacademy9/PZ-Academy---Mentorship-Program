@@ -9,7 +9,7 @@ const TABS: (RegistrationStatus | "all")[] = ["all", "pending", "reserved", "und
 /**
  * The status tabs: links, so each one keeps every other filter and goes back to page 1.
  * Plain server-compatible component. `scroll` makes the row one line that slides sideways
- * (campaign page); the default wraps onto more lines.
+ * on phone only (campaign page); from md up, and by default, it wraps onto more lines.
  */
 export function StatusTabs({
   basePath,
@@ -27,7 +27,9 @@ export function StatusTabs({
     <div
       className={cn(
         "flex gap-2",
-        scroll ? "flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex-wrap",
+        scroll
+          ? "flex-wrap max-md:flex-nowrap max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden"
+          : "flex-wrap",
       )}
     >
       {TABS.map((tab) => {
@@ -39,7 +41,7 @@ export function StatusTabs({
             aria-current={selected ? "page" : undefined}
             className={cn(
               "px-5 py-2 rounded-full font-headline text-sm transition-all",
-              scroll && "shrink-0",
+              scroll && "max-md:shrink-0",
               selected
                 ? "bg-pz-primary-container text-pz-on-primary-container font-semibold"
                 : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
@@ -15,9 +15,9 @@ const CHIP =
 /** One radio styled as a chip: the real input stays in the page (keyboard and screen reader friendly). */
 function Chip({ name, value, label, checked }: { name: string; value: string; label: string; checked: boolean }) {
   return (
-    <label className="relative inline-flex">
+    <label className="relative inline-flex max-w-full">
       <input type="radio" name={name} value={value} defaultChecked={checked} className="peer sr-only" />
-      <span className={CHIP}>{label}</span>
+      <span className={`${CHIP} max-w-full break-words text-center`}>{label}</span>
     </label>
   );
 }
@@ -38,13 +38,25 @@ export function CampaignToolbar({
   toolsSlot?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const headingId = useId();
+  const filtersRef = useRef<HTMLButtonElement>(null);
   const count = activeFilterCount(filters);
   const status = filters.status && filters.status !== "all" ? filters.status : undefined;
+
+  // Close the panel and put focus back on the Filters button.
+  function closePanel() {
+    setOpen(false);
+    filtersRef.current?.focus();
+  }
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        filtersRef.current?.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -61,9 +73,11 @@ export function CampaignToolbar({
 
   const filtersButton = (
     <button
+      ref={filtersRef}
       type="button"
       onClick={() => setOpen((o) => !o)}
       aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
       className="inline-flex items-center gap-2 h-11 md:h-12 px-4 rounded-xl border border-pz-outline-variant/40 bg-pz-surface-container-lowest hover:bg-pz-surface-container text-sm font-headline font-semibold text-pz-on-surface transition-colors"
     >
       <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
@@ -81,8 +95,8 @@ export function CampaignToolbar({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <form role="search" method="get" action={basePath} className="relative w-full md:flex-1">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center xl:flex-nowrap">
+        <form role="search" method="get" action={basePath} onSubmit={dropEmptyFields} className="relative w-full md:w-72 md:flex-none lg:w-80">
           {status && <input type="hidden" name="status" value={status} />}
           {filters.mode && <input type="hidden" name="mode" value={filters.mode} />}
           {filters.region && <input type="hidden" name="region" value={filters.region} />}
@@ -104,17 +118,18 @@ export function CampaignToolbar({
           {toolsSlot && <div className="md:hidden">{toolsSlot}</div>}
         </div>
 
-        <div className="min-w-0 md:flex-1">
+        <div className="min-w-0 md:basis-full xl:basis-0 xl:flex-1">
           <StatusTabs basePath={basePath} filters={filters} counts={counts} scroll />
         </div>
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 md:static md:z-auto">
+        <div id={panelId} className="fixed inset-0 z-50 md:static md:z-auto">
           <button
             type="button"
             aria-label="Close filters"
-            onClick={() => setOpen(false)}
+            tabIndex={-1}
+            onClick={closePanel}
             className="absolute inset-0 bg-pz-on-surface/40 md:hidden"
           />
           <form
@@ -123,6 +138,9 @@ export function CampaignToolbar({
             data-panel-form
             key={[filters.region, filters.mode, filters.optionLabel, filters.optionScopes, filters.q, filters.status].join("|")}
             onSubmit={dropEmptyFields}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={headingId}
             className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-pz-surface-container-lowest shadow-xl md:relative md:max-h-none md:rounded-2xl md:border md:border-pz-outline-variant/40 md:shadow-none"
           >
             {filters.q && <input type="hidden" name="q" value={filters.q} />}
@@ -131,11 +149,12 @@ export function CampaignToolbar({
 
             <div className="flex items-center gap-2 px-5 pt-5 pb-3">
               <SlidersHorizontal className="w-4 h-4 text-pz-primary" aria-hidden="true" />
-              <h2 className="font-headline text-base font-bold text-pz-on-surface">Registration Filter Criteria</h2>
+              <h2 id={headingId} className="font-headline text-base font-bold text-pz-on-surface">Registration Filter Criteria</h2>
               {count > 0 && <span className="ml-auto text-xs text-pz-on-surface-variant">Active presets applied</span>}
             </div>
 
             <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-4">
+              {options.regions.length > 0 && (
               <fieldset>
                 <legend className={SECTION_LABEL}>Country</legend>
                 <div className="flex flex-wrap gap-2">
@@ -145,6 +164,7 @@ export function CampaignToolbar({
                   ))}
                 </div>
               </fieldset>
+              )}
 
               <fieldset>
                 <legend className={SECTION_LABEL}>Delivery mode</legend>
@@ -155,6 +175,7 @@ export function CampaignToolbar({
                 </div>
               </fieldset>
 
+              {options.optionLabels.length > 0 && (
               <fieldset>
                 <legend className={SECTION_LABEL}>What they bought</legend>
                 <div className="flex flex-wrap gap-2">
@@ -164,17 +185,18 @@ export function CampaignToolbar({
                   ))}
                 </div>
               </fieldset>
+              )}
 
               <div>
                 <span className={SECTION_LABEL}>Quick presets</span>
-                <QuickFilters basePath={basePath} filters={filters} onNavigate={() => setOpen(false)} />
+                <QuickFilters basePath={basePath} filters={filters} onNavigate={closePanel} />
               </div>
             </div>
 
             <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-pz-outline-variant/30 bg-pz-surface-container-lowest px-5 py-3 rounded-b-2xl">
               <Link
                 href={registrationHref(basePath, { status: filters.status })}
-                onClick={() => setOpen(false)}
+                onClick={closePanel}
                 className="inline-flex items-center max-md:min-h-11 px-2 text-sm font-headline font-semibold text-pz-on-surface-variant hover:text-pz-on-surface"
               >
                 Reset
