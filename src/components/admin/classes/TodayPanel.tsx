@@ -130,7 +130,7 @@ export function TodayPanel({
             Open Zoom link
           </a>
         )}
-        <ClassActionRow cls={cls} session={session} sends={sends} now={new Date(nowIso)} onNeedAudience={needAudience} />
+        <ClassActionRow batchTitle={batchTitle} cls={cls} session={session} sends={sends} now={new Date(nowIso)} onNeedAudience={needAudience} />
         <div role="status" aria-label="Next step" className={`pt-4 ${dsDivider}`}>
           <p className="flex items-center gap-2 font-montserrat text-lg font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface"><span aria-hidden className="size-2.5 shrink-0 rounded-full bg-[#7ED957] dark:bg-pz-primary" />Next step: {step.title}</p>
           <p className={`text-base ${dsMuted}`}>{step.hint}</p>
@@ -160,7 +160,7 @@ export function TodayPanel({
           hidden={t !== tab}
           className="scroll-mt-32 outline-none"
         >
-          {t === tab && t === "links" && <LinksTab pageId={pageId} cls={cls} session={session} sends={sends} />}
+          {t === tab && t === "links" && <LinksTab batchTitle={batchTitle} pageId={pageId} cls={cls} session={session} sends={sends} />}
           {t === tab && t === "attendance" && <AttendanceTab cls={cls} session={session} rows={rows} nowIso={nowIso} />}
           {t === tab && t === "quiz" && <QuizTab pageId={pageId} cls={cls} slug={slug} batchTitle={batchTitle} />}
         </div>
