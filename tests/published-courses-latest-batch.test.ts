@@ -8,10 +8,10 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: async () => db.c
 import { pickLatestPerFamily } from "@/lib/data/lms-listing";
 import { getPublishedCourses } from "@/lib/data/lms";
 
-const row = (id: string, family_id: string | null, created_at: string, type = "course") => ({
+const row = (id: string, family_id: string | null, created_at: string, type = "course", batch_label: string | null = null) => ({
   id, slug: id, title: id, type, status: "open", tagline: null, thumbnail_url: null, level: null,
   duration_text: null, duration_weeks: null, price_pkr: null, mentor_name: null, mentor_title: null,
-  mentor_avatar_url: null, public_video_url: null, timings: null, family_id, created_at,
+  mentor_avatar_url: null, public_video_url: null, timings: null, family_id, batch_label, created_at,
 });
 const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
 
@@ -38,6 +38,20 @@ describe("pickLatestPerFamily", () => {
     const b = row("b", "F", "2026-01-01");
     expect(ids(pickLatestPerFamily([a, b]))).toEqual(["b"]);
     expect(ids(pickLatestPerFamily([b, a]))).toEqual(["b"]);
+  });
+});
+
+describe("batch portals with a batch label", () => {
+  it("are never listed, even when they are the only course of their family", () => {
+    const rows = [row("ppc", null, "2026-01-01"), row("b3", "F", "2026-11-20", "course", "3")];
+    expect(ids(pickLatestPerFamily(rows))).toEqual(["ppc"]);
+  });
+  it("do not push out an unlabelled course of the same family", () => {
+    const rows = [row("rec", "F", "2026-01-01"), row("b3", "F", "2026-11-20", "course", "3")];
+    expect(ids(pickLatestPerFamily(rows))).toEqual(["rec"]);
+  });
+  it("a blank label counts as no label", () => {
+    expect(ids(pickLatestPerFamily([row("a", "F", "2026-01-01", "course", "  ")]))).toEqual(["a"]);
   });
 });
 
