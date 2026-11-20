@@ -25,3 +25,16 @@ export function toEmbedUrl(url: string): string {
     return url;
   }
 }
+
+/** Picture for a YouTube link (watch, youtu.be, shorts, embed, live). Null for Vimeo or anything else. */
+export function videoThumbnail(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)(youtube\.com|youtu\.be)$/.test(u.hostname)) return null;
+    const embed = new URL(toEmbedUrl(url));
+    const m = embed.pathname.match(/^\/embed\/([\w-]+)\/?$/);
+    return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
+  } catch {
+    return null;
+  }
+}
