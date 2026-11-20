@@ -36,7 +36,7 @@ export function EnrollmentFilterTabs({
         return (
           <Link
             key={tab}
-            href={`/dashboard/admin/enrollments?status=${tab}${courseParams}`}
+            href={`/dashboard/admin/enrollments/app?status=${tab}${courseParams}`}
             aria-current={selected ? "page" : undefined}
             className={cn(
               "px-5 py-2 rounded-full font-headline text-sm transition-all",

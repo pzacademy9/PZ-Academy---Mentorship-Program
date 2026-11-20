@@ -38,7 +38,7 @@ export default async function AdminEnrollmentDetailPage({
     <div className="space-y-6">
       <div>
         <Link
-          href="/dashboard/admin/enrollments"
+          href="/dashboard/admin/enrollments/app"
           className="inline-flex items-center gap-2 font-body text-sm text-pz-on-surface-variant hover:text-pz-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to review queue
