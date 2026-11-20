@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FileUp, ListChecks } from "lucide-react";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import { podiumImageUrl } from "@/lib/progress/leaderboard";
+import { getPodiumMessage } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/podium-message-action";
 import { SharePodium } from "@/components/progress/portal/SharePodium";
 import { dsCard, dsHeading, dsLime, dsMuted, dsOutline, dsWell } from "./ds";
 
@@ -60,7 +61,16 @@ export function QuizTab({ pageId, cls, slug, batchTitle }: { pageId: string; cls
               />
             </div>
             <div className="flex">
-              <SharePodium slug={slug as string} title={batchTitle} pick={cls.id} label={`Class ${cls.number}`} />
+              <SharePodium
+                slug={slug as string}
+                title={batchTitle}
+                pick={cls.id}
+                label={`Class ${cls.number}`}
+                messageText={async () => {
+                  const r = await getPodiumMessage(pageId, cls.id);
+                  return r.ok ? r.text : null;
+                }}
+              />
             </div>
           </>
         ) : (
