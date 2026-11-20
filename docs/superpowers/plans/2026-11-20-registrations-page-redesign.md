@@ -10,7 +10,17 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-20-registrations-page-redesign-design.md`
 
-**Stitch gate:** the owner's phone and PC screens go in the same Stitch project ("PZ Academy Platform 2", id `4651274386787527431`). Task 3 and Task 4 take their markup, spacing and copy from those screens. If the screens do not exist when you reach Task 3, stop and ask the owner. Do not invent the look.
+**Stitch screens (done by the owner, project "PZ Academy Workshops Platform", id `13117286791417011091`):**
+- Desktop 1440px: screen `7e65b68273894ce9ba6e75d130eac486` "Batch Registrations - PPC Batch 3 (Desktop 1440px)"
+- Phone 390px: screen `f0981f7830ea48adb6ce22146f5e6241` "Batch Registrations - PPC Batch 3 (Mobile 390px)"
+- Phone sheet: screen `a6e6cc1c725444eeaa78502f6a0559da` "Batch Registrations - Filters Sheet & Batch Tools (Mobile 390px)"
+Fetch the HTML with `mcp__stitch__download_file` (name `projects/13117286791417011091/screens/<id>/fileEntries/html`) and copy layout, spacing and copy from it. Screenshots were reviewed on 2026-11-20.
+
+**Calls made where the screens show things the app does not have (follow the screen otherwise):**
+- Not built: Export CSV, Notify, page numbers (the app lists everyone at once and has its own selection and message bar), the top "Search students, modules, certificates" bar (that is the site header), the cohort subtitle line, the "Live" tag beside Sheet sync, the phone bottom menu (the app keeps its own menu).
+- Filters panel uses real data: Country chips come from the batch's real countries (one choice, plus "All"); "What they bought" chips come from the batch's real option labels; Delivery mode is Either / Live / Recorded (Either = no mode filter); Quick presets and the module-number box behave exactly as `QuickFilters` does today.
+- The panel button says "Show people" (the design's "Show 177 people" needs a live count of unsaved choices; not worth the extra query).
+- Batch tools menu heading "Cohort operations" is kept; Portal access sits below a divider, as in the design.
 
 ## Global Constraints
 
