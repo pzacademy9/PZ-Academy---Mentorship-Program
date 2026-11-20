@@ -32,6 +32,7 @@ export function PurchaseChoicesCard({
   const [saved, setSaved] = useState<Record<string, { group: ChoiceGroup; updated: number }>>({});
   const [pending, setPending] = useState<Pending | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const focusLabel = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const mine = ++ticket.current;
@@ -44,11 +45,13 @@ export function PurchaseChoicesCard({
     }
     if (!r.data || !Array.isArray(r.data.groups) || !Array.isArray(r.data.options)) return;
     setLoadError(null);
-    setOverview(r.data);
+    const known = new Set(r.data.options.map((o) => o.key));
+    const groups = r.data.groups.map((g) => ({ ...g, suggestedKeys: g.suggestedKeys.filter((k) => known.has(k)) }));
+    setOverview({ ...r.data, groups });
     // Fill in suggestions only for labels the admin has not touched yet.
     setPicked((prev) => {
       const next = { ...prev };
-      for (const g of r.data.groups) if (!(g.label in next)) next[g.label] = g.suggestedKeys;
+      for (const g of groups) if (!(g.label in next)) next[g.label] = g.suggestedKeys;
       return next;
     });
   }, [pageId]);
@@ -85,7 +88,7 @@ export function PurchaseChoicesCard({
 
   const totalHeld = open.reduce((n, g) => n + g.count, 0);
   const paidHeld = open.reduce((n, g) => n + g.paidCount, 0);
-  const labelFor = (key: string) => overview.options.find((o) => o.key === key)?.label ?? key;
+  const labelFor = (key: string) => overview.options.find((o) => o.key === key)?.label ?? "";
 
   function toggle(label: string, key: string) {
     setPicked((p) => {
@@ -104,9 +107,17 @@ export function PurchaseChoicesCard({
         <div role="status" className="flex items-start gap-3 rounded-lg bg-pz-secondary-fixed/40 p-3.5">
           <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0 text-pz-on-surface" aria-hidden="true" />
           <p className="font-body text-sm text-pz-on-surface">
-            {`${paidHeld} paid ${paidHeld === 1 ? "person has" : "people have"} no recorded choice and ${paidHeld === 1 ? "is" : "are"} held until matched. ${people(totalHeld)} in all.`}
+            {paidHeld === 0
+              ? `${people(totalHeld)} ${totalHeld === 1 ? "has" : "have"} no recorded choice. None of them are paid yet.`
+              : `${paidHeld} paid ${paidHeld === 1 ? "person has" : "people have"} no recorded choice and ${paidHeld === 1 ? "is" : "are"} held until matched.${paidHeld === totalHeld ? "" : ` ${people(totalHeld)} in all.`}`}
           </p>
         </div>
+      )}
+
+      {loadError && (
+        <p role="alert" className="font-body text-sm text-pz-danger">
+          We could not refresh this list. Your last change is saved. Reload the page to check.
+        </p>
       )}
 
       <div className="space-y-3 md:space-y-0">
@@ -126,7 +137,16 @@ export function PurchaseChoicesCard({
                 </div>
               </div>
               {done ? (
-                <p className="md:col-span-2 inline-flex items-center gap-2 font-body text-sm font-semibold text-pz-on-surface">
+                <p
+                  tabIndex={-1}
+                  ref={(el) => {
+                    if (el && focusLabel.current === g.label) {
+                      focusLabel.current = null;
+                      returnFocus.current = el;
+                      el.focus();
+                    }
+                  }}
+                  className="md:col-span-2 inline-flex focus:outline-none items-center gap-2 font-body text-sm font-semibold text-pz-on-surface">
                   <Check className="w-4 h-4 text-pz-primary" aria-hidden="true" />
                   {`Saved for ${people(done.updated)}`}
                 </p>
@@ -184,6 +204,7 @@ export function PurchaseChoicesCard({
           returnFocusRef={returnFocus}
           onDone={(updated) => {
             const g = pending.group;
+            focusLabel.current = g.label;
             setSaved((s) => ({ ...s, [g.label]: { group: g, updated } }));
             void load();
           }}

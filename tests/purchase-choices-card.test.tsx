@@ -15,7 +15,7 @@ const OPTIONS = [
   { key: "m2", label: "Module 2", kind: "module" as const, moduleIds: ["b"] },
 ];
 const GA = { label: A, mode: "live" as const, count: 24, paidCount: 20, suggestedKeys: ["m1"], confident: true };
-const GB = { label: B, mode: "live" as const, count: 134, paidCount: 138, suggestedKeys: [], confident: false };
+const GB = { label: B, mode: "live" as const, count: 134, paidCount: 130, suggestedKeys: [], confident: false };
 const OVERVIEW: ChoiceOverview = { hasOptions: true, options: OPTIONS, groups: [GA, GB] };
 const EMPTY: ChoiceOverview = { hasOptions: true, options: OPTIONS, groups: [] };
 const NO_OPTIONS: ChoiceOverview = { hasOptions: false, options: [], groups: [GA, GB] };
@@ -50,7 +50,53 @@ describe("PurchaseChoicesCard", () => {
   it("shows the amber notice with the total held", async () => {
     renderCard();
     const notice = await screen.findByRole("status");
-    expect(notice.textContent).toContain("158 paid people have no recorded choice");
+    expect(notice.textContent).toContain("150 paid people have no recorded choice");
+    expect(notice.textContent).toContain("158 people in all");
+  });
+
+  it("does not repeat the number when paid equals total, and never says 0 paid people", async () => {
+    getBody = { ...OVERVIEW, groups: [{ ...GA, paidCount: 24 }] };
+    const { unmount } = renderCard();
+    const n1 = await screen.findByRole("status");
+    expect(n1.textContent).toContain("24 paid people have no recorded choice");
+    expect(n1.textContent).not.toContain("in all");
+    unmount();
+    getBody = { ...OVERVIEW, groups: [{ ...GA, paidCount: 0 }] };
+    renderCard();
+    const n2 = await screen.findByRole("status");
+    expect(n2.textContent).not.toContain("0 paid");
+    expect(n2.textContent).toContain("24 people have no recorded choice");
+  });
+
+  it("ignores suggested keys that are not page options", async () => {
+    getBody = { ...OVERVIEW, groups: [{ ...GA, suggestedKeys: ["ghost"] }] };
+    renderCard();
+    await screen.findByRole("group", { name: A });
+    expect((within(row(A)).getByRole("button", { name: "Apply" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("after Apply, focus moves to the Saved line", async () => {
+    renderCard();
+    await screen.findByRole("group", { name: A });
+    getBody = { ...OVERVIEW, groups: [GB] };
+    fireEvent.click(within(row(A)).getByRole("button", { name: "Apply" }));
+    const dlg = await screen.findByRole("dialog");
+    fireEvent.click(within(dlg).getByRole("button", { name: "Apply to 24 people" }));
+    const line = await screen.findByText("Saved for 24 people");
+    await waitFor(() => expect(document.activeElement).toBe(line));
+  });
+
+  it("shows a calm line when the reload after Apply fails", async () => {
+    renderCard();
+    await screen.findByRole("group", { name: A });
+    fetchMock.mockImplementation(async (_u: string, init?: RequestInit) =>
+      init?.method === "POST" ? json({ updated: 24, queued: 20 }) : json({ error: "x" }, 500),
+    );
+    fireEvent.click(within(row(A)).getByRole("button", { name: "Apply" }));
+    const dlg = await screen.findByRole("dialog");
+    fireEvent.click(within(dlg).getByRole("button", { name: "Apply to 24 people" }));
+    await screen.findByText("Saved for 24 people");
+    expect((await screen.findByText(/could not refresh/i)).textContent).toMatch(/saved/);
   });
 
   it("renders one row per label with the label, count chip and mode chip", async () => {

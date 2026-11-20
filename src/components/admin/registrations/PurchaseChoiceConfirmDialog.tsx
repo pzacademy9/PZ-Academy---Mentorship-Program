@@ -73,7 +73,7 @@ export function PurchaseChoiceConfirmDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-lg bg-pz-surface-container-low p-3.5 space-y-1 font-body text-sm text-pz-on-surface">
-          <p className="text-pz-on-surface-variant">{label}</p>
+          <p className="text-pz-on-surface-variant break-words">{label}</p>
           <p className="font-headline font-bold">{optionLabels.join(", ")}</p>
         </div>
         {error && <p role="alert" className="font-body text-sm text-pz-danger">{error}</p>}
