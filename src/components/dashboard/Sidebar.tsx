@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, ArrowLeft } from "lucide-react";
+import { Menu, ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Role } from "@/lib/roles";
 import type { Area } from "@/lib/team/areas";
-import { useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { isSalesHubPath } from "@/lib/crm/sales-hub-routes";
 import { AFFILIATES_HUB_BASE, isAffiliatesHubPath, parseAffiliatesTab, affiliatesTabHref } from "@/lib/affiliates/hub-routes";
 import { navForRole, activeHrefFor, splitMobileNav, SALES_HUB_ITEMS, SALES_HUB_BACK, AFFILIATES_HUB_ITEMS, AFFILIATES_HUB_BACK, type NavItem, type HubGroup } from "./nav";
 
 const HUB_GROUPS: HubGroup[] = ["Overview", "Audience", "Outreach", "Team"];
+const COLLAPSE_KEY = "pz.sidebar.collapsed";
 
 interface SidebarProps {
   role: Role;
@@ -32,6 +33,24 @@ export function Sidebar({ role, areas }: SidebarProps) {
   const activeHref = affiliatesHub ? affiliatesTabHref(parseAffiliatesTab(searchParams?.get("tab"))) : activeHrefFor(items, pathname);
   const { bar, more, moreActive } = splitMobileNav(items, activeHref);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Starts expanded so the server render and the first client render match; the saved choice is read after mount.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+    } catch {
+      // Storage blocked: the menu still works for this visit.
+    }
+  }, []);
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+    } catch {
+      // Storage blocked: the choice just is not remembered.
+    }
+  };
 
   const tab = (active: boolean) =>
     cn(
@@ -43,68 +62,85 @@ export function Sidebar({ role, areas }: SidebarProps) {
 
   const desktopLink = (active: boolean) =>
     cn(
-      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-label font-medium transition-colors",
+      "flex items-center rounded-lg py-2.5 text-sm font-label font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary",
+      collapsed ? "justify-center px-0" : "gap-3 px-3",
       active
         ? "bg-pz-primary-container text-pz-on-primary-container font-bold"
         : "text-pz-on-surface-variant hover:text-pz-on-surface hover:bg-pz-surface-container-high"
     );
 
+  const renderLink = (item: { href: string; label: string; icon: ComponentType<{ className?: string }> }, active: boolean) => (
+    <Link
+      key={item.href}
+      href={item.href}
+      aria-label={item.label}
+      title={collapsed ? item.label : undefined}
+      aria-current={active ? "page" : undefined}
+      className={desktopLink(active)}
+    >
+      <item.icon className="w-4 h-4 shrink-0" />
+      {!collapsed && item.label}
+    </Link>
+  );
+  const backLink = (href: string) => renderLink({ href, label: "Back to Admin", icon: ArrowLeft }, false);
+
   return (
     <>
       {/* Desktop side nav */}
-      <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-pz-surface-container shrink-0 border-r border-pz-outline-variant/20">
-        <div className="flex items-center gap-3 px-6 py-5">
+      <aside
+        className={cn(
+          "hidden lg:flex flex-col lg:sticky lg:top-0 lg:h-screen bg-pz-surface-container shrink-0 border-r border-pz-outline-variant/20 transition-[width] duration-200 motion-reduce:transition-none",
+          collapsed ? "w-16" : "w-60",
+        )}
+      >
+        <div className={cn("flex shrink-0 items-center gap-3 py-5", collapsed ? "justify-center px-0" : "px-6")}>
           <div className="w-8 h-8 rounded-full bg-pz-bright flex items-center justify-center shrink-0">
             <span className="font-headline font-black text-pz-deep dark:text-pz-solid-deep text-xs">PZ</span>
           </div>
-          <span className="font-headline font-bold text-pz-secondary text-sm">PZ Academy</span>
+          {!collapsed && <span className="font-headline font-bold text-pz-secondary text-sm">PZ Academy</span>}
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 min-h-0 px-3 py-4 space-y-0.5 overflow-y-auto">
           {hubMode ? (
             <>
-              <Link href={SALES_HUB_BACK.href} className={desktopLink(false)}>
-                <ArrowLeft className="w-4 h-4 shrink-0" />
-                Back to Admin
-              </Link>
-              <p className="px-3 pt-2 font-headline font-bold text-pz-secondary text-sm">Sales Hub</p>
+              {backLink(SALES_HUB_BACK.href)}
+              {!collapsed && <p className="px-3 pt-2 font-headline font-bold text-pz-secondary text-sm">Sales Hub</p>}
               {HUB_GROUPS.map((group) => (
                 <div key={group}>
-                  {group !== "Overview" && (
+                  {group !== "Overview" && !collapsed && (
                     <p className="px-3 pt-4 pb-1 text-[11px] font-label font-bold uppercase tracking-wide text-pz-on-surface-variant">{group}</p>
                   )}
-                  {SALES_HUB_ITEMS.filter((item) => item.group === group).map((item) => (
-                    <Link key={item.href} href={item.href} className={desktopLink(item.href === activeHref)}>
-                      <item.icon className="w-4 h-4 shrink-0" />
-                      {item.label}
-                    </Link>
-                  ))}
+                  {SALES_HUB_ITEMS.filter((item) => item.group === group).map((item) => renderLink(item, item.href === activeHref))}
                 </div>
               ))}
             </>
           ) : affiliatesHub ? (
             <>
-              <Link href={AFFILIATES_HUB_BACK.href} className={desktopLink(false)}>
-                <ArrowLeft className="w-4 h-4 shrink-0" />
-                Back to Admin
-              </Link>
-              <p className="px-3 pt-2 font-headline font-bold text-pz-secondary text-sm">Affiliates</p>
-              {AFFILIATES_HUB_ITEMS.map((item) => (
-                <Link key={item.href} href={item.href} className={desktopLink(item.href === activeHref)}>
-                  <item.icon className="w-4 h-4 shrink-0" />
-                  {item.label}
-                </Link>
-              ))}
+              {backLink(AFFILIATES_HUB_BACK.href)}
+              {!collapsed && <p className="px-3 pt-2 font-headline font-bold text-pz-secondary text-sm">Affiliates</p>}
+              {AFFILIATES_HUB_ITEMS.map((item) => renderLink(item, item.href === activeHref))}
             </>
           ) : (
-            items.map((item) => (
-              <Link key={item.href} href={item.href} className={desktopLink(item.href === activeHref)}>
-                <item.icon className="w-4 h-4 shrink-0" />
-                {item.label}
-              </Link>
-            ))
+            items.map((item) => renderLink(item, item.href === activeHref))
           )}
         </nav>
+
+        <div className="shrink-0 border-t border-pz-outline-variant/20 p-3">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expand menu" : "Collapse menu"}
+            className={cn(
+              "flex min-h-11 w-full items-center rounded-lg text-sm font-label font-medium text-pz-on-surface-variant transition-colors hover:bg-pz-surface-container-high hover:text-pz-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pz-primary",
+              collapsed ? "justify-center px-0" : "gap-3 px-3",
+            )}
+          >
+            {collapsed ? <PanelLeftOpen className="w-4 h-4 shrink-0" /> : <PanelLeftClose className="w-4 h-4 shrink-0" />}
+            {!collapsed && "Collapse"}
+          </button>
+        </div>
       </aside>
 
       {/* Mobile bottom nav: 4 items + More */}

@@ -15,10 +15,10 @@ it("admin inside the hub sees the Sales menu with group headings and a way back"
   expect(screen.queryByRole("link", { name: "Enrollments" })).toBeNull();
 });
 
-it("admin outside the hub sees the normal menu with one Sales Hub link", () => {
+it("admin outside the hub sees the normal menu, no Sales Hub link (it lives in Settings)", () => {
   path = "/dashboard/admin/enrollments";
   render(<Sidebar role="admin" />);
-  expect(screen.getAllByRole("link", { name: "Sales Hub" }).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("link", { name: "Sales Hub" })).toBeNull();
   expect(screen.queryByText("Audience")).toBeNull();
 });
 

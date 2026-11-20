@@ -55,6 +55,57 @@ describe("listCampaigns", () => {
     const out = await listCampaigns();
     expect(out.find((c) => c.pageId === "pg1")!.total).toBe(2);
   });
+  it("cover: course thumbnail, else class_cover_url, else null (empty thumbnail falls back; no course = no courses call)", async () => {
+    store.landing_pages = [
+      { id: "pgA", title: "A", status: "published", course_id: "c1", class_cover_url: "https://drive.google.com/x/ignored.png" },
+      { id: "pgB", title: "B", status: "published", course_id: "c2", class_cover_url: "https://drive.google.com/x/b.png" },
+      { id: "pgC", title: "C", status: "published", course_id: null, class_cover_url: "https://drive.google.com/x/c.png" },
+      { id: "pgD", title: "D", status: "published", course_id: null, class_cover_url: null },
+      { id: "pgE", title: "E", status: "published", course_id: "c3", class_cover_url: "https://drive.google.com/x/e.png" },
+      { id: "pgF", title: "F", status: "published", course_id: "c4", class_cover_url: "https://drive.google.com/x/f.png" },
+    ];
+    store.courses = [
+      { id: "c1", thumbnail_url: "https://drive.google.com/x/course1.png" },
+      { id: "c2", thumbnail_url: null },
+      { id: "c3", thumbnail_url: "https://drive.google.com/x/course3.png" },
+      { id: "c4", thumbnail_url: "" },
+    ];
+    store.landing_registrations = ["pgA", "pgB", "pgC", "pgD", "pgE", "pgF"].map((p, k) => reg({ id: `r${k}`, page_id: p, row_type: "lead", ref_id: `R${k}` }));
+    paging.idChunk = 2; // forces the courses lookup into several chunks
+    const out = await listCampaigns();
+    const cover = (id: string) => out.find((c) => c.pageId === id)!.coverUrl;
+    expect(cover("pgA")).toBe("https://drive.google.com/x/course1.png");
+    expect(cover("pgB")).toBe("https://drive.google.com/x/b.png");
+    expect(cover("pgC")).toBe("https://drive.google.com/x/c.png");
+    expect(cover("pgD")).toBeNull();
+    expect(cover("pgE")).toBe("https://drive.google.com/x/course3.png"); // c3 sits alone in the second part with c4
+    expect(cover("pgF")).toBe("https://drive.google.com/x/f.png");
+  });
+  it("cover: a thumbnail on a rejected host falls through to a valid class cover; both rejected is null", async () => {
+    store.landing_pages = [
+      { id: "pgA", title: "A", status: "published", course_id: "c1", class_cover_url: "https://drive.google.com/x/good.png" },
+      { id: "pgB", title: "B", status: "published", course_id: "c2", class_cover_url: "https://evil.example/b.png" },
+    ];
+    store.courses = [
+      { id: "c1", thumbnail_url: "https://evil.example/course1.png" },
+      { id: "c2", thumbnail_url: "https://evil.example/course2.png" },
+    ];
+    store.landing_registrations = ["pgA", "pgB"].map((p, k) => reg({ id: `r${k}`, page_id: p, row_type: "lead", ref_id: `R${k}` }));
+    const out = await listCampaigns();
+    expect(out.find((c) => c.pageId === "pgA")!.coverUrl).toBe("https://drive.google.com/x/good.png");
+    expect(out.find((c) => c.pageId === "pgB")!.coverUrl).toBeNull();
+  });
+  it("cover: pages with no course make no courses call", async () => {
+    store.landing_pages = [{ id: "pg1", title: "PPC", status: "published", course_id: null, class_cover_url: null }];
+    const spy = vi.spyOn(db.client, "from");
+    try {
+      const out = await listCampaigns();
+      expect(out.find((c) => c.pageId === "pg1")!.coverUrl).toBeNull();
+      expect(spy.mock.calls.some((a) => a[0] === "courses")).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe("listCampaignFilterOptions", () => {

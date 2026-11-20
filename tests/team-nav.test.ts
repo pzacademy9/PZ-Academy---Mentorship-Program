@@ -9,10 +9,10 @@ const labels = (role: Role, custom: { extra: never[]; removed: string[] } | null
 describe("navForRole with areas", () => {
   it("shows a plain manager only the program areas", () => {
     const l = labels("manager");
-    for (const want of ["Programs", "Landing Pages", "Media Library", "Promo Codes", "Students", "Certificates", "Enrollments", "Feedback", "Mentorship", "Send Notice", "Notifications", "Settings"]) {
+    for (const want of ["Programs", "Landing Pages", "Media Library", "Promo Codes", "Students", "Certificates", "Enrollments", "Feedback", "Mentorship", "Notifications", "Settings"]) {
       expect(l).toContain(want);
     }
-    for (const not of ["Marketing", "Sales Hub", "Agent Leaderboard", "Payment Accounts", "Terms and Conditions", "Sheet Sync", "Team", "Analytics", "Mentors"]) {
+    for (const not of ["Marketing", "Send Notice", "Sales Hub", "Agent Leaderboard", "Payment Accounts", "Terms and Conditions", "Sheet Sync", "Team", "Analytics", "Mentors"]) {
       expect(l).not.toContain(not);
     }
   });
@@ -29,15 +29,14 @@ describe("navForRole with areas", () => {
   it("hides Media Library when every media area is removed", () => {
     expect(labels("admin", { extra: [], removed: ["landing_pages", "courses", "mentors", "marketing"] })).not.toContain("Media Library");
   });
-  it("gives a plain admin everything except the four settings entries and Team", () => {
+  it("gives a plain admin everything except Sheet Sync and Team (the five moved items are no longer in the menu)", () => {
     const l = labels("admin");
     expect(l).toContain("Analytics");
-    expect(l).toContain("Sales Hub");
-    for (const not of ["Payment Accounts", "Terms and Conditions", "Sheet Sync", "Team"]) expect(l).not.toContain(not);
+    for (const not of ["Sales Hub", "Payment Accounts", "Terms and Conditions", "Sheet Sync", "Team"]) expect(l).not.toContain(not);
   });
   it("gives the super admin everything, including Team", () => {
     const l = labels("super_admin");
-    for (const want of ["Team", "Payment Accounts", "Terms and Conditions", "Sheet Sync", "Analytics"]) expect(l).toContain(want);
+    for (const want of ["Team", "Sheet Sync", "Analytics"]) expect(l).toContain(want);
   });
   it("hides every admin entry from a manager when the areas are not known (fail closed)", () => {
     const l = navForRole("manager").map((i) => i.label);
