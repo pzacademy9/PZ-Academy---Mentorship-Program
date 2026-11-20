@@ -51,6 +51,8 @@ Publishing a batch portal puts it on the website only if it is the newest in its
 
 Students are not moved yet. Do Steps 4, 5 and 6 on the same day, and do not open modules or change Paid status until you have moved students. While students are waiting to move, the "Open modules and emails" area on the Portal access screen is replaced by a note that says "Move students first, then open modules here."
 
+People whose paid registration has no recorded choice are held. They need matching first, so match them before you move or open anything. The steps are in `2026-11-19-purchase-choices-owner-steps.md`.
+
 ## Step 5: Read the three numbers
 
 1. Go back to Portal access for the Batch 3 campaign.
