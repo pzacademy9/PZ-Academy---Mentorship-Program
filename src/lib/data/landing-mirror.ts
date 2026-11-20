@@ -6,6 +6,8 @@ import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import { checkStatusChange, STATUS_CHANGE_MESSAGES, type ChangeableStatus } from "@/lib/landing/registration/status-rules";
 import { parseCsv, isCsvSheet } from "@/lib/landing/mirror/csv";
 import { mapSheetRow, type MapResult } from "@/lib/landing/mirror/rows";
+import { suggestOptions, type ChoiceOption } from "@/lib/landing/registration/match-choice";
+import { getPageChoiceOptions } from "@/lib/data/portal-choices";
 import { planMirror, type AppRowLite, type MemoryRow, type MirrorAction } from "@/lib/landing/mirror/plan";
 
 // Hard rule: a change that comes from the sheet sends nothing (no emails, no Meta events, no enrollment, no sheet rewrite).
@@ -140,6 +142,12 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
   const regById = new Map(regs.map((r) => [r.id, r]));
   const actions = planMirror(sheet, regs.map(toApp), memory);
 
+  // The page's purchase options, read once per run. If they cannot be read, rows are still copied with no choice set.
+  let choiceOptions: ChoiceOption[] = [];
+  if (!preview) {
+    try { choiceOptions = (await getPageChoiceOptions(pageId)) ?? []; } catch { console.error(`${LOG} options load failed`); }
+  }
+
   const res = blank(preview);
   // A failed memory save is safe: the next run links the row again by email + time.
   type MemInsert = Database["public"]["Tables"]["landing_mirror_rows"]["Insert"];
@@ -196,10 +204,13 @@ async function execute(pageId: string, sheetId: string, preview: boolean): Promi
       return;
     }
 
+    // Only a certain match sets the choice; anything else stays empty for the admin to match by hand.
+    const match = suggestOptions(row.optionLabel, choiceOptions);
+    const optionKeys = match.confident ? match.keys : [];
     const build = (ref: string | null): RegInsert => ({
       page_id: pageId, row_type: row.rowType, lead_registration_id: leadId, name: row.name, email: row.email,
       whatsapp: row.whatsapp, profession: row.profession, discovery: row.discovery, consent: row.consent,
-      region: row.region, currency: row.currency, option_label: row.optionLabel, mode: row.mode, tier_key: row.tierKey,
+      region: row.region, currency: row.currency, option_label: row.optionLabel, option_keys: optionKeys, mode: row.mode, tier_key: row.tierKey,
       group_size: row.groupSize, promo_code_text: row.promoCodeText, expected_amount: row.expectedAmount,
       payment_method: row.paymentMethod, voucher_url: row.voucherUrl, status: row.status, amount_received: row.amountReceived,
       email_status: row.emailStatusText, status_source: "sheet", is_test: false, ref_id: ref,

@@ -39,11 +39,11 @@ describe("campaign list UI", () => {
     expect(screen.getByRole("link", { name: /All registrations/ })).toBeTruthy();
   });
 
-  it("links to batch access with and without campaigns", () => {
+  it('has no "Batch access" link with or without campaigns', () => {
     const { unmount } = render(<CampaignList campaigns={[camp()]} />);
-    expect(screen.getByRole("link", { name: "Batch access" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/access");
+    expect(screen.queryByRole("link", { name: "Batch access" })).toBeNull();
     unmount();
     render(<CampaignList campaigns={[]} />);
-    expect(screen.getByRole("link", { name: "Batch access" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/access");
+    expect(screen.queryByRole("link", { name: "Batch access" })).toBeNull();
   });
 });

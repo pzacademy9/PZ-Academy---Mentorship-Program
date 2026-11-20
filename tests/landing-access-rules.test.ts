@@ -12,6 +12,7 @@ const base: AccessInput = {
   isTest: false,
   moduleIds: [],
   finishedModuleIds: [],
+  hasLabelWithoutChoice: false,
 };
 
 describe("desiredEnrollment", () => {

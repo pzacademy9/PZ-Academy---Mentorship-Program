@@ -4,7 +4,7 @@ import { emptyContent, normalizeContent } from "@/lib/landing/content";
 
 const APP = "https://app.example.com";
 const paidRecorded = desiredEnrollment({
-  status: "paid", mode: "recorded", hasCourse: true, isTest: false, moduleIds: [], finishedModuleIds: [],
+  status: "paid", mode: "recorded", hasCourse: true, isTest: false, moduleIds: [], finishedModuleIds: [], hasLabelWithoutChoice: false,
 });
 const base = {
   courseSlug: null as string | null, hasAccount: false, desired: paidRecorded,

@@ -6,8 +6,8 @@ import { resolveAccess, syncEnrollmentForRegistration, type ResolvedAccess } fro
 import { logPortalLink } from "@/lib/data/landing-email-log";
 import { buildPortalLinkEmail, type LandingEmailContext } from "@/lib/emails/landing-registration";
 
-export interface BatchResult { modulesFinished: number; opened: number; emailed: number; alreadyOpen: number; waitingForAccount: number; failed: number }
-export interface LinkResult { sent: number; notOpenYet: number; waitingForAccount: number; failed: number }
+export interface BatchResult { modulesFinished: number; opened: number; emailed: number; alreadyOpen: number; waitingForAccount: number; failed: number; needsChoice: number }
+export interface LinkResult { sent: number; notOpenYet: number; waitingForAccount: number; failed: number; needsChoice: number }
 export interface BatchOverview {
   courseTitle: string | null;
   modules: { id: string; title: string; finishedAt: string | null; paidLive: number; opened: number }[];
@@ -40,8 +40,11 @@ async function courseModules(courseId: string): Promise<{ id: string; title: str
   return (data ?? []).map((m) => ({ id: m.id, title: m.title }));
 }
 
-/** Paid, non-test rows of the page (leads, members and individuals: each person is their own row), resolved. */
-async function paidAccessRows(pageId: string): Promise<ResolvedAccess[]> {
+/**
+ * Paid, non-test rows of the page (leads, members and individuals: each person is their own row), resolved.
+ * `grant` rows have a known purchase; `hold` rows have a label but no recorded choice and are never opened or emailed.
+ */
+async function paidAccessSplit(pageId: string): Promise<{ grant: ResolvedAccess[]; hold: ResolvedAccess[] }> {
   const { data, error } = await createAdminSupabase().from("landing_registrations").select("id").eq("page_id", pageId).eq("status", "paid").eq("is_test", false);
   check("landing_registrations read", error);
   // Each lookup is several queries, so run a few at a time; results keep the order of the rows.
@@ -50,19 +53,24 @@ async function paidAccessRows(pageId: string): Promise<ResolvedAccess[]> {
   await pool(rows.map((r, i) => ({ id: r.id, i })), ACCESS_CONCURRENCY, async ({ id, i }) => {
     resolved[i] = await resolveAccess(id);
   });
-  const out: ResolvedAccess[] = [];
+  const grant: ResolvedAccess[] = [];
+  const hold: ResolvedAccess[] = [];
   for (const access of resolved) {
-    if (!access || access.registration.isTest || access.lead.isTest) continue;
-    if (access.desired.action !== "grant" || !access.courseId) continue;
-    out.push(access);
+    if (!access || access.registration.isTest || access.lead.isTest || !access.courseId) continue;
+    if (access.desired.action === "grant") grant.push(access);
+    else if (access.desired.action === "hold") hold.push(access);
   }
-  return out;
+  return { grant, hold };
+}
+
+async function paidAccessRows(pageId: string): Promise<ResolvedAccess[]> {
+  return (await paidAccessSplit(pageId)).grant;
 }
 
 /** What this buyer covers: the listed modules, or every module of the course when none are listed. */
 const coverage = (a: ResolvedAccess, all: string[]): string[] => (a.desired.moduleIds.length === 0 ? all : a.desired.moduleIds);
 
-const emptyBatch = (): BatchResult => ({ modulesFinished: 0, opened: 0, emailed: 0, alreadyOpen: 0, waitingForAccount: 0, failed: 0 });
+const emptyBatch = (): BatchResult => ({ modulesFinished: 0, opened: 0, emailed: 0, alreadyOpen: 0, waitingForAccount: 0, failed: 0, needsChoice: 0 });
 
 /** Minimal email context: the link email shows only the name, event, portal button and module titles. */
 function linkContext(page: RegistrablePage, a: ResolvedAccess, moduleTitles: string[]): LandingEmailContext & { portalUrl: string; moduleTitles: string[] } {
@@ -151,7 +159,9 @@ export async function finishBatch(p: { pageId: string; moduleId: string | null; 
   if (pressed.length === 0) return result;
 
   const titles = new Map(mods.map((m) => [m.id, m.title]));
-  const rows = (await paidAccessRows(p.pageId)).filter((a) => a.desired.accessLevel === "live" && coverage(a, allIds).some((m) => pressed.includes(m)));
+  const split = await paidAccessSplit(p.pageId);
+  result.needsChoice = split.hold.filter((a) => a.desired.accessLevel === "live").length;
+  const rows = split.grant.filter((a) => a.desired.accessLevel === "live" && coverage(a, allIds).some((m) => pressed.includes(m)));
 
   await pool(rows, CONCURRENCY, async (a) => {
     if (!a.registration.studentId) { result.waitingForAccount++; return; }
@@ -184,12 +194,15 @@ export async function finishBatch(p: { pageId: string; moduleId: string | null; 
  * `adminId` is accepted for the caller's audit trail; the send itself does not use it.
  */
 export async function emailPortalLinks(p: { pageId: string; audience: "live" | "recorded" | "both"; adminId: string }): Promise<LinkResult> {
-  const result: LinkResult = { sent: 0, notOpenYet: 0, waitingForAccount: 0, failed: 0 };
+  const result: LinkResult = { sent: 0, notOpenYet: 0, waitingForAccount: 0, failed: 0, needsChoice: 0 };
   const page = await getRegistrablePageById(p.pageId);
   if (!page?.courseId) return result;
   const mods = await courseModules(page.courseId);
   const titles = new Map(mods.map((m) => [m.id, m.title]));
-  const rows = (await paidAccessRows(p.pageId)).filter((a) => p.audience === "both" || a.desired.accessLevel === p.audience);
+  const split = await paidAccessSplit(p.pageId);
+  const inAudience = (a: ResolvedAccess) => p.audience === "both" || a.desired.accessLevel === p.audience;
+  result.needsChoice = split.hold.filter(inAudience).length;
+  const rows = split.grant.filter(inAudience);
 
   const toSend: ResolvedAccess[] = [];
   for (const a of rows) {
