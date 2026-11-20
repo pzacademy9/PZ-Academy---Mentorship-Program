@@ -4,7 +4,7 @@ import type { ChoiceOption } from "@/lib/landing/registration/match-choice";
 
 export type ChoiceGroup = {
   label: string;
-  mode: "live" | "recorded" | null;
+  mode: "live" | "recorded" | "mixed" | null;
   count: number;
   paidCount: number;
   suggestedKeys: string[];

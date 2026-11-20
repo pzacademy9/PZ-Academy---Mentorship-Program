@@ -18,8 +18,8 @@ import { PortalError } from "@/lib/data/portal-errors";
 const PAGE = "page-1";
 const OPTIONS = [
   { key: "full", label: "Full Course", kind: "bundle", free: false, waGroupUrl: "", moduleIds: [] },
-  { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
-  { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "", moduleIds: [] },
+  { key: "m1", label: "Module 1", kind: "module", free: false, waGroupUrl: "", moduleIds: ["11111111-1111-4111-8111-111111111111"] },
+  { key: "m2", label: "Module 2", kind: "module", free: false, waGroupUrl: "", moduleIds: ["22222222-2222-4222-8222-222222222222"] },
 ];
 const content = (options: unknown[]) => ({ registration: { options } });
 
@@ -54,6 +54,14 @@ describe("listChoiceGroups", () => {
     expect(o.groups).toHaveLength(3);
     expect(o.groups.find((g) => g.label === "Live - Module 1 - Individual")).toMatchObject({ mode: "live", count: 3, paidCount: 1 });
     expect(o.groups.find((g) => g.label === "Recorded - Module 1 - Individual")).toMatchObject({ mode: "recorded", count: 1, paidCount: 1 });
+  });
+
+  it("merges modes under one label and shows Mixed; a single mode stays as it is", async () => {
+    store.landing_registrations = [reg("r1"), reg("r2", { mode: "recorded" }), reg("r3", { option_label: "Live - Full Course - Individual" })];
+    const o = await listChoiceGroups(PAGE);
+    expect(o.groups).toHaveLength(2);
+    expect(o.groups.find((g) => g.label === "Live - Module 1 - Individual")).toMatchObject({ mode: "mixed", count: 2 });
+    expect(o.groups.find((g) => g.label === "Live - Full Course - Individual")).toMatchObject({ mode: "live", count: 1 });
   });
 
   it("rows that already have option_keys are not listed", async () => {
@@ -131,6 +139,17 @@ describe("applyChoice", () => {
     expect(err.status).toBe(409);
     expect(db.find("landing_registrations", "update")).toHaveLength(0);
     expect(jobs.enqueueEnrollmentSync).not.toHaveBeenCalled();
+  });
+
+  it("refuses a module option with no module ticked (409) and writes nothing", async () => {
+    const bad = [...OPTIONS.slice(0, 1), { ...OPTIONS[1], moduleIds: [] }, OPTIONS[2]];
+    store.landing_pages = [{ id: PAGE, draft: content(bad), published: content(bad) }];
+    store.landing_registrations = [reg("r1")];
+    const err = await applyChoice({ pageId: PAGE, label, optionKeys: ["m1"] }).catch((e) => e);
+    expect(err).toBeInstanceOf(PortalError);
+    expect(err.status).toBe(409);
+    expect(err.message).toBe("That option has no module ticked. Tick its module in Registration setup first.");
+    expect(db.find("landing_registrations", "update")).toHaveLength(0);
   });
 
   it("rejects an empty key list", async () => {

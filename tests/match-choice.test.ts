@@ -46,7 +46,7 @@ describe("suggestOptions", () => {
 });
 
 describe("suggestOptions number matching is exact", () => {
-  const mod = (n: number): ChoiceOption => ({ key: `m${n}`, label: `Module ${n}`, kind: "module", moduleIds: [] });
+  const mod = (n: number): ChoiceOption => ({ key: `m${n}`, label: `Module ${n}`, kind: "module", moduleIds: [`x${n}`] });
   it("M1 does not match Module 12 or Module 10", () => {
     expect(suggestOptions("Live - Modules: M1 - Individual", [mod(12), mod(10)])).toEqual({ keys: [], confident: false });
   });
@@ -71,5 +71,15 @@ describe("splitLabel", () => {
     expect(splitLabel("Live — Full Course – Individual")).toEqual({ mode: "live", optionText: "full course" });
     expect(splitLabel("Recorded - Module 2 - Group of 3")).toEqual({ mode: "recorded", optionText: "module 2" });
     expect(splitLabel("Full Course - Individual")).toEqual({ mode: null, optionText: "full course" });
+  });
+});
+
+describe("suggestOptions with a module option that has no module ticked", () => {
+  it("returns the key but is not confident", () => {
+    const opts: ChoiceOption[] = [
+      { key: "full", label: "Full Course", kind: "bundle", moduleIds: ["a", "b"] },
+      { key: "m1", label: "Module 1", kind: "module", moduleIds: [] },
+    ];
+    expect(suggestOptions("Live - Module 1 - Individual", opts)).toEqual({ keys: ["m1"], confident: false });
   });
 });

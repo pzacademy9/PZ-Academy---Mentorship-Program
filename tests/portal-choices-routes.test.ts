@@ -67,6 +67,12 @@ describe("choices routes", () => {
     expect(m.applyChoice).toHaveBeenCalledWith({ pageId: PAGE, label: "  Live - Full Course  ", optionKeys: ["full"] });
   });
 
+  it("POST accepts a long label up to 500 characters", async () => {
+    m.applyChoice.mockResolvedValue({ updated: 1, queued: 0 });
+    expect((await POST(post({ pageId: PAGE, label: "L".repeat(400), optionKeys: ["full"] }))).status).toBe(200);
+    expect((await POST(post({ pageId: PAGE, label: "L".repeat(501), optionKeys: ["full"] }))).status).toBe(400);
+  });
+
   it("POST returns 400 for a missing label or empty optionKeys", async () => {
     expect((await POST(post({ pageId: PAGE, optionKeys: ["full"] }))).status).toBe(400);
     expect((await POST(post({ pageId: PAGE, label: "  ", optionKeys: ["full"] }))).status).toBe(400);

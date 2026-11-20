@@ -14,7 +14,7 @@ const primaryBtn =
   "inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-11 rounded-lg font-headline text-sm font-bold bg-pz-primary text-pz-on-primary hover:bg-pz-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
 const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
-const MODE_TEXT = { live: "Live", recorded: "Recorded" } as const;
+const MODE_TEXT = { live: "Live", recorded: "Recorded", mixed: "Mixed" } as const;
 
 type Pending = { group: ChoiceGroup; keys: string[] };
 

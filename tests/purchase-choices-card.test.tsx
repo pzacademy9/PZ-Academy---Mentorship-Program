@@ -108,6 +108,13 @@ describe("PurchaseChoicesCard", () => {
     expect(screen.getAllByRole("group")).toHaveLength(2);
   });
 
+  it("shows Mixed when a label has both modes", async () => {
+    getBody = { ...OVERVIEW, groups: [{ ...GA, mode: "mixed" as const }] };
+    renderCard();
+    await screen.findByRole("group", { name: A });
+    expect(within(row(A)).getByText("Mixed")).toBeTruthy();
+  });
+
   it("pre-selects the suggested options and shows a Suggested chip only when confident", async () => {
     renderCard();
     await screen.findByRole("group", { name: A });

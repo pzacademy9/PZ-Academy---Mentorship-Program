@@ -27,7 +27,7 @@ export async function getPageChoiceOptions(pageId: string): Promise<ChoiceOption
 
 const READ_SIZE = 1000;
 
-/** Unmatched purchase labels on a page (paid or not, members included), grouped by label and mode. */
+/** Unmatched purchase labels on a page (paid or not, members included), grouped by label; a label seen in both modes shows as mixed. */
 export async function listChoiceGroups(pageId: string): Promise<ChoiceOverview> {
   const options = await getPageChoiceOptions(pageId);
   if (!options) throw new PortalError("That registration page was not found.", 404);
@@ -47,12 +47,13 @@ export async function listChoiceGroups(pageId: string): Promise<ChoiceOverview> 
       const label = r.option_label ?? "";
       if (label.trim() === "" || (r.option_keys ?? []).length > 0) continue;
       const mode = r.mode === "live" || r.mode === "recorded" ? r.mode : null;
-      const groupKey = `${mode ?? ""}\u0000${label}`;
-      let g = groups.get(groupKey);
+      let g = groups.get(label);
       if (!g) {
         const s = suggestOptions(label, options);
         g = { label, mode, count: 0, paidCount: 0, suggestedKeys: s.keys, confident: s.confident };
-        groups.set(groupKey, g);
+        groups.set(label, g);
+      } else if (g.mode !== mode) {
+        g.mode = "mixed";
       }
       g.count += 1;
       if (r.status === "paid" && !r.is_test) g.paidCount += 1;
@@ -76,6 +77,9 @@ export async function applyChoice(p: { pageId: string; label: string; optionKeys
   if (options.length === 0) throw new PortalError("This page has nothing to buy yet. Add the options in Registration setup first.", 409);
   const known = new Set(options.map((o) => o.key));
   if (keys.some((k) => !known.has(k))) throw new PortalError("One of those choices is not an option on this page.", 409);
+  if (options.some((o) => keys.includes(o.key) && o.kind === "module" && o.moduleIds.length === 0)) {
+    throw new PortalError("That option has no module ticked. Tick its module in Registration setup first.", 409);
+  }
 
   const { data, error } = await createAdminSupabase()
     .from("landing_registrations")

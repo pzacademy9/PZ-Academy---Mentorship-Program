@@ -49,5 +49,7 @@ export function suggestOptions(label: string, options: readonly ChoiceOption[]):
       allMatched = false;
     }
   }
-  return { keys, confident: allMatched };
+  // A module option with no module ticked would mean the whole course, so it is never a certain match.
+  const noModule = keys.some((k) => options.some((o) => o.key === k && o.kind === "module" && o.moduleIds.length === 0));
+  return { keys, confident: allMatched && !noModule };
 }
