@@ -12,8 +12,6 @@ const FENCE = "```";
 const max = (key: string) => COURSE_DETAIL_FIELDS.find((f) => f.key === key)!.max.toLocaleString("en-US");
 
 export function masterPrompt(): string {
-  const L = COURSE_IMPORT_LIMITS;
-
   return `You are helping me turn my course material into one text file that I will upload to my course platform. I will attach some or all of these: course information files, a list of YouTube links with the lecture name or day beside each one, a quiz file (Word or PDF, with the correct answers marked), and links to notes on Google Drive.
 
 Your job is to put everything together into ONE file in the exact layout below, and give me the whole file in a single code block.
@@ -71,13 +69,7 @@ What each line means:
 - title: the course name.
 - type: course, workshop or webinar.
 - tagline, description, level, duration, timings, mentor_name, mentor_title, mentor_bio, price, topic, webinar_date, preview_video: the course details. They go in the top part of the file, before the first ## line, and every one of them is optional. Write description and mentor_bio as ONE paragraph on a single line, and never start a line inside them with a word followed by a colon. Do not put any other text in the top part.
-- ## Module: starts a module (courses only).
-- ### Session: starts a session (a lecture or a day).
-- video: the main video link for the session. video2: an optional second video link.
-- notes: a notes link, written as the label, then a space, a vertical bar, a space, then the link. Notes placed under a module belong to the module; notes placed under a session belong to that session.
-- quiz: on its own line, followed by the questions for that session. The quiz continues until the next heading, so always put quiz: LAST in each session, after the video, video2 and notes lines. Write every question exactly like this, with a blank line between questions:
-
-${QUIZ_PASTE_EXAMPLE}
+${sessionLayoutHelp()}
 
 THE COURSE DETAILS
 
@@ -94,18 +86,35 @@ ${pagePartsHelp()}
 THE RULES
 
 1. Take the course title, the module names, the session names and their order from the course information files.
-2. Match each video link, notes link and quiz question to its session by the lecture name or the day. Do not match by position alone.
-3. Never invent a video link. Never invent a quiz question. If a session has no link, leave the video: line empty. If a session has no quiz in my files, leave it without questions.
-4. If you cannot tell which session a notes link belongs to, put it under "## Unassigned notes" at the end of the file, as notes: lines. Do not guess.
-5. If something is unclear (two sessions that could match, a link with no name, a quiz that does not say which day it is for), ask me before you guess.
-6. In the quiz, write only the question, the options and the answer line. Leave out explanations.
-7. Keep to these limits: at most ${n(L.maxModules)} modules, ${n(L.maxSessions)} sessions in total, ${n(L.maxQuestionsPerSession)} quiz questions in one session, ${n(L.maxQuestionsPerCourse)} quiz questions in the whole course, and ${n(L.maxNotesPerSession)} notes links per session. Keep titles under ${n(L.maxTitle)} characters and note labels under ${n(L.maxLabel)} characters.
-8. Give me the whole file in one code block, starting with the format line, with nothing else inside the block.
+${sharedRules()}
 
 Start by asking me to attach my files, and ask me anything you need to know before you begin.`;
 }
 
 const n = (v: number) => v.toLocaleString("en-US");
+
+/** The line-by-line help for headings, videos, notes and quizzes (shared by the whole-course and curriculum prompts). */
+function sessionLayoutHelp(): string {
+  return `- ## Module: starts a module (courses only).
+- ### Session: starts a session (a lecture or a day).
+- video: the main video link for the session. video2: an optional second video link.
+- notes: a notes link, written as the label, then a space, a vertical bar, a space, then the link. Notes placed under a module belong to the module; notes placed under a session belong to that session.
+- quiz: on its own line, followed by the questions for that session. The quiz continues until the next heading, so always put quiz: LAST in each session, after the video, video2 and notes lines. Write every question exactly like this, with a blank line between questions:
+
+${QUIZ_PASTE_EXAMPLE}`;
+}
+
+/** Rules 2 to 8 shared by the whole-course and curriculum prompts (rule 1 differs on purpose). */
+function sharedRules(): string {
+  const L = COURSE_IMPORT_LIMITS;
+  return `2. Match each video link, notes link and quiz question to its session by the lecture name or the day. Do not match by position alone.
+3. Never invent a video link. Never invent a quiz question. If a session has no link, leave the video: line empty. If a session has no quiz in my files, leave it without questions.
+4. If you cannot tell which session a notes link belongs to, put it under "## Unassigned notes" at the end of the file, as notes: lines. Do not guess.
+5. If something is unclear (two sessions that could match, a link with no name, a quiz that does not say which day it is for), ask me before you guess.
+6. In the quiz, write only the question, the options and the answer line. Leave out explanations.
+7. Keep to these limits: at most ${n(L.maxModules)} modules, ${n(L.maxSessions)} sessions in total, ${n(L.maxQuestionsPerSession)} quiz questions in one session, ${n(L.maxQuestionsPerCourse)} quiz questions in the whole course, and ${n(L.maxNotesPerSession)} notes links per session. Keep titles under ${n(L.maxTitle)} characters and note labels under ${n(L.maxLabel)} characters.
+8. Give me the whole file in one code block, starting with the format line, with nothing else inside the block.`;
+}
 
 /** The page lists as they look in a file (shared by every prompt and the example file). */
 const PAGE_LISTS_EXAMPLE = `${PAGE_LIST_HEADINGS.learn}
@@ -219,15 +228,13 @@ Start by asking me to attach the file.`;
  * program's curriculum builder. The file is matched to the program by NAME.
  */
 export function curriculumPrompt(): string {
-  const L = COURSE_IMPORT_LIMITS;
-
   return `You are helping me add the lessons of a course that is already on my academy platform. I will attach some or all of these: a list of YouTube links with the lecture name or day beside each one, a quiz file (Word or PDF, with the correct answers marked), and links to notes on Google Drive.
 
 Put everything together into ONE text file in the exact layout below, and give me the whole file in a single code block. This file is for the lessons only: no course details, no price, no description, no page text.
 
 IMPORTANT: THE NAMES MUST MATCH THE PROGRAM
 
-The platform matches your file to the course by NAME. Keep every module name and every session name exactly as they are in the program: same words, same spelling, same numbers. Do not shorten, fix, translate or reword a name. If you do not have the current module and session names, ask me for the current names first, before you write anything. Do not guess them.
+The platform matches your file to the course by NAME. Keep every module name and every session name exactly as they are in the program: same words, same spelling, same numbers. Do not shorten, fix, translate or reword a name. If you do not have the current module and session names, ask me for the current names first, before you write anything. Do not guess them. The names in the example below are only samples: never use them.
 
 THE LAYOUT
 
@@ -267,24 +274,12 @@ ${FENCE}
 What each line means:
 - format: always exactly ${COURSE_IMPORT_FORMAT_ID}, on the very first line.
 - title and type: required, as explained above.
-- ## Module: starts a module (courses only).
-- ### Session: starts a session (a lecture or a day).
-- video: the main video link for the session. video2: an optional second video link.
-- notes: a notes link, written as the label, then a space, a vertical bar, a space, then the link. Notes placed under a module belong to the module; notes placed under a session belong to that session.
-- quiz: on its own line, followed by the questions for that session. The quiz continues until the next heading, so always put quiz: LAST in each session, after the video, video2 and notes lines. Write every question exactly like this, with a blank line between questions:
-
-${QUIZ_PASTE_EXAMPLE}
+${sessionLayoutHelp()}
 
 THE RULES
 
 1. Take the module names, the session names and their order from the program, exactly as they are in the program.
-2. Match each video link, notes link and quiz question to its session by the lecture name or the day. Do not match by position alone.
-3. Never invent a video link. Never invent a quiz question. If a session has no link, leave the video: line empty. If a session has no quiz in my files, leave it without questions.
-4. If you cannot tell which session a notes link belongs to, put it under "## Unassigned notes" at the end of the file, as notes: lines. Do not guess.
-5. If something is unclear (two sessions that could match, a link with no name, a quiz that does not say which day it is for), ask me before you guess.
-6. In the quiz, write only the question, the options and the answer line. Leave out explanations.
-7. Keep to these limits: at most ${n(L.maxModules)} modules, ${n(L.maxSessions)} sessions in total, ${n(L.maxQuestionsPerSession)} quiz questions in one session, ${n(L.maxQuestionsPerCourse)} quiz questions in the whole course, and ${n(L.maxNotesPerSession)} notes links per session. Keep titles under ${n(L.maxTitle)} characters and note labels under ${n(L.maxLabel)} characters.
-8. Give me the whole file in one code block, starting with the format line, with nothing else inside the block.
+${sharedRules()}
 
 Start by asking me for the current module and session names, and to attach my files.`;
 }
