@@ -102,4 +102,24 @@ describe("CampaignToolbar", () => {
     expect(screen.getByRole("button", { name: "Batch tools" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /^All/ }).parentElement?.className).toContain("overflow-x-auto");
   });
+
+  it("closes the panel when Reset or a quick preset is pressed", () => {
+    setup({ mode: "live" });
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    fireEvent.click(screen.getByRole("link", { name: "Reset" }));
+    expect(screen.queryByText("Registration Filter Criteria")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    fireEvent.click(screen.getByText("All live"));
+    expect(screen.queryByText("Registration Filter Criteria")).toBeNull();
+  });
+
+  it("makes the checked chips follow new filters after a rerender", () => {
+    const { rerender } = setup({ region: "UAE", mode: "live" });
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    rerender(<CampaignToolbar basePath={BASE} filters={{}} counts={counts} options={options} />);
+    const checked = (n: string) =>
+      (Array.from(document.querySelectorAll(`input[type="radio"][name="${n}"]`)) as HTMLInputElement[]).find((r) => r.checked)?.value;
+    expect(checked("region")).toBe("");
+    expect(checked("mode")).toBe("");
+  });
 });

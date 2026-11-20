@@ -121,6 +121,7 @@ export function CampaignToolbar({
             method="get"
             action={basePath}
             data-panel-form
+            key={[filters.region, filters.mode, filters.optionLabel, filters.optionScopes, filters.q, filters.status].join("|")}
             onSubmit={dropEmptyFields}
             className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-pz-surface-container-lowest shadow-xl md:relative md:max-h-none md:rounded-2xl md:border md:border-pz-outline-variant/40 md:shadow-none"
           >
@@ -166,13 +167,14 @@ export function CampaignToolbar({
 
               <div>
                 <span className={SECTION_LABEL}>Quick presets</span>
-                <QuickFilters basePath={basePath} filters={filters} />
+                <QuickFilters basePath={basePath} filters={filters} onNavigate={() => setOpen(false)} />
               </div>
             </div>
 
             <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-pz-outline-variant/30 bg-pz-surface-container-lowest px-5 py-3 rounded-b-2xl">
               <Link
                 href={registrationHref(basePath, { status: filters.status })}
+                onClick={() => setOpen(false)}
                 className="inline-flex items-center max-md:min-h-11 px-2 text-sm font-headline font-semibold text-pz-on-surface-variant hover:text-pz-on-surface"
               >
                 Reset
