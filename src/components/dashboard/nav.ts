@@ -50,15 +50,10 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Landing Pages", href: "/dashboard/admin/landing-pages", icon: LayoutTemplate, roles: ["admin", "manager", "super_admin"], areas: ["landing_pages"] },
   { label: "Media Library", shortLabel: "Media", href: "/dashboard/admin/landing-media", icon: Images, roles: ["admin", "manager", "super_admin"], areas: MEDIA_AREAS },
   { label: "Promo Codes", shortLabel: "Promos", href: "/dashboard/admin/landing-promo-codes", icon: TicketPercent, roles: ["admin", "manager", "super_admin"], areas: ["landing_pages"] },
-  { label: "Payment Accounts", shortLabel: "Payments", href: "/dashboard/admin/payment-accounts", icon: Landmark, roles: ["admin", "manager", "super_admin"], areas: ["payment_accounts"] },
-  { label: "Terms and Conditions", shortLabel: "Terms", href: "/dashboard/admin/terms", icon: ScrollText, roles: ["admin", "manager", "super_admin"], areas: ["terms"] },
-  { label: "Agent Leaderboard", shortLabel: "Leaders", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
   { label: "Affiliates", href: "/dashboard/admin/affiliates", icon: UserPlus, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
-  { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "manager", "super_admin"], areas: ["mentors"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "manager", "super_admin"], areas: ["feedback"] },
   { label: "Sheet Sync", href: "/dashboard/admin/sheet-sync", icon: Link2, roles: ["admin", "manager", "super_admin"], areas: ["sheet_sync"] },
-  { label: "Send Notice", shortLabel: "Notice", href: "/dashboard/admin/notifications", icon: Megaphone, roles: ["admin", "manager", "super_admin"], areas: ["notifications"] },
   { label: "Team", href: "/dashboard/admin/team", icon: ShieldCheck, roles: ["super_admin"] },
   { label: "Analytics", href: "/dashboard/admin", icon: BarChart3, roles: ["admin", "super_admin"] },
   { label: "Notifications", shortLabel: "Alerts", href: "/dashboard/notifications", icon: Bell, roles: ["student", "mentor", "admin", "manager", "super_admin", "sales_agent"] },
@@ -79,15 +74,72 @@ export function navForRole(role: Role, areas?: readonly Area[]): NavItem[] {
   });
 }
 
-/** Pages that live under another menu item: Import and Merge review are tabs of Cohorts. */
-const HUB_PATH_ALIASES: Record<string, string> = {
+/** Cards on the Settings page: admin tools that no longer have their own menu entry. */
+export interface AdminToolCard {
+  label: string;
+  description: string;
+  href: string;
+  icon: NavItem["icon"];
+  areas: readonly Area[];
+}
+
+export const ADMIN_TOOLS: AdminToolCard[] = [
+  { label: "Agent Leaderboard", description: "See how each agent is doing.", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, areas: ["sales_hub"] },
+  { label: "Sales Hub", description: "Contacts, cohorts, audiences and campaigns.", href: SALES_HUB_BASE, icon: Contact, areas: ["sales_hub"] },
+  { label: "Payment Accounts", description: "Where students send their payments.", href: "/dashboard/admin/payment-accounts", icon: Landmark, areas: ["payment_accounts"] },
+  { label: "Terms and Conditions", description: "The terms students agree to when they register.", href: "/dashboard/admin/terms", icon: ScrollText, areas: ["terms"] },
+];
+
+/** Same rules as navForRole: admin, manager and super admin only; a manager needs a matching area. */
+export function toolsForRole(role: Role, areas?: readonly Area[]): AdminToolCard[] {
+  if (role !== "admin" && role !== "manager" && role !== "super_admin") return [];
+  return ADMIN_TOOLS.filter((tool) => {
+    if (role === "super_admin") return true;
+    if (!areas) return role !== "manager";
+    return tool.areas.some((a) => areas.includes(a));
+  });
+}
+
+/** The "Send a notice" button on Notifications: super admin, or anyone with the notifications area. */
+export function canSendNotice(role: Role, areas?: readonly Area[]): boolean {
+  if (role === "super_admin") return true;
+  if (role !== "admin" && role !== "manager") return false;
+  if (!areas) return role !== "manager";
+  return areas.includes("notifications");
+}
+
+/**
+ * Pages that live under another menu item. Exact keys (Import and Merge review are tabs of Cohorts)
+ * and prefix keys (a key plus "/..."): the tool pages sit under Settings, the notice page under Notifications.
+ */
+const ROUTE_ALIASES: Record<string, string> = {
   [`${SALES_HUB_BASE}/import`]: `${SALES_HUB_BASE}/cohorts`,
   [`${SALES_HUB_BASE}/merge`]: `${SALES_HUB_BASE}/cohorts`,
+  "/dashboard/admin/agent-leaderboard": "/dashboard/settings",
+  [SALES_HUB_BASE]: "/dashboard/settings",
+  "/dashboard/admin/payment-accounts": "/dashboard/settings",
+  "/dashboard/admin/terms": "/dashboard/settings",
+  "/dashboard/admin/notifications": "/dashboard/notifications",
 };
 
-/** Longest matching href wins; matches `href` exactly or `href + "/"` prefix. */
+/** Alias targets for a path, best first: the exact key, then prefix keys, longest first. */
+function aliasTargets(pathname: string): string[] {
+  const out: string[] = [];
+  if (ROUTE_ALIASES[pathname]) out.push(ROUTE_ALIASES[pathname]);
+  Object.keys(ROUTE_ALIASES)
+    .filter((k) => pathname.startsWith(`${k}/`))
+    .sort((a, b) => b.length - a.length)
+    .forEach((k) => out.push(ROUTE_ALIASES[k]));
+  return out;
+}
+
+/**
+ * Longest matching href wins; matches `href` exactly or `href + "/"` prefix. An alias is used only when
+ * its target is in this list, so a hub menu (which has no Settings entry) keeps resolving its own pages.
+ */
 export function activeHrefFor(items: NavItem[], rawPathname: string): string | undefined {
-  const pathname = HUB_PATH_ALIASES[rawPathname] ?? rawPathname;
+  const target = aliasTargets(rawPathname).find((t) => items.some((i) => i.href === t));
+  const pathname = target ?? rawPathname;
   return items
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;

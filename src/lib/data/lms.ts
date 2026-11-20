@@ -1,6 +1,7 @@
 import "server-only";
 import { normalizeSections, type PageSection } from "@/lib/marketing/course-sections";
 import { cleanTopic } from "@/lib/marketing/topics";
+import { pickLatestPerFamily, type FamilyListed } from "@/lib/data/lms-listing";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -263,6 +264,25 @@ async function getCoursePageSettings(
   }
 }
 
+interface CourseListRow {
+  id: string;
+  slug: string;
+  title: string;
+  type: CourseType;
+  status: CourseStatus;
+  tagline: string | null;
+  thumbnail_url: string | null;
+  level: CourseCard["level"];
+  duration_text: string | null;
+  duration_weeks: number | null;
+  price_pkr: number;
+  mentor_name: string | null;
+  mentor_title: string | null;
+  mentor_avatar_url: string | null;
+  public_video_url: string | null;
+  timings: string | null;
+}
+
 /**
  * Every published course, for the public catalog grid — optionally narrowed
  * to one CourseType so /courses, /workshops, and /webinars can each show only
@@ -271,16 +291,29 @@ async function getCoursePageSettings(
  */
 export async function getPublishedCourses(type?: CourseType): Promise<CourseCard[]> {
   const supabase = await createServerSupabase();
-  let query = supabase
+  const columns =
+    "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url, timings";
+  // Batch portals: only the newest published course of a family is listed.
+  // Before migration 0119 family_id does not exist, so fall back to no hiding.
+  let rows: CourseListRow[] | null;
+  const withFamily = await supabase
     .from("courses")
-    .select(
-      "id, slug, title, type, status, tagline, thumbnail_url, level, duration_text, duration_weeks, price_pkr, mentor_name, mentor_title, mentor_avatar_url, public_video_url, timings",
-    )
-    .eq("is_published", true);
-  if (type) query = query.eq("type", type);
-  const { data } = await query.order("created_at", { ascending: true });
+    .select(`${columns}, family_id, created_at`)
+    .eq("is_published", true)
+    .order("created_at", { ascending: true });
+  if (!withFamily.error && withFamily.data) {
+    rows = pickLatestPerFamily(withFamily.data as unknown as Array<CourseListRow & FamilyListed>);
+  } else {
+    const plain = await supabase
+      .from("courses")
+      .select(columns)
+      .eq("is_published", true)
+      .order("created_at", { ascending: true });
+    rows = (plain.data as unknown as CourseListRow[] | null) ?? null;
+  }
 
-  if (!data) return [];
+  if (!rows) return [];
+  const data = type ? rows.filter((c) => c.type === type) : rows;
   const extras = await getCourseExtras(supabase, data.map((c) => c.id));
   return data.map((c) => ({
     id: c.id,

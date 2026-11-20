@@ -3,6 +3,7 @@
 // there is deliberately no agent-scope path here. Test rows are never returned.
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import type { Candidate } from "@/lib/landing/participants/types";
 import { applyHeadFilters, HEAD_ROW_TYPES, LIST_ROW_TYPES, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
@@ -38,6 +39,7 @@ export interface Campaign {
   pageStatus: "draft" | "published" | "closed";
   total: number;
   counts: Record<RegistrationStatus, number>;
+  coverUrl: string | null;
 }
 
 export async function listCampaigns(): Promise<Campaign[]> {
@@ -56,7 +58,7 @@ export async function listCampaigns(): Promise<Campaign[]> {
     const id = str(r.page_id);
     let c = byPage.get(id);
     if (!c) {
-      c = { pageId: id, title: "", pageStatus: "draft", total: 0, counts: { pending: 0, reserved: 0, underpaid: 0, paid: 0, free: 0 } };
+      c = { pageId: id, title: "", pageStatus: "draft", total: 0, counts: { pending: 0, reserved: 0, underpaid: 0, paid: 0, free: 0 }, coverUrl: null };
       byPage.set(id, c);
     }
     c.total += 1;
@@ -64,17 +66,26 @@ export async function listCampaigns(): Promise<Campaign[]> {
     if (STATUSES.includes(s)) c.counts[s] += 1;
   }
   if (byPage.size === 0) return [];
-  const pages: { id: string; title: string; status: string }[] = [];
+  const pages: { id: string; title: string; status: string; course_id: string | null; class_cover_url: string | null }[] = [];
   for (const part of chunks(Array.from(byPage.keys()))) {
-    const { data: got, error } = await admin.from("landing_pages").select("id, title, status").in("id", part);
+    const { data: got, error } = await admin.from("landing_pages").select("id, title, status, course_id, class_cover_url").in("id", part);
     if (error) throw error;
     pages.push(...(got ?? []));
+  }
+  const courseIds = Array.from(new Set(pages.map((p) => p.course_id).filter((v): v is string => !!v)));
+  const thumbs = new Map<string, string>();
+  for (const part of chunks(courseIds)) {
+    const { data: got, error } = await admin.from("courses").select("id, thumbnail_url").in("id", part);
+    if (error) throw error;
+    for (const k of (got ?? []) as Row[]) if (str(k.thumbnail_url)) thumbs.set(str(k.id), str(k.thumbnail_url));
   }
   for (const p of pages) {
     const c = byPage.get(p.id);
     if (!c) continue;
     c.title = p.title;
     c.pageStatus = p.status === "published" || p.status === "closed" ? p.status : "draft";
+    const candidates = [p.course_id ? thumbs.get(p.course_id) : undefined, p.class_cover_url];
+    c.coverUrl = candidates.find((u): u is string => isAllowedCoverUrl(u)) ?? null;
   }
   return Array.from(byPage.values()); // Map keeps first-seen order: newest registration first
 }

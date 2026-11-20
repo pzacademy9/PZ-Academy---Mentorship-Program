@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { BatchAccessPanel } from "@/components/admin/registrations/BatchAccessPanel";
 
-const PAGES = [{ id: "p1", title: "PPC Masterclass" }];
 const OVERVIEW = {
   courseTitle: "PPC Course",
   modules: [{ id: "m1", title: "Module 1", finishedAt: null, paidLive: 12, opened: 8 }],
@@ -29,7 +28,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 async function openDialog() {
-  render(<BatchAccessPanel pageOptions={PAGES} />);
+  render(<BatchAccessPanel pageId="p1" />);
   await screen.findByText("Module 1");
   fireEvent.click(screen.getByRole("button", { name: "Save batch to CRM" }));
   return screen.findByRole("dialog");
@@ -117,7 +116,7 @@ describe("Save batch to CRM", () => {
     expect(strip.textContent).toBe("Saved to your CRM again. 1 new paid person added; the interested list was refreshed (30 people).");
   });
 
-  it("shows Saving… on the button while the save runs and locks the page select while previewing", async () => {
+  it("shows Saving… on the button while the save runs", async () => {
     let release: (r: Response) => void = () => {};
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("close-batch")) return init?.method === "POST" ? new Promise<Response>((r) => (release = r)) : Promise.resolve(json(PREVIEW));
@@ -126,7 +125,6 @@ describe("Save batch to CRM", () => {
     const dialog = await openDialog();
     fireEvent.click(within(dialog).getByRole("button", { name: "Yes, save it" }));
     await screen.findByRole("button", { name: "Saving…" });
-    expect((screen.getByLabelText("Landing page") as HTMLSelectElement).disabled).toBe(true);
     release(json(RESULT));
     await screen.findByText(/Saved to your CRM:/);
   });
@@ -142,7 +140,7 @@ describe("Save batch to CRM", () => {
 
   it("shows the generic error when the preview fails", async () => {
     fetchMock.mockImplementation(async (url: string) => (url.includes("close-batch") ? json({ error: "Page not found" }, false, 404) : json(OVERVIEW)));
-    render(<BatchAccessPanel pageOptions={PAGES} />);
+    render(<BatchAccessPanel pageId="p1" />);
     await screen.findByText("Module 1");
     fireEvent.click(screen.getByRole("button", { name: "Save batch to CRM" }));
     await screen.findByText("Something went wrong. Please try again.");

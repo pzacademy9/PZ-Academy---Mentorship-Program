@@ -47,6 +47,11 @@ export interface ProgramListRow {
   isPublished: boolean;
   sessionCount: number;
   enrollmentCount: number;
+  thumbnailUrl: string | null;
+  /** Course family (for example "PPC") this portal belongs to, or null. */
+  familyName: string | null;
+  /** Batch label shown beside the title inside a family group, or null. */
+  batchLabel: string | null;
 }
 
 export interface ProgramListStats {
@@ -64,6 +69,37 @@ interface RawCourseRow {
   status: CourseStatus;
   price_pkr: number;
   is_published: boolean;
+  thumbnail_url: string | null;
+  family_id?: string | null;
+  batch_label?: string | null;
+}
+
+const PROGRAM_COLUMNS = "id, slug, title, type, status, price_pkr, is_published, thumbnail_url";
+
+/**
+ * Reads courses with the family columns; if they are not there yet (the
+ * migration is not pasted) falls back to the old select so the Programs page
+ * keeps working. Families are a separate, wrapped query for the same reason.
+ */
+async function readCoursesWithFamilies(
+  admin: ReturnType<typeof createAdminSupabase>,
+): Promise<{ courses: RawCourseRow[]; familyNames: Map<string, string> }> {
+  const withFamily = await admin
+    .from("courses")
+    .select(`${PROGRAM_COLUMNS}, family_id, batch_label`)
+    .order("title");
+  if (withFamily.error) {
+    const plain = await admin.from("courses").select(PROGRAM_COLUMNS).order("title");
+    return { courses: (plain.data ?? []) as RawCourseRow[], familyNames: new Map() };
+  }
+  const familyNames = new Map<string, string>();
+  try {
+    const fams = await admin.from("course_families").select("id, name");
+    if (!fams.error) for (const f of fams.data ?? []) familyNames.set(f.id, f.name);
+  } catch {
+    // no family names: rows simply stay ungrouped
+  }
+  return { courses: (withFamily.data ?? []) as unknown as RawCourseRow[], familyNames };
 }
 
 /**
@@ -76,17 +112,13 @@ interface RawCourseRow {
 export async function listPrograms(): Promise<{ rows: ProgramListRow[]; stats: ProgramListStats }> {
   const admin = createAdminSupabase();
 
-  const [{ data: courses }, { data: modules }, { data: lessons }, { data: enrollments }] = await Promise.all([
-    admin
-      .from("courses")
-      .select("id, slug, title, type, status, price_pkr, is_published")
-      .order("title"),
+  const [{ courses: courseRows, familyNames }, { data: modules }, { data: lessons }, { data: enrollments }] = await Promise.all([
+    readCoursesWithFamilies(admin),
     admin.from("modules").select("id, course_id"),
     admin.from("lessons").select("id, module_id"),
     admin.from("enrollments").select("id, course_id"),
   ]);
 
-  const courseRows = (courses ?? []) as RawCourseRow[];
   const moduleToCourse = new Map((modules ?? []).map((m) => [m.id, m.course_id]));
 
   const sessionCountByCourse = new Map<string, number>();
@@ -114,6 +146,9 @@ export async function listPrograms(): Promise<{ rows: ProgramListRow[]; stats: P
     isPublished: c.is_published,
     sessionCount: sessionCountByCourse.get(c.id) ?? 0,
     enrollmentCount: enrollmentCountByCourse.get(c.id) ?? 0,
+    thumbnailUrl: c.thumbnail_url ?? null,
+    familyName: (c.family_id && familyNames.get(c.family_id)) || null,
+    batchLabel: c.batch_label ?? null,
   }));
 
   const published = rows.filter((r) => r.isPublished).length;

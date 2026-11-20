@@ -32,28 +32,28 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const portal = await getPagePortalState(pageId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-poppins">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-headline text-2xl font-bold text-pz-on-surface">Classes</h1>
-          <p className="text-base text-pz-on-surface-variant">{campaign.title}</p>
+          <h1 className="font-montserrat text-3xl font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface">Classes</h1>
+          <p className="text-base text-[#4D6B54] dark:text-pz-on-surface-variant">{campaign.title}</p>
         </div>
         <div className="flex flex-wrap items-center gap-x-5">
           <Link
             href={`${BASE}/campaign/${pageId}/reports`}
-            className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+            className="inline-flex min-h-12 items-center rounded-full text-base font-poppins font-semibold text-[#196432] hover:text-[#0F3D22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#196432] focus-visible:ring-offset-2 dark:text-pz-primary dark:hover:text-pz-primary-fixed transition-colors"
           >
             Progress reports
           </Link>
           <Link
             href={`${BASE}/campaign/${pageId}/ids`}
-            className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+            className="inline-flex min-h-12 items-center rounded-full text-base font-poppins font-semibold text-[#196432] hover:text-[#0F3D22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#196432] focus-visible:ring-offset-2 dark:text-pz-primary dark:hover:text-pz-primary-fixed transition-colors"
           >
             Student IDs
           </Link>
           <Link
             href={`${BASE}/campaign/${pageId}`}
-            className="inline-flex min-h-12 items-center text-base font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
+            className="inline-flex min-h-12 items-center rounded-full text-base font-poppins font-semibold text-[#196432] hover:text-[#0F3D22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#196432] focus-visible:ring-offset-2 dark:text-pz-primary dark:hover:text-pz-primary-fixed transition-colors"
           >
             Back to registrations
           </Link>

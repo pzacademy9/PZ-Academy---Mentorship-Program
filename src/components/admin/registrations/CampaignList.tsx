@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Megaphone } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { CoverThumb } from "@/components/ui/CoverThumb";
 import { REGISTRATION_STATUS_LABELS } from "./RegistrationStatusBadge";
 import type { Campaign } from "@/lib/data/participant-campaigns";
 
@@ -48,8 +49,10 @@ function CampaignCard({ c }: { c: Campaign }) {
   return (
     <Link
       href={`${CAMPAIGN_HREF}/${c.pageId}`}
-      className="group relative bg-pz-surface-container-lowest rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col"
+      className="group relative bg-pz-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
     >
+      <CoverThumb key={c.coverUrl ?? "none"} url={c.coverUrl} title={c.title} />
+      <div className="p-5 flex flex-col">
       <div className="flex items-center justify-between gap-2 mb-3">
         <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-headline font-bold", state.cls)}>
           {state.pulse && <span className="w-1.5 h-1.5 rounded-full bg-pz-primary animate-pulse" aria-hidden="true" />}
@@ -86,6 +89,7 @@ function CampaignCard({ c }: { c: Campaign }) {
           </span>
         ))}
       </div>
+      </div>
     </Link>
   );
 }
@@ -103,12 +107,6 @@ export function CampaignList({ campaigns }: { campaigns: Campaign[] }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard/admin/enrollments/registrations/access"
-            className="px-4 py-2.5 max-md:min-h-11 rounded-lg font-headline text-sm font-semibold bg-pz-surface-container-high text-pz-on-surface hover:bg-pz-surface-variant transition-colors"
-          >
-            Batch access
-          </Link>
           <AllRegistrationsLink total={campaigns.length > 0 ? total : undefined} />
         </div>
       </div>

@@ -18,6 +18,9 @@ vi.mock("@/lib/data/landing-jobs", () => ({
   runJobsFor: (id: string) => runJobsFor(id),
 }));
 
+const getPageChoiceOptions = vi.fn(async (_pageId: string): Promise<unknown> => null);
+vi.mock("@/lib/data/portal-choices", () => ({ getPageChoiceOptions: (id: string) => getPageChoiceOptions(id) }));
+
 import { runMirror, runMirrorForAllPages, MIRROR_PAGE_NOT_FOUND, MIRROR_NO_SHEET } from "@/lib/data/landing-mirror";
 
 const SHEET_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
@@ -104,7 +107,7 @@ const regs = () => store.landing_registrations;
 beforeEach(() => {
   db.reset(); rpcCalls.length = 0; rpcReply = null; upsertCalls = 0; failInsertFor = null; onFetch = null;
   queueStatusFollowUps.mockClear(); enqueueStatusEffects.mockClear(); enqueueSheetStatus.mockClear(); runJobsFor.mockClear();
-  fetchMock.mockClear(); sheetStatus = 200; sheetBody = THREE();
+  fetchMock.mockClear(); getPageChoiceOptions.mockReset(); getPageChoiceOptions.mockResolvedValue(null); sheetStatus = 200; sheetBody = THREE();
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -426,6 +429,91 @@ describe("runMirror", () => {
     const r = await runMirror("p1");
     expect(r.ok).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("runMirror purchase choices", () => {
+  const OPTIONS = [
+    { key: "full", label: "Full Course", kind: "bundle", moduleIds: [] },
+    { key: "m1", label: "Module 1", kind: "module", moduleIds: ["a"] },
+    { key: "m2", label: "Module 2", kind: "module", moduleIds: ["b"] },
+  ];
+
+  it("an inserted row gets option_keys from a confident label match", async () => {
+    setup();
+    getPageChoiceOptions.mockResolvedValue(OPTIONS);
+    sheetBody = csv(csvLine({}), csvLine({ Name: "Person Two", Email: "two@example.com", "Submitted At": "9/15/2026 19:20:00", "Ref ID": "T-002", "Registration Option": "Live - Module 1, Module 2 - Individual" }));
+    const r = await runMirror("p1");
+    expect(r).toMatchObject({ inserted: 2, problems: [] });
+    expect(regs()[0].option_keys).toEqual(["full"]);
+    expect(regs()[1].option_keys).toEqual(["m1", "m2"]);
+  });
+
+  it("each group row takes its keys from its own label", async () => {
+    setup();
+    getPageChoiceOptions.mockResolvedValue(OPTIONS);
+    sheetBody = csv(
+      csvLine({ Name: "Lead", Email: "lead@example.com", "Row Type": "Group Lead", "Registration Option": "Live - Full Course - Group of 3", "Submitted At": "9/15/2026 19:00:00", "Ref ID": "G-001" }),
+      csvLine({ Name: "Member A", Email: "a@example.com", "Row Type": "Group Member", "Group Lead Email": "lead@example.com", "Registration Option": "Live - Module 1 - Group of 3", "Submitted At": "9/15/2026 19:00:01", "Ref ID": "", "Expected Amount": "" }),
+    );
+    await runMirror("p1");
+    expect(regs().find((x) => x.row_type === "lead")!.option_keys).toEqual(["full"]);
+    expect(regs().find((x) => x.row_type === "member")!.option_keys).toEqual(["m1"]);
+  });
+
+  it("an inserted row with an unmatched label keeps empty option_keys", async () => {
+    setup();
+    getPageChoiceOptions.mockResolvedValue(OPTIONS);
+    sheetBody = csv(csvLine({ "Registration Option": "Live - Module 7 - Individual" }));
+    await runMirror("p1");
+    expect(regs()[0].option_keys).toEqual([]);
+    expect(regs()[0].option_label).toBe("Live - Module 7 - Individual");
+  });
+
+  it("a page with no options keeps empty option_keys", async () => {
+    setup();
+    getPageChoiceOptions.mockResolvedValue([]);
+    await runMirror("p1");
+    expect(regs().map((x) => x.option_keys)).toEqual([[], [], []]);
+    getPageChoiceOptions.mockResolvedValue(null);
+    setup();
+    await runMirror("p1");
+    expect(regs().map((x) => x.option_keys)).toEqual([[], [], []]);
+  });
+
+  it("existing rows are never changed by the mirror", async () => {
+    setup(sheetApp());
+    getPageChoiceOptions.mockResolvedValue(OPTIONS);
+    sheetBody = csv(csvLine({}));
+    const before = JSON.stringify(regs()[0]);
+    await runMirror("p1");
+    expect(db.find("landing_registrations", "insert")).toHaveLength(0);
+    expect(db.state.ops.filter((o) => o.table === "landing_registrations" && o.op === "update")).toHaveLength(0);
+    expect(JSON.stringify(regs()[0])).toBe(before);
+  });
+
+  it("the page options are loaded once per run, not per row", async () => {
+    setup();
+    getPageChoiceOptions.mockResolvedValue(OPTIONS);
+    await runMirror("p1");
+    expect(regs()).toHaveLength(3);
+    expect(getPageChoiceOptions).toHaveBeenCalledTimes(1);
+    expect(getPageChoiceOptions).toHaveBeenCalledWith("p1");
+  });
+
+  it("a preview still writes nothing", async () => {
+    setup();
+    getPageChoiceOptions.mockResolvedValue(OPTIONS);
+    await runMirror("p1", { preview: true });
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("still mirrors the rows when the options cannot be read", async () => {
+    setup();
+    getPageChoiceOptions.mockRejectedValue(new Error("boom"));
+    const r = await runMirror("p1");
+    expect(r).toMatchObject({ ok: true, inserted: 3 });
+    expect(regs().map((x) => x.option_keys)).toEqual([[], [], []]);
   });
 });
 

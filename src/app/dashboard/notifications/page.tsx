@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
-import { BellOff } from "lucide-react";
+import Link from "next/link";
+import { BellOff, Send } from "lucide-react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getNotifications, getUnreadNotificationCount } from "@/lib/data/notifications";
+import { canSendNotice } from "@/components/dashboard/nav";
+import { getViewerRoleAndAreas } from "@/lib/auth/viewer-areas";
 import { NotificationHistory } from "@/components/dashboard/NotificationHistory";
 
 export const metadata = { title: "Notifications — PZ Academy" };
@@ -13,9 +16,10 @@ export default async function NotificationsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [notifications, unreadCount] = await Promise.all([
+  const [notifications, unreadCount, viewer] = await Promise.all([
     getNotifications(user.id),
     getUnreadNotificationCount(user.id),
+    getViewerRoleAndAreas(supabase, user.id),
   ]);
 
   return (
@@ -29,6 +33,15 @@ export default async function NotificationsPage() {
               : "You're all caught up."}
           </p>
         </div>
+        {canSendNotice(viewer.role, viewer.areas) && (
+          <Link
+            href="/dashboard/admin/notifications"
+            className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-pz-outline-variant/40 bg-pz-surface-container px-4 font-body font-semibold text-sm text-pz-on-surface hover:bg-pz-surface-container-high"
+          >
+            <Send className="h-4 w-4" />
+            Send a notice
+          </Link>
+        )}
       </div>
 
       {notifications.length === 0 ? (

@@ -17,7 +17,7 @@ describe.each(ROLES)("role %s", (role) => {
 it("admin has items past the 4th, all reachable via more", () => {
   const items = navForRole("admin");
   const { more } = splitMobileNav(items, undefined);
-  for (const label of ["Feedback", "Sheet Sync", "Send Notice", "Analytics", "Notifications", "Settings"]) {
+  for (const label of ["Feedback", "Sheet Sync", "Analytics", "Notifications", "Settings"]) {
     expect(more.map((i) => i.label)).toContain(label);
   }
 });
@@ -68,9 +68,9 @@ it("only sales agents get the Campaigns item", () => {
   }
 });
 
-it("admins get the Sales Hub entry, others do not", () => {
-  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-hub");
-  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-hub");
+it("the Sales Hub entry moved to Settings: no role has it in the main menu", () => {
+  expect(navForRole("admin").map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
+  expect(navForRole("super_admin").map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
   for (const r of ["sales_agent", "mentor", "student"] as const) {
     expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
   }

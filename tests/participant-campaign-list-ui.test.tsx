@@ -6,7 +6,7 @@ import type { Campaign } from "@/lib/data/participant-campaigns";
 
 const camp = (over: Partial<Campaign> = {}): Campaign => ({
   pageId: "pg1", title: "TMC Batch 1", pageStatus: "published", total: 7,
-  counts: { pending: 3, reserved: 1, underpaid: 0, paid: 2, free: 1 }, ...over,
+  counts: { pending: 3, reserved: 1, underpaid: 0, paid: 2, free: 1 }, coverUrl: null, ...over,
 });
 
 describe("campaign list UI", () => {
@@ -39,11 +39,11 @@ describe("campaign list UI", () => {
     expect(screen.getByRole("link", { name: /All registrations/ })).toBeTruthy();
   });
 
-  it("links to batch access with and without campaigns", () => {
+  it('has no "Batch access" link with or without campaigns', () => {
     const { unmount } = render(<CampaignList campaigns={[camp()]} />);
-    expect(screen.getByRole("link", { name: "Batch access" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/access");
+    expect(screen.queryByRole("link", { name: "Batch access" })).toBeNull();
     unmount();
     render(<CampaignList campaigns={[]} />);
-    expect(screen.getByRole("link", { name: "Batch access" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations/access");
+    expect(screen.queryByRole("link", { name: "Batch access" })).toBeNull();
   });
 });

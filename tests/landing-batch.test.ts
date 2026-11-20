@@ -87,7 +87,7 @@ describe("finishBatch", () => {
   it("whole course: a row per module plus the marker, opens every module, emails each person once", async () => {
     setup([reg("a"), reg("b")]);
     const r = await press(null);
-    expect(r).toEqual({ modulesFinished: 3, opened: 2, emailed: 2, alreadyOpen: 0, waitingForAccount: 0, failed: 0 });
+    expect(r).toEqual({ modulesFinished: 3, opened: 2, emailed: 2, alreadyOpen: 0, waitingForAccount: 0, failed: 0, needsChoice: 0 });
     expect(store.landing_batch_state.map((x) => x.module_id).sort((x, y) => String(x).localeCompare(String(y)))).toEqual([M1, M2, M3, null]);
     expect(store.landing_batch_state.every((x) => x.finished_by === ADMIN && x.page_id === PAGE)).toBe(true);
     expect(opens("stu-a")).toEqual([M1, M2, M3]);
@@ -113,7 +113,7 @@ describe("finishBatch", () => {
     await press(null);
     h.send.mockClear();
     const r = await press(null);
-    expect(r).toEqual({ modulesFinished: 3, opened: 0, emailed: 0, alreadyOpen: 2, waitingForAccount: 0, failed: 0 });
+    expect(r).toEqual({ modulesFinished: 3, opened: 0, emailed: 0, alreadyOpen: 2, waitingForAccount: 0, failed: 0, needsChoice: 0 });
     expect(h.send).not.toHaveBeenCalled();
     expect(store.landing_batch_state).toHaveLength(4);
     expect(logs()).toHaveLength(2);
@@ -158,12 +158,12 @@ describe("finishBatch", () => {
     setup([reg("a"), reg("b"), reg("c")]);
     h.send.mockImplementation(async (o: { to: string }) => { if (o.to === "b@x.com") throw new Error("Brevo 502"); return {}; });
     const r = await press(null);
-    expect(r).toEqual({ modulesFinished: 3, opened: 3, emailed: 2, alreadyOpen: 0, waitingForAccount: 0, failed: 1 });
+    expect(r).toEqual({ modulesFinished: 3, opened: 3, emailed: 2, alreadyOpen: 0, waitingForAccount: 0, failed: 1, needsChoice: 0 });
     expect(logs()).toHaveLength(2);
     h.send.mockReset();
     h.send.mockResolvedValue({});
     const again = await press(null);
-    expect(again).toEqual({ modulesFinished: 3, opened: 0, emailed: 1, alreadyOpen: 2, waitingForAccount: 0, failed: 0 });
+    expect(again).toEqual({ modulesFinished: 3, opened: 0, emailed: 1, alreadyOpen: 2, waitingForAccount: 0, failed: 0, needsChoice: 0 });
     expect(sentTo()).toEqual(["b@x.com"]);
     expect(logs()).toHaveLength(3);
   });
@@ -171,7 +171,7 @@ describe("finishBatch", () => {
   it("a page with no course returns zeros and writes nothing", async () => {
     setup([reg("a")], {}, null);
     const r = await press(null);
-    expect(r).toEqual({ modulesFinished: 0, opened: 0, emailed: 0, alreadyOpen: 0, waitingForAccount: 0, failed: 0 });
+    expect(r).toEqual({ modulesFinished: 0, opened: 0, emailed: 0, alreadyOpen: 0, waitingForAccount: 0, failed: 0, needsChoice: 0 });
     expect(db.state.ops.filter((o) => o.op !== "select")).toHaveLength(0);
     expect(h.send).not.toHaveBeenCalled();
   });
@@ -210,7 +210,7 @@ describe("emailPortalLinks", () => {
   it("live: sends to open Live buyers, counts closed and no-account", async () => {
     setup(people(), { landing_batch_state: finishedM1 });
     const r = await emailPortalLinks({ pageId: PAGE, audience: "live", adminId: ADMIN });
-    expect(r).toEqual({ sent: 1, notOpenYet: 1, waitingForAccount: 1, failed: 0 });
+    expect(r).toEqual({ sent: 1, notOpenYet: 1, waitingForAccount: 1, failed: 0, needsChoice: 0 });
     expect(sentTo()).toEqual(["open@x.com"]);
     expect(h.send.mock.calls[0][0].htmlContent).toContain("Module One");
     expect(logs().map((l) => l.registration_id)).toEqual(["open"]);
@@ -219,7 +219,7 @@ describe("emailPortalLinks", () => {
   it("recorded: sends to recorded buyers only", async () => {
     setup(people(), { landing_batch_state: finishedM1 });
     const r = await emailPortalLinks({ pageId: PAGE, audience: "recorded", adminId: ADMIN });
-    expect(r).toEqual({ sent: 1, notOpenYet: 0, waitingForAccount: 0, failed: 0 });
+    expect(r).toEqual({ sent: 1, notOpenYet: 0, waitingForAccount: 0, failed: 0, needsChoice: 0 });
     expect(sentTo()).toEqual(["recd@x.com"]);
     expect(logs().map((l) => l.registration_id)).toEqual(["recd"]);
   });
@@ -227,7 +227,7 @@ describe("emailPortalLinks", () => {
   it("both: Live and Recorded together, each send logged", async () => {
     setup(people(), { landing_batch_state: finishedM1 });
     const r = await emailPortalLinks({ pageId: PAGE, audience: "both", adminId: ADMIN });
-    expect(r).toEqual({ sent: 2, notOpenYet: 1, waitingForAccount: 1, failed: 0 });
+    expect(r).toEqual({ sent: 2, notOpenYet: 1, waitingForAccount: 1, failed: 0, needsChoice: 0 });
     expect(sentTo()).toEqual(["open@x.com", "recd@x.com"]);
     expect(logs()).toHaveLength(2);
   });
@@ -242,7 +242,30 @@ describe("emailPortalLinks", () => {
 
   it("no course: zeros", async () => {
     setup(people(), {}, null);
-    expect(await emailPortalLinks({ pageId: PAGE, audience: "both", adminId: ADMIN })).toEqual({ sent: 0, notOpenYet: 0, waitingForAccount: 0, failed: 0 });
+    expect(await emailPortalLinks({ pageId: PAGE, audience: "both", adminId: ADMIN })).toEqual({ sent: 0, notOpenYet: 0, waitingForAccount: 0, failed: 0, needsChoice: 0 });
+  });
+});
+
+describe("held people (label but no recorded choice)", () => {
+  const heldRow = (id: string, o: Record<string, unknown> = {}) => reg(id, { option_keys: [], option_label: "Live - Modules: M3 - Individual", ...o });
+
+  it("finishBatch counts held people in needsChoice and does not email them", async () => {
+    setup([reg("ok"), heldRow("held"), heldRow("held2", { student_id: null })]);
+    const r = await press(null);
+    expect(r).toEqual({ modulesFinished: 3, opened: 1, emailed: 1, alreadyOpen: 0, waitingForAccount: 0, failed: 0, needsChoice: 2 });
+    expect(sentTo()).toEqual(["ok@x.com"]);
+    expect(opens("stu-held")).toEqual([]);
+    expect(store.enrollments.some((e) => e.student_id === "stu-held")).toBe(false);
+    expect(logs().map((l) => l.registration_id)).toEqual(["ok"]);
+  });
+
+  it("emailPortalLinks counts needsChoice", async () => {
+    setup([reg("ok", { mode: "recorded" }), heldRow("held", { mode: "recorded" }), heldRow("heldLive")]);
+    const r = await emailPortalLinks({ pageId: PAGE, audience: "recorded", adminId: ADMIN });
+    expect(r).toEqual({ sent: 1, notOpenYet: 0, waitingForAccount: 0, failed: 0, needsChoice: 1 });
+    expect(sentTo()).toEqual(["ok@x.com"]);
+    const both = await emailPortalLinks({ pageId: PAGE, audience: "both", adminId: ADMIN });
+    expect(both.needsChoice).toBe(2);
   });
 });
 

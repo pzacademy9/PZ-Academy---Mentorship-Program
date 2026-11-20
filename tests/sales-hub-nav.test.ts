@@ -41,9 +41,9 @@ it("mobile bar shows Overview, Contacts, Assign Lists, Sales Team; the rest is u
   expect(more[more.length - 1].label).toBe("Back to Admin");
 });
 
-it("main admin nav has one Sales Hub entry and no CRM / Sales Team / Safety entries", () => {
+it("main admin nav has no Sales Hub entry (it moved to Settings) and no CRM / Sales Team / Safety entries", () => {
   const labels = navForRole("admin").map((i) => i.label);
-  expect(labels).toContain("Sales Hub");
+  expect(labels).not.toContain("Sales Hub");
   for (const gone of ["CRM", "Sales Team", "WhatsApp Safety"]) expect(labels).not.toContain(gone);
   expect(navForRole("sales_agent").map((i) => i.label)).not.toContain("Sales Hub");
   expect(navForRole("mentor").map((i) => i.label)).not.toContain("Sales Hub");

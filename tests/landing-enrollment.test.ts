@@ -261,6 +261,41 @@ describe("syncEnrollmentForRegistration", () => {
     const order = allWrites().map((o) => `${o.table}:${o.op}`);
     expect(order.indexOf("enrollment_open_modules:upsert")).toBeLessThan(order.indexOf("enrollments:update"));
   });
+  it("syncEnrollmentForRegistration returns needs-choice and makes no enrollment, open-module or lesson_progress write for a held row", async () => {
+    setPage(); world({ regs: [reg({ option_keys: [], option_label: "Live - Modules: M3 - Individual", mode: "live" })], batch: [{ page_id: PAGE, module_id: M1, finished_at: "2026-10-19T00:00:00Z", finished_by: null }] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("needs-choice");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("a group member is held when the lead's label has no choice", async () => {
+    setPage();
+    world({ regs: [
+      reg({ id: "lead", row_type: "lead", option_keys: [], option_label: "Live - Modules: M3 - Group", mode: "live" }),
+      reg({ id: "mem", row_type: "member", lead_registration_id: "lead", option_keys: ["opt"], option_label: "", mode: "recorded", student_id: "stu-2" }),
+    ] });
+    expect(await syncEnrollmentForRegistration("mem")).toBe("needs-choice");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("a page with options holds a Paid person with empty keys even when the label is blank", async () => {
+    setPage(); world({ regs: [reg({ option_keys: [], option_label: "  " })] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("needs-choice");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("a page with no options is unchanged: empty keys and a blank label are granted", async () => {
+    setPage([]); world({ regs: [reg({ option_keys: [], option_label: "  " })] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+  });
+  it("keys that match no option on the page are held, not given the whole course", async () => {
+    setPage(); world({ regs: [reg({ option_keys: ["ghost"], option_label: "" })] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("needs-choice");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("a partial match uses only the matched options", async () => {
+    setPage([{ key: "a", moduleIds: [M1] }]);
+    world({ regs: [reg({ option_keys: ["a", "ghost"] })] });
+    const r = await resolveAccess("reg-1");
+    expect(r!.desired.action).toBe("grant");
+    expect(r!.desired.moduleIds).toEqual([M1]);
+  });
   it("guest: no-account, nothing written", async () => {
     setPage(); world({ regs: [reg({ student_id: null })] });
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("no-account");

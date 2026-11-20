@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { SettingsForm } from "@/components/dashboard/SettingsForm";
+import { AdminToolCards } from "@/components/dashboard/AdminToolCards";
+import { toolsForRole } from "@/components/dashboard/nav";
+import { getViewerRoleAndAreas } from "@/lib/auth/viewer-areas";
 
 export const metadata = { title: "Settings — PZ Academy" };
 
@@ -17,6 +20,8 @@ export default async function SettingsPage() {
     .eq("id", user.id)
     .single();
 
+  const { role, areas } = await getViewerRoleAndAreas(supabase, user.id);
+
   return (
     <div className="space-y-6">
       <div>
@@ -28,6 +33,7 @@ export default async function SettingsPage() {
         initialFullName={profile?.full_name ?? ""}
         initialAvatarUrl={profile?.avatar_url ?? ""}
       />
+      <AdminToolCards tools={toolsForRole(role, areas)} />
     </div>
   );
 }
