@@ -1,6 +1,9 @@
 /** Route constants for the admin Sales Hub. Pure, safe to import in client code. */
 export const SALES_HUB_BASE = "/dashboard/admin/sales-hub";
 
+/** The Agent Leaderboard page lives outside the hub folder but belongs to the hub menu. */
+export const AGENT_LEADERBOARD_PATH = "/dashboard/admin/agent-leaderboard";
+
 export function hubPath(section: string): string {
   return `${SALES_HUB_BASE}/${section}`;
 }
@@ -15,5 +18,10 @@ export function legacyCrmTabTarget(tab: string | undefined): string {
 }
 
 export function isSalesHubPath(pathname: string): boolean {
-  return pathname === SALES_HUB_BASE || pathname.startsWith(`${SALES_HUB_BASE}/`);
+  return (
+    pathname === SALES_HUB_BASE ||
+    pathname.startsWith(`${SALES_HUB_BASE}/`) ||
+    pathname === AGENT_LEADERBOARD_PATH ||
+    pathname.startsWith(`${AGENT_LEADERBOARD_PATH}/`)
+  );
 }

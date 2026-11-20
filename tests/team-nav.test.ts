@@ -29,10 +29,11 @@ describe("navForRole with areas", () => {
   it("hides Media Library when every media area is removed", () => {
     expect(labels("admin", { extra: [], removed: ["landing_pages", "courses", "mentors", "marketing"] })).not.toContain("Media Library");
   });
-  it("gives a plain admin everything except Sheet Sync and Team (the five moved items are no longer in the menu)", () => {
+  it("gives a plain admin everything except Sheet Sync and Team (the moved items are no longer in the menu)", () => {
     const l = labels("admin");
     expect(l).toContain("Analytics");
-    for (const not of ["Sales Hub", "Payment Accounts", "Terms and Conditions", "Sheet Sync", "Team"]) expect(l).not.toContain(not);
+    expect(l).toContain("Sales Hub");
+    for (const not of ["Payment Accounts", "Terms and Conditions", "Sheet Sync", "Team"]) expect(l).not.toContain(not);
   });
   it("gives the super admin everything, including Team", () => {
     const l = labels("super_admin");

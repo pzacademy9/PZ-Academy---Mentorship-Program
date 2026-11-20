@@ -79,6 +79,7 @@ export function RegistrationsTable({
   total,
   basePath,
   detailHrefBase,
+  detailSuffix = "",
   showAgentColumn,
   showPzId = false,
   selectable,
@@ -89,6 +90,8 @@ export function RegistrationsTable({
   total: number;
   basePath: string;
   detailHrefBase: string;
+  /** Added after a person's link (the list they came from), so Back returns there. */
+  detailSuffix?: string;
   showAgentColumn: boolean;
   /** Campaign page only: adds a PZ ID column. */
   showPzId?: boolean;
@@ -116,7 +119,7 @@ export function RegistrationsTable({
   }
 
   // A member has no detail page of its own (its id would 404), so it opens its lead's.
-  const href = (r: RegistrationListRow) => `${detailHrefBase}/${r.leadId ?? r.id}`;
+  const href = (r: RegistrationListRow) => `${detailHrefBase}/${r.leadId ?? r.id}${detailSuffix}`;
 
   return (
     <div className="space-y-4">

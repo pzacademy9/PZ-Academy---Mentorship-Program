@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { getRegistrationDetail } from "@/lib/data/landing-registration-admin";
+import { backTarget } from "@/lib/registrations/back-link";
 import { RegistrationDetailView } from "@/components/admin/registrations/RegistrationDetailView";
 
 export const metadata = { title: "Registration Detail — PZ Academy" };
@@ -9,17 +10,24 @@ export const metadata = { title: "Registration Detail — PZ Academy" };
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default async function AdminRegistrationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminRegistrationDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   await requireAdminPage("enrollments");
 
   const { id } = await params;
+  const { from } = await searchParams;
   const detail = await getRegistrationDetail(id, { kind: "all" });
   if (!detail) notFound();
 
   return (
     <RegistrationDetailView
       detail={detail}
-      backHref="/dashboard/admin/enrollments/registrations/all"
+      backHref={backTarget(from)}
       backLabel="Back to registrations"
       endpoint={`/api/admin/registrations/${detail.lead.id}`}
       showAgent

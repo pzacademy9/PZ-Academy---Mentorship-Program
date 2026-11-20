@@ -48,6 +48,8 @@ export interface CampaignRegistrationsProps {
   counts: Record<RegistrationStatus | "all", number>;
   basePath: string;
   detailHrefBase: string;
+  /** Added after a person's link so Back returns to this list. */
+  detailSuffix?: string;
   /** The filters the list was fetched with (page number left out). */
   filters: RegistrationListFilters;
   query: RegistrationQuery;
@@ -69,6 +71,7 @@ export function CampaignRegistrations({
   counts,
   basePath,
   detailHrefBase,
+  detailSuffix,
   filters,
   query,
   filterOptions,
@@ -254,6 +257,7 @@ export function CampaignRegistrations({
         total={total}
         basePath={basePath}
         detailHrefBase={detailHrefBase}
+        detailSuffix={detailSuffix}
         showAgentColumn={false}
         showPzId
         rowActions={(r) => <RowActions row={r} onOpenBuilder={openForRow} />}

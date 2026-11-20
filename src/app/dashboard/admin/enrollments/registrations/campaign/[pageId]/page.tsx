@@ -6,6 +6,7 @@ import { listCampaignFilterOptions } from "@/lib/data/participant-campaigns";
 import { listSendSummaries } from "@/lib/data/participant-sends";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { CampaignRegistrations } from "@/components/admin/registrations/CampaignRegistrations";
+import { listAddress, detailSuffix } from "@/lib/registrations/back-link";
 import { MessagesSentList } from "@/components/admin/registrations/MessagesSentList";
 
 export const metadata = { title: "Campaign Registrations — PZ Academy" };
@@ -125,6 +126,7 @@ export default async function AdminCampaignRegistrationsPage({
         counts={list.counts}
         basePath={`${DETAIL_BASE}/campaign/${pageId}`}
         detailHrefBase={DETAIL_BASE}
+        detailSuffix={detailSuffix(listAddress(`${DETAIL_BASE}/campaign/${pageId}`, query))}
         filters={selectionFilters}
         query={query}
         filterOptions={filterOptions}
