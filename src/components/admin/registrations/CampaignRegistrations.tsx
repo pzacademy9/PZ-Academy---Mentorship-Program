@@ -2,16 +2,16 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckSquare, Copy, Download } from "lucide-react";
+import { ArrowLeft, CheckSquare } from "lucide-react";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
 import type { RegistrationListFilters, RegistrationListRow } from "@/lib/data/landing-registration-admin";
-import { RegistrationFilters } from "./RegistrationFilters";
+import { CampaignToolbar } from "./CampaignToolbar";
+import { BatchToolsMenu } from "./BatchToolsMenu";
 import { RegistrationsTable } from "./RegistrationsTable";
 import type { RegistrationQuery } from "./query";
 import { MessageBuilder } from "./MessageBuilder";
 import { RowActions } from "./RowActions";
 import { RowStatusCell } from "./RowStatusCell";
-import { getSelectionIdList } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/id-actions";
 
 /** Either the ticked rows on this page, or everyone matching the current filters. Never both. */
 export type CampaignSelection =
@@ -41,8 +41,6 @@ export type OpenBuilder = (channel: BuilderChannel, request: CampaignBuilderRequ
 export interface CampaignRegistrationsProps {
   pageId: string;
   pageTitle: string;
-  /** The public URL slug of this batch, for the public ID page link. */
-  publicSlug?: string | null;
   rows: RegistrationListRow[];
   total: number;
   counts: Record<RegistrationStatus | "all", number>;
@@ -65,7 +63,6 @@ const noBuilder: OpenBuilder = () => {};
 export function CampaignRegistrations({
   pageId,
   pageTitle,
-  publicSlug = null,
   rows,
   total,
   counts,
@@ -80,8 +77,6 @@ export function CampaignRegistrations({
 }: CampaignRegistrationsProps) {
   const [ids, setIds] = useState<Set<string>>(new Set());
   const [allInFilter, setAllInFilter] = useState(false);
-  const [idNote, setIdNote] = useState<string | null>(null);
-  const [idBusy, setIdBusy] = useState(false);
   const [builder, setBuilder] = useState<{ channel: BuilderChannel; request: CampaignBuilderRequest } | null>(null);
 
   const pageIds = rows.map((r) => r.id);
@@ -130,54 +125,6 @@ export function CampaignRegistrations({
     onOpenBuilder(channel, request);
   }
 
-  // What the ID PDF will cover: the ticked people, else the active filter, else the whole batch.
-  const filterActive = Boolean(
-    filters.q || filters.mode || filters.region || filters.optionLabel || (filters.optionScopes && filters.optionScopes.length > 0) ||
-    (filters.status && filters.status !== "all"),
-  );
-  const idSelection: CampaignSelection | null = allInFilter
-    ? { mode: "filter", filters }
-    : ids.size > 0
-      ? { mode: "ids", ids: Array.from(ids) }
-      : filterActive
-        ? { mode: "filter", filters }
-        : null;
-  const idLabel = count > 0 ? `Download IDs (${count} selected)` : filterActive ? "Download IDs (filtered)" : "Download IDs (whole batch)";
-
-  async function downloadIds() {
-    setIdBusy(true);
-    setIdNote(null);
-    try {
-      const list = await getSelectionIdList(pageId, idSelection);
-      if (list.length === 0) {
-        setIdNote("No one in this selection has a PZ ID yet.");
-        return;
-      }
-      const { buildBatchPdf } = await import("@/lib/pzid/batch-pdf");
-      const url = URL.createObjectURL(buildBatchPdf(pageTitle, list));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${pageTitle} - PZ IDs.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      setIdNote("Could not download the ID list. Please try again.");
-    } finally {
-      setIdBusy(false);
-    }
-  }
-
-  async function copyIdLink() {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/ids/${publicSlug}`);
-      setIdNote("Link copied.");
-    } catch {
-      setIdNote("Could not copy the link. Please copy it from the address of the public page.");
-    }
-  }
-
   const showBanner = allInFilter || (allOnPage && total > rows.length);
 
   return (
@@ -190,44 +137,25 @@ export function CampaignRegistrations({
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" aria-hidden="true" />
           All campaigns
         </Link>
-        <div className="mt-3 space-y-1">
-          <h1 className="font-headline font-black text-2xl lg:text-3xl text-pz-on-surface tracking-tight">{pageTitle}</h1>
-          <p className="text-xs lg:text-sm font-body text-pz-on-surface-variant">
-            <span className="font-headline font-bold text-pz-on-surface tabular-nums">{counts.all} registrations total</span>
-          </p>
+        <div className="mt-3 flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="font-headline font-black text-2xl lg:text-3xl text-pz-on-surface tracking-tight">{pageTitle}</h1>
+            <p className="text-xs lg:text-sm font-body text-pz-on-surface-variant">
+              <span className="font-headline font-bold text-pz-on-surface tabular-nums">{counts.all} registrations total</span>
+            </p>
+          </div>
+          <div className="hidden md:block">
+            <BatchToolsMenu pageId={pageId} base={detailHrefBase} />
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        <button
-          type="button"
-          onClick={downloadIds}
-          disabled={idBusy}
-          className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40 hover:bg-pz-surface-container text-xs font-headline font-semibold disabled:opacity-60 transition-colors"
-        >
-          <Download className="w-4 h-4" aria-hidden="true" />
-          {idLabel}
-        </button>
-        <span className="text-xs font-body text-pz-on-surface-variant">People without an ID yet are left out.</span>
-        {publicSlug && (
-          <button
-            type="button"
-            onClick={copyIdLink}
-            className="inline-flex items-center gap-1.5 max-md:min-h-11 px-3 py-1.5 rounded-lg bg-pz-surface-container-lowest border border-pz-outline-variant/40 hover:bg-pz-surface-container text-xs font-headline font-semibold transition-colors"
-          >
-            <Copy className="w-4 h-4" aria-hidden="true" />
-            Copy public ID page link
-          </button>
-        )}
-        {idNote && <span role="status" className="text-xs font-body text-pz-on-surface-variant">{idNote}</span>}
-      </div>
-
-      <RegistrationFilters
+      <CampaignToolbar
         basePath={basePath}
         filters={query}
         counts={counts}
-        pageOptions={[]}
-        campaignOptions={filterOptions}
+        options={filterOptions}
+        toolsSlot={<BatchToolsMenu pageId={pageId} base={detailHrefBase} />}
       />
 
       {showBanner && (

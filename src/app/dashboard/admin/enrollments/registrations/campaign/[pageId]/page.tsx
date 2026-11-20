@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
-import { getRegistrationPageSlug, listRegistrations, listRegistrationPageOptions, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
+import { listRegistrations, listRegistrationPageOptions, type RegistrationListFilters } from "@/lib/data/landing-registration-admin";
 import { listCampaignFilterOptions } from "@/lib/data/participant-campaigns";
 import { listSendSummaries } from "@/lib/data/participant-sends";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
@@ -60,11 +59,10 @@ export default async function AdminCampaignRegistrationsPage({
     page: Number.isFinite(p) && p > 1 ? p : 1,
   };
 
-  const [list, filterOptions, sends, publicSlug] = await Promise.all([
+  const [list, filterOptions, sends] = await Promise.all([
     listRegistrations({ kind: "all" }, filters),
     listCampaignFilterOptions(pageId),
     listSendSummaries(pageId),
-    getRegistrationPageSlug(pageId),
   ]);
 
   const query = {
@@ -83,44 +81,11 @@ export default async function AdminCampaignRegistrationsPage({
   return (
     <div className="space-y-6">
       <EnrollmentSourceTabs active="page" />
-      <div className="flex justify-end">
-        <Link
-          href={`${DETAIL_BASE}/sheet/${pageId}`}
-          className="inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
-        >
-          Sheet sync
-        </Link>
-        <Link
-          href={`${DETAIL_BASE}/campaign/${pageId}/sessions`}
-          className="ml-4 inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
-        >
-          Classes
-        </Link>
-        <Link
-          href={`${DETAIL_BASE}/campaign/${pageId}/ids`}
-          className="ml-4 inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
-        >
-          Student IDs
-        </Link>
-        <Link
-          href={`${DETAIL_BASE}/campaign/${pageId}/reports`}
-          className="ml-4 inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
-        >
-          Progress reports
-        </Link>
-        <Link
-          href={`${DETAIL_BASE}/campaign/${pageId}/portal`}
-          className="ml-4 inline-flex items-center max-md:min-h-11 text-xs font-headline font-bold text-pz-primary hover:text-pz-on-primary-container dark:hover:text-pz-primary-fixed transition-colors"
-        >
-          Portal access
-        </Link>
-      </div>
       <CampaignRegistrations
         // A new page of results or a new filter starts with nothing ticked.
         key={JSON.stringify(query)}
         pageId={pageId}
         pageTitle={campaign.title}
-        publicSlug={publicSlug}
         rows={list.rows}
         total={list.total}
         counts={list.counts}
