@@ -12,6 +12,9 @@ import { QuizEditor } from "./QuizEditor";
 import { VideoField } from "./VideoField";
 import { NotesSection } from "./NotesSection";
 
+/** ok is true only when nothing failed; alreadyToasted means a "Could not save." toast already told the admin. */
+export type FlushResult = { ok: boolean; alreadyToasted: boolean };
+
 interface Detail {
   videoUrl: string;
   videoUrl2: string;
@@ -35,11 +38,17 @@ export function LessonEditorPanel({
   courseSlug,
   onLessonPatched,
   onAdvance,
+  onDirtyChange,
+  flushRef,
 }: {
   lesson: BuilderLesson | null;
   courseSlug: string;
   onLessonPatched: (lessonId: string, patch: Partial<BuilderLesson>) => void;
   onAdvance: () => void;
+  /** True while a text save is waiting, a save is running, or the last save failed. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Filled with a function that saves anything waiting and says whether everything saved. */
+  flushRef?: React.MutableRefObject<(() => Promise<FlushResult>) | null>;
 }) {
   const [title, setTitle] = useState(lesson?.title ?? "");
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -52,6 +61,35 @@ export function LessonEditorPanel({
   const pendingText = useRef<{ lessonId: string; html: string } | null>(null);
   /** The lesson currently shown; async results for any other lesson are discarded. */
   const currentId = useRef<string | null>(lesson?.id ?? null);
+  /** Saves running right now, and whether the most recent save failed; together with pendingText they make "dirty". */
+  const flights = useRef(new Set<Promise<boolean>>());
+  /** One entry per kind of save that failed; only a good save of the same thing removes it. */
+  const failedKeys = useRef(new Set<string>());
+  const failToasts = useRef(0);
+  const reportedDirty = useRef<boolean | null>(null);
+  const dirtyCallback = useRef(onDirtyChange);
+  useEffect(() => {
+    dirtyCallback.current = onDirtyChange;
+  });
+
+  // A freshly mounted panel tells the page its own state, so a failure left by a panel that was swapped
+  // out (module notes) cannot keep the page marked unsaved once a lesson is opened again. On unmount,
+  // waiting text is saved; if that fails the page stays marked unsaved, which is true, because the text is lost.
+  useEffect(() => {
+    reportDirty();
+    return () => {
+      void flushPending().catch(() => {});
+    };
+    // Mount and unmount only: reportDirty and flushPending read refs, so the first copies stay correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function reportDirty() {
+    const dirty = pendingText.current !== null || flights.current.size > 0 || failedKeys.current.size > 0;
+    if (dirty === reportedDirty.current) return;
+    reportedDirty.current = dirty;
+    dirtyCallback.current?.(dirty);
+  }
 
   /** Send A's unsaved text to A itself (never to whatever lesson is open now). */
   async function flushPending(): Promise<boolean> {
@@ -62,6 +100,7 @@ export function LessonEditorPanel({
     // On failure put the text back (unless newer text arrived) so the next flush retries it.
     const restore = () => {
       if (!pendingText.current) pendingText.current = pending;
+      reportDirty();
     };
     try {
       const ok = await patchLessonById(pending.lessonId, { textContent: pending.html });
@@ -114,13 +153,35 @@ export function LessonEditorPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson?.id]);
 
-  async function patchLessonById(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
+  function patchLessonById(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
+    const key = `${lessonId}:${Object.keys(patch).sort().join(",")}`;
+    const flight = sendPatch(lessonId, patch).then(
+      (ok) => {
+        if (ok) failedKeys.current.delete(key);
+        else failedKeys.current.add(key);
+        return ok;
+      },
+      (err) => {
+        failedKeys.current.add(key);
+        throw err;
+      },
+    ).finally(() => {
+      flights.current.delete(flight);
+      reportDirty();
+    });
+    flights.current.add(flight);
+    reportDirty();
+    return flight;
+  }
+
+  async function sendPatch(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
     const res = await fetch(`/api/admin/lessons/${lessonId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
     if (!res.ok) {
+      failToasts.current += 1;
       toast.error("Could not save.");
       return false;
     }
@@ -146,6 +207,7 @@ export function LessonEditorPanel({
     const lessonId = lesson.id;
     setDetail((prev) => (prev ? { ...prev, textContent: html } : prev));
     pendingText.current = { lessonId, html };
+    reportDirty();
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       void flushPending().catch(() => toast.error("Could not save."));
@@ -201,6 +263,28 @@ export function LessonEditorPanel({
     if (currentId.current === lessonId) setDetail((prev) => (prev ? { ...prev, documents: next } : prev));
     void patchLessonById(lessonId, { documents: next });
   }
+
+  // Lets the page's Save Draft button save anything waiting. Resolves true only if nothing failed.
+  useEffect(() => {
+    if (!flushRef) return;
+    flushRef.current = async () => {
+      const toastsBefore = failToasts.current;
+      let ok = true;
+      try {
+        ok = await flushPending();
+      } catch {
+        ok = false;
+      }
+      await Promise.allSettled(Array.from(flights.current));
+      return { ok: ok && failedKeys.current.size === 0, alreadyToasted: failToasts.current > toastsBefore };
+    };
+    const ref = flushRef;
+    return () => {
+      ref.current = null;
+    };
+    // flushPending only reads refs and the current-lesson id, so the latest copy is always equivalent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flushRef]);
 
   /** "Save & Continue" — flush any pending debounced rich-text save before moving on, so nothing is silently lost. */
   const { run: saveAndContinue, pending: savingAndContinuing } = useAsyncAction(async () => {

@@ -6,6 +6,7 @@ import type { BuilderState } from "@/lib/data/admin-lms";
 import type { CourseType } from "@/lib/validations/admin-lms";
 
 const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),

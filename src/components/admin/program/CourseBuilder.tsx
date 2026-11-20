@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, Save, Settings } from "lucide-react";
+import { ChevronLeft, Copy, FileUp, Save } from "lucide-react";
 import { courseReadiness, missingSummary } from "@/lib/lms/lesson-parts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import type { BuilderState, BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
 import { CurriculumMap } from "./CurriculumMap";
-import { LessonEditorPanel } from "./LessonEditorPanel";
+import { LessonEditorPanel, type FlushResult } from "./LessonEditorPanel";
 import { ModuleNotesPanel } from "./ModuleNotesPanel";
 import { PublishConfirmDialog } from "./PublishConfirmDialog";
+import { ImportCurriculumDialog } from "./ImportCurriculumDialog";
 
 function firstLesson(modules: BuilderModule[]): BuilderLesson | null {
   for (const mod of modules) {
@@ -48,6 +50,15 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
     setSelectedModuleId((prev) => (prev && initialState.modules.some((m) => m.id === prev) ? prev : null));
   }
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [lessonDirty, setLessonDirty] = useState(false);
+  const lessonDirtyNow = useRef(false);
+  const flushLesson = useRef<(() => Promise<FlushResult>) | null>(null);
+  const handleDirtyChange = (dirty: boolean) => {
+    lessonDirtyNow.current = dirty;
+    setLessonDirty(dirty);
+  };
+  const { confirmLeaveDialog } = useUnsavedGuard(lessonDirty);
 
   const courseType = initialState.course.type;
   const allSessions = modules.flatMap((m) => m.lessons);
@@ -72,6 +83,19 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
       router.push(`/dashboard/admin/courses/${payload.id}/builder`);
     } catch {
       toast.error("Could not copy this course.");
+    }
+  });
+
+  const { run: saveDraft, pending: savingDraft } = useAsyncAction(async () => {
+    // With no lesson panel open there is nothing to flush; unsaved work left behind still counts as not saved.
+    const result: FlushResult = flushLesson.current
+      ? await flushLesson.current()
+      : { ok: !lessonDirtyNow.current, alreadyToasted: false };
+    if (result.ok) {
+      router.refresh();
+      toast.success("Saved.");
+    } else if (!result.alreadyToasted) {
+      toast.error("Some changes could not be saved.");
     }
   });
 
@@ -151,6 +175,13 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   return (
     <div className="flex flex-col lg:h-[calc(100vh-7rem)] -m-4 sm:-m-6 lg:overflow-hidden">
       <div className="border-b border-pz-outline-variant bg-pz-surface flex flex-wrap gap-4 justify-between items-center px-4 sm:px-8 py-4 shrink-0">
+        <Link
+          href={`/dashboard/admin/courses/${initialState.course.id}`}
+          className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to program
+        </Link>
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold font-headline text-pz-on-surface">Course Builder</h2>
@@ -186,13 +217,6 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
           )}
           <div className="h-8 w-px bg-pz-outline-variant/50 hidden sm:block" />
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/dashboard/admin/courses/${initialState.course.id}`}
-              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
-            >
-              <Settings className="w-4 h-4" />
-              Basics
-            </Link>
             <Button
               type="button"
               variant="bare"
@@ -204,16 +228,27 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               <Copy className="w-4 h-4" />
               Copy course
             </Button>
-            <button
-              onClick={() => {
-                router.refresh();
-                toast.info("Everything here saves automatically.");
-              }}
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              onClick={() => setImportOpen(true)}
+              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
+            >
+              <FileUp className="w-4 h-4" />
+              Import curriculum from a file
+            </Button>
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              loading={savingDraft}
+              onClick={() => saveDraft()}
               className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
             >
               <Save className="w-4 h-4" />
               Save Draft
-            </button>
+            </Button>
             <Button
               variant="bare"
               size="bare"
@@ -257,10 +292,21 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               courseSlug={initialState.course.slug}
               onLessonPatched={handleLessonPatched}
               onAdvance={advanceToNextLesson}
+              onDirtyChange={handleDirtyChange}
+              flushRef={flushLesson}
             />
           )}
         </section>
       </div>
+
+      {confirmLeaveDialog}
+
+      <ImportCurriculumDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        courseId={initialState.course.id}
+        onApplied={() => router.refresh()}
+      />
 
       <PublishConfirmDialog
         open={confirmOpen}

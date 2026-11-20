@@ -19,7 +19,7 @@ export type EditorPage = {
   pageSections: PageSection[];
 };
 
-export type PageChange = { label: string; from: string; to: string };
+export type PageChange = { key: string; label: string; from: string; to: string };
 
 const short = (s: string, n = 70) => {
   const one = s.replace(/\s+/g, " ").trim();
@@ -33,33 +33,55 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 export function pageImportChanges(now: EditorPage, plan: PageImport): PageChange[] {
   const out: PageChange[] = [];
-  const text = (label: string, from: string, to: string | undefined) => {
-    if (to !== undefined && to.trim() !== from.trim()) out.push({ label, from: short(from), to: short(to) });
+  const text = (key: string, label: string, from: string, to: string | undefined) => {
+    if (to !== undefined && to.trim() !== from.trim()) out.push({ key, label, from: short(from), to: short(to) });
   };
-  text("Title", now.title, plan.title);
-  for (const f of COURSE_DETAIL_FIELDS) text(f.label, now.details[f.field], plan.details[f.field]);
+  text("title", "Title", now.title, plan.title);
+  for (const f of COURSE_DETAIL_FIELDS) text(f.field, f.label, now.details[f.field], plan.details[f.field]);
 
   const p = plan.page;
-  if (p.pricePkr !== undefined && p.pricePkr !== now.pricePkr) out.push({ label: "Price", from: money(now.pricePkr), to: money(p.pricePkr) });
-  text("Topic", now.topic, p.topic);
+  if (p.pricePkr !== undefined && p.pricePkr !== now.pricePkr) out.push({ key: "price", label: "Price", from: money(now.pricePkr), to: money(p.pricePkr) });
+  text("topic", "Topic", now.topic, p.topic);
   if (p.startsAt !== undefined && Date.parse(p.startsAt) !== Date.parse(now.startsAt)) {
-    out.push({ label: "Webinar date", from: now.startsAt ? startsAtLabel(now.startsAt) : "(empty)", to: startsAtLabel(p.startsAt) });
+    out.push({ key: "startsAt", label: "Webinar date", from: now.startsAt ? startsAtLabel(now.startsAt) : "(empty)", to: startsAtLabel(p.startsAt) });
   }
-  text("Preview video", now.publicVideoUrl, p.publicVideoUrl);
+  text("publicVideoUrl", "Preview video", now.publicVideoUrl, p.publicVideoUrl);
 
-  const list = (label: string, from: string[], to: string[] | undefined) => {
+  const list = (key: string, label: string, from: string[], to: string[] | undefined) => {
     if (to === undefined || same(filled(from), to)) return;
-    out.push({ label, from: lines(filled(from).length, "line"), to: lines(to.length, "line") });
+    out.push({ key, label, from: lines(filled(from).length, "line"), to: lines(to.length, "line") });
   };
-  list("What you'll learn", now.outcomes, p.outcomes);
-  list("This course includes", now.features, p.features);
+  list("outcomes", "What you'll learn", now.outcomes, p.outcomes);
+  list("features", "This course includes", now.features, p.features);
 
   if (p.faqs !== undefined) {
     const cur = now.faqs.filter((f) => f.question.trim() && f.answer.trim()).map((f) => ({ question: f.question.trim(), answer: f.answer.trim() }));
-    if (!same(cur, p.faqs)) out.push({ label: "Questions and answers", from: lines(cur.length, "question"), to: lines(p.faqs.length, "question") });
+    if (!same(cur, p.faqs)) out.push({ key: "faqs", label: "Questions and answers", from: lines(cur.length, "question"), to: lines(p.faqs.length, "question") });
   }
   if (p.pageSections !== undefined && !same(normalizeSections(now.pageSections), normalizeSections(p.pageSections))) {
-    out.push({ label: "Page sections", from: "current order", to: "new order, shown or hidden, headings" });
+    out.push({ key: "pageSections", label: "Page sections", from: "current order", to: "new order, shown or hidden, headings" });
   }
   return out;
+}
+
+/** A copy of the plan that keeps only the ticked parts (by change key). */
+export function filterPageImport(plan: PageImport, keys: ReadonlySet<string>): PageImport {
+  const details: ImportDetails = {};
+  for (const f of COURSE_DETAIL_FIELDS) {
+    const v = plan.details[f.field];
+    if (keys.has(f.field) && v !== undefined) details[f.field] = v;
+  }
+  const page: PageImport["page"] = {};
+  const take = <K extends keyof PageImport["page"]>(key: string, field: K) => {
+    if (keys.has(key) && plan.page[field] !== undefined) page[field] = plan.page[field];
+  };
+  take("price", "pricePkr");
+  take("topic", "topic");
+  take("startsAt", "startsAt");
+  take("publicVideoUrl", "publicVideoUrl");
+  take("outcomes", "outcomes");
+  take("features", "features");
+  take("faqs", "faqs");
+  take("pageSections", "pageSections");
+  return { ...(keys.has("title") && plan.title !== undefined ? { title: plan.title } : {}), details, page };
 }

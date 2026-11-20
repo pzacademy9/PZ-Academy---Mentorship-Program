@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Play } from "lucide-react";
 import { checkVideoLink } from "@/lib/video-link";
+import { toEmbedUrl, videoThumbnail } from "@/lib/video-embed";
 
 /**
  * One video link input. Saves on blur (an empty value clears the video) and
@@ -26,6 +27,19 @@ export function VideoField({
   }, [value]);
 
   const check = checkVideoLink(draft);
+  const link = draft.trim();
+  const [playing, setPlaying] = useState(false);
+
+  // A new link starts again from the picture.
+  useEffect(() => {
+    setPlaying(false);
+  }, [link]);
+
+  const thumb = check.status === "ok" ? videoThumbnail(link) : null;
+  const embed =
+    check.status === "ok"
+      ? toEmbedUrl(link).replace("https://www.youtube.com/embed/", "https://www.youtube-nocookie.com/embed/")
+      : null;
 
   return (
     <div className="space-y-1">
@@ -48,6 +62,38 @@ export function VideoField({
           <CheckCircle2 className="w-3.5 h-3.5" />
           {check.provider === "youtube" ? "YouTube video found" : "Vimeo video found"}
         </p>
+      )}
+      {embed && (
+        <div className="relative aspect-video w-full max-w-sm overflow-hidden rounded-lg border border-pz-outline-variant bg-pz-surface-container-low">
+          {playing ? (
+            <iframe
+              src={embed}
+              title="Video preview"
+              allow="encrypted-media; picture-in-picture"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full"
+            />
+          ) : (
+            <>
+              {thumb ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-pz-on-surface-variant">
+                  Video found
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setPlaying(true)}
+                className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-lg bg-pz-primary px-3 py-2 text-xs font-bold text-white max-md:min-h-11"
+              >
+                <Play className="w-3.5 h-3.5" />
+                Play preview
+              </button>
+            </>
+          )}
+        </div>
       )}
       {(check.status === "unsupported" || check.status === "invalid") && (
         <p

@@ -2,9 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { VideoField } from "@/components/admin/program/VideoField";
 import { QuizPasteDialog } from "@/components/admin/program/QuizPasteDialog";
-import { LessonEditorPanel } from "@/components/admin/program/LessonEditorPanel";
+import { LessonEditorPanel, type FlushResult } from "@/components/admin/program/LessonEditorPanel";
+import { useState } from "react";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import type { BuilderLesson } from "@/lib/data/admin-lms";
 
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn(async () => false) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const rteChange = vi.hoisted(() => ({ current: null as ((html: string) => void) | null }));
 vi.mock("@/components/admin/program/RichTextEditor", () => ({
@@ -293,5 +296,64 @@ describe("fix round 1", () => {
     const patches = fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH");
     expect(patches).toHaveLength(2);
     expect(JSON.parse(patches[1][1].body)).toEqual({ textContent: "<p>typed</p>" });
+  });
+});
+
+describe("LessonEditorPanel dirty reporting and flush", () => {
+  it("is dirty while text waits, stays dirty after a failed save, and clears after a good one", async () => {
+    let fail = true;
+    fetchMock.mockImplementation(async (_u: string, init?: { method?: string }) =>
+      init?.method === "PATCH" ? { ok: !fail, json: async () => ({}) } : { ok: true, json: async () => detail() });
+    const onDirtyChange = vi.fn();
+    const flushRef = { current: null as (() => Promise<FlushResult>) | null };
+    render(<LessonEditorPanel lesson={LESSON} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}} onDirtyChange={onDirtyChange} flushRef={flushRef} />);
+    await screen.findByText("Notes for this session");
+    fireEvent.click(screen.getByRole("button", { name: /Extra reading/ }));
+    rteChange.current!("<p>typed</p>");
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    await expect(flushRef.current!()).resolves.toMatchObject({ ok: false, alreadyToasted: true });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    fail = false;
+    await expect(flushRef.current!()).resolves.toMatchObject({ ok: true });
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it("a failed title save is not hidden by a later good video save", async () => {
+    fetchMock.mockImplementation(async (_u: string, init?: { method?: string; body?: string }) => {
+      if (init?.method !== "PATCH") return { ok: true, json: async () => detail() };
+      return { ok: !JSON.parse(init.body!).title, json: async () => ({}) };
+    });
+    const onDirtyChange = vi.fn();
+    const flushRef = { current: null as (() => Promise<FlushResult>) | null };
+    function Page() {
+      const [dirty, setDirty] = useState(false);
+      useUnsavedGuard(dirty);
+      return (
+        <LessonEditorPanel
+          lesson={LESSON} courseSlug="c" onLessonPatched={() => {}} onAdvance={() => {}}
+          onDirtyChange={(d) => { onDirtyChange(d); setDirty(d); }} flushRef={flushRef}
+        />
+      );
+    }
+    render(<Page />);
+    await screen.findByText("Notes for this session");
+    const prevented = () => {
+      const ev = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    const title = screen.getAllByRole("textbox").find((el) => (el as HTMLInputElement).value === "Day 1")!;
+    fireEvent.change(title, { target: { value: "Day one" } });
+    fireEvent.blur(title);
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true));
+
+    const video = screen.getAllByRole("textbox").find((el) => (el as HTMLInputElement).value === "https://youtu.be/abc")!;
+    fireEvent.change(video, { target: { value: "https://youtu.be/def" } });
+    fireEvent.blur(video);
+    await waitFor(() => expect(fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH")).toHaveLength(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    expect(prevented()).toBe(true);
+    await expect(flushRef.current!()).resolves.toMatchObject({ ok: false });
   });
 });

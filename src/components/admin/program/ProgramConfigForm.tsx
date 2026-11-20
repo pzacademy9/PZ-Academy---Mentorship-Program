@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { COURSE_TYPES, COURSE_STATUSES } from "@/lib/validations/admin-lms";
 import type { CourseConfigDetail } from "@/lib/data/admin-lms";
 import { LibraryImageField } from "@/components/admin/landing/LibraryImageField";
@@ -94,6 +95,11 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
   // so untouched copy is never rewritten.
   const [page, setPage] = useState<PublicPageFields>(() => toPageState(course));
   const savedPage = useRef<PublicPageFields>(toPageState(course));
+  // What the boxes held at load or at the last good Save; anything different is unsaved work.
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify({ form: toFormState(course), page: toPageState(course) }));
+  const currentSnapshot = useMemo(() => JSON.stringify({ form, page }), [form, page]);
+  const dirty = currentSnapshot !== savedSnapshot;
+  const { confirmLeaveDialog } = useUnsavedGuard(dirty);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -166,6 +172,8 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
   }
 
   const { run: save, pending: saving } = useAsyncAction(async () => {
+    // Taken before the request, so edits made while it runs still count as unsaved.
+    const snapshot = currentSnapshot;
     try {
       const res = await fetch(`/api/admin/courses/${course.id}`, {
         method: "PATCH",
@@ -201,6 +209,7 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
       const payload = (await res.json().catch(() => null)) as { warning?: string | null } | null;
       if (payload?.warning) toast.warning(payload.warning);
       savedPage.current = structuredClone(page);
+      setSavedSnapshot(snapshot);
       toast.success("Changes saved.");
       startTransition(() => router.refresh());
     } catch {
@@ -228,6 +237,7 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
 
   return (
     <div className="space-y-6">
+      {confirmLeaveDialog}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <h1 className="font-headline font-bold text-2xl text-pz-on-surface">{form.title || "Untitled Program"}</h1>
         <div className="flex gap-3 shrink-0 flex-wrap">

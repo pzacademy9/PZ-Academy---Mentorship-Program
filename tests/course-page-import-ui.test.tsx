@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { readFileSync } from "node:fs";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 vi.mock("@/components/admin/landing/LibraryImageField", () => ({
   LibraryImageField: ({ value, onChange, labelledBy }: { value: string; onChange: (v: string) => void; labelledBy?: string }) => (
@@ -52,8 +53,8 @@ describe("Import page from a file", () => {
     fireEvent.change(within(dialog).getByLabelText(/paste the file/i), { target: { value: FILE } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Check the file" }));
 
-    const changes = within(dialog).getByRole("list", { name: "What will change" });
-    const labels = within(changes).getAllByRole("listitem").map((li) => li.querySelector("p")?.textContent);
+    const changes = within(dialog).getByRole("list", { name: "Changes" });
+    const labels = within(changes).getAllByRole("listitem").map((li) => li.querySelector("span.font-semibold")?.textContent);
     expect(labels).toEqual(["Tagline", "Price", "Topic", "What you'll learn"]);
     expect(within(changes).getByText("PKR 9,000")).toBeTruthy();
     expect(within(changes).getByText("PKR 7,500")).toBeTruthy();
@@ -69,6 +70,73 @@ describe("Import page from a file", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, { body: string }])[1].body);
     expect(body).toMatchObject({ tagline: "New fake line", pricePkr: 7500, topic: "Fake Topic", outcomes: ["New skill one", "New skill two"] });
+  });
+
+  it("ticks every change, and Fill in uses only the ticked ones", async () => {
+    render(<ProgramConfigForm course={course} />);
+    fireEvent.click(screen.getByRole("button", { name: /Import page from a file/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/paste the file/i), { target: { value: FILE } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check the file" }));
+
+    const boxes = within(dialog).getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes).toHaveLength(4);
+    expect(boxes.every((b) => b.checked)).toBe(true);
+    expect(within(dialog).getByText("4 of 4 changes ticked")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /Topic/ }));
+    expect(within(dialog).getByText("3 of 4 changes ticked")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fill in the boxes" }));
+    expect((screen.getByLabelText("Topic") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("What you'll learn, line 2") as HTMLInputElement).value).toBe("New skill two");
+  });
+
+  it("counts a Fill in as unsaved work, and a fresh form as clean", () => {
+    const prevented = () => {
+      const ev = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    render(<ProgramConfigForm course={course} />);
+    expect(prevented()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: /Import page from a file/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/paste the file/i), { target: { value: FILE } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check the file" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fill in the boxes" }));
+    expect(prevented()).toBe(true);
+  });
+
+  it("Save clears the unsaved warning when it works and keeps it when it fails", async () => {
+    const prevented = () => {
+      const ev = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    render(<ProgramConfigForm course={course} />);
+    fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "Changed" } });
+    expect(prevented()).toBe(true);
+
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({ error: "no" }), { status: 500 }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Save Changes/ })[0]);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(prevented()).toBe(true);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Save Changes/ })[0]);
+    await vi.waitFor(() => expect(prevented()).toBe(false));
+  });
+
+  it("unticking everything turns off Fill in; Tick all brings it back", () => {
+    render(<ProgramConfigForm course={course} />);
+    fireEvent.click(screen.getByRole("button", { name: /Import page from a file/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/paste the file/i), { target: { value: FILE } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check the file" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Untick all" }));
+    expect((within(dialog).getByRole("button", { name: "Fill in the boxes" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Tick all" }));
+    expect((within(dialog).getByRole("button", { name: "Fill in the boxes" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("shows the reason when the file is not in the right layout", () => {
@@ -96,12 +164,12 @@ describe("Import page from a file", () => {
 });
 
 describe("AI help page", () => {
-  it("switches between the three instructions and copies the chosen one", async () => {
+  it("switches between the four instructions and copies the chosen one", async () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<CourseAiPrompts prompts={{ whole: "WHOLE", page: "PAGE", improve: "IMPROVE" }} example="EXAMPLE" />);
+    render(<CourseAiPrompts prompts={{ whole: "WHOLE", page: "PAGE", improve: "IMPROVE", curriculum: "CURRICULUM" }} example="EXAMPLE" />);
     const group = screen.getByRole("group", { name: /What do you want to make/ });
-    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["Whole course", "Page only", "Improve my page"]);
+    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["Whole course", "Page only", "Improve my page", "Curriculum only"]);
     fireEvent.click(within(group).getByRole("button", { name: "Improve my page" }));
     expect((screen.getByLabelText("Instructions preview") as HTMLTextAreaElement).value).toBe("IMPROVE");
     expect(screen.getByText(/Download my page as a file\./)).toBeTruthy();
