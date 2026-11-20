@@ -51,7 +51,7 @@ const session = (over: Partial<SessionRow> = {}): SessionRow => ({
 
 function row(over: { c?: ClassSummary; s?: SessionRow; sends?: SessionSendState; onNeedAudience?: () => void } = {}) {
   return render(
-    <ClassActionRow cls={over.c ?? cls()} session={over.s ?? session()} sends={over.sends} now={NOW} onNeedAudience={over.onNeedAudience ?? vi.fn()} />,
+    <ClassActionRow batchTitle="PPC Batch 3" cls={over.c ?? cls()} session={over.s ?? session()} sends={over.sends} now={NOW} onNeedAudience={over.onNeedAudience ?? vi.fn()} />,
   );
 }
 
@@ -65,19 +65,31 @@ beforeEach(() => {
 });
 
 describe("ClassActionRow", () => {
-  it("copies the attendance and feedback links", async () => {
+  it("copies the links or the messages from the menus", async () => {
     row();
     fireEvent.click(screen.getByRole("button", { name: "Copy attendance link" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy link" }));
     await waitFor(() => expect(h.write).toHaveBeenCalledWith("https://x.test/attend/code0001"));
     expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Copy feedback link" }));
-    await waitFor(() => expect(h.write).toHaveBeenCalledWith("https://x.test/feedback/slug-one"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy with message" }));
+    await waitFor(() => expect(h.write).toHaveBeenLastCalledWith(expect.stringContaining("Day 1 Feedback Form:")));
+    expect(h.write.mock.calls[1][0]).toContain("https://x.test/feedback/slug-one");
+    expect(h.write.mock.calls[1][0]).toContain("PPC Batch 3");
+  });
+
+  it("copies the attendance message", async () => {
+    row();
+    fireEvent.click(screen.getByRole("button", { name: "Copy attendance link" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy with message" }));
+    await waitFor(() => expect(h.write).toHaveBeenCalledWith(expect.stringContaining("PPC Batch 3 | _Attendance Portal_")));
   });
 
   it("shows a toast when the clipboard fails", async () => {
     h.write.mockRejectedValue(new Error("no"));
     row();
     fireEvent.click(screen.getByRole("button", { name: "Copy attendance link" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy link" }));
     await waitFor(() => expect(h.error).toHaveBeenCalledWith("Could not copy. Select the link and copy it by hand."));
   });
 

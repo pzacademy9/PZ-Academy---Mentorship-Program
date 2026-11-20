@@ -3,43 +3,34 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, Copy, FlaskConical, Mail, MessageSquareText, Star } from "lucide-react";
+import { FlaskConical, Mail, MessageSquareText, Star } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
+import { attendanceMessage, feedbackMessage } from "@/lib/classes/share-messages";
 import { emailFeedbackLink } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { createMissingFeedbackAction } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions";
 import { AudiencePicker } from "./AudiencePicker";
 import { ClassEmailHistory } from "./ClassEmailHistory";
+import { CopyLinkMenu } from "./CopyLinkMenu";
 import { emailStatusLine } from "./email-status";
 import { useSessionEmails } from "./useSessionEmails";
 import { dsCard, dsDivider, dsForest, dsHeading, dsMuted, dsOutline, dsWell, dsFocus } from "./ds";
 
-function LinkCard({ title, hint, url }: { title: string; hint: string; url: string }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Could not copy. Select the link and copy it by hand.");
-    }
-  }
+function LinkCard({ title, hint, url, message }: { title: string; hint: string; url: string; message: string }) {
   return (
     <div role="group" aria-label={title} className={`min-w-0 space-y-2 ${dsCard}`}>
       <h3 className={`text-lg ${dsHeading}`}>{title}</h3>
       <div className={`flex items-center gap-2 pl-3 ${dsWell}`}>
         <code className="min-w-0 flex-1 truncate text-base text-[#4D6B54] dark:text-pz-on-surface-variant">{url}</code>
-        <button
-          type="button"
-          onClick={copy}
+        <CopyLinkMenu
+          label="Copy link"
+          link={url}
+          message={message}
+          variant="icon"
           className={`inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 font-poppins text-base font-semibold text-[#196432] hover:bg-[#EAF5E4] dark:text-pz-primary dark:hover:bg-pz-surface-container-high ${dsFocus}`}
-        >
-          {copied ? <Check className="size-5" strokeWidth={1.75} aria-hidden /> : <Copy className="size-5" strokeWidth={1.75} aria-hidden />}
-          <span className="sr-only md:not-sr-only">{copied ? "Copied" : "Copy link"}</span>
-        </button>
+        />
       </div>
       <p className={`text-base ${dsMuted}`}>{hint}</p>
     </div>
@@ -47,12 +38,13 @@ function LinkCard({ title, hint, url }: { title: string; hint: string; url: stri
 }
 
 export function LinksTab({
-  pageId, cls, session, sends,
+  pageId, cls, session, sends, batchTitle,
 }: {
   pageId: string;
   cls: ClassSummary;
   session: SessionRow;
   sends: SessionSendState | undefined;
+  batchTitle: string;
 }) {
   const confirm = useConfirm();
   const emails = useSessionEmails(session, sends);
@@ -86,9 +78,9 @@ export function LinksTab({
   return (
     <div className="space-y-4 font-poppins">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
-        <LinkCard title="Attendance link" hint="Share this link so students can mark themselves present." url={cls.attendanceLink} />
+        <LinkCard title="Attendance link" hint="Share this link so students can mark themselves present." url={cls.attendanceLink} message={attendanceMessage({ batchTitle, link: cls.attendanceLink, startsAtIso: cls.startsAt })} />
         {cls.feedbackLink && cls.feedbackSessionId ? (
-          <LinkCard title="Feedback link" hint="Share this link at the end of class so students can rate it." url={cls.feedbackLink} />
+          <LinkCard title="Feedback link" hint="Share this link at the end of class so students can rate it." url={cls.feedbackLink} message={feedbackMessage({ batchTitle, link: cls.feedbackLink, classNumber: cls.number })} />
         ) : (
           <div role="group" aria-label="Feedback link" className={`min-w-0 space-y-2 ${dsCard}`}>
             <h3 className={`text-lg ${dsHeading}`}>Feedback link</h3>

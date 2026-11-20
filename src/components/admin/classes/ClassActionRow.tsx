@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Mail } from "lucide-react";
+import { Copy, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { audienceFromJson } from "@/lib/classes/audience";
 import { reminderLine, type ReminderTone } from "@/lib/classes/reminder-line";
 import type { SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
+import { attendanceMessage, feedbackMessage } from "@/lib/classes/share-messages";
+import { CopyLinkMenu } from "./CopyLinkMenu";
 import { useSessionEmails } from "./useSessionEmails";
 import { dsDivider, dsLime, dsMuted, dsOutline } from "./ds";
 
@@ -22,33 +23,15 @@ const DOT: Record<ReminderTone, string> = {
   idle: "bg-[#D4EACC] dark:bg-pz-outline-variant",
 };
 
-function CopyButton({ url, label, className }: { url: string; label: string; className: string }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Could not copy. Select the link and copy it by hand.");
-    }
-  }
-  return (
-    <button type="button" onClick={copy} className={className}>
-      {copied ? <Check className="size-5" strokeWidth={1.75} aria-hidden /> : <Copy className="size-5" strokeWidth={1.75} aria-hidden />}
-      {copied ? "Copied" : label}
-    </button>
-  );
-}
-
 export function ClassActionRow({
-  cls, session, sends, now, onNeedAudience,
+  cls, session, sends, now, onNeedAudience, batchTitle,
 }: {
   cls: ClassSummary;
   session: SessionRow;
   sends: SessionSendState | undefined;
   now: Date;
   onNeedAudience: () => void;
+  batchTitle: string;
 }) {
   const emails = useSessionEmails(session, sends);
   const line = reminderLine(session, sends, now);
@@ -65,9 +48,19 @@ export function ClassActionRow({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-3">
-        <CopyButton url={cls.attendanceLink} label="Copy attendance link" className={solid} />
+        <CopyLinkMenu
+          label="Copy attendance link"
+          link={cls.attendanceLink}
+          message={attendanceMessage({ batchTitle, link: cls.attendanceLink, startsAtIso: cls.startsAt })}
+          className={solid}
+        />
         {cls.feedbackLink ? (
-          <CopyButton url={cls.feedbackLink} label="Copy feedback link" className={outlined} />
+          <CopyLinkMenu
+            label="Copy feedback link"
+            link={cls.feedbackLink}
+            message={feedbackMessage({ batchTitle, link: cls.feedbackLink, classNumber: cls.number })}
+            className={outlined}
+          />
         ) : (
           <button type="button" disabled className={outlined}>
             <Copy className="size-5" strokeWidth={1.75} aria-hidden />

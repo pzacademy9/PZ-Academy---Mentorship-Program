@@ -6,7 +6,7 @@ import { listSendSummaries } from "@/lib/data/participant-sends";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { CampaignRegistrations } from "@/components/admin/registrations/CampaignRegistrations";
 import { listAddress, detailSuffix } from "@/lib/registrations/back-link";
-import { MessagesSentList } from "@/components/admin/registrations/MessagesSentList";
+import { MessagesHistory } from "@/components/admin/registrations/MessagesHistory";
 
 export const metadata = { title: "Campaign Registrations — PZ Academy" };
 
@@ -95,7 +95,7 @@ export default async function AdminCampaignRegistrationsPage({
         filters={selectionFilters}
         query={query}
         filterOptions={filterOptions}
-        messagesSlot={<MessagesSentList sends={sends} />}
+        historySlot={<MessagesHistory sends={sends} />}
       />
     </div>
   );

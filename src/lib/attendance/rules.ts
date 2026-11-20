@@ -4,7 +4,10 @@ export type WindowOverride = "auto" | "open" | "closed";
 export type WindowState = "before" | "open" | "closed";
 
 export const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // PKT is a fixed UTC+5
-const WINDOW_MS = 15 * 60 * 1000;
+export const CHECKIN_OPEN_MINUTES = 15;
+export const CHECKIN_CLOSE_MINUTES = 15;
+const OPEN_MS = CHECKIN_OPEN_MINUTES * 60 * 1000;
+const CLOSE_MS = CHECKIN_CLOSE_MINUTES * 60 * 1000;
 
 export function checkinWindow(
   startsAtIso: string,
@@ -16,8 +19,8 @@ export function checkinWindow(
   const start = new Date(startsAtIso).getTime();
   if (Number.isNaN(start)) return "closed";
   const t = now.getTime();
-  if (t < start - WINDOW_MS) return "before";
-  if (t > start + WINDOW_MS) return "closed";
+  if (t < start - OPEN_MS) return "before";
+  if (t > start + CLOSE_MS) return "closed";
   return "open";
 }
 

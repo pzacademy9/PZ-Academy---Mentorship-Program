@@ -29,6 +29,7 @@ export function CampaignToolbar({
   counts,
   options,
   toolsSlot,
+  historySlot,
 }: {
   basePath: string;
   filters: RegistrationQuery;
@@ -36,6 +37,8 @@ export function CampaignToolbar({
   options: { regions: string[]; optionLabels: string[] };
   /** Shown beside the Filters button on phone only (the Batch tools button). */
   toolsSlot?: ReactNode;
+  /** The History icon, beside the Filters button on every width. */
+  historySlot?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -114,7 +117,10 @@ export function CampaignToolbar({
         </form>
 
         <div className="flex items-center justify-between gap-3 md:justify-start">
-          {filtersButton}
+          <div className="flex items-center gap-3">
+            {filtersButton}
+            {historySlot}
+          </div>
           {toolsSlot && <div className="md:hidden">{toolsSlot}</div>}
         </div>
 

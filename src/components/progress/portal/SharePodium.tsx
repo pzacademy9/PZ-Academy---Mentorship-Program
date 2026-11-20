@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Image as ImageIcon, Share, Smartphone } from "lucide-react";
+import { FileText, Image as ImageIcon, Share, Smartphone } from "lucide-react";
+import { toast } from "sonner";
 import { podiumFileName, podiumImageUrl, type PodiumSize } from "@/lib/progress/leaderboard";
 import { fetchPodiumBlob, saveBlobViaLink, sharePodiumBlob } from "@/lib/progress/share-podium";
 import { btnFocus } from "../ui";
@@ -24,6 +25,7 @@ export function SharePodium({
   label,
   imageUrl,
   fileBase,
+  messageText,
 }: {
   slug: string;
   title: string;
@@ -33,11 +35,14 @@ export function SharePodium({
   imageUrl?: (size: PodiumSize) => string;
   /** Used instead of the slug in the saved file name. */
   fileBase?: string;
+  /** When given, the menu also offers "Copy message": the text is fetched when the menu opens. */
+  messageText?: () => Promise<string | null>;
 }) {
   const urlFor = (size: PodiumSize) => (imageUrl ? imageUrl(size) : podiumImageUrl(slug, size, pick));
   const [open, setOpen] = useState(false);
   const [pictures, setPictures] = useState<Record<string, Picture>>({});
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ status: "idle" } | { status: "loading" } | { status: "ready"; text: string } | { status: "error" }>({ status: "idle" });
   const menuId = useId();
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -58,6 +63,15 @@ export function SharePodium({
         setPictures((p) => ({ ...p, [url]: blob ? { status: "ready", blob } : { status: "error" } })),
       );
     }
+  };
+
+  const prepareMessage = () => {
+    if (!messageText || message.status === "loading") return;
+    setMessage({ status: "loading" });
+    messageText().then(
+      (text) => setMessage(text ? { status: "ready", text } : { status: "error" }),
+      () => setMessage({ status: "error" }),
+    );
   };
 
   useEffect(() => {
@@ -89,6 +103,7 @@ export function SharePodium({
         onClick={() => {
           if (open) return close(false);
           prepare();
+          prepareMessage();
           setOpen(true);
         }}
         className={`inline-flex min-h-11 items-center gap-2 rounded-full bg-pz-solid-deep px-4 font-montserrat text-sm font-bold text-white shadow-md transition-colors hover:bg-pz-solid-forest motion-reduce:transition-none ${btnFocus}`}
@@ -144,6 +159,37 @@ export function SharePodium({
               </button>
             );
           })}
+          {messageText && (
+            <button
+              type="button"
+              disabled={message.status !== "ready"}
+              onClick={() => {
+                if (message.status !== "ready") return;
+                // Text is already fetched, so the copy starts straight from the tap.
+                try {
+                  navigator.clipboard.writeText(message.text).catch(() => toast.error("Could not copy."));
+                } catch {
+                  toast.error("Could not copy.");
+                }
+                close(true);
+              }}
+              className={`flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-left enabled:hover:bg-pz-surface-container-high disabled:cursor-not-allowed ${btnFocus}`}
+            >
+              <FileText aria-hidden className={`h-5 w-5 shrink-0 ${message.status === "ready" ? "text-pz-primary" : "text-pz-outline"}`} />
+              <span className="flex min-w-0 flex-col">
+                <span className={`font-headline text-sm font-bold ${message.status === "ready" ? "text-pz-on-surface" : "text-pz-on-surface-variant"}`}>Copy message</span>
+                {message.status === "error" ? (
+                  <span role="alert" className="text-xs text-pz-academy-error">
+                    Could not make this message. Please try again later.
+                  </span>
+                ) : message.status === "ready" ? (
+                  <span className="text-xs text-pz-on-surface-variant">Names and points, ready to post</span>
+                ) : (
+                  <span className="text-xs text-pz-on-surface-variant">Preparing…</span>
+                )}
+              </span>
+            </button>
+          )}
         </div>
       )}
     </div>
