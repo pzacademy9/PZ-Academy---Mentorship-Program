@@ -35,15 +35,18 @@ const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json:
 
 let fetchMock: ReturnType<typeof vi.fn>;
 let preview = { toMove: 48, alreadyThere: 2, unmatchedModules: 1 };
+let choices: unknown = { hasOptions: true, options: [], groups: [] };
 const posts = (part: string) =>
   fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === "POST" && String(c[0]).includes(part));
 
 beforeEach(() => {
   refresh.mockReset();
   preview = { toMove: 48, alreadyThere: 2, unmatchedModules: 1 };
+  choices = { hasOptions: true, options: [], groups: [] };
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === "POST") return json({ courseId: C2, moved: 48 });
     if (String(url).includes("/portal/move")) return json(preview);
+    if (String(url).includes("/portal/choices")) return json(choices);
     return json(PANEL);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -55,6 +58,24 @@ function renderScreen(overview: PortalOverview | null = OVERVIEW) {
 }
 
 describe("PortalAccessScreen", () => {
+  it("shows the Match purchase choices card first, above the other cards, when labels are unmatched", async () => {
+    choices = {
+      hasOptions: true,
+      options: [{ key: "m1", label: "Module 1", kind: "module", moduleIds: ["a"] }],
+      groups: [{ label: "Live - Module 1", mode: "live", count: 3, paidCount: 3, suggestedKeys: ["m1"], confident: true }],
+    };
+    renderScreen();
+    const title = await screen.findByRole("heading", { name: "Match purchase choices" });
+    const portalTitle = screen.getByRole("heading", { name: "This batch's portal" });
+    expect(title.compareDocumentPosition(portalTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("hides the Match purchase choices card when nothing is unmatched", async () => {
+    renderScreen();
+    await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/portal/choices"))).toBe(true));
+    expect(screen.queryByRole("heading", { name: "Match purchase choices" })).toBeNull();
+  });
+
   it("shows the portal name, group chip, batch chip and Not published chip", () => {
     renderScreen(UNPUBLISHED);
     expect(screen.getByRole("heading", { name: "PPC batch 3 portal" })).toBeTruthy();

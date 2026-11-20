@@ -7,6 +7,7 @@ import { ArrowRight, ArrowRightLeft, Copy, FolderInput, ListChecks, UsersRound }
 import { BatchAccessPanel } from "@/components/admin/registrations/BatchAccessPanel";
 import { PortalDuplicateDialog } from "@/components/admin/registrations/PortalDuplicateDialog";
 import { PortalMoveDialog } from "@/components/admin/registrations/PortalMoveDialog";
+import { PurchaseChoicesCard } from "@/components/admin/registrations/PurchaseChoicesCard";
 import { callPortal } from "@/lib/portal-client";
 import type { MovePreview, PortalOverview } from "@/lib/data/portals";
 
@@ -143,6 +144,8 @@ function PortalAccessInner({
           The course students open after paying for this batch.
         </p>
       </div>
+
+      <PurchaseChoicesCard pageId={pageId} registrationSetupHref={`/dashboard/admin/landing-pages/${pageId}`} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <section className={card} aria-labelledby="portal-card-title">
