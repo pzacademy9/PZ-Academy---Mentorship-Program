@@ -54,8 +54,8 @@ export interface CampaignRegistrationsProps {
   filterOptions: { regions: string[]; optionLabels: string[] };
   /** Until the builders exist the buttons do nothing. */
   onOpenBuilder?: OpenBuilder;
-  /** The "Messages sent" list for this campaign goes here. */
-  messagesSlot?: ReactNode;
+  /** The History icon (Messages sent) goes beside Filters in the toolbar. */
+  historySlot?: ReactNode;
 }
 
 const noBuilder: OpenBuilder = () => {};
@@ -73,7 +73,7 @@ export function CampaignRegistrations({
   query,
   filterOptions,
   onOpenBuilder = noBuilder,
-  messagesSlot,
+  historySlot,
 }: CampaignRegistrationsProps) {
   const [ids, setIds] = useState<Set<string>>(new Set());
   const [allInFilter, setAllInFilter] = useState(false);
@@ -156,6 +156,7 @@ export function CampaignRegistrations({
         counts={counts}
         options={filterOptions}
         toolsSlot={<BatchToolsMenu pageId={pageId} base={detailHrefBase} />}
+        historySlot={historySlot}
       />
 
       {showBanner && (
@@ -192,8 +193,6 @@ export function CampaignRegistrations({
         statusCell={(r) => <RowStatusCell row={r} />}
         selectable={{ isSelected, onToggle: toggleRow, allOnPageSelected: allOnPage || allInFilter, onTogglePage: togglePage }}
       />
-
-      {messagesSlot}
 
       {builder && (
         <MessageBuilder

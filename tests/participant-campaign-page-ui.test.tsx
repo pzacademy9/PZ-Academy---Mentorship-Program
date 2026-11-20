@@ -30,7 +30,7 @@ function setup(over: Partial<Parameters<typeof CampaignRegistrations>[0]> = {}) 
       filters={{ pageId: "pg1", status: "paid" }} query={{ status: "paid" }}
       filterOptions={{ regions: ["PK", "SA"], optionLabels: ["Full course"] }}
       onOpenBuilder={onOpenBuilder}
-      messagesSlot={<div>messages here</div>}
+      historySlot={<div>messages here</div>}
       {...over}
     />,
   );
@@ -41,7 +41,7 @@ const headerBox = () => tbl().getByRole("checkbox", { name: "Select all on this 
 const rowBoxes = () => tbl().getAllByRole("checkbox").filter((c) => c !== headerBox()) as HTMLInputElement[];
 
 describe("campaign page", () => {
-  it("uses the campaign name as the heading, with a back link and the messages slot", () => {
+  it("uses the campaign name as the heading, with a back link and the history slot", () => {
     setup();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("TMC Batch 1");
     expect(screen.getByRole("link", { name: /All campaigns/ }).getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations");

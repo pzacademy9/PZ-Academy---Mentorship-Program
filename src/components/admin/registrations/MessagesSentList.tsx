@@ -144,6 +144,15 @@ function SendDetailPanel({ send, pauseMs, onClose, onCounts }: { send: SendListI
     void load();
   }, [load]);
 
+  // Escape closes the details (an outer panel, if any, waits for this to be gone).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   /** One request at a time: a second click while one is working does nothing. */
   async function exclusive(fn: () => Promise<void>) {
     if (busyRef.current) return;
