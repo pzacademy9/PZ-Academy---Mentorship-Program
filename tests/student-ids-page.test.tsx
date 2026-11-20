@@ -6,23 +6,27 @@ const m = vi.hoisted(() => ({
   requireAdminPage: vi.fn(),
   listPages: vi.fn(),
   listRows: vi.fn(),
+  getSlug: vi.fn(),
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
   }),
 }));
 vi.mock("next/navigation", () => ({ notFound: m.notFound }));
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdminPage: m.requireAdminPage }));
-vi.mock("@/lib/data/landing-registration-admin", () => ({ listRegistrationPageOptions: m.listPages }));
+vi.mock("@/lib/data/landing-registration-admin", () => ({
+  listRegistrationPageOptions: m.listPages,
+  getRegistrationPageSlug: m.getSlug,
+}));
 vi.mock("@/lib/data/pz-people", () => ({ listBatchIdRowsWithScope: m.listRows }));
 vi.mock("@/components/admin/ids/StudentIdsPanel", () => ({ StudentIdsPanel: () => null }));
 
 import AdminStudentIdsPage from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/ids/page";
 
 const UUID = "00000000-0000-4000-8000-0000000000f1";
-const find = (node: unknown): { pageTitle: string; rows: unknown[] } | null => {
+const find = (node: unknown): { pageTitle: string; rows: unknown[]; publicSlug?: string | null } | null => {
   if (!node || typeof node !== "object") return null;
-  const el = node as ReactElement<{ pageTitle?: string; rows?: unknown[]; children?: unknown }>;
-  if (typeof el.props?.pageTitle === "string") return el.props as { pageTitle: string; rows: unknown[] };
+  const el = node as ReactElement<{ pageTitle?: string; rows?: unknown[]; publicSlug?: string | null; children?: unknown }>;
+  if (typeof el.props?.pageTitle === "string") return el.props as { pageTitle: string; rows: unknown[]; publicSlug?: string | null };
   const kids = el.props?.children;
   for (const k of Array.isArray(kids) ? kids : [kids]) {
     const f = find(k);
@@ -34,6 +38,7 @@ const find = (node: unknown): { pageTitle: string; rows: unknown[] } | null => {
 beforeEach(() => {
   m.requireAdminPage.mockReset().mockResolvedValue({});
   m.listPages.mockReset().mockResolvedValue([{ id: UUID, title: "PPC Batch 4" }]);
+  m.getSlug.mockReset().mockResolvedValue("ppc-batch-3");
   m.listRows.mockReset().mockResolvedValue([{ name: "Sample Name-0000", pzId: "Sample-0000", full: true, modules: [], known: true }]);
 });
 
@@ -54,5 +59,10 @@ describe("Student IDs page", () => {
     const panel = find(await AdminStudentIdsPage({ params: Promise.resolve({ pageId: UUID }) }));
     expect(panel?.pageTitle).toBe("PPC Batch 4");
     expect(panel?.rows).toHaveLength(1);
+  });
+  it("passes the public page slug to the panel", async () => {
+    const panel = find(await AdminStudentIdsPage({ params: Promise.resolve({ pageId: UUID }) }));
+    expect(m.getSlug).toHaveBeenCalledWith(UUID);
+    expect(panel?.publicSlug).toBe("ppc-batch-3");
   });
 });

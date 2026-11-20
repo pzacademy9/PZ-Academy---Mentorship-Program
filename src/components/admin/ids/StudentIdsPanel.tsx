@@ -85,12 +85,21 @@ const CHIPS: { key: IdFilter; label: string; count: (c: ReturnType<typeof countB
   { key: "unknown", label: "Scope not set", count: (c) => c.unknown },
 ];
 
-export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: IdRow[] }) {
+export function StudentIdsPanel({
+  pageTitle,
+  rows,
+  publicSlug,
+}: {
+  pageTitle: string;
+  rows: IdRow[];
+  publicSlug?: string | null;
+}) {
   const [filter, setFilter] = useState<IdFilter>("all");
   const [query, setQuery] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [allState, copyAll] = useCopy();
+  const [linkState, copyLink] = useCopy();
 
   const counts = useMemo(() => countByFilter(rows), [rows]);
   const shown = useMemo(() => filterRows(rows, filter, query), [rows, filter, query]);
@@ -128,16 +137,35 @@ export function StudentIdsPanel({ pageTitle, rows }: { pageTitle: string; rows: 
               {rows.length} students
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => void downloadPdf()}
-            disabled={pdfBusy || shown.length === 0}
-            className={`${quietBtn} max-md:w-full`}
-          >
-            <FileText aria-hidden className="h-4 w-4" />
-            Download ID PDF
-          </button>
+          <div className="flex flex-wrap items-center gap-3 max-md:w-full max-md:flex-col max-md:items-stretch">
+            {publicSlug && (
+              <button
+                type="button"
+                onClick={() => void copyLink(`${window.location.origin}/ids/${publicSlug}`)}
+                className={`${quietBtn} max-md:w-full`}
+              >
+                {linkState === "copied" ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
+                Copy public ID page link
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void downloadPdf()}
+              disabled={pdfBusy || shown.length === 0}
+              className={`${quietBtn} max-md:w-full`}
+            >
+              <FileText aria-hidden className="h-4 w-4" />
+              Download ID PDF
+            </button>
+          </div>
         </div>
+        <p role="status" className={linkState === "idle" ? "sr-only" : "mt-2 text-base text-pz-on-surface-variant"}>
+          {linkState === "copied"
+            ? "Link copied."
+            : linkState === "failed"
+              ? "Could not copy the link. Please copy it from the address of the public page."
+              : ""}
+        </p>
         {note && <p role="alert" className="mt-2 text-base text-pz-academy-error">{note}</p>}
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">

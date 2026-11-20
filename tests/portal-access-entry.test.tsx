@@ -8,12 +8,9 @@ const redirectMock = vi.fn((url: string) => {
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
 describe("portal access entry point", () => {
-  it("the campaign page header links Portal access to .../campaign/<id>/portal", () => {
-    const src = readFileSync(
-      "src/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/page.tsx",
-      "utf8",
-    );
-    expect(src).toContain("href={`${DETAIL_BASE}/campaign/${pageId}/portal`}");
+  it("the Batch tools menu links Portal access to .../campaign/<id>/portal", () => {
+    const src = readFileSync("src/components/admin/registrations/BatchToolsMenu.tsx", "utf8");
+    expect(src).toContain("href={`${campaign}/portal`}");
     expect(src).toMatch(/\/portal`\}[\s\S]{0,300}Portal access/);
   });
 

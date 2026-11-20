@@ -90,6 +90,27 @@ describe("StudentIdsPanel", () => {
     expect((screen.getByRole("button", { name: /Download ID PDF/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("copies the public ID page link when a slug is given", async () => {
+    render(<StudentIdsPanel pageTitle="B" rows={rows} publicSlug="ppc-batch-3" />);
+    fireEvent.click(screen.getByRole("button", { name: /Copy public ID page link/ }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith(`${window.location.origin}/ids/ppc-batch-3`));
+    expect(await screen.findByText("Link copied.")).toBeTruthy();
+  });
+
+  it("has no public link button without a slug", () => {
+    render(<StudentIdsPanel pageTitle="B" rows={rows} />);
+    expect(screen.queryByRole("button", { name: /Copy public ID page link/ })).toBeNull();
+  });
+
+  it("tells the admin when the public link cannot be copied, without throwing", async () => {
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    render(<StudentIdsPanel pageTitle="B" rows={rows} publicSlug="ppc-batch-3" />);
+    fireEvent.click(screen.getByRole("button", { name: /Copy public ID page link/ }));
+    expect(
+      await screen.findByText("Could not copy the link. Please copy it from the address of the public page."),
+    ).toBeTruthy();
+  });
+
   it("never shows an email", () => {
     const { container } = render(<StudentIdsPanel pageTitle="B" rows={rows} />);
     expect(container.textContent).not.toContain("@");

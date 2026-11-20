@@ -7,6 +7,9 @@ import { RegistrationFilters } from "@/components/admin/registrations/Registrati
 import { registrationHref } from "@/components/admin/registrations/query";
 import type { RegistrationListRow } from "@/lib/data/landing-registration-admin";
 
+// vi.mock is hoisted, so it still applies to the imports above.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }), usePathname: () => "/x", useSearchParams: () => new URLSearchParams() }));
+
 const row = (i: number, over: Partial<RegistrationListRow> = {}): RegistrationListRow => ({
   id: `r${i}`, refId: null, name: `Person ${i}`, email: `p${i}@x.com`, pageId: "pg1", pageTitle: "TMC Batch 1",
   optionLabel: "Full course", mode: "live", region: "PK", expectedAmount: 100, amountReceived: null, currency: "PKR",
@@ -95,9 +98,11 @@ describe("campaign page", () => {
 
   it("has Country and What they bought filters but no Page filter", () => {
     setup();
-    expect(screen.getByLabelText("Country")).toBeTruthy();
-    expect(screen.getByLabelText("What they bought")).toBeTruthy();
-    expect(screen.queryByLabelText("Page")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const legends = Array.from(document.querySelectorAll("legend")).map((l) => l.textContent);
+    expect(legends).toContain("Country");
+    expect(legends).toContain("What they bought");
+    expect(legends).not.toContain("Page");
   });
 });
 
@@ -123,27 +128,18 @@ describe("PZ ID column and batch ID tools", () => {
   it("shows the PZ ID, and a dash for a row with no person", () => {
     setup({
       rows: [row(1, { pzId: "Hamid-4821" }), row(2, { status: "pending", pzId: null })],
-      total: 2, publicSlug: "ppc-batch-1",
+      total: 2,
     });
     expect(tbl().getByRole("columnheader", { name: "PZ ID" })).toBeTruthy();
     expect(tbl().getByText("Hamid-4821")).toBeTruthy();
     expect(tbl().getByLabelText("No PZ ID yet")).toBeTruthy();
   });
-  it("has the download and copy-link buttons", () => {
-    setup({ publicSlug: "ppc-batch-1" });
-    expect(screen.getByRole("button", { name: /^Download IDs/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Copy public ID page link" })).toBeTruthy();
-  });
-  it("hides the copy-link button when the page has no public link (draft)", () => {
-    setup({ publicSlug: null });
-    expect(screen.getByRole("button", { name: /^Download IDs/ })).toBeTruthy();
+  it("has no ID download or copy-link buttons any more, but has Filters and Batch tools", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: /^Download IDs/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Copy public ID page link" })).toBeNull();
-  });
-  it("copies the public ID page link", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    setup({ publicSlug: "ppc-batch-1" });
-    fireEvent.click(screen.getByRole("button", { name: "Copy public ID page link" }));
-    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/ids/ppc-batch-1`);
+    expect(screen.queryByText(/People without an ID yet/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Filters" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Batch tools" }).length).toBeGreaterThan(0);
   });
 });

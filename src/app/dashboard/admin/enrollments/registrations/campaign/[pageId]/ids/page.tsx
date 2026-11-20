@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
-import { listRegistrationPageOptions } from "@/lib/data/landing-registration-admin";
+import { getRegistrationPageSlug, listRegistrationPageOptions } from "@/lib/data/landing-registration-admin";
 import { listBatchIdRowsWithScope } from "@/lib/data/pz-people";
 import { StudentIdsPanel } from "@/components/admin/ids/StudentIdsPanel";
 
@@ -24,7 +24,7 @@ export default async function AdminStudentIdsPage({ params }: { params: Promise<
   const campaign = pages.find((p) => p.id === pageId);
   if (!campaign) notFound();
 
-  const rows = await listBatchIdRowsWithScope(pageId);
+  const [rows, publicSlug] = await Promise.all([listBatchIdRowsWithScope(pageId), getRegistrationPageSlug(pageId)]);
 
   return (
     <div className="space-y-6">
@@ -39,7 +39,7 @@ export default async function AdminStudentIdsPage({ params }: { params: Promise<
           Back to registrations
         </Link>
       </div>
-      <StudentIdsPanel pageTitle={campaign.title} rows={rows} />
+      <StudentIdsPanel pageTitle={campaign.title} rows={rows} publicSlug={publicSlug} />
     </div>
   );
 }
