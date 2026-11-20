@@ -80,7 +80,7 @@ export function MessagesHistory({ sends }: { sends: SendListItem[] }) {
             aria-modal="true"
             aria-label="Messages sent"
             tabIndex={-1}
-            className="relative flex h-full w-full flex-col bg-pz-surface md:max-w-xl md:border-l md:border-pz-outline-variant/40 md:shadow-2xl focus:outline-none"
+            className="relative flex h-full w-full flex-col bg-pz-surface max-md:pt-[env(safe-area-inset-top)] md:max-w-xl md:border-l md:border-pz-outline-variant/40 md:shadow-2xl focus:outline-none"
           >
             <div className="flex items-center justify-end px-4 py-3">
               <button
@@ -92,7 +92,7 @@ export function MessagesHistory({ sends }: { sends: SendListItem[] }) {
                 Close
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-6">
+            <div className="flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
               <MessagesSentList sends={sends} />
             </div>
           </div>

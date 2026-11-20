@@ -52,4 +52,25 @@ describe("SharePodium message item", () => {
     fireEvent.click(item);
     await waitFor(() => expect(h.error).toHaveBeenCalledWith("Could not copy."));
   });
+  it("fetches again when the menu is reopened", async () => {
+    const messageText = vi.fn().mockResolvedValue("Hello");
+    render(<SharePodium slug="b1" title="B" pick="s1" label="Class 1" messageText={messageText} />);
+    open();
+    const item = await screen.findByRole("button", { name: /copy message/i });
+    await waitFor(() => expect((item as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(item);
+    expect(screen.queryByRole("group")).toBeNull();
+    open();
+    await waitFor(() => expect(messageText).toHaveBeenCalledTimes(2));
+  });
+  it("toasts and closes when there is no clipboard", async () => {
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    render(<SharePodium slug="b1" title="B" pick="s1" label="Class 1" messageText={async () => "Hi"} />);
+    open();
+    const item = await screen.findByRole("button", { name: /copy message/i });
+    await waitFor(() => expect((item as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(item);
+    expect(screen.queryByRole("group")).toBeNull();
+    await waitFor(() => expect(h.error).toHaveBeenCalledWith("Could not copy."));
+  });
 });

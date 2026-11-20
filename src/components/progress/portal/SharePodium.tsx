@@ -66,7 +66,7 @@ export function SharePodium({
   };
 
   const prepareMessage = () => {
-    if (!messageText || message.status === "loading" || message.status === "ready") return;
+    if (!messageText || message.status === "loading") return;
     setMessage({ status: "loading" });
     messageText().then(
       (text) => setMessage(text ? { status: "ready", text } : { status: "error" }),
@@ -166,7 +166,11 @@ export function SharePodium({
               onClick={() => {
                 if (message.status !== "ready") return;
                 // Text is already fetched, so the copy starts straight from the tap.
-                navigator.clipboard.writeText(message.text).catch(() => toast.error("Could not copy."));
+                try {
+                  navigator.clipboard.writeText(message.text).catch(() => toast.error("Could not copy."));
+                } catch {
+                  toast.error("Could not copy.");
+                }
                 close(true);
               }}
               className={`flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-left enabled:hover:bg-pz-surface-container-high disabled:cursor-not-allowed ${btnFocus}`}
