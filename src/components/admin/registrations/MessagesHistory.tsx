@@ -93,7 +93,7 @@ export function MessagesHistory({ sends }: { sends: SendListItem[] }) {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-              <MessagesSentList sends={sends} />
+              <MessagesSentList sends={sends} compact />
             </div>
           </div>
         </div>

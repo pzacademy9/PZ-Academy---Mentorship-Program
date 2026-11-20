@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MessagesHistory } from "@/components/admin/registrations/MessagesHistory";
+import { MessagesSentList } from "@/components/admin/registrations/MessagesSentList";
 import { CampaignRegistrations } from "@/components/admin/registrations/CampaignRegistrations";
 import type { SendListItem } from "@/lib/data/participant-sends";
 
@@ -91,5 +92,22 @@ describe("CampaignRegistrations history slot", () => {
     expect(screen.queryByRole("heading", { name: "Messages sent" })).toBeNull();
     fireEvent.click(icon());
     expect(screen.getByRole("heading", { name: "Messages sent" })).toBeTruthy();
+  });
+});
+
+describe("MessagesSentList compact", () => {
+  const rowButton = () => screen.getByRole("button", { name: /Module 2 Schedule/ });
+  it("stays stacked at every width with compact, side by side without it", () => {
+    const { unmount } = render(<MessagesSentList sends={[send()]} compact />);
+    expect(rowButton().className).not.toContain("lg:flex-row");
+    unmount();
+    render(<MessagesSentList sends={[send()]} />);
+    expect(rowButton().className).toContain("lg:flex-row");
+  });
+
+  it("the panel uses the compact list", () => {
+    render(<MessagesHistory sends={[send()]} />);
+    fireEvent.click(icon());
+    expect(rowButton().className).not.toContain("lg:flex-row");
   });
 });

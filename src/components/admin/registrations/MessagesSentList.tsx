@@ -264,10 +264,12 @@ export interface MessagesSentListProps {
   sends: SendListItem[];
   /** Pause between sending runs that made no progress. Tests pass 0. */
   pauseMs?: number;
+  /** Inside a narrow panel: rows and header stay stacked at every screen width. */
+  compact?: boolean;
 }
 
 /** Every email and WhatsApp message sent from a campaign, newest first. Admin-only. */
-export function MessagesSentList({ sends, pauseMs = 300 }: MessagesSentListProps) {
+export function MessagesSentList({ sends, pauseMs = 300, compact = false }: MessagesSentListProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, SendCounts>>({});
   const open = sends.find((s) => s.id === openId) ?? null;
@@ -278,7 +280,7 @@ export function MessagesSentList({ sends, pauseMs = 300 }: MessagesSentListProps
 
   return (
     <section aria-labelledby="messages-sent-title" className="bg-pz-surface-container-lowest rounded-xl p-6 shadow-sm space-y-5">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-pz-surface-container pb-4">
+      <div className={compact ? "flex flex-col gap-4 border-b border-pz-surface-container pb-4" : "flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-pz-surface-container pb-4"}>
         <div>
           <h2 id="messages-sent-title" className="text-base font-headline font-bold text-pz-on-surface">Messages sent</h2>
           <p className="text-xs font-body text-pz-on-surface-variant mt-0.5">Every email and WhatsApp message sent from this campaign</p>
@@ -307,7 +309,7 @@ export function MessagesSentList({ sends, pauseMs = 300 }: MessagesSentListProps
                 <button
                   type="button"
                   onClick={() => setOpenId(s.id)}
-                  className="w-full text-left flex flex-col lg:flex-row lg:items-center justify-between p-4 rounded-xl bg-pz-surface-container-low hover:bg-pz-surface-container transition-all group gap-4"
+                  className={`w-full text-left flex flex-col ${compact ? "" : "lg:flex-row lg:items-center "}justify-between p-4 rounded-xl bg-pz-surface-container-low hover:bg-pz-surface-container transition-all group gap-4`}
                 >
                   <div className="flex items-start md:items-center gap-3.5 min-w-0 flex-1">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${whatsapp ? "bg-pz-primary-container text-pz-on-primary-container" : "bg-pz-surface-container text-pz-on-surface"}`}>
@@ -326,7 +328,7 @@ export function MessagesSentList({ sends, pauseMs = 300 }: MessagesSentListProps
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 self-end lg:self-auto shrink-0">
+                  <div className={`flex flex-wrap items-center gap-3 ${compact ? "self-start" : "self-end lg:self-auto shrink-0"}`}>
                     <CountPills counts={countsOf(s)} />
                     <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-pz-surface-container-lowest text-pz-on-surface-variant group-hover:text-pz-primary text-xs font-headline font-semibold transition-all">
                       View details
