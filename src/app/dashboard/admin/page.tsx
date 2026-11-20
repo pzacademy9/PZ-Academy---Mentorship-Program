@@ -22,7 +22,7 @@ export default async function AdminDashboard() {
             awaiting verification.
           </p>
           <Link
-            href="/dashboard/admin/enrollments"
+            href="/dashboard/admin/enrollments/app"
             className="ml-auto text-xs text-pz-pine font-medium hover:underline"
           >
             Review →
@@ -37,7 +37,7 @@ export default async function AdminDashboard() {
         <StatCard label="Revenue (PKR)" value="—" icon={DollarSign} iconBg="bg-pz-frost" />
       </div>
 
-      {/* The real queue lives at /dashboard/admin/enrollments. This used to be a
+      {/* The real queue lives at /dashboard/admin/enrollments/app. This used to be a
           hardcoded empty table, which would now contradict the banner above. */}
       <div className="bg-pz-surface-container-lowest rounded-xl shadow-card p-6">
         <h2 className="font-montserrat font-bold text-pz-forest text-base">Pending Payments</h2>
@@ -47,7 +47,7 @@ export default async function AdminDashboard() {
             : `${pendingCount} enrollment${pendingCount === 1 ? "" : "s"} awaiting payment verification.`}
         </p>
         <Link
-          href="/dashboard/admin/enrollments"
+          href="/dashboard/admin/enrollments/app"
           className="inline-block mt-4 text-sm text-pz-pine font-semibold hover:underline"
         >
           Open review queue →

@@ -36,6 +36,13 @@ it("activeHrefFor picks the longest matching href, not ancestors", () => {
   expect(activeHrefFor(items, "/dashboard/adminfoo")).toBe("/dashboard");
 });
 
+it("Enrollments stays highlighted on its sub-pages", () => {
+  const items = navForRole("admin");
+  for (const p of ["app", "registrations/campaign/abc", "some-id"]) {
+    expect(activeHrefFor(items, "/dashboard/admin/enrollments/" + p)).toBe("/dashboard/admin/enrollments");
+  }
+});
+
 it("NAV_ITEMS is non-empty and every item has at least one role", () => {
   expect(NAV_ITEMS.length).toBeGreaterThan(0);
   for (const i of NAV_ITEMS) expect(i.roles.length).toBeGreaterThan(0);

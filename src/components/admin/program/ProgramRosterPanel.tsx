@@ -52,13 +52,13 @@ export function ProgramRosterPanel({
 
       <div className="p-4 border-t border-pz-outline-variant space-y-2">
         <Link
-          href={`/dashboard/admin/enrollments?status=pending&${filterParams}`}
+          href={`/dashboard/admin/enrollments/app?status=pending&${filterParams}`}
           className="block w-full text-center py-2.5 bg-pz-primary text-pz-on-primary font-headline font-bold text-sm rounded-lg hover:opacity-90 transition-opacity"
         >
           Review & Manage Enrollments
         </Link>
         <Link
-          href={`/dashboard/admin/enrollments?status=all&${filterParams}`}
+          href={`/dashboard/admin/enrollments/app?status=all&${filterParams}`}
           className="flex items-center justify-center gap-2 w-full text-center py-2.5 border border-pz-outline-variant text-pz-on-surface-variant font-headline font-bold text-sm rounded-lg hover:bg-pz-surface-container-low transition-colors"
         >
           <Download className="w-4 h-4" />

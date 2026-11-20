@@ -2,13 +2,14 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * Switch between the two places an enrollment can come from. Same pill treatment as
+ * Switch between the two places an enrollment can come from. Page registrations come
+ * first (the default landing); App sign-ups live at /enrollments/app. Same pill treatment as
  * EnrollmentFilterTabs; plain links so each tab is its own page.
  */
 export function EnrollmentSourceTabs({ active }: { active: "app" | "page" }) {
   const tabs = [
-    { key: "app", label: "App sign-ups", href: "/dashboard/admin/enrollments" },
     { key: "page", label: "Page registrations", href: "/dashboard/admin/enrollments/registrations" },
+    { key: "app", label: "App sign-ups", href: "/dashboard/admin/enrollments/app" },
   ] as const;
   return (
     <nav aria-label="Enrollment source" className="flex gap-2 flex-wrap">

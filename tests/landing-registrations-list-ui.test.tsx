@@ -138,7 +138,8 @@ describe("registrations list UI", () => {
 
   it("tab strip links between App sign-ups and Page registrations", () => {
     render(<EnrollmentSourceTabs active="page" />);
-    expect(screen.getByRole("link", { name: "App sign-ups" }).getAttribute("href")).toBe("/dashboard/admin/enrollments");
+    expect(screen.getByRole("link", { name: "App sign-ups" }).getAttribute("href")).toBe("/dashboard/admin/enrollments/app");
+    expect(screen.getAllByRole("link")[0].textContent).toBe("Page registrations");
     const page = screen.getByRole("link", { name: "Page registrations" });
     expect(page.getAttribute("href")).toBe("/dashboard/admin/enrollments/registrations");
     expect(page.getAttribute("aria-current")).toBe("page");
