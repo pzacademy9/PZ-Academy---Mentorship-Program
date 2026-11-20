@@ -13,6 +13,7 @@ The owner wanted to rebuild the Diabetes Management program's curriculum (new vi
 3. **A clear way back** from the curriculum builder to the program editor ("Back to program"), replacing the unclear "Basics" link as the main route.
 4. **Video preview** under every pasted video link in the builder (small player or thumbnail), so the admin can see it is the right video.
 5. **Unsaved-changes warning** when leaving with work that has not been saved.
+6. **An AI prompt for curriculum only** so the admin can get a correct file for job 1.
 
 ## Non-goals and anti-goals
 
@@ -75,13 +76,17 @@ In the builder header, a clear first-position link "‹ Back to program" to `/da
 - Failed save keeps the warning on.
 - In-app link guard: a capturing click listener on anchors inside the dashboard, shown only while dirty (builder's call; keep it small and removable).
 
+### 6. AI prompt: Curriculum only
+
+`src/lib/lms/course-import/prompts.ts` gets `curriculumPrompt()`: the same file format and rules as `masterPrompt()` but it asks the AI for modules, sessions, video links, notes links and quiz questions only. No course details, price, FAQs or page parts. It asks the AI to keep module and session names exactly as they are in the program (the import matches by name) and tells the admin to paste the current names if they differ. `/dashboard/admin/courses/ai` gets a fourth tab "Curriculum only" (`CourseAiPrompts` Kind adds `curriculum`) with steps: copy the instructions, give the AI your YouTube links, quiz file and notes links, save the file, open the program's curriculum builder, press Import curriculum from a file. The new import dialog links to this page, like the page-import dialog does. Test: the prompt names the format id and contains no page-part headings.
+
 ## Parts left to the builder
 
 Exact component split, naming of change ids, wording of rows, the dirty-state plumbing, whether the landing dialog shares the new tick-box code, CSP tweaks, and how session-progress warnings are counted.
 
 ## Testing and checks
 
-- Vitest: compare function (new/different/same/missing, flat and modular, duplicate names, empty-part-leaves-alone), plan filtering by ticked ids, page-change keys and filter, `videoEmbed`.
+- Vitest: `curriculumPrompt`, compare function (new/different/same/missing, flat and modular, duplicate names, empty-part-leaves-alone), plan filtering by ticked ids, page-change keys and filter, `videoEmbed`.
 - Route test for refusal cases (type mismatch, changed program, not admin).
 - tsc 0 errors, eslint clean, focused vitest runs.
 - Browser check at 390px and 1440px of: import dialog list, tick-boxes, header Back link, video preview, leave warning. Localhost only, admin test login, no data changed (use the import check step without Apply, or a throwaway program the owner OKs).
