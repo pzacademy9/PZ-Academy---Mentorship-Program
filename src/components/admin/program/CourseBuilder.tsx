@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, Save, Settings } from "lucide-react";
+import { Copy, FileUp, Save, Settings } from "lucide-react";
 import { courseReadiness, missingSummary } from "@/lib/lms/lesson-parts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { CurriculumMap } from "./CurriculumMap";
 import { LessonEditorPanel } from "./LessonEditorPanel";
 import { ModuleNotesPanel } from "./ModuleNotesPanel";
 import { PublishConfirmDialog } from "./PublishConfirmDialog";
+import { ImportCurriculumDialog } from "./ImportCurriculumDialog";
 
 function firstLesson(modules: BuilderModule[]): BuilderLesson | null {
   for (const mod of modules) {
@@ -48,6 +49,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
     setSelectedModuleId((prev) => (prev && initialState.modules.some((m) => m.id === prev) ? prev : null));
   }
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const courseType = initialState.course.type;
   const allSessions = modules.flatMap((m) => m.lessons);
@@ -204,6 +206,16 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               <Copy className="w-4 h-4" />
               Copy course
             </Button>
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              onClick={() => setImportOpen(true)}
+              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
+            >
+              <FileUp className="w-4 h-4" />
+              Import curriculum from a file
+            </Button>
             <button
               onClick={() => {
                 router.refresh();
@@ -261,6 +273,13 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
           )}
         </section>
       </div>
+
+      <ImportCurriculumDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        courseId={initialState.course.id}
+        onApplied={() => router.refresh()}
+      />
 
       <PublishConfirmDialog
         open={confirmOpen}
