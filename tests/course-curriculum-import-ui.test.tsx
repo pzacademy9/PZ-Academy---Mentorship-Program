@@ -85,6 +85,28 @@ describe("Import curriculum dialog", () => {
     expect(JSON.parse(init.body).ids).toContain("remove-session:l2");
   });
 
+  it("asks for the remove confirm again after the remove row is unticked and re-ticked", async () => {
+    const dialog = await openChecked();
+    const row = within(dialog).getByRole("checkbox", { name: /Old Session/ });
+    fireEvent.click(row);
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Yes, remove the ticked items" }));
+    const apply = within(dialog).getByRole("button", { name: "Apply the ticked changes" }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+    fireEvent.click(row);
+    fireEvent.click(row);
+    expect((within(dialog).getByRole("checkbox", { name: "Yes, remove the ticked items" }) as HTMLInputElement).checked).toBe(false);
+    expect(apply.disabled).toBe(true);
+  });
+
+  it("sends Apply only once on a fast double click", async () => {
+    const dialog = await openChecked();
+    const apply = within(dialog).getByRole("button", { name: "Apply the ticked changes" });
+    fireEvent.click(apply);
+    fireEvent.click(apply);
+    await waitFor(() => expect(onApplied).toHaveBeenCalled());
+    expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith("/apply"))).toHaveLength(1);
+  });
+
   it("turns Apply off when nothing is ticked", async () => {
     const dialog = await openChecked();
     for (const b of within(dialog).getAllByRole("button", { name: "Untick all" })) fireEvent.click(b);

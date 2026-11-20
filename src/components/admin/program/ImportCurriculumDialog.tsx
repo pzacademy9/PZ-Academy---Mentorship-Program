@@ -86,9 +86,15 @@ export function ImportCurriculumDialog({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const busyRef = useRef(false);
+  const checkSeq = useRef(0);
+  const removeIds = new Set((checked?.changes ?? []).filter(isRemove).map((c) => c.id));
+  const removeTicked = Array.from(ticked).some((id) => removeIds.has(id));
   const base = `/api/admin/courses/${courseId}/import-curriculum`;
 
   function reset() {
+    checkSeq.current += 1;
+    busyRef.current = false;
     setText("");
     setErrors([]);
     setChecked(null);
@@ -98,6 +104,7 @@ export function ImportCurriculumDialog({
   }
 
   async function check(value: string) {
+    const seq = ++checkSeq.current;
     setBusy(true);
     setErrors([]);
     try {
@@ -106,21 +113,26 @@ export function ImportCurriculumDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: value }),
       });
+      if (seq !== checkSeq.current) return;
       if (!res.ok) {
+        const errs = await readErrors(res, "The file could not be checked. Please try again.");
+        if (seq !== checkSeq.current) return;
         setChecked(null);
-        setErrors(await readErrors(res, "The file could not be checked. Please try again."));
+        setErrors(errs);
         return;
       }
       const body = (await res.json()) as { warnings?: string[]; changes?: CurriculumChange[] };
+      if (seq !== checkSeq.current) return;
       const changes = body.changes ?? [];
       setChecked({ warnings: body.warnings ?? [], changes });
       setTicked(new Set(changes.filter((c) => c.defaultOn).map((c) => c.id)));
       setConfirmRemove(false);
     } catch {
+      if (seq !== checkSeq.current) return;
       setChecked(null);
       setErrors(["The file could not be checked. Please try again."]);
     } finally {
-      setBusy(false);
+      if (seq === checkSeq.current) setBusy(false);
     }
   }
 
@@ -138,6 +150,9 @@ export function ImportCurriculumDialog({
   }
 
   async function apply() {
+    if (busyRef.current) return;
+    if (ticked.size === 0 || (removeTicked && !confirmRemove)) return;
+    busyRef.current = true;
     setBusy(true);
     setErrors([]);
     try {
@@ -160,24 +175,26 @@ export function ImportCurriculumDialog({
     } catch {
       setErrors(["Something went wrong. Please try again."]);
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
 
   const groups = checked ? groupChanges(checked.changes) : [];
-  const removeIds = new Set((checked?.changes ?? []).filter(isRemove).map((c) => c.id));
-  const removeTicked = Array.from(ticked).some((id) => removeIds.has(id));
   const canApply = ticked.size > 0 && (!removeTicked || confirmRemove) && !busy;
 
   // One shared ticked set. A group's Tick all / Untick all only touches its own rows.
   function changeGroup(ids: Set<string>, next: Set<string>) {
-    setTicked(new Set(Array.from(ticked).filter((id) => !ids.has(id)).concat(Array.from(next).filter((id) => ids.has(id)))));
+    const merged = new Set(Array.from(ticked).filter((id) => !ids.has(id)).concat(Array.from(next).filter((id) => ids.has(id))));
+    setTicked(merged);
+    // Re-ticking a remove row later must ask again.
+    if (!Array.from(merged).some((id) => removeIds.has(id))) setConfirmRemove(false);
   }
 
   const errorList =
     errors.length > 0 ? (
       <ul role="alert" className="list-disc space-y-1 rounded-lg bg-pz-error-container px-6 py-3 font-body text-sm text-pz-on-error-container">
-        {errors.map((e) => <li key={e}>{e}</li>)}
+        {errors.map((e, i) => <li key={i}>{e}</li>)}
       </ul>
     ) : null;
 
