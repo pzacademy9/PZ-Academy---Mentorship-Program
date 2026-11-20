@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, FileUp, Save, Settings } from "lucide-react";
+import { ChevronLeft, Copy, FileUp, Save } from "lucide-react";
 import { courseReadiness, missingSummary } from "@/lib/lms/lesson-parts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -153,6 +153,13 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   return (
     <div className="flex flex-col lg:h-[calc(100vh-7rem)] -m-4 sm:-m-6 lg:overflow-hidden">
       <div className="border-b border-pz-outline-variant bg-pz-surface flex flex-wrap gap-4 justify-between items-center px-4 sm:px-8 py-4 shrink-0">
+        <Link
+          href={`/dashboard/admin/courses/${initialState.course.id}`}
+          className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to program
+        </Link>
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold font-headline text-pz-on-surface">Course Builder</h2>
@@ -188,13 +195,6 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
           )}
           <div className="h-8 w-px bg-pz-outline-variant/50 hidden sm:block" />
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/dashboard/admin/courses/${initialState.course.id}`}
-              className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
-            >
-              <Settings className="w-4 h-4" />
-              Basics
-            </Link>
             <Button
               type="button"
               variant="bare"
