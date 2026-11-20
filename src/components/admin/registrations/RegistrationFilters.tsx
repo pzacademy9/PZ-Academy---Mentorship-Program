@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { RegistrationStatus } from "@/lib/landing/registration/config";
-import { REGISTRATION_STATUS_LABELS } from "./RegistrationStatusBadge";
 import { registrationHref, type RegistrationQuery } from "./query";
 import { QuickFilters } from "./QuickFilters";
-
-const TABS: (RegistrationStatus | "all")[] = ["all", "pending", "reserved", "underpaid", "paid", "free"];
+import { StatusTabs } from "./StatusTabs";
 
 const SELECT =
   "h-9 pl-3 pr-8 bg-pz-surface-container-lowest border border-pz-outline-variant/40 rounded-lg text-xs font-headline font-semibold text-pz-on-surface min-w-[10rem]";
@@ -39,29 +36,7 @@ export function RegistrationFilters({
   const anyFilter = Boolean(filters.q || filters.mode || filters.pageId || filters.agentId || filters.region || filters.optionLabel || filters.optionScopes);
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        {TABS.map((tab) => {
-          const selected = tab === active;
-          return (
-            <Link
-              key={tab}
-              href={registrationHref(basePath, filters, { status: tab, p: 1 })}
-              aria-current={selected ? "page" : undefined}
-              className={cn(
-                "px-5 py-2 rounded-full font-headline text-sm transition-all",
-                selected
-                  ? "bg-pz-primary-container text-pz-on-primary-container font-semibold"
-                  : "bg-pz-surface-container-high text-pz-on-surface-variant hover:bg-pz-surface-variant font-medium",
-              )}
-            >
-              {tab === "all" ? "All" : REGISTRATION_STATUS_LABELS[tab]}
-              <span className={cn("ml-2 tabular-nums", !selected && "text-pz-on-surface-variant/60 dark:text-pz-on-surface-variant/80")}>
-                {counts[tab]}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+      <StatusTabs basePath={basePath} filters={filters} counts={counts} />
 
       {campaignOptions && <QuickFilters basePath={basePath} filters={filters} />}
 
