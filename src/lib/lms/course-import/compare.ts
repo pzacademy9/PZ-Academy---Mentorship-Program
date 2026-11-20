@@ -44,8 +44,8 @@ export type CurriculumChange =
       rows: { part: SessionPart; from: string; to: string }[];
     })
   | (Common & { kind: "update-module-notes"; moduleId: string; moduleIndex: number; from: string; to: string })
-  | (Common & { kind: "remove-session"; lessonId: string })
-  | (Common & { kind: "remove-module"; moduleId: string });
+  | (Common & { kind: "remove-session"; lessonId: string; title: string })
+  | (Common & { kind: "remove-module"; moduleId: string; title: string });
 
 export function normalizeName(s: string): string {
   return s.replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
@@ -147,6 +147,7 @@ function compareSessions(
       defaultOn: false,
       kind: "remove-session",
       lessonId: l.id,
+      title: l.title,
     });
   }
 }
@@ -202,6 +203,7 @@ export function compareCurriculum(current: CurrentCurriculum, plan: ImportPlan):
       defaultOn: false,
       kind: "remove-module",
       moduleId: m.id,
+      title: m.title,
     });
   }
   return out;

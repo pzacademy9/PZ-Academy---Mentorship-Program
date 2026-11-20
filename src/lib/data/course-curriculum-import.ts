@@ -1,6 +1,13 @@
 import "server-only";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { ensureDefaultModule, type LessonResourceLink, type QuizQuestionInput } from "@/lib/data/admin-lms";
+import {
+  deleteLesson,
+  deleteModule,
+  ensureDefaultModule,
+  type LessonResourceLink,
+  type MutationResult,
+  type QuizQuestionInput,
+} from "@/lib/data/admin-lms";
 import { usesFlatSessions, type CourseType, type LessonContentType } from "@/lib/validations/admin-lms";
 import type { Json } from "@/lib/supabase/database.types";
 import { deriveContentType } from "@/lib/lms/lesson-parts";
@@ -103,9 +110,39 @@ export async function loadCurrentCurriculum(
   };
 }
 
+// notes: plain lines for the admin, e.g. a removal that was kept.
 export type ApplyCurriculumResult =
-  | { ok: true; applied: number }
-  | { ok: false; applied: number; message: string };
+  | { ok: true; applied: number; notes: string[] }
+  | { ok: false; applied: number; notes: string[]; message: string };
+
+const keptLive = (title: string) =>
+  `${title} was kept. It has student progress on a live program. Remove it in the builder if you are sure.`;
+const keptModuleAccess = (title: string) =>
+  `${title} was kept. Some students were given only this module. Change their access first if you want to remove it.`;
+
+/**
+ * Turns the builder's delete result into a note. Returns true when the row was
+ * removed. A database error stops the run; every other refusal keeps the row.
+ */
+function removalOutcome(res: MutationResult, title: string, notes: string[]): boolean {
+  if (res.ok) {
+    if (res.warning) notes.push(res.warning);
+    return true;
+  }
+  switch (res.reason) {
+    case "db-error":
+      throw new Error("remove failed");
+    case "not-found":
+      notes.push(`${title} was already removed.`);
+      return false;
+    case "blocked-published-active":
+      notes.push(keptLive(title));
+      return false;
+    default:
+      notes.push(`${title} was kept. Remove it in the builder if you are sure.`);
+      return false;
+  }
+}
 
 const SAVE_FAILED = "Some changes could not be saved. The ones before it were applied.";
 
@@ -121,7 +158,8 @@ function check(error: { message: string } | null): void {
 /**
  * Applies exactly the rows passed in, in order: new modules, new sessions,
  * updates, removes. The first failure stops and reports what was applied.
- * Nothing is deleted except by a remove row.
+ * Nothing is deleted except by a remove row, and a remove the builder would
+ * refuse is kept and reported in notes.
  */
 export async function applyCurriculumChanges(
   courseId: string,
@@ -130,6 +168,7 @@ export async function applyCurriculumChanges(
 ): Promise<ApplyCurriculumResult> {
   const admin = createAdminSupabase();
   let applied = 0;
+  const notes: string[] = [];
 
   async function insertQuiz(lessonId: string, s: ImportSession, start = 0): Promise<void> {
     const rows = s.questions.map((q, qi) => ({
@@ -293,20 +332,30 @@ export async function applyCurriculumChanges(
       applied++;
     }
 
+    // Removes go through the builder's own deletes (confirmed by the admin's
+    // tick), so a program that is live with student progress keeps the row,
+    // and Drive files are cleaned up the same way.
     for (const c of ofKind("remove-session")) {
-      const { error } = await admin.from("lessons").delete().eq("id", c.lessonId);
-      check(error);
-      applied++;
+      if (removalOutcome(await deleteLesson(c.lessonId, true), c.title, notes)) applied++;
     }
     for (const c of ofKind("remove-module")) {
-      const { error } = await admin.from("modules").delete().eq("id", c.moduleId);
+      // A module some students were given on its own (enrollment_modules) must
+      // stay: removing it would leave them with no rows, which means the whole course.
+      const { count, error } = await admin
+        .from("enrollment_modules")
+        .select("module_id", { count: "exact", head: true })
+        .eq("module_id", c.moduleId);
       check(error);
-      applied++;
+      if ((count ?? 0) > 0) {
+        notes.push(keptModuleAccess(c.title));
+        continue;
+      }
+      if (removalOutcome(await deleteModule(c.moduleId, true), c.title, notes)) applied++;
     }
   } catch (e) {
     console.error("curriculum-import: apply failed", e);
-    return { ok: false, applied, message: e instanceof QuizCleanupError ? QUIZ_CLEANUP_FAILED : SAVE_FAILED };
+    return { ok: false, applied, notes, message: e instanceof QuizCleanupError ? QUIZ_CLEANUP_FAILED : SAVE_FAILED };
   }
 
-  return { ok: true, applied };
+  return { ok: true, applied, notes };
 }
