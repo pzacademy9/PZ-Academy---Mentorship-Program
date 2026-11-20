@@ -18,8 +18,8 @@ unprofessional. Goal: the first screen shows search, status and people, nothing 
   buttons (Live full course, Live + Module 1, All live and the module-number box). A small badge
   on the button shows how many filters are on. "Reset" lives in the panel.
 - "Batch tools" is one menu with: Sheet sync, Classes, Student IDs, Progress reports, Portal access.
-- Download IDs (PDF) and Copy public ID page link leave this page and move to the Student IDs page
-  of the same batch (that page today has per-row Copy and Copy all only).
+- Download IDs (PDF) and Copy public ID page link leave this page. The Student IDs page already has "Download ID PDF"
+  (it follows that page's own filter); only "Copy public ID page link" moves there. The old "download for the people I ticked" option is gone with the button.
 - Changing status keeps working exactly as now (tap the status on a row, pop-up). Selecting people
   and the message bar keep working.
 - Filters stay in the web address, so the Back button fix (returns to the same filtered list) keeps working.
