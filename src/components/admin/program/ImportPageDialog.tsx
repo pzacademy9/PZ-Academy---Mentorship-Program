@@ -6,7 +6,8 @@ import { FileUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { analyzePageFile, type PageImport } from "@/lib/lms/course-import/analyze";
-import { pageImportChanges, type EditorPage, type PageChange } from "@/lib/lms/course-import/page-changes";
+import { filterPageImport, pageImportChanges, type EditorPage, type PageChange } from "@/lib/lms/course-import/page-changes";
+import { ImportChangeList } from "./ImportChangeList";
 
 const BTN =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 font-headline text-sm font-bold transition-colors disabled:opacity-50";
@@ -35,12 +36,14 @@ export function ImportPageDialog({
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [checked, setChecked] = useState<Checked | null>(null);
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement>(null);
 
   function reset() {
     setText("");
     setErrors([]);
     setChecked(null);
+    setTicked(new Set());
   }
 
   function check(value: string) {
@@ -51,7 +54,9 @@ export function ImportPageDialog({
       return;
     }
     setErrors([]);
-    setChecked({ plan: r.plan, warnings: r.warnings, changes: pageImportChanges(current, r.plan) });
+    const changes = pageImportChanges(current, r.plan);
+    setChecked({ plan: r.plan, warnings: r.warnings, changes });
+    setTicked(new Set(changes.map((c) => c.key)));
   }
 
   async function onFile(file: File | undefined) {
@@ -106,18 +111,12 @@ export function ImportPageDialog({
               <p role="status" className="font-body text-sm text-pz-on-surface">The file matches what is already in the editor. Nothing would change.</p>
             ) : (
               <div className="space-y-2">
-                <p className="font-headline text-sm font-bold text-pz-on-surface">What will change</p>
-                <ul aria-label="What will change" className="divide-y divide-pz-outline-variant rounded-lg border border-pz-outline-variant">
-                  {checked.changes.map((c) => (
-                    <li key={c.label} className="space-y-0.5 px-3 py-2 font-body text-sm">
-                      <p className="font-semibold text-pz-on-surface">{c.label}</p>
-                      <p className="break-words text-pz-on-surface-variant">
-                        <span className="line-through">{c.from}</span> <span aria-hidden="true">→</span>
-                        <span className="sr-only"> becomes </span> <span className="text-pz-on-surface">{c.to}</span>
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <p className="font-headline text-sm font-bold text-pz-on-surface">What will change. Untick anything you do not want.</p>
+                <ImportChangeList
+                  items={checked.changes.map((c) => ({ id: c.key, label: c.label, from: c.from, to: c.to }))}
+                  checked={ticked}
+                  onChange={setTicked}
+                />
               </div>
             )}
             {checked.warnings.length > 0 && (
@@ -145,9 +144,9 @@ export function ImportPageDialog({
                 type="button"
                 variant="bare"
                 size="bare"
-                disabled={checked.changes.length === 0}
+                disabled={checked.changes.length === 0 || ticked.size === 0}
                 onClick={() => {
-                  onApply(checked.plan);
+                  onApply(filterPageImport(checked.plan, ticked));
                   reset();
                   onOpenChange(false);
                 }}

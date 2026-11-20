@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeCourseFile, analyzePageFile } from "@/lib/lms/course-import/analyze";
 import { parseCourseFile } from "@/lib/lms/course-import/parse";
+import { filterPageImport, pageImportChanges, type EditorPage } from "@/lib/lms/course-import/page-changes";
 import { readPrice, readWebinarDate } from "@/lib/lms/course-import/page-parts";
 import { writePageFile, type PageFileInput } from "@/lib/lms/course-import/write";
 import { exampleFile, improvePrompt, masterPrompt, pagePrompt } from "@/lib/lms/course-import/prompts";
@@ -141,6 +142,36 @@ describe("Import page from a file (course editor)", () => {
     const r = analyzePageFile(`format: pz-course/1\n\n## This course includes\n`, "course");
     expect(r.ok && r.plan.page.features).toEqual([]);
     expect(r.ok && r.plan.page.outcomes).toBeUndefined();
+  });
+});
+
+describe("page import change keys and filter", () => {
+  const now: EditorPage = {
+    title: "Old Title",
+    details: { tagline: "Old line", description: "", level: "", duration: "", timings: "", mentorName: "", mentorTitle: "", mentorBio: "" },
+    pricePkr: 1000, topic: "Old Topic", startsAt: "", publicVideoUrl: "", outcomes: [], features: [], faqs: [], pageSections: normalizeSections(null),
+  };
+  const r = analyzePageFile(`format: pz-course/1\ntitle: New Title\ntagline: New line\n${PAGE_PARTS}`, "webinar");
+  it("each row carries a key", () => {
+    if (!r.ok) throw new Error("file should be ok");
+    const keys = pageImportChanges(now, r.plan).map((c) => c.key);
+    expect(keys).toEqual(expect.arrayContaining(["title", "tagline", "price", "topic", "publicVideoUrl", "outcomes", "features", "faqs", "pageSections"]));
+  });
+  it("keeps only the ticked parts", () => {
+    if (!r.ok) throw new Error("file should be ok");
+    const out = filterPageImport(r.plan, new Set(["price"]));
+    expect(out.page.pricePkr).toBe(9000);
+    expect(out.title).toBeUndefined();
+    expect(out.details).toEqual({});
+    expect(out.page.topic).toBeUndefined();
+    expect(out.page.outcomes).toBeUndefined();
+  });
+  it("keeps a ticked detail and the title", () => {
+    if (!r.ok) throw new Error("file should be ok");
+    const out = filterPageImport(r.plan, new Set(["title", "tagline"]));
+    expect(out.title).toBe("New Title");
+    expect(out.details).toEqual({ tagline: "New line" });
+    expect(out.page.pricePkr).toBeUndefined();
   });
 });
 
