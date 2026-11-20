@@ -68,9 +68,9 @@ it("only sales agents get the Campaigns item", () => {
   }
 });
 
-it("the Sales Hub entry moved to Settings: no role has it in the main menu", () => {
-  expect(navForRole("admin").map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
-  expect(navForRole("super_admin").map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
+it("Sales Hub is a main menu item for admins, not for sales agents, mentors or students", () => {
+  expect(navForRole("super_admin").map((i) => i.href)).toContain("/dashboard/admin/sales-hub");
+  expect(navForRole("admin").map((i) => i.href)).toContain("/dashboard/admin/sales-hub");
   for (const r of ["sales_agent", "mentor", "student"] as const) {
     expect(navForRole(r).map((i) => i.href)).not.toContain("/dashboard/admin/sales-hub");
   }

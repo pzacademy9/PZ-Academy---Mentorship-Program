@@ -4,6 +4,7 @@ it("hub menu has the agreed items in order, grouped", () => {
   expect(SALES_HUB_ITEMS.map((i) => i.label)).toEqual([
     "Overview", "Contacts", "Assign Lists", "Sales Team",
     "Cohorts", "Audiences", "Campaigns", "WhatsApp Batches", "Conversion", "WhatsApp Safety",
+    "Agent Leaderboard",
   ]);
   const groups = Object.fromEntries(SALES_HUB_ITEMS.map((i) => [i.label, i.group]));
   expect(groups["Contacts"]).toBe("Audience");
@@ -13,9 +14,9 @@ it("hub menu has the agreed items in order, grouped", () => {
   expect(groups["Overview"]).toBe("Overview");
 });
 
-it("every hub item is admin-only and lives under the hub", () => {
+it("every hub item is admin-only and lives under the hub (the leaderboard page sits beside it)", () => {
   for (const i of SALES_HUB_ITEMS) {
-    expect(i.href.startsWith("/dashboard/admin/sales-hub")).toBe(true);
+    expect(i.href.startsWith("/dashboard/admin/sales-hub") || i.href === "/dashboard/admin/agent-leaderboard").toBe(true);
     expect(i.roles).toEqual(["admin", "super_admin"]);
   }
   expect(SALES_HUB_BACK.href).toBe("/dashboard/admin");
@@ -41,9 +42,9 @@ it("mobile bar shows Overview, Contacts, Assign Lists, Sales Team; the rest is u
   expect(more[more.length - 1].label).toBe("Back to Admin");
 });
 
-it("main admin nav has no Sales Hub entry (it moved to Settings) and no CRM / Sales Team / Safety entries", () => {
+it("main admin nav has a Sales Hub entry and no CRM / Sales Team / Safety entries", () => {
   const labels = navForRole("admin").map((i) => i.label);
-  expect(labels).not.toContain("Sales Hub");
+  expect(labels).toContain("Sales Hub");
   for (const gone of ["CRM", "Sales Team", "WhatsApp Safety"]) expect(labels).not.toContain(gone);
   expect(navForRole("sales_agent").map((i) => i.label)).not.toContain("Sales Hub");
   expect(navForRole("mentor").map((i) => i.label)).not.toContain("Sales Hub");

@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { EnrollmentSourceTabs } from "@/components/admin/registrations/EnrollmentSourceTabs";
 import { RegistrationFilters } from "@/components/admin/registrations/RegistrationFilters";
+import { listAddress, detailSuffix } from "@/lib/registrations/back-link";
 import { AllRegistrationsList } from "@/components/admin/registrations/AllRegistrationsList";
 
 export const metadata = { title: "Page Registrations — PZ Academy" };
@@ -91,6 +92,7 @@ export default async function AdminAllRegistrationsPage({ searchParams }: { sear
         total={list.total}
         basePath={BASE_PATH}
         detailHrefBase={DETAIL_BASE}
+        detailSuffix={detailSuffix(listAddress(BASE_PATH, query))}
         showAgentColumn
       />
     </div>

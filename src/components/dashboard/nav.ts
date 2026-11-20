@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { type Role } from "@/lib/roles";
 import { MEDIA_AREAS, type Area } from "@/lib/team/areas";
-import { SALES_HUB_BASE, hubPath } from "@/lib/crm/sales-hub-routes";
+import { SALES_HUB_BASE, AGENT_LEADERBOARD_PATH, hubPath } from "@/lib/crm/sales-hub-routes";
 import { affiliatesTabHref } from "@/lib/affiliates/hub-routes";
 
 export interface NavItem {
@@ -50,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Landing Pages", href: "/dashboard/admin/landing-pages", icon: LayoutTemplate, roles: ["admin", "manager", "super_admin"], areas: ["landing_pages"] },
   { label: "Media Library", shortLabel: "Media", href: "/dashboard/admin/landing-media", icon: Images, roles: ["admin", "manager", "super_admin"], areas: MEDIA_AREAS },
   { label: "Promo Codes", shortLabel: "Promos", href: "/dashboard/admin/landing-promo-codes", icon: TicketPercent, roles: ["admin", "manager", "super_admin"], areas: ["landing_pages"] },
+  { label: "Sales Hub", href: SALES_HUB_BASE, icon: Contact, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
   { label: "Affiliates", href: "/dashboard/admin/affiliates", icon: UserPlus, roles: ["admin", "manager", "super_admin"], areas: ["sales_hub"] },
   { label: "Mentors", href: "/dashboard/admin/mentors", icon: UserCheck, roles: ["admin", "manager", "super_admin"], areas: ["mentors"] },
   { label: "Feedback", href: "/dashboard/admin/feedback", icon: Star, roles: ["admin", "manager", "super_admin"], areas: ["feedback"] },
@@ -84,8 +85,6 @@ export interface AdminToolCard {
 }
 
 export const ADMIN_TOOLS: AdminToolCard[] = [
-  { label: "Agent Leaderboard", description: "See how each agent is doing.", href: "/dashboard/admin/agent-leaderboard", icon: Trophy, areas: ["sales_hub"] },
-  { label: "Sales Hub", description: "Contacts, cohorts, audiences and campaigns.", href: SALES_HUB_BASE, icon: Contact, areas: ["sales_hub"] },
   { label: "Payment Accounts", description: "Where students send their payments.", href: "/dashboard/admin/payment-accounts", icon: Landmark, areas: ["payment_accounts"] },
   { label: "Terms and Conditions", description: "The terms students agree to when they register.", href: "/dashboard/admin/terms", icon: ScrollText, areas: ["terms"] },
 ];
@@ -115,8 +114,6 @@ export function canSendNotice(role: Role, areas?: readonly Area[]): boolean {
 const ROUTE_ALIASES: Record<string, string> = {
   [`${SALES_HUB_BASE}/import`]: `${SALES_HUB_BASE}/cohorts`,
   [`${SALES_HUB_BASE}/merge`]: `${SALES_HUB_BASE}/cohorts`,
-  "/dashboard/admin/agent-leaderboard": "/dashboard/settings",
-  [SALES_HUB_BASE]: "/dashboard/settings",
   "/dashboard/admin/payment-accounts": "/dashboard/settings",
   "/dashboard/admin/terms": "/dashboard/settings",
   "/dashboard/admin/notifications": "/dashboard/notifications",
@@ -169,6 +166,7 @@ export const SALES_HUB_ITEMS: HubNavItem[] = [
   hub("Outreach", "WhatsApp Batches", hubPath("whatsapp"), MessageCircle, "WhatsApp"),
   hub("Outreach", "Conversion", hubPath("conversion"), BarChart3),
   hub("Team", "WhatsApp Safety", hubPath("safety"), ShieldCheck, "Safety"),
+  hub("Team", "Agent Leaderboard", AGENT_LEADERBOARD_PATH, Trophy, "Leaders"),
 ];
 
 export const SALES_HUB_BACK: NavItem = { label: "Back to Admin", shortLabel: "Admin", href: "/dashboard/admin", icon: ArrowLeft, roles: ADMINS };
