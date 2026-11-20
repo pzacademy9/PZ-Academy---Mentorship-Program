@@ -109,6 +109,11 @@ export type ApplyCurriculumResult =
 
 const SAVE_FAILED = "Some changes could not be saved. The ones before it were applied.";
 
+const QUIZ_CLEANUP_FAILED =
+  "The new quiz was saved, but the old questions could not be removed. Both sets show for now. Remove the old ones in the lesson editor.";
+
+class QuizCleanupError extends Error {}
+
 function check(error: { message: string } | null): void {
   if (error) throw new Error(error.message);
 }
@@ -126,13 +131,13 @@ export async function applyCurriculumChanges(
   const admin = createAdminSupabase();
   let applied = 0;
 
-  async function insertQuiz(lessonId: string, s: ImportSession): Promise<void> {
+  async function insertQuiz(lessonId: string, s: ImportSession, start = 0): Promise<void> {
     const rows = s.questions.map((q, qi) => ({
       lesson_id: lessonId,
       question: q.question,
       options: q.options,
       correct_index: q.correctIndex,
-      order_index: qi,
+      order_index: start + qi,
     }));
     for (let i = 0; i < rows.length; i += QUIZ_CHUNK) {
       const { error } = await admin.from("quiz_questions").insert(rows.slice(i, i + QUIZ_CHUNK));
@@ -241,9 +246,23 @@ export async function applyCurriculumChanges(
         check(error);
       }
       if (parts.has("quiz")) {
-        const { error } = await admin.from("quiz_questions").delete().eq("lesson_id", c.lessonId);
-        check(error);
-        await insertQuiz(c.lessonId, s);
+        // Add the new questions first, after the old ones, then remove the old
+        // ones by their exact ids. A failed insert leaves the old quiz as it was.
+        const { data: old, error: oldError } = await admin
+          .from("quiz_questions")
+          .select("id, order_index")
+          .eq("lesson_id", c.lessonId);
+        check(oldError);
+        const oldRows = old ?? [];
+        const start = oldRows.reduce((max, r) => Math.max(max, r.order_index + 1), 0);
+        await insertQuiz(c.lessonId, s, start);
+        if (oldRows.length > 0) {
+          const { error } = await admin
+            .from("quiz_questions")
+            .delete()
+            .in("id", oldRows.map((r) => r.id));
+          if (error) throw new QuizCleanupError();
+        }
       }
       applied++;
     }
@@ -284,8 +303,9 @@ export async function applyCurriculumChanges(
       check(error);
       applied++;
     }
-  } catch {
-    return { ok: false, applied, message: SAVE_FAILED };
+  } catch (e) {
+    console.error("curriculum-import: apply failed", e);
+    return { ok: false, applied, message: e instanceof QuizCleanupError ? QUIZ_CLEANUP_FAILED : SAVE_FAILED };
   }
 
   return { ok: true, applied };
