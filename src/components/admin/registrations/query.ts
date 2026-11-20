@@ -28,3 +28,8 @@ export function registrationHref(basePath: string, current: RegistrationQuery, o
   const qs = sp.toString();
   return qs ? `${basePath}?${qs}` : basePath;
 }
+
+// Number of filters set inside the Filters panel (the status tabs and search box are not counted).
+export function activeFilterCount(q: RegistrationQuery): number {
+  return [q.mode, q.region, q.optionLabel, q.optionScopes].filter(Boolean).length;
+}
