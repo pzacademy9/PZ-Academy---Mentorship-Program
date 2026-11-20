@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Kind = "whole" | "page" | "improve";
+type Kind = "whole" | "page" | "improve" | "curriculum";
 
 const TABS: { value: Kind; label: string; what: string; steps: string[] }[] = [
   {
@@ -39,6 +39,17 @@ const TABS: { value: Kind; label: string; what: string; steps: string[] }[] = [
       "Copy the instructions below, paste them in your AI chat, and attach that file.",
       "Save the improved file it gives you.",
       "Back in the editor, press Import page from a file. Check every change, then Save.",
+    ],
+  },
+  {
+    value: "curriculum",
+    label: "Curriculum only",
+    what: "The modules, sessions, videos, notes links and quizzes for a course that already exists. No page text or price.",
+    steps: [
+      "Copy the instructions below.",
+      "Open your AI chat, paste them, and attach your YouTube links, quiz file and notes links. Give it the current module and session names from the program.",
+      "Save the file it gives you.",
+      "Open the program's curriculum builder and press Import curriculum from a file.",
     ],
   },
 ];

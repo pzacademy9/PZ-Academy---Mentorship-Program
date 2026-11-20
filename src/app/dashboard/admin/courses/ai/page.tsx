@@ -1,5 +1,5 @@
 import { requireAdminPage } from "@/lib/auth/require-admin";
-import { exampleFile, improvePrompt, masterPrompt, pagePrompt } from "@/lib/lms/course-import/prompts";
+import { curriculumPrompt, exampleFile, improvePrompt, masterPrompt, pagePrompt } from "@/lib/lms/course-import/prompts";
 import { CourseAiPrompts } from "@/components/admin/program/CourseAiPrompts";
 
 export const metadata = { title: "Make a course page with AI — PZ Academy" };
@@ -14,7 +14,7 @@ export default async function CourseAiPage() {
           Copy the instructions into your AI chat. It gives you one file to import.
         </p>
       </div>
-      <CourseAiPrompts prompts={{ whole: masterPrompt(), page: pagePrompt(), improve: improvePrompt() }} example={exampleFile()} />
+      <CourseAiPrompts prompts={{ whole: masterPrompt(), page: pagePrompt(), improve: improvePrompt(), curriculum: curriculumPrompt() }} example={exampleFile()} />
     </div>
   );
 }

@@ -127,12 +127,12 @@ describe("Import page from a file", () => {
 });
 
 describe("AI help page", () => {
-  it("switches between the three instructions and copies the chosen one", async () => {
+  it("switches between the four instructions and copies the chosen one", async () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<CourseAiPrompts prompts={{ whole: "WHOLE", page: "PAGE", improve: "IMPROVE" }} example="EXAMPLE" />);
+    render(<CourseAiPrompts prompts={{ whole: "WHOLE", page: "PAGE", improve: "IMPROVE", curriculum: "CURRICULUM" }} example="EXAMPLE" />);
     const group = screen.getByRole("group", { name: /What do you want to make/ });
-    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["Whole course", "Page only", "Improve my page"]);
+    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["Whole course", "Page only", "Improve my page", "Curriculum only"]);
     fireEvent.click(within(group).getByRole("button", { name: "Improve my page" }));
     expect((screen.getByLabelText("Instructions preview") as HTMLTextAreaElement).value).toBe("IMPROVE");
     expect(screen.getByText(/Download my page as a file\./)).toBeTruthy();
