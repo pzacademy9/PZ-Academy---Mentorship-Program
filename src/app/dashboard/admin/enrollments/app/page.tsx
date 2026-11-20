@@ -70,7 +70,7 @@ export default async function AdminEnrollmentsPage({
             Showing only <span className="font-bold">{courseTitle ?? "this program"}</span>
           </span>
           <Link
-            href={`/dashboard/admin/enrollments${status ? `?status=${status}` : ""}`}
+            href={`/dashboard/admin/enrollments/app${status ? `?status=${status}` : ""}`}
             className="font-body font-semibold text-pz-primary hover:underline ml-auto"
           >
             Clear filter
