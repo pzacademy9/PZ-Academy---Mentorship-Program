@@ -298,7 +298,7 @@ export async function getPublishedCourses(type?: CourseType): Promise<CourseCard
   let rows: CourseListRow[] | null;
   const withFamily = await supabase
     .from("courses")
-    .select(`${columns}, family_id, created_at`)
+    .select(`${columns}, family_id, batch_label, created_at`)
     .eq("is_published", true)
     .order("created_at", { ascending: true });
   if (!withFamily.error && withFamily.data) {
