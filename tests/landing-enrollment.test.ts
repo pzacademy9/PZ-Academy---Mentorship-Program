@@ -275,9 +275,26 @@ describe("syncEnrollmentForRegistration", () => {
     expect(await syncEnrollmentForRegistration("mem")).toBe("needs-choice");
     expect(allWrites()).toHaveLength(0);
   });
-  it("an empty label with empty keys is granted as before", async () => {
+  it("a page with options holds a Paid person with empty keys even when the label is blank", async () => {
     setPage(); world({ regs: [reg({ option_keys: [], option_label: "  " })] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("needs-choice");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("a page with no options is unchanged: empty keys and a blank label are granted", async () => {
+    setPage([]); world({ regs: [reg({ option_keys: [], option_label: "  " })] });
     expect(await syncEnrollmentForRegistration("reg-1")).toBe("granted");
+  });
+  it("keys that match no option on the page are held, not given the whole course", async () => {
+    setPage(); world({ regs: [reg({ option_keys: ["ghost"], option_label: "" })] });
+    expect(await syncEnrollmentForRegistration("reg-1")).toBe("needs-choice");
+    expect(allWrites()).toHaveLength(0);
+  });
+  it("a partial match uses only the matched options", async () => {
+    setPage([{ key: "a", moduleIds: [M1] }]);
+    world({ regs: [reg({ option_keys: ["a", "ghost"] })] });
+    const r = await resolveAccess("reg-1");
+    expect(r!.desired.action).toBe("grant");
+    expect(r!.desired.moduleIds).toEqual([M1]);
   });
   it("guest: no-account, nothing written", async () => {
     setPage(); world({ regs: [reg({ student_id: null })] });

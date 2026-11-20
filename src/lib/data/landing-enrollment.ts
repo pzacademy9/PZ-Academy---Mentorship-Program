@@ -68,6 +68,11 @@ export async function resolveAccess(registrationId: string): Promise<ResolvedAcc
 
   const keys = new Set(lead.optionKeys);
   const picked = page.registration.options.filter((o) => keys.has(o.key));
+  // What was bought is unknown when the lead has no recorded option that exists on the page. A page with
+  // options holds a Paid person whatever the label says (a blank label included); a page with no options
+  // only holds a labelled one, as before. A partial match uses the matched options.
+  const choiceUnknown =
+    page.registration.options.length > 0 ? picked.length === 0 : lead.optionKeys.length === 0 && lead.optionLabel.trim() !== "";
   // Any picked option without linked modules means the whole course.
   const moduleIds = picked.some((o) => (o.moduleIds ?? []).length === 0) ? [] : Array.from(new Set(picked.flatMap((o) => o.moduleIds ?? [])));
   const finished = courseId ? await finishedModuleIds(page.id, courseId, moduleIds) : [];
@@ -78,7 +83,7 @@ export async function resolveAccess(registrationId: string): Promise<ResolvedAcc
     isTest: registration.isTest,
     moduleIds,
     finishedModuleIds: finished,
-    hasLabelWithoutChoice: lead.optionKeys.length === 0 && lead.optionLabel.trim() !== "",
+    hasLabelWithoutChoice: choiceUnknown,
   });
   return { registration, lead, pageId: page.id, courseId, courseSlug, desired, hasAccount: registration.studentId !== null };
 }

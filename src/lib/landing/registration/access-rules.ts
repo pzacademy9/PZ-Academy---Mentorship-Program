@@ -11,7 +11,7 @@ export interface AccessInput {
   moduleIds: string[];
   /** Modules this buyer covers that the owner has marked finished (whole-course buyer: finished set of all course modules). */
   finishedModuleIds: string[];
-  /** Imported row: the lead has a purchase label but no recorded option keys, so what was bought is unknown. */
+  /** What was bought is unknown: no recorded option on the page (or, on a page with no options, a label with no keys). Name kept for history. */
   hasLabelWithoutChoice: boolean;
 }
 export interface DesiredEnrollment {
