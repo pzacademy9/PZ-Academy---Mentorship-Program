@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { analyzeCourseFile } from "@/lib/lms/course-import/analyze";
 import { readImportText } from "@/lib/lms/course-import/read-body";
 import { compareCurriculum } from "@/lib/lms/course-import/compare";
+import { changeFingerprint } from "@/lib/lms/course-import/fingerprint";
 import { loadCurrentCurriculum } from "@/lib/data/course-curriculum-import";
 
 export const maxDuration = 60;
@@ -29,9 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ errors: ["This file is for a different kind of program."] }, { status: 400 });
   }
 
-  return NextResponse.json({
-    type: current.type,
-    warnings: result.warnings,
-    changes: compareCurriculum(current.curriculum, result.plan),
-  });
+  const changes = compareCurriculum(current.curriculum, result.plan).map((c) => ({
+    ...c,
+    fingerprint: changeFingerprint(current.curriculum, c),
+  }));
+  return NextResponse.json({ type: current.type, warnings: result.warnings, changes });
 }

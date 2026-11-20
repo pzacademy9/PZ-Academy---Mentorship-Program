@@ -56,13 +56,30 @@ function groupChanges(changes: CurriculumChange[]): Group[] {
   return groups.filter((g) => g.items.length > 0);
 }
 
-type Checked = { warnings: string[]; changes: CurriculumChange[] };
+// Each row carries the fingerprint Check worked out; Apply sends it back.
+type CheckedChange = CurriculumChange & { fingerprint?: string };
+type Checked = { warnings: string[]; changes: CheckedChange[] };
+type Done = { applied: number; notes: string[] };
+
+function strings(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((e): e is string => typeof e === "string") : [];
+}
+
+async function readErrorBody(res: Response, fallback: string): Promise<{ errors: string[]; applied: number; notes: string[] }> {
+  const body = (await res.json().catch(() => null)) as { errors?: unknown; applied?: unknown; notes?: unknown } | null;
+  const errs = strings(body?.errors);
+  return {
+    errors: errs.length > 0 ? errs : [fallback],
+    applied: typeof body?.applied === "number" ? body.applied : 0,
+    notes: strings(body?.notes),
+  };
+}
 
 async function readErrors(res: Response, fallback: string): Promise<string[]> {
-  const body = (await res.json().catch(() => null)) as { errors?: unknown } | null;
-  const errs = Array.isArray(body?.errors) ? body.errors.filter((e): e is string => typeof e === "string") : [];
-  return errs.length > 0 ? errs : [fallback];
+  return (await readErrorBody(res, fallback)).errors;
 }
+
+const savedText = (n: number) => `Done. ${n} ${n === 1 ? "change" : "changes"} saved.`;
 
 /**
  * "Import curriculum from a file" in the Course Builder. The file is checked on
@@ -85,21 +102,24 @@ export function ImportCurriculumDialog({
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<Done | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  // True only while Apply is writing. The dialog cannot be closed then.
   const busyRef = useRef(false);
   const checkSeq = useRef(0);
   const removeIds = new Set((checked?.changes ?? []).filter(isRemove).map((c) => c.id));
   const removeTicked = Array.from(ticked).some((id) => removeIds.has(id));
   const base = `/api/admin/courses/${courseId}/import-curriculum`;
 
+  // busyRef is left alone: only the Apply that set it clears it.
   function reset() {
     checkSeq.current += 1;
-    busyRef.current = false;
     setText("");
     setErrors([]);
     setChecked(null);
     setTicked(new Set());
     setConfirmRemove(false);
+    setDone(null);
     setBusy(false);
   }
 
@@ -121,7 +141,7 @@ export function ImportCurriculumDialog({
         setErrors(errs);
         return;
       }
-      const body = (await res.json()) as { warnings?: string[]; changes?: CurriculumChange[] };
+      const body = (await res.json()) as { warnings?: string[]; changes?: CheckedChange[] };
       if (seq !== checkSeq.current) return;
       const changes = body.changes ?? [];
       setChecked({ warnings: body.warnings ?? [], changes });
@@ -138,11 +158,15 @@ export function ImportCurriculumDialog({
 
   async function onFile(file: File | undefined) {
     if (!file) return;
+    // Closing the dialog moves the counter on, so a late read is dropped.
+    const seq = checkSeq.current;
     try {
       const value = await file.text();
+      if (seq !== checkSeq.current) return;
       setText(value);
       await check(value);
     } catch {
+      if (seq !== checkSeq.current) return;
       setErrors(["That file could not be read. Try another file."]);
     } finally {
       if (fileInput.current) fileInput.current.value = "";
@@ -155,23 +179,43 @@ export function ImportCurriculumDialog({
     busyRef.current = true;
     setBusy(true);
     setErrors([]);
+    const ids = Array.from(ticked);
+    const fingerprints: Record<string, string> = {};
+    for (const c of checked?.changes ?? []) {
+      if (ticked.has(c.id) && c.fingerprint) fingerprints[c.id] = c.fingerprint;
+    }
     try {
       const res = await fetch(`${base}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, ids: Array.from(ticked) }),
+        body: JSON.stringify({ text, ids, fingerprints, ...(removeTicked && confirmRemove ? { confirmRemove: true } : {}) }),
       });
       if (!res.ok) {
-        setErrors(await readErrors(res, "Something went wrong. Please try again."));
-        if (res.status === 409) setChecked(null);
+        const failed = await readErrorBody(res, "Something went wrong. Please try again.");
+        setErrors(failed.errors.concat(failed.notes));
+        // Some changes were saved before the failure: the builder must show them,
+        // and the rows are out of date, so go back to the start.
+        if (failed.applied > 0) {
+          setChecked(null);
+          onApplied();
+        } else if (res.status === 409) {
+          setChecked(null);
+        }
         return;
       }
-      const body = (await res.json().catch(() => null)) as { applied?: number } | null;
-      const n = body?.applied ?? ticked.size;
-      toast.success(`Done. ${n} ${n === 1 ? "change" : "changes"} saved.`);
+      const body = (await res.json().catch(() => null)) as { applied?: number; notes?: unknown } | null;
+      const n = body?.applied ?? ids.length;
+      const notes = strings(body?.notes);
+      toast.success(savedText(n));
+      onApplied();
+      if (notes.length > 0) {
+        // Keep the dialog open so the admin can read what was kept.
+        setChecked(null);
+        setDone({ applied: n, notes });
+        return;
+      }
       reset();
       onOpenChange(false);
-      onApplied();
     } catch {
       setErrors(["Something went wrong. Please try again."]);
     } finally {
@@ -202,7 +246,11 @@ export function ImportCurriculumDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) reset();
+        if (!o) {
+          // Closing while Apply is writing would let it be run a second time.
+          if (busyRef.current) return;
+          reset();
+        }
         onOpenChange(o);
       }}
     >
@@ -214,7 +262,17 @@ export function ImportCurriculumDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!checked ? (
+        {done ? (
+          <div role="status" className="space-y-2">
+            <p className="font-headline text-sm font-bold text-pz-on-surface">{savedText(done.applied)}</p>
+            <div className="space-y-1 rounded-lg bg-pz-surface-container px-3 py-2">
+              <p className="font-headline text-sm font-bold text-pz-on-surface">Please note</p>
+              <ul className="list-disc space-y-1 pl-5 font-body text-sm text-pz-on-surface [overflow-wrap:anywhere]">
+                {done.notes.map((n, i) => <li key={i}>{n}</li>)}
+              </ul>
+            </div>
+          </div>
+        ) : !checked ? (
           <div className="space-y-3">
             <input ref={fileInput} type="file" accept=".md,.txt,text/plain,text/markdown" className="sr-only" aria-label="Choose a file" onChange={(e) => onFile(e.target.files?.[0])} />
             <button type="button" onClick={() => fileInput.current?.click()} className={`${BTN} w-full border-2 border-dashed border-pz-outline-variant text-pz-primary hover:bg-pz-surface-container-low`}>
@@ -268,7 +326,11 @@ export function ImportCurriculumDialog({
         </p>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          {!checked ? (
+          {done ? (
+            <Button type="button" variant="bare" size="bare" onClick={() => { reset(); onOpenChange(false); }} className={`${BTN} bg-pz-primary text-pz-on-primary`}>
+              Close
+            </Button>
+          ) : !checked ? (
             <Button type="button" variant="bare" size="bare" disabled={!text.trim() || busy} onClick={() => check(text)} className={`${BTN} bg-pz-primary text-pz-on-primary`}>
               Check the file
             </Button>

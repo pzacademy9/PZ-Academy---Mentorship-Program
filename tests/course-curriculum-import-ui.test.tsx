@@ -6,12 +6,12 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { ImportCurriculumDialog } from "@/components/admin/program/ImportCurriculumDialog";
 
 const CHANGES = [
-  { id: "new-module:1", label: "New module: Fake Module (2 sessions)", defaultOn: true, kind: "new-module", moduleIndex: 1, sessionCount: 2 },
+  { id: "new-module:1", label: "New module: Fake Module (2 sessions)", defaultOn: true, kind: "new-module", moduleIndex: 1, sessionCount: 2, fingerprint: "fp-new" },
   {
     id: "update-session:l1", label: "Update session: Fake Session", defaultOn: true, kind: "update-session",
-    lessonId: "l1", moduleIndex: 0, sessionIndex: 0, rows: [{ part: "video", from: "", to: "https://example.test/v" }],
+    lessonId: "l1", moduleIndex: 0, sessionIndex: 0, rows: [{ part: "video", from: "", to: "https://example.test/v" }], fingerprint: "fp-upd",
   },
-  { id: "remove-session:l2", label: "Not in the file: Old Session. Will stay unless removed.", defaultOn: false, kind: "remove-session", lessonId: "l2" },
+  { id: "remove-session:l2", label: "Not in the file: Old Session. Will stay unless removed.", defaultOn: false, kind: "remove-session", lessonId: "l2", title: "Old Session", fingerprint: "fp-rm" },
 ];
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -66,7 +66,11 @@ describe("Import curriculum dialog", () => {
     await waitFor(() => expect(onApplied).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[1] as unknown as [string, { body: string }];
     expect(url).toBe("/api/admin/courses/c1/import-curriculum/apply");
-    expect(JSON.parse(init.body)).toEqual({ text: "FILE TEXT", ids: ["new-module:1", "update-session:l1"] });
+    expect(JSON.parse(init.body)).toEqual({
+      text: "FILE TEXT",
+      ids: ["new-module:1", "update-session:l1"],
+      fingerprints: { "new-module:1": "fp-new", "update-session:l1": "fp-upd" },
+    });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -82,7 +86,82 @@ describe("Import curriculum dialog", () => {
     fireEvent.click(apply);
     await waitFor(() => expect(onApplied).toHaveBeenCalled());
     const init = fetchMock.mock.calls[1][1] as { body: string };
-    expect(JSON.parse(init.body).ids).toContain("remove-session:l2");
+    const sent = JSON.parse(init.body);
+    expect(sent.ids).toContain("remove-session:l2");
+    expect(sent.confirmRemove).toBe(true);
+    expect(sent.fingerprints["remove-session:l2"]).toBe("fp-rm");
+  });
+
+  it("keeps the dialog open to show removals that were kept, and still refreshes", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/check")
+        ? respond(200, { type: "course", warnings: [], changes: CHANGES })
+        : respond(200, { applied: 1, notes: ["Old Session was kept. It has student progress on a live program. Remove it in the builder if you are sure."] }),
+    );
+    const dialog = await openChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply the ticked changes" }));
+    await within(dialog).findByText(/Old Session was kept/);
+    expect(onApplied).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(within(dialog).getByText("Done. 1 change saved.")).toBeTruthy();
+    const close = within(dialog).getAllByRole("button", { name: "Close" }).find((b) => b.textContent === "Close")!;
+    fireEvent.click(close);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("refreshes the builder after a partial failure and keeps the dialog open", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/check")
+        ? respond(200, { type: "course", warnings: [], changes: CHANGES })
+        : respond(500, { errors: ["Some changes could not be saved. The ones before it were applied."], applied: 1, notes: [] }),
+    );
+    const dialog = await openChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply the ticked changes" }));
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert.textContent).toMatch(/could not be saved/);
+    expect(onApplied).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("does not refresh when a failure saved nothing", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/check")
+        ? respond(200, { type: "course", warnings: [], changes: CHANGES })
+        : respond(500, { errors: ["Something went wrong. Please try again."], applied: 0 }),
+    );
+    const dialog = await openChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply the ticked changes" }));
+    await within(dialog).findByRole("alert");
+    expect(onApplied).not.toHaveBeenCalled();
+  });
+
+  it("cannot be closed while Apply is saving", async () => {
+    let finish: (r: Response) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith("/check")
+        ? Promise.resolve(respond(200, { type: "course", warnings: [], changes: CHANGES }))
+        : new Promise<Response>((r) => { finish = r; }),
+    );
+    const dialog = await openChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply the ticked changes" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    finish(respond(200, { applied: 2 }));
+    await waitFor(() => expect(onApplied).toHaveBeenCalledTimes(1));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("drops a file read that finishes after the dialog was closed", async () => {
+    let finishRead: (v: string) => void = () => {};
+    render(<ImportCurriculumDialog open onOpenChange={onOpenChange} courseId="c1" onApplied={onApplied} />);
+    const dialog = screen.getByRole("dialog");
+    const file = { text: () => new Promise<string>((r) => { finishRead = r; }) } as unknown as File;
+    fireEvent.change(within(dialog).getByLabelText("Choose a file"), { target: { files: [file] } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    finishRead("LATE TEXT");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("asks for the remove confirm again after the remove row is unticked and re-ticked", async () => {

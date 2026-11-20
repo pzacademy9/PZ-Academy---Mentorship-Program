@@ -89,8 +89,16 @@ describe("POST import-curriculum/check", () => {
     expect(body.type).toBe("course");
     expect(Array.isArray(body.warnings)).toBe(true);
     expect(body.changes.map((c: { id: string }) => c.id)).toEqual(["update-session:l1", "remove-module:m2"]);
+    for (const c of body.changes) expect(c.fingerprint).toMatch(/^[0-9a-f]{16}$/);
   });
 });
+
+// Runs Check and returns the fingerprints it handed out.
+async function prints(current = CURRENT): Promise<Record<string, string>> {
+  m.loadCurrentCurriculum.mockResolvedValueOnce(current);
+  const body = await (await check(req({ text: GOOD }), ctx)).json();
+  return Object.fromEntries(body.changes.map((c: { id: string; fingerprint: string }) => [c.id, c.fingerprint]));
+}
 
 describe("POST import-curriculum/apply", () => {
   it("blocks non-admin and never applies", async () => {
@@ -108,17 +116,64 @@ describe("POST import-curriculum/apply", () => {
   });
 
   it("returns 409 for an id that is not in the recomputed rows", async () => {
-    const res = await apply(req({ text: GOOD, ids: ["update-session:l1", "remove-session:gone"] }), ctx);
+    const fingerprints = await prints();
+    const res = await apply(req({ text: GOOD, ids: ["update-session:l1", "remove-session:gone"], fingerprints, confirmRemove: true }), ctx);
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ errors: ["The program changed. Check the file again."] });
     expect(m.applyCurriculumChanges).not.toHaveBeenCalled();
   });
 
-  it("applies only the ticked row", async () => {
-    m.applyCurriculumChanges.mockResolvedValue({ ok: true, applied: 1 });
+  it("returns 409 when a ticked row's fingerprint is missing", async () => {
     const res = await apply(req({ text: GOOD, ids: ["update-session:l1"] }), ctx);
+    expect(res.status).toBe(409);
+    expect(m.applyCurriculumChanges).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when the same id now points at changed content", async () => {
+    const fingerprints = await prints();
+    const edited = structuredClone(CURRENT);
+    edited.curriculum.modules[1].lessons.push(
+      { id: "l9", title: "Added later", videoUrl: "", videoUrl2: "", notes: [], questions: [] } as never,
+    );
+    m.loadCurrentCurriculum.mockResolvedValue(edited);
+    const res = await apply(req({ text: GOOD, ids: ["remove-module:m2"], fingerprints, confirmRemove: true }), ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ errors: ["The program changed. Check the file again."] });
+    expect(m.applyCurriculumChanges).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when a matched lesson's quiz changed after Check", async () => {
+    const fingerprints = await prints();
+    const edited = structuredClone(CURRENT);
+    edited.curriculum.modules[0].lessons[0].questions.push({ question: "Q?", options: ["A", "B"], correctIndex: 0 } as never);
+    m.loadCurrentCurriculum.mockResolvedValue(edited);
+    const res = await apply(req({ text: GOOD, ids: ["update-session:l1"], fingerprints }), ctx);
+    expect(res.status).toBe(409);
+    expect(m.applyCurriculumChanges).not.toHaveBeenCalled();
+  });
+
+  it("asks for the removal to be confirmed", async () => {
+    const fingerprints = await prints();
+    const res = await apply(req({ text: GOOD, ids: ["remove-module:m2"], fingerprints }), ctx);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ errors: ["Please confirm the removal."] });
+    expect(m.applyCurriculumChanges).not.toHaveBeenCalled();
+  });
+
+  it("applies a confirmed removal and returns its notes", async () => {
+    const fingerprints = await prints();
+    m.applyCurriculumChanges.mockResolvedValue({ ok: true, applied: 0, notes: ["Extra was kept."] });
+    const res = await apply(req({ text: GOOD, ids: ["remove-module:m2"], fingerprints, confirmRemove: true }), ctx);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ applied: 1 });
+    expect(await res.json()).toEqual({ applied: 0, notes: ["Extra was kept."] });
+  });
+
+  it("applies only the ticked row", async () => {
+    const fingerprints = await prints();
+    m.applyCurriculumChanges.mockResolvedValue({ ok: true, applied: 1, notes: [] });
+    const res = await apply(req({ text: GOOD, ids: ["update-session:l1"], fingerprints }), ctx);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ applied: 1, notes: [] });
     expect(m.applyCurriculumChanges).toHaveBeenCalledTimes(1);
     const [courseId, plan, changes] = m.applyCurriculumChanges.mock.calls[0];
     expect(courseId).toBe("c1");
@@ -127,10 +182,11 @@ describe("POST import-curriculum/apply", () => {
   });
 
   it("reports a partial failure without leaking details", async () => {
-    m.applyCurriculumChanges.mockResolvedValue({ ok: false, applied: 0, message: "Could not save." });
-    const res = await apply(req({ text: GOOD, ids: ["update-session:l1"] }), ctx);
+    const fingerprints = await prints();
+    m.applyCurriculumChanges.mockResolvedValue({ ok: false, applied: 0, notes: [], message: "Could not save." });
+    const res = await apply(req({ text: GOOD, ids: ["update-session:l1"], fingerprints }), ctx);
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ errors: ["Could not save."], applied: 0 });
+    expect(await res.json()).toEqual({ errors: ["Could not save."], applied: 0, notes: [] });
   });
 
   it("returns 404 when the program is missing", async () => {
