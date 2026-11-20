@@ -4,6 +4,7 @@ import { CourseBuilder } from "@/components/admin/program/CourseBuilder";
 import type { BuilderState } from "@/lib/data/admin-lms";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }));
 vi.mock("@/components/admin/program/LessonEditorPanel", () => ({ LessonEditorPanel: () => <div /> }));
 vi.mock("@/components/admin/program/ModuleNotesPanel", () => ({ ModuleNotesPanel: () => <div /> }));

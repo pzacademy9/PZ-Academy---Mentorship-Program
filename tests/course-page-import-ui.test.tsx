@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { readFileSync } from "node:fs";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/components/ui/confirm-dialog", () => ({ useConfirm: () => vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 vi.mock("@/components/admin/landing/LibraryImageField", () => ({
   LibraryImageField: ({ value, onChange, labelledBy }: { value: string; onChange: (v: string) => void; labelledBy?: string }) => (
@@ -88,6 +89,22 @@ describe("Import page from a file", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Fill in the boxes" }));
     expect((screen.getByLabelText("Topic") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("What you'll learn, line 2") as HTMLInputElement).value).toBe("New skill two");
+  });
+
+  it("counts a Fill in as unsaved work, and a fresh form as clean", () => {
+    const prevented = () => {
+      const ev = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    render(<ProgramConfigForm course={course} />);
+    expect(prevented()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: /Import page from a file/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/paste the file/i), { target: { value: FILE } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check the file" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fill in the boxes" }));
+    expect(prevented()).toBe(true);
   });
 
   it("unticking everything turns off Fill in; Tick all brings it back", () => {

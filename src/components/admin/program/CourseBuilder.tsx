@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { courseReadiness, missingSummary } from "@/lib/lms/lesson-parts";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import type { BuilderState, BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
 import { CurriculumMap } from "./CurriculumMap";
 import { LessonEditorPanel } from "./LessonEditorPanel";
@@ -50,6 +51,9 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   }
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [lessonDirty, setLessonDirty] = useState(false);
+  const flushLesson = useRef<(() => Promise<boolean>) | null>(null);
+  const { confirmLeaveDialog } = useUnsavedGuard(lessonDirty);
 
   const courseType = initialState.course.type;
   const allSessions = modules.flatMap((m) => m.lessons);
@@ -74,6 +78,16 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
       router.push(`/dashboard/admin/courses/${payload.id}/builder`);
     } catch {
       toast.error("Could not copy this course.");
+    }
+  });
+
+  const { run: saveDraft, pending: savingDraft } = useAsyncAction(async () => {
+    const ok = flushLesson.current ? await flushLesson.current() : true;
+    if (ok) {
+      router.refresh();
+      toast.success("Saved.");
+    } else {
+      toast.error("Some changes could not be saved.");
     }
   });
 
@@ -216,16 +230,17 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               <FileUp className="w-4 h-4" />
               Import curriculum from a file
             </Button>
-            <button
-              onClick={() => {
-                router.refresh();
-                toast.info("Everything here saves automatically.");
-              }}
+            <Button
+              type="button"
+              variant="bare"
+              size="bare"
+              loading={savingDraft}
+              onClick={() => saveDraft()}
               className="text-pz-on-surface-variant hover:text-pz-primary transition-colors flex items-center gap-1 font-medium text-sm max-md:min-h-11"
             >
               <Save className="w-4 h-4" />
               Save Draft
-            </button>
+            </Button>
             <Button
               variant="bare"
               size="bare"
@@ -269,10 +284,14 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               courseSlug={initialState.course.slug}
               onLessonPatched={handleLessonPatched}
               onAdvance={advanceToNextLesson}
+              onDirtyChange={setLessonDirty}
+              flushRef={flushLesson}
             />
           )}
         </section>
       </div>
+
+      {confirmLeaveDialog}
 
       <ImportCurriculumDialog
         open={importOpen}

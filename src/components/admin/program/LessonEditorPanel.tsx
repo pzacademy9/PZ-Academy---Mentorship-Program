@@ -35,11 +35,17 @@ export function LessonEditorPanel({
   courseSlug,
   onLessonPatched,
   onAdvance,
+  onDirtyChange,
+  flushRef,
 }: {
   lesson: BuilderLesson | null;
   courseSlug: string;
   onLessonPatched: (lessonId: string, patch: Partial<BuilderLesson>) => void;
   onAdvance: () => void;
+  /** True while a text save is waiting, a save is running, or the last save failed. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Filled with a function that saves anything waiting and says whether everything saved. */
+  flushRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
 }) {
   const [title, setTitle] = useState(lesson?.title ?? "");
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -52,6 +58,21 @@ export function LessonEditorPanel({
   const pendingText = useRef<{ lessonId: string; html: string } | null>(null);
   /** The lesson currently shown; async results for any other lesson are discarded. */
   const currentId = useRef<string | null>(lesson?.id ?? null);
+  /** Saves running right now, and whether the most recent save failed; together with pendingText they make "dirty". */
+  const flights = useRef(new Set<Promise<boolean>>());
+  const lastFailed = useRef(false);
+  const reportedDirty = useRef(false);
+  const dirtyCallback = useRef(onDirtyChange);
+  useEffect(() => {
+    dirtyCallback.current = onDirtyChange;
+  });
+
+  function reportDirty() {
+    const dirty = pendingText.current !== null || flights.current.size > 0 || lastFailed.current;
+    if (dirty === reportedDirty.current) return;
+    reportedDirty.current = dirty;
+    dirtyCallback.current?.(dirty);
+  }
 
   /** Send A's unsaved text to A itself (never to whatever lesson is open now). */
   async function flushPending(): Promise<boolean> {
@@ -62,6 +83,7 @@ export function LessonEditorPanel({
     // On failure put the text back (unless newer text arrived) so the next flush retries it.
     const restore = () => {
       if (!pendingText.current) pendingText.current = pending;
+      reportDirty();
     };
     try {
       const ok = await patchLessonById(pending.lessonId, { textContent: pending.html });
@@ -114,7 +136,26 @@ export function LessonEditorPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson?.id]);
 
-  async function patchLessonById(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
+  function patchLessonById(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
+    const flight = sendPatch(lessonId, patch).then(
+      (ok) => {
+        lastFailed.current = !ok;
+        return ok;
+      },
+      (err) => {
+        lastFailed.current = true;
+        throw err;
+      },
+    ).finally(() => {
+      flights.current.delete(flight);
+      reportDirty();
+    });
+    flights.current.add(flight);
+    reportDirty();
+    return flight;
+  }
+
+  async function sendPatch(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
     const res = await fetch(`/api/admin/lessons/${lessonId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -146,6 +187,7 @@ export function LessonEditorPanel({
     const lessonId = lesson.id;
     setDetail((prev) => (prev ? { ...prev, textContent: html } : prev));
     pendingText.current = { lessonId, html };
+    reportDirty();
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       void flushPending().catch(() => toast.error("Could not save."));
@@ -201,6 +243,26 @@ export function LessonEditorPanel({
     if (currentId.current === lessonId) setDetail((prev) => (prev ? { ...prev, documents: next } : prev));
     void patchLessonById(lessonId, { documents: next });
   }
+
+  // Lets the page's Save Draft button save anything waiting. Resolves true only if nothing failed.
+  useEffect(() => {
+    if (!flushRef) return;
+    flushRef.current = async () => {
+      try {
+        const ok = await flushPending();
+        await Promise.allSettled(Array.from(flights.current));
+        return ok && !lastFailed.current;
+      } catch {
+        return false;
+      }
+    };
+    const ref = flushRef;
+    return () => {
+      ref.current = null;
+    };
+    // flushPending only reads refs and the current-lesson id, so the latest copy is always equivalent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flushRef]);
 
   /** "Save & Continue" — flush any pending debounced rich-text save before moving on, so nothing is silently lost. */
   const { run: saveAndContinue, pending: savingAndContinuing } = useAsyncAction(async () => {
