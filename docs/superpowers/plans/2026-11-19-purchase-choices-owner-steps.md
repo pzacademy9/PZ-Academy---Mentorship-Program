@@ -7,8 +7,9 @@ Why this exists: some paid people were brought in from the old sheets with only 
 ## Step 1: Set up the purchase options first
 
 1. Open Registrations, then the campaign, then its registration page setup.
-2. Make sure the purchase options are saved there (for example the full course and each module).
-3. If the options are not there yet, the card says "Set up purchase options on the registration page first". Do that, then come back.
+2. Make sure the purchase options are saved and published there (for example the full course and each module). The registration page reads the published version.
+3. For each module option, tick its module. An option with no module ticked would mean the whole course, so the app will not let you match people to it.
+4. If the options are not there yet, the card says "Set up purchase options on the registration page first". Do that, then come back.
 
 ## Step 2: Find the card
 
@@ -59,11 +60,20 @@ Then the held number should be 0.
 
 These only read. They change nothing. Paste each one in the Supabase SQL Editor and press Run. Replace `PAGE-ID-HERE` with the page id (the long code in the campaign page address).
 
-Paid people with no recorded choice (held):
+Paid people with a label but no recorded choice (held, and shown on the card):
 
 ```sql
 select count(*) from public.landing_registrations
-where page_id = 'PAGE-ID-HERE' and status = 'paid' and option_keys = '{}';
+where page_id = 'PAGE-ID-HERE' and status = 'paid' and is_test = false
+  and option_keys = '{}' and option_label <> '';
+```
+
+Paid people with no label and no recorded choice. They are held too, but the card cannot show them because there is no label to match. Fix the label in the sheet, or ask me:
+
+```sql
+select count(*) from public.landing_registrations
+where page_id = 'PAGE-ID-HERE' and status = 'paid' and is_test = false
+  and option_keys = '{}' and option_label = '';
 ```
 
 Enrollments for this page's registrations whose registration has no recorded choice. These may be whole-course access given earlier by mistake. Tell me the number and do not change anything:
@@ -78,7 +88,7 @@ where r.page_id = 'PAGE-ID-HERE' and r.option_keys = '{}';
 
 1. Before you press any Apply, run the first query above.
 2. Compare it with the number of paid held people at the top of the card "Match purchase choices".
-3. They should match. If the card counts fewer, some of those people have no label at all. Tell me the two numbers.
+3. They should match. If they do not, tell me the two numbers.
 4. After you apply every row, run the first query again. It should drop to 0 for people who had a label.
 
 ## If something looks wrong
