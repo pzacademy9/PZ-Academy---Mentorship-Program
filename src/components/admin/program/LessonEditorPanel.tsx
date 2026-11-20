@@ -12,6 +12,9 @@ import { QuizEditor } from "./QuizEditor";
 import { VideoField } from "./VideoField";
 import { NotesSection } from "./NotesSection";
 
+/** ok is true only when nothing failed; alreadyToasted means a "Could not save." toast already told the admin. */
+export type FlushResult = { ok: boolean; alreadyToasted: boolean };
+
 interface Detail {
   videoUrl: string;
   videoUrl2: string;
@@ -45,7 +48,7 @@ export function LessonEditorPanel({
   /** True while a text save is waiting, a save is running, or the last save failed. */
   onDirtyChange?: (dirty: boolean) => void;
   /** Filled with a function that saves anything waiting and says whether everything saved. */
-  flushRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
+  flushRef?: React.MutableRefObject<(() => Promise<FlushResult>) | null>;
 }) {
   const [title, setTitle] = useState(lesson?.title ?? "");
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -60,15 +63,29 @@ export function LessonEditorPanel({
   const currentId = useRef<string | null>(lesson?.id ?? null);
   /** Saves running right now, and whether the most recent save failed; together with pendingText they make "dirty". */
   const flights = useRef(new Set<Promise<boolean>>());
-  const lastFailed = useRef(false);
-  const reportedDirty = useRef(false);
+  /** One entry per kind of save that failed; only a good save of the same thing removes it. */
+  const failedKeys = useRef(new Set<string>());
+  const failToasts = useRef(0);
+  const reportedDirty = useRef<boolean | null>(null);
   const dirtyCallback = useRef(onDirtyChange);
   useEffect(() => {
     dirtyCallback.current = onDirtyChange;
   });
 
+  // A freshly mounted panel tells the page its own state, so a failure left by a panel that was swapped
+  // out (module notes) cannot keep the page marked unsaved once a lesson is opened again. On unmount,
+  // waiting text is saved; if that fails the page stays marked unsaved, which is true, because the text is lost.
+  useEffect(() => {
+    reportDirty();
+    return () => {
+      void flushPending().catch(() => {});
+    };
+    // Mount and unmount only: reportDirty and flushPending read refs, so the first copies stay correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function reportDirty() {
-    const dirty = pendingText.current !== null || flights.current.size > 0 || lastFailed.current;
+    const dirty = pendingText.current !== null || flights.current.size > 0 || failedKeys.current.size > 0;
     if (dirty === reportedDirty.current) return;
     reportedDirty.current = dirty;
     dirtyCallback.current?.(dirty);
@@ -137,13 +154,15 @@ export function LessonEditorPanel({
   }, [lesson?.id]);
 
   function patchLessonById(lessonId: string, patch: Record<string, unknown>): Promise<boolean> {
+    const key = `${lessonId}:${Object.keys(patch).sort().join(",")}`;
     const flight = sendPatch(lessonId, patch).then(
       (ok) => {
-        lastFailed.current = !ok;
+        if (ok) failedKeys.current.delete(key);
+        else failedKeys.current.add(key);
         return ok;
       },
       (err) => {
-        lastFailed.current = true;
+        failedKeys.current.add(key);
         throw err;
       },
     ).finally(() => {
@@ -162,6 +181,7 @@ export function LessonEditorPanel({
       body: JSON.stringify(patch),
     });
     if (!res.ok) {
+      failToasts.current += 1;
       toast.error("Could not save.");
       return false;
     }
@@ -248,13 +268,15 @@ export function LessonEditorPanel({
   useEffect(() => {
     if (!flushRef) return;
     flushRef.current = async () => {
+      const toastsBefore = failToasts.current;
+      let ok = true;
       try {
-        const ok = await flushPending();
-        await Promise.allSettled(Array.from(flights.current));
-        return ok && !lastFailed.current;
+        ok = await flushPending();
       } catch {
-        return false;
+        ok = false;
       }
+      await Promise.allSettled(Array.from(flights.current));
+      return { ok: ok && failedKeys.current.size === 0, alreadyToasted: failToasts.current > toastsBefore };
     };
     const ref = flushRef;
     return () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -97,7 +97,8 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
   const savedPage = useRef<PublicPageFields>(toPageState(course));
   // What the boxes held at load or at the last good Save; anything different is unsaved work.
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify({ form: toFormState(course), page: toPageState(course) }));
-  const dirty = JSON.stringify({ form, page }) !== savedSnapshot;
+  const currentSnapshot = useMemo(() => JSON.stringify({ form, page }), [form, page]);
+  const dirty = currentSnapshot !== savedSnapshot;
   const { confirmLeaveDialog } = useUnsavedGuard(dirty);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -172,7 +173,7 @@ export function ProgramConfigForm({ course }: { course: CourseConfigDetail }) {
 
   const { run: save, pending: saving } = useAsyncAction(async () => {
     // Taken before the request, so edits made while it runs still count as unsaved.
-    const snapshot = JSON.stringify({ form, page });
+    const snapshot = currentSnapshot;
     try {
       const res = await fetch(`/api/admin/courses/${course.id}`, {
         method: "PATCH",

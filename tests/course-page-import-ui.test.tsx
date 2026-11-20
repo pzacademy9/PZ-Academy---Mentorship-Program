@@ -107,6 +107,26 @@ describe("Import page from a file", () => {
     expect(prevented()).toBe(true);
   });
 
+  it("Save clears the unsaved warning when it works and keeps it when it fails", async () => {
+    const prevented = () => {
+      const ev = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    render(<ProgramConfigForm course={course} />);
+    fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "Changed" } });
+    expect(prevented()).toBe(true);
+
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({ error: "no" }), { status: 500 }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Save Changes/ })[0]);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(prevented()).toBe(true);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Save Changes/ })[0]);
+    await vi.waitFor(() => expect(prevented()).toBe(false));
+  });
+
   it("unticking everything turns off Fill in; Tick all brings it back", () => {
     render(<ProgramConfigForm course={course} />);
     fireEvent.click(screen.getByRole("button", { name: /Import page from a file/ }));

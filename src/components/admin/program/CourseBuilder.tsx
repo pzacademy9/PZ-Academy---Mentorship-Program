@@ -12,7 +12,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import type { BuilderState, BuilderModule, BuilderLesson } from "@/lib/data/admin-lms";
 import { CurriculumMap } from "./CurriculumMap";
-import { LessonEditorPanel } from "./LessonEditorPanel";
+import { LessonEditorPanel, type FlushResult } from "./LessonEditorPanel";
 import { ModuleNotesPanel } from "./ModuleNotesPanel";
 import { PublishConfirmDialog } from "./PublishConfirmDialog";
 import { ImportCurriculumDialog } from "./ImportCurriculumDialog";
@@ -52,7 +52,12 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [lessonDirty, setLessonDirty] = useState(false);
-  const flushLesson = useRef<(() => Promise<boolean>) | null>(null);
+  const lessonDirtyNow = useRef(false);
+  const flushLesson = useRef<(() => Promise<FlushResult>) | null>(null);
+  const handleDirtyChange = (dirty: boolean) => {
+    lessonDirtyNow.current = dirty;
+    setLessonDirty(dirty);
+  };
   const { confirmLeaveDialog } = useUnsavedGuard(lessonDirty);
 
   const courseType = initialState.course.type;
@@ -82,11 +87,14 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
   });
 
   const { run: saveDraft, pending: savingDraft } = useAsyncAction(async () => {
-    const ok = flushLesson.current ? await flushLesson.current() : true;
-    if (ok) {
+    // With no lesson panel open there is nothing to flush; unsaved work left behind still counts as not saved.
+    const result: FlushResult = flushLesson.current
+      ? await flushLesson.current()
+      : { ok: !lessonDirtyNow.current, alreadyToasted: false };
+    if (result.ok) {
       router.refresh();
       toast.success("Saved.");
-    } else {
+    } else if (!result.alreadyToasted) {
       toast.error("Some changes could not be saved.");
     }
   });
@@ -284,7 +292,7 @@ export function CourseBuilder({ initialState }: { initialState: BuilderState }) 
               courseSlug={initialState.course.slug}
               onLessonPatched={handleLessonPatched}
               onAdvance={advanceToNextLesson}
-              onDirtyChange={setLessonDirty}
+              onDirtyChange={handleDirtyChange}
               flushRef={flushLesson}
             />
           )}
