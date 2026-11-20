@@ -107,6 +107,16 @@ describe("Import curriculum dialog", () => {
     expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith("/apply"))).toHaveLength(1);
   });
 
+  it("long links can wrap: the list and dialog allow shrinking", async () => {
+    const dialog = await openChecked();
+    expect(dialog.className).toContain("grid-cols-[minmax(0,1fr)]");
+    const list = within(dialog).getAllByRole("list", { name: "Changes" })[1];
+    expect(list.className).toContain("min-w-0");
+    expect(list.querySelector("li")?.className).toContain("min-w-0");
+    const detail = Array.from(list.querySelectorAll("span")).find((el) => el.className.includes("break-words"));
+    expect(detail?.className).toContain("[overflow-wrap:anywhere]");
+  });
+
   it("turns Apply off when nothing is ticked", async () => {
     const dialog = await openChecked();
     for (const b of within(dialog).getAllByRole("button", { name: "Untick all" })) fireEvent.click(b);

@@ -80,7 +80,7 @@ export function ImportPageDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] grid-cols-[minmax(0,1fr)] overflow-y-auto overflow-x-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-headline text-pz-on-surface">Import page from a file</DialogTitle>
           <DialogDescription className="font-body text-pz-on-surface-variant">
