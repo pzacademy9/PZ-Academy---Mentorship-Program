@@ -23,7 +23,7 @@ beforeEach(() => {
   share.gen.mockReset();
   share.gen.mockResolvedValue({ shareUrl: "/review/tok123", token: "tok123" });
   store = {
-    landing_pages: [{ id: "pg1", title: "PPC Batch", attendance_min_pct: 75, feedback_program_id: "prog1" }],
+    landing_pages: [{ id: "pg1", title: "PPC Batch", slug: "ppc-batch", attendance_min_pct: 75, feedback_program_id: "prog1" }],
     landing_registrations: [
       { id: "r1", page_id: "pg1", person_id: "p1", mode: "live", status: "paid", is_test: false },
       { id: "r2", page_id: "pg1", person_id: "p2", mode: "live", status: "free", is_test: false },
@@ -90,6 +90,7 @@ describe("getClassOverview", () => {
     expect(c3.feedbackLink).toBeNull();
     expect(c1.attendanceLink).toMatch(/\/attend\/code0001$/);
     expect(o.title).toBe("PPC Batch");
+    expect(o.slug).toBe("ppc-batch");
   });
 
   it("a failing feedback stats read throws instead of showing 0 responses", async () => {
@@ -124,6 +125,7 @@ describe("getClassOverview", () => {
     store.batch_sessions.length = 0;
     const o = await getClassOverview("pg1", NOW);
     expect(o.classes).toEqual([]);
+    expect(o.slug).toBe("ppc-batch");
     expect(o.selectedId).toBe("");
   });
 });

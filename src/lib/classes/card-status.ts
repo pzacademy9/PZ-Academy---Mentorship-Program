@@ -21,14 +21,6 @@ export function quizStatus(c: ClassSummary): CardStatus {
   return { line: "Not uploaded yet", badge: "Needs attention", tone: "warn" };
 }
 
-export function feedbackStatus(c: ClassSummary): CardStatus {
-  if (!c.feedbackLink) return { line: "No feedback link yet", badge: null, tone: "idle" };
-  if (c.feedbackCount === 0) return { line: "No answers yet", badge: null, tone: "idle" };
-  const answers = `${c.feedbackCount} ${c.feedbackCount === 1 ? "answer" : "answers"}`;
-  const line = c.feedbackAvg === null ? answers : `${answers} · ${c.feedbackAvg.toFixed(1)} average`;
-  return { line, badge: "Collecting responses", tone: "ok" };
-}
-
 /** The one button under "Next step". Mirrors the order of nextStep() in TodayPanel. */
 export function nextAction(c: ClassSummary): { label: string; target: NextTarget } {
   if (c.status === "upcoming") return { label: "Show attendance link", target: "attendance" };

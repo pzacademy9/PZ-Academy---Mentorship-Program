@@ -62,19 +62,19 @@ export function ClassEmailHistory({
   const rounds = state.status === "ready" ? state.rounds.filter((r) => kinds.includes(r.kind)) : [];
 
   return (
-    <details className="rounded-lg border border-pz-outline-variant/60" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className="flex min-h-12 cursor-pointer items-center gap-2 px-4 font-headline text-base font-bold text-pz-on-surface">
-        <MailCheck className="size-5" aria-hidden />
+    <details className="border-t border-[#D4EACC] dark:border-pz-outline-variant/60" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary className="flex min-h-12 cursor-pointer items-center gap-2 font-poppins text-base font-semibold text-[#196432] dark:text-pz-on-surface">
+        <MailCheck className="size-5" strokeWidth={1.75} aria-hidden />
         Who got the emails
       </summary>
-      <div className="space-y-3 p-4">
+      <div className="space-y-3 py-3">
         {state.status === "loading" && <p className="text-base text-pz-on-surface-variant">Loading...</p>}
         {state.status === "error" && <p className="text-base font-semibold text-pz-danger">{state.message}</p>}
         {state.status === "ready" && rounds.length === 0 && (
           <p className="text-base text-pz-on-surface-variant">No email has been sent for this class yet.</p>
         )}
         {rounds.map((r) => (
-          <div key={r.id} className="rounded-lg bg-pz-surface-container-low p-3">
+          <div key={r.id} className="border-b border-[#D4EACC] pb-3 last:border-b-0 dark:border-pz-outline-variant/60">
             <p className="font-headline text-base font-bold text-pz-on-surface">{KIND_LABEL[r.kind]}</p>
             {r.subject !== "" && <p className="break-words text-base text-pz-on-surface-variant">{r.subject}</p>}
             <p className="text-base text-pz-on-surface-variant">{formatPkt(r.createdAt)}</p>
