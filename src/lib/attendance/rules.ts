@@ -62,6 +62,45 @@ export function checkinWindow(
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+export type Countdown = { state: WindowState; target: "opens" | "closes" | null; msLeft: number; msTotal: number };
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Time left until the check-in window opens or closes, for the live timer. */
+export function checkinCountdown(
+  startsAtIso: string,
+  override: WindowOverride,
+  now: Date,
+  minutes: WindowMinutes,
+): Countdown {
+  const state = checkinWindow(startsAtIso, override, now, minutes);
+  const none: Countdown = { state, target: null, msLeft: 0, msTotal: 0 };
+  if (override !== "auto") return none;
+  const start = new Date(startsAtIso).getTime();
+  if (Number.isNaN(start)) return none;
+  const t = now.getTime();
+  if (state === "before") return { state, target: "opens", msLeft: start - minutes.open * 60000 - t, msTotal: HOUR_MS };
+  if (state === "open") {
+    return { state, target: "closes", msLeft: Math.max(0, start + minutes.close * 60000 - t), msTotal: (minutes.open + minutes.close) * 60000 };
+  }
+  return none;
+}
+
+/** MM:SS under an hour, H:MM:SS from an hour, "N days H hours" from 24 hours. Rounds up to whole seconds. */
+export function formatCountdown(msLeft: number): string {
+  const total = Math.max(0, Math.ceil(msLeft / 1000));
+  const days = Math.floor(total / 86400);
+  if (days >= 1) {
+    const hours = Math.floor((total % 86400) / 3600);
+    const d = `${days} ${days === 1 ? "day" : "days"}`;
+    return hours === 0 ? d : `${d} ${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return h >= 1 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
+
 /** `YYYY-MM-DDTHH:mm` typed in PKT -> UTC ISO, or null if malformed / not a real date. */
 export function pktToIso(local: string): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
