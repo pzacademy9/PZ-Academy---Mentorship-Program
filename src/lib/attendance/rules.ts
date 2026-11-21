@@ -6,21 +6,40 @@ export type WindowState = "before" | "open" | "closed";
 export const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // PKT is a fixed UTC+5
 export const CHECKIN_OPEN_MINUTES = 15;
 export const CHECKIN_CLOSE_MINUTES = 15;
-const OPEN_MS = CHECKIN_OPEN_MINUTES * 60 * 1000;
-const CLOSE_MS = CHECKIN_CLOSE_MINUTES * 60 * 1000;
+export const MAX_WINDOW_MINUTES = 180;
+export type WindowMinutes = { open: number; close: number };
+
+type WindowCols = { checkin_open_minutes?: number | null; checkin_close_minutes?: number | null };
+
+/** Session value if set, else batch value, else 15. Each side resolved separately; 0 is kept. */
+export function effectiveWindow(session: WindowCols, batch: WindowCols | null | undefined): WindowMinutes {
+  return {
+    open: session.checkin_open_minutes ?? batch?.checkin_open_minutes ?? CHECKIN_OPEN_MINUTES,
+    close: session.checkin_close_minutes ?? batch?.checkin_close_minutes ?? CHECKIN_CLOSE_MINUTES,
+  };
+}
+
+/** Trimmed whole number 0 to 180, else null. */
+export function parseWindowMinutes(raw: string): number | null {
+  const s = raw.trim();
+  if (!/^[0-9]+$/.test(s)) return null;
+  const n = Number(s);
+  return n <= MAX_WINDOW_MINUTES ? n : null;
+}
 
 export function checkinWindow(
   startsAtIso: string,
   override: WindowOverride,
   now: Date,
+  minutes: WindowMinutes = { open: CHECKIN_OPEN_MINUTES, close: CHECKIN_CLOSE_MINUTES },
 ): WindowState {
   if (override === "open") return "open";
   if (override === "closed") return "closed";
   const start = new Date(startsAtIso).getTime();
   if (Number.isNaN(start)) return "closed";
   const t = now.getTime();
-  if (t < start - OPEN_MS) return "before";
-  if (t > start + CLOSE_MS) return "closed";
+  if (t < start - minutes.open * 60 * 1000) return "before";
+  if (t > start + minutes.close * 60 * 1000) return "closed";
   return "open";
 }
 

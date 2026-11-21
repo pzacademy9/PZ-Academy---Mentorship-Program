@@ -7,6 +7,8 @@ import {
   attendancePercent,
   meetsMinimum,
   generateSessionCode,
+  effectiveWindow,
+  parseWindowMinutes,
 } from "@/lib/attendance/rules";
 
 describe("PKT conversion", () => {
@@ -73,5 +75,55 @@ describe("generateSessionCode", () => {
       codes.add(c);
     }
     expect(codes.size).toBeGreaterThanOrEqual(199);
+  });
+});
+
+describe("configurable window", () => {
+  const start = "2026-11-03T15:00:00.000Z";
+  const at = (t: string) => new Date(`2026-11-03T${t}Z`);
+  it("30 before / 5 after", () => {
+    const m = { open: 30, close: 5 };
+    expect(checkinWindow(start, "auto", at("14:30:00"), m)).toBe("open");
+    expect(checkinWindow(start, "auto", at("14:29:59"), m)).toBe("before");
+    expect(checkinWindow(start, "auto", at("15:05:00"), m)).toBe("open");
+    expect(checkinWindow(start, "auto", at("15:06:00"), m)).toBe("closed");
+  });
+  it("0 / 0 is open only at the start", () => {
+    const m = { open: 0, close: 0 };
+    expect(checkinWindow(start, "auto", at("15:00:00"), m)).toBe("open");
+    expect(checkinWindow(start, "auto", at("14:59:00"), m)).toBe("before");
+    expect(checkinWindow(start, "auto", at("15:01:00"), m)).toBe("closed");
+  });
+  it("default stays 15/15", () => {
+    expect(checkinWindow(start, "auto", at("14:45:00"))).toBe("open");
+    expect(checkinWindow(start, "auto", at("15:15:01"))).toBe("closed");
+  });
+});
+
+describe("effectiveWindow", () => {
+  it("session wins", () => {
+    expect(effectiveWindow({ checkin_open_minutes: 20, checkin_close_minutes: 10 }, { checkin_open_minutes: 5, checkin_close_minutes: 5 })).toEqual({ open: 20, close: 10 });
+  });
+  it("batch used when session null; sides separate", () => {
+    expect(effectiveWindow({ checkin_open_minutes: null, checkin_close_minutes: 3 }, { checkin_open_minutes: 40, checkin_close_minutes: 50 })).toEqual({ open: 40, close: 3 });
+  });
+  it("15 when both missing", () => {
+    expect(effectiveWindow({}, null)).toEqual({ open: 15, close: 15 });
+    expect(effectiveWindow({ checkin_open_minutes: null }, undefined)).toEqual({ open: 15, close: 15 });
+  });
+  it("keeps 0", () => {
+    expect(effectiveWindow({ checkin_open_minutes: 0, checkin_close_minutes: 0 }, { checkin_open_minutes: 9, checkin_close_minutes: 9 })).toEqual({ open: 0, close: 0 });
+    expect(effectiveWindow({}, { checkin_open_minutes: 0, checkin_close_minutes: 0 })).toEqual({ open: 0, close: 0 });
+  });
+});
+
+describe("parseWindowMinutes", () => {
+  it("accepts whole numbers 0 to 180", () => {
+    expect(parseWindowMinutes("0")).toBe(0);
+    expect(parseWindowMinutes("15")).toBe(15);
+    expect(parseWindowMinutes(" 180 ")).toBe(180);
+  });
+  it("rejects the rest", () => {
+    for (const s of ["", "-1", "1.5", "181", "abc"]) expect(parseWindowMinutes(s)).toBeNull();
   });
 });
