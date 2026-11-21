@@ -19,6 +19,18 @@ export function effectiveWindow(session: WindowCols, batch: WindowCols | null | 
   };
 }
 
+/** The public session row (with the batch window attached) resolved to open/close minutes. */
+export function sessionWindow(s: WindowCols & { batchWindow?: WindowMinutes }): WindowMinutes {
+  return effectiveWindow(s, { checkin_open_minutes: s.batchWindow?.open, checkin_close_minutes: s.batchWindow?.close });
+}
+
+/** Public page line for the check-in state. */
+export function windowText(state: WindowState, open: number): string {
+  if (state === "open") return "Check-in is open.";
+  if (state === "closed") return "Check-in has closed.";
+  return `Check-in opens ${open} ${open === 1 ? "minute" : "minutes"} before the class.`;
+}
+
 /** Trimmed whole number 0 to 180, else null. */
 export function parseWindowMinutes(raw: string): number | null {
   const s = raw.trim();

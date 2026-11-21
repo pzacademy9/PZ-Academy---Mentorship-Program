@@ -269,9 +269,38 @@ describe("saveDefaults check-in window", () => {
     expect(db.find("landing_pages", "update")).toHaveLength(0);
   });
   it("accepts 0 and stores both numbers", async () => {
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 15, checkin_close_minutes: 15 });
     const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: 0, checkinClose: 45 });
     expect(r.ok).toBe(true);
     expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 45 });
+  });
+  it("saveSetup rejects a bad window and writes nothing", async () => {
+    const r = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinClose: 200 } }));
+    expect(r.ok).toBe(false);
+    expect(store.batch_sessions).toHaveLength(0);
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
+  it("before the migration: 15 and 15 saves without checkin keys", async () => {
+    const r = await saveDefaults(PAGE, defaults);
+    expect(r.ok).toBe(true);
+    const upd = db.find("landing_pages", "update");
+    expect(upd).toHaveLength(1);
+    expect(Object.keys(upd[0].payload as object).some((k) => k.startsWith("checkin_"))).toBe(false);
+  });
+  it("before the migration: 20 and 15 returns the plain message and writes nothing", async () => {
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: 20 });
+    expect(r).toEqual({ ok: false, message: "Check-in minutes need a database update first. Ask for the SQL." });
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+    const r2 = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinOpen: 20 } }));
+    expect(r2.ok).toBe(false);
+    expect(store.batch_sessions).toHaveLength(0);
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
+  it("with the columns, the payload includes them and 0 is kept", async () => {
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 15, checkin_close_minutes: 15 });
+    await saveDefaults(PAGE, { ...defaults, checkinOpen: 0 });
+    const upd = db.find("landing_pages", "update");
+    expect(upd[0].payload).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 15 });
   });
   it("loadSetup returns them, 15 and 15 when the columns are missing", async () => {
     Object.assign(store.landing_pages[0], { class_default_start: "20:00:00", class_default_end: "21:30:00", class_default_zoom: "" });

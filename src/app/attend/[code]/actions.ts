@@ -8,7 +8,7 @@ import {
   markPresent,
   personFirstName,
 } from "@/lib/data/attendance";
-import { checkinWindow, effectiveWindow, type WindowOverride } from "@/lib/attendance/rules";
+import { checkinWindow, sessionWindow, type WindowOverride } from "@/lib/attendance/rules";
 import { checkinSecret, verifyCheckinToken } from "@/lib/attendance/link-token";
 import { allowRequest } from "@/lib/pzid/rate-limit";
 
@@ -28,8 +28,6 @@ async function clientIp(): Promise<string> {
 
 type Session = NonNullable<Awaited<ReturnType<typeof getSessionByCode>>>;
 
-const windowOf = (s: Session) => ({ checkin_open_minutes: s.batchWindow?.open, checkin_close_minutes: s.batchWindow?.close });
-
 /** Window is checked right before the write, so a stale page cannot mark late or early. */
 async function markIfOpen(
   session: Session,
@@ -37,7 +35,7 @@ async function markIfOpen(
   firstName: string,
   source: "personal" | "shared",
 ): Promise<CheckinResult> {
-  const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date(), effectiveWindow(session, windowOf(session)));
+  const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date(), sessionWindow(session));
   if (state !== "open") return { status: state };
   const { created } = await markPresent(session.id, personId, source);
   return { status: "marked", firstName, already: !created };
@@ -69,7 +67,7 @@ export async function checkInShared(code: string, email: string): Promise<Checki
     const session = await getSessionByCode(String(code));
     if (!session) return { status: "not_found" };
     // Window first, so before/closed reveal nothing about whether the email is enrolled.
-    const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date(), effectiveWindow(session, windowOf(session)));
+    const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date(), sessionWindow(session));
     if (state !== "open") return { status: state };
     const person = await eligiblePersonForEmail(session.page_id, typed);
     if ("reason" in person) {

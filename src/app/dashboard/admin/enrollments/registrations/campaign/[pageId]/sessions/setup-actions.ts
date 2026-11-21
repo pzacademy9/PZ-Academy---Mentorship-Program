@@ -223,12 +223,22 @@ function checkDefaults(d: BatchDefaults): string | null {
   return null;
 }
 
-async function storeDefaults(pageId: string, d: BatchDefaults): Promise<void> {
+const NEEDS_DB = "Check-in minutes need a database update first. Ask for the SQL.";
+
+/** Before migration 0120 the row has no window columns: 15 and 15 is fine, anything else cannot be saved yet. */
+const needsDbUpdate = (page: PageRow, d: BatchDefaults) =>
+  !("checkin_open_minutes" in page) && (d.checkinOpen !== 15 || d.checkinClose !== 15);
+
+async function storeDefaults(pageId: string, d: BatchDefaults, page: PageRow): Promise<void> {
   const { error } = await createAdminSupabase()
     .from("landing_pages")
-    .update({ class_default_start: d.start, class_default_end: d.end, class_default_zoom: d.zoom.trim(),
-      checkin_open_minutes: d.checkinOpen,
-      checkin_close_minutes: d.checkinClose,
+    .update({
+      class_default_start: d.start,
+      class_default_end: d.end,
+      class_default_zoom: d.zoom.trim(),
+      ...("checkin_open_minutes" in page
+        ? { checkin_open_minutes: d.checkinOpen, checkin_close_minutes: d.checkinClose }
+        : {}),
     })
     .eq("id", pageId);
   if (error) throw new Error(error.message);
@@ -262,6 +272,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
     if (!page) return { ok: false, message: NO_PAGE };
     if (!isBatchType(page.kind)) return { ok: false, message: "This batch has no type yet. Set it on the batch first." };
     const type = page.kind;
+    if (needsDbUpdate(page, defaults)) return { ok: false, message: NEEDS_DB };
 
     const classes = await readClasses(pageId);
     const existing = classes.map(toExisting);
@@ -355,7 +366,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
       if (!res.ok) return { ok: false, message: res.message };
     }
 
-    await storeDefaults(pageId, defaults);
+    await storeDefaults(pageId, defaults, page);
 
     const setup: BatchFeedbackSetup = { type, questions: form.questions, coverUrl };
     const before = await batchQuestionSet(pageId);
@@ -384,8 +395,10 @@ export async function saveDefaults(pageId: string, defaults: BatchDefaults): Pro
   if (bad) return { ok: false, message: bad };
   const clean: BatchDefaults = { ...defaults, zoom: defaults.zoom.trim() };
   try {
-    if (!(await readPage(pageId))) return { ok: false, message: NO_PAGE };
-    await storeDefaults(pageId, clean);
+    const page = await readPage(pageId);
+    if (!page) return { ok: false, message: NO_PAGE };
+    if (needsDbUpdate(page, clean)) return { ok: false, message: NEEDS_DB };
+    await storeDefaults(pageId, clean, page);
     const classes = await readClasses(pageId);
     for (const row of applyDefaultsToClasses(classes.map(toExisting), clean)) {
       const res = await updateSession(row.id, {

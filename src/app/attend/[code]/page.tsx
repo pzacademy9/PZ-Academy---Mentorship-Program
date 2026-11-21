@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSessionByCode, personFirstName } from "@/lib/data/attendance";
-import { checkinWindow, effectiveWindow, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
+import { checkinWindow, sessionWindow, windowText, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
 import { checkinSecret, verifyCheckinToken } from "@/lib/attendance/link-token";
 import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
@@ -10,12 +10,6 @@ import { checkInPersonal, checkInShared } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Session check-in", robots: { index: false } };
-
-function windowText(state: "before" | "open" | "closed", open: number): string {
-  if (state === "open") return "Check-in is open.";
-  if (state === "closed") return "Check-in has closed.";
-  return `Check-in opens ${open} ${open === 1 ? "minute" : "minutes"} before the class.`;
-}
 
 function Shell({ children, coverSrc }: { children: React.ReactNode; coverSrc?: string }) {
   return (
@@ -64,10 +58,7 @@ export default async function AttendPage({
   }
   if (!session) notFound();
 
-  const win = effectiveWindow(session, {
-    checkin_open_minutes: session.batchWindow?.open,
-    checkin_close_minutes: session.batchWindow?.close,
-  });
+  const win = sessionWindow(session);
   const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date(), win);
   const token = firstName !== null ? rawToken : undefined;
 
