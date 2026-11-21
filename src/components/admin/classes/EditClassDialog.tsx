@@ -11,6 +11,7 @@ import {
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { createMissingFeedbackAction } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions";
 import { emailStatusLine } from "./email-status";
+import { useTickingNow } from "./useTickingNow";
 import { fieldCls, labelCls, primaryBtn, quietBtn } from "./styles";
 
 const hhmm = (iso: string | null) => (iso ? isoToPktInput(iso).slice(11, 16) : "");
@@ -64,6 +65,7 @@ export function EditClassDialog({
   const [winOpen, setWinOpen] = useState(String(session?.checkin_open_minutes ?? batchWindow.open));
   const [winClose, setWinClose] = useState(String(session?.checkin_close_minutes ?? batchWindow.close));
   const [busy, startTransition] = useTransition();
+  const now = useTickingNow();
 
   /** Moving the start moves the end by the same amount, so the class keeps its length, unless the end was typed in. */
   function changeStart(next: string) {
@@ -191,7 +193,7 @@ export function EditClassDialog({
             <label htmlFor="cls-minutes" className={labelCls}>Send it this many minutes before the class</label>
             <input id="cls-minutes" type="number" min={5} max={10080} className={fieldCls} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
           </div>
-          {session && <p className="text-base text-pz-on-surface-variant">{emailStatusLine(session, sends)}</p>}
+          {session && <p className="text-base text-pz-on-surface-variant">{emailStatusLine(session, sends, now)}</p>}
           <fieldset className="space-y-2">
             <legend className={labelCls}>Check-in window</legend>
             <label className="flex min-h-12 items-center gap-3 text-base text-pz-on-surface">

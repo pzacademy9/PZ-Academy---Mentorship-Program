@@ -1,0 +1,11 @@
+import { useEffect, useState } from "react";
+
+/** The current time, refreshed every 30 seconds, for lines that change as a class gets closer. */
+export function useTickingNow(everyMs = 30_000): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), everyMs);
+    return () => clearInterval(t);
+  }, [everyMs]);
+  return now;
+}
