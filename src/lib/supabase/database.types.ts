@@ -4267,6 +4267,33 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_runs: {
+        Row: {
+          id: string
+          mode: string
+          restore_checked_at: string | null
+          restore_ok: boolean | null
+          size_bytes: number
+          taken_at: string
+        }
+        Insert: {
+          id?: string
+          mode: string
+          restore_checked_at?: string | null
+          restore_ok?: boolean | null
+          size_bytes?: number
+          taken_at?: string
+        }
+        Update: {
+          id?: string
+          mode?: string
+          restore_checked_at?: string | null
+          restore_ok?: boolean | null
+          size_bytes?: number
+          taken_at?: string
+        }
+        Relationships: []
+      }
       public_lookup_hits: {
         Row: {
           hit_at: string

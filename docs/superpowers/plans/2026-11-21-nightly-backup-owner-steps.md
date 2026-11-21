@@ -15,6 +15,10 @@ The schedule only starts once the code is on `main`.
 GitHub, your repo, Settings, scroll to the bottom: "Danger Zone" shows "Change visibility".
 It must say the repo is **Private**. If it is Public, stop and tell me. Do not continue.
 
+### Step 1b. Paste the database change (for the Settings card)
+Supabase, SQL editor, paste the whole file `supabase/migrations/0121_backup_runs.sql`, press Run.
+It adds one small table. Nothing existing is changed. Until you paste it, the Settings card says "Not set up".
+
 ### Step 2. Copy the database address from Supabase
 1. Supabase, project "PZ Academy Platform", press **Connect** (top bar).
 2. Choose **Session pooler**.
@@ -38,6 +42,11 @@ Send me the result (green or red). If red, open the run and send me the red line
 
 ### Step 5. After the first month
 Supabase, Usage, Egress. If it is above 3.5 GB, upgrade Supabase to Pro.
+
+## Where to see it
+Settings page, "Backups" card (admin and super admin only). It shows the last backup, the last Sunday restore test,
+and turns red if no good backup was taken for more than 2 days. The same steps below are in the card under
+"How to restore if data is lost". There is no restore button on purpose.
 
 ## How to restore (if data is ever lost)
 Do not do this alone. Tell me, and I will do it with you:

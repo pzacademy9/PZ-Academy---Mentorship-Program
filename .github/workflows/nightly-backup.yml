@@ -62,6 +62,17 @@ jobs:
           retention-days: ${{ steps.mode.outputs.mode == 'weekly' && 28 || 7 }}
           if-no-files-found: error
 
+      # Tells the Settings page the copy was taken. Never fails the backup: the copy is already kept above.
+      - name: Record the run for the Settings page
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          size="$(cat backup-out/*.gpg | wc -c)"
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+            -c "insert into public.backup_runs (mode, size_bytes) values ('$MODE', $size)" \
+            || echo "Could not record the run (is migration 0121 pasted?)"
+
   restore-check:
     # Proves the weekly copy really restores. Uses a throwaway database, never your live one.
     needs: backup
@@ -100,3 +111,12 @@ jobs:
           RESTORE_DB_URL: postgresql://postgres:scratch@localhost:5432/postgres
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: bash scripts/backup/restore-check.sh backup-out
+
+      - name: Record the restore test result
+        if: always()
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RESULT: ${{ job.status == 'success' && 'true' || 'false' }}
+        run: |
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "update public.backup_runs set restore_ok = $RESULT, restore_checked_at = now() where id = (select id from public.backup_runs where mode = 'weekly' order by taken_at desc limit 1)" \
+            || echo "Could not record the test result."
