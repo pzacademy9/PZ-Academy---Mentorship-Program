@@ -40,6 +40,23 @@ beforeEach(() => {
   token = signCheckinToken(SID, PERSON, checkinSecret()!);
 });
 
+describe("batch check-in window", () => {
+  const ago = (m: number) => new Date(Date.now() - m * 60000).toISOString();
+  it("closed when 20 minutes in and the batch closes after 15", async () => {
+    getSessionByCode.mockResolvedValue(session({ starts_at: ago(20), batchWindow: { open: 15, close: 15 } }));
+    expect(await checkInShared("abcd1234", "a@b.co")).toEqual({ status: "closed" });
+  });
+  it("marked when 20 minutes in and the batch closes after 30", async () => {
+    getSessionByCode.mockResolvedValue(session({ starts_at: ago(20), batchWindow: { open: 15, close: 30 } }));
+    eligiblePersonForEmail.mockResolvedValue({ personId: PERSON, firstName: "Ayesha" });
+    expect((await checkInShared("abcd1234", "a@b.co")).status).toBe("marked");
+  });
+  it("the class's own window beats the batch", async () => {
+    getSessionByCode.mockResolvedValue(session({ starts_at: ago(20), checkin_close_minutes: 10, batchWindow: { open: 15, close: 30 } }));
+    expect(await checkInShared("abcd1234", "a@b.co")).toEqual({ status: "closed" });
+  });
+});
+
 describe("checkInPersonal", () => {
   it("marks and returns first name only", async () => {
     const r = await checkInPersonal("abcd1234", token);

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSessionByCode, personFirstName } from "@/lib/data/attendance";
-import { checkinWindow, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
+import { checkinWindow, effectiveWindow, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
 import { checkinSecret, verifyCheckinToken } from "@/lib/attendance/link-token";
 import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
@@ -11,11 +11,11 @@ import { checkInPersonal, checkInShared } from "./actions";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Session check-in", robots: { index: false } };
 
-const WINDOW_TEXT = {
-  before: "Check-in opens 15 minutes before the class.",
-  open: "Check-in is open.",
-  closed: "Check-in has closed.",
-} as const;
+function windowText(state: "before" | "open" | "closed", open: number): string {
+  if (state === "open") return "Check-in is open.";
+  if (state === "closed") return "Check-in has closed.";
+  return `Check-in opens ${open} ${open === 1 ? "minute" : "minutes"} before the class.`;
+}
 
 function Shell({ children, coverSrc }: { children: React.ReactNode; coverSrc?: string }) {
   return (
@@ -64,7 +64,11 @@ export default async function AttendPage({
   }
   if (!session) notFound();
 
-  const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date());
+  const win = effectiveWindow(session, {
+    checkin_open_minutes: session.batchWindow?.open,
+    checkin_close_minutes: session.batchWindow?.close,
+  });
+  const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date(), win);
   const token = firstName !== null ? rawToken : undefined;
 
   // Public page: only a cover on an allowed host is rendered.
@@ -76,7 +80,7 @@ export default async function AttendPage({
       {session.batchTitle ? <p className="mt-1 text-pz-mid">{session.batchTitle}</p> : null}
       <p className="mt-4 font-semibold text-pz-deep">{session.title}</p>
       <p className="text-sm text-pz-mid">{formatPkt(session.starts_at)}</p>
-      <p className="mt-2 text-sm text-pz-mid">{WINDOW_TEXT[state]}</p>
+      <p className="mt-2 text-sm text-pz-mid">{windowText(state, win.open)}</p>
       {firstName ? <p className="mt-4 text-pz-deep">Hello, {firstName}.</p> : null}
       {linkInvalid ? (
         <p className="mt-4 text-red-700">This personal link is not valid. Use your registered email below.</p>

@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { isoToPktInput } from "@/lib/attendance/rules";
+import { isoToPktInput, parseWindowMinutes } from "@/lib/attendance/rules";
 import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import { createSession, deleteSession, updateSession } from "@/lib/data/attendance";
 import {
   applyDefaultsToClasses,
   planClasses,
   type ClassDayInput,
+  type BatchDefaults,
   type ClassDefaults,
   type ClassOp,
   type ExistingClass,
@@ -40,7 +41,7 @@ export type SetupClass = ExistingClass & {
 
 export type SetupState = {
   title: string;
-  defaults: ClassDefaults | null;
+  defaults: BatchDefaults | null;
   coverUrl: string | null;
   classes: SetupClass[];
   questions: Question[];
@@ -50,7 +51,7 @@ export type SetupState = {
 /** `type` is not here: the batch type is landing_pages.kind and setup never changes it. */
 export type SetupForm = {
   days: ClassDayInput[];
-  defaults: ClassDefaults;
+  defaults: BatchDefaults;
   coverUrl: string | null;
   questions: Question[];
   confirmRemoveIds: string[];
@@ -80,6 +81,8 @@ type PageRow = {
   class_default_zoom: string;
   class_cover_url: string | null;
   feedback_program_id: string | null;
+  checkin_open_minutes?: number | null;
+  checkin_close_minutes?: number | null;
 };
 
 type ClassRow = {
@@ -98,7 +101,7 @@ type ClassRow = {
 async function readPage(pageId: string): Promise<PageRow | null> {
   const { data, error } = await createAdminSupabase()
     .from("landing_pages")
-    .select("title, kind, class_default_start, class_default_end, class_default_zoom, class_cover_url, feedback_program_id")
+    .select("*")
     .eq("id", pageId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -198,7 +201,10 @@ export async function loadSetup(pageId: string): Promise<SetupState | null> {
     title: page.title,
     defaults:
       page.class_default_start && page.class_default_end
-        ? { start: hhmm(page.class_default_start), end: hhmm(page.class_default_end), zoom: page.class_default_zoom ?? "" }
+        ? { start: hhmm(page.class_default_start), end: hhmm(page.class_default_end), zoom: page.class_default_zoom ?? "",
+            checkinOpen: page.checkin_open_minutes ?? 15,
+            checkinClose: page.checkin_close_minutes ?? 15,
+          }
         : null,
     coverUrl: page.class_cover_url ?? null,
     classes: state,
@@ -207,17 +213,23 @@ export async function loadSetup(pageId: string): Promise<SetupState | null> {
   };
 }
 
-function checkDefaults(d: ClassDefaults): string | null {
+const WINDOW_MSG = "Check-in minutes must be a whole number from 0 to 180";
+
+function checkDefaults(d: BatchDefaults): string | null {
   if (!d || !TIME.test(d.start) || !TIME.test(d.end)) return "Please enter a valid start and end time";
   if (d.end <= d.start) return "The end time must be after the start time";
   if (!isUrlOrEmpty(d.zoom ?? "")) return "The Zoom link must start with http:// or https://";
+  if (parseWindowMinutes(String(d.checkinOpen)) === null || parseWindowMinutes(String(d.checkinClose)) === null) return WINDOW_MSG;
   return null;
 }
 
-async function storeDefaults(pageId: string, d: ClassDefaults): Promise<void> {
+async function storeDefaults(pageId: string, d: BatchDefaults): Promise<void> {
   const { error } = await createAdminSupabase()
     .from("landing_pages")
-    .update({ class_default_start: d.start, class_default_end: d.end, class_default_zoom: d.zoom.trim() })
+    .update({ class_default_start: d.start, class_default_end: d.end, class_default_zoom: d.zoom.trim(),
+      checkin_open_minutes: d.checkinOpen,
+      checkin_close_minutes: d.checkinClose,
+    })
     .eq("id", pageId);
   if (error) throw new Error(error.message);
 }
@@ -238,7 +250,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
   if (form.days.some((d) => !isUrlOrEmpty(d.zoom ?? ""))) {
     return { ok: false, message: "The Zoom link must start with http:// or https://" };
   }
-  const defaults: ClassDefaults = { ...form.defaults, zoom: form.defaults.zoom.trim() };
+  const defaults: BatchDefaults = { ...form.defaults, zoom: form.defaults.zoom.trim() };
   const coverUrl = form.coverUrl && form.coverUrl.trim() !== "" ? form.coverUrl.trim() : null;
   if (coverUrl && !isAllowedCoverUrl(coverUrl)) {
     return { ok: false, message: "Please pick the cover from the picture library." };
@@ -364,13 +376,13 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
   }
 }
 
-export async function saveDefaults(pageId: string, defaults: ClassDefaults): Promise<ActionResult> {
+export async function saveDefaults(pageId: string, defaults: BatchDefaults): Promise<ActionResult> {
   const auth = await requireAdmin("classes");
   if (!auth.ok) return { ok: false, message: NOT_ALLOWED };
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const bad = checkDefaults(defaults);
   if (bad) return { ok: false, message: bad };
-  const clean: ClassDefaults = { ...defaults, zoom: defaults.zoom.trim() };
+  const clean: BatchDefaults = { ...defaults, zoom: defaults.zoom.trim() };
   try {
     if (!(await readPage(pageId))) return { ok: false, message: NO_PAGE };
     await storeDefaults(pageId, clean);

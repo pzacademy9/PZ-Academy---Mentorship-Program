@@ -8,6 +8,7 @@ import {
   attendancePercent,
   generateSessionCode,
   meetsMinimum,
+  type WindowMinutes,
   type WindowOverride,
 } from "@/lib/attendance/rules";
 import { audienceFromJson, type Audience } from "@/lib/classes/audience";
@@ -193,7 +194,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 export async function getSessionByCode(
   code: string,
-): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null }) | null> {
+): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null; batchWindow: WindowMinutes }) | null> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("batch_sessions").select("*").eq("public_code", code).maybeSingle();
   check("session read", error);
@@ -201,12 +202,23 @@ export async function getSessionByCode(
   const session = data as SessionRow;
   const { data: page, error: pageErr } = await admin
     .from("landing_pages")
-    .select("title, class_cover_url")
+    .select("*")
     .eq("id", session.page_id)
     .maybeSingle();
   check("batch read", pageErr);
-  const p = page as { title: string; class_cover_url: string | null } | null;
-  return { ...session, batchTitle: p?.title ?? "", coverUrl: p?.class_cover_url ?? null };
+  // Columns may be missing (migration not applied yet) or null: fall back to 15 each side. 0 is kept.
+  const p = page as {
+    title: string;
+    class_cover_url: string | null;
+    checkin_open_minutes?: number | null;
+    checkin_close_minutes?: number | null;
+  } | null;
+  return {
+    ...session,
+    batchTitle: p?.title ?? "",
+    coverUrl: p?.class_cover_url ?? null,
+    batchWindow: { open: p?.checkin_open_minutes ?? 15, close: p?.checkin_close_minutes ?? 15 },
+  };
 }
 
 /**

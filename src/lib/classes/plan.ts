@@ -1,6 +1,8 @@
 import { pktToIso, isoToPktInput } from "@/lib/attendance/rules";
 
 export type ClassDefaults = { start: string; end: string; zoom: string };
+/** Class-time defaults plus the batch's check-in window (minutes). Only start/end/zoom reach the classes. */
+export type BatchDefaults = ClassDefaults & { checkinOpen: number; checkinClose: number };
 
 export type ClassDayInput = {
   date: string;

@@ -203,6 +203,12 @@ describe("sessions CRUD", () => {
     store.batch_sessions = [sess(1, "2026-11-01T10:00:00Z")];
     expect(await getSessionByCode("code0001")).toMatchObject({ coverUrl: "https://img/c.png" });
   });
+  it("getSessionByCode returns the batch window, 15 and 15 when the page has none", async () => {
+    store.batch_sessions = [sess(1, "2026-11-01T10:00:00Z")];
+    expect(await getSessionByCode("code0001")).toMatchObject({ batchWindow: { open: 15, close: 15 } });
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 0, checkin_close_minutes: 30 });
+    expect(await getSessionByCode("code0001")).toMatchObject({ batchWindow: { open: 0, close: 30 } });
+  });
   it("duplicate number gives a clear message", async () => {
     await createSession("pg1", input);
     expect(await createSession("pg1", input)).toEqual({ ok: false, message: "That class number is already used" });

@@ -41,6 +41,8 @@ function initialDays(state: SetupState): DayState[] {
   }));
 }
 
+const asMinutes = (t: string) => (t.trim() === "" ? NaN : Number(t));
+
 export function SetupForm({ pageId, state, initialMonth }: { pageId: string; state: SetupState; initialMonth?: string }) {
   const router = useRouter();
   const back = `${BASE}/campaign/${pageId}/sessions`;
@@ -49,7 +51,10 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
 
   const [month, setMonth] = useState(initialMonth ?? startingMonth(state));
   const [days, setDays] = useState<DayState[]>(() => initialDays(state));
-  const [defaults, setDefaults] = useState(state.defaults ?? { start: "19:00", end: "21:00", zoom: "" });
+  const [defaults, setDefaults] = useState(state.defaults ?? { start: "19:00", end: "21:00", zoom: "", checkinOpen: 15, checkinClose: 15 });
+  // Kept as text while typing; turned into numbers on save. Anything that is not a number is sent as NaN and refused.
+  const [openTxt, setOpenTxt] = useState(String(state.defaults?.checkinOpen ?? 15));
+  const [closeTxt, setCloseTxt] = useState(String(state.defaults?.checkinClose ?? 15));
   const [cover, setCover] = useState(state.coverUrl ?? "");
   const [questions, setQuestions] = useState<Question[]>(state.questions);
   const [bank, setBank] = useState<BankEntry[] | null>(null);
@@ -178,7 +183,7 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
     try {
       const res = await saveSetup(pageId, {
         days: input,
-        defaults,
+        defaults: { ...defaults, checkinOpen: asMinutes(openTxt), checkinClose: asMinutes(closeTxt) },
         coverUrl: cover.trim() === "" ? null : cover.trim(),
         questions,
         confirmRemoveIds: confirmIds.filter((id) => !stillThere.has(id)),
@@ -236,6 +241,16 @@ export function SetupForm({ pageId, state, initialMonth }: { pageId: string; sta
               </div>
             </div>
             <p className="mt-1 text-base text-pz-on-surface-variant">Pakistan time</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className={labelCls} htmlFor="default-checkin-open">Check-in opens (minutes before)</label>
+                <input id="default-checkin-open" type="number" inputMode="numeric" min={0} max={180} step={1} className={fieldCls} value={openTxt} onChange={(e) => setOpenTxt(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls} htmlFor="default-checkin-close">Check-in closes (minutes after)</label>
+                <input id="default-checkin-close" type="number" inputMode="numeric" min={0} max={180} step={1} className={fieldCls} value={closeTxt} onChange={(e) => setCloseTxt(e.target.value)} />
+              </div>
+            </div>
             <p className="mt-3 text-base text-pz-on-surface-variant">A reminder email goes to students 60 minutes before each class. You can change this in Edit this class.</p>
             <div className="mt-3">
               <label className={labelCls} htmlFor="default-zoom">Zoom link</label>
