@@ -83,6 +83,7 @@ export default async function AttendPage({
         personal={checkInPersonal}
         shared={checkInShared}
         disabled={state === "closed"}
+        openMinutes={win.open}
       />
     </Shell>
   );

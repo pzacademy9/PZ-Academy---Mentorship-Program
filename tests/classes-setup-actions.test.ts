@@ -274,6 +274,20 @@ describe("saveDefaults check-in window", () => {
     expect(r.ok).toBe(true);
     expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 45 });
   });
+  it("a numeric string or one-item array is stored as the parsed number", async () => {
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 15, checkin_close_minutes: 15 });
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: "20" as unknown as number, checkinClose: [5] as unknown as number });
+    expect(r.ok).toBe(true);
+    expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 20, checkin_close_minutes: 5 });
+    const r2 = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinOpen: "25" as unknown as number } }));
+    expect(r2.ok).toBe(true);
+    expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 25, checkin_close_minutes: 15 });
+  });
+  it("a string that is not a whole number is rejected and nothing is written", async () => {
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: "20x" as unknown as number });
+    expect(r.ok).toBe(false);
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
   it("saveSetup rejects a bad window and writes nothing", async () => {
     const r = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinClose: 200 } }));
     expect(r.ok).toBe(false);

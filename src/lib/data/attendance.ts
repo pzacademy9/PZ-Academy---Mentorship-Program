@@ -209,6 +209,13 @@ export async function getBatchWindow(pageId: string): Promise<WindowMinutes> {
   return { open: p?.checkin_open_minutes ?? 15, close: p?.checkin_close_minutes ?? 15 };
 }
 
+/** True once migration 0120 is applied (the batch row carries the check-in minute columns). */
+export async function batchHasWindowColumns(pageId: string): Promise<boolean> {
+  const { data, error } = await createAdminSupabase({ noStore: true }).from("landing_pages").select("*").eq("id", pageId).maybeSingle();
+  check("batch read", error);
+  return !!data && "checkin_open_minutes" in (data as object);
+}
+
 export async function getSessionByCode(
   code: string,
 ): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null; batchWindow: WindowMinutes }) | null> {

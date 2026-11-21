@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { parseWindowMinutes, pktToIso, type WindowOverride } from "@/lib/attendance/rules";
 import {
+  batchHasWindowColumns,
   createSession,
   deleteSession,
   getSessionById,
@@ -92,8 +93,9 @@ function parseForm(f: SessionForm): { ok: true; input: SessionInput } | { ok: fa
       if (o === null || c === null || parseWindowMinutes(String(o)) === null || parseWindowMinutes(String(c)) === null) {
         return { ok: false, message: BAD_WINDOW };
       }
-      win.checkinOpenMinutes = o;
-      win.checkinCloseMinutes = c;
+      // Write the parsed numbers, never the raw values (a string or array would reach the database as-is).
+      win.checkinOpenMinutes = parseWindowMinutes(String(o))!;
+      win.checkinCloseMinutes = parseWindowMinutes(String(c))!;
     }
   }
   return {
@@ -129,6 +131,10 @@ export async function addSession(pageId: string, form: SessionForm): Promise<Act
     delete parsed.input.checkinCloseMinutes;
   }
   try {
+    // Own numbers need the migration 0120 columns; without them the insert would fail with a vague message.
+    if (parsed.input.checkinOpenMinutes !== undefined && !(await batchHasWindowColumns(pageId))) {
+      return { ok: false, message: NEEDS_DB };
+    }
     const res = await createSession(pageId, parsed.input);
     if (!res.ok) return { ok: false, message: res.message };
     refresh(pageId);

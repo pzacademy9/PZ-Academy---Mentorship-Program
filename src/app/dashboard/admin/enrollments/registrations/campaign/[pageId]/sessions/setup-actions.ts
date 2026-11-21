@@ -223,6 +223,12 @@ function checkDefaults(d: BatchDefaults): string | null {
   return null;
 }
 
+/** The validated numbers themselves, so a string or array from a hand-made request is never stored as-is. */
+const parsedWindow = (d: BatchDefaults) => ({
+  checkinOpen: parseWindowMinutes(String(d.checkinOpen))!,
+  checkinClose: parseWindowMinutes(String(d.checkinClose))!,
+});
+
 const NEEDS_DB = "Check-in minutes need a database update first. Ask for the SQL.";
 
 /** Before migration 0120 the row has no window columns: 15 and 15 is fine, anything else cannot be saved yet. */
@@ -260,7 +266,7 @@ export async function saveSetup(pageId: string, form: SetupForm): Promise<Action
   if (form.days.some((d) => !isUrlOrEmpty(d.zoom ?? ""))) {
     return { ok: false, message: "The Zoom link must start with http:// or https://" };
   }
-  const defaults: BatchDefaults = { ...form.defaults, zoom: form.defaults.zoom.trim() };
+  const defaults: BatchDefaults = { ...form.defaults, zoom: form.defaults.zoom.trim(), ...parsedWindow(form.defaults) };
   const coverUrl = form.coverUrl && form.coverUrl.trim() !== "" ? form.coverUrl.trim() : null;
   if (coverUrl && !isAllowedCoverUrl(coverUrl)) {
     return { ok: false, message: "Please pick the cover from the picture library." };
@@ -393,7 +399,7 @@ export async function saveDefaults(pageId: string, defaults: BatchDefaults): Pro
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const bad = checkDefaults(defaults);
   if (bad) return { ok: false, message: bad };
-  const clean: BatchDefaults = { ...defaults, zoom: defaults.zoom.trim() };
+  const clean: BatchDefaults = { ...defaults, zoom: defaults.zoom.trim(), ...parsedWindow(defaults) };
   try {
     const page = await readPage(pageId);
     if (!page) return { ok: false, message: NO_PAGE };
