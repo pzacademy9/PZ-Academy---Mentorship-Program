@@ -182,3 +182,13 @@ describe("checkinCountdown", () => {
     expect(checkinCountdown(start, "auto", at("14:00:00"), z).state).toBe("open");
   });
 });
+
+describe("formatCountdown rounding boundaries", () => {
+  it("rounds up to whole seconds at unit edges", () => {
+    expect(formatCountdown(3_600_000)).toBe("1:00:00");
+    expect(formatCountdown(3_599_001)).toBe("1:00:00");
+    expect(formatCountdown(86_399_001)).toBe("1 day");
+    expect(formatCountdown(59_001)).toBe("01:00");
+    expect(formatCountdown(1)).toBe("00:01");
+  });
+});

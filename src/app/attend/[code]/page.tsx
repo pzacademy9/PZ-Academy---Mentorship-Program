@@ -71,14 +71,17 @@ export default async function AttendPage({
       {session.batchTitle ? <p className="mt-1 text-pz-mid">{session.batchTitle}</p> : null}
       <p className="mt-4 font-semibold text-pz-deep">{session.title}</p>
       <p className="text-sm text-pz-mid">{formatPkt(session.starts_at)}</p>
-      {firstName ? <p className="mt-4 text-pz-deep">Hello, {firstName}.</p> : null}
-      {linkInvalid ? (
-        <p className="mt-4 text-red-700">This personal link is not valid. Use your registered email below.</p>
-      ) : null}
-      {!token ? <p className="mt-4 text-sm text-pz-mid">Type the email you registered with.</p> : null}
       <CheckinPanel
         code={code}
         token={token}
+        notice={
+          <>
+            {firstName ? <p className="mt-4 text-pz-deep">Hello, {firstName}.</p> : null}
+            {linkInvalid ? (
+              <p className="mt-4 text-red-700">This personal link is not valid. Use your registered email below.</p>
+            ) : null}
+          </>
+        }
         personal={checkInPersonal}
         shared={checkInShared}
         startsAtIso={session.starts_at}

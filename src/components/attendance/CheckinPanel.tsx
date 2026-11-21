@@ -9,6 +9,8 @@ import { CheckinTimer } from "./CheckinTimer";
 interface Props {
   code: string;
   token?: string;
+  /** Rendered just above the form (greeting, invalid-link note). */
+  notice?: React.ReactNode;
   personal: (code: string, token: string) => Promise<CheckinResult>;
   shared: (code: string, email: string) => Promise<CheckinResult>;
   startsAtIso: string;
@@ -19,7 +21,7 @@ interface Props {
   serverNowIso: string;
 }
 
-export function CheckinPanel({ code, token, personal, shared, startsAtIso, override, open, close, serverNowIso }: Props) {
+export function CheckinPanel({ code, token, notice, personal, shared, startsAtIso, override, open, close, serverNowIso }: Props) {
   // Offset between the server clock and this device, taken once.
   const [offset] = useState(() => Date.parse(serverNowIso) - Date.now());
   // Seeded from the server time so the first client render matches the server render.
@@ -47,13 +49,15 @@ export function CheckinPanel({ code, token, personal, shared, startsAtIso, overr
       ) : (
         <p className="mt-2 text-sm text-pz-mid">{text}</p>
       )}
+      {notice}
+      {!token ? <p className="mt-4 text-sm text-pz-mid">Type the email you registered with.</p> : null}
       {/* Same position and no key change, so the typed email survives a state change. */}
       <CheckinForm
         code={code}
         token={token}
         personal={personal}
         shared={shared}
-        disabled={countdown.state !== "open"}
+        disabled={countdown.state === "closed" || (countdown.state === "before" && countdown.msLeft > 60_000)}
         openMinutes={open}
       />
     </>

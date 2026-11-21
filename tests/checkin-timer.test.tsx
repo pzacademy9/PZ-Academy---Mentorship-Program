@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { CheckinPanel } from "@/components/attendance/CheckinPanel";
 
 const START = Date.parse("2026-11-21T10:00:00.000Z");
@@ -84,10 +85,71 @@ describe("CheckinPanel timer", () => {
     mount(START - 15 * MIN - 10 * MIN);
     const live = () => screen.getByTestId("checkin-timer-live").textContent;
     const first = live();
-    expect(first).toBe("Check-in opens in 10 minutes");
+    expect(first).toBe("Check-in opens in 10 minutes.");
     act(() => { vi.advanceTimersByTime(5000); });
     expect(live()).toBe(first);
     act(() => { vi.advanceTimersByTime(10 * MIN + 1000); });
     expect(live()).toBe("Check-in is open. It closes in 45 minutes.");
+  });
+
+  it("keeps the same live node across open to closed and announces the close", () => {
+    vi.setSystemTime(START + 30 * MIN - 2000);
+    mount(START + 30 * MIN - 2000);
+    const node = screen.getByTestId("checkin-timer-live");
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(screen.getByTestId("checkin-timer-live")).toBe(node);
+    expect(node.textContent).toBe("Check-in has closed.");
+    expect(button().disabled).toBe(true);
+  });
+
+  it("enables the button in the last 60 seconds before opening, disabled earlier", () => {
+    vi.setSystemTime(START - 15 * MIN - 61000);
+    mount(START - 15 * MIN - 61000);
+    expect(button().disabled).toBe(true);
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(button().disabled).toBe(false);
+  });
+
+  it("resyncs from the clock on visibilitychange without timers firing", () => {
+    vi.setSystemTime(START - 30 * MIN);
+    mount(START - 30 * MIN);
+    vi.setSystemTime(START - 30 * MIN + 5 * MIN);
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    expect(screen.getByTestId("checkin-timer-digits").textContent).toBe("10:00");
+  });
+
+  it("clears the interval and listener on unmount", () => {
+    vi.setSystemTime(START);
+    const clr = vi.spyOn(globalThis, "clearInterval");
+    const rem = vi.spyOn(document, "removeEventListener");
+    const { unmount } = mount(START - 30 * MIN);
+    unmount();
+    expect(clr).toHaveBeenCalled();
+    expect(rem.mock.calls.some((c) => c[0] === "visibilitychange")).toBe(true);
+  });
+
+  it("far class shows days and hides the bar", () => {
+    vi.setSystemTime(START - 3 * 24 * 60 * MIN - 5 * 60 * MIN);
+    mount(START - 3 * 24 * 60 * MIN - 5 * 60 * MIN);
+    expect(screen.getByTestId("checkin-timer-digits").textContent).toBe("3 days 4 hours");
+    expect(screen.queryByTestId("checkin-timer-bar")).toBeNull();
+  });
+
+  it("an invalid start time shows the closed card and a disabled button", () => {
+    vi.setSystemTime(START);
+    render(
+      <CheckinPanel code="abc" personal={vi.fn()} shared={vi.fn()} startsAtIso="nope" override="auto" open={15} close={30} serverNowIso={new Date(START).toISOString()} />,
+    );
+    expect(screen.getByTestId("checkin-timer").textContent).toContain("Check-in has closed.");
+    expect(button().disabled).toBe(true);
+  });
+
+  it("first render uses the server time even when the device clock differs", () => {
+    vi.setSystemTime(START + 5 * MIN);
+    const html = renderToString(
+      <CheckinPanel code="abc" personal={vi.fn()} shared={vi.fn()} startsAtIso={new Date(START).toISOString()} override="auto" open={15} close={30} serverNowIso={new Date(START - 30 * MIN).toISOString()} />,
+    );
+    expect(html).toContain("15:00");
+    expect(html).toContain("Check-in opens in");
   });
 });
