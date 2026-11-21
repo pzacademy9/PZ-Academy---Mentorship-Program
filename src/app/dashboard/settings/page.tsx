@@ -4,6 +4,8 @@ import { SettingsForm } from "@/components/dashboard/SettingsForm";
 import { AdminToolCards } from "@/components/dashboard/AdminToolCards";
 import { toolsForRole } from "@/components/dashboard/nav";
 import { getViewerRoleAndAreas } from "@/lib/auth/viewer-areas";
+import { BackupStatusCard } from "@/components/dashboard/BackupStatusCard";
+import { getBackupHealth } from "@/lib/data/backups";
 
 export const metadata = { title: "Settings — PZ Academy" };
 
@@ -33,6 +35,7 @@ export default async function SettingsPage() {
         initialFullName={profile?.full_name ?? ""}
         initialAvatarUrl={profile?.avatar_url ?? ""}
       />
+      {role === "admin" || role === "super_admin" ? <BackupStatusCard health={await getBackupHealth()} /> : null}
       <AdminToolCards tools={toolsForRole(role, areas)} />
     </div>
   );

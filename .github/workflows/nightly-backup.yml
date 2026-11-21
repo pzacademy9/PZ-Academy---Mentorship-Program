@@ -1,0 +1,122 @@
+name: Database backup
+
+# 02:00 Pakistan time every night (21:00 UTC). Sunday night (Saturday 21:00 UTC) is the full copy.
+on:
+  schedule:
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Which copy to take"
+        type: choice
+        options:
+          - nightly
+          - weekly
+        default: nightly
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide nightly or weekly
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "$(date -u +%u)" = "6" ]; then
+            echo "mode=weekly" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=nightly" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Take the backup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: bash scripts/backup/run-backup.sh "${{ steps.mode.outputs.mode }}"
+
+      - name: Keep the copy (7 days nightly, 28 days weekly)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pz-backup-${{ steps.mode.outputs.mode }}
+          path: backup-out/*.gpg
+          retention-days: ${{ steps.mode.outputs.mode == 'weekly' && 28 || 7 }}
+          if-no-files-found: error
+
+      # Tells the Settings page the copy was taken. Never fails the backup: the copy is already kept above.
+      - name: Record the run for the Settings page
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          size="$(cat backup-out/*.gpg | wc -c)"
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+            -c "insert into public.backup_runs (mode, size_bytes) values ('$MODE', $size)" \
+            || echo "Could not record the run (is migration 0121 pasted?)"
+
+  restore-check:
+    # Proves the weekly copy really restores. Uses a throwaway database, never your live one.
+    needs: backup
+    if: needs.backup.outputs.mode == 'weekly'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      scratch:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pz-backup-weekly
+          path: backup-out
+
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Restore into the throwaway database and check
+        env:
+          RESTORE_DB_URL: postgresql://postgres:scratch@localhost:5432/postgres
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: bash scripts/backup/restore-check.sh backup-out
+
+      - name: Record the restore test result
+        if: always()
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RESULT: ${{ job.status == 'success' && 'true' || 'false' }}
+        run: |
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "update public.backup_runs set restore_ok = $RESULT, restore_checked_at = now() where id = (select id from public.backup_runs where mode = 'weekly' order by taken_at desc limit 1)" \
+            || echo "Could not record the test result."
