@@ -33,11 +33,14 @@ export function ClassEmailHistory({
   sessionId,
   kinds,
   refreshKey,
+  reminderNote,
 }: {
   pageId: string;
   sessionId: string;
   kinds: SessionEmailKind[];
   refreshKey: number | string;
+  /** Shown in the empty box instead of "No email has been sent" when a reminder is already set. */
+  reminderNote?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<State>({ status: "idle" });
@@ -71,7 +74,7 @@ export function ClassEmailHistory({
         {state.status === "loading" && <p className="text-base text-pz-on-surface-variant">Loading...</p>}
         {state.status === "error" && <p className="text-base font-semibold text-pz-danger">{state.message}</p>}
         {state.status === "ready" && rounds.length === 0 && (
-          <p className="text-base text-pz-on-surface-variant">No email has been sent for this class yet.</p>
+          <p className="text-base text-pz-on-surface-variant">{reminderNote || "No email has been sent for this class yet."}</p>
         )}
         {rounds.map((r) => (
           <div key={r.id} className="border-b border-[#D4EACC] pb-3 last:border-b-0 dark:border-pz-outline-variant/60">

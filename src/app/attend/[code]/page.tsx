@@ -1,21 +1,15 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSessionByCode, personFirstName } from "@/lib/data/attendance";
-import { checkinWindow, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
+import { sessionWindow, formatPkt, type WindowOverride } from "@/lib/attendance/rules";
 import { checkinSecret, verifyCheckinToken } from "@/lib/attendance/link-token";
 import { isAllowedCoverUrl } from "@/lib/classes/cover";
 import { coverProxyUrl } from "@/lib/feedback/cover-url";
-import { CheckinForm } from "@/components/attendance/CheckinForm";
+import { CheckinPanel } from "@/components/attendance/CheckinPanel";
 import { checkInPersonal, checkInShared } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Session check-in", robots: { index: false } };
-
-const WINDOW_TEXT = {
-  before: "Check-in opens 15 minutes before the class.",
-  open: "Check-in is open.",
-  closed: "Check-in has closed.",
-} as const;
 
 function Shell({ children, coverSrc }: { children: React.ReactNode; coverSrc?: string }) {
   return (
@@ -64,7 +58,8 @@ export default async function AttendPage({
   }
   if (!session) notFound();
 
-  const state = checkinWindow(session.starts_at, session.window_override as WindowOverride, new Date());
+  const win = sessionWindow(session);
+  const serverNowIso = new Date().toISOString();
   const token = firstName !== null ? rawToken : undefined;
 
   // Public page: only a cover on an allowed host is rendered.
@@ -76,18 +71,24 @@ export default async function AttendPage({
       {session.batchTitle ? <p className="mt-1 text-pz-mid">{session.batchTitle}</p> : null}
       <p className="mt-4 font-semibold text-pz-deep">{session.title}</p>
       <p className="text-sm text-pz-mid">{formatPkt(session.starts_at)}</p>
-      <p className="mt-2 text-sm text-pz-mid">{WINDOW_TEXT[state]}</p>
-      {firstName ? <p className="mt-4 text-pz-deep">Hello, {firstName}.</p> : null}
-      {linkInvalid ? (
-        <p className="mt-4 text-red-700">This personal link is not valid. Use your registered email below.</p>
-      ) : null}
-      {!token ? <p className="mt-4 text-sm text-pz-mid">Type the email you registered with.</p> : null}
-      <CheckinForm
+      <CheckinPanel
         code={code}
         token={token}
+        notice={
+          <>
+            {firstName ? <p className="mt-4 text-pz-deep">Hello, {firstName}.</p> : null}
+            {linkInvalid ? (
+              <p className="mt-4 text-red-700">This personal link is not valid. Use your registered email below.</p>
+            ) : null}
+          </>
+        }
         personal={checkInPersonal}
         shared={checkInShared}
-        disabled={state === "closed"}
+        startsAtIso={session.starts_at}
+        override={session.window_override as WindowOverride}
+        open={win.open}
+        close={win.close}
+        serverNowIso={serverNowIso}
       />
     </Shell>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { isoToPktInput } from "@/lib/attendance/rules";
+import { isoToPktInput, parseWindowMinutes, type WindowMinutes } from "@/lib/attendance/rules";
 import { audienceFromJson } from "@/lib/classes/audience";
 import type { SessionRow } from "@/lib/data/attendance";
 import type { SessionSendState } from "@/lib/data/session-emails";
@@ -11,6 +11,7 @@ import {
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/actions";
 import { createMissingFeedbackAction } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions";
 import { emailStatusLine } from "./email-status";
+import { useTickingNow } from "./useTickingNow";
 import { fieldCls, labelCls, primaryBtn, quietBtn } from "./styles";
 
 const hhmm = (iso: string | null) => (iso ? isoToPktInput(iso).slice(11, 16) : "");
@@ -32,7 +33,7 @@ const fromMinutes = (n: number) => {
  * batch defaults whenever one exists, so inheriting is only the fallback when every class is customised.
  */
 export function EditClassDialog({
-  pageId, session, reference, nextNumber, sends, onClose,
+  pageId, session, reference, nextNumber, sends, onClose, batchWindow = { open: 15, close: 15 },
 }: {
   pageId: string;
   session?: SessionRow;
@@ -40,6 +41,8 @@ export function EditClassDialog({
   nextNumber: number;
   sends?: SessionSendState;
   onClose: () => void;
+  /** The batch default check-in minutes, used to prefill "Set for this class". */
+  batchWindow?: WindowMinutes;
 }) {
   const base = session ?? reference;
   const adding = !session;
@@ -57,7 +60,12 @@ export function EditClassDialog({
   const hasAudience = audienceFromJson(session?.audience) !== null;
   const [remind, setRemind] = useState(hasAudience ? (session?.email_enabled ?? true) : false);
   const [minutes, setMinutes] = useState(String(session?.email_lead_minutes ?? base?.email_lead_minutes ?? 60));
+  const ownWindow = session?.checkin_open_minutes != null || session?.checkin_close_minutes != null;
+  const [windowOwn, setWindowOwn] = useState(ownWindow);
+  const [winOpen, setWinOpen] = useState(String(session?.checkin_open_minutes ?? batchWindow.open));
+  const [winClose, setWinClose] = useState(String(session?.checkin_close_minutes ?? batchWindow.close));
   const [busy, startTransition] = useTransition();
+  const now = useTickingNow();
 
   /** Moving the start moves the end by the same amount, so the class keeps its length, unless the end was typed in. */
   function changeStart(next: string) {
@@ -84,6 +92,9 @@ export function EditClassDialog({
     };
     if (end.trim() !== "") form.endsAtLocal = `${date}T${end}`;
     else form.endsAt = null;
+    // "Same as the batch" sends null for both; own numbers are checked in submit() before this runs.
+    form.checkinOpenMinutes = windowOwn ? parseWindowMinutes(winOpen) : null;
+    form.checkinCloseMinutes = windowOwn ? parseWindowMinutes(winClose) : null;
     return form;
   }
 
@@ -91,6 +102,10 @@ export function EditClassDialog({
     e.preventDefault();
     if (end.trim() !== "" && toMinutes(end) <= toMinutes(start)) {
       toast.error("The class must end after it starts");
+      return;
+    }
+    if (windowOwn && (parseWindowMinutes(winOpen) === null || parseWindowMinutes(winClose) === null)) {
+      toast.error("Check-in minutes must be a whole number from 0 to 180");
       return;
     }
     startTransition(async () => {
@@ -178,7 +193,30 @@ export function EditClassDialog({
             <label htmlFor="cls-minutes" className={labelCls}>Send it this many minutes before the class</label>
             <input id="cls-minutes" type="number" min={5} max={10080} className={fieldCls} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
           </div>
-          {session && <p className="text-base text-pz-on-surface-variant">{emailStatusLine(session, sends)}</p>}
+          {session && <p className="text-base text-pz-on-surface-variant">{emailStatusLine(session, sends, now)}</p>}
+          <fieldset className="space-y-2">
+            <legend className={labelCls}>Check-in window</legend>
+            <label className="flex min-h-12 items-center gap-3 text-base text-pz-on-surface">
+              <input type="radio" name="cls-window" className="size-5" checked={!windowOwn} onChange={() => setWindowOwn(false)} />
+              Same as the batch
+            </label>
+            <label className="flex min-h-12 items-center gap-3 text-base text-pz-on-surface">
+              <input type="radio" name="cls-window" className="size-5" checked={windowOwn} onChange={() => setWindowOwn(true)} />
+              Set for this class
+            </label>
+            {windowOwn && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <label htmlFor="cls-win-open" className={labelCls}>Opens (minutes before)</label>
+                  <input id="cls-win-open" inputMode="numeric" className={fieldCls} value={winOpen} onChange={(e) => setWinOpen(e.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="cls-win-close" className={labelCls}>Closes (minutes after)</label>
+                  <input id="cls-win-close" inputMode="numeric" className={fieldCls} value={winClose} onChange={(e) => setWinClose(e.target.value)} />
+                </div>
+              </div>
+            )}
+          </fieldset>
           <div className="flex flex-col gap-2 md:flex-row md:justify-end">
             <button type="button" className={`${quietBtn} max-md:w-full`} onClick={onClose} disabled={busy}>Cancel</button>
             <button type="submit" className={`${primaryBtn} max-md:w-full`} disabled={busy}>

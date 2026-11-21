@@ -690,6 +690,8 @@ export type Database = {
       }
       batch_sessions: {
         Row: {
+          checkin_close_minutes: number | null
+          checkin_open_minutes: number | null
           audience: Json | null
           created_at: string | null
           custom_time: boolean
@@ -715,6 +717,8 @@ export type Database = {
           zoom_url: string
         }
         Insert: {
+          checkin_close_minutes?: number | null
+          checkin_open_minutes?: number | null
           audience?: Json | null
           created_at?: string | null
           custom_time?: boolean
@@ -740,6 +744,8 @@ export type Database = {
           zoom_url?: string
         }
         Update: {
+          checkin_close_minutes?: number | null
+          checkin_open_minutes?: number | null
           audience?: Json | null
           created_at?: string | null
           custom_time?: boolean
@@ -2469,6 +2475,8 @@ export type Database = {
       }
       landing_pages: {
         Row: {
+          checkin_close_minutes: number
+          checkin_open_minutes: number
           attendance_min_pct: number
           class_cover_url: string | null
           class_default_end: string | null
@@ -2502,6 +2510,8 @@ export type Database = {
           mirror_running_at: string | null
         }
         Insert: {
+          checkin_close_minutes?: number
+          checkin_open_minutes?: number
           attendance_min_pct?: number
           class_cover_url?: string | null
           class_default_end?: string | null
@@ -2535,6 +2545,8 @@ export type Database = {
           mirror_running_at?: string | null
         }
         Update: {
+          checkin_close_minutes?: number
+          checkin_open_minutes?: number
           attendance_min_pct?: number
           class_cover_url?: string | null
           class_default_end?: string | null

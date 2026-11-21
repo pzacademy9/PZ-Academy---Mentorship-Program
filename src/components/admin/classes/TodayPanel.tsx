@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CalendarClock, FileUp, Pencil, Video } from "lucide-react";
-import { formatPkt, isoToPktInput } from "@/lib/attendance/rules";
+import { formatPkt, isoToPktInput, type WindowMinutes } from "@/lib/attendance/rules";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
@@ -45,7 +45,7 @@ function clock(iso: string): string {
 }
 
 export function TodayPanel({
-  pageId, cls, session, rows, sends, nowIso, tab, onTabChange, onNeedAudience, slug = null, batchTitle = "",
+  pageId, cls, session, rows, sends, nowIso, tab, onTabChange, onNeedAudience, slug = null, batchTitle = "", batchWindow = { open: 15, close: 15 },
 }: {
   pageId: string;
   cls: ClassSummary;
@@ -57,6 +57,8 @@ export function TodayPanel({
   /** The batch's page slug (for the podium picture); null when missing. */
   slug?: string | null;
   batchTitle?: string;
+  /** The batch default check-in minutes. */
+  batchWindow?: WindowMinutes;
   onTabChange: (t: ClassTab) => void;
   /** Called when Send emails is pressed before an audience is chosen. Defaults to switching to the Links tab, then focusing the audience box. */
   onNeedAudience?: () => void;
@@ -130,7 +132,7 @@ export function TodayPanel({
             Open Zoom link
           </a>
         )}
-        <ClassActionRow batchTitle={batchTitle} cls={cls} session={session} sends={sends} now={new Date(nowIso)} onNeedAudience={needAudience} />
+        <ClassActionRow batchTitle={batchTitle} cls={cls} session={session} sends={sends} now={new Date(nowIso)} onNeedAudience={needAudience} batchWindow={batchWindow} />
         <div role="status" aria-label="Next step" className={`pt-4 ${dsDivider}`}>
           <p className="flex items-center gap-2 font-montserrat text-lg font-extrabold tracking-tight text-[#0F3D22] dark:text-pz-on-surface"><span aria-hidden className="size-2.5 shrink-0 rounded-full bg-[#7ED957] dark:bg-pz-primary" />Next step: {step.title}</p>
           <p className={`text-base ${dsMuted}`}>{step.hint}</p>
@@ -160,13 +162,13 @@ export function TodayPanel({
           hidden={t !== tab}
           className="scroll-mt-32 outline-none"
         >
-          {t === tab && t === "links" && <LinksTab batchTitle={batchTitle} pageId={pageId} cls={cls} session={session} sends={sends} />}
-          {t === tab && t === "attendance" && <AttendanceTab cls={cls} session={session} rows={rows} nowIso={nowIso} />}
+          {t === tab && t === "links" && <LinksTab batchTitle={batchTitle} pageId={pageId} cls={cls} session={session} sends={sends} batchWindow={batchWindow} />}
+          {t === tab && t === "attendance" && <AttendanceTab cls={cls} session={session} rows={rows} nowIso={nowIso} batchWindow={batchWindow} />}
           {t === tab && t === "quiz" && <QuizTab pageId={pageId} cls={cls} slug={slug} batchTitle={batchTitle} />}
         </div>
       ))}
 
-      {editing && <EditClassDialog pageId={pageId} session={session} nextNumber={cls.number} sends={sends} onClose={() => setEditing(false)} />}
+      {editing && <EditClassDialog pageId={pageId} session={session} nextNumber={cls.number} sends={sends} batchWindow={batchWindow} onClose={() => setEditing(false)} />}
     </div>
   );
 }

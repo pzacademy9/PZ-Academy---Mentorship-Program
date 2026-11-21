@@ -6,25 +6,100 @@ export type WindowState = "before" | "open" | "closed";
 export const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // PKT is a fixed UTC+5
 export const CHECKIN_OPEN_MINUTES = 15;
 export const CHECKIN_CLOSE_MINUTES = 15;
-const OPEN_MS = CHECKIN_OPEN_MINUTES * 60 * 1000;
-const CLOSE_MS = CHECKIN_CLOSE_MINUTES * 60 * 1000;
+export const MAX_WINDOW_MINUTES = 180;
+export type WindowMinutes = { open: number; close: number };
+
+type WindowCols = { checkin_open_minutes?: number | null; checkin_close_minutes?: number | null };
+
+/** Session value if set, else batch value, else 15. Each side resolved separately; 0 is kept. */
+export function effectiveWindow(session: WindowCols, batch: WindowCols | null | undefined): WindowMinutes {
+  return {
+    open: session.checkin_open_minutes ?? batch?.checkin_open_minutes ?? CHECKIN_OPEN_MINUTES,
+    close: session.checkin_close_minutes ?? batch?.checkin_close_minutes ?? CHECKIN_CLOSE_MINUTES,
+  };
+}
+
+/** The public session row (with the batch window attached) resolved to open/close minutes. */
+export function sessionWindow(s: WindowCols & { batchWindow?: WindowMinutes }): WindowMinutes {
+  return effectiveWindow(s, { checkin_open_minutes: s.batchWindow?.open, checkin_close_minutes: s.batchWindow?.close });
+}
+
+/** "1 minute", "30 minutes". */
+export function minutesLabel(n: number): string {
+  return `${n} ${n === 1 ? "minute" : "minutes"}`;
+}
+
+/** Public page line for the check-in state. */
+export function windowText(state: WindowState, open: number): string {
+  if (state === "open") return "Check-in is open.";
+  if (state === "closed") return "Check-in has closed.";
+  return `Check-in opens ${minutesLabel(open)} before the class.`;
+}
+
+/** Trimmed whole number 0 to 180, else null. */
+export function parseWindowMinutes(raw: string): number | null {
+  const s = raw.trim();
+  if (!/^[0-9]+$/.test(s)) return null;
+  const n = Number(s);
+  return n <= MAX_WINDOW_MINUTES ? n : null;
+}
 
 export function checkinWindow(
   startsAtIso: string,
   override: WindowOverride,
   now: Date,
+  minutes: WindowMinutes = { open: CHECKIN_OPEN_MINUTES, close: CHECKIN_CLOSE_MINUTES },
 ): WindowState {
   if (override === "open") return "open";
   if (override === "closed") return "closed";
   const start = new Date(startsAtIso).getTime();
   if (Number.isNaN(start)) return "closed";
   const t = now.getTime();
-  if (t < start - OPEN_MS) return "before";
-  if (t > start + CLOSE_MS) return "closed";
+  if (t < start - minutes.open * 60 * 1000) return "before";
+  if (t > start + minutes.close * 60 * 1000) return "closed";
   return "open";
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+export type Countdown = { state: WindowState; target: "opens" | "closes" | null; msLeft: number; msTotal: number };
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Time left until the check-in window opens or closes, for the live timer. */
+export function checkinCountdown(
+  startsAtIso: string,
+  override: WindowOverride,
+  now: Date,
+  minutes: WindowMinutes,
+): Countdown {
+  const state = checkinWindow(startsAtIso, override, now, minutes);
+  const none: Countdown = { state, target: null, msLeft: 0, msTotal: 0 };
+  if (override !== "auto") return none;
+  const start = new Date(startsAtIso).getTime();
+  if (Number.isNaN(start)) return none;
+  const t = now.getTime();
+  if (state === "before") return { state, target: "opens", msLeft: start - minutes.open * 60000 - t, msTotal: HOUR_MS };
+  if (state === "open") {
+    return { state, target: "closes", msLeft: Math.max(0, start + minutes.close * 60000 - t), msTotal: (minutes.open + minutes.close) * 60000 };
+  }
+  return none;
+}
+
+/** MM:SS under an hour, H:MM:SS from an hour, "N days H hours" from 24 hours. Rounds up to whole seconds. */
+export function formatCountdown(msLeft: number): string {
+  const total = Math.max(0, Math.ceil(msLeft / 1000));
+  const days = Math.floor(total / 86400);
+  if (days >= 1) {
+    const hours = Math.floor((total % 86400) / 3600);
+    const d = `${days} ${days === 1 ? "day" : "days"}`;
+    return hours === 0 ? d : `${d} ${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return h >= 1 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
 
 /** `YYYY-MM-DDTHH:mm` typed in PKT -> UTC ISO, or null if malformed / not a real date. */
 export function pktToIso(local: string): string | null {

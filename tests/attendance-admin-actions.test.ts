@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   listSessionEmailHistory: vi.fn(),
   runEmailSend: vi.fn(),
   listSessionSendState: vi.fn(),
+  batchHasWindowColumns: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-admin", () => ({
@@ -27,6 +28,7 @@ vi.mock("@/lib/auth/require-admin", () => ({
 }));
 vi.mock("@/lib/data/attendance", () => ({
   createSession: h.createSession,
+  batchHasWindowColumns: h.batchHasWindowColumns,
   updateSession: h.updateSession,
   deleteSession: h.deleteSession,
   getSessionById: h.getSessionById,
@@ -65,6 +67,7 @@ beforeEach(() => {
   h.admin = true;
   for (const v of Object.values(h)) if (typeof v === "function") v.mockReset();
   h.createSession.mockResolvedValue({ ok: true, id: SESS });
+  h.batchHasWindowColumns.mockResolvedValue(true);
   h.updateSession.mockResolvedValue({ ok: true });
   h.getSessionById.mockResolvedValue(session());
   h.isLiveEnrolled.mockResolvedValue(true);
@@ -111,6 +114,77 @@ describe("addSession", () => {
   it("passes on a duplicate-number message", async () => {
     h.createSession.mockResolvedValue({ ok: false, message: "That class number is already used" });
     expect(await addSession(PAGE, form())).toEqual({ ok: false, message: "That class number is already used" });
+  });
+});
+
+describe("per-class check-in window", () => {
+  const NEEDS_DB = "Check-in minutes need a database update first. Ask for the SQL.";
+  const WITH_COLS = { checkin_open_minutes: null, checkin_close_minutes: null };
+  it("Same as the batch on a row without the columns omits both keys (works before the migration)", async () => {
+    const r = await saveSession(SESS, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+    expect(r.ok).toBe(true);
+    const patch = h.updateSession.mock.calls[0][1];
+    expect("checkinOpenMinutes" in patch).toBe(false);
+    expect("checkinCloseMinutes" in patch).toBe(false);
+  });
+  it("Same as the batch on a row with the columns writes null and null", async () => {
+    h.getSessionById.mockResolvedValue(session(WITH_COLS));
+    await saveSession(SESS, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+    expect(h.updateSession).toHaveBeenCalledWith(SESS, expect.objectContaining({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+  });
+  it("own numbers on a row with the columns are written, 0 kept", async () => {
+    h.getSessionById.mockResolvedValue(session(WITH_COLS));
+    await saveSession(SESS, form({ checkinOpenMinutes: 0, checkinCloseMinutes: 10 }));
+    expect(h.updateSession).toHaveBeenCalledWith(SESS, expect.objectContaining({ checkinOpenMinutes: 0, checkinCloseMinutes: 10 }));
+  });
+  it("own numbers on a row without the columns give the plain message and write nothing", async () => {
+    const r = await saveSession(SESS, form({ checkinOpenMinutes: 30, checkinCloseMinutes: 10 }));
+    expect(r).toEqual({ ok: false, message: NEEDS_DB });
+    expect(h.updateSession).not.toHaveBeenCalled();
+  });
+  it("numbers outside 0 to 180 are refused and nothing is written", async () => {
+    for (const bad of [{ checkinOpenMinutes: 200, checkinCloseMinutes: 10 }, { checkinOpenMinutes: -1, checkinCloseMinutes: 10 }, { checkinOpenMinutes: 5, checkinCloseMinutes: null }, { checkinOpenMinutes: 1.5, checkinCloseMinutes: 1 }]) {
+      const r = await saveSession(SESS, form(bad));
+      expect(r.ok).toBe(false);
+    }
+    expect(h.updateSession).not.toHaveBeenCalled();
+  });
+  it("a form with no window choice leaves the window untouched", async () => {
+    h.getSessionById.mockResolvedValue(session(WITH_COLS));
+    await saveSession(SESS, form());
+    const patch = h.updateSession.mock.calls[0][1];
+    expect("checkinOpenMinutes" in patch).toBe(false);
+  });
+  it("addSession: Same as the batch omits the keys, own numbers pass through", async () => {
+    await addSession(PAGE, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+    expect("checkinOpenMinutes" in h.createSession.mock.calls[0][1]).toBe(false);
+    await addSession(PAGE, form({ checkinOpenMinutes: 20, checkinCloseMinutes: 0 }));
+    expect(h.createSession.mock.calls[1][1]).toMatchObject({ checkinOpenMinutes: 20, checkinCloseMinutes: 0 });
+    expect((await addSession(PAGE, form({ checkinOpenMinutes: 999, checkinCloseMinutes: 0 }))).ok).toBe(false);
+  });
+});
+
+describe("check-in window: final review fixes", () => {
+  const NEEDS_DB = "Check-in minutes need a database update first. Ask for the SQL.";
+  it("addSession with own numbers before migration 0120 gives the plain message and creates nothing", async () => {
+    h.batchHasWindowColumns.mockResolvedValue(false);
+    const r = await addSession(PAGE, form({ checkinOpenMinutes: 20, checkinCloseMinutes: 10 }));
+    expect(r).toEqual({ ok: false, message: NEEDS_DB });
+    expect(h.createSession).not.toHaveBeenCalled();
+  });
+  it("addSession that follows the batch does not need the columns", async () => {
+    h.batchHasWindowColumns.mockResolvedValue(false);
+    expect((await addSession(PAGE, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }))).ok).toBe(true);
+    expect(h.createSession).toHaveBeenCalledTimes(1);
+  });
+  it("a numeric string or one-item array is written as the parsed number", async () => {
+    await addSession(PAGE, form({ checkinOpenMinutes: "20", checkinCloseMinutes: [5] }));
+    const input = h.createSession.mock.calls[0][1];
+    expect(input.checkinOpenMinutes).toBe(20);
+    expect(input.checkinCloseMinutes).toBe(5);
+    h.getSessionById.mockResolvedValue(session({ checkin_open_minutes: null, checkin_close_minutes: null }));
+    await saveSession(SESS, form({ checkinOpenMinutes: "20", checkinCloseMinutes: "7" }));
+    expect(h.updateSession).toHaveBeenCalledWith(SESS, expect.objectContaining({ checkinOpenMinutes: 20, checkinCloseMinutes: 7 }));
   });
 });
 

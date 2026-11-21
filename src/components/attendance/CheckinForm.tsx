@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { CheckinResult } from "@/app/attend/[code]/actions";
+import { minutesLabel } from "@/lib/attendance/rules";
 
 interface Props {
   code: string;
@@ -10,10 +11,11 @@ interface Props {
   personal: (code: string, token: string) => Promise<CheckinResult>;
   shared: (code: string, email: string) => Promise<CheckinResult>;
   disabled?: boolean;
+  /** Minutes before the class that check-in opens (the batch or class setting). */
+  openMinutes?: number;
 }
 
 const MESSAGES: Record<string, string> = {
-  before: "Check-in is not open yet. It opens 15 minutes before the class.",
   closed: "Check-in for this session has closed. Please ask the team.",
   not_live: "Attendance is only for live students. Your enrolment is recorded-only.",
   not_found: "We could not find a live enrolment for that email. Check the spelling, or ask the team.",
@@ -22,7 +24,7 @@ const MESSAGES: Record<string, string> = {
   error: "Something went wrong. Please try again in a minute.",
 };
 
-export function CheckinForm({ code, token, personal, shared, disabled }: Props) {
+export function CheckinForm({ code, token, personal, shared, disabled, openMinutes = 15 }: Props) {
   const [email, setEmail] = useState("");
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -79,7 +81,7 @@ export function CheckinForm({ code, token, personal, shared, disabled }: Props) 
         </button>
       </form>
       <div aria-live="polite" className="mt-4">
-        {result && <p className={result.status === "error" ? "text-red-700" : "text-pz-mid"}>{MESSAGES[result.status]}</p>}
+        {result && <p className={result.status === "error" ? "text-red-700" : "text-pz-mid"}>{result.status === "before" ? `Check-in is not open yet. It opens ${minutesLabel(openMinutes)} before the class.` : MESSAGES[result.status]}</p>}
       </div>
     </div>
   );

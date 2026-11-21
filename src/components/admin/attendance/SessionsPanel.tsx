@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarPlus, Settings2 } from "lucide-react";
+import type { WindowMinutes } from "@/lib/attendance/rules";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassOverview } from "@/lib/data/class-overview";
 import type { SessionSendState } from "@/lib/data/session-emails";
@@ -60,7 +61,7 @@ function BatchSettings({ pageId, minPct, pageStatus, showInPortal }: { pageId: s
 }
 
 export function SessionsPanel({
-  pageId, overview, sessions, rows, minPct, sends, nowIso, pageStatus, showInPortal,
+  pageId, overview, sessions, rows, minPct, sends, nowIso, pageStatus, showInPortal, batchWindow = { open: 15, close: 15 },
 }: {
   pageStatus: string;
   showInPortal: boolean | null;
@@ -71,6 +72,7 @@ export function SessionsPanel({
   minPct: number;
   sends: Record<string, SessionSendState>;
   nowIso: string;
+  batchWindow?: WindowMinutes;
 }) {
   const router = useRouter();
   useAutoRefresh();
@@ -142,13 +144,14 @@ export function SessionsPanel({
             sends={sends[cls.id]}
             nowIso={nowIso}
             tab={tab}
+            batchWindow={batchWindow}
             onTabChange={(t) => go(cls.id, t)}
           />
           </div>
         )}
       </div>
       <BatchSettings pageId={pageId} minPct={minPct} pageStatus={pageStatus} showInPortal={showInPortal} />
-      {adding && <EditClassDialog pageId={pageId} reference={last} nextNumber={nextNumber} onClose={() => setAdding(false)} />}
+      {adding && <EditClassDialog pageId={pageId} reference={last} nextNumber={nextNumber} batchWindow={batchWindow} onClose={() => setAdding(false)} />}
     </div>
   );
 }

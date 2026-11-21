@@ -24,6 +24,7 @@ vi.mock("@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessi
   sendTestEmailToMe: h.sendTestEmailToMe,
 }));
 
+import { clockWindowPkt } from "@/lib/classes/share-messages";
 import { ClassActionRow } from "@/components/admin/classes/ClassActionRow";
 import type { ClassSummary } from "@/lib/data/class-overview";
 import type { SessionRow } from "@/lib/data/attendance";
@@ -49,9 +50,9 @@ const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   ...over,
 } as unknown as SessionRow);
 
-function row(over: { c?: ClassSummary; s?: SessionRow; sends?: SessionSendState; onNeedAudience?: () => void } = {}) {
+function row(over: { c?: ClassSummary; s?: SessionRow; sends?: SessionSendState; onNeedAudience?: () => void; batchWindow?: { open: number; close: number } } = {}) {
   return render(
-    <ClassActionRow batchTitle="PPC Batch 3" cls={over.c ?? cls()} session={over.s ?? session()} sends={over.sends} now={NOW} onNeedAudience={over.onNeedAudience ?? vi.fn()} />,
+    <ClassActionRow batchTitle="PPC Batch 3" cls={over.c ?? cls()} session={over.s ?? session()} sends={over.sends} now={NOW} onNeedAudience={over.onNeedAudience ?? vi.fn()} batchWindow={over.batchWindow} />,
   );
 }
 
@@ -83,6 +84,22 @@ describe("ClassActionRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy attendance link" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Copy with message" }));
     await waitFor(() => expect(h.write).toHaveBeenCalledWith(expect.stringContaining("PPC Batch 3 | _Attendance Portal_")));
+  });
+
+  it("the attendance message carries the real open and close times of a 20/10 window", async () => {
+    row({ s: session({ checkin_open_minutes: 20, checkin_close_minutes: 10 } as Partial<SessionRow>) });
+    fireEvent.click(screen.getByRole("button", { name: "Copy attendance link" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy with message" }));
+    const { open, close } = clockWindowPkt("2026-11-10T14:00:00.000Z", 20, 10);
+    await waitFor(() => expect(h.write).toHaveBeenCalledWith(expect.stringContaining(`Attendance Open at ${open} and Closes at ${close} PKT.`)));
+  });
+
+  it("the attendance message falls back to the batch window", async () => {
+    row({ batchWindow: { open: 20, close: 10 } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy attendance link" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy with message" }));
+    const { open, close } = clockWindowPkt("2026-11-10T14:00:00.000Z", 20, 10);
+    await waitFor(() => expect(h.write).toHaveBeenCalledWith(expect.stringContaining(`Attendance Open at ${open} and Closes at ${close} PKT.`)));
   });
 
   it("shows a toast when the clipboard fails", async () => {

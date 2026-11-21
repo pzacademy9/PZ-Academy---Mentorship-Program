@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { checkinWindow, type WindowOverride } from "@/lib/attendance/rules";
+import { checkinWindow, effectiveWindow, type WindowMinutes, type WindowOverride } from "@/lib/attendance/rules";
 import { filterAttendanceRows } from "@/lib/classes/attendance-search";
 import type { GridRow, SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
@@ -17,20 +17,24 @@ import { dsCard, dsField, dsLabel, dsOutline, dsHeading, dsMuted, dsSegOff, dsSe
 
 const WINDOW_LABEL = { before: "Not open yet", open: "Open now", closed: "Closed" } as const;
 
-function overrideNote(value: WindowOverride, state: keyof typeof WINDOW_LABEL): string {
+const DEFAULT_WINDOW: WindowMinutes = { open: 15, close: 15 };
+const mins = (n: number) => `${n} ${n === 1 ? "minute" : "minutes"}`;
+
+function overrideNote(value: WindowOverride, state: keyof typeof WINDOW_LABEL, win: WindowMinutes): string {
   if (value === "open") return "Force open: students can check in at any time, until you change this.";
   if (value === "closed") return "Force closed: nobody can check in, until you change this.";
   const now = state === "open" ? "Right now it is open." : state === "before" ? "Right now it has not opened yet." : "Right now it is closed.";
-  return `Automatic: opens 15 minutes before the start and closes 15 minutes after. ${now}`;
+  return `Automatic: opens ${mins(win.open)} before the start and closes ${mins(win.close)} after. ${now}`;
 }
 
 export function AttendanceTab({
-  cls, session, rows, nowIso,
+  cls, session, rows, nowIso, batchWindow = DEFAULT_WINDOW,
 }: {
   cls: ClassSummary;
   session: SessionRow;
   rows: GridRow[];
   nowIso: string;
+  batchWindow?: WindowMinutes;
 }) {
   const confirm = useConfirm();
   const [busy, startTransition] = useTransition();
@@ -42,7 +46,8 @@ export function AttendanceTab({
     return () => clearInterval(t);
   }, []);
   const override = session.window_override as WindowOverride;
-  const state = checkinWindow(session.starts_at, override, now);
+  const win = effectiveWindow(session, { checkin_open_minutes: batchWindow.open, checkin_close_minutes: batchWindow.close });
+  const state = checkinWindow(session.starts_at, override, now, win);
   const missing = rows.filter((r) => !marks.isOn(r, session)).length;
   const pct = cls.enrolledLive > 0 ? Math.min(100, Math.round((cls.presentCount * 100) / cls.enrolledLive)) : 0;
   const shown = filterAttendanceRows(rows, query);
@@ -175,7 +180,7 @@ export function AttendanceTab({
             </button>
           ))}
         </div>
-        <p className={`text-base ${dsMuted}`}>{overrideNote(override, state)}</p>
+        <p className={`text-base ${dsMuted}`}>{overrideNote(override, state, win)}</p>
       </div>
     </section>
   );

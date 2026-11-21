@@ -8,6 +8,7 @@ import {
   attendancePercent,
   generateSessionCode,
   meetsMinimum,
+  type WindowMinutes,
   type WindowOverride,
 } from "@/lib/attendance/rules";
 import { audienceFromJson, type Audience } from "@/lib/classes/audience";
@@ -27,6 +28,9 @@ export type SessionInput = {
   speaker: string;
   customTime: boolean;
   customZoom: boolean;
+  /** Own check-in minutes for this class. Leave out to not touch the columns; null clears them. */
+  checkinOpenMinutes?: number | null;
+  checkinCloseMinutes?: number | null;
 };
 export type GridRow = {
   personId: string;
@@ -132,6 +136,10 @@ export async function createSession(
         custom_time: input.customTime,
         custom_zoom: input.customZoom,
         public_code: generateSessionCode(),
+        // Only sent with own numbers, so a database without the 0120 columns still accepts a new class.
+        ...(input.checkinOpenMinutes != null || input.checkinCloseMinutes != null
+          ? { checkin_open_minutes: input.checkinOpenMinutes ?? null, checkin_close_minutes: input.checkinCloseMinutes ?? null }
+          : {}),
       })
       .select("id")
       .single();
@@ -167,6 +175,8 @@ export async function updateSession(
   if (input.customTime !== undefined) patch.custom_time = input.customTime;
   if (input.customZoom !== undefined) patch.custom_zoom = input.customZoom;
   if (input.windowOverride !== undefined) patch.window_override = input.windowOverride;
+  if (input.checkinOpenMinutes !== undefined) patch.checkin_open_minutes = input.checkinOpenMinutes;
+  if (input.checkinCloseMinutes !== undefined) patch.checkin_close_minutes = input.checkinCloseMinutes;
   if (Object.keys(patch).length === 0) return { ok: true };
   const { error } = await createAdminSupabase().from("batch_sessions").update(patch).eq("id", sessionId);
   if (isDuplicate(error)) return { ok: false, message: DUP_NUMBER };
@@ -191,9 +201,24 @@ export async function deleteSession(sessionId: string): Promise<void> {
   check("session delete", error);
 }
 
+/** The batch default check-in minutes. Columns may be missing (migration not applied) or null: 15 each side, 0 kept. */
+export async function getBatchWindow(pageId: string): Promise<WindowMinutes> {
+  const { data, error } = await createAdminSupabase({ noStore: true }).from("landing_pages").select("*").eq("id", pageId).maybeSingle();
+  check("batch read", error);
+  const p = data as { checkin_open_minutes?: number | null; checkin_close_minutes?: number | null } | null;
+  return { open: p?.checkin_open_minutes ?? 15, close: p?.checkin_close_minutes ?? 15 };
+}
+
+/** True once migration 0120 is applied (the batch row carries the check-in minute columns). */
+export async function batchHasWindowColumns(pageId: string): Promise<boolean> {
+  const { data, error } = await createAdminSupabase({ noStore: true }).from("landing_pages").select("*").eq("id", pageId).maybeSingle();
+  check("batch read", error);
+  return !!data && "checkin_open_minutes" in (data as object);
+}
+
 export async function getSessionByCode(
   code: string,
-): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null }) | null> {
+): Promise<(SessionRow & { batchTitle: string; coverUrl: string | null; batchWindow: WindowMinutes }) | null> {
   const admin = createAdminSupabase();
   const { data, error } = await admin.from("batch_sessions").select("*").eq("public_code", code).maybeSingle();
   check("session read", error);
@@ -201,12 +226,23 @@ export async function getSessionByCode(
   const session = data as SessionRow;
   const { data: page, error: pageErr } = await admin
     .from("landing_pages")
-    .select("title, class_cover_url")
+    .select("*")
     .eq("id", session.page_id)
     .maybeSingle();
   check("batch read", pageErr);
-  const p = page as { title: string; class_cover_url: string | null } | null;
-  return { ...session, batchTitle: p?.title ?? "", coverUrl: p?.class_cover_url ?? null };
+  // Columns may be missing (migration not applied yet) or null: fall back to 15 each side. 0 is kept.
+  const p = page as {
+    title: string;
+    class_cover_url: string | null;
+    checkin_open_minutes?: number | null;
+    checkin_close_minutes?: number | null;
+  } | null;
+  return {
+    ...session,
+    batchTitle: p?.title ?? "",
+    coverUrl: p?.class_cover_url ?? null,
+    batchWindow: { open: p?.checkin_open_minutes ?? 15, close: p?.checkin_close_minutes ?? 15 },
+  };
 }
 
 /**

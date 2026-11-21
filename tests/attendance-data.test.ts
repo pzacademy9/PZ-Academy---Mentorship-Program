@@ -198,10 +198,38 @@ describe("sessions CRUD", () => {
     await updateSession(id, { endsAt: "2026-11-01T12:00:00Z", speaker: "Dr Ali", customTime: true, customZoom: true });
     expect(store.batch_sessions[0]).toMatchObject({ ends_at: "2026-11-01T12:00:00Z", speaker: "Dr Ali", custom_time: true, custom_zoom: true });
   });
+  it("updateSession writes null/null to clear the own window and 30/10 to set it", async () => {
+    await createSession("pg1", input);
+    const id = String(store.batch_sessions[0].id);
+    await updateSession(id, { checkinOpenMinutes: 30, checkinCloseMinutes: 10 });
+    expect(store.batch_sessions[0]).toMatchObject({ checkin_open_minutes: 30, checkin_close_minutes: 10 });
+    await updateSession(id, { checkinOpenMinutes: 0, checkinCloseMinutes: 0 });
+    expect(store.batch_sessions[0]).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 0 });
+    await updateSession(id, { checkinOpenMinutes: null, checkinCloseMinutes: null });
+    expect(store.batch_sessions[0]).toMatchObject({ checkin_open_minutes: null, checkin_close_minutes: null });
+  });
+  it("before the migration: create and update without a window never write the checkin columns", async () => {
+    await createSession("pg1", input);
+    const id = String(store.batch_sessions[0].id);
+    expect("checkin_open_minutes" in store.batch_sessions[0]).toBe(false);
+    await updateSession(id, { title: "New" });
+    expect("checkin_open_minutes" in store.batch_sessions[0]).toBe(false);
+    expect("checkin_close_minutes" in store.batch_sessions[0]).toBe(false);
+  });
+  it("createSession keeps own numbers, 0 included", async () => {
+    await createSession("pg1", { ...input, checkinOpenMinutes: 0, checkinCloseMinutes: 25 });
+    expect(store.batch_sessions[0]).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 25 });
+  });
   it("getSessionByCode returns the batch cover", async () => {
     store.landing_pages[0].class_cover_url = "https://img/c.png";
     store.batch_sessions = [sess(1, "2026-11-01T10:00:00Z")];
     expect(await getSessionByCode("code0001")).toMatchObject({ coverUrl: "https://img/c.png" });
+  });
+  it("getSessionByCode returns the batch window, 15 and 15 when the page has none", async () => {
+    store.batch_sessions = [sess(1, "2026-11-01T10:00:00Z")];
+    expect(await getSessionByCode("code0001")).toMatchObject({ batchWindow: { open: 15, close: 15 } });
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 0, checkin_close_minutes: 30 });
+    expect(await getSessionByCode("code0001")).toMatchObject({ batchWindow: { open: 0, close: 30 } });
   });
   it("duplicate number gives a clear message", async () => {
     await createSession("pg1", input);

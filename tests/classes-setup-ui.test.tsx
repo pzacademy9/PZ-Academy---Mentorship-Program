@@ -50,7 +50,7 @@ const cls = (n: number, date: string, over: Partial<SetupClass> = {}): SetupClas
 
 const state = (over: Partial<SetupState> = {}): SetupState => ({
   title: "Batch One",
-  defaults: { start: "19:00", end: "21:00", zoom: "https://zoom.us/j/1" },
+  defaults: { start: "19:00", end: "21:00", zoom: "https://zoom.us/j/1", checkinOpen: 15, checkinClose: 15 },
   coverUrl: null,
   classes: [],
   questions: QUESTIONS,
@@ -131,10 +131,24 @@ describe("SetupForm", () => {
     const [pageId, form] = h.save.mock.calls[0];
     expect(pageId).toBe(PAGE);
     expect(form.days.map((d: { date: string }) => d.date)).toEqual(["2026-11-09", "2026-11-10"]);
-    expect(form.defaults).toEqual({ start: "19:00", end: "21:00", zoom: "https://zoom.us/j/1" });
+    expect(form.defaults).toEqual({ start: "19:00", end: "21:00", zoom: "https://zoom.us/j/1", checkinOpen: 15, checkinClose: 15 });
     expect(form.questions).toEqual(QUESTIONS);
     await waitFor(() => expect(h.push).toHaveBeenCalledWith(expect.stringMatching(/\/sessions$/)));
     expect(h.success).toHaveBeenCalledWith("Classes saved");
+  });
+
+  it("shows the two check-in fields and sends the typed numbers", async () => {
+    show(state());
+    const open = screen.getByLabelText("Check-in opens (minutes before)") as HTMLInputElement;
+    const close = screen.getByLabelText("Check-in closes (minutes after)") as HTMLInputElement;
+    expect(open.value).toBe("15");
+    expect(close.value).toBe("15");
+    fireEvent.change(open, { target: { value: "0" } });
+    fireEvent.change(close, { target: { value: "30" } });
+    fireEvent.click(day(9));
+    fireEvent.click(screen.getByRole("button", { name: "Create all classes" }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    expect(h.save.mock.calls[0][1].defaults).toMatchObject({ checkinOpen: 0, checkinClose: 30 });
   });
 
   it("keeps the form and shows a toast when saving fails", async () => {

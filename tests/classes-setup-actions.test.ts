@@ -32,7 +32,7 @@ import {
 } from "@/app/dashboard/admin/enrollments/registrations/campaign/[pageId]/sessions/setup-actions";
 
 const PAGE = "00000000-0000-4000-8000-000000000001";
-const defaults = { start: "20:00", end: "21:30", zoom: "https://zoom.us/j/9" };
+const defaults = { start: "20:00", end: "21:30", zoom: "https://zoom.us/j/9", checkinOpen: 15, checkinClose: 15 };
 const QS = [{ text: "How was it?", type: "stars" as const }];
 const iso = (date: string, hhmm: string) => new Date(`${date}T${hhmm}:00+05:00`).toISOString();
 
@@ -257,13 +257,80 @@ describe("saveSetup", () => {
   });
 });
 
+describe("saveDefaults check-in window", () => {
+  it("rejects 181, -1 and 1.5 and writes nothing", async () => {
+    for (const bad of [181, -1, 1.5]) {
+      const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: bad });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toMatch(/whole number/i);
+      const r2 = await saveDefaults(PAGE, { ...defaults, checkinClose: bad });
+      expect(r2.ok).toBe(false);
+    }
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
+  it("accepts 0 and stores both numbers", async () => {
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 15, checkin_close_minutes: 15 });
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: 0, checkinClose: 45 });
+    expect(r.ok).toBe(true);
+    expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 45 });
+  });
+  it("a numeric string or one-item array is stored as the parsed number", async () => {
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 15, checkin_close_minutes: 15 });
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: "20" as unknown as number, checkinClose: [5] as unknown as number });
+    expect(r.ok).toBe(true);
+    expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 20, checkin_close_minutes: 5 });
+    const r2 = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinOpen: "25" as unknown as number } }));
+    expect(r2.ok).toBe(true);
+    expect(store.landing_pages[0]).toMatchObject({ checkin_open_minutes: 25, checkin_close_minutes: 15 });
+  });
+  it("a string that is not a whole number is rejected and nothing is written", async () => {
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: "20x" as unknown as number });
+    expect(r.ok).toBe(false);
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
+  it("saveSetup rejects a bad window and writes nothing", async () => {
+    const r = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinClose: 200 } }));
+    expect(r.ok).toBe(false);
+    expect(store.batch_sessions).toHaveLength(0);
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
+  it("before the migration: 15 and 15 saves without checkin keys", async () => {
+    const r = await saveDefaults(PAGE, defaults);
+    expect(r.ok).toBe(true);
+    const upd = db.find("landing_pages", "update");
+    expect(upd).toHaveLength(1);
+    expect(Object.keys(upd[0].payload as object).some((k) => k.startsWith("checkin_"))).toBe(false);
+  });
+  it("before the migration: 20 and 15 returns the plain message and writes nothing", async () => {
+    const r = await saveDefaults(PAGE, { ...defaults, checkinOpen: 20 });
+    expect(r).toEqual({ ok: false, message: "Check-in minutes need a database update first. Ask for the SQL." });
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+    const r2 = await saveSetup(PAGE, form({ defaults: { ...defaults, checkinOpen: 20 } }));
+    expect(r2.ok).toBe(false);
+    expect(store.batch_sessions).toHaveLength(0);
+    expect(db.find("landing_pages", "update")).toHaveLength(0);
+  });
+  it("with the columns, the payload includes them and 0 is kept", async () => {
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 15, checkin_close_minutes: 15 });
+    await saveDefaults(PAGE, { ...defaults, checkinOpen: 0 });
+    const upd = db.find("landing_pages", "update");
+    expect(upd[0].payload).toMatchObject({ checkin_open_minutes: 0, checkin_close_minutes: 15 });
+  });
+  it("loadSetup returns them, 15 and 15 when the columns are missing", async () => {
+    Object.assign(store.landing_pages[0], { class_default_start: "20:00:00", class_default_end: "21:30:00", class_default_zoom: "" });
+    expect((await loadSetup(PAGE))?.defaults).toMatchObject({ checkinOpen: 15, checkinClose: 15 });
+    Object.assign(store.landing_pages[0], { checkin_open_minutes: 0, checkin_close_minutes: 40 });
+    expect((await loadSetup(PAGE))?.defaults).toMatchObject({ checkinOpen: 0, checkinClose: 40 });
+  });
+});
+
 describe("saveDefaults", () => {
   it("saveDefaults leaves custom classes alone", async () => {
     store.batch_sessions = [
       cls(1, "2026-11-03"),
       cls(2, "2026-11-04", { custom_time: true, custom_zoom: true, starts_at: iso("2026-11-04", "18:00"), ends_at: iso("2026-11-04", "19:00"), zoom_url: "https://zoom.us/j/own" }),
     ];
-    const r = await saveDefaults(PAGE, { start: "19:00", end: "20:00", zoom: "https://zoom.us/j/new" });
+    const r = await saveDefaults(PAGE, { start: "19:00", end: "20:00", zoom: "https://zoom.us/j/new", checkinOpen: 15, checkinClose: 15 });
     expect(r.ok).toBe(true);
     expect(store.batch_sessions[0]).toMatchObject({
       starts_at: iso("2026-11-03", "19:00"), ends_at: iso("2026-11-03", "20:00"), zoom_url: "https://zoom.us/j/new",
@@ -280,7 +347,7 @@ describe("saveDefaults", () => {
   });
 
   it("rejects a bad time", async () => {
-    const r = await saveDefaults(PAGE, { start: "25:00", end: "20:00", zoom: "" });
+    const r = await saveDefaults(PAGE, { start: "25:00", end: "20:00", zoom: "", checkinOpen: 15, checkinClose: 15 });
     expect(r.ok).toBe(false);
   });
 });
