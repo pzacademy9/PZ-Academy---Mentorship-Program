@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { Copy, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { effectiveWindow, type WindowMinutes } from "@/lib/attendance/rules";
 import { audienceFromJson } from "@/lib/classes/audience";
 import { reminderLine, type ReminderTone } from "@/lib/classes/reminder-line";
 import type { SessionRow } from "@/lib/data/attendance";
@@ -24,7 +25,7 @@ const DOT: Record<ReminderTone, string> = {
 };
 
 export function ClassActionRow({
-  cls, session, sends, now, onNeedAudience, batchTitle,
+  cls, session, sends, now, onNeedAudience, batchTitle, batchWindow = { open: 15, close: 15 },
 }: {
   cls: ClassSummary;
   session: SessionRow;
@@ -32,7 +33,9 @@ export function ClassActionRow({
   now: Date;
   onNeedAudience: () => void;
   batchTitle: string;
+  batchWindow?: WindowMinutes;
 }) {
+  const win = effectiveWindow(session, { checkin_open_minutes: batchWindow.open, checkin_close_minutes: batchWindow.close });
   const emails = useSessionEmails(session, sends);
   const line = reminderLine(session, sends, now);
 
@@ -51,7 +54,7 @@ export function ClassActionRow({
         <CopyLinkMenu
           label="Copy attendance link"
           link={cls.attendanceLink}
-          message={attendanceMessage({ batchTitle, link: cls.attendanceLink, startsAtIso: cls.startsAt })}
+          message={attendanceMessage({ batchTitle, link: cls.attendanceLink, startsAtIso: cls.startsAt, openMinutes: win.open, closeMinutes: win.close })}
           className={solid}
         />
         {cls.feedbackLink ? (

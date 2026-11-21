@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import { listRegistrationPageOptions, getPagePortalState } from "@/lib/data/landing-registration-admin";
-import { getBatchGrid } from "@/lib/data/attendance";
+import { getBatchGrid, getBatchWindow } from "@/lib/data/attendance";
 import { getClassOverview } from "@/lib/data/class-overview";
 import { listSessionSendState } from "@/lib/data/session-emails";
 import { SessionsPanel } from "@/components/admin/attendance/SessionsPanel";
@@ -30,6 +30,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const [overview, grid] = await Promise.all([getClassOverview(pageId, now), getBatchGrid(pageId, now)]);
   const sends = await listSessionSendState(grid.sessions.map((s) => s.id));
   const portal = await getPagePortalState(pageId);
+  const batchWindow = await getBatchWindow(pageId);
 
   return (
     <div className="space-y-6 font-poppins">
@@ -69,6 +70,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         pageStatus={portal?.status ?? "draft"}
         showInPortal={portal?.showInPortal ?? null}
         nowIso={now.toISOString()}
+        batchWindow={batchWindow}
       />
     </div>
   );

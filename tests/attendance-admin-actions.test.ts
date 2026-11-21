@@ -114,6 +114,53 @@ describe("addSession", () => {
   });
 });
 
+describe("per-class check-in window", () => {
+  const NEEDS_DB = "Check-in minutes need a database update first. Ask for the SQL.";
+  const WITH_COLS = { checkin_open_minutes: null, checkin_close_minutes: null };
+  it("Same as the batch on a row without the columns omits both keys (works before the migration)", async () => {
+    const r = await saveSession(SESS, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+    expect(r.ok).toBe(true);
+    const patch = h.updateSession.mock.calls[0][1];
+    expect("checkinOpenMinutes" in patch).toBe(false);
+    expect("checkinCloseMinutes" in patch).toBe(false);
+  });
+  it("Same as the batch on a row with the columns writes null and null", async () => {
+    h.getSessionById.mockResolvedValue(session(WITH_COLS));
+    await saveSession(SESS, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+    expect(h.updateSession).toHaveBeenCalledWith(SESS, expect.objectContaining({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+  });
+  it("own numbers on a row with the columns are written, 0 kept", async () => {
+    h.getSessionById.mockResolvedValue(session(WITH_COLS));
+    await saveSession(SESS, form({ checkinOpenMinutes: 0, checkinCloseMinutes: 10 }));
+    expect(h.updateSession).toHaveBeenCalledWith(SESS, expect.objectContaining({ checkinOpenMinutes: 0, checkinCloseMinutes: 10 }));
+  });
+  it("own numbers on a row without the columns give the plain message and write nothing", async () => {
+    const r = await saveSession(SESS, form({ checkinOpenMinutes: 30, checkinCloseMinutes: 10 }));
+    expect(r).toEqual({ ok: false, message: NEEDS_DB });
+    expect(h.updateSession).not.toHaveBeenCalled();
+  });
+  it("numbers outside 0 to 180 are refused and nothing is written", async () => {
+    for (const bad of [{ checkinOpenMinutes: 200, checkinCloseMinutes: 10 }, { checkinOpenMinutes: -1, checkinCloseMinutes: 10 }, { checkinOpenMinutes: 5, checkinCloseMinutes: null }, { checkinOpenMinutes: 1.5, checkinCloseMinutes: 1 }]) {
+      const r = await saveSession(SESS, form(bad));
+      expect(r.ok).toBe(false);
+    }
+    expect(h.updateSession).not.toHaveBeenCalled();
+  });
+  it("a form with no window choice leaves the window untouched", async () => {
+    h.getSessionById.mockResolvedValue(session(WITH_COLS));
+    await saveSession(SESS, form());
+    const patch = h.updateSession.mock.calls[0][1];
+    expect("checkinOpenMinutes" in patch).toBe(false);
+  });
+  it("addSession: Same as the batch omits the keys, own numbers pass through", async () => {
+    await addSession(PAGE, form({ checkinOpenMinutes: null, checkinCloseMinutes: null }));
+    expect("checkinOpenMinutes" in h.createSession.mock.calls[0][1]).toBe(false);
+    await addSession(PAGE, form({ checkinOpenMinutes: 20, checkinCloseMinutes: 0 }));
+    expect(h.createSession.mock.calls[1][1]).toMatchObject({ checkinOpenMinutes: 20, checkinCloseMinutes: 0 });
+    expect((await addSession(PAGE, form({ checkinOpenMinutes: 999, checkinCloseMinutes: 0 }))).ok).toBe(false);
+  });
+});
+
 describe("admin writes are not limited by the start time", () => {
   it("saveSession works for a session that started yesterday", async () => {
     const r = await saveSession(SESS, form());

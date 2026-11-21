@@ -35,8 +35,8 @@ const row = (personId: string, name: string, pzId: string, on = false): GridRow 
   ({ personId, pzId, name, marks: on ? { s1: true } : {}, started: 1, marked: on ? 1 : 0, pct: 0, meetsMin: false }) as GridRow;
 const ROWS = [row("p1", "Ayesha Khan", "Ayesha-1111"), row("p2", "Bilal Ahmed", "Bilal-2222", true), row("p3", "Chen Wei", "Chen-3333")];
 
-function setup(rows = ROWS, s = session()) {
-  return render(<AttendanceTab cls={cls} session={s} rows={rows} nowIso={NOW} />);
+function setup(rows = ROWS, s = session(), batchWindow?: { open: number; close: number }) {
+  return render(<AttendanceTab cls={cls} session={s} rows={rows} nowIso={NOW} batchWindow={batchWindow} />);
 }
 const list = () => screen.getAllByRole("button", { name: /, (present|not marked)$/ });
 
@@ -155,5 +155,20 @@ describe("Mark everyone present with no students", () => {
   it("is switched off when the class has no students", () => {
     setup([]);
     expect((screen.getByRole("button", { name: "Mark everyone present" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("names the class own check-in minutes", () => {
+    setup(ROWS, session({ checkin_open_minutes: 30, checkin_close_minutes: 10 }), { open: 20, close: 20 });
+    expect(screen.getByText(/opens 30 minutes before the start and closes 10 minutes after/)).toBeTruthy();
+  });
+
+  it("names the batch minutes when the class has none of its own", () => {
+    setup(ROWS, session(), { open: 20, close: 20 });
+    expect(screen.getByText(/opens 20 minutes before the start and closes 20 minutes after/)).toBeTruthy();
+  });
+
+  it("keeps 0 and 0 as real numbers", () => {
+    setup(ROWS, session({ checkin_open_minutes: 0, checkin_close_minutes: 0 }));
+    expect(screen.getByText(/opens 0 minutes before the start and closes 0 minutes after/)).toBeTruthy();
   });
 });

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { FlaskConical, Mail, MessageSquareText, Star } from "lucide-react";
+import { effectiveWindow, type WindowMinutes } from "@/lib/attendance/rules";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { SessionRow } from "@/lib/data/attendance";
 import type { ClassSummary } from "@/lib/data/class-overview";
@@ -38,14 +39,16 @@ function LinkCard({ title, hint, url, message }: { title: string; hint: string; 
 }
 
 export function LinksTab({
-  pageId, cls, session, sends, batchTitle,
+  pageId, cls, session, sends, batchTitle, batchWindow = { open: 15, close: 15 },
 }: {
   pageId: string;
   cls: ClassSummary;
   session: SessionRow;
   sends: SessionSendState | undefined;
   batchTitle: string;
+  batchWindow?: WindowMinutes;
 }) {
+  const win = effectiveWindow(session, { checkin_open_minutes: batchWindow.open, checkin_close_minutes: batchWindow.close });
   const confirm = useConfirm();
   const emails = useSessionEmails(session, sends);
   const [fbBusy, startFeedback] = useTransition();
@@ -78,7 +81,7 @@ export function LinksTab({
   return (
     <div className="space-y-4 font-poppins">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
-        <LinkCard title="Attendance link" hint="Share this link so students can mark themselves present." url={cls.attendanceLink} message={attendanceMessage({ batchTitle, link: cls.attendanceLink, startsAtIso: cls.startsAt })} />
+        <LinkCard title="Attendance link" hint="Share this link so students can mark themselves present." url={cls.attendanceLink} message={attendanceMessage({ batchTitle, link: cls.attendanceLink, startsAtIso: cls.startsAt, openMinutes: win.open, closeMinutes: win.close })} />
         {cls.feedbackLink && cls.feedbackSessionId ? (
           <LinkCard title="Feedback link" hint="Share this link at the end of class so students can rate it." url={cls.feedbackLink} message={feedbackMessage({ batchTitle, link: cls.feedbackLink, classNumber: cls.number })} />
         ) : (

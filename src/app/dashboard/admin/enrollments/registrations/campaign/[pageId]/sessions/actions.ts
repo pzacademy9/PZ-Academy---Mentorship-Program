@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { pktToIso, type WindowOverride } from "@/lib/attendance/rules";
+import { parseWindowMinutes, pktToIso, type WindowOverride } from "@/lib/attendance/rules";
 import {
   createSession,
   deleteSession,
@@ -32,6 +32,8 @@ const NO_PAGE = "That batch was not found";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const BAD_TIME = "Please enter a valid date and time";
+const BAD_WINDOW = "Check-in minutes must be a whole number from 0 to 180";
+const NEEDS_DB = "Check-in minutes need a database update first. Ask for the SQL.";
 const SEND_MESSAGES: Record<string, string> = {
   no_zoom: "No Zoom link on this class",
   already_sent: "Reminder already sent",
@@ -78,9 +80,26 @@ function parseForm(f: SessionForm): { ok: true; input: SessionInput } | { ok: fa
   } else if (f.endsAt !== undefined) {
     endsAt = f.endsAt;
   }
+  // The window choice is both numbers or both null ("Same as the batch"); left out means not carried.
+  const win: Partial<Pick<SessionInput, "checkinOpenMinutes" | "checkinCloseMinutes">> = {};
+  if (f.checkinOpenMinutes !== undefined || f.checkinCloseMinutes !== undefined) {
+    const o = f.checkinOpenMinutes ?? null;
+    const c = f.checkinCloseMinutes ?? null;
+    if (o === null && c === null) {
+      win.checkinOpenMinutes = null;
+      win.checkinCloseMinutes = null;
+    } else {
+      if (o === null || c === null || parseWindowMinutes(String(o)) === null || parseWindowMinutes(String(c)) === null) {
+        return { ok: false, message: BAD_WINDOW };
+      }
+      win.checkinOpenMinutes = o;
+      win.checkinCloseMinutes = c;
+    }
+  }
   return {
     ok: true,
     input: {
+      ...win,
       endsAt,
       speaker: (f.speaker ?? "").trim(),
       customTime: f.customTime ?? true,
@@ -104,6 +123,11 @@ export async function addSession(pageId: string, form: SessionForm): Promise<Act
   if (!isUuid(pageId)) return { ok: false, message: NO_PAGE };
   const parsed = parseForm(form);
   if (!parsed.ok) return parsed;
+  // A new class that follows the batch sends no window keys, so it still saves before migration 0120.
+  if (parsed.input.checkinOpenMinutes === null) {
+    delete parsed.input.checkinOpenMinutes;
+    delete parsed.input.checkinCloseMinutes;
+  }
   try {
     const res = await createSession(pageId, parsed.input);
     if (!res.ok) return { ok: false, message: res.message };
@@ -129,6 +153,12 @@ export async function saveSession(sessionId: string, form: SessionForm): Promise
     if (form.speaker === undefined) delete patch.speaker;
     if (form.customTime === undefined) delete patch.customTime;
     if (form.customZoom === undefined) delete patch.customZoom;
+    // Before migration 0120 the row has no window columns: "Same as the batch" then writes nothing, own numbers cannot be saved.
+    if (!("checkin_open_minutes" in before)) {
+      if (patch.checkinOpenMinutes != null) return { ok: false, message: NEEDS_DB };
+      delete patch.checkinOpenMinutes;
+      delete patch.checkinCloseMinutes;
+    }
     const res = await updateSession(sessionId, patch);
     if (!res.ok) return { ok: false, message: res.message ?? SAVE_FAILED };
     refresh(before.page_id);

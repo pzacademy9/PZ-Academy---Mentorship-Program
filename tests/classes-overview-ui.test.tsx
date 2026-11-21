@@ -81,11 +81,11 @@ const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   ...over,
 } as SessionRow);
 
-function Harness({ c, s, extra }: { c: ClassSummary; s: SessionRow; extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab } }) {
+function Harness({ c, s, extra }: { c: ClassSummary; s: SessionRow; extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab; batchWindow?: { open: number; close: number } } }) {
   const [tab, setTab] = useState<ClassTab>(extra.tab ?? "links");
-  return <TodayPanel pageId={PAGE} cls={c} session={s} rows={extra.rows ?? []} sends={extra.sends} nowIso={NOW} tab={tab} onTabChange={setTab} />;
+  return <TodayPanel pageId={PAGE} cls={c} session={s} rows={extra.rows ?? []} sends={extra.sends} nowIso={NOW} tab={tab} onTabChange={setTab} batchWindow={extra.batchWindow} />;
 }
-function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab } = {}) {
+function panel(c: ClassSummary, s: SessionRow = session(), extra: { rows?: GridRow[]; sends?: SessionSendState; tab?: ClassTab; batchWindow?: { open: number; close: number } } = {}) {
   return render(<Harness c={c} s={s} extra={extra} />);
 }
 /** The same panel opened on the Attendance tab. */
@@ -536,5 +536,19 @@ describe("phone-first Classes screen", () => {
     const day2 = screen.getByRole("button", { name: /Day 2/ });
     expect(edit.compareDocumentPosition(day2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(add.compareDocumentPosition(day2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("Links tab attendance message", () => {
+  it("carries the real open and close times of the effective window", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+    panel(summary(), session({ checkin_open_minutes: 20, checkin_close_minutes: 10 } as Partial<SessionRow>), { tab: "links" });
+    const group = screen.getByRole("group", { name: "Attendance link" });
+    fireEvent.click(within(group).getByRole("button", { name: "Copy link" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy with message" }));
+    const { clockWindowPkt } = await import("@/lib/classes/share-messages");
+    const { open, close } = clockWindowPkt("2026-11-10T14:00:00.000Z", 20, 10);
+    await waitFor(() => expect(write).toHaveBeenCalledWith(expect.stringContaining(`Attendance Open at ${open} and Closes at ${close} PKT.`)));
   });
 });
