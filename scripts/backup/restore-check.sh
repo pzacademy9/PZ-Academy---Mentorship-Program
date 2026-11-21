@@ -35,8 +35,12 @@ SQL
 set +e
 pg_restore --dbname "$RESTORE_DB_URL" --no-owner --no-privileges "$dir/public.dump" 2> "$dir/restore-errors.txt"
 set -e
-echo "Restore messages: $(wc -l < "$dir/restore-errors.txt") lines (first 15 below)"
-head -n 15 "$dir/restore-errors.txt" || true
+# The error text can contain real row values (DETAIL lines). Never print it to the job log.
+# Print only a count and short error headings with any "Key (...)=(...)" part removed.
+echo "Restore errors: $(grep -c '^pg_restore: error' "$dir/restore-errors.txt" || true)"
+grep '^pg_restore: error' "$dir/restore-errors.txt" \
+  | grep -v 'Key (' | cut -c1-100 | sort | uniq -c | sort -rn | head -n 10 || true
+rm -f "$dir/restore-errors.txt"
 
 people="$(psql "$RESTORE_DB_URL" -Atc "select count(*) from public.pz_people")"
 profiles="$(psql "$RESTORE_DB_URL" -Atc "select count(*) from public.profiles")"
